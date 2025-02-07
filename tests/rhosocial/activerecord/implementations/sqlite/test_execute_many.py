@@ -1,0 +1,14 @@
+def test_execute_many(db, setup_test_table):
+    """测试批量插入"""
+    data = [
+        ("name1", 20),
+        ("name2", 30),
+        ("name3", 40)
+    ]
+    result = db.execute_many(
+        "INSERT INTO test_table (name, age) VALUES (?, ?)",
+        data
+    )
+    assert result.affected_rows == 3
+    rows = db.fetch_all("SELECT * FROM test_table ORDER BY age")
+    assert len(rows) == 3

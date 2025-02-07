@@ -1,0 +1,148 @@
+[build-system]
+requires = ["hatchling"]
+build-backend = "hatchling.build"
+
+[project]
+name = "rhosocial_activerecord"
+# Version is read from src/rhosocial/activerecord/__init__.py
+dynamic = ["version"]
+description = "A Python3-based ActiveRecord implementation that leverages Pydantic for field management and validation"
+readme = "README.md"
+license = { file = "LICENSE" }
+requires-python = ">=3.10"
+authors = [
+    { name = "vistart", email = "i@vistart.me" }
+]
+keywords = ["activerecord", "orm", "database", "pydantic", "relation"]
+classifiers = [
+    "Development Status :: 3 - Alpha",
+    "Intended Audience :: Developers",
+    "License :: OSI Approved :: Apache Software License",
+    "Programming Language :: Python :: 3",
+    "Programming Language :: Python :: 3.10",
+    "Programming Language :: Python :: 3.11",
+    "Programming Language :: Python :: 3.12",
+    "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3 :: Only",
+    "Framework :: Pydantic",
+    "Framework :: Pydantic :: 2",
+    "Intended Audience :: Developers",
+    "Topic :: Database",
+    "Topic :: Software Development :: Libraries",
+    "Topic :: Software Development :: Libraries :: Python Modules",
+]
+dependencies = [
+    "pydantic>=2.10.0",
+    "typing-extensions>=4.12.0",
+    "pytz>=2025.1",
+    "python-dateutil>=2.9.0",
+    "tzlocal>=5.2",
+]
+
+[project.optional-dependencies]
+# Database backend dependencies
+mysql = [
+    "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
+]
+pgsql = [
+    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
+]
+oracle = [
+    "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
+]
+mssql = [
+    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
+]
+# All databases together
+databases = [
+    "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
+]
+# Additional features
+migration = [
+    "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
+]
+# All features combined
+all = [
+    "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
+]
+
+# Development dependencies
+test = [
+    "pytest>=7.0.0",
+    "coverage>=7.0.0",
+]
+dev = [
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+]
+docs = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+]
+
+[project.urls]
+Homepage = "https://github.com/rhosocial/python-activerecord"
+Documentation = "https://docs.python-activerecord.dev.rho.social/"
+Repository = "https://github.com/rhosocial/python-activerecord.git"
+Issues = "https://github.com/rhosocial/python-activerecord/issues"
+
+[tool.hatch.version]
+path = "src/rhosocial/activerecord/__init__.py"
+pattern = '^__version__\s*=\s*"((?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
+
+[tool.hatch.build.targets.wheel]
+packages = ["src/rhosocial"]
+
+[tool.pytest.ini_options]
+minversion = "7.0"
+addopts = "-ra -q"
+testpaths = [
+    "tests",
+]
+
+[tool.coverage.run]
+source = ["rhosocial"]
+branch = true
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "if self.debug:",
+    "raise NotImplementedError",
+    "if __name__ == .__main__.:",
+    "pass",
+    "raise ImportError",
+]
+
+[tool.black]
+line-length = 100
+target-version = ["py38"]
+include = '\.pyi?$'
+
+[tool.isort]
+profile = "black"
+multi_line_output = 3
+line_length = 100
+
+[tool.ruff]
+line-length = 100
+target-version = "py38"
+select = ["E", "F", "B"]
+ignore = []
+
+[tool.mypy]
+python_version = "3.10"
+warn_return_any = true
+warn_unused_configs = true
+disallow_untyped_defs = true
+check_untyped_defs = true

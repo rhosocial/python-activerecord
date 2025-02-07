@@ -1,0 +1,4 @@
+global-exclude *.pyc
+global-exclude __pycache__
+recursive-exclude * *.pyc
+recursive-include src *
