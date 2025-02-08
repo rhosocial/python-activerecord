@@ -1,0 +1,48 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 400 300">
+  <!-- 背景 -->
+  <rect width="400" height="300" fill="white"/>
+
+  <!-- 中心ActiveRecord圆形 -->
+  <circle cx="200" cy="150" r="40" fill="#FF6B6B"/>
+  <text x="200" y="155" text-anchor="middle" fill="white" font-family="Arial" font-weight="bold" font-size="14">AR</text>
+
+  <!-- 左侧数据库连接线 -->
+  <g stroke-dasharray="5,5">
+    <!-- MySQL连接 -->
+    <path d="M80 100 L160 130" stroke="#4A90E2" stroke-width="3"/>
+    <circle cx="80" cy="100" r="8" fill="#4A90E2"/>
+
+    <!-- PostgreSQL连接 -->
+    <path d="M70 150 L160 150" stroke="#50E3C2" stroke-width="3"/>
+    <circle cx="70" cy="150" r="8" fill="#50E3C2"/>
+
+    <!-- SQLite连接 -->
+    <path d="M80 200 L160 170" stroke="#9013FE" stroke-width="3"/>
+    <circle cx="80" cy="200" r="8" fill="#9013FE"/>
+  </g>
+
+  <!-- 右侧应用连接线 -->
+  <g stroke-dasharray="5,5">
+    <!-- Web应用连接 -->
+    <path d="M240 130 L320 100" stroke="#FF9500" stroke-width="3"/>
+    <circle cx="320" cy="100" r="8" fill="#FF9500"/>
+
+    <!-- API连接 -->
+    <path d="M240 150 L330 150" stroke="#FF2D55" stroke-width="3"/>
+    <circle cx="330" cy="150" r="8" fill="#FF2D55"/>
+
+    <!-- 移动应用连接 -->
+    <path d="M240 170 L320 200" stroke="#5856D6" stroke-width="3"/>
+    <circle cx="320" cy="200" r="8" fill="#5856D6"/>
+  </g>
+
+  <!-- 左侧数据库文字标签 -->
+  <text x="50" y="105" text-anchor="end" fill="#4A90E2" font-family="Arial" font-size="12">MySQL</text>
+  <text x="40" y="155" text-anchor="end" fill="#50E3C2" font-family="Arial" font-size="12">pgSQL</text>
+  <text x="50" y="205" text-anchor="end" fill="#9013FE" font-family="Arial" font-size="12">SQLite</text>
+
+  <!-- 右侧应用文字标签 -->
+  <text x="350" y="105" fill="#FF9500" font-family="Arial" font-size="12">API</text>
+  <text x="350" y="155" fill="#FF2D55" font-family="Arial" font-size="12">Task</text>
+  <text x="350" y="205" fill="#5856D6" font-family="Arial" font-size="12">User</text>
+</svg>

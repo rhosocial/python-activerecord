@@ -1,0 +1,14 @@
+[run]
+source = src/rhosocial/activerecord
+branch = True
+
+[paths]
+source =
+    src/rhosocial/activerecord
+    */site-packages/rhosocial/activerecord
+
+[report]
+exclude_lines =
+    pragma: no cover
+    def __repr__
+    raise NotImplementedError

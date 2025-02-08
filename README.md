@@ -2,13 +2,13 @@
 
 [![PyPI version](https://badge.fury.io/py/rhosocial-activerecord.svg)](https://badge.fury.io/py/rhosocial-activerecord)
 [![Python](https://img.shields.io/pypi/pyversions/rhosocial-activerecord.svg)](https://pypi.org/project/rhosocial-activerecord/)
-[![Tests](https://github.com/rhosocial/activerecord/workflows/Tests/badge.svg)](https://github.com/rhosocial/activerecord/actions)
-[![Coverage Status](https://coveralls.io/repos/github/rhosocial/activerecord/badge.svg?branch=main)](https://coveralls.io/github/rhosocial/activerecord?branch=main)
+[![Tests](https://github.com/rhosocial/python-activerecord/actions/workflows/actions.yml/badge.svg)](https://github.com/rhosocial/python-activerecord/actions)
+[![Coverage Status](https://codecov.io/gh/rhosocial/python-activerecord/branch/main/graph/badge.svg)](https://app.codecov.io/gh/rhosocial/python-activerecord/tree/main)
 [![License](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
 [![Powered by vistart](https://img.shields.io/badge/Powered_by-vistart-blue.svg)](https://github.com/vistart)
 
 <div align="center">
-    <img src="docs/images/logo.png" alt="rhosocial ActiveRecord Logo" width="200"/>
+    <img src="docs/images/logo.svg" alt="rhosocial ActiveRecord Logo" width="200"/>
     <p>A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features.</p>
 </div>
 
@@ -123,9 +123,10 @@ Complete documentation is available at [python-activerecord](https://docs.python
 For detailed information about features, including built-in SQLite support, modular backend system, and type safety, please see our [Features Documentation](https://rhosocial-activerecord.readthedocs.io/en/latest/features/).
 
 ## Contributing
-We welcome and value all forms of contributions! For details on how to contribute, please see our [Contributing Guide](https://rhosocial-activerecord.readthedocs.io/en/latest/contributing/).
+We welcome and value all forms of contributions! For details on how to contribute, please see our [Contributing Guide](CONTRIBUTING.md).
 
 ### Sponsor the Project
+
 Support development through:
 - GitHub Sponsors
 - Open Collective
@@ -134,10 +135,7 @@ Support development through:
 
 Your logo will appear here with a link to your website:
 
-[![Sponsor][sponsors-image]][sponsors-url]
-
-[sponsors-image]: https://opencollective.com/rhosocial/sponsors.svg
-[sponsors-url]: https://opencollective.com/rhosocial#sponsors
+[![Donate](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/vistart/donate)
 
 ## License
 
