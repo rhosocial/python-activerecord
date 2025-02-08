@@ -1,4 +1,4 @@
-# RhoSocial ActiveRecord
+# rhosocial ActiveRecord
 
 [![PyPI version](https://badge.fury.io/py/rhosocial-activerecord.svg)](https://badge.fury.io/py/rhosocial-activerecord)
 [![Python](https://img.shields.io/pypi/pyversions/rhosocial-activerecord.svg)](https://pypi.org/project/rhosocial-activerecord/)
