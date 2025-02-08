@@ -12,8 +12,8 @@ def read(rel_path):
 def find_version(rel_path):
     """Get version from __init__.py file."""
     init_file = read(rel_path)
-    version_match = re.search(r"^__version__ = ['\"]([^'\"]*)['\"]",
-                            init_file, re.M)
+    pattern = r'^__version__\s*=\s*"((?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
+    version_match = re.search(pattern, init_file, re.M)
     if version_match:
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")

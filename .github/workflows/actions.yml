@@ -13,58 +13,59 @@ jobs:
     name: Run tests with Python 3.13 and all databases
     if: success()
     runs-on: ubuntu-latest
-    services:
-      mysql:
-        image: mysql:8.0
-        env:
-          MYSQL_ROOT_PASSWORD: root
-          MYSQL_DATABASE: test_db
-        ports:
-          - 3306:3306
-        options: >-
-          --health-cmd="mysqladmin ping"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-
-      postgres:
-        image: postgres:15
-        env:
-          POSTGRES_USER: postgres
-          POSTGRES_PASSWORD: postgres
-          POSTGRES_DB: test_db
-        ports:
-          - 5432:5432
-        options: >-
-          --health-cmd pg_isready
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-
-      mssql:
-        image: mcr.microsoft.com/mssql/server:2022-latest
-        env:
-          ACCEPT_EULA: Y
-          SA_PASSWORD: YourStrong@Passw0rd
-        ports:
-          - 1433:1433
-        options: >-
-          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q 'SELECT 1' || exit 1"
-          --health-interval=10s
-          --health-timeout=5s
-          --health-retries=3
-
-      oracle:
-        image: container-registry.oracle.com/database/express:latest
-        env:
-          ORACLE_PWD: oracle
-        ports:
-          - 1521:1521
-        options: >-
-          --health-cmd="sqlplus -s sys/oracle@//localhost:1521/XE as sysdba <<< 'select 1 from dual;'"
-          --health-interval=30s
-          --health-timeout=10s
-          --health-retries=3
+# Temporarily removed.
+#    services:
+#      mysql:
+#        image: mysql:8.0
+#        env:
+#          MYSQL_ROOT_PASSWORD: root
+#          MYSQL_DATABASE: test_db
+#        ports:
+#          - 3306:3306
+#        options: >-
+#          --health-cmd="mysqladmin ping"
+#          --health-interval=10s
+#          --health-timeout=5s
+#          --health-retries=3
+#
+#      postgres:
+#        image: postgres:15
+#        env:
+#          POSTGRES_USER: postgres
+#          POSTGRES_PASSWORD: postgres
+#          POSTGRES_DB: test_db
+#        ports:
+#          - 5432:5432
+#        options: >-
+#          --health-cmd pg_isready
+#          --health-interval=10s
+#          --health-timeout=5s
+#          --health-retries=3
+#
+#      mssql:
+#        image: mcr.microsoft.com/mssql/server:2022-latest
+#        env:
+#          ACCEPT_EULA: Y
+#          SA_PASSWORD: YourStrong@Passw0rd
+#        ports:
+#          - 1433:1433
+#        options: >-
+#          --health-cmd="/opt/mssql-tools/bin/sqlcmd -S localhost -U sa -P YourStrong@Passw0rd -Q 'SELECT 1' || exit 1"
+#          --health-interval=10s
+#          --health-timeout=5s
+#          --health-retries=3
+#
+#      oracle:
+#        image: container-registry.oracle.com/database/express:latest
+#        env:
+#          ORACLE_PWD: oracle
+#        ports:
+#          - 1521:1521
+#        options: >-
+#          --health-cmd="sqlplus -s sys/oracle@//localhost:1521/XE as sysdba <<< 'select 1 from dual;'"
+#          --health-interval=30s
+#          --health-timeout=10s
+#          --health-retries=3
 
     steps:
     - name: Check out the repository
@@ -78,17 +79,18 @@ jobs:
     - name: Install full dependencies
       run: |
         pip install -r requirements.txt
-        pip install "rhosocial_activerecord[all]"
-        pip install coverage codecov pytest
+        # pip install "rhosocial_activerecord[all]"
+        pip install -r requirements-dev.txt
+        pip install codecov
 
     - name: Run tests with coverage
       run: |
-        coverage run -m pytest tests/ -k "not stress"
+        coverage run -m pytest tests/
         coverage xml
         coverage report
 
     - name: Upload coverage to Codecov
-      uses: codecov/codecov-action@v3
+      uses: codecov/codecov-action@v5
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage.xml
@@ -101,7 +103,7 @@ jobs:
     runs-on: ubuntu-latest
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12"]
+        python-version: ["3.10", "3.11", "3.12"]
 
     steps:
     - name: Check out the repository
@@ -123,4 +125,4 @@ jobs:
 
     - name: Run tests
       run: |
-        python -m pytest tests/ --benchmark-disable -k "not stress"
+        python -m pytest tests/

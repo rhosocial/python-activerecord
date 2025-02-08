@@ -4,26 +4,13 @@
 [![Python](https://img.shields.io/pypi/pyversions/rhosocial-activerecord.svg)](https://pypi.org/project/rhosocial-activerecord/)
 [![Tests](https://github.com/rhosocial/activerecord/workflows/Tests/badge.svg)](https://github.com/rhosocial/activerecord/actions)
 [![Coverage Status](https://coveralls.io/repos/github/rhosocial/activerecord/badge.svg?branch=main)](https://coveralls.io/github/rhosocial/activerecord?branch=main)
-[![License](https://img.shields.io/github/license/rhosocial/activerecord.svg)](https://github.com/rhosocial/activerecord/blob/main/LICENSE)
+[![License](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
 [![Powered by vistart](https://img.shields.io/badge/Powered_by-vistart-blue.svg)](https://github.com/vistart)
 
 <div align="center">
-    <img src="docs/images/logo.png" alt="RhoSocial ActiveRecord Logo" width="200"/>
+    <img src="docs/images/logo.png" alt="rhosocial ActiveRecord Logo" width="200"/>
     <p>A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features.</p>
 </div>
-
-## Directory Structure
-
-```
-rhosocial-activerecord/
-├── src/                # Source code
-├── tests/             # Test suite
-├── docs/              # Documentation
-│   ├── en_US/         # English docs
-│   └── zh_CN/         # Chinese docs
-├── examples/          # Example code
-└── tools/             # Development tools
-```
 
 ## Key Features
 

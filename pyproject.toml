@@ -6,7 +6,7 @@ build-backend = "hatchling.build"
 name = "rhosocial_activerecord"
 # Version is read from src/rhosocial/activerecord/__init__.py
 dynamic = ["version"]
-description = "A Python3-based ActiveRecord implementation that leverages Pydantic for field management and validation"
+description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
 license = { file = "LICENSE" }
 requires-python = ">=3.10"
