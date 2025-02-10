@@ -4,14 +4,14 @@ First off, thank you for considering contributing to `rhosocial-activerecord`! I
 
 ## Where to get Help or Report an Issue
 
-* [TBD]Help: Start with our [documentation](https://github.com/rhosoocial/python-activerecord/wiki/)
-* Issue: Search through [GitHub Issues](https://github.com/rhosoocial/python-activerecord/issues) to see if your issue has already been reported
+* [TBD]Help: Start with our [documentation](https://github.com/rhosocial/python-activerecord/wiki/)
+* Issue: Search through [GitHub Issues](https://github.com/rhosocial/python-activerecord/issues) to see if your issue has already been reported
 
 ## Issue Guidelines
 
 If you find a bug or have a feature request, please create an issue:
 
-1. Go to [GitHub Issues](https://github.com/rhosoocial/python-activerecord/issues)
+1. Go to [GitHub Issues](https://github.com/rhosocial/python-activerecord/issues)
 2. Create a new issue using the appropriate template
 3. Include the following information:
    - For bugs:
@@ -28,7 +28,7 @@ If you find a bug or have a feature request, please create an issue:
 
 ## Contributing Code
 
-1. Fork the [repository](https://github.com/rhosoocial/python-activerecord)
+1. Fork the [repository](https://github.com/rhosocial/python-activerecord)
 2. Clone your fork:
    ```bash
    git clone https://github.com/YOUR-USERNAME/python-activerecord.git
@@ -119,7 +119,7 @@ Your donations directly contribute to:
 You can support us through the following channels:
 
 1. GitHub Sponsors (Preferred)
-   * Visit our [GitHub Sponsors page](https://github.com/sponsors/rhosoocial)
+   * Visit our [GitHub Sponsors page](https://github.com/sponsors/rhosocial)
    * Monthly or one-time donations
    * Directly integrated with GitHub
 
@@ -134,7 +134,7 @@ All donors will be acknowledged in our SPONSORS.md file (unless you prefer to re
 
 If you have any questions about contributing, feel free to:
 
-1. Check our [documentation](https://github.com/rhosoocial/python-activerecord/wiki)
+1. Check our [documentation](https://github.com/rhosocial/python-activerecord/wiki)
 2. Open an issue
 3. Start a discussion
 

@@ -97,7 +97,27 @@ Issues = "https://github.com/rhosocial/python-activerecord/issues"
 
 [tool.hatch.version]
 path = "src/rhosocial/activerecord/__init__.py"
-pattern = '^__version__\s*=\s*"((?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
+pattern = '^__version__\s*=\s*"(?P<version>(?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
+
+[tool.hatch.build]
+include = [
+  "src/rhosocial/**/*.py",
+  "src/rhosocial/**/*.pyi",
+  "LICENSE",
+  "README.md",
+]
+exclude = [
+  "tests/**",
+  "docs/**",
+  "examples/**",
+  "*.pyc",
+  "**/__pycache__",
+  "**/*.py[cod]",
+  "**/*.so",
+  "**/.DS_Store",
+  "**/.*.swp",
+  ".git*",
+]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhosocial"]

@@ -81,13 +81,16 @@ jobs:
         pip install -r requirements.txt
         # pip install "rhosocial_activerecord[all]"
         pip install -r requirements-dev.txt
-        pip install codecov
+        pip install codecov build
 
     - name: Run tests with coverage
       run: |
         coverage run -m pytest tests/
         coverage xml
         coverage report
+
+    - name: Build package
+      run: python -m build
 
     - name: Upload coverage to Codecov
       uses: codecov/codecov-action@v5
@@ -123,7 +126,10 @@ jobs:
           pip install -r requirements.txt
           pip install -r requirements-dev.txt
         fi
-        pip install pytest
+        pip install codecov build
+
+    - name: Build package
+      run: python -m build
 
     - name: Run tests
       run: |
