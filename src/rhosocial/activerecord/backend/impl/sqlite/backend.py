@@ -1,13 +1,13 @@
-import time
 import sqlite3
+import time
 from sqlite3 import ProgrammingError
 from typing import Optional, Tuple, List
 
-from .dialect import SQLiteTypeMapper, SQLiteValueMapper, SQLiteDialect
+from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from ...base import StorageBackend, ColumnTypes
-from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError
-from ...expression import SQLDialectBase
+from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
+    ReturningNotSupportedError
 from ...typing import QueryResult
 
 
@@ -16,10 +16,8 @@ class SQLiteBackend(StorageBackend):
         super().__init__(**kwargs)
         self._cursor = None
         self._isolation_level = kwargs.get("isolation_level", None)
-        self._type_mapper = SQLiteTypeMapper()
-        self._value_mapper = SQLiteValueMapper(self.config)
         self._transaction_manager = None
-        self._dialect = SQLiteDialect()
+        self._dialect = SQLiteDialect(self.config)
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -34,6 +32,9 @@ class SQLiteBackend(StorageBackend):
                 isolation_level=None  # Use manual transaction management
             )
             self._connection.execute("PRAGMA foreign_keys = ON")
+            self._connection.execute("PRAGMA journal_mode = WAL")
+            self._connection.execute("PRAGMA synchronous = FULL")
+            self._connection.execute("PRAGMA wal_autocheckpoint = 1000")
             self._connection.row_factory = sqlite3.Row
             self._connection.text_factory = str
         except sqlite3.Error as e:
@@ -81,61 +82,90 @@ class SQLiteBackend(StorageBackend):
             sql: str,
             params: Optional[Tuple] = None,
             returning: bool = False,
-            column_types: Optional[ColumnTypes] = None
-    ) -> QueryResult:
+            column_types: Optional[ColumnTypes] = None,
+            returning_columns: Optional[List[str]] = None) -> Optional[QueryResult]:
         """Execute SQL and return results
 
         Args:
             sql: SQL statement
             params: Query parameters
-            returning: Whether to return result set
-            column_types: Column type mapping {column_name: DatabaseType} for result type conversion
+            returning: Whether statement has or needs RETURNING clause
+                - For SELECT statements, should be True to fetch results
+                - For INSERT/UPDATE/DELETE, indicates if RETURNING clause needed
+            column_types: Column type mapping for result type conversion
                 Example: {"created_at": DatabaseType.DATETIME, "settings": DatabaseType.JSON}
+            returning_columns: Specific columns in RETURNING clause. None means all columns.
+                Only used when returning=True for INSERT/UPDATE/DELETE statements.
+                Ignored for SELECT statements.
 
         Returns:
-            QueryResult: Query results
+            QueryResult: Query results with following fields:
+                - data: Result set if SELECT or RETURNING used, otherwise None
+                - affected_rows: Number of affected rows
+                - last_insert_id: Last inserted row ID (if applicable)
+                - duration: Query execution time in seconds
+
+        Raises:
+            ConnectionError: Database connection error
+            QueryError: SQL syntax error
+            TypeConversionError: Type conversion error
+            ReturningNotSupportedError: RETURNING clause not supported
+            DatabaseError: Other database errors
         """
         start_time = time.perf_counter()
+
         try:
+            # Ensure connection
             if not self._connection:
                 self.connect()
+
+            # Determine statement type based on first word
+            stmt_type = sql.strip().split(None, 1)[0].upper()
+            is_select = stmt_type == "SELECT"
+            need_returning = returning and not is_select
+
+            # Process RETURNING clause if needed (non-SELECT only)
+            if need_returning:
+                handler = self.dialect.returning_handler
+                if not handler.is_supported:
+                    raise ReturningNotSupportedError(
+                        f"RETURNING clause not supported by SQLite {sqlite3.sqlite_version}"
+                    )
+                sql += " " + handler.format_clause(returning_columns)
 
             # Use existing cursor or create new one
             cursor = self._cursor or self._connection.cursor()
 
-            # Process SQL and parameters using dialect
+            # Build final SQL and process parameters using dialect
             final_sql, final_params = self.build_sql(sql, params)
 
             # Convert parameters
             if final_params:
                 processed_params = tuple(
-                    self._value_mapper.to_database(value, None)
+                    self.dialect.value_mapper.to_database(value, None)
                     for value in final_params
                 )
                 cursor.execute(final_sql, processed_params)
             else:
                 cursor.execute(final_sql)
 
+            # Fetch results if SELECT or RETURNING used
             if returning:
-                # Get raw data
                 rows = cursor.fetchall()
-
                 # Convert types if mapping provided
                 if column_types:
                     data = []
                     for row in rows:
                         converted_row = {}
                         for key, value in dict(row).items():
-                            # Use specified type for conversion, keep original if not specified
                             db_type = column_types.get(key)
                             converted_row[key] = (
-                                self._value_mapper.from_database(value, db_type)
+                                self.dialect.value_mapper.from_database(value, db_type)
                                 if db_type is not None
                                 else value
                             )
                         data.append(converted_row)
                 else:
-                    # Return raw data if no type mapping
                     data = [dict(row) for row in rows]
             else:
                 data = None
@@ -146,6 +176,7 @@ class SQLiteBackend(StorageBackend):
                 last_insert_id=cursor.lastrowid,
                 duration=time.perf_counter() - start_time
             )
+
         except Exception as e:
             self._handle_error(e)
 
@@ -174,7 +205,7 @@ class SQLiteBackend(StorageBackend):
             self,
             sql: str,
             params_list: List[Tuple]
-    ) -> QueryResult:
+    ) -> Optional[QueryResult]:
         """Execute batch operations
 
         Args:
@@ -196,7 +227,7 @@ class SQLiteBackend(StorageBackend):
             for params in params_list:
                 if params:
                     converted = tuple(
-                        self._value_mapper.to_database(value, None)
+                        self.value_mapper.to_database(value, None)
                         for value in params
                     )
                     converted_params.append(converted)

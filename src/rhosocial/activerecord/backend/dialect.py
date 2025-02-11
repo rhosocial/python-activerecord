@@ -4,7 +4,8 @@ from dataclasses import dataclass
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Optional, get_origin, Union, List
+from typing import Any, Callable, Dict, Optional, get_origin, Union, List, Tuple
+
 
 class DatabaseType(Enum):
     """Unified database type definitions"""
@@ -61,7 +62,7 @@ class TypeMapper(ABC):
         pass
 
     @abstractmethod
-    def get_placeholder(self, db_type: DatabaseType) -> str:
+    def get_placeholder(self, db_type: Optional[DatabaseType] = None) -> str:
         """Get parameter placeholder"""
         pass
 
@@ -129,3 +130,199 @@ class ValueMapper(ABC):
     def from_database(self, value: Any, db_type: DatabaseType) -> Any:
         """Convert from database value"""
         pass
+
+class ReturningClauseHandler(ABC):
+    """Base class for RETURNING clause handlers"""
+
+    @property
+    @abstractmethod
+    def is_supported(self) -> bool:
+        """Whether RETURNING clause is supported
+
+        Returns:
+            bool: True if supported
+        """
+        pass
+
+    @abstractmethod
+    def format_clause(self, columns: Optional[List[str]] = None) -> str:
+        """Format RETURNING clause
+
+        Args:
+            columns: Column names to return. None means all columns.
+
+        Returns:
+            str: Formatted RETURNING clause
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING not supported
+        """
+        pass
+
+
+class SQLExpressionBase(ABC):
+    """Base class for SQL expressions
+
+    Used for embedding raw expressions in SQL, such as:
+    - Arithmetic expressions: column + 1
+    - Function calls: COALESCE(column, 0)
+    - Subqueries: (SELECT MAX(id) FROM table)
+    """
+
+    def __init__(self, expression: str):
+        self.expression = expression
+
+    def __str__(self) -> str:
+        return self.expression
+
+    @classmethod
+    def raw(cls, expression: str) -> 'SQLExpressionBase':
+        """Create raw SQL expression"""
+        return cls(expression)
+
+    @abstractmethod
+    def format(self, dialect: 'SQLDialectBase') -> str:
+        """Format expression according to dialect
+
+        Args:
+            dialect: SQL dialect
+
+        Returns:
+            str: Formatted expression
+        """
+        pass
+
+class SQLDialectBase(ABC):
+    """Base class for SQL dialects
+
+    Defines SQL syntax differences between database backends
+    """
+    _type_mapper: TypeMapper
+    _value_mapper: ValueMapper
+    _returning_handler: ReturningClauseHandler
+    _version: tuple
+
+    def __init__(self, version: tuple) -> None:
+        """Initialize SQL dialect
+
+        Args:
+            version: Database version tuple
+        """
+        self._version = version
+
+    @property
+    def version(self) -> tuple:
+        """Get database version"""
+        return self._version
+
+    @property
+    def type_mapper(self) -> TypeMapper:
+        """Get type mapper"""
+        return self._type_mapper
+
+    @property
+    def value_mapper(self) -> ValueMapper:
+        """Get value mapper"""
+        return self._value_mapper
+
+    @property
+    def returning_handler(self) -> ReturningClauseHandler:
+        """Get returning clause handler"""
+        return self._returning_handler
+
+    @abstractmethod
+    def format_expression(self, expr: SQLExpressionBase) -> str:
+        """Format expression
+
+        Args:
+            expr: SQL expression
+
+        Returns:
+            str: Formatted expression
+        """
+        pass
+
+    @abstractmethod
+    def get_placeholder(self) -> str:
+        """Get parameter placeholder
+
+        Returns:
+            str: Parameter placeholder (e.g., ? or %s)
+        """
+        pass
+
+    @abstractmethod
+    def create_expression(self, expression: str) -> SQLExpressionBase:
+        """Create SQL expression"""
+        pass
+
+
+class SQLBuilder:
+    """SQL Builder
+
+    Used for building SQL statements containing expressions
+    """
+
+    def __init__(self, dialect: SQLDialectBase):
+        self.dialect = dialect
+        self.sql = ""
+        self.params = []
+
+    def build(self, sql: str, params: Optional[Tuple] = None) -> Tuple[str, Tuple]:
+        """Build SQL and parameters
+
+        Process expressions and parameter placeholders in SQL
+
+        Args:
+            sql: Raw SQL
+            params: SQL parameters
+
+        Returns:
+            Tuple[str, Tuple]: (Processed SQL, Processed parameters)
+        """
+        if not params:
+            return sql, ()
+
+        # Find all placeholder positions
+        placeholder = self.dialect.get_placeholder()
+        placeholder_positions = []
+        pos = 0
+        while True:
+            pos = sql.find(placeholder, pos)
+            if pos == -1:
+                break
+            placeholder_positions.append(pos)
+            pos += len(placeholder)
+
+        if len(placeholder_positions) != len(params):
+            raise ValueError(f"Parameter count mismatch: expected {len(placeholder_positions)}, got {len(params)}")
+
+        # Record new positions for all parameters
+        result = list(sql)
+        final_params = []
+        param_positions = []  # Record positions of parameters to keep
+
+        # First pass: find all parameter positions to keep
+        for i, param in enumerate(params):
+            if not isinstance(param, SQLExpressionBase):
+                param_positions.append(i)
+                final_params.append(param)
+
+        # Second pass: replace expressions from back to front
+        for i in range(len(params) - 1, -1, -1):
+            if isinstance(params[i], SQLExpressionBase):
+                pos = placeholder_positions[i]
+                expr_str = self.dialect.format_expression(params[i])
+                result[pos:pos + len(placeholder)] = expr_str
+
+        # Third pass: handle placeholders
+        # To maintain the relative order of regular parameters,
+        # we need to map the unsubstituted placeholders to the preserved parameters
+        # according to their original relative order
+        param_index = 0
+        for i in range(len(params)):
+            if i in param_positions:
+                # This position is a regular parameter, keep the placeholder
+                param_index += 1
+
+        return ''.join(result), tuple(final_params)

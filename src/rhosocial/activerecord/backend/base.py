@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List
 
-from .dialect import TypeMapper, ValueMapper, DatabaseType
-from .expression import SQLDialectBase, SQLExpressionBase, SQLBuilder
+from .dialect import TypeMapper, ValueMapper, DatabaseType, SQLDialectBase, SQLExpressionBase, SQLBuilder
 from .typing import ConnectionConfig, QueryResult
 
 # Type hints
@@ -13,8 +12,6 @@ ValueConverter = Dict[str, callable]
 class StorageBackend(ABC):
     """Abstract base class for storage backends"""
     _dialect: SQLDialectBase
-    _type_mapper: TypeMapper
-    _value_mapper: ValueMapper
 
     def __init__(self, **kwargs) -> None:
         if "connection_config" not in kwargs or kwargs["connection_config"] is None:
@@ -57,11 +54,11 @@ class StorageBackend(ABC):
 
     @property
     def type_mapper(self) -> TypeMapper:
-        return self._type_mapper
+        return self._dialect.type_mapper
 
     @property
     def value_mapper(self) -> ValueMapper:
-        return self._value_mapper
+        return self._dialect.value_mapper
 
     @abstractmethod
     def connect(self) -> None:
@@ -95,17 +92,22 @@ class StorageBackend(ABC):
                 sql: str,
                 params: Optional[Tuple] = None,
                 returning: bool = False,
-                column_types: Optional[ColumnTypes] = None) -> QueryResult:
-        """Execute SQL statement
+                column_types: Optional[ColumnTypes] = None,
+                returning_columns: Optional[List[str]] = None) -> Optional[QueryResult]:
+        """Execute SQL statement with optional RETURNING clause
 
         Args:
             sql: SQL statement
             params: SQL parameters
             returning: Whether to return result set
-            column_types: Column type mapping for result type conversion {column_name: DatabaseType}
+            column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return. None means all columns.
 
         Returns:
             QueryResult: Query result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported
         """
         pass
 
@@ -147,7 +149,8 @@ class StorageBackend(ABC):
                table: str,
                data: Dict,
                returning: bool = False,
-               column_types: Optional[ColumnTypes] = None) -> QueryResult:
+               column_types: Optional[ColumnTypes] = None,
+               returning_columns: Optional[List[str]] = None) -> QueryResult:
         """Insert record
 
         Args:
@@ -155,20 +158,22 @@ class StorageBackend(ABC):
             data: Data to insert
             returning: Whether to return result set
             column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return in RETURNING clause. None means all columns.
 
         Returns:
             QueryResult: Execution result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported
         """
         fields = list(data.keys())
-        values = [self._value_mapper.to_database(v, column_types.get(k) if column_types else None)
+        values = [self.value_mapper.to_database(v, column_types.get(k) if column_types else None)
                  for k, v in data.items()]
-        placeholders = [self._type_mapper.get_placeholder(None) for _ in fields]
+        placeholders = [self.dialect.get_placeholder() for _ in fields]
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
-        if returning:
-            sql += " RETURNING *"
 
-        return self.execute(sql, tuple(values), returning, column_types)
+        return self.execute(sql, tuple(values), returning, column_types, returning_columns)
 
     def update(self,
                table: str,
@@ -176,7 +181,8 @@ class StorageBackend(ABC):
                where: str,
                params: Tuple,
                returning: bool = False,
-               column_types: Optional[ColumnTypes] = None) -> QueryResult:
+               column_types: Optional[ColumnTypes] = None,
+               returning_columns: Optional[List[str]] = None) -> QueryResult:
         """Update record
 
         Args:
@@ -186,26 +192,29 @@ class StorageBackend(ABC):
             params: WHERE condition parameters
             returning: Whether to return result set
             column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return in RETURNING clause. None means all columns.
 
         Returns:
             QueryResult: Execution result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported
         """
-        set_items = [f"{k} = {self._type_mapper.get_placeholder(None)}" for k in data.keys()]
-        values = [self._value_mapper.to_database(v, column_types.get(k) if column_types else None)
+        set_items = [f"{k} = {self.dialect.get_placeholder()}" for k in data.keys()]
+        values = [self.value_mapper.to_database(v, column_types.get(k) if column_types else None)
                  for k, v in data.items()]
 
         sql = f"UPDATE {table} SET {', '.join(set_items)} WHERE {where}"
-        if returning:
-            sql += " RETURNING *"
 
-        return self.execute(sql, tuple(values) + params, returning, column_types)
+        return self.execute(sql, tuple(values) + params, returning, column_types, returning_columns)
 
     def delete(self,
                table: str,
                where: str,
                params: Tuple,
                returning: bool = False,
-               column_types: Optional[ColumnTypes] = None) -> QueryResult:
+               column_types: Optional[ColumnTypes] = None,
+               returning_columns: Optional[List[str]] = None) -> QueryResult:
         """Delete record
 
         Args:
@@ -214,15 +223,17 @@ class StorageBackend(ABC):
             params: WHERE condition parameters
             returning: Whether to return result set
             column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return in RETURNING clause. None means all columns.
 
         Returns:
             QueryResult: Execution result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported
         """
         sql = f"DELETE FROM {table} WHERE {where}"
-        if returning:
-            sql += " RETURNING *"
 
-        return self.execute(sql, params, returning, column_types)
+        return self.execute(sql, params, returning, column_types, returning_columns)
 
     def begin_transaction(self) -> None:
         """Begin transaction"""

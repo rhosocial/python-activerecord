@@ -1,18 +1,16 @@
+import sqlite3
+import sys
 import uuid
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Any, Optional
+from typing import Optional, List
+from typing import Tuple, Any
 
 from .types import SQLITE_TYPE_MAPPINGS
-from ...dialect import TypeMapper, ValueMapper, DatabaseType
-from ...errors import TypeConversionError
-from ...expression import SQLExpressionBase, SQLDialectBase
+from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler
+from ...errors import TypeConversionError, ReturningNotSupportedError
 from ...helpers import safe_json_dumps, parse_datetime, convert_datetime, array_converter, safe_json_loads
 from ...typing import ConnectionConfig
-
-
-import sys
-from typing import Tuple, Any
 
 if sys.version_info >= (3, 9):
     TupleType = tuple
@@ -43,7 +41,7 @@ class SQLiteTypeMapper(TypeMapper):
             return mapping.format_func(mapping.db_type, params)
         return mapping.db_type
 
-    def get_placeholder(self, db_type: DatabaseType) -> str:
+    def get_placeholder(self, db_type: Optional[DatabaseType] = None) -> str:
         """Get parameter placeholder"""
         return "?"
 
@@ -267,6 +265,20 @@ class SQLiteExpression(SQLExpressionBase):
 class SQLiteDialect(SQLDialectBase):
     """SQLite dialect implementation"""
 
+    def __init__(self, config: ConnectionConfig):
+        """Initialize SQLite dialect
+
+        Args:
+            config: Database connection configuration
+        """
+        version = tuple(map(int, sqlite3.sqlite_version.split('.')))
+        super().__init__(version)
+
+        # Initialize handlers
+        self._type_mapper = SQLiteTypeMapper()
+        self._value_mapper = SQLiteValueMapper(config)
+        self._returning_handler = SQLiteReturningHandler(version)
+
     def format_expression(self, expr: SQLExpressionBase) -> str:
         """Format SQLite expression"""
         if not isinstance(expr, SQLiteExpression):
@@ -275,8 +287,77 @@ class SQLiteDialect(SQLDialectBase):
 
     def get_placeholder(self) -> str:
         """Get SQLite parameter placeholder"""
-        return "?"
+        return self._type_mapper.get_placeholder(None)
 
     def create_expression(self, expression: str) -> SQLiteExpression:
         """Create SQLite expression"""
         return SQLiteExpression(expression)
+
+class SQLiteReturningHandler(ReturningClauseHandler):
+    """SQLite RETURNING clause handler implementation"""
+
+    def __init__(self, version: tuple):
+        """Initialize SQLite RETURNING handler
+
+        Args:
+            version: SQLite version tuple
+        """
+        self._version = version
+
+    @property
+    def is_supported(self) -> bool:
+        """Check if RETURNING clause is supported"""
+        return self._version >= (3, 35, 0)
+
+    def format_clause(self, columns: Optional[List[str]] = None) -> str:
+        """Format RETURNING clause
+
+        Args:
+            columns: Column names to return. None means all columns.
+
+        Returns:
+            str: Formatted RETURNING clause
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING not supported
+        """
+        if not self.is_supported:
+            raise ReturningNotSupportedError("SQLite version does not support RETURNING")
+
+        if not columns:
+            return "RETURNING *"
+
+        # Validate and escape each column name
+        safe_columns = [self._validate_column_name(col) for col in columns]
+        return f"RETURNING {', '.join(safe_columns)}"
+
+    def _validate_column_name(self, column: str) -> str:
+        """Validate and escape column name
+
+        Args:
+            column: Column name to validate
+
+        Returns:
+            str: Escaped column name
+
+        Raises:
+            ValueError: If column name is invalid
+        """
+        # Remove any quotes first
+        clean_name = column.strip('"')
+
+        # Basic validation
+        if not clean_name or clean_name.isspace():
+            raise ValueError("Empty column name")
+
+        # Check for common SQL injection patterns
+        dangerous_patterns = [';', '--', 'union', 'select', 'drop', 'delete', 'update']
+        lower_name = clean_name.lower()
+        if any(pattern in lower_name for pattern in dangerous_patterns):
+            raise ValueError(f"Invalid column name: {column}")
+
+        # If name contains special chars, wrap in quotes
+        if ' ' in clean_name or '.' in clean_name or '"' in clean_name:
+            return f'"{clean_name}"'
+
+        return clean_name

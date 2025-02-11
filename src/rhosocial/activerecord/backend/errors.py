@@ -41,3 +41,7 @@ class OperationalError(DatabaseError):
 class RecordNotFound(DatabaseError):
     """Record not found"""
     pass
+
+class ReturningNotSupportedError(DatabaseError):
+    """Raised when RETURNING clause is not supported by the database"""
+    pass
