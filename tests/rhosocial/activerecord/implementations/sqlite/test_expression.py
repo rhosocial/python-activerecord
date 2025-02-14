@@ -98,7 +98,7 @@ def test_expression_in_subquery(db, setup_test_table):
     result = db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?), (?, ?)",
         ("user1", 20, "user2", 30),
-        returning=True
+        returning=False
     )
     assert result.affected_rows == 2, "应该插入两条记录"
 

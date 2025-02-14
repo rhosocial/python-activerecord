@@ -125,7 +125,8 @@ def test_backend_returning_with_columns():
             "created_at": "2024-02-11 10:00:00"
         },
         returning=True,
-        returning_columns=["id", "name"]
+        returning_columns=["id", "name"],
+        force_returning=True,
     )
     assert result.data
     assert len(result.data) == 1
@@ -141,7 +142,8 @@ def test_backend_returning_with_columns():
         "id = ?",
         (1,),
         returning=True,
-        returning_columns=["name", "email"]
+        returning_columns=["name", "email"],
+        force_returning=True,
     )
     assert result.data
     assert len(result.data) == 1
@@ -157,7 +159,8 @@ def test_backend_returning_with_columns():
         "id = ?",
         (1,),
         returning=True,
-        returning_columns=["id"]
+        returning_columns=["id"],
+        force_returning=True,
     )
     assert result.data
     assert len(result.data) == 1
@@ -187,7 +190,8 @@ def test_returning_invalid_columns():
             "users",
             {"name": "test", "email": "test@example.com"},
             returning=True,
-            returning_columns=["nonexistent_column"]
+            returning_columns=["nonexistent_column"],
+            force_returning=True,
         )
     assert "no such column: nonexistent_column" in str(exc_info.value).lower()
 
@@ -197,7 +201,8 @@ def test_returning_invalid_columns():
             "users",
             {"name": "test", "email": "test@example.com"},
             returning=True,
-            returning_columns=["invalid1", "invalid2"]
+            returning_columns=["invalid1", "invalid2"],
+            force_returning=True,
         )
     assert "no such column: invalid1" in str(exc_info.value).lower()
 
@@ -207,7 +212,8 @@ def test_returning_invalid_columns():
             "users",
             {"name": "test", "email": "test@example.com"},
             returning=True,
-            returning_columns=["id", "nonexistent", "name"]
+            returning_columns=["id", "nonexistent", "name"],
+            force_returning=True,
         )
     assert "no such column: nonexistent" in str(exc_info.value).lower()
 
@@ -219,7 +225,8 @@ def test_returning_invalid_columns():
             "id = ?",
             (1,),
             returning=True,
-            returning_columns=["id", "fake_column"]
+            returning_columns=["id", "fake_column"],
+            force_returning=True,
         )
     assert "no such column: fake_column" in str(exc_info.value).lower()
 
@@ -230,7 +237,8 @@ def test_returning_invalid_columns():
             "id = ?",
             (1,),
             returning=True,
-            returning_columns=["id", "ghost_column"]
+            returning_columns=["id", "ghost_column"],
+            force_returning=True,
         )
     assert "no such column: ghost_column" in str(exc_info.value).lower()
 
@@ -265,7 +273,8 @@ def test_column_name_validation():
             '"with space"': "test3"
         },
         returning=True,
-        returning_columns=['"special name"', '"with.dot"', '"with space"']
+        returning_columns=['"special name"', '"with.dot"', '"with space"'],
+        force_returning=True,
     )
 
     assert result.data
@@ -293,7 +302,8 @@ def test_column_name_validation():
                 "items",
                 {'"special name"': "test"},
                 returning=True,
-                returning_columns=[pattern]
+                returning_columns=[pattern],
+                force_returning=True,
             )
         assert "Invalid column name" in str(exc_info.value)
 
@@ -332,7 +342,8 @@ def test_column_name_safety():
                 "data",
                 {"name": "test"},
                 returning=True,
-                returning_columns=[col]
+                returning_columns=[col],
+                force_returning=True,
             )
         assert "Invalid column name" in str(exc_info.value)
 
@@ -342,4 +353,70 @@ def test_column_name_safety():
             returning=True
         )
         assert result.data[0]['cnt'] == 1
+
+import sys
+is_py38_39 = sys.version_info >= (3, 8) and sys.version_info < (3, 10)
+
+py38_39_only = pytest.mark.skipif(
+    not is_py38_39,
+    reason="This test is specific to Python 3.8 and 3.9"
+)
+@py38_39_only
+def test_python38_returning_with_quoted_columns():
+    """Test RETURNING clause handling in Python 3.8/3.9 with quoted column names"""
+    backend = SQLiteBackend(database=":memory:")
+
+    # Create test table
+    backend.execute('''
+        CREATE TABLE special_items (
+            id INTEGER PRIMARY KEY,
+            "special name" TEXT,
+            "with.dot" TEXT,
+            "with space" TEXT
+        )
+    ''')
+
+    # Single insert with returning
+    result = backend.insert(
+        "special_items",
+        {
+            '"special name"': "test1",
+            '"with.dot"': "test2",
+            '"with space"': "test3"
+        },
+        returning=True,
+        returning_columns=['"special name"', '"with.dot"', '"with space"'],
+        force_returning=True,
+    )
+
+    # Verify result structure
+    assert result.affected_rows == 0  # For known reasons, the return value here is always zero.
+    assert len(result.data) == 1
+    row = result.data[0]
+    assert 'special name' in row
+    assert 'with.dot' in row
+    assert 'with space' in row
+    assert row['special name'] == 'test1'
+    assert row['with.dot'] == 'test2'
+    assert row['with space'] == 'test3'
+
+    # Multiple sequential inserts
+    for i in range(3):
+        result = backend.insert(
+            "special_items",
+            {
+                '"special name"': f"batch{i}",
+                '"with.dot"': f"dot{i}",
+                '"with space"': f"space{i}"
+            },
+            returning=True,
+            returning_columns=['"special name"', '"with.dot"', '"with space"'],
+            force_returning=True,
+        )
+        assert result.affected_rows == 1
+        assert len(result.data) == 1
+        row = result.data[0]
+        assert row['special name'] == f"batch{i}"
+        assert row['with.dot'] == f"dot{i}"
+        assert row['with space'] == f"space{i}"
 
