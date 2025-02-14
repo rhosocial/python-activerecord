@@ -1,13 +1,14 @@
-import time
 import sqlite3
+import sys
+import time
 from sqlite3 import ProgrammingError
 from typing import Optional, Tuple, List
 
-from .dialect import SQLiteTypeMapper, SQLiteValueMapper, SQLiteDialect
+from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from ...base import StorageBackend, ColumnTypes
-from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError
-from ...expression import SQLDialectBase
+from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
+    ReturningNotSupportedError
 from ...typing import QueryResult
 
 
@@ -16,10 +17,8 @@ class SQLiteBackend(StorageBackend):
         super().__init__(**kwargs)
         self._cursor = None
         self._isolation_level = kwargs.get("isolation_level", None)
-        self._type_mapper = SQLiteTypeMapper()
-        self._value_mapper = SQLiteValueMapper(self.config)
         self._transaction_manager = None
-        self._dialect = SQLiteDialect()
+        self._dialect = SQLiteDialect(self.config)
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -34,6 +33,9 @@ class SQLiteBackend(StorageBackend):
                 isolation_level=None  # Use manual transaction management
             )
             self._connection.execute("PRAGMA foreign_keys = ON")
+            self._connection.execute("PRAGMA journal_mode = WAL")
+            self._connection.execute("PRAGMA synchronous = FULL")
+            self._connection.execute("PRAGMA wal_autocheckpoint = 1000")
             self._connection.row_factory = sqlite3.Row
             self._connection.text_factory = str
         except sqlite3.Error as e:
@@ -81,72 +83,160 @@ class SQLiteBackend(StorageBackend):
             sql: str,
             params: Optional[Tuple] = None,
             returning: bool = False,
-            column_types: Optional[ColumnTypes] = None
-    ) -> QueryResult:
-        """Execute SQL and return results
+            column_types: Optional[ColumnTypes] = None,
+            returning_columns: Optional[List[str]] = None,
+            force_returning: bool = False) -> Optional[QueryResult]:
+        """Execute SQL statement and return results
+
+        Due to SQLite and Python version differences, RETURNING clause behavior varies:
+        - Python 3.10+: Full support for RETURNING clause in INSERT/UPDATE/DELETE
+        - Python 3.9 and earlier: RETURNING clause has known issues where affected_rows
+          always returns 0, regardless of actual rows affected
+
+        To ensure data consistency and prevent silent failures:
+        - SELECT statements work normally in all Python versions when returning=True
+        - For INSERT/UPDATE/DELETE in Python 3.9 and earlier:
+          - If returning=True and force_returning=False (default), raises ReturningNotSupportedError
+          - If returning=True and force_returning=True, executes with warning that affected_rows will be 0
+          - Users should either:
+            1. Upgrade to Python 3.10+ for full RETURNING support
+            2. Set returning=False to execute without RETURNING
+            3. Set force_returning=True to execute with known limitations
 
         Args:
-            sql: SQL statement
-            params: Query parameters
-            returning: Whether to return result set
-            column_types: Column type mapping {column_name: DatabaseType} for result type conversion
+            sql: SQL statement to execute
+            params: Query parameters tuple for parameterized queries
+            returning: Controls result fetching behavior:
+                - For SELECT: True to fetch results (default), False to skip fetching
+                - For INSERT/UPDATE/DELETE: True to use RETURNING clause (fully supported in Python 3.10+)
+            column_types: Column type mapping for automated type conversion
                 Example: {"created_at": DatabaseType.DATETIME, "settings": DatabaseType.JSON}
+            returning_columns: Columns to include in RETURNING clause
+                - None: Return all columns (*)
+                - List[str]: Return specific columns
+                - Only used when returning=True for DML statements
+                - Ignored for SELECT statements
+            force_returning: If True, allows RETURNING clause in Python <3.10 with known issues:
+                - affected_rows will always be 0
+                - last_insert_id may be unreliable
+                - Only use if you understand and can handle these limitations
 
         Returns:
-            QueryResult: Query results
+            QueryResult with fields:
+                - data: List[Dict] for SELECT/RETURNING results, None otherwise
+                - affected_rows: Number of rows affected (always 0 if force_returning=True in Python <3.10)
+                - last_insert_id: Last inserted row ID for INSERT statements
+                - duration: Query execution time in seconds
+
+        Raises:
+            ConnectionError: Database connection failed or was lost
+            QueryError: Invalid SQL syntax or statement execution failed
+            TypeConversionError: Failed to convert data types
+            ReturningNotSupportedError:
+                - RETURNING clause used in Python <3.10 for DML statements without force_returning=True
+                - RETURNING clause not supported by SQLite version
+            DatabaseError: Other database-related errors
         """
         start_time = time.perf_counter()
+
         try:
+            # Ensure active connection
             if not self._connection:
                 self.connect()
 
-            # Use existing cursor or create new one
+            # Parse statement type from SQL
+            stmt_type = sql.strip().split(None, 1)[0].upper()
+            is_select = stmt_type == "SELECT"
+            is_dml = stmt_type in ("INSERT", "UPDATE", "DELETE")
+            need_returning = returning and not is_select
+
+            # Version compatibility check for RETURNING in DML statements
+            if need_returning and is_dml:
+                py_version = sys.version_info[:2]
+                if py_version < (3, 10) and not force_returning:
+                    raise ReturningNotSupportedError(
+                        f"RETURNING clause not supported in Python <3.10 for {stmt_type} statements. "
+                        f"Current Python version {py_version[0]}.{py_version[1]} has known SQLite "
+                        f"adapter issues where affected_rows is always 0 with RETURNING clause.\n"
+                        f"You have three options:\n"
+                        f"1. Upgrade to Python 3.10 or higher for full RETURNING support\n"
+                        f"2. Set returning=False to execute without RETURNING clause\n"
+                        f"3. Set force_returning=True to execute with RETURNING clause, but note:\n"
+                        f"   - affected_rows will always be 0\n"
+                        f"   - last_insert_id may be unreliable\n"
+                        f"   Only use force_returning if you understand these limitations"
+                    )
+                elif py_version < (3, 10) and force_returning:
+                    import warnings
+                    warnings.warn(
+                        f"Executing {stmt_type} with RETURNING clause in Python {py_version[0]}.{py_version[1]}. "
+                        f"Be aware that:\n"
+                        f"- affected_rows will always be 0\n"
+                        f"- last_insert_id may be unreliable",
+                        RuntimeWarning
+                    )
+
+            # Add RETURNING clause for DML statements if needed
+            if need_returning:
+                handler = self.dialect.returning_handler
+                if not handler.is_supported:
+                    raise ReturningNotSupportedError(
+                        f"RETURNING clause not supported by current SQLite version {sqlite3.sqlite_version}"
+                    )
+                # Format and append RETURNING clause
+                sql += " " + handler.format_clause(returning_columns)
+
+            # Get or create cursor
             cursor = self._cursor or self._connection.cursor()
 
-            # Process SQL and parameters using dialect
+            # Process SQL and parameters through dialect
             final_sql, final_params = self.build_sql(sql, params)
 
-            # Convert parameters
+            # Execute query with type conversion for parameters
             if final_params:
                 processed_params = tuple(
-                    self._value_mapper.to_database(value, None)
+                    self.dialect.value_mapper.to_database(value, None)
                     for value in final_params
                 )
                 cursor.execute(final_sql, processed_params)
             else:
                 cursor.execute(final_sql)
 
+            # Handle result set for SELECT or RETURNING
+            data = None
             if returning:
-                # Get raw data
                 rows = cursor.fetchall()
-
-                # Convert types if mapping provided
+                # Apply type conversions if specified
                 if column_types:
                     data = []
                     for row in rows:
                         converted_row = {}
                         for key, value in dict(row).items():
-                            # Use specified type for conversion, keep original if not specified
                             db_type = column_types.get(key)
                             converted_row[key] = (
-                                self._value_mapper.from_database(value, db_type)
+                                self.dialect.value_mapper.from_database(value, db_type)
                                 if db_type is not None
                                 else value
                             )
                         data.append(converted_row)
                 else:
-                    # Return raw data if no type mapping
+                    # Return raw dictionaries if no type conversion needed
                     data = [dict(row) for row in rows]
-            else:
-                data = None
 
+            # Build and return result
             return QueryResult(
                 data=data,
                 affected_rows=cursor.rowcount,
                 last_insert_id=cursor.lastrowid,
                 duration=time.perf_counter() - start_time
             )
+
+        except sqlite3.Error as e:
+            self._handle_error(e)
         except Exception as e:
+            # Re-raise non-database errors
+            if not isinstance(e, DatabaseError):
+                raise
             self._handle_error(e)
 
     def _handle_error(self, error: Exception) -> None:
@@ -174,7 +264,7 @@ class SQLiteBackend(StorageBackend):
             self,
             sql: str,
             params_list: List[Tuple]
-    ) -> QueryResult:
+    ) -> Optional[QueryResult]:
         """Execute batch operations
 
         Args:
@@ -196,7 +286,7 @@ class SQLiteBackend(StorageBackend):
             for params in params_list:
                 if params:
                     converted = tuple(
-                        self._value_mapper.to_database(value, None)
+                        self.value_mapper.to_database(value, None)
                         for value in params
                     )
                     converted_params.append(converted)

@@ -27,9 +27,16 @@
 
 ## Requirements
 
-- Python 3.10+
+- Python 3.8+ (Note: SQLite backend has limitations in Python <3.10)
 - Pydantic 2.10+
-- SQLite 3.35+
+- SQLite 3.35+ (if using SQLite backend)
+
+Important: When using SQLite backend with Python <3.10, RETURNING clause has known limitations:
+- affected_rows always returns 0
+- last_insert_id may be unreliable
+
+These limitations are specific to SQLite backend and do not affect other database backends.
+For full SQLite RETURNING clause support, Python 3.10+ is recommended.
 
 All dependencies are handled through the package manager with no external ORM requirements.
 
@@ -40,8 +47,9 @@ You can run the following command to check the sqlite3 version:
 python3 -c "import sqlite3; print(sqlite3.sqlite_version);"
 ```
 
-Python 3.9 and earlier versions are not currently supported because there is a problem with the `rowcount` parameter
-in the result returned by the sqlite3 execution statement.
+When using Python 3.9 and earlier versions with SQLite backend, there are known limitations with the RETURNING clause
+where the `rowcount` parameter always returns 0. This limitation is specific to SQLite and does not affect other
+database backends. For full SQLite RETURNING clause support, Python 3.10+ is recommended.
 
 As of the release of this software, the latest version of pydantic is 2.10.x. As of this version,
 Python no-GIL is not supported. Therefore, this software can only run on python3.13, not python3.13t.

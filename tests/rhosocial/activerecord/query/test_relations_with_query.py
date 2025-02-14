@@ -1,4 +1,6 @@
 """Test cases for relation eager loading query execution."""
+import time
+
 import pytest
 from decimal import Decimal
 from typing import List, Tuple, Type

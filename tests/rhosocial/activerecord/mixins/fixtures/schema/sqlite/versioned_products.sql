@@ -3,4 +3,4 @@ CREATE TABLE IF NOT EXISTS versioned_products (
     name TEXT NOT NULL,
     price REAL NOT NULL DEFAULT 0.0,
     version INTEGER NOT NULL DEFAULT 1
-) STRICT;
+);

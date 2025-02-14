@@ -23,6 +23,6 @@ setup(
     version=find_version("src/rhosocial/activerecord/__init__.py"),
     package_dir={"": "src"},
     packages=find_namespace_packages(where="src", include=['rhosocial.*']),
-    python_requires=">=3.10",
+    python_requires=">=3.9",
     namespace_packages=['rhosocial'],
 )

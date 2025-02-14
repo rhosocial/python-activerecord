@@ -16,6 +16,8 @@ from .dialect import (
     TypeMapper,
     ValueMapper,
     TypeMapping,
+    SQLDialectBase,
+    SQLExpressionBase,
 )
 
 # Type definitions and configuration
@@ -49,12 +51,6 @@ from .helpers import (
     safe_json_loads,
     array_converter,
     measure_time,
-)
-
-# Expression
-from .expression import (
-    SQLDialectBase,
-    SQLExpressionBase,
 )
 
 __all__ = [
@@ -99,4 +95,4 @@ __all__ = [
     'SQLExpressionBase',
 ]
 
-__version__ = '0.1.0'
+__version__ = '0.2.0'

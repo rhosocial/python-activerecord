@@ -2,8 +2,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List
 
-from .dialect import TypeMapper, ValueMapper, DatabaseType
-from .expression import SQLDialectBase, SQLExpressionBase, SQLBuilder
+from .dialect import TypeMapper, ValueMapper, DatabaseType, SQLDialectBase, SQLExpressionBase, SQLBuilder
 from .typing import ConnectionConfig, QueryResult
 
 # Type hints
@@ -13,8 +12,6 @@ ValueConverter = Dict[str, callable]
 class StorageBackend(ABC):
     """Abstract base class for storage backends"""
     _dialect: SQLDialectBase
-    _type_mapper: TypeMapper
-    _value_mapper: ValueMapper
 
     def __init__(self, **kwargs) -> None:
         if "connection_config" not in kwargs or kwargs["connection_config"] is None:
@@ -57,11 +54,11 @@ class StorageBackend(ABC):
 
     @property
     def type_mapper(self) -> TypeMapper:
-        return self._type_mapper
+        return self._dialect.type_mapper
 
     @property
     def value_mapper(self) -> ValueMapper:
-        return self._value_mapper
+        return self._dialect.value_mapper
 
     @abstractmethod
     def connect(self) -> None:
@@ -95,17 +92,43 @@ class StorageBackend(ABC):
                 sql: str,
                 params: Optional[Tuple] = None,
                 returning: bool = False,
-                column_types: Optional[ColumnTypes] = None) -> QueryResult:
-        """Execute SQL statement
+                column_types: Optional[ColumnTypes] = None,
+                returning_columns: Optional[List[str]] = None,
+                force_returning: bool = False) -> Optional[QueryResult]:
+        """Execute SQL statement with optional RETURNING clause
+
+        Note on SQLite RETURNING support:
+        When using SQLite backend with Python <3.10, RETURNING clause has known issues:
+        - affected_rows always returns 0
+        - last_insert_id may be unreliable
+        These limitations only affect SQLite and can be overridden using force_returning=True.
 
         Args:
             sql: SQL statement
             params: SQL parameters
             returning: Whether to return result set
-            column_types: Column type mapping for result type conversion {column_name: DatabaseType}
+                - For SELECT: True to fetch results
+                - For DML: True to use RETURNING clause
+            column_types: Column type mapping for result type conversion
+                Example: {"created_at": DatabaseType.DATETIME}
+            returning_columns: Specific columns to return. None means all columns.
+                Only used when returning=True for DML statements.
+            force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
+                despite known limitations. Has no effect with other database backends.
 
         Returns:
-            QueryResult: Query result
+            QueryResult: Query result containing:
+                - data: Result set if SELECT or RETURNING used
+                - affected_rows: Number of affected rows
+                - last_insert_id: Last inserted row ID
+                - duration: Query execution time
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported by backend
+                or Python version (SQLite with Python <3.10)
+            ConnectionError: Database connection error
+            QueryError: SQL syntax error
+            DatabaseError: Other database errors
         """
         pass
 
@@ -147,28 +170,66 @@ class StorageBackend(ABC):
                table: str,
                data: Dict,
                returning: bool = False,
-               column_types: Optional[ColumnTypes] = None) -> QueryResult:
+               column_types: Optional[ColumnTypes] = None,
+               returning_columns: Optional[List[str]] = None,
+               force_returning: bool = False) -> QueryResult:
         """Insert record
+
+        Note on RETURNING support:
+        When using SQLite backend with Python <3.10, RETURNING clause has known issues:
+        - affected_rows always returns 0
+        - last_insert_id may be unreliable
+        Use force_returning=True to override this limitation if you understand the consequences.
+        This limitation is specific to SQLite backend and does not affect other backends.
 
         Args:
             table: Table name
             data: Data to insert
             returning: Whether to return result set
             column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return in RETURNING clause. None means all columns.
+            force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
+                despite known limitations. Has no effect with other database backends.
 
         Returns:
             QueryResult: Execution result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported by backend
+                or Python version (SQLite with Python <3.10)
         """
-        fields = list(data.keys())
-        values = [self._value_mapper.to_database(v, column_types.get(k) if column_types else None)
-                 for k, v in data.items()]
-        placeholders = [self._type_mapper.get_placeholder(None) for _ in fields]
+        # Clean field names by stripping quotes
+        cleaned_data = {
+            k.strip('"'): v
+            for k, v in data.items()
+        }
+
+        fields = [f'"{field}"' for field in cleaned_data.keys()]  # Add quotes properly
+        values = [self.value_mapper.to_database(v, column_types.get(k.strip('"')) if column_types else None)
+                  for k, v in data.items()]
+        placeholders = [self.dialect.get_placeholder() for _ in fields]
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
-        if returning:
-            sql += " RETURNING *"
 
-        return self.execute(sql, tuple(values), returning, column_types)
+        # Clean returning columns by stripping quotes if specified
+        if returning_columns:
+            returning_columns = [col.strip('"') for col in returning_columns]
+
+        # Execute query and get result
+        result = self.execute(sql, tuple(values), returning, column_types, returning_columns, force_returning)
+
+        # If we have returning data, ensure the column names are consistently without quotes
+        if returning and result.data:
+            cleaned_data = []
+            for row in result.data:
+                cleaned_row = {
+                    k.strip('"'): v
+                    for k, v in row.items()
+                }
+                cleaned_data.append(cleaned_row)
+            result.data = cleaned_data
+
+        return result
 
     def update(self,
                table: str,
@@ -176,8 +237,17 @@ class StorageBackend(ABC):
                where: str,
                params: Tuple,
                returning: bool = False,
-               column_types: Optional[ColumnTypes] = None) -> QueryResult:
+               column_types: Optional[ColumnTypes] = None,
+               returning_columns: Optional[List[str]] = None,
+               force_returning: bool = False) -> QueryResult:
         """Update record
+
+        Note on RETURNING support:
+        When using SQLite backend with Python <3.10, RETURNING clause has known issues:
+        - affected_rows always returns 0
+        - last_insert_id may be unreliable
+        Use force_returning=True to override this limitation if you understand the consequences.
+        This limitation is specific to SQLite backend and does not affect other backends.
 
         Args:
             table: Table name
@@ -186,27 +256,41 @@ class StorageBackend(ABC):
             params: WHERE condition parameters
             returning: Whether to return result set
             column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return in RETURNING clause. None means all columns.
+            force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
+                despite known limitations. Has no effect with other database backends.
 
         Returns:
             QueryResult: Execution result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported by backend
+                or Python version (SQLite with Python <3.10)
         """
-        set_items = [f"{k} = {self._type_mapper.get_placeholder(None)}" for k in data.keys()]
-        values = [self._value_mapper.to_database(v, column_types.get(k) if column_types else None)
-                 for k, v in data.items()]
+        set_items = [f"{k} = {self.dialect.get_placeholder()}" for k in data.keys()]
+        values = [self.value_mapper.to_database(v, column_types.get(k) if column_types else None)
+                  for k, v in data.items()]
 
         sql = f"UPDATE {table} SET {', '.join(set_items)} WHERE {where}"
-        if returning:
-            sql += " RETURNING *"
 
-        return self.execute(sql, tuple(values) + params, returning, column_types)
+        return self.execute(sql, tuple(values) + params, returning, column_types, returning_columns, force_returning)
 
     def delete(self,
                table: str,
                where: str,
                params: Tuple,
                returning: bool = False,
-               column_types: Optional[ColumnTypes] = None) -> QueryResult:
+               column_types: Optional[ColumnTypes] = None,
+               returning_columns: Optional[List[str]] = None,
+               force_returning: bool = False) -> QueryResult:
         """Delete record
+
+        Note on RETURNING support:
+        When using SQLite backend with Python <3.10, RETURNING clause has known issues:
+        - affected_rows always returns 0
+        - last_insert_id may be unreliable
+        Use force_returning=True to override this limitation if you understand the consequences.
+        This limitation is specific to SQLite backend and does not affect other backends.
 
         Args:
             table: Table name
@@ -214,15 +298,20 @@ class StorageBackend(ABC):
             params: WHERE condition parameters
             returning: Whether to return result set
             column_types: Column type mapping for result type conversion
+            returning_columns: Specific columns to return in RETURNING clause. None means all columns.
+            force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
+                despite known limitations. Has no effect with other database backends.
 
         Returns:
             QueryResult: Execution result
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING requested but not supported by backend
+                or Python version (SQLite with Python <3.10)
         """
         sql = f"DELETE FROM {table} WHERE {where}"
-        if returning:
-            sql += " RETURNING *"
 
-        return self.execute(sql, params, returning, column_types)
+        return self.execute(sql, params, returning, column_types, returning_columns, force_returning)
 
     def begin_transaction(self) -> None:
         """Begin transaction"""
