@@ -20,8 +20,6 @@ class IQuery(Generic[ModelT], ABC):
         self.model_class = model_class
         self.conditions: List[Tuple[str, tuple]] = []
         self.order_clauses: List[str] = []
-        self.group_clauses: List[str] = []
-        self.having_conditions: List[Tuple[str, tuple]] = []
         self.limit_count: Optional[int] = None
         self.offset_count: Optional[int] = None
         self.join_clauses: List[str] = []

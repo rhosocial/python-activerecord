@@ -289,6 +289,34 @@ class SQLiteDialect(SQLDialectBase):
         """Get SQLite parameter placeholder"""
         return self._type_mapper.get_placeholder(None)
 
+    def quote_string(self, value: str) -> str:
+        # SQLite accepts both single and double quotes
+        # We choose single quotes for consistency
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+
+    def quote_identifier(self, identifier: str) -> str:
+        # SQLite allows double quotes or backticks for identifiers
+        # We choose double quotes as it's more standard SQL
+        if '"' in identifier:
+            # If identifier contains double quotes, switch to backticks
+            # to avoid complex escaping
+            escaped = identifier.replace('`', '``')
+            return f"`{escaped}`"
+        return f'"{identifier}"'
+
+    def format_limit_offset(self, limit: Optional[int] = None,
+                            offset: Optional[int] = None) -> str:
+        # SQLite requires LIMIT when using OFFSET
+        # Use -1 as LIMIT to indicate "no limit"
+        if limit is None and offset is not None:
+            return f"LIMIT -1 OFFSET {offset}"
+        elif limit is not None:
+            if offset is not None:
+                return f"LIMIT {limit} OFFSET {offset}"
+            return f"LIMIT {limit}"
+        return ""
+
     def create_expression(self, expression: str) -> SQLiteExpression:
         """Create SQLite expression"""
         return SQLiteExpression(expression)

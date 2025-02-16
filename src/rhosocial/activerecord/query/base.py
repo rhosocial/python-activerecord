@@ -4,7 +4,6 @@ from typing import List, Any, Optional, Union, Set, Tuple, Dict
 
 from ..backend.errors import QueryError, RecordNotFound
 from ..interface import ModelT, IQuery
-from .builder import QueryBuilder
 
 
 class BaseQueryMixin(IQuery[ModelT]):
@@ -257,22 +256,6 @@ class BaseQueryMixin(IQuery[ModelT]):
         self._log(logging.DEBUG, f"Added ORDER BY clauses: {clauses}")
         return self
 
-    def group_by(self, *clauses: str) -> 'IQuery':
-        """Add GROUP BY clauses."""
-        self.group_clauses.extend(clauses)
-        self._log(logging.DEBUG, f"Added GROUP BY clauses: {clauses}")
-        return self
-
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
-        """Add HAVING condition."""
-        if params is None:
-            params = tuple()
-        elif not isinstance(params, tuple):
-            params = tuple(params)
-        self.having_conditions.append((condition, params))
-        self._log(logging.DEBUG, f"Added HAVING condition: {condition}")
-        return self
-
     def join(self, join_clause: str) -> 'IQuery':
         """Add JOIN clause."""
         self.join_clauses.append(join_clause)
@@ -291,9 +274,60 @@ class BaseQueryMixin(IQuery[ModelT]):
         """Set OFFSET."""
         if count < 0:
             raise QueryError("Offset count must be non-negative")
+        if self.limit_count is None:
+            self._log(logging.WARNING,
+                     "Using OFFSET without LIMIT may be unsupported by some databases")
         self.offset_count = count
         self._log(logging.DEBUG, f"Set OFFSET to {count}")
         return self
+
+    def _build_select(self) -> str:
+        """Build SELECT and FROM clauses."""
+        dialect = self.model_class.backend().dialect
+        table = dialect.quote_identifier(self.model_class.table_name())
+        return f"SELECT {', '.join(self.select_columns)} FROM {table}"
+
+    def _build_joins(self) -> List[str]:
+        """Build JOIN clauses."""
+        return self.join_clauses.copy() if self.join_clauses else []
+
+    def _build_where(self) -> Tuple[Optional[str], List[Any]]:
+        """Build WHERE clause and collect parameters."""
+        params = []
+        where_parts = []
+
+        for i, group in enumerate(self.condition_groups):
+            if not group:
+                continue
+
+            group_clauses = []
+            for j, (condition, condition_params, operator) in enumerate(group):
+                if j == 0:
+                    group_clauses.append(condition)
+                else:
+                    group_clauses.append(f"{operator} {condition}")
+                params.extend(condition_params)
+
+            if group_clauses:
+                group_sql = ' '.join(group_clauses)
+                if i > 0 or any(op == 'OR' for _, _, op in group):
+                    group_sql = f"({group_sql})"
+                where_parts.append(group_sql)
+
+        if where_parts:
+            return f"WHERE {' AND '.join(where_parts)}", params
+        return None, params
+
+    def _build_order(self) -> Optional[str]:
+        """Build ORDER BY clause."""
+        if self.order_clauses:
+            return f"ORDER BY {', '.join(self.order_clauses)}"
+        return None
+
+    def _build_limit_offset(self) -> Optional[str]:
+        """Build LIMIT/OFFSET clause using dialect."""
+        dialect = self.model_class.backend().dialect
+        return dialect.format_limit_offset(self.limit_count, self.offset_count)
 
     def build(self) -> Tuple[str, tuple]:
         """Build complete SQL query with parameters.
@@ -306,50 +340,29 @@ class BaseQueryMixin(IQuery[ModelT]):
         Raises:
             QueryError: If query construction fails
         """
-        query_parts = [f"SELECT {', '.join(self.select_columns)} FROM {self.model_class.table_name()}"]
+        query_parts = [self._build_select()]
         all_params = []
 
-        if self.join_clauses:
-            query_parts.extend(self.join_clauses)
+        # Add JOIN clauses
+        join_parts = self._build_joins()
+        if join_parts:
+            query_parts.extend(join_parts)
 
-        where_parts = []
-        for i, group in enumerate(self.condition_groups):
-            if not group:
-                continue
+        # Add WHERE clause
+        where_sql, where_params = self._build_where()
+        if where_sql:
+            query_parts.append(where_sql)
+            all_params.extend(where_params)
 
-            group_clauses = []
-            for j, (condition, params, operator) in enumerate(group):
-                if j == 0:
-                    group_clauses.append(condition)
-                else:
-                    group_clauses.append(f"{operator} {condition}")
-                all_params.extend(params)
+        # Add ORDER BY clause
+        order_sql = self._build_order()
+        if order_sql:
+            query_parts.append(order_sql)
 
-            if group_clauses:
-                group_sql = ' '.join(group_clauses)
-                if i > 0 or any(op == 'OR' for _, _, op in group):
-                    group_sql = f"({group_sql})"
-                where_parts.append(group_sql)
-
-        if where_parts:
-            where_clause = " AND ".join(where_parts)
-            query_parts.append(f"WHERE {where_clause}")
-
-        if self.group_clauses:
-            query_parts.append(QueryBuilder.build_group(self.group_clauses))
-
-        if self.having_conditions:
-            having_sql, having_params = QueryBuilder.build_having(self.having_conditions)
-            query_parts.append(having_sql)
-            all_params.extend(having_params)
-
-        if self.order_clauses:
-            query_parts.append(QueryBuilder.build_order(self.order_clauses))
-
-        if self.limit_count is not None:
-            query_parts.append(f"LIMIT {self.limit_count}")
-        if self.offset_count is not None:
-            query_parts.append(f"OFFSET {self.offset_count}")
+        # Add LIMIT/OFFSET clause
+        limit_offset_sql = self._build_limit_offset()
+        if limit_offset_sql:
+            query_parts.append(limit_offset_sql)
 
         return " ".join(query_parts), tuple(all_params)
 

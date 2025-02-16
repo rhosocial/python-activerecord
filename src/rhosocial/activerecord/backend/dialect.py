@@ -252,6 +252,44 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def quote_string(self, value: str) -> str:
+        """Quote string literal.
+
+        Args:
+            value: String value to quote
+
+        Returns:
+            str: Quoted string (e.g., 'value', "value")
+        """
+        pass
+
+    @abstractmethod
+    def quote_identifier(self, identifier: str) -> str:
+        """Quote identifier (table name, column name).
+
+        Args:
+            identifier: Database identifier to quote
+
+        Returns:
+            str: Quoted identifier (e.g., `name`, "name", [name])
+        """
+        pass
+
+    @abstractmethod
+    def format_limit_offset(self, limit: Optional[int] = None,
+                          offset: Optional[int] = None) -> str:
+        """Format LIMIT and OFFSET clause.
+
+        Args:
+            limit: Maximum number of rows
+            offset: Number of rows to skip
+
+        Returns:
+            str: Complete LIMIT/OFFSET clause
+        """
+        pass
+
+    @abstractmethod
     def create_expression(self, expression: str) -> SQLExpressionBase:
         """Create SQL expression"""
         pass

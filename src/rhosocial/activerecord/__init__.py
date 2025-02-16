@@ -11,7 +11,7 @@ Provides a unified ActiveRecord implementation that combines:
 - Field type support
 """
 
-__version__ = "1.0.0.dev2+20250214"
+__version__ = "1.0.0.dev2+20250216"
 
 # ### **Version Format**
 # The version string MUST follow the [PEP 440](https://packaging.python.org/en/latest/specifications/version-specifiers/) standard.

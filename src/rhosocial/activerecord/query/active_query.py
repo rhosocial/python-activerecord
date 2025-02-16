@@ -9,7 +9,7 @@ class ActiveQuery(
     RelationalQueryMixin,
     AggregateQueryMixin,
     RangeQueryMixin,
-    BaseQueryMixin
+    # BaseQueryMixin
 ):
     """Complete ActiveQuery implementation.
 
