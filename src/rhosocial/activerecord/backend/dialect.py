@@ -252,8 +252,8 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
-    def quote_string(self, value: str) -> str:
-        """Quote string literal.
+    def format_string_literal(self, value: str) -> str:
+        """Format string literal.
 
         Args:
             value: String value to quote
@@ -264,8 +264,8 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
-    def quote_identifier(self, identifier: str) -> str:
-        """Quote identifier (table name, column name).
+    def format_identifier(self, identifier: str) -> str:
+        """Format identifier (table name, column name).
 
         Args:
             identifier: Database identifier to quote
@@ -290,6 +290,29 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def get_parameter_placeholder(self, position: int) -> str:
+        """Get parameter placeholder with position
+
+        Args:
+            position: Parameter position (0-based)
+
+        Returns:
+            str: Parameter placeholder for the specific database
+        """
+        pass
+
+    def format_like_pattern(self, pattern: str) -> str:
+        """Format LIKE pattern by escaping % characters
+
+        Args:
+            pattern: Original LIKE pattern
+
+        Returns:
+            str: Escaped pattern
+        """
+        return pattern
+
+    @abstractmethod
     def create_expression(self, expression: str) -> SQLExpressionBase:
         """Create SQL expression"""
         pass
@@ -306,20 +329,31 @@ class SQLBuilder:
         self.sql = ""
         self.params = []
 
-    def build(self, sql: str, params: Optional[Tuple] = None) -> Tuple[str, Tuple]:
-        """Build SQL and parameters
+    # [deprecated]
+    def __build(self, sql: str, params: Optional[Union[Tuple, List, Dict]] = None) -> Tuple[str, Tuple]:
+        """Build SQL statement with parameters
 
-        Process expressions and parameter placeholders in SQL
+        All question marks (?) in the SQL statement are treated as parameter
+        placeholders and must have corresponding parameters. If you need to
+        use a question mark as an actual value in your SQL, pass it as a
+        parameter.
 
         Args:
-            sql: Raw SQL
-            params: SQL parameters
+            sql: SQL statement with ? placeholders
+            params: Parameter values
 
         Returns:
             Tuple[str, Tuple]: (Processed SQL, Processed parameters)
+
+        Raises:
+            ValueError: If parameter count doesn't match placeholder count
         """
         if not params:
             return sql, ()
+
+        # Convert params to tuple if needed
+        if isinstance(params, (list, dict)):
+            params = tuple(params)
 
         # Find all placeholder positions
         placeholder = self.dialect.get_placeholder()
@@ -364,3 +398,132 @@ class SQLBuilder:
                 param_index += 1
 
         return ''.join(result), tuple(final_params)
+
+    def build(self, sql: str, params: Optional[Union[Tuple, List, Dict]] = None) -> Tuple[str, Tuple]:
+        """Build SQL statement with parameters
+
+        All question marks (?) in the SQL statement are treated as parameter
+        placeholders and must have corresponding parameters. If you need to
+        use a question mark as an actual value in your SQL, pass it as a
+        parameter.
+
+        Args:
+            sql: SQL statement with ? placeholders
+            params: Parameter values
+
+        Returns:
+            Tuple[str, Tuple]: (Processed SQL, Processed parameters)
+
+        Raises:
+            ValueError: If parameter count doesn't match placeholder count
+        """
+        if not params:
+            return sql, ()
+
+        # Convert params to tuple if needed
+        if isinstance(params, (list, dict)):
+            params = tuple(params)
+
+        # First pass: collect information about parameters
+        final_params = []
+        expr_positions = {}  # Maps original position to expression
+        param_count = 0
+
+        for i, param in enumerate(params):
+            if isinstance(param, SQLExpressionBase):
+                expr_positions[i] = self.dialect.format_expression(param)
+            else:
+                final_params.append(param)
+                param_count += 1
+
+        # Second pass: build SQL with correct placeholders
+        result = []
+        current_pos = 0
+        param_position = 0  # Counter for regular parameters
+        placeholder_count = 0  # Total placeholder counter
+
+        while True:
+            # Find next placeholder
+            placeholder_pos = sql.find('?', current_pos)
+            if placeholder_pos == -1:
+                # No more placeholders, add remaining SQL
+                result.append(sql[current_pos:])
+                break
+
+            # Add SQL up to placeholder
+            result.append(sql[current_pos:placeholder_pos])
+
+            # Check if this position corresponds to an expression
+            if placeholder_count in expr_positions:
+                # Add the formatted expression
+                result.append(expr_positions[placeholder_count])
+            else:
+                # Add a parameter placeholder with correct position
+                result.append(self.dialect.get_parameter_placeholder(param_position))
+                param_position += 1
+
+            current_pos = placeholder_pos + 1
+            placeholder_count += 1
+
+        # Verify parameter count
+        if placeholder_count != len(params):
+            raise ValueError(
+                f"Parameter count mismatch: SQL needs {placeholder_count} "
+                f"parameters but {len(params)} were provided"
+            )
+
+        return ''.join(result), tuple(final_params)
+
+    def format_identifier(self, identifier: str) -> str:
+        """Format identifier according to dialect rules
+
+        Use this method to properly quote table and column names.
+
+        Args:
+            identifier: Raw identifier name
+
+        Returns:
+            str: Properly quoted and escaped identifier
+        """
+        return self.dialect.format_identifier(identifier)
+
+    def format_string_literal(self, value: str) -> str:
+        """Format string literal according to dialect rules
+
+        Use this method to properly quote string values that need to be
+        embedded directly in SQL, not passed as parameters.
+
+        Args:
+            value: Raw string value
+
+        Returns:
+            str: Properly quoted and escaped string literal
+        """
+        return self.dialect.format_string_literal(value)
+
+    def format_limit_offset(self, limit: Optional[int] = None,
+                            offset: Optional[int] = None) -> str:
+        """Format LIMIT and OFFSET clause
+
+        Args:
+            limit: Maximum number of rows
+            offset: Number of rows to skip
+
+        Returns:
+            str: Complete LIMIT/OFFSET clause according to dialect rules
+        """
+        return self.dialect.format_limit_offset(limit, offset)
+
+    def format_expression(self, expr: Any) -> str:
+        """Format SQL expression according to dialect rules
+
+        Use this method to format special SQL expressions that may have
+        dialect-specific syntax.
+
+        Args:
+            expr: Expression to format
+
+        Returns:
+            str: Formatted expression according to dialect rules
+        """
+        return self.dialect.format_expression(expr)

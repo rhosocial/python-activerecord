@@ -154,14 +154,14 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             return super()._build_select()
 
         dialect = self.model_class.backend().dialect
-        table = dialect.quote_identifier(self.model_class.table_name())
+        table = dialect.format_identifier(self.model_class.table_name())
 
         # Build select parts
         select_parts = []
 
         # Add group columns with proper quoting
         for col in self._group_columns:
-            select_parts.append(dialect.quote_identifier(col))
+            select_parts.append(dialect.format_identifier(col))
 
         # Add expressions (they handle their own formatting)
         for expr in self._expressions:
@@ -180,7 +180,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         # Add GROUP BY
         if self._group_columns:
             dialect = self.model_class.backend().dialect
-            quoted_columns = [dialect.quote_identifier(col) for col in self._group_columns]
+            quoted_columns = [dialect.format_identifier(col) for col in self._group_columns]
             query_parts.append(f"GROUP BY {', '.join(quoted_columns)}")
 
         # Add HAVING

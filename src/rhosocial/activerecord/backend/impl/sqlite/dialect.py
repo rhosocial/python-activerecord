@@ -289,13 +289,13 @@ class SQLiteDialect(SQLDialectBase):
         """Get SQLite parameter placeholder"""
         return self._type_mapper.get_placeholder(None)
 
-    def quote_string(self, value: str) -> str:
+    def format_string_literal(self, value: str) -> str:
         # SQLite accepts both single and double quotes
         # We choose single quotes for consistency
         escaped = value.replace("'", "''")
         return f"'{escaped}'"
 
-    def quote_identifier(self, identifier: str) -> str:
+    def format_identifier(self, identifier: str) -> str:
         # SQLite allows double quotes or backticks for identifiers
         # We choose double quotes as it's more standard SQL
         if '"' in identifier:
@@ -316,6 +316,13 @@ class SQLiteDialect(SQLDialectBase):
                 return f"LIMIT {limit} OFFSET {offset}"
             return f"LIMIT {limit}"
         return ""
+
+    def get_parameter_placeholder(self, position: int) -> str:
+        """Get SQLite parameter placeholder
+
+        SQLite uses ? for all parameters regardless of position
+        """
+        return "?"
 
     def create_expression(self, expression: str) -> SQLiteExpression:
         """Create SQLite expression"""

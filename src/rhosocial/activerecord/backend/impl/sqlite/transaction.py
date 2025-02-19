@@ -1,5 +1,5 @@
 from typing import Dict, Optional
-from ....transaction import TransactionManager, IsolationLevel
+from ...transaction import TransactionManager, IsolationLevel
 from ...errors import TransactionError
 
 

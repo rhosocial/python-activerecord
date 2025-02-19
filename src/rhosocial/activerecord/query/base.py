@@ -284,7 +284,7 @@ class BaseQueryMixin(IQuery[ModelT]):
     def _build_select(self) -> str:
         """Build SELECT and FROM clauses."""
         dialect = self.model_class.backend().dialect
-        table = dialect.quote_identifier(self.model_class.table_name())
+        table = dialect.format_identifier(self.model_class.table_name())
         return f"SELECT {', '.join(self.select_columns)} FROM {table}"
 
     def _build_joins(self) -> List[str]:

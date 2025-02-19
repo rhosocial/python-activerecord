@@ -173,3 +173,6 @@ cython_debug/
 
 # Apple macOS
 **/.DS_Store
+
+# Examples
+examples/**

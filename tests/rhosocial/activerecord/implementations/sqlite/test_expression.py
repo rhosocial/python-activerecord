@@ -201,14 +201,14 @@ def test_expression_count_mismatch(db, setup_test_table):
     )
 
     # 情况1: 参数太少
-    with pytest.raises(ValueError, match="Parameter count mismatch: expected 3, got 2"):
+    with pytest.raises(ValueError, match="Parameter count mismatch: SQL needs 3 parameters but 2 were provided"):
         db.execute(
             "UPDATE test_table SET age = ? WHERE name = ? AND age = ?",
             (db.create_expression("age + 1"), "test_user")  # 缺少最后一个参数
         )
 
     # 情况2: 参数太多
-    with pytest.raises(ValueError, match="Parameter count mismatch: expected 2, got 3"):
+    with pytest.raises(ValueError, match="Parameter count mismatch: SQL needs 2 parameters but 3 were provided"):
         db.execute(
             "UPDATE test_table SET age = ? WHERE name = ?",
             (db.create_expression("age + 1"), "test_user", 20)  # 多余的参数
