@@ -7,7 +7,8 @@ from typing import Optional, List
 from typing import Tuple, Any
 
 from .types import SQLITE_TYPE_MAPPINGS
-from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler
+from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
+    ExplainOptions, ExplainType
 from ...errors import TypeConversionError, ReturningNotSupportedError
 from ...helpers import safe_json_dumps, parse_datetime, convert_datetime, array_converter, safe_json_loads
 from ...typing import ConnectionConfig
@@ -323,6 +324,24 @@ class SQLiteDialect(SQLDialectBase):
         SQLite uses ? for all parameters regardless of position
         """
         return "?"
+
+    def format_explain(self, sql: str, options: Optional[ExplainOptions] = None) -> str:
+        """Format SQLite EXPLAIN statement
+
+        Args:
+            sql: SQL to explain
+            options: EXPLAIN options
+
+        Returns:
+            str: Formatted EXPLAIN statement
+        """
+        if not options:
+            options = ExplainOptions()
+
+        # SQLite supports two types of EXPLAIN
+        if options.type == ExplainType.QUERYPLAN:
+            return f"EXPLAIN QUERY PLAN {sql}"
+        return f"EXPLAIN {sql}"
 
     def create_expression(self, expression: str) -> SQLiteExpression:
         """Create SQLite expression"""

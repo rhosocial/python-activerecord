@@ -146,9 +146,9 @@ class SQLiteBackend(StorageBackend):
 
             # Parse statement type from SQL
             stmt_type = sql.strip().split(None, 1)[0].upper()
-            is_select = stmt_type == "SELECT"
+            is_select = stmt_type in ("SELECT", "EXPLAIN")
             is_dml = stmt_type in ("INSERT", "UPDATE", "DELETE")
-            need_returning = returning and not is_select
+            need_returning = returning and is_dml
 
             # Version compatibility check for RETURNING in DML statements
             if need_returning and is_dml:

@@ -2,6 +2,7 @@
 import logging
 from typing import List, Any, Optional, Union, Set, Tuple, Dict
 
+from ..backend.dialect import ExplainType, ExplainOptions
 from ..backend.errors import QueryError, RecordNotFound
 from ..interface import ModelT, IQuery
 
@@ -29,14 +30,68 @@ class BaseQueryMixin(IQuery[ModelT]):
         self._log(logging.DEBUG, f"SQL parameters: {params}")
         return sql, params
 
-    def explain(self) -> str:
-        """Get query execution plan."""
-        sql, params = self.build()
-        explain_sql = f"EXPLAIN QUERY PLAN {sql}"
-        self._log(logging.DEBUG, f"Executing EXPLAIN: {explain_sql}")
+    def explain(self,
+                sql: str,
+                params: Optional[Tuple] = None,
+                explain_type: Optional[str] = None,
+                format_output: bool = True,
+                **explain_options) -> Union[str, List[Dict]]:
+        """Execute EXPLAIN for given SQL
 
-        cursor = self.model_class.backend().execute(explain_sql, params)
-        return "\n".join(str(row) for row in cursor.fetchall())
+        Args:
+            sql: SQL to explain
+            params: SQL parameters
+            explain_type: Type of explain (e.g. 'ANALYZE', 'PLAN')
+                         Supported types vary by database
+            format_output: Whether to format output as string
+                          If False, returns raw result rows
+            **explain_options: Additional EXPLAIN options
+                              Used to construct ExplainOptions
+
+        Returns:
+            Union[str, List[Dict]]: Execution plan
+                - If format_output=True: formatted string
+                - If format_output=False: list of result rows
+
+        Raises:
+            QueryError: If EXPLAIN fails
+            ValueError: If options are invalid
+        """
+        # Convert legacy explain_type to ExplainType
+        if isinstance(explain_type, str):
+            try:
+                explain_type = ExplainType[explain_type.upper()]
+            except KeyError:
+                raise ValueError(f"Invalid explain type: {explain_type}")
+
+        # Build options object
+        options = ExplainOptions(
+            type=explain_type or ExplainType.BASIC,
+            format='text' if format_output else 'json',
+            **explain_options
+        )
+
+        # Build explain SQL using dialect
+        explain_sql = self.model_class.backend().dialect.format_explain(sql, explain_type)
+
+        # Execute explain
+        result = self.model_class.backend().execute(explain_sql, params, returning=True)
+
+        if not format_output:
+            return result.data
+
+        # Format output as string
+        output = []
+        for row in result.data:
+            # Handle different output formats from different databases
+            if isinstance(row, dict):
+                # JSON format (e.g. PostgreSQL)
+                output.append(str(row))
+            else:
+                # Plain text format
+                output.append(str(row))
+
+        return "\n".join(output)
 
     def select(self, *columns: str) -> 'IQuery':
         """Select specific columns to retrieve from the query.

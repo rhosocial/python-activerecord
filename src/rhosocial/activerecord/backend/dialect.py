@@ -159,7 +159,6 @@ class ReturningClauseHandler(ABC):
         """
         pass
 
-
 class SQLExpressionBase(ABC):
     """Base class for SQL expressions
 
@@ -191,6 +190,29 @@ class SQLExpressionBase(ABC):
             str: Formatted expression
         """
         pass
+
+class ExplainType(Enum):
+    """Type of EXPLAIN command"""
+    BASIC = auto()  # Basic explain
+    ANALYZE = auto()  # Execute query and show actual times
+    VERBOSE = auto()  # Show additional information
+    QUERYPLAN = auto()  # Query plan only (SQLite specific)
+    JSON = auto()  # JSON format output
+
+@dataclass
+class ExplainOptions:
+    """Options for EXPLAIN command"""
+    type: ExplainType = ExplainType.BASIC
+    costs: bool = True  # Show estimated costs
+    buffers: bool = False  # Show buffer usage
+    timing: bool = True  # Include timing information
+    format: str = 'text'  # Output format: text/json/xml/yaml
+
+    def __post_init__(self):
+        """Validate options"""
+        valid_formats = {'text', 'json', 'xml', 'yaml'}
+        if self.format not in valid_formats:
+            raise ValueError(f"Invalid format: {self.format}. Must be one of {valid_formats}")
 
 class SQLDialectBase(ABC):
     """Base class for SQL dialects
@@ -313,10 +335,23 @@ class SQLDialectBase(ABC):
         return pattern
 
     @abstractmethod
+    def format_explain(self, sql: str, explain_type: Optional[str] = None) -> str:
+        """Format EXPLAIN statement according to dialect rules
+
+        Args:
+            sql: SQL to explain
+            explain_type: Type of explain (e.g. 'ANALYZE', 'PLAN')
+                         Supported types vary by database
+
+        Returns:
+            str: Formatted EXPLAIN statement
+        """
+        pass
+
+    @abstractmethod
     def create_expression(self, expression: str) -> SQLExpressionBase:
         """Create SQL expression"""
         pass
-
 
 class SQLBuilder:
     """SQL Builder
