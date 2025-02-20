@@ -118,13 +118,17 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
                                 distinct: bool = False) -> Optional[Any]:
         """Execute a simple aggregate function without grouping.
 
+        This internal method handles both normal execution and explain mode for
+        simple aggregate functions (COUNT, SUM, AVG, etc.).
+
         Args:
             func: Aggregate function name (COUNT, SUM, etc.)
             column: Column to aggregate
             distinct: Whether to use DISTINCT
 
         Returns:
-            Single aggregate result value
+            Optional[Any]: Single aggregate result value
+            Union[str, List[Dict]]: Execution plan if explain is enabled
         """
         # Save original state
         original_select = self.select_columns
@@ -140,6 +144,11 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         # Execute query
         sql, params = super().build()
         self._log(logging.INFO, f"Executing simple aggregate: {sql}")
+
+        # Handle explain if enabled
+        if self._explain_enabled:
+            return self._execute_with_explain(sql, params)
+
         result = self.model_class.backend().fetch_one(sql, params)
 
         # Restore original state
@@ -264,11 +273,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
              distinct: bool = False) -> Union['AggregateQueryMixin', int]:
         """Add COUNT expression or execute simple count.
 
-        When used in aggregate query (with GROUP BY or other aggregates):
-            Returns query instance with COUNT expression added
-
-        When used alone:
-            Executes COUNT immediately and returns the result
+        This method has two behaviors:
+        1. When used in aggregate query (with GROUP BY or other aggregates):
+           Returns query instance with COUNT expression added
+        2. When used alone:
+           - In normal mode: Executes COUNT immediately and returns the result
+           - In explain mode: Returns the execution plan for the COUNT query
 
         Args:
             column: Column to count
@@ -278,6 +288,23 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         Returns:
             Query instance for chaining if in aggregate query
             Count result if simple count
+            Execution plan if explain is enabled
+
+        Examples:
+            # Simple count (immediate execution)
+            total = User.query().count()
+
+            # With execution plan
+            plan = User.query()\\
+                .explain()\\
+                .count()
+
+            # As part of aggregate query
+            result = User.query()\\
+                .group_by('type')\\
+                .count('id', 'total')\\
+                .explain()\\
+                .aggregate()
         """
         expr = AggregateExpression("COUNT", column, distinct, alias)
         if self._is_aggregate_query():
@@ -315,19 +342,43 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         return self._execute_simple_aggregate("MAX", column)
 
     def aggregate(self) -> Union[Dict[str, Any], List[Dict[str, Any]]]:
-        """Execute aggregate query
+        """Execute aggregate query with all configured expressions and groupings.
 
         Executes the query with all configured expressions and groupings.
         Inherits WHERE conditions, ORDER BY, and LIMIT/OFFSET from base query.
 
+        If explain() has been called on the query, this method will return
+        the execution plan instead of the actual results. The format of the
+        plan depends on the options provided to explain().
+
         Returns:
             - Single dict if no GROUP BY
             - List of dicts if GROUP BY specified
+            - Execution plan if explain is enabled
 
-        Each dict contains expression results with their aliases as keys.
+        Each dict contains expression results with their aliases as keys
+        (in normal execution mode).
+
+        Examples:
+            # Normal execution with grouping
+            result = User.query()\\
+                .group_by('department')\\
+                .count('id', 'total')\\
+                .aggregate()
+
+            # With execution plan
+            plan = User.query()\\
+                .group_by('department')\\
+                .explain(type=ExplainType.QUERYPLAN)\\
+                .having('COUNT(*) > ?', (100,))\\
+                .aggregate()
         """
         sql, params = self._build_aggregate_query()
         self._log(logging.INFO, f"Executing aggregate query: {sql}")
+
+        # Handle explain if enabled
+        if self._explain_enabled:
+            return self._execute_with_explain(sql, params)
 
         # Execute query
         result = self.model_class.backend().fetch_all(sql, params)

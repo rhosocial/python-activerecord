@@ -3,12 +3,12 @@ import sys
 import uuid
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Set
 from typing import Tuple, Any
 
 from .types import SQLITE_TYPE_MAPPINGS
 from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
-    ExplainOptions, ExplainType
+    ExplainOptions, ExplainType, ExplainFormat
 from ...errors import TypeConversionError, ReturningNotSupportedError
 from ...helpers import safe_json_dumps, parse_datetime, convert_datetime, array_converter, safe_json_loads
 from ...typing import ConnectionConfig
@@ -342,6 +342,10 @@ class SQLiteDialect(SQLDialectBase):
         if options.type == ExplainType.QUERYPLAN:
             return f"EXPLAIN QUERY PLAN {sql}"
         return f"EXPLAIN {sql}"
+
+    @property
+    def supported_formats(self) -> Set[ExplainFormat]:
+        return {ExplainFormat.TEXT}
 
     def create_expression(self, expression: str) -> SQLiteExpression:
         """Create SQLite expression"""

@@ -19,6 +19,7 @@ class SQLiteBackend(StorageBackend):
         self._isolation_level = kwargs.get("isolation_level", None)
         self._transaction_manager = None
         self._dialect = SQLiteDialect(self.config)
+        self._delete_on_close = kwargs.get("delete_on_close", False)
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -51,6 +52,24 @@ class SQLiteBackend(StorageBackend):
                 self._connection = None
                 self._cursor = None
                 self._transaction_manager = None
+
+                # Handle file deletion if enabled and not using in-memory database
+                if self._delete_on_close and self.config.database != ":memory:":
+                    try:
+                        import os
+                        # Delete main database file
+                        if os.path.exists(self.config.database):
+                            os.remove(self.config.database)
+
+                        # Delete WAL and SHM files if they exist
+                        wal_file = f"{self.config.database}-wal"
+                        shm_file = f"{self.config.database}-shm"
+                        if os.path.exists(wal_file):
+                            os.remove(wal_file)
+                        if os.path.exists(shm_file):
+                            os.remove(shm_file)
+                    except OSError as e:
+                        raise ConnectionError(f"Failed to delete database files: {str(e)}")
             except sqlite3.Error as e:
                 raise ConnectionError(f"Failed to disconnect: {str(e)}")
 

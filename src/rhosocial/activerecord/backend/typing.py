@@ -41,6 +41,7 @@ class ConnectionConfig:
     options: Dict[str, Any] = field(default_factory=dict)
     version: Optional[tuple] = None
     driver_type: Optional[Any] = None
+    delete_on_close: Optional[bool] = False
 
     def to_dict(self) -> dict:
         """Convert config to dictionary, excluding None values"""

@@ -398,59 +398,23 @@ class DefaultRelationLoader(RelationLoader[R]):
     """Default implementation of relation loading logic."""
 
     def __init__(self, descriptor: RelationDescriptor):
+        """Initialize the loader with a reference to its descriptor.
+
+        Args:
+            descriptor: The RelationDescriptor that owns this loader
+        """
         self.descriptor = descriptor
         self._cached_model: Optional[Type[R]] = None
 
-    # [deprecated]
-    def __load(self, instance: Any) -> Optional[Union[R, List[R]]]:
-
-        if self._cached_model is None:
-            model_class = self.descriptor.get_related_model(type(instance))
-            self._cached_model = model_class
-
-        model_class = cast(Type[Union[IActiveRecord, QueryMixin]], self._cached_model)
-
-        if isinstance(self.descriptor, BelongsTo):
-            if not hasattr(instance, self.descriptor.foreign_key):
-                raise ValueError(f"Missing foreign key: {self.descriptor.foreign_key}")
-            foreign_key_value = getattr(instance, self.descriptor.foreign_key)
-            if foreign_key_value is None:
-                return None
-
-            return model_class.query().where(
-                f"{model_class.primary_key()} = ?",
-                (foreign_key_value,)
-            ).one()
-
-        elif isinstance(self.descriptor, (HasOne, HasMany)):
-            primary_key_value = getattr(instance, instance.primary_key())
-            if primary_key_value is None:
-                return [] if isinstance(self.descriptor, HasMany) else None
-
-            query = model_class.query().where(
-                f"{self.descriptor.foreign_key} = ?",
-                (primary_key_value,)
-            )
-
-            conditions = getattr(self.descriptor, 'conditions', {})
-            for condition, value in conditions.items():
-                query = query.where(condition, (value,))
-
-            order_by = getattr(self.descriptor, 'order_by', None)
-            if order_by:
-                if isinstance(order_by, str):
-                    query = query.order_by(order_by)
-                elif isinstance(order_by, list):
-                    query = query.order_by(*order_by)
-                else:
-                    raise ValueError("Invalid order_by conditions")
-
-            return query.one() if isinstance(self.descriptor, HasOne) else query.all()
-
-        return None
-
     def load(self, instance: Any) -> Optional[Union[R, List[R]]]:
-        """Load relation for a single instance."""
+        """Load relation for a single instance.
+
+        Args:
+            instance: The model instance to load relations for
+
+        Returns:
+            Optional[Union[R, List[R]]]: Related data or None
+        """
         # Delegate to batch_load for consistency
         result = self.batch_load([instance], None)
         return result.get(id(instance))
@@ -528,6 +492,7 @@ class DefaultRelationLoader(RelationLoader[R]):
                 }
 
             # Load all related records using base_query
+            # Keep existing conditions from base_query, only add IN condition
             related_records = query.where(
                 f"{self.descriptor.foreign_key} IN ({','.join('?' * len(primary_keys))})",
                 list(primary_keys)
@@ -547,9 +512,11 @@ class DefaultRelationLoader(RelationLoader[R]):
                 if pk_value is not None:
                     related_data = related_map.get(pk_value, [])
                     if isinstance(self.descriptor, HasOne):
+                        # For HasOne, take first record if any exists
                         related_data = related_data[0] if related_data else None
                     result[id(instance)] = related_data
                 else:
+                    # No primary key means no relations
                     result[id(instance)] = [] if isinstance(self.descriptor, HasMany) else None
 
         return result

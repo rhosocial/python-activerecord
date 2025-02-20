@@ -54,7 +54,7 @@ def create_order_fixtures():
         db_config = request.param
 
         # 创建后端实例
-        backend = db_config.helper["class"](database=db_config.config["database"])
+        backend = db_config.helper["class"](**db_config.config)
 
         # 配置所有模型使用相同的后端实例
         for model_class in model_classes:
@@ -109,7 +109,7 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
         db_config = request.param
 
         # Create backend instance
-        backend = db_config.helper["class"](database=db_config.config["database"])
+        backend = db_config.helper["class"](**db_config.config)
 
         # Configure all models to use the same backend instance
         for model_class in model_classes:
@@ -225,7 +225,7 @@ def create_blog_fixtures():
         db_config = request.param
 
         # Create backend instance
-        backend = db_config.helper["class"](database=db_config.config["database"])
+        backend = db_config.helper["class"](**db_config.config)
 
         # Configure all models to use the same backend instance
         for model_class in model_classes:

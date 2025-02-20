@@ -4,7 +4,7 @@ from dataclasses import dataclass
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Optional, get_origin, Union, List, Tuple
+from typing import Any, Callable, Dict, Optional, get_origin, Union, List, Tuple, Set
 
 
 class DatabaseType(Enum):
@@ -192,27 +192,45 @@ class SQLExpressionBase(ABC):
         pass
 
 class ExplainType(Enum):
-    """Type of EXPLAIN command"""
-    BASIC = auto()  # Basic explain
-    ANALYZE = auto()  # Execute query and show actual times
-    VERBOSE = auto()  # Show additional information
+    """Type of EXPLAIN output"""
+    BASIC = auto()      # Basic execution plan
+    ANALYZE = auto()    # Include actual execution statistics
     QUERYPLAN = auto()  # Query plan only (SQLite specific)
-    JSON = auto()  # JSON format output
+
+class ExplainFormat(Enum):
+    """Output format for EXPLAIN results"""
+    TEXT = "text"    # Human readable text
+    JSON = "json"    # JSON format
+    XML = "xml"      # XML format (SQL Server)
+    YAML = "yaml"    # YAML format (PostgreSQL)
 
 @dataclass
 class ExplainOptions:
     """Options for EXPLAIN command"""
     type: ExplainType = ExplainType.BASIC
-    costs: bool = True  # Show estimated costs
-    buffers: bool = False  # Show buffer usage
-    timing: bool = True  # Include timing information
-    format: str = 'text'  # Output format: text/json/xml/yaml
+    format: ExplainFormat = ExplainFormat.TEXT
+    costs: bool = True        # Show estimated costs
+    buffers: bool = False     # Show buffer usage
+    timing: bool = True       # Include timing information
+    verbose: bool = False     # Show additional information
+    settings: bool = False    # Show modified settings (PostgreSQL)
+    wal: bool = False        # Show WAL usage (PostgreSQL)
+    analyze: bool = False     # Same as type=ANALYZE, for compatibility
 
     def __post_init__(self):
-        """Validate options"""
-        valid_formats = {'text', 'json', 'xml', 'yaml'}
-        if self.format not in valid_formats:
-            raise ValueError(f"Invalid format: {self.format}. Must be one of {valid_formats}")
+        """Validate options and handle compatibility"""
+        if self.analyze:
+            self.type = ExplainType.ANALYZE
+
+    @property
+    def supported_formats(self) -> Set[ExplainFormat]:
+        """Get supported output formats for current database"""
+        return {ExplainFormat.TEXT}  # Base implementation
+
+    def validate_for_database(self, dialect: str):
+        """Validate options against specific database capabilities"""
+        if self.format not in self.supported_formats:
+            raise ValueError(f"Format {self.format} not supported by {dialect}")
 
 class SQLDialectBase(ABC):
     """Base class for SQL dialects
@@ -335,13 +353,13 @@ class SQLDialectBase(ABC):
         return pattern
 
     @abstractmethod
-    def format_explain(self, sql: str, explain_type: Optional[str] = None) -> str:
+    def format_explain(self, sql: str, options: Optional[ExplainOptions] = None) -> str:
         """Format EXPLAIN statement according to dialect rules
 
         Args:
             sql: SQL to explain
-            explain_type: Type of explain (e.g. 'ANALYZE', 'PLAN')
-                         Supported types vary by database
+            options: Configuration for EXPLAIN output
+                    Defaults are database-appropriate if not specified
 
         Returns:
             str: Formatted EXPLAIN statement
