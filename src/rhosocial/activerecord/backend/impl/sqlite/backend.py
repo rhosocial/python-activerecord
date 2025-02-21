@@ -19,6 +19,7 @@ class SQLiteBackend(StorageBackend):
         self._isolation_level = kwargs.get("isolation_level", None)
         self._transaction_manager = None
         self._dialect = SQLiteDialect(self.config)
+        self._delete_on_close = kwargs.get("delete_on_close", False)
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -51,6 +52,24 @@ class SQLiteBackend(StorageBackend):
                 self._connection = None
                 self._cursor = None
                 self._transaction_manager = None
+
+                # Handle file deletion if enabled and not using in-memory database
+                if self._delete_on_close and self.config.database != ":memory:":
+                    try:
+                        import os
+                        # Delete main database file
+                        if os.path.exists(self.config.database):
+                            os.remove(self.config.database)
+
+                        # Delete WAL and SHM files if they exist
+                        wal_file = f"{self.config.database}-wal"
+                        shm_file = f"{self.config.database}-shm"
+                        if os.path.exists(wal_file):
+                            os.remove(wal_file)
+                        if os.path.exists(shm_file):
+                            os.remove(shm_file)
+                    except OSError as e:
+                        raise ConnectionError(f"Failed to delete database files: {str(e)}")
             except sqlite3.Error as e:
                 raise ConnectionError(f"Failed to disconnect: {str(e)}")
 
@@ -146,9 +165,9 @@ class SQLiteBackend(StorageBackend):
 
             # Parse statement type from SQL
             stmt_type = sql.strip().split(None, 1)[0].upper()
-            is_select = stmt_type == "SELECT"
+            is_select = stmt_type in ("SELECT", "EXPLAIN")
             is_dml = stmt_type in ("INSERT", "UPDATE", "DELETE")
-            need_returning = returning and not is_select
+            need_returning = returning and is_dml
 
             # Version compatibility check for RETURNING in DML statements
             if need_returning and is_dml:
@@ -330,3 +349,41 @@ class SQLiteBackend(StorageBackend):
     def supports_returning(self) -> bool:
         """Check if SQLite version supports RETURNING clause"""
         return tuple(map(int, sqlite3.sqlite_version.split('.'))) >= (3, 35, 0)
+
+    def get_server_version(self) -> tuple:
+        """Get SQLite version
+
+        For SQLite, the version is determined once and cached permanently
+        since SQLite version is tied to the library itself, not a server.
+
+        Returns:
+            tuple: SQLite version as (major, minor, patch)
+        """
+        # Return cached version if available (class-level cache)
+        if not hasattr(SQLiteBackend, '_sqlite_version_cache'):
+            try:
+                if not self._connection:
+                    self.connect()
+
+                cursor = self._connection.cursor()
+                cursor.execute("SELECT sqlite_version()")
+                version_str = cursor.fetchone()[0]
+                cursor.close()
+
+                # Parse version string (e.g. "3.39.4" into (3, 39, 4))
+                version_parts = version_str.split('.')
+                major = int(version_parts[0])
+                minor = int(version_parts[1]) if len(version_parts) > 1 else 0
+                patch = int(version_parts[2]) if len(version_parts) > 2 else 0
+
+                # Cache at class level since SQLite version is consistent
+                SQLiteBackend._sqlite_version_cache = (major, minor, patch)
+
+            except Exception as e:
+                # Log the error but don't fail - return a reasonable default
+                if hasattr(self, 'logger'):
+                    self.logger.warning(f"Failed to determine SQLite version: {str(e)}")
+                # Default to a relatively recent version
+                SQLiteBackend._sqlite_version_cache = (3, 35, 0)
+
+        return SQLiteBackend._sqlite_version_cache

@@ -2,9 +2,10 @@
 import logging
 from typing import List, Any, Optional, Union, Set, Tuple, Dict
 
+from .dict_query import DictQuery
+from ..backend.dialect import ExplainType, ExplainOptions, ExplainFormat
 from ..backend.errors import QueryError, RecordNotFound
 from ..interface import ModelT, IQuery
-from .builder import QueryBuilder
 
 
 class BaseQueryMixin(IQuery[ModelT]):
@@ -30,14 +31,96 @@ class BaseQueryMixin(IQuery[ModelT]):
         self._log(logging.DEBUG, f"SQL parameters: {params}")
         return sql, params
 
-    def explain(self) -> str:
-        """Get query execution plan."""
-        sql, params = self.build()
-        explain_sql = f"EXPLAIN QUERY PLAN {sql}"
-        self._log(logging.DEBUG, f"Executing EXPLAIN: {explain_sql}")
+    def explain(self,
+                type: Optional[ExplainType] = None,
+                format: ExplainFormat = ExplainFormat.TEXT,
+                **kwargs) -> 'IQuery[ModelT]':
+        """Enable EXPLAIN for the subsequent query execution.
 
-        cursor = self.model_class.backend().execute(explain_sql, params)
-        return "\n".join(str(row) for row in cursor.fetchall())
+        This method configures the query to generate an execution plan when executed.
+        The `explain` will be performed when calling execution methods like all(), one(),
+        count(), etc.
+
+        Args:
+            type: Type of explain output
+            format: Output format (TEXT/JSON/XML/YAML)
+            **kwargs: Additional EXPLAIN options:
+                costs (bool): Show estimated costs
+                buffers (bool): Show buffer usage
+                timing (bool): Include timing information
+                verbose (bool): Show additional information
+                settings (bool): Show modified settings (PostgreSQL)
+                wal (bool): Show WAL usage (PostgreSQL)
+
+        Returns:
+            IQuery[ModelT]: Query instance for method chaining
+
+        Examples:
+            # Basic explain
+            User.query().explain().all()
+
+            # With analysis and JSON output
+            User.query()\\
+                .explain(type=ExplainType.ANALYZE, format=ExplainFormat.JSON)\\
+                .all()
+
+            # PostgreSQL specific options
+            User.query()\\
+                .explain(buffers=True, settings=True)\\
+                .all()
+
+            # Configure explain for aggregate query
+            plan = User.query()\\
+                .group_by('department')\\
+                .explain(format=ExplainFormat.TEXT)\\
+                .count('id', 'total')
+
+            # Explain can be called at any point before execution
+            query = User.query().where('active = ?', (True,))
+            query.explain()  # Enable explain
+            result = query.all()  # Will show execution plan
+        """
+        self._explain_enabled = True
+        self._explain_options = ExplainOptions(
+            type=type or ExplainType.BASIC,
+            format=format,
+            **kwargs
+        )
+        return self
+
+    def _execute_with_explain(self, sql: str, params: tuple) -> Union[str, List[Dict]]:
+        """Execute SQL with EXPLAIN if enabled.
+
+        Internal method to handle EXPLAIN execution. Used by execution methods
+        like all(), one(), count() etc.
+
+        Args:
+            sql: SQL to execute/explain
+            params: Query parameters
+
+        Returns:
+            Union[str, List[Dict]]: Execution plan if explain is enabled,
+                                  otherwise executes the query normally
+        """
+        backend = self.model_class.backend()
+        if not self._explain_enabled:
+            return backend.execute(sql, params, returning=True)
+
+        # Validate options for current database
+        self._explain_options.validate_for_database(backend.dialect.__class__.__name__)
+
+        # Build explain SQL using dialect
+        explain_sql = backend.dialect.format_explain(sql, self._explain_options)
+
+        # Execute explain
+        result = backend.execute(explain_sql, params, returning=True)
+
+        # Return raw data for non-text formats
+        if self._explain_options.format != ExplainFormat.TEXT:
+            return result.data
+
+        # Format text output
+        return "\n".join(str(row) for row in result.data)
 
     def select(self, *columns: str) -> 'IQuery':
         """Select specific columns to retrieve from the query.
@@ -257,22 +340,6 @@ class BaseQueryMixin(IQuery[ModelT]):
         self._log(logging.DEBUG, f"Added ORDER BY clauses: {clauses}")
         return self
 
-    def group_by(self, *clauses: str) -> 'IQuery':
-        """Add GROUP BY clauses."""
-        self.group_clauses.extend(clauses)
-        self._log(logging.DEBUG, f"Added GROUP BY clauses: {clauses}")
-        return self
-
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
-        """Add HAVING condition."""
-        if params is None:
-            params = tuple()
-        elif not isinstance(params, tuple):
-            params = tuple(params)
-        self.having_conditions.append((condition, params))
-        self._log(logging.DEBUG, f"Added HAVING condition: {condition}")
-        return self
-
     def join(self, join_clause: str) -> 'IQuery':
         """Add JOIN clause."""
         self.join_clauses.append(join_clause)
@@ -291,9 +358,60 @@ class BaseQueryMixin(IQuery[ModelT]):
         """Set OFFSET."""
         if count < 0:
             raise QueryError("Offset count must be non-negative")
+        if self.limit_count is None:
+            self._log(logging.WARNING,
+                     "Using OFFSET without LIMIT may be unsupported by some databases")
         self.offset_count = count
         self._log(logging.DEBUG, f"Set OFFSET to {count}")
         return self
+
+    def _build_select(self) -> str:
+        """Build SELECT and FROM clauses."""
+        dialect = self.model_class.backend().dialect
+        table = dialect.format_identifier(self.model_class.table_name())
+        return f"SELECT {', '.join(self.select_columns)} FROM {table}"
+
+    def _build_joins(self) -> List[str]:
+        """Build JOIN clauses."""
+        return self.join_clauses.copy() if self.join_clauses else []
+
+    def _build_where(self) -> Tuple[Optional[str], List[Any]]:
+        """Build WHERE clause and collect parameters."""
+        params = []
+        where_parts = []
+
+        for i, group in enumerate(self.condition_groups):
+            if not group:
+                continue
+
+            group_clauses = []
+            for j, (condition, condition_params, operator) in enumerate(group):
+                if j == 0:
+                    group_clauses.append(condition)
+                else:
+                    group_clauses.append(f"{operator} {condition}")
+                params.extend(condition_params)
+
+            if group_clauses:
+                group_sql = ' '.join(group_clauses)
+                if i > 0 or any(op == 'OR' for _, _, op in group):
+                    group_sql = f"({group_sql})"
+                where_parts.append(group_sql)
+
+        if where_parts:
+            return f"WHERE {' AND '.join(where_parts)}", params
+        return None, params
+
+    def _build_order(self) -> Optional[str]:
+        """Build ORDER BY clause."""
+        if self.order_clauses:
+            return f"ORDER BY {', '.join(self.order_clauses)}"
+        return None
+
+    def _build_limit_offset(self) -> Optional[str]:
+        """Build LIMIT/OFFSET clause using dialect."""
+        dialect = self.model_class.backend().dialect
+        return dialect.format_limit_offset(self.limit_count, self.offset_count)
 
     def build(self) -> Tuple[str, tuple]:
         """Build complete SQL query with parameters.
@@ -306,50 +424,29 @@ class BaseQueryMixin(IQuery[ModelT]):
         Raises:
             QueryError: If query construction fails
         """
-        query_parts = [f"SELECT {', '.join(self.select_columns)} FROM {self.model_class.table_name()}"]
+        query_parts = [self._build_select()]
         all_params = []
 
-        if self.join_clauses:
-            query_parts.extend(self.join_clauses)
+        # Add JOIN clauses
+        join_parts = self._build_joins()
+        if join_parts:
+            query_parts.extend(join_parts)
 
-        where_parts = []
-        for i, group in enumerate(self.condition_groups):
-            if not group:
-                continue
+        # Add WHERE clause
+        where_sql, where_params = self._build_where()
+        if where_sql:
+            query_parts.append(where_sql)
+            all_params.extend(where_params)
 
-            group_clauses = []
-            for j, (condition, params, operator) in enumerate(group):
-                if j == 0:
-                    group_clauses.append(condition)
-                else:
-                    group_clauses.append(f"{operator} {condition}")
-                all_params.extend(params)
+        # Add ORDER BY clause
+        order_sql = self._build_order()
+        if order_sql:
+            query_parts.append(order_sql)
 
-            if group_clauses:
-                group_sql = ' '.join(group_clauses)
-                if i > 0 or any(op == 'OR' for _, _, op in group):
-                    group_sql = f"({group_sql})"
-                where_parts.append(group_sql)
-
-        if where_parts:
-            where_clause = " AND ".join(where_parts)
-            query_parts.append(f"WHERE {where_clause}")
-
-        if self.group_clauses:
-            query_parts.append(QueryBuilder.build_group(self.group_clauses))
-
-        if self.having_conditions:
-            having_sql, having_params = QueryBuilder.build_having(self.having_conditions)
-            query_parts.append(having_sql)
-            all_params.extend(having_params)
-
-        if self.order_clauses:
-            query_parts.append(QueryBuilder.build_order(self.order_clauses))
-
-        if self.limit_count is not None:
-            query_parts.append(f"LIMIT {self.limit_count}")
-        if self.offset_count is not None:
-            query_parts.append(f"OFFSET {self.offset_count}")
+        # Add LIMIT/OFFSET clause
+        limit_offset_sql = self._build_limit_offset()
+        if limit_offset_sql:
+            query_parts.append(limit_offset_sql)
 
         return " ".join(query_parts), tuple(all_params)
 
@@ -360,28 +457,41 @@ class BaseQueryMixin(IQuery[ModelT]):
         representing all matching records. The returned list will be empty if
         no records match the query conditions.
 
+        If explain() has been called on the query, this method will return
+        the execution plan instead of the actual results. The format of the
+        plan depends on the options provided to explain().
+
         If eager loading is configured via with_(), related records will be
-        loaded and associated with the returned models.
+        loaded and associated with the returned models (only applies when
+        not in explain mode).
 
         Returns:
             List[ModelT]: List of model instances (empty if no matches)
+            Union[str, List[Dict]]: Execution plan if explain is enabled
 
         Examples:
-            # Get all active users
+            # Normal execution
             users = User.query().where('status = ?', ('active',)).all()
 
-            # Get users with eager loaded relations
+            # With execution plan
+            plan = User.query()\\
+                .explain()\\
+                .where('status = ?', ('active',))\\
+                .all()
+
+            # With eager loading (normal execution)
             users = User.query()\\
                 .with_('posts', 'profile')\\
                 .where('created_at >= ?', (last_week,))\\
                 .all()
-
-            # Process all matching records
-            for user in User.query().where('needs_update = ?', (True,)).all():
-                user.update_data()
         """
         sql, params = self.build()
         self._log(logging.INFO, f"Executing query: {sql}")
+
+        # Handle explain if enabled
+        if self._explain_enabled:
+            return self._execute_with_explain(sql, params)
+
         rows = self.model_class.backend().fetch_all(sql, params)
         records = self.model_class.create_collection_from_database(rows)
 
@@ -397,20 +507,25 @@ class BaseQueryMixin(IQuery[ModelT]):
         This method executes the query with a LIMIT 1 clause and returns either:
         - A single model instance if a matching record is found
         - None if no matching records exist
+        - Execution plan if explain() has been called on the query
 
         The method preserves any existing LIMIT clause after execution.
 
         Returns:
             Optional[ModelT]: Single model instance or None
+            Union[str, List[Dict]]: Execution plan if explain is enabled
 
         Examples:
-            # Find first active user
-            user = User.query().where('status = ?', ('active',)).one()
+            # Normal execution
+            user = User.query().where('email = ?', (email,)).one()
 
-            # Find oldest user
-            user = User.query().order_by('created_at ASC').one()
+            # With execution plan
+            plan = User.query()\\
+                .explain(explain_type='ANALYZE')\\
+                .where('email = ?', (email,))\\
+                .one()
 
-            # Handle potential None result
+            # Handle potential None result (normal execution)
             if (user := User.query().where('email = ?', (email,)).one()):
                 print(f"Found user: {user.name}")
             else:
@@ -421,6 +536,11 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         sql, params = self.build()
         self._log(logging.INFO, f"Executing query: {sql}")
+
+        # Handle explain if enabled
+        if self._explain_enabled:
+            return self._execute_with_explain(sql, params)
+
         row = self.model_class.backend().fetch_one(sql, params, self.model_class.model_construct().column_types())
 
         self.limit_count = original_limit
@@ -439,11 +559,26 @@ class BaseQueryMixin(IQuery[ModelT]):
     def one_or_fail(self) -> ModelT:
         """Get single record, raise exception if not found.
 
+        Similar to one(), but raises an exception if no record is found.
+        If explain() has been called, returns the execution plan instead
+        of attempting to find a record.
+
         Returns:
             ModelT: Found record
+            Union[str, List[Dict]]: Execution plan if explain is enabled
 
         Raises:
-            RecordNotFound: When record is not found
+            RecordNotFound: When record is not found (only in normal execution mode)
+
+        Examples:
+            # Normal execution
+            user = User.query().where('id = ?', (user_id,)).one_or_fail()
+
+            # With execution plan
+            plan = User.query()\\
+                .explain()\\
+                .where('id = ?', (user_id,))\\
+                .one_or_fail()
         """
         record = self.one()
         if record is None:
@@ -455,30 +590,43 @@ class BaseQueryMixin(IQuery[ModelT]):
             raise RecordNotFound(f"Record not found for {self.model_class.__name__}")
         return record
 
-    def count(self) -> int:
+    def count(self) -> Union[int, str, List[Dict]]:
         """Get the total number of records matching the query conditions.
 
         This method modifies the query to use COUNT(*) and executes it to determine
         the total number of matching records. It preserves the original SELECT columns
         after execution.
 
+        If explain() has been called on the query, this method will return
+        the execution plan for the COUNT query instead of the actual count.
+
         Returns:
             int: Number of matching records
+            Union[str, List[Dict]]: Execution plan if explain is enabled
 
         Examples:
-            # Count all users
+            # Normal count
             total = User.query().count()
 
-            # Count active users
-            active_count = User.query().where('status = ?', ('active',)).count()
+            # With execution plan
+            plan = User.query()\\
+                .explain()\\
+                .where('active = ?', (True,))\\
+                .count()
 
-            # Count users by type
-            admin_count = User.query().where('type = ?', ('admin',)).count()
+            # Count with conditions (normal execution)
+            active_count = User.query()\\
+                .where('status = ?', ('active',))\\
+                .count()
         """
         original_select = self.select_columns
         self.select_columns = ["COUNT(*) as count"]
         sql, params = self.build()
         self.select_columns = original_select
+
+        # Handle explain if enabled
+        if self._explain_enabled:
+            return self._execute_with_explain(sql, params)
 
         self._log(logging.INFO, f"Executing count query: {sql}")
         result = self.model_class.backend().fetch_one(sql, params)

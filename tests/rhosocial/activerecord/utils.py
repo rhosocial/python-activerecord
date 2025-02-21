@@ -23,6 +23,7 @@ DB_CONFIGS = {
         },
         "file": {
             "database": "test_db.sqlite",
+            "delete_on_close": True,
         },
     },
     "mysql": {

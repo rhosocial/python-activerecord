@@ -18,6 +18,7 @@ class ConnectionConfig:
     password: Optional[str] = None
 
     # Connection characteristics
+    database: Optional[str] = None
     charset: str = 'utf8mb4'
     timezone: Optional[str] = None  # Use 'UTC' instead of '+00:00'
 
@@ -36,7 +37,11 @@ class ConnectionConfig:
     auth_plugin: Optional[str] = None  # Added for MySQL 8.4+
 
     # Additional configuration parameters
+    raise_on_warnings = False
     options: Dict[str, Any] = field(default_factory=dict)
+    version: Optional[tuple] = None
+    driver_type: Optional[Any] = None
+    delete_on_close: Optional[bool] = False
 
     def to_dict(self) -> dict:
         """Convert config to dictionary, excluding None values"""

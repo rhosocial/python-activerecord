@@ -2,7 +2,172 @@
 Query building interfaces for ActiveRecord implementation.
 """
 from abc import ABC, abstractmethod
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type
+from threading import local
+from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
+    ValuesView, Mapping
+
+K = TypeVar('K')
+V = TypeVar('V')
+
+
+class ThreadSafeDict(Dict[K, V]):
+    """A thread-safe dictionary that behaves exactly like a normal dict."""
+
+    def __init__(self, *args, **kwargs):
+        """Initialize thread-safe dictionary.
+
+        Supports same initialization as dict:
+        - Empty: ThreadSafeDict()
+        - From mapping: ThreadSafeDict({'a': 1})
+        - From iterable: ThreadSafeDict([('a', 1), ('b', 2)])
+        - From kwargs: ThreadSafeDict(a=1, b=2)
+        """
+        self._local = local()
+        if not hasattr(self._local, 'data'):
+            self._local.data = {}
+        if args or kwargs:
+            self.update(*args, **kwargs)
+
+    def __ensure_data(self) -> dict:
+        """Ensure thread-local data exists.
+
+        Returns:
+            dict: Thread-local dictionary
+        """
+        if not hasattr(self._local, 'data'):
+            self._local.data = {}
+        return self._local.data
+
+    def __getitem__(self, key: K) -> V:
+        return self.__ensure_data()[key]
+
+    def __setitem__(self, key: K, value: V) -> None:
+        self.__ensure_data()[key] = value
+
+    def __delitem__(self, key: K) -> None:
+        del self.__ensure_data()[key]
+
+    def __iter__(self) -> Iterator[K]:
+        return iter(self.__ensure_data())
+
+    def __len__(self) -> int:
+        return len(self.__ensure_data())
+
+    def __contains__(self, key: K) -> bool:
+        return key in self.__ensure_data()
+
+    def __bool__(self) -> bool:
+        return bool(self.__ensure_data())
+
+    def __eq__(self, other: object) -> bool:
+        if not isinstance(other, (Dict, ThreadSafeDict)):
+            return NotImplemented
+        return self.__ensure_data() == other
+
+    def __repr__(self) -> str:
+        return f"ThreadSafeDict({repr(self.__ensure_data())})"
+
+    def __str__(self) -> str:
+        return str(self.__ensure_data())
+
+    # Standard dict methods
+    def clear(self) -> None:
+        """Remove all items from the dictionary."""
+        if hasattr(self._local, 'data'):
+            self._local.data.clear()
+
+    def copy(self) -> 'ThreadSafeDict[K, V]':
+        """Return a shallow copy of the dictionary."""
+        result = ThreadSafeDict()
+        result.update(self.__ensure_data())
+        return result
+
+    def get(self, key: K, default: Any = None) -> Optional[V]:
+        """Return value for key if it exists, else default."""
+        return self.__ensure_data().get(key, default)
+
+    def items(self) -> ItemsView[K, V]:
+        """Return a view of dictionary's items (key-value pairs)."""
+        return self.__ensure_data().items()
+
+    def keys(self) -> KeysView[K]:
+        """Return a view of dictionary's keys."""
+        return self.__ensure_data().keys()
+
+    def values(self) -> ValuesView[V]:
+        """Return a view of dictionary's values."""
+        return self.__ensure_data().values()
+
+    def pop(self, key: K, default: Any = ...) -> V:
+        """Remove specified key and return the corresponding value.
+
+        If default is provided and key doesn't exist, return default.
+        If default is not provided and key doesn't exist, raise KeyError.
+        """
+        if default is ...:
+            return self.__ensure_data().pop(key)
+        return self.__ensure_data().pop(key, default)
+
+    def popitem(self) -> Tuple[K, V]:
+        """Remove and return an arbitrary (key, value) pair.
+
+        Raises:
+            KeyError: If dictionary is empty
+        """
+        return self.__ensure_data().popitem()
+
+    def setdefault(self, key: K, default: V = None) -> V:
+        """Return value for key if it exists, else set and return default."""
+        return self.__ensure_data().setdefault(key, default)
+
+    def update(self, *args, **kwargs) -> None:
+        """Update dictionary with elements from args and kwargs.
+
+        Args can be:
+        - another dictionary
+        - an iterable of key/value pairs
+        - keyword arguments
+        """
+        data = self.__ensure_data()
+        if args:
+            if len(args) > 1:
+                raise TypeError('update expected at most 1 argument, got ' + str(len(args)))
+            other = args[0]
+            if isinstance(other, Mapping):
+                for key in other:
+                    data[key] = other[key]
+            elif hasattr(other, 'keys'):
+                for key in other.keys():
+                    data[key] = other[key]
+            else:
+                for key, value in other:
+                    data[key] = value
+        for key, value in kwargs.items():
+            data[key] = value
+
+    # Additional useful methods
+    def to_dict(self) -> Dict[K, V]:
+        """Convert to a regular dictionary."""
+        return dict(self.__ensure_data())
+
+    def set_many(self, items: List[Tuple[K, V]]) -> None:
+        """Set multiple items at once from a list of tuples."""
+        data = self.__ensure_data()
+        for key, value in items:
+            data[key] = value
+
+    def get_many(self, keys: List[K], default: Any = None) -> List[V]:
+        """Get multiple values at once.
+
+        Args:
+            keys: List of keys to retrieve
+            default: Default value for missing keys
+
+        Returns:
+            List of values corresponding to the keys
+        """
+        data = self.__ensure_data()
+        return [data.get(key, default) for key in keys]
 
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
@@ -20,18 +185,19 @@ class IQuery(Generic[ModelT], ABC):
         self.model_class = model_class
         self.conditions: List[Tuple[str, tuple]] = []
         self.order_clauses: List[str] = []
-        self.group_clauses: List[str] = []
-        self.having_conditions: List[Tuple[str, tuple]] = []
         self.limit_count: Optional[int] = None
         self.offset_count: Optional[int] = None
         self.join_clauses: List[str] = []
         self.select_columns: List[str] = ["*"]
         self._params: List[Any] = []  # Query parameters
-        self._eager_loads: Dict[str, List[str]] = {}  # Relations to be eager loaded
-        self._loaded_relations: Dict[str, Dict[int, Any]] = {}  # Cache of loaded relation data
+        self._eager_loads: ThreadSafeDict[str, List[str]] = ThreadSafeDict  # Relations to be eager loaded
+        self._loaded_relations: ThreadSafeDict[str, ThreadSafeDict[int, Any]] = ThreadSafeDict  # Cache of loaded relation data
         # Extended condition storage for OR logic support
         self.condition_groups: List[List[Tuple[str, tuple, str]]] = [[]]  # [[(condition, params, operator), ...], ...]
         self.current_group = 0
+        # Explain configuration
+        self._explain_enabled: bool = False
+        self._explain_options: Dict[str, Any] = {}
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Internal logging helper"""

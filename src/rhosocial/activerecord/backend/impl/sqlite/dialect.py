@@ -3,11 +3,12 @@ import sys
 import uuid
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Optional, List
+from typing import Optional, List, Set
 from typing import Tuple, Any
 
 from .types import SQLITE_TYPE_MAPPINGS
-from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler
+from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
+    ExplainOptions, ExplainType, ExplainFormat
 from ...errors import TypeConversionError, ReturningNotSupportedError
 from ...helpers import safe_json_dumps, parse_datetime, convert_datetime, array_converter, safe_json_loads
 from ...typing import ConnectionConfig
@@ -288,6 +289,63 @@ class SQLiteDialect(SQLDialectBase):
     def get_placeholder(self) -> str:
         """Get SQLite parameter placeholder"""
         return self._type_mapper.get_placeholder(None)
+
+    def format_string_literal(self, value: str) -> str:
+        # SQLite accepts both single and double quotes
+        # We choose single quotes for consistency
+        escaped = value.replace("'", "''")
+        return f"'{escaped}'"
+
+    def format_identifier(self, identifier: str) -> str:
+        # SQLite allows double quotes or backticks for identifiers
+        # We choose double quotes as it's more standard SQL
+        if '"' in identifier:
+            # If identifier contains double quotes, switch to backticks
+            # to avoid complex escaping
+            escaped = identifier.replace('`', '``')
+            return f"`{escaped}`"
+        return f'"{identifier}"'
+
+    def format_limit_offset(self, limit: Optional[int] = None,
+                            offset: Optional[int] = None) -> str:
+        # SQLite requires LIMIT when using OFFSET
+        # Use -1 as LIMIT to indicate "no limit"
+        if limit is None and offset is not None:
+            return f"LIMIT -1 OFFSET {offset}"
+        elif limit is not None:
+            if offset is not None:
+                return f"LIMIT {limit} OFFSET {offset}"
+            return f"LIMIT {limit}"
+        return ""
+
+    def get_parameter_placeholder(self, position: int) -> str:
+        """Get SQLite parameter placeholder
+
+        SQLite uses ? for all parameters regardless of position
+        """
+        return "?"
+
+    def format_explain(self, sql: str, options: Optional[ExplainOptions] = None) -> str:
+        """Format SQLite EXPLAIN statement
+
+        Args:
+            sql: SQL to explain
+            options: EXPLAIN options
+
+        Returns:
+            str: Formatted EXPLAIN statement
+        """
+        if not options:
+            options = ExplainOptions()
+
+        # SQLite supports two types of EXPLAIN
+        if options.type == ExplainType.QUERYPLAN:
+            return f"EXPLAIN QUERY PLAN {sql}"
+        return f"EXPLAIN {sql}"
+
+    @property
+    def supported_formats(self) -> Set[ExplainFormat]:
+        return {ExplainFormat.TEXT}
 
     def create_expression(self, expression: str) -> SQLiteExpression:
         """Create SQLite expression"""

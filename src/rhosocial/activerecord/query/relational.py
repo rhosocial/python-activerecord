@@ -1,8 +1,11 @@
 """Relational query methods implementation."""
 from dataclasses import dataclass
-from typing import Optional, Callable, Dict, List, Union, Any, Type, Tuple
+from threading import local
+from typing import Dict, TypeVar, Iterator, Any, Optional, Tuple, List, Mapping, KeysView, ValuesView, ItemsView, \
+    Callable, Union, Type
 
 from ..interface import ModelT, IQuery
+from ..interface.query import ThreadSafeDict
 
 
 @dataclass
@@ -11,6 +14,7 @@ class RelationConfig:
     name: str  # Base relation name
     nested: List[str]  # Nested relation parts
     query_modifier: Optional[Callable] = None  # Query modification function
+
 
 
 class RelationalQueryMixin(IQuery[ModelT]):
@@ -24,9 +28,10 @@ class RelationalQueryMixin(IQuery[ModelT]):
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
         # Stores relation loading configurations by relation path
-        self._eager_loads: Dict[str, RelationConfig] = {}
+        self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
+        # self._eager_loads: Dict[str, RelationConfig] = {}
         # Cache for loaded relation data, keyed by relation path and record id
-        self._loaded_relations: Dict[str, Dict[int, Any]] = {}
+        self._loaded_relations: ThreadSafeDict[str, ThreadSafeDict[int, Any]] = ThreadSafeDict()
 
     def with_(self, *relations: Union[str, tuple]) -> 'IQuery[ModelT]':
         """Configure eager loading for model relationships. This method allows specifying which relations
@@ -162,7 +167,7 @@ class RelationalQueryMixin(IQuery[ModelT]):
         for relation_name, config in sorted_relations:
             # Initialize the relations dict.
             if relation_name not in self._loaded_relations:
-                self._loaded_relations[relation_name] = {}
+                self._loaded_relations[relation_name] = ThreadSafeDict()
 
             # Skip if model doesn't have relations management capability
             if not hasattr(self.model_class, 'get_relation'):
@@ -271,7 +276,7 @@ class RelationalQueryMixin(IQuery[ModelT]):
         """
         # Initialize relation cache if needed
         if relation_name not in self._loaded_relations:
-            self._loaded_relations[relation_name] = {}
+            self._loaded_relations[relation_name] = ThreadSafeDict()
 
         # Get relation descriptor
         relation = self._get_relation(relation_name)

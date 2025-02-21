@@ -21,6 +21,7 @@ class StorageBackend(ABC):
         self._connection = None
         self._transaction_level = 0
         self._cursor = None
+        self._server_version_cache = None
 
     @property
     @abstractmethod
@@ -372,3 +373,12 @@ class StorageBackend(ABC):
     def supports_returning(self) -> bool:
         """Whether RETURNING clause is supported"""
         return False  # Default to not supported, specific backends can override
+
+    @abstractmethod
+    def get_server_version(self) -> tuple:
+        """Get database server version
+
+        Returns:
+            tuple: Server version as (major, minor, patch)
+        """
+        pass
