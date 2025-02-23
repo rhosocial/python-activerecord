@@ -21,14 +21,15 @@ class BaseQueryMixin(IQuery[ModelT]):
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""
-        if self.model_class.__logger__:
-            self.model_class.__logger__.log(level, msg, *args, **kwargs)
+        if self.model_class:
+            if "offset" not in kwargs:
+                kwargs["offset"] = 1
+            self.model_class.log(level, msg, *args, **kwargs)
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Get SQL statement and its parameters."""
         sql, params = self.build()
-        self._log(logging.DEBUG, f"Generated SQL: {sql}")
-        self._log(logging.DEBUG, f"SQL parameters: {params}")
+        self._log(logging.DEBUG, f"Generated SQL: {sql}, parameters: {params}")
         return sql, params
 
     def explain(self,
@@ -104,6 +105,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         """
         backend = self.model_class.backend()
         if not self._explain_enabled:
+            self._log(logging.DEBUG, "explain not enabled")
             return backend.execute(sql, params, returning=True)
 
         # Validate options for current database
@@ -113,11 +115,14 @@ class BaseQueryMixin(IQuery[ModelT]):
         explain_sql = backend.dialect.format_explain(sql, self._explain_options)
 
         # Execute explain
+        self._log(logging.INFO, f"Executing query: {explain_sql}, parameters: {params}")
         result = backend.execute(explain_sql, params, returning=True)
 
         # Return raw data for non-text formats
         if self._explain_options.format != ExplainFormat.TEXT:
             return result.data
+
+        self._log(logging.DEBUG, f"Explained: {result}")
 
         # Format text output
         return "\n".join(str(row) for row in result.data)
@@ -145,6 +150,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             User.query().select('users.id', 'users.name')
         """
         self.select_columns = list(columns) if columns else ["*"]
+        self._log(logging.DEBUG, f"Set select columns: {self.select_columns}")
         return self
 
     def query(self, conditions: Optional[Dict[str, Any]] = None) -> 'IQuery[ModelT]':
@@ -208,6 +214,8 @@ class BaseQueryMixin(IQuery[ModelT]):
         if not conditions:
             return self
 
+        self._log(logging.DEBUG, f"Processing query conditions: {conditions}")
+
         operator_map = {
             'gt': '>',
             'lt': '<',
@@ -223,6 +231,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         for key, value in conditions.items():
             # Skip special configuration keys starting with '_'
             if key.startswith('_'):
+                self._log(logging.DEBUG, f"Skipping special key: {key}")
                 continue
 
             # Parse key to get column and operator
@@ -275,7 +284,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             params = tuple(params)
 
         self.condition_groups[self.current_group].append((condition, params, 'AND'))
-        self._log(logging.DEBUG, f"Added WHERE condition: {condition}")
+        self._log(logging.DEBUG, f"Added WHERE condition: {condition}, parameters: {params}")
         return self
 
     def or_where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
@@ -308,6 +317,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             params = tuple(params)
 
         self.condition_groups[self.current_group].append((condition, params, 'OR'))
+        self._log(logging.DEBUG, f"Added OR WHERE condition: {condition}, parameters: {params}")
         return self
 
     def start_or_group(self) -> 'IQuery[ModelT]':
@@ -326,12 +336,14 @@ class BaseQueryMixin(IQuery[ModelT]):
         """
         self.condition_groups.append([])
         self.current_group = len(self.condition_groups) - 1
+        self._log(logging.DEBUG, "Started new OR condition group")
         return self
 
     def end_or_group(self) -> 'IQuery[ModelT]':
         """End current OR condition group."""
         if self.current_group > 0:
             self.current_group = 0
+            self._log(logging.DEBUG, "Ended OR condition group")
         return self
 
     def order_by(self, *clauses: str) -> 'IQuery':
@@ -349,6 +361,7 @@ class BaseQueryMixin(IQuery[ModelT]):
     def limit(self, count: int) -> 'IQuery':
         """Set LIMIT."""
         if count < 0:
+            self._log(logging.ERROR, f"Invalid negative limit count: {count}")
             raise QueryError("Limit count must be non-negative")
         self.limit_count = count
         self._log(logging.DEBUG, f"Set LIMIT to {count}")
@@ -357,6 +370,7 @@ class BaseQueryMixin(IQuery[ModelT]):
     def offset(self, count: int) -> 'IQuery':
         """Set OFFSET."""
         if count < 0:
+            self._log(logging.ERROR, f"Invalid negative offset count: {count}", offset=2)
             raise QueryError("Offset count must be non-negative")
         if self.limit_count is None:
             self._log(logging.WARNING,
@@ -486,11 +500,12 @@ class BaseQueryMixin(IQuery[ModelT]):
                 .all()
         """
         sql, params = self.build()
-        self._log(logging.INFO, f"Executing query: {sql}")
 
         # Handle explain if enabled
         if self._explain_enabled:
             return self._execute_with_explain(sql, params)
+
+        self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
 
         rows = self.model_class.backend().fetch_all(sql, params)
         records = self.model_class.create_collection_from_database(rows)
@@ -535,11 +550,12 @@ class BaseQueryMixin(IQuery[ModelT]):
         self.limit(1)
 
         sql, params = self.build()
-        self._log(logging.INFO, f"Executing query: {sql}")
 
         # Handle explain if enabled
         if self._explain_enabled:
             return self._execute_with_explain(sql, params)
+
+        self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
 
         row = self.model_class.backend().fetch_one(sql, params, self.model_class.model_construct().column_types())
 
@@ -551,7 +567,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         record = self.model_class.create_from_database(row)
 
         if self._eager_loads:
-            self._log(logging.DEBUG, f"Loading eager relations: {list(self._eager_loads.keys())}")
+            # self._log(logging.INFO, f"Loading eager relations: {list(self._eager_loads.keys())}...")
             self._load_relations([record])
 
         return record
@@ -628,7 +644,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         if self._explain_enabled:
             return self._execute_with_explain(sql, params)
 
-        self._log(logging.INFO, f"Executing count query: {sql}")
+        self._log(logging.INFO, f"Executing count query: {sql}, parameters: {params}")
         result = self.model_class.backend().fetch_one(sql, params)
         return result["count"] if result else 0
 

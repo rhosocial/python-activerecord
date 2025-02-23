@@ -1,3 +1,4 @@
+import logging
 import sqlite3
 import sys
 import time
@@ -158,9 +159,13 @@ class SQLiteBackend(StorageBackend):
         """
         start_time = time.perf_counter()
 
+        # Log query start
+        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
+
         try:
             # Ensure active connection
             if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
                 self.connect()
 
             # Parse statement type from SQL
@@ -173,6 +178,9 @@ class SQLiteBackend(StorageBackend):
             if need_returning and is_dml:
                 py_version = sys.version_info[:2]
                 if py_version < (3, 10) and not force_returning:
+                    self.log(logging.WARNING,
+                            f"RETURNING clause not supported in Python {py_version[0]}.{py_version[1]} "
+                            f"for {stmt_type} statements")
                     raise ReturningNotSupportedError(
                         f"RETURNING clause not supported in Python <3.10 for {stmt_type} statements. "
                         f"Current Python version {py_version[0]}.{py_version[1]} has known SQLite "
@@ -186,6 +194,9 @@ class SQLiteBackend(StorageBackend):
                         f"   Only use force_returning if you understand these limitations"
                     )
                 elif py_version < (3, 10) and force_returning:
+                    self.log(logging.WARNING,
+                        f"Force executing {stmt_type} with RETURNING clause in "
+                        f"Python {py_version[0]}.{py_version[1]}. affected_rows will be 0")
                     import warnings
                     warnings.warn(
                         f"Executing {stmt_type} with RETURNING clause in Python {py_version[0]}.{py_version[1]}. "
@@ -199,6 +210,9 @@ class SQLiteBackend(StorageBackend):
             if need_returning:
                 handler = self.dialect.returning_handler
                 if not handler.is_supported:
+                    self.log(logging.WARNING,
+                        f"Force executing {stmt_type} with RETURNING clause in "
+                        f"Python {py_version[0]}.{py_version[1]}. affected_rows will be 0")
                     raise ReturningNotSupportedError(
                         f"RETURNING clause not supported by current SQLite version {sqlite3.sqlite_version}"
                     )
@@ -210,6 +224,7 @@ class SQLiteBackend(StorageBackend):
 
             # Process SQL and parameters through dialect
             final_sql, final_params = self.build_sql(sql, params)
+            self.log(logging.DEBUG, f"Processed SQL: {final_sql}, parameters: {params}")
 
             # Execute query with type conversion for parameters
             if final_params:
@@ -225,8 +240,10 @@ class SQLiteBackend(StorageBackend):
             data = None
             if returning:
                 rows = cursor.fetchall()
+                self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
                 # Apply type conversions if specified
                 if column_types:
+                    self.log(logging.DEBUG, "Applying type conversions")
                     data = []
                     for row in rows:
                         converted_row = {}
@@ -242,41 +259,72 @@ class SQLiteBackend(StorageBackend):
                     # Return raw dictionaries if no type conversion needed
                     data = [dict(row) for row in rows]
 
+            duration = time.perf_counter() - start_time
+
+            # Log completion and metrics
+            if is_dml:
+                self.log(logging.INFO,
+                         f"{stmt_type} affected {cursor.rowcount} rows, "
+                         f"last_insert_id={cursor.lastrowid}, duration={duration:.3f}s")
+            elif is_select:
+                row_count = len(data) if data is not None else 0
+                self.log(logging.INFO,
+                         f"SELECT returned {row_count} rows, duration={duration:.3f}s")
+
             # Build and return result
             return QueryResult(
                 data=data,
                 affected_rows=cursor.rowcount,
                 last_insert_id=cursor.lastrowid,
-                duration=time.perf_counter() - start_time
+                duration=duration
             )
 
         except sqlite3.Error as e:
+            self.log(logging.ERROR, f"SQLite error executing query: {str(e)}")
             self._handle_error(e)
         except Exception as e:
             # Re-raise non-database errors
             if not isinstance(e, DatabaseError):
+                self.log(logging.ERROR, f"Non-database error executing query: {str(e)}")
                 raise
+            self.log(logging.ERROR, f"Database error executing query: {str(e)}")
             self._handle_error(e)
 
     def _handle_error(self, error: Exception) -> None:
-        """Handle SQLite-specific errors and convert to appropriate exceptions."""
+        """Handle SQLite-specific errors and convert to appropriate exceptions"""
+        error_msg = str(error)
+
         if isinstance(error, sqlite3.Error):
             if isinstance(error, sqlite3.OperationalError):
-                if "database is locked" in str(error):
+                if "database is locked" in error_msg:
+                    self.log(logging.ERROR, f"Database lock error: {error_msg}")
                     raise OperationalError("Database is locked")
-                elif "no such table" in str(error):
-                    raise QueryError(f"Table not found: {str(error)}")
-                raise OperationalError(str(error))
+                elif "no such table" in error_msg:
+                    self.log(logging.ERROR, f"Table not found: {error_msg}")
+                    raise QueryError(f"Table not found: {error_msg}")
+                self.log(logging.ERROR, f"SQLite operational error: {error_msg}")
+                raise OperationalError(error_msg)
             elif isinstance(error, sqlite3.IntegrityError):
-                if "UNIQUE constraint failed" in str(error):
-                    raise IntegrityError(f"Unique constraint violation: {str(error)}")
-                elif "FOREIGN KEY constraint failed" in str(error):
-                    raise IntegrityError(f"Foreign key constraint violation: {str(error)}")
-                raise IntegrityError(str(error))
-            elif "database is locked" in str(error):
-                raise DeadlockError(str(error))
+                if "UNIQUE constraint failed" in error_msg:
+                    self.log(logging.ERROR, f"Unique constraint violation: {error_msg}")
+                    raise IntegrityError(f"Unique constraint violation: {error_msg}")
+                elif "FOREIGN KEY constraint failed" in error_msg:
+                    self.log(logging.ERROR, f"Foreign key constraint violation: {error_msg}")
+                    raise IntegrityError(f"Foreign key constraint violation: {error_msg}")
+                self.log(logging.ERROR, f"SQLite integrity error: {error_msg}")
+                raise IntegrityError(error_msg)
+            elif "database is locked" in error_msg:
+                self.log(logging.ERROR, f"Database deadlock: {error_msg}")
+                raise DeadlockError(error_msg)
             elif isinstance(error, ProgrammingError):
-                raise DatabaseError(str(error))
+                self.log(logging.ERROR, f"SQLite programming error: {error_msg}")
+                raise DatabaseError(error_msg)
+
+            # Log unknown SQLite errors
+            self.log(logging.ERROR, f"Unhandled SQLite error: {error_msg}")
+
+        # Log and re-raise other errors
+        self.log(logging.ERROR, f"Unhandled error: {error_msg}")
         raise error
 
     def execute_many(

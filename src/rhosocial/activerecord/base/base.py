@@ -29,13 +29,24 @@ class BaseActiveRecord(IActiveRecord):
         Args:
             config: Database connection settings
             backend_class: Storage backend implementation class
+
+        Note:
+            This method initializes the backend with full connection configuration
+            and logger instance from the model class.
         """
-        # if not isinstance(config, ConnectionConfig):
-        #     raise DatabaseError(f"Invalid connection config for {cls.__name__}")
+        if not isinstance(config, ConnectionConfig):
+            raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
         cls.__connection_config__ = config
         cls.__backend_class__ = backend_class
-        cls.__backend__ = backend_class(database=config.database)
+
+        # Initialize backend with full config and logger
+        backend_instance = backend_class(connection_config=config)
+        # Set logger if available
+        if hasattr(cls, '__logger__'):
+            backend_instance.logger = cls.__logger__
+
+        cls.__backend__ = backend_instance
 
     def __init__(self, **data):
         """Initialize ActiveRecord instance.
@@ -207,7 +218,7 @@ class BaseActiveRecord(IActiveRecord):
         if record is None:
             cls.log(
                 logging.WARNING,
-                f"Record not found for {cls.__name__} with condition: {condition}"
+                f"Record not found for {cls.__name__} with find_one condition: {condition}"
             )
             raise RecordNotFound(f"Record not found for {cls.__name__}")
         return record

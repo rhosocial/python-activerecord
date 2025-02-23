@@ -1,4 +1,5 @@
 """Relational query methods implementation."""
+import logging
 from dataclasses import dataclass
 from threading import local
 from typing import Dict, TypeVar, Iterator, Any, Optional, Tuple, List, Mapping, KeysView, ValuesView, ItemsView, \
@@ -146,99 +147,6 @@ class RelationalQueryMixin(IQuery[ModelT]):
             query_modifier=query_modifier
         )
 
-    # [deprecated]
-    def __load_relations(self, records: List[ModelT]) -> None:
-        """Load eager-loaded relations for a set of records.
-
-        This method handles the actual loading of relations that were configured
-        for eager loading via with_(). It processes relations in order of nesting
-        depth to ensure proper loading of nested relations.
-
-        Args:
-            records: List of model instances to load relations for
-        """
-        if not records:
-            return
-
-        # Sort relations by nesting depth to ensure proper loading order
-        sorted_relations = sorted(self._eager_loads.items(),
-                                  key=lambda x: len(x[0].split('.')))
-
-        for relation_name, config in sorted_relations:
-            # Initialize the relations dict.
-            if relation_name not in self._loaded_relations:
-                self._loaded_relations[relation_name] = ThreadSafeDict()
-
-            # Skip if model doesn't have relations management capability
-            if not hasattr(self.model_class, 'get_relation'):
-                continue
-
-            # Get base relation name (first part before any dots)
-            base_relation = relation_name.split('.')[0]
-
-            # Get relation descriptor from the model
-            relation = self.model_class.get_relation(base_relation)
-            if not relation:
-                continue
-
-            # Get related model class through relation descriptor
-            related_model = relation.get_related_model(self.model_class)
-            if not related_model:
-                continue
-
-            # Skip if related model doesn't have query capability
-            if not hasattr(related_model, 'query'):
-                continue
-
-            # TBD:
-            # # Create base query for related records
-            # base_query = related_model.query()
-            #
-            # # Apply query modifier if configured
-            # if config.query_modifier is not None:
-            #     base_query = config.query_modifier(base_query)
-
-            # Load related records for all parent records in batch
-            for record in records:
-                # Use descriptor's __get__ to load and cache related data
-                # This internally uses load_related and caching mechanism
-                related_data = relation.__get__(record)
-                if related_data is not None:
-                    # Cache results in query's loaded relations
-                    self._loaded_relations[relation_name][id(record)] = related_data
-
-            # Handle nested relations if any exist
-            if config.nested and self._loaded_relations[relation_name]:
-                # Collect all loaded related records
-                related_records = []
-                for record_data in self._loaded_relations[relation_name].values():
-                    if isinstance(record_data, list):
-                        related_records.extend(record_data)
-                    else:
-                        related_records.append(record_data)
-
-                # Filter out None values
-                related_records = [r for r in related_records if r is not None]
-
-                if related_records:
-                    # Skip if related model doesn't support querying
-                    if not hasattr(related_model, 'query'):
-                        continue
-
-                    # Create new query for nested relations
-                    next_query = related_model.query()
-
-                    # Convert nested relation paths for next level
-                    nested_relations = [
-                        '.'.join(config.nested)
-                    ]
-
-                    # Configure nested eager loading
-                    next_query.with_(*nested_relations)
-
-                    # Load nested relations recursively
-                    next_query._load_relations(related_records)
-
     def _load_relations(self, records: List[ModelT]) -> None:
         """Main entry point for loading relations for a set of records.
 
@@ -251,6 +159,8 @@ class RelationalQueryMixin(IQuery[ModelT]):
         if not records or not self._eager_loads:
             return
 
+        self._log(logging.INFO, f"Loading eager relations: {self._eager_loads.keys()}...")
+
         # Sort relations by nesting depth for proper loading order
         sorted_relations = sorted(
             self._eager_loads.items(),
@@ -259,6 +169,8 @@ class RelationalQueryMixin(IQuery[ModelT]):
 
         for relation_name, config in sorted_relations:
             self._load_single_relation(records, relation_name, config)
+
+        self._log(logging.INFO, f"Loading eager relations: {self._eager_loads.keys()}...finished.")
 
     def _load_single_relation(self, records: List[ModelT], relation_name: str, config: RelationConfig) -> None:
         """Load a single relation for all records.
@@ -275,17 +187,20 @@ class RelationalQueryMixin(IQuery[ModelT]):
             config: Configuration for the relation loading
         """
         # Initialize relation cache if needed
+        self._log(logging.INFO, f"Loading relation: {relation_name}, config: {config}")
         if relation_name not in self._loaded_relations:
             self._loaded_relations[relation_name] = ThreadSafeDict()
 
         # Get relation descriptor
         relation = self._get_relation(relation_name)
         if not relation:
+            self._log(logging.WARNING, f"relation name {relation_name} not found in {self.__class__.__name__}")
             return
 
         # Get related model class
         related_model = relation.get_related_model(self.model_class)
         if not related_model:
+            self._log(logging.WARNING, f"related model {self.model_class} not found")
             return
 
         # Create base query and apply modifier if configured
@@ -295,15 +210,25 @@ class RelationalQueryMixin(IQuery[ModelT]):
 
         # Delegate batch loading to relation descriptor
         loaded_data = relation.batch_load(records, base_query)
-        if not loaded_data:
-            return
 
-        # Store loaded data in cache
-        for record_id, related_data in loaded_data.items():
-            self._loaded_relations[relation_name][record_id] = related_data
+        # Get record IDs that should have relations
+        record_ids = {record.id for record in records}
 
-        # Handle nested relations
-        self._process_nested_relations(loaded_data, config, related_model)
+        # Clear cache for records that no longer have relations
+        if relation_name in self._loaded_relations:
+            cache = self._loaded_relations[relation_name]
+            for record_id in record_ids:
+                if record_id in cache and (not loaded_data or record_id not in loaded_data):
+                    del cache[record_id]
+                    self._log(logging.DEBUG, f"Cleared cached relation {relation_name} for record {record_id}")
+
+        # Update cache with new data
+        if loaded_data:
+            for record_id, related_data in loaded_data.items():
+                self._loaded_relations[relation_name][record_id] = related_data
+
+            # Handle nested relations
+            self._process_nested_relations(loaded_data, config, related_model)
 
     def _get_relation(self, relation_name: str) -> Optional[Any]:
         """Get relation descriptor by name."""

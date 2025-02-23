@@ -1,23 +1,33 @@
 """
 Core ActiveRecord model interface definition.
 """
+import inspect
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Tuple, Callable
+from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Callable
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
+from .base import ModelEvent
 from ..backend.base import StorageBackend, ColumnTypes
 from ..backend.dialect import DatabaseType
 from ..backend.errors import DatabaseError, RecordNotFound
 from ..backend.typing import ConnectionConfig
 
-from .base import ModelEvent
+
+class CustomModuleFormatter(logging.Formatter):
+    def format(self, record):
+        import os
+        module_dir = os.path.basename(os.path.dirname(record.pathname))
+        record.subpackage_module = f"{module_dir}-{record.filename}"
+        return super().format(record)
+
 
 # Type variable for interface
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
+
 
 class IActiveRecord(BaseModel, ABC):
     """Base interface for ActiveRecord models.
@@ -73,8 +83,8 @@ class IActiveRecord(BaseModel, ABC):
         When a field is modified, stores the original value and marks the field as dirty.
         """
         if (name in self.model_fields and
-            hasattr(self, '_original_values') and
-            name not in self.__class__.__no_track_fields__):
+                hasattr(self, '_original_values') and
+                name not in self.__class__.__no_track_fields__):
             if name not in self._original_values:
                 self._original_values[name] = getattr(self, name, None)
             if value != self._original_values[name]:
@@ -85,6 +95,38 @@ class IActiveRecord(BaseModel, ABC):
         """Reset change tracking state by clearing dirty fields and storing current values."""
         self._dirty_fields.clear()
         self._original_values = self.model_dump()
+
+    @classmethod
+    def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
+        """Setup logger with custom formatter.
+
+        Args:
+            cls: Class that needs logging
+            formatter: Optional custom formatter. If None, will use CustomModuleFormatter
+        """
+        if not hasattr(cls, '__logger__'):
+            return
+
+        logger = getattr(cls, '__logger__')
+        if logger is None or not isinstance(logger, logging.Logger):
+            return
+
+        # Create default formatter if none provided
+        if formatter is None:
+            formatter = CustomModuleFormatter(
+                '%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s'
+            )
+
+        # Apply formatter to all existing handlers if any
+        if logger.handlers:
+            for handler in logger.handlers:
+                handler.setFormatter(formatter)
+
+        # Apply formatter to root logger's handlers for cases when no handlers present
+        root_logger = logging.getLogger()
+        for handler in root_logger.handlers:
+            if not isinstance(handler.formatter, CustomModuleFormatter):
+                handler.setFormatter(formatter)
 
     @classmethod
     def set_logger(cls, logger: logging.Logger) -> None:
@@ -120,8 +162,36 @@ class IActiveRecord(BaseModel, ABC):
         if not isinstance(logger, logging.Logger):
             return
 
+        # Calculate stack level
+        current_frame = inspect.currentframe().f_back
+        stack_level = 1  # Include log_info itself
+        while current_frame:
+            if current_frame.f_globals['__name__'] != 'ActiveRecord':
+                break
+            current_frame = current_frame.f_back
+            stack_level += 1
+        if current_frame:
+            stack_level += 1  # Pointed to the frame of the user code.
+
+        # Handle offset if provided
+        if "offset" in kwargs:
+            stack_level += kwargs.pop("offset")
+
+        # Ensure custom formatter is set
+        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or \
+                (not logger.handlers and not any(
+                    isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)):
+            cls.setup_logger()
+
+        # Get appropriate logging method
+        level_name = logging.getLevelName(level).lower()
+        method = getattr(logger, level_name, None)
+
         # Log message
-        logger.log(level, msg, *args, **kwargs)
+        if method is not None:
+            method(msg, *args, stacklevel=stack_level, **kwargs)
+        else:
+            logger.log(level, msg, *args, **kwargs)
 
     @property
     def is_dirty(self) -> bool:
@@ -198,7 +268,7 @@ class IActiveRecord(BaseModel, ABC):
         activerecord_idx = mro.index(IActiveRecord)
         for cls in mro[:activerecord_idx]:
             if (hasattr(cls, 'get_update_conditions') and
-                hasattr(cls, 'get_update_expressions')):
+                    hasattr(cls, 'get_update_expressions')):
                 # Get conditions and expressions from this class
                 behavior_conditions = cls.get_update_conditions(self)
                 behavior_expressions = cls.get_update_expressions(self)
