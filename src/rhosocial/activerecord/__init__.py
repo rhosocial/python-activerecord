@@ -70,14 +70,12 @@ __version__ = "1.0.0.dev3"
 # while maintaining backward compatibility with your original semantic versioning rules.
 
 
-from .aggregate import AggregateMixin
 from .base import BaseActiveRecord, QueryMixin
 from .relation import RelationManagementMixin
 
 
 class ActiveRecord(
     RelationManagementMixin,
-    AggregateMixin,
     # FieldMixin,  # import when needed
     QueryMixin,
     BaseActiveRecord,
@@ -88,7 +86,6 @@ class ActiveRecord(
 
     - BaseActiveRecord: Core CRUD operations
     - RelationalModelMixin: Relationship handling
-    - AggregateMixin: Aggregate query functions
     - QueryMixin: Query builder
     """
     ...

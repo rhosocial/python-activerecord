@@ -37,7 +37,7 @@ class ConnectionConfig:
     auth_plugin: Optional[str] = None  # Added for MySQL 8.4+
 
     # Additional configuration parameters
-    raise_on_warnings = False
+    raise_on_warnings: bool = False
     options: Dict[str, Any] = field(default_factory=dict)
     version: Optional[tuple] = None
     driver_type: Optional[Any] = None
@@ -71,6 +71,12 @@ class ConnectionConfig:
             value = get_env(key)
             return int(value) if value is not None else None
 
+        def get_env_bool(key: str) -> Optional[bool]:
+            value = get_env(key)
+            if value is not None:
+                return value.lower() in ('true', 'yes', '1', 'on')
+            return None
+
         return cls(
             host=get_env('HOST') or 'localhost',
             port=get_env_int('PORT'),
@@ -86,7 +92,11 @@ class ConnectionConfig:
             ssl_cert=get_env('SSL_CERT'),
             ssl_key=get_env('SSL_KEY'),
             ssl_mode=get_env('SSL_MODE'),
-            auth_plugin=get_env('AUTH_PLUGIN')
+            auth_plugin=get_env('AUTH_PLUGIN'),
+            raise_on_warnings=get_env_bool('RAISE_ON_WARNINGS') or False,
+            delete_on_close=get_env_bool('DELETE_ON_CLOSE'),
+            version=None,  # Version can't be set from environment
+            driver_type=None  # Driver type can't be set from environment
         )
 
     def clone(self, **updates) -> 'ConnectionConfig':

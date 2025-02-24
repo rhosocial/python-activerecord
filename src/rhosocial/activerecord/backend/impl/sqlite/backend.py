@@ -29,6 +29,7 @@ class SQLiteBackend(StorageBackend):
     def connect(self) -> None:
         """Establish a connection to the SQLite database."""
         try:
+            self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
             self._connection = sqlite3.connect(
                 self.config.database,
                 detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
@@ -40,24 +41,30 @@ class SQLiteBackend(StorageBackend):
             self._connection.execute("PRAGMA wal_autocheckpoint = 1000")
             self._connection.row_factory = sqlite3.Row
             self._connection.text_factory = str
+            self.log(logging.INFO, "Connected to SQLite database successfully")
         except sqlite3.Error as e:
+            self.log(logging.ERROR, f"Failed to connect to SQLite database: {str(e)}")
             raise ConnectionError(f"Failed to connect: {str(e)}")
 
     def disconnect(self) -> None:
         """Close the connection to the SQLite database."""
         if self._connection:
             try:
+                self.log(logging.INFO, "Disconnecting from SQLite database")
                 if self.transaction_manager.is_active:
+                    self.log(logging.WARNING, "Active transaction detected during disconnect, rolling back")
                     self.transaction_manager.rollback()
                 self._connection.close()
                 self._connection = None
                 self._cursor = None
                 self._transaction_manager = None
+                self.log(logging.INFO, "Disconnected from SQLite database")
 
                 # Handle file deletion if enabled and not using in-memory database
                 if self._delete_on_close and self.config.database != ":memory:":
                     try:
                         import os
+                        self.log(logging.INFO, f"Deleting database files: {self.config.database}")
                         # Delete main database file
                         if os.path.exists(self.config.database):
                             os.remove(self.config.database)
@@ -69,9 +76,12 @@ class SQLiteBackend(StorageBackend):
                             os.remove(wal_file)
                         if os.path.exists(shm_file):
                             os.remove(shm_file)
+                        self.log(logging.INFO, "Database files deleted successfully")
                     except OSError as e:
+                        self.log(logging.ERROR, f"Failed to delete database files: {str(e)}")
                         raise ConnectionError(f"Failed to delete database files: {str(e)}")
             except sqlite3.Error as e:
+                self.log(logging.ERROR, f"Error during disconnect: {str(e)}")
                 raise ConnectionError(f"Failed to disconnect: {str(e)}")
 
     def ping(self, reconnect: bool = True) -> bool:
@@ -84,16 +94,21 @@ class SQLiteBackend(StorageBackend):
             bool: True if connection is alive, False otherwise
         """
         if not self._connection:
+            self.log(logging.DEBUG, "No active connection during ping")
             if reconnect:
+                self.log(logging.INFO, "Reconnecting during ping")
                 self.connect()
                 return True
             return False
 
         try:
+            self.log(logging.DEBUG, "Testing connection with SELECT 1")
             self._connection.execute("SELECT 1")
             return True
-        except sqlite3.Error:
+        except sqlite3.Error as e:
+            self.log(logging.WARNING, f"Ping failed: {str(e)}")
             if reconnect:
+                self.log(logging.INFO, "Reconnecting after failed ping")
                 self.connect()
                 return True
             return False
@@ -174,14 +189,19 @@ class SQLiteBackend(StorageBackend):
             is_dml = stmt_type in ("INSERT", "UPDATE", "DELETE")
             need_returning = returning and is_dml
 
-            # Version compatibility check for RETURNING in DML statements
-            if need_returning and is_dml:
+            # Add RETURNING clause for DML statements if needed
+            if need_returning:
+                # First check if SQLite version supports RETURNING clause
+                handler = self.dialect.returning_handler
+                if not handler.is_supported:
+                    error_msg = f"RETURNING clause not supported by current SQLite version {sqlite3.sqlite_version}"
+                    self.log(logging.WARNING, error_msg)
+                    raise ReturningNotSupportedError(error_msg)
+
+                # Then check Python version compatibility
                 py_version = sys.version_info[:2]
                 if py_version < (3, 10) and not force_returning:
-                    self.log(logging.WARNING,
-                            f"RETURNING clause not supported in Python {py_version[0]}.{py_version[1]} "
-                            f"for {stmt_type} statements")
-                    raise ReturningNotSupportedError(
+                    error_msg = (
                         f"RETURNING clause not supported in Python <3.10 for {stmt_type} statements. "
                         f"Current Python version {py_version[0]}.{py_version[1]} has known SQLite "
                         f"adapter issues where affected_rows is always 0 with RETURNING clause.\n"
@@ -193,10 +213,14 @@ class SQLiteBackend(StorageBackend):
                         f"   - last_insert_id may be unreliable\n"
                         f"   Only use force_returning if you understand these limitations"
                     )
+                    self.log(logging.WARNING,
+                             f"RETURNING clause not supported in Python {py_version[0]}.{py_version[1]} "
+                             f"for {stmt_type} statements")
+                    raise ReturningNotSupportedError(error_msg)
                 elif py_version < (3, 10) and force_returning:
                     self.log(logging.WARNING,
-                        f"Force executing {stmt_type} with RETURNING clause in "
-                        f"Python {py_version[0]}.{py_version[1]}. affected_rows will be 0")
+                             f"Force executing {stmt_type} with RETURNING clause in "
+                             f"Python {py_version[0]}.{py_version[1]}. affected_rows will be 0")
                     import warnings
                     warnings.warn(
                         f"Executing {stmt_type} with RETURNING clause in Python {py_version[0]}.{py_version[1]}. "
@@ -206,16 +230,6 @@ class SQLiteBackend(StorageBackend):
                         RuntimeWarning
                     )
 
-            # Add RETURNING clause for DML statements if needed
-            if need_returning:
-                handler = self.dialect.returning_handler
-                if not handler.is_supported:
-                    self.log(logging.WARNING,
-                        f"Force executing {stmt_type} with RETURNING clause in "
-                        f"Python {py_version[0]}.{py_version[1]}. affected_rows will be 0")
-                    raise ReturningNotSupportedError(
-                        f"RETURNING clause not supported by current SQLite version {sqlite3.sqlite_version}"
-                    )
                 # Format and append RETURNING clause
                 sql += " " + handler.format_clause(returning_columns)
 
@@ -320,11 +334,12 @@ class SQLiteBackend(StorageBackend):
                 self.log(logging.ERROR, f"SQLite programming error: {error_msg}")
                 raise DatabaseError(error_msg)
 
-            # Log unknown SQLite errors
+                # Log unknown SQLite errors
             self.log(logging.ERROR, f"Unhandled SQLite error: {error_msg}")
 
-        # Log and re-raise other errors
-        self.log(logging.ERROR, f"Unhandled error: {error_msg}")
+            # Log and re-raise other errors
+            self.log(logging.ERROR, f"Unhandled error: {error_msg}")
+            raise error
         raise error
 
     def execute_many(
@@ -341,9 +356,11 @@ class SQLiteBackend(StorageBackend):
         Returns:
             QueryResult: Execution results
         """
+        self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
         start_time = time.perf_counter()
         try:
             if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
                 self.connect()
 
             cursor = self._cursor or self._connection.cursor()
@@ -359,44 +376,58 @@ class SQLiteBackend(StorageBackend):
                     converted_params.append(converted)
 
             cursor.executemany(sql, converted_params)
+            duration = time.perf_counter() - start_time
+
+            self.log(logging.INFO,
+                     f"Batch operation completed, affected {cursor.rowcount} rows, duration={duration:.3f}s")
 
             return QueryResult(
                 affected_rows=cursor.rowcount,
-                duration=time.perf_counter() - start_time
+                duration=duration
             )
         except Exception as e:
+            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
             self._handle_error(e)
 
     def begin_transaction(self) -> None:
         """Start a transaction"""
+        self.log(logging.INFO, "Beginning transaction")
         self.transaction_manager.begin()
 
     def commit_transaction(self) -> None:
         """Commit the current transaction"""
+        self.log(logging.INFO, "Committing transaction")
         self.transaction_manager.commit()
 
     def rollback_transaction(self) -> None:
         """Rollback the current transaction"""
+        self.log(logging.INFO, "Rolling back transaction")
         self.transaction_manager.rollback()
 
     @property
     def in_transaction(self) -> bool:
         """Check if currently in a transaction"""
-        return self.transaction_manager.is_active
+        is_active = self.transaction_manager.is_active if self._transaction_manager else False
+        self.log(logging.DEBUG, f"Checking transaction status: {is_active}")
+        return is_active
 
     @property
     def transaction_manager(self) -> SQLiteTransactionManager:
         """Get the transaction manager"""
         if not self._transaction_manager:
             if not self._connection:
+                self.log(logging.DEBUG, "Initializing connection for transaction manager")
                 self.connect()
-            self._transaction_manager = SQLiteTransactionManager(self._connection)
+            self.log(logging.DEBUG, "Creating new transaction manager")
+            self._transaction_manager = SQLiteTransactionManager(self._connection, self.logger)
         return self._transaction_manager
 
     @property
     def supports_returning(self) -> bool:
         """Check if SQLite version supports RETURNING clause"""
-        return tuple(map(int, sqlite3.sqlite_version.split('.'))) >= (3, 35, 0)
+        supported = tuple(map(int, sqlite3.sqlite_version.split('.'))) >= (3, 35, 0)
+        self.log(logging.DEBUG, f"RETURNING clause support: {supported}")
+        return supported
 
     def get_server_version(self) -> tuple:
         """Get SQLite version
@@ -426,6 +457,7 @@ class SQLiteBackend(StorageBackend):
 
                 # Cache at class level since SQLite version is consistent
                 SQLiteBackend._sqlite_version_cache = (major, minor, patch)
+                self.log(logging.INFO, f"Detected SQLite version: {major}.{minor}.{patch}")
 
             except Exception as e:
                 # Log the error but don't fail - return a reasonable default
@@ -433,5 +465,7 @@ class SQLiteBackend(StorageBackend):
                     self.logger.warning(f"Failed to determine SQLite version: {str(e)}")
                 # Default to a relatively recent version
                 SQLiteBackend._sqlite_version_cache = (3, 35, 0)
+                self.log(logging.WARNING,
+                         f"Failed to determine SQLite version, defaulting to 3.35.0: {str(e)}")
 
         return SQLiteBackend._sqlite_version_cache
