@@ -1,4 +1,5 @@
 """Range-based query methods implementation."""
+import logging
 from typing import Union, List, Any, Tuple
 from ..interface import ModelT, IQuery
 
@@ -43,6 +44,9 @@ class RangeQueryMixin(IQuery[ModelT]):
                 .order_by('created_at DESC')
         """
         if not values:
+            self._log(logging.DEBUG,
+                     f"Empty IN list for column {column}",
+                     extra={'empty_result': empty_result})
             if empty_result:
                 return self.where('1 = 0')
             return self
@@ -52,6 +56,12 @@ class RangeQueryMixin(IQuery[ModelT]):
 
         placeholders = ','.join('?' * len(values))
         condition = f"{column} IN ({placeholders})"
+        self._log(logging.DEBUG,
+                  f"Added IN condition for column {column}",
+                  extra={
+                      'values_count': len(values),
+                      'values': values[:5]  # Log first 5 values for debugging
+                  })
         return self.where(condition, values)
 
     def not_in(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
@@ -82,6 +92,9 @@ class RangeQueryMixin(IQuery[ModelT]):
                 .not_in('type', ['banned', 'deleted'])
         """
         if not values:
+            self._log(logging.DEBUG,
+                      f"Empty NOT IN list for column {column}",
+                      extra={'empty_result': empty_result})
             if empty_result:
                 return self.where('1 = 0')
             return self
@@ -91,38 +104,58 @@ class RangeQueryMixin(IQuery[ModelT]):
 
         placeholders = ','.join('?' * len(values))
         condition = f"{column} NOT IN ({placeholders})"
+        self._log(logging.DEBUG,
+                  f"Added NOT IN condition for column {column}",
+                  extra={
+                      'values_count': len(values),
+                      'values': values[:5]  # Log first 5 values for debugging
+                  })
         return self.where(condition, values)
 
     def between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
         """Execute BETWEEN query."""
         condition = f"{column} BETWEEN ? AND ?"
         params = (start, end)
+        self._log(logging.DEBUG,
+                  f"Added BETWEEN condition for column {column}",
+                  extra={'start': start, 'end': end})
         return self.where(condition, params)
 
     def not_between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
         """Execute NOT BETWEEN query."""
         condition = f"{column} NOT BETWEEN ? AND ?"
         params = (start, end)
+        self._log(logging.DEBUG,
+                  f"Added NOT BETWEEN condition for column {column}",
+                  extra={'start': start, 'end': end})
         return self.where(condition, params)
 
     def like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
         """Execute LIKE query."""
         condition = f"{column} LIKE ?"
         params = (pattern,)
+        self._log(logging.DEBUG,
+                  f"Added LIKE condition for column {column}",
+                  extra={'pattern': pattern})
         return self.where(condition, params)
 
     def not_like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
         """Execute NOT LIKE query."""
         condition = f"{column} NOT LIKE ?"
         params = (pattern,)
+        self._log(logging.DEBUG,
+                  f"Added NOT LIKE condition for column {column}",
+                  extra={'pattern': pattern})
         return self.where(condition, params)
 
     def is_null(self, column: str) -> 'IQuery[ModelT]':
         """Execute IS NULL query."""
         condition = f"{column} IS NULL"
+        self._log(logging.DEBUG, f"Added IS NULL condition for column {column}")
         return self.where(condition)
 
     def is_not_null(self, column: str) -> 'IQuery[ModelT]':
         """Execute IS NOT NULL query."""
         condition = f"{column} IS NOT NULL"
+        self._log(logging.DEBUG, f"Added IS NOT NULL condition for column {column}")
         return self.where(condition)

@@ -1,3 +1,5 @@
+import inspect
+import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List
@@ -10,10 +12,26 @@ ColumnTypes = Dict[str, DatabaseType]
 ValueConverter = Dict[str, callable]
 
 class StorageBackend(ABC):
-    """Abstract base class for storage backends"""
+    """Initialize storage backend
+
+    Args:
+        **kwargs: Configuration parameters including:
+            - connection_config: ConnectionConfig instance
+            - logger: Optional logger instance
+    """
     _dialect: SQLDialectBase
 
     def __init__(self, **kwargs) -> None:
+        """Initialize storage backend
+
+        Args:
+            **kwargs: Configuration parameters including:
+                - connection_config: ConnectionConfig instance
+                - logger: Optional logger instance
+        """
+        # Initialize logger
+        self._logger: Optional[logging.Logger] = kwargs.get('logger', logging.getLogger('storage'))
+
         if "connection_config" not in kwargs or kwargs["connection_config"] is None:
             self.config = ConnectionConfig(**kwargs)
         else:
@@ -22,6 +40,43 @@ class StorageBackend(ABC):
         self._transaction_level = 0
         self._cursor = None
         self._server_version_cache = None
+
+    @property
+    def logger(self) -> logging.Logger:
+        """Get current logger instance"""
+        return self._logger
+
+    @logger.setter
+    def logger(self, logger: Optional[logging.Logger]) -> None:
+        """Set logger instance
+
+        Args:
+            logger: Logger instance or None to use default
+        """
+        if logger is not None and not isinstance(logger, logging.Logger):
+            raise ValueError("logger must be an instance of logging.Logger")
+        self._logger = logger or logging.getLogger('storage')
+
+    def log(self, level: int, msg: str, *args, **kwargs) -> None:
+        """Log message using current logger
+
+        Args:
+            level: Log level (e.g. logging.INFO)
+            msg: Log message
+            *args: Format string arguments
+            **kwargs: Additional logging arguments
+        """
+        # Calculate stack level
+        current_frame = inspect.currentframe().f_back
+        stack_level = 1  # Include log_info itself
+        while current_frame:
+            if current_frame.f_globals['__name__'] != 'storage':
+                break
+            current_frame = current_frame.f_back
+            stack_level += 1
+        if current_frame:
+            stack_level += 1  # Pointed to the frame of the user code.
+        self.logger.log(level, msg, *args, stacklevel=stack_level, **kwargs)
 
     @property
     @abstractmethod

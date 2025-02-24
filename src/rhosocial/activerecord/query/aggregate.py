@@ -42,6 +42,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             Self for method chaining
         """
         self._group_columns.extend(columns)
+        self._log(logging.DEBUG, f"Added GROUP BY columns: {columns}")
         return self
 
     def having(self, condition: str, params: Optional[tuple] = None) -> 'AggregateQueryMixin':
@@ -57,6 +58,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         if params is None:
             params = tuple()
         self._having_conditions.append((condition, params))
+        self._log(logging.DEBUG, f"Added HAVING condition: {condition}, parameters: {params}")
         return self
 
     def select_expr(self, expr: SQLExpression) -> 'AggregateQueryMixin':
@@ -69,6 +71,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             Self for method chaining
         """
         self._expressions.append(expr)
+        self._log(logging.DEBUG, f"Added SELECT expression: {expr.as_sql()}")
         return self
 
     # Advanced expression builders
@@ -88,6 +91,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             Self for method chaining
         """
         window_expr = WindowExpression(expr, partition_by, order_by, alias)
+        self._log(logging.DEBUG,
+                  f"Added WINDOW function: {window_expr.as_sql()}",
+                  extra={
+                      'partition_by': partition_by,
+                      'order_by': order_by
+                  })
         return self.select_expr(window_expr)
 
     def case(self, conditions: List[Tuple[str, Any]],
@@ -104,6 +113,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             Self for method chaining
         """
         case_expr = CaseExpression(conditions, else_result, alias)
+        self._log(logging.DEBUG,
+                  f"Added CASE expression: {case_expr.as_sql()}",
+                  extra={
+                      'conditions': conditions,
+                      'else_result': else_result
+                  })
         return self.select_expr(case_expr)
 
     def _is_aggregate_query(self) -> bool:
@@ -134,6 +149,8 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         original_select = self.select_columns
         original_exprs = self._expressions
 
+        self._log(logging.DEBUG, f"Executing simple aggregate: {func}({column})", extra={"distinct": distinct}, offset=2)
+
         # Clear any existing expressions
         self._expressions = []
 
@@ -143,7 +160,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         # Execute query
         sql, params = super().build()
-        self._log(logging.INFO, f"Executing simple aggregate: {sql}")
+        self._log(logging.INFO, f"Executing simple aggregate: {sql}, parameters: {params}", offset=2)
 
         # Handle explain if enabled
         if self._explain_enabled:
