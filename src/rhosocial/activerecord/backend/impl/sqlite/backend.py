@@ -3,7 +3,7 @@ import sqlite3
 import sys
 import time
 from sqlite3 import ProgrammingError
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple, List, Any, Dict
 
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
@@ -14,6 +14,15 @@ from ...typing import QueryResult
 
 
 class SQLiteBackend(StorageBackend):
+    # Default PRAGMA settings
+    DEFAULT_PRAGMAS = {
+        "foreign_keys": "ON",
+        "journal_mode": "WAL",
+        "synchronous": "FULL",
+        "wal_autocheckpoint": "1000",
+        "wal_checkpoint": "FULL"
+    }
+
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._cursor = None
@@ -21,6 +30,85 @@ class SQLiteBackend(StorageBackend):
         self._transaction_manager = None
         self._dialect = SQLiteDialect(self.config)
         self._delete_on_close = kwargs.get("delete_on_close", False)
+
+        # Extract custom pragmas from options
+        self._pragmas = self._get_pragma_settings(kwargs)
+
+
+    @property
+    def pragmas(self) -> Dict[str, str]:
+        """Get current pragma settings
+
+        Returns:
+            Dict[str, str]: Current pragma settings
+        """
+        return self._pragmas.copy()
+
+    def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
+        """Set a pragma parameter at runtime
+
+        Args:
+            pragma_key: Pragma parameter name
+            pragma_value: Pragma parameter value
+
+        Raises:
+            ConnectionError: If pragma cannot be set
+        """
+        pragma_value_str = str(pragma_value)
+        self._pragmas[pragma_key] = pragma_value_str
+
+        # If connected, apply the pragma immediately
+        if self._connection:
+            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
+            self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
+
+            try:
+                self._connection.execute(pragma_statement)
+            except sqlite3.Error as e:
+                error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
+                self.log(logging.ERROR, error_msg)
+                raise ConnectionError(error_msg)
+
+    def _get_pragma_settings(self, kwargs: Dict[str, Any]) -> Dict[str, str]:
+        """Extract and merge pragma settings from options
+
+        Args:
+            kwargs: Configuration parameters
+
+        Returns:
+            Dict[str, str]: Merged pragma settings with defaults
+        """
+        pragmas = self.DEFAULT_PRAGMAS.copy()
+        custom_pragmas = {}
+
+        # Check for pragmas in options dictionary
+        if "pragmas" in kwargs:
+            custom_pragmas = kwargs["pragmas"]
+        elif hasattr(self.config, "pragmas") and self.config.pragmas:  # 添加这一行
+            custom_pragmas = self.config.pragmas  # 添加这一行
+        elif "options" in kwargs and "pragmas" in kwargs["options"]:
+            custom_pragmas = kwargs["options"]["pragmas"]
+        elif hasattr(self.config, "options") and "pragmas" in self.config.options:
+            custom_pragmas = self.config.options["pragmas"]
+
+        # Override defaults with custom settings
+        if custom_pragmas:
+            for pragma_key, pragma_value in custom_pragmas.items():
+                pragmas[pragma_key] = str(pragma_value)
+
+        return pragmas
+
+    def _apply_pragmas(self) -> None:
+        """Apply all pragma settings to the connection"""
+        for pragma_key, pragma_value in self._pragmas.items():
+            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
+            self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
+
+            try:
+                self._connection.execute(pragma_statement)
+            except sqlite3.Error as e:
+                # Log the error but continue with other pragmas
+                self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
 
     @property
     def dialect(self) -> SQLDialectBase:
@@ -36,11 +124,10 @@ class SQLiteBackend(StorageBackend):
                 isolation_level=None,  # Use manual transaction management
                 uri=self.config.options['uri'] if 'uri' in self.config.options else False
             )
-            self._connection.execute("PRAGMA foreign_keys = ON")
-            self._connection.execute("PRAGMA journal_mode = WAL")
-            self._connection.execute("PRAGMA synchronous = NORMAL")
-            self._connection.execute("PRAGMA wal_autocheckpoint = 1000")
-            self._connection.execute("PRAGMA wal_checkpoint(FULL)")
+
+            # Apply pragma settings
+            self._apply_pragmas()
+
             self._connection.row_factory = sqlite3.Row
             self._connection.text_factory = str
             self.log(logging.INFO, "Connected to SQLite database successfully")

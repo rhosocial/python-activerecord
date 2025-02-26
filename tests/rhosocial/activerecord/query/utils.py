@@ -139,7 +139,9 @@ def create_order_fixtures():
             model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+            # result = model_class.backend().execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name= ?;", (model_class.__table_name__, ), returning=True)
+            # logging.log(logging.DEBUG, f"Check whether if the {model_class.__table_name__} exists: {result}")
+            # model_class.backend().execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
 
         # 按依赖顺序创建表
         for model_class in model_classes:
@@ -208,7 +210,9 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
             model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+            # result = model_class.backend().execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name= ?;", (model_class.__table_name__, ), returning=True)
+            # logging.log(logging.DEBUG, f"Check whether if the {model_class.__table_name__} exists: {result}")
+            # model_class.backend().execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
 
         # Create tables in dependency order
         for model_class in model_classes:
@@ -339,7 +343,9 @@ def create_blog_fixtures():
             model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+            # result = model_class.backend().execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name= ?;", (model_class.__table_name__, ), returning=True)
+            # logging.log(logging.DEBUG, f"Check whether if the {model_class.__table_name__} exists: {result}")
+            # model_class.backend().execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
 
         # Create tables in dependency order
         table_schemas = {
