@@ -138,7 +138,7 @@ def test_load_has_many_relation(order_fixtures, setup_order_data):
 
     assert order is not None
     assert len(order.items()) == 1  # 修改为函数调用
-    assert order.items()[0].product_name == "Product 1"
+    assert order.items()[0].product_name == "Product 1", order.items()[0]
     assert order.items()[0].quantity == 2
 
     # 测试关系查询函数
@@ -216,7 +216,7 @@ def test_load_empty_relations(order_fixtures, setup_order_data):
         .one()
 
     assert order is not None
-    assert len(order.items()) == 0  # 修改为函数调用
+    assert len(order.items()) == 0, order.items()[0]  # 修改为函数调用
 
 
 def test_load_filtered_has_many_relation(order_fixtures, setup_order_data):
@@ -252,7 +252,7 @@ def test_load_relations_on_collection(order_fixtures, setup_order_data):
     for order in orders:
         assert order.user() is not None  # 修改为函数调用
         assert order.user().id == user_ids[0]
-        assert len(order.items()) > 0  # 修改为函数调用
+        assert len(order.items()) > 0, order  # 修改为函数调用
 
 
 def test_load_complex_blog_relations(blog_fixtures, setup_blog_data):

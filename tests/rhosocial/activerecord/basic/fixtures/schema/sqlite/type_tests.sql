@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS type_tests (
+CREATE TABLE type_tests (
     id TEXT PRIMARY KEY,  -- UUID类型存储为TEXT
     string_field TEXT NOT NULL,
     int_field INTEGER NOT NULL,

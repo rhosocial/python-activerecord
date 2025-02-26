@@ -1,13 +1,56 @@
+import logging
+import time
+import uuid
 from typing import List, Optional, Type, Tuple, Any, Dict
 
 import pytest
 
-from src.rhosocial.activerecord.interface import IActiveRecord
 from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.interface import IActiveRecord
 from tests.rhosocial.activerecord.utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
 
 
-def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Optional[List[str]] = None):
+def generate_unique_test_id():
+    """生成唯一的测试ID
+
+    Returns:
+        str: 唯一的测试ID
+    """
+    return f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
+
+def generate_case_id():
+    """生成唯一的测试用例ID
+
+    Returns:
+        str: 唯一的测试用例ID
+    """
+    return uuid.uuid4().hex[:8]
+
+def modify_sqlite_config(config, config_name, test_id, case_id):
+    """为SQLite配置修改数据库连接参数，使每个测试用例有自己的连接
+
+    Args:
+        config: 数据库配置
+        config_name: 配置名称
+        test_id: 测试ID
+        case_id: 测试用例ID
+
+    Returns:
+        dict: 修改后的配置
+    """
+    if config_name == 'file' and 'database' in config:
+        if config['database'] != ':memory:':
+            config['database'] = f"test_db_{test_id}_{config_name}_{case_id}.sqlite"
+    elif config_name == 'memory' and 'database' in config:
+        # 为内存数据库使用唯一URI，加入测试用例ID确保每个测试有自己的连接
+        config['database'] = f"file:memdb_{test_id}_{case_id}?mode=memory&cache=shared"
+        # 添加URI选项以启用URI文件名解析
+        if 'options' not in config:
+            config['options'] = {}
+        config['options']['uri'] = True
+    return config
+
+def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Optional[List[str]] = None, test_id: Optional[str] = None):
     """生成测试配置组合
 
     Args:
@@ -17,6 +60,10 @@ def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Opt
     Yields:
         DBTestConfig: 测试配置对象
     """
+    # 如果没有提供测试ID，则生成一个新的
+    if test_id is None:
+        test_id = generate_unique_test_id()
+
     for backend in DB_HELPERS.keys():
         # 检查所有模型是否都支持当前后端
         supported = True
@@ -34,7 +81,23 @@ def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Opt
 
         for config_name in test_configs:
             if config_name in backend_configs:
-                yield DBTestConfig(backend, config_name)
+                # 创建配置的深拷贝
+                config = backend_configs[config_name].copy()
+
+                # 为SQLite数据库创建唯一标识
+                if backend == 'sqlite':
+                    if config_name == 'file' and 'database' in config:
+                        if config['database'] != ':memory:':
+                            config['database'] = f"test_db_{test_id}_{config_name}.sqlite"
+                    elif config_name == 'memory' and 'database' in config:
+                        # 为内存数据库使用唯一URI
+                        config['database'] = f"file:memdb_{test_id}?mode=memory&cache=shared"
+                        # 添加URI选项以启用URI文件名解析
+                        if 'options' not in config:
+                            config['options'] = {}
+                        config['options']['uri'] = True
+
+                yield DBTestConfig(backend, config_name, config)
 
 
 def create_order_fixtures():
@@ -47,20 +110,36 @@ def create_order_fixtures():
     """
     from .fixtures.models import User, Order, OrderItem
     model_classes = [User, Order, OrderItem]
+    test_id = generate_unique_test_id()
 
-    @pytest.fixture(params=list(generate_test_configs(model_classes)), ids=lambda x: f"{x.backend}-{x.config_name}")
+    @pytest.fixture(
+        params=list(generate_test_configs(model_classes, test_id=test_id)),
+        ids=lambda x: f"{x.backend}-{x.config_name}"
+    )
     def _fixture(request) -> Tuple[Type[User], Type[Order], Type[OrderItem]]:
         """创建和配置订单相关表的测试环境"""
         db_config = request.param
 
+        # 为每个测试用例生成唯一ID
+        case_id = generate_case_id()
+
+        # 创建配置副本，以便修改不影响其他测试
+        config = db_config.config.copy()
+
+        # 如果是SQLite，为每个测试用例创建唯一连接
+        if db_config.backend == 'sqlite':
+            config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
+
         # 创建后端实例
-        backend = db_config.helper["class"](**db_config.config)
+        backend = db_config.helper["class"](**config)
+        logging.log(logging.DEBUG, f"db_config: {config}, case_id: {case_id}")
 
         # 配置所有模型使用相同的后端实例
         for model_class in model_classes:
-            model_class.__connection_config__ = ConnectionConfig(**db_config.config)
+            model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
+            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
 
         # 按依赖顺序创建表
         for model_class in model_classes:
@@ -79,6 +158,7 @@ def create_order_fixtures():
         # 按相反顺序清理表
         for model_class in reversed(model_classes):
             model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+            model_class.__backend__.disconnect()
             model_class.__backend__ = None
 
     return _fixture
@@ -99,23 +179,36 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
         model.__table_name__: f"{model.__table_name__}.sql"
         for model in model_classes
     }
+    test_id = generate_unique_test_id()
 
     @pytest.fixture(
-        params=list(generate_test_configs(model_classes)),
+        params=list(generate_test_configs(model_classes, test_id=test_id)),
         ids=lambda x: f"{x.backend}-{x.config_name}"
     )
     def _fixture(request) -> Tuple[Type[IActiveRecord], ...]:
         """Create and configure test environment for related tables."""
         db_config = request.param
 
+        # 为每个测试用例生成唯一ID
+        case_id = generate_case_id()
+
+        # 创建配置副本，以便修改不影响其他测试
+        config = db_config.config.copy()
+
+        # 如果是SQLite，为每个测试用例创建唯一连接
+        if db_config.backend == 'sqlite':
+            config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
+
         # Create backend instance
-        backend = db_config.helper["class"](**db_config.config)
+        backend = db_config.helper["class"](**config)
+        logging.log(logging.DEBUG, f"db_config: {config}")
 
         # Configure all models to use the same backend instance
         for model_class in model_classes:
-            model_class.__connection_config__ = ConnectionConfig(**db_config.config)
+            model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
+            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
 
         # Create tables in dependency order
         for model_class in model_classes:
@@ -134,7 +227,9 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
         # Cleanup tables in reverse order
         for model_class in reversed(model_classes):
             model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+            model_class.__backend__.disconnect()
             model_class.__backend__ = None
+
 
     return _fixture
 
@@ -217,21 +312,34 @@ def create_blog_fixtures():
     """
     from .fixtures.models import User, Post, Comment
     model_classes = [User, Post, Comment]
+    test_id = generate_unique_test_id()
 
     @pytest.fixture(params=list(generate_test_configs(model_classes)),
-                    ids=lambda x: f"{x.backend}-{x.config_name}")
+                    ids=lambda x: f"{x.backend}-{x.config_name}", scope="function")
     def _fixture(request) -> Tuple[Type[User], Type[Post], Type[Comment]]:
         """Create and configure blog test environment."""
         db_config = request.param
 
+        # 为每个测试用例生成唯一ID
+        case_id = generate_case_id()
+
+        # 创建配置副本，以便修改不影响其他测试
+        config = db_config.config.copy()
+
+        # 如果是SQLite，为每个测试用例创建唯一连接
+        if db_config.backend == 'sqlite':
+            config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
+
         # Create backend instance
-        backend = db_config.helper["class"](**db_config.config)
+        backend = db_config.helper["class"](**config)
+        logging.log(logging.DEBUG, f"Test ID: {test_id}, db_config: {config}")
 
         # Configure all models to use the same backend instance
         for model_class in model_classes:
-            model_class.__connection_config__ = ConnectionConfig(**db_config.config)
+            model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
+            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
 
         # Create tables in dependency order
         table_schemas = {
@@ -255,6 +363,8 @@ def create_blog_fixtures():
         # Cleanup tables in reverse order
         for model_class in reversed(model_classes):
             model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+            model_class.__backend__.disconnect()
             model_class.__backend__ = None
+
 
     return _fixture

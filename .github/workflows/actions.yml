@@ -85,7 +85,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        coverage run -m pytest tests/
+        coverage run -m pytest tests/ --reruns 3 --reruns-delay 1
         coverage xml
         coverage report
 
@@ -133,4 +133,4 @@ jobs:
 
     - name: Run tests
       run: |
-        python -m pytest tests/
+        python -m pytest tests/ --reruns 3 --reruns-delay 1

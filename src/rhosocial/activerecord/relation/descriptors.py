@@ -3,6 +3,7 @@ Concrete relation descriptor implementations.
 Provides BelongsTo, HasOne, and HasMany relationship types.
 """
 
+import logging
 from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, cast, Dict
 
 from .cache import RelationCache, CacheConfig
@@ -93,12 +94,32 @@ class RelationDescriptor(Generic[T]):
             raise TypeError("cache_config must be instance of CacheConfig")
         self._cache = RelationCache(cache_config)
         self._cached_model: Optional[Type[T]] = None
+        self._owner = None
+
+    def log(self, level: int, msg: str, *args, **kwargs) -> None:
+        """Log message using owner's logger.
+
+        Args:
+            level: Log level from logging module
+            msg: Log message
+            *args: Additional positional arguments
+            **kwargs: Additional keyword arguments
+        """
+        if hasattr(self, '_owner') and hasattr(self._owner, 'log'):
+            # Add offset to account for our log method
+            if 'offset' in kwargs:
+                kwargs['offset'] += 1
+            else:
+                kwargs['offset'] = 1
+            self._owner.log(level, msg, *args, **kwargs)
 
     def __set_name__(self, owner: Type[RelationManagementInterface], name: str) -> None:
         """Set descriptor name and register with owner."""
         self.name = name
+        self._owner = owner
         self._cache.relation_name = name
 
+        self.log(logging.DEBUG, f"Registering relation `{name}` with `{owner.__name__}`")
         owner.register_relation(name, self)
 
         # Create query method that returns QuerySet for the related model
@@ -107,19 +128,20 @@ class RelationDescriptor(Generic[T]):
 
     def __get__(self, instance: Any, owner: Optional[Type] = None) -> Any:
         """Get descriptor or create bound method."""
-        # print(f"DEBUG: __get__ called for {owner.__name__ if owner else 'None'} with instance {instance}")
+        self.log(logging.DEBUG, f"Getting `{self.name}` relation for {owner.__name__ if owner else 'None'}")
         if instance is None:
             return self
 
         # Force validation on first access
         if self._cached_model is None:
-            # print("DEBUG: Forcing model resolution")
+            self.log(logging.DEBUG, f"Forcing model resolution for `{self.name}`")
             self.get_related_model(owner or type(instance))
 
         return self._create_relation_method(instance)
 
     def __delete__(self, instance: Any) -> None:
         """Clear cache on deletion."""
+        self.log(logging.DEBUG, f"Clearing cache for `{self.name}` relation")
         self._cache.delete(instance)
 
     def get_related_model(self, owner: Type[Any]) -> Type[T]:
@@ -136,17 +158,21 @@ class RelationDescriptor(Generic[T]):
             ValueError: If model cannot be resolved
         """
         if self._cached_model is None:
+            self.log(logging.DEBUG, f"Resolving related model for `{self.name}`")
             self._cached_model = self._resolve_model(owner)
 
             # Ensure model is fully resolved before validation
             if isinstance(self._cached_model, (str, ForwardRef)):
+                self.log(logging.DEBUG, f"Evaluating forward reference: {self._cached_model}")
                 self._cached_model = _evaluate_forward_ref(self._cached_model, owner)
 
             if self.inverse_of and self._validator:
                 try:
+                    self.log(logging.DEBUG, f"Validating inverse relationship: {self.inverse_of}")
                     self._validate_inverse_relationship(owner)
                 except Exception as e:
                     self._cached_model = None
+                    self.log(logging.ERROR, f"Invalid relationship: {str(e)}")
                     raise ValueError(f"Invalid relationship: {str(e)}")
 
         return self._cached_model
@@ -157,6 +183,8 @@ class RelationDescriptor(Generic[T]):
 
         Python 3.8+ compatible implementation that properly handles forward references.
         """
+        self.log(logging.DEBUG, f"Resolving model type for {self.name}")
+
         # Get module globals for model resolution context
         import sys
         module = sys.modules[owner.__module__]
@@ -179,8 +207,10 @@ class RelationDescriptor(Generic[T]):
                 # Get model type from generic parameters
                 if hasattr(field_type, "__origin__") and hasattr(field_type, "__args__"):
                     model_type = field_type.__args__[0]
+                    self.log(logging.DEBUG, f"Resolved model type: {model_type}")
                     return model_type
 
+        self.log(logging.ERROR, f"Unable to resolve relationship model for `{self.name}`")
         raise ValueError("Unable to resolve relationship model")
 
     def _validate_inverse_relationship(self, owner: Type[Any]) -> None:
@@ -190,12 +220,18 @@ class RelationDescriptor(Generic[T]):
         Raises:
             ValueError: If validation fails
         """
+        self.log(logging.DEBUG, f"Validating inverse relationship: {self.inverse_of}")
         if self._validator:
-            self._validator.validate(owner, self._cached_model)
-        # Default validation logic here
+            try:
+                self._validator.validate(owner, self._cached_model)
+                self.log(logging.DEBUG, "Inverse relationship validation successful")
+            except Exception as e:
+                self.log(logging.ERROR, f"Inverse relationship validation failed: {e}")
+                raise
 
     def _create_relation_method(self, instance: Any):
         """Create bound method for accessing relation."""
+        self.log(logging.DEBUG, f"Creating relation method for `{self.name}`")
 
         def relation_method(*args, **kwargs):
             if args or kwargs:
@@ -207,6 +243,7 @@ class RelationDescriptor(Generic[T]):
 
     def _create_query_method(self):
         """Create query class method."""
+        self.log(logging.DEBUG, f"Creating query method for `{self.name}`")
 
         def query_method(instance):
             # Force model resolution if needed
@@ -248,14 +285,16 @@ class RelationDescriptor(Generic[T]):
 
         cached = self._cache.get(instance)
         if cached is not None:
+            self.log(logging.DEBUG, f"Using cached relation for `{self.name}`")
             return cached
 
         try:
+            self.log(logging.DEBUG, f"Loading relation `{self.name}` for {type(instance).__name__}")
             data = self._loader.load(instance) if self._loader else None
             self._cache.set(instance, data)
             return data
         except Exception as e:
-            print(f"Error loading relation: {e}")
+            self.log(logging.ERROR, f"Error loading relation: {e}")
             return None
 
     def batch_load(self, records: List[Any], base_query: Any) -> Dict[int, Any]:
@@ -271,6 +310,7 @@ class RelationDescriptor(Generic[T]):
         Returns:
             Dict mapping record IDs to their related data
         """
+        self.log(logging.DEBUG, f"Batch loading `{self.name}` relation for {len(records)} records")
         if self._cached_model is None:
             self.get_related_model(type(records[0]))
 
@@ -288,10 +328,12 @@ class RelationDescriptor(Generic[T]):
         ]
 
         if not records_to_load:
+            self.log(logging.DEBUG, f"All `{self.name}` relations found in cache")
             return result
 
         try:
             # Use loader to batch load remaining records
+            self.log(logging.DEBUG, f"Loading {len(records_to_load)} `{self.name}` relations not in cache")
             loaded_data = self._loader.batch_load(records_to_load, base_query)
             if loaded_data:
                 # Cache and add to result
@@ -302,7 +344,7 @@ class RelationDescriptor(Generic[T]):
                             break
                 result.update(loaded_data)
         except Exception as e:
-            print(f"Error in batch loading: {e}")
+            self.log(logging.ERROR, f"Error in batch loading `{self.name}` relations: {e}")
 
         return result
 
@@ -415,6 +457,10 @@ class DefaultRelationLoader(RelationLoader[R]):
         Returns:
             Optional[Union[R, List[R]]]: Related data or None
         """
+        # Use descriptor's log method if available
+        if hasattr(self.descriptor, 'log'):
+            self.descriptor.log(logging.DEBUG, f"Loading relation `{self.descriptor.name}` for instance `{type(instance).__name__}`")
+
         # Delegate to batch_load for consistency
         result = self.batch_load([instance], None)
         return result.get(id(instance))

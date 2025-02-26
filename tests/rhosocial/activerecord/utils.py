@@ -1,12 +1,13 @@
 import inspect
+import logging
 import os
 from typing import Type, List, Optional, Dict
 
 import pytest
 
-from src.rhosocial.activerecord.interface import IActiveRecord
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.interface import IActiveRecord
 
 # 存储后端助手映射
 DB_HELPERS = {
@@ -75,9 +76,10 @@ def load_schema_file(model_class: Type[IActiveRecord], backend: str, filename: s
 
 class DBTestConfig:
     """数据库测试配置类"""
-    def __init__(self, backend: str, config_name: str):
+    def __init__(self, backend: str, config_name: str, custom_config: Optional[Dict] = None):
         self.backend = backend
         self.config_name = config_name
+        self._custom_config = custom_config
 
     def __str__(self) -> str:
         return f"{self.backend}, {self.config_name}"
@@ -87,6 +89,9 @@ class DBTestConfig:
 
     @property
     def config(self) -> Dict:
+        # 如果提供了自定义配置，使用它而不是从 DB_CONFIGS 获取
+        if self._custom_config is not None:
+            return self._custom_config
         return DB_CONFIGS[self.backend][self.config_name]
 
     @property
@@ -114,7 +119,7 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
                                  configs: Optional[List[str]] = None):
     """创建特定 ActiveRecord 类的夹具工厂函数"""
 
-    @pytest.fixture(params=list(generate_test_configs(model_class, configs)), ids=lambda x: f"{x.backend}-{x.config_name}")
+    @pytest.fixture(params=list(generate_test_configs(model_class, configs)), ids=lambda x: f"{x.backend}-{x.config_name}", scope="function")
     def _fixture(request):
         """实际的夹具函数"""
         db_config = request.param
@@ -124,6 +129,7 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
             config=ConnectionConfig(**db_config.config),
             backend_class=db_config.helper["class"]
         )
+        logging.log(logging.DEBUG, f"db_config: {db_config.config}")
 
         # 创建表结构
         schema = load_schema_file(
@@ -141,6 +147,7 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
 
         # 清理
         model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+        model_class.__backend__.disconnect()
         model_class.__backend__ = None
 
     return _fixture

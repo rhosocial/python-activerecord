@@ -33,12 +33,14 @@ class SQLiteBackend(StorageBackend):
             self._connection = sqlite3.connect(
                 self.config.database,
                 detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
-                isolation_level=None  # Use manual transaction management
+                isolation_level=None,  # Use manual transaction management
+                uri=self.config.options['uri'] if 'uri' in self.config.options else False
             )
             self._connection.execute("PRAGMA foreign_keys = ON")
             self._connection.execute("PRAGMA journal_mode = WAL")
-            self._connection.execute("PRAGMA synchronous = FULL")
+            self._connection.execute("PRAGMA synchronous = NORMAL")
             self._connection.execute("PRAGMA wal_autocheckpoint = 1000")
+            self._connection.execute("PRAGMA wal_checkpoint(FULL)")
             self._connection.row_factory = sqlite3.Row
             self._connection.text_factory = str
             self.log(logging.INFO, "Connected to SQLite database successfully")

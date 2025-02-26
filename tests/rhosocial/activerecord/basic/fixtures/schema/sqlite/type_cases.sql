@@ -1,4 +1,4 @@
-CREATE TABLE IF NOT EXISTS type_cases (
+CREATE TABLE type_cases (
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL,
     email TEXT NOT NULL,
