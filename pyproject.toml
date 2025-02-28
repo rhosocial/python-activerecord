@@ -119,6 +119,11 @@ exclude = [
   "**/.DS_Store",
   "**/.*.swp",
   ".git*",
+  "src/rhosocial/activerecord/backend/impl/mysql",
+  "src/rhosocial/activerecord/backend/impl/pgsql",
+  "src/rhosocial/activerecord/backend/impl/mariadb",
+  "src/rhosocial/activerecord/backend/impl/mssql",
+  "src/rhosocial/activerecord/backend/impl/oracle"
 ]
 
 [tool.hatch.build.targets.wheel]

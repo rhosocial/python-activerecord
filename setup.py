@@ -18,11 +18,24 @@ def find_version(rel_path):
         return version_match.group(1)
     raise RuntimeError("Unable to find version string.")
 
+exclude = [
+    'rhosocial.activerecord.backend.impl.mysql',
+    'rhosocial.activerecord.backend.impl.pgsql',
+    'rhosocial.activerecord.backend.impl.mariadb',
+    'rhosocial.activerecord.backend.impl.mssql',
+    'rhosocial.activerecord.backend.impl.oracle',
+    'rhosocial.activerecord.backend.impl.mysql.*',
+    'rhosocial.activerecord.backend.impl.pgsql.*',
+    'rhosocial.activerecord.backend.impl.mariadb.*',
+    'rhosocial.activerecord.backend.impl.mssql.*',
+    'rhosocial.activerecord.backend.impl.oracle.*',
+]
+
 setup(
     name="rhosocial_activerecord",
     version=find_version("src/rhosocial/activerecord/__init__.py"),
     package_dir={"": "src"},
-    packages=find_namespace_packages(where="src", include=['rhosocial.*']),
+    packages=find_namespace_packages(where="src", include=['rhosocial.*'], exclude=exclude),
     python_requires=">=3.8",
     namespace_packages=['rhosocial'],
 )

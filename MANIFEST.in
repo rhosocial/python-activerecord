@@ -2,3 +2,8 @@ global-exclude *.pyc
 global-exclude __pycache__
 recursive-exclude * *.pyc
 recursive-include src *
+prune src/rhosocial/activerecord/backend/impl/mysql
+prune src/rhosocial/activerecord/backend/impl/pgsql
+prune src/rhosocial/activerecord/backend/impl/mariadb
+prune src/rhosocial/activerecord/backend/impl/mssql
+prune src/rhosocial/activerecord/backend/impl/oracle
