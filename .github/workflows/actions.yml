@@ -97,8 +97,8 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage.xml
-        flags: unittests
-        name: codecov-umbrella
+        flags: unittests,python-3-13
+        name: codecov-umbrella-3-13
         fail_ci_if_error: true
 
   test-other-versions:
@@ -131,6 +131,17 @@ jobs:
     - name: Build package
       run: python -m build
 
-    - name: Run tests
+    - name: Run tests with coverage
       run: |
-        python -m pytest tests/ --reruns 3 --reruns-delay 1
+        coverage run -m pytest tests/ --reruns 3 --reruns-delay 1
+        coverage xml
+        coverage report
+
+    - name: Upload coverage to Codecov
+      uses: codecov/codecov-action@v5
+      with:
+        token: ${{ secrets.CODECOV_TOKEN }}
+        files: ./coverage.xml
+        flags: unittests,python-${{ matrix.python-version }}
+        name: codecov-umbrella-${{ matrix.python-version }}
+        fail_ci_if_error: true
