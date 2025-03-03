@@ -403,8 +403,9 @@ class TestSQLiteTransactionManager:
             assert "Failed to begin transaction: Mock error" in str(exc_info.value)
             mock_log.assert_any_call(logging.ERROR, "Failed to begin transaction: Mock error")
 
-            # 测试 commit 失败 (手动设置活动状态)
+            # 测试 commit 失败 (手动设置事务级别)
             manager._transaction_level = 1
+            # 不再需要设置 _active 标志，因为 is_active 现在只依赖 _transaction_level
 
             with pytest.raises(TransactionError) as exc_info:
                 manager.commit()

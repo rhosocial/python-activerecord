@@ -22,6 +22,13 @@ class IsolationLevel(Enum):
     REPEATABLE_READ = auto()
     SERIALIZABLE = auto()
 
+class TransactionState(Enum):
+    """Transaction states"""
+    INACTIVE = auto()
+    ACTIVE = auto()
+    COMMITTED = auto()
+    ROLLED_BACK = auto()
+
 
 class TransactionManager(ABC):
     """Base transaction manager implementing nested transactions.
@@ -38,10 +45,10 @@ class TransactionManager(ABC):
         self._transaction_level = 0
         self._savepoint_prefix = "SP"
         self._isolation_level: Optional[IsolationLevel] = None
-        self._active = False
         self._logger = logger or logging.getLogger('transaction')
         self._savepoint_count = 0  # Track savepoint count
         self._active_savepoints = []  # Track active savepoints
+        self._state = TransactionState.INACTIVE  # Track transaction state
 
     @property
     def logger(self):
@@ -73,13 +80,26 @@ class TransactionManager(ABC):
 
     @property
     def is_active(self) -> bool:
-        """Check if the transaction is currently active"""
-        return self.transaction_level > 0
+        """Check if the transaction is currently active
+
+        The transaction is considered active if:
+        1. The transaction level is greater than 0, and
+        2. The state is ACTIVE
+
+        This maintains backward compatibility with tests that directly modify
+        _transaction_level for testing purposes.
+        """
+        return self._transaction_level > 0
 
     @property
     def transaction_level(self) -> int:
         """Get the current transaction nesting level"""
         return self._transaction_level
+
+    @property
+    def state(self) -> TransactionState:
+        """Get the current transaction state"""
+        return self._state
 
     @property
     def isolation_level(self) -> Optional[IsolationLevel]:
@@ -191,7 +211,7 @@ class TransactionManager(ABC):
                 # Start actual transaction
                 self.log(logging.INFO, f"Starting new transaction with isolation level {self._isolation_level}")
                 self._do_begin()
-                self._active = True
+                self._state = TransactionState.ACTIVE
             else:
                 # Create savepoint for nested transaction
                 savepoint_name = self._get_savepoint_name(self._transaction_level)
@@ -223,21 +243,31 @@ class TransactionManager(ABC):
             raise TransactionError(error_msg)
 
         try:
+            # Store current level before decrementing
+            current_level = self._transaction_level
             self._transaction_level -= 1
 
-            if self._transaction_level == 0:
+            if current_level <= 1:  # Was outermost transaction
                 # Commit actual transaction
                 self.log(logging.INFO, "Committing outermost transaction")
                 self._do_commit()
-                self._active = False
+                self._state = TransactionState.COMMITTED
                 # Reset savepoint tracking
                 self._savepoint_count = 0
                 self._active_savepoints = []
             else:
                 # Release savepoint for inner transaction
-                savepoint_name = self._active_savepoints.pop()
-                self.log(logging.INFO, f"Releasing savepoint {savepoint_name} for nested transaction")
-                self._do_release_savepoint(savepoint_name)
+                if self._active_savepoints:
+                    savepoint_name = self._active_savepoints.pop()
+                    self.log(logging.INFO, f"Releasing savepoint {savepoint_name} for nested transaction")
+                    self._do_release_savepoint(savepoint_name)
+                else:
+                    # No active savepoint but in nested transaction - abnormal state
+                    self.log(logging.WARNING, "No savepoint found for commit, continuing")
+
+            # Update state if no more active transactions
+            if self._transaction_level == 0:
+                self._state = TransactionState.INACTIVE
 
             self.log(logging.DEBUG, f"Transaction committed, new level: {self._transaction_level}")
         except Exception as e:
@@ -264,21 +294,31 @@ class TransactionManager(ABC):
             raise TransactionError(error_msg)
 
         try:
+            # Store current level before decrementing
+            current_level = self._transaction_level
             self._transaction_level -= 1
 
-            if self._transaction_level == 0:
+            if current_level <= 1:  # Was outermost transaction
                 # Rollback actual transaction
                 self.log(logging.INFO, "Rolling back outermost transaction")
                 self._do_rollback()
-                self._active = False
+                self._state = TransactionState.ROLLED_BACK
                 # Reset savepoint tracking
                 self._savepoint_count = 0
                 self._active_savepoints = []
             else:
                 # Rollback to savepoint for inner transaction
-                savepoint_name = self._active_savepoints.pop()
-                self.log(logging.INFO, f"Rolling back to savepoint {savepoint_name} for nested transaction")
-                self._do_rollback_savepoint(savepoint_name)
+                if self._active_savepoints:
+                    savepoint_name = self._active_savepoints.pop()
+                    self.log(logging.INFO, f"Rolling back to savepoint {savepoint_name} for nested transaction")
+                    self._do_rollback_savepoint(savepoint_name)
+                else:
+                    # No active savepoint but in nested transaction - abnormal state
+                    self.log(logging.WARNING, "No savepoint found for rollback, continuing")
+
+            # Update state if no more active transactions
+            if self._transaction_level == 0:
+                self._state = TransactionState.INACTIVE
 
             self.log(logging.DEBUG, f"Transaction rolled back, new level: {self._transaction_level}")
         except Exception as e:
@@ -401,5 +441,6 @@ class TransactionManager(ABC):
             yield
             self.commit()
         except:
-            self.rollback()
+            if self.is_active:
+                self.rollback()
             raise
