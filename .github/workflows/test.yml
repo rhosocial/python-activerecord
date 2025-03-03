@@ -97,8 +97,8 @@ jobs:
       with:
         token: ${{ secrets.CODECOV_TOKEN }}
         files: ./coverage.xml
-        flags: unittests,python-3-13
-        name: codecov-umbrella-3-13
+        flags: unittests,python-3.13
+        name: codecov-umbrella-3.13
         fail_ci_if_error: true
 
   test-other-versions:

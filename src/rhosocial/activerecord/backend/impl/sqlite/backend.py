@@ -478,28 +478,6 @@ class SQLiteBackend(StorageBackend):
             self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
             self._handle_error(e)
 
-    def begin_transaction(self) -> None:
-        """Start a transaction"""
-        self.log(logging.INFO, "Beginning transaction")
-        self.transaction_manager.begin()
-
-    def commit_transaction(self) -> None:
-        """Commit the current transaction"""
-        self.log(logging.INFO, "Committing transaction")
-        self.transaction_manager.commit()
-
-    def rollback_transaction(self) -> None:
-        """Rollback the current transaction"""
-        self.log(logging.INFO, "Rolling back transaction")
-        self.transaction_manager.rollback()
-
-    @property
-    def in_transaction(self) -> bool:
-        """Check if currently in a transaction"""
-        is_active = self.transaction_manager.is_active if self._transaction_manager else False
-        self.log(logging.DEBUG, f"Checking transaction status: {is_active}")
-        return is_active
-
     @property
     def transaction_manager(self) -> SQLiteTransactionManager:
         """Get the transaction manager"""

@@ -4,6 +4,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List
 
+from src.rhosocial.activerecord.backend.transaction import TransactionManager
 from .dialect import TypeMapper, ValueMapper, DatabaseType, SQLDialectBase, SQLExpressionBase, SQLBuilder
 from .typing import ConnectionConfig, QueryResult
 
@@ -370,47 +371,37 @@ class StorageBackend(ABC):
         return self.execute(sql, params, returning, column_types, returning_columns, force_returning)
 
     def begin_transaction(self) -> None:
-        """Begin transaction"""
-        if self._transaction_level == 0:
-            self.execute("BEGIN TRANSACTION")
-        else:
-            self.execute(f"SAVEPOINT SP_{self._transaction_level}")
-        self._transaction_level += 1
+        """Begin transaction - fully delegate to transaction manager"""
+        self.log(logging.INFO, "Beginning transaction")
+        self.transaction_manager.begin()
 
     def commit_transaction(self) -> None:
-        """Commit transaction"""
-        if self._transaction_level > 0:
-            self._transaction_level -= 1
-            if self._transaction_level == 0:
-                self.execute("COMMIT")
-            else:
-                self.execute(f"RELEASE SAVEPOINT SP_{self._transaction_level}")
+        """Commit transaction - fully delegate to transaction manager"""
+        self.log(logging.INFO, "Committing transaction")
+        self.transaction_manager.commit()
 
     def rollback_transaction(self) -> None:
-        """Rollback transaction"""
-        if self._transaction_level > 0:
-            if self._transaction_level == 1:
-                self.execute("ROLLBACK")
-                self._transaction_level = 0
-            else:
-                self.execute(f"ROLLBACK TO SAVEPOINT SP_{self._transaction_level - 1}")
-                self._transaction_level -= 1
+        """Rollback transaction - fully delegate to transaction manager"""
+        self.log(logging.INFO, "Rolling back transaction")
+        self.transaction_manager.rollback()
+
+    @property
+    def in_transaction(self) -> bool:
+        """Check if in transaction - delegate to transaction manager"""
+        is_active = self.transaction_manager.is_active if self._transaction_manager else False
+        self.log(logging.DEBUG, f"Checking transaction status: {is_active}")
+        return is_active
+
+    @property
+    def transaction_manager(self) -> 'TransactionManager':
+        """Get the transaction manager"""
+        pass
 
     @contextmanager
     def transaction(self) -> Generator[None, None, None]:
         """Transaction context manager"""
-        try:
-            self.begin_transaction()
-            yield
-            self.commit_transaction()
-        except:
-            self.rollback_transaction()
-            raise
-
-    @property
-    def in_transaction(self) -> bool:
-        """Check if in transaction"""
-        return self._transaction_level > 0
+        with self.transaction_manager.transaction() as t:
+            yield t
 
     def __enter__(self):
         if not self._connection:
