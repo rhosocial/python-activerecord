@@ -45,3 +45,8 @@ class RecordNotFound(DatabaseError):
 class ReturningNotSupportedError(DatabaseError):
     """Raised when RETURNING clause is not supported by the database"""
     pass
+
+
+class IsolationLevelError(TransactionError):
+    """Raised when attempting to change isolation level during active transaction."""
+    pass

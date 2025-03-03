@@ -53,6 +53,12 @@ from .helpers import (
     measure_time,
 )
 
+# Transaction
+from .transaction import (
+    TransactionManager,
+    IsolationLevel,
+)
+
 __all__ = [
     # Base classes
     'StorageBackend',
@@ -93,6 +99,10 @@ __all__ = [
     # Expression
     'SQLDialectBase',
     'SQLExpressionBase',
+
+    # Transaction
+    'TransactionManager',
+    'IsolationLevel',
 ]
 
 __version__ = '0.2.0'
