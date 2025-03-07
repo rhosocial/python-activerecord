@@ -203,6 +203,7 @@ class ExplainFormat(Enum):
     JSON = "json"    # JSON format
     XML = "xml"      # XML format (SQL Server)
     YAML = "yaml"    # YAML format (PostgreSQL)
+    TREE = "tree"    # TREE format (MySQL)
 
 @dataclass
 class ExplainOptions:

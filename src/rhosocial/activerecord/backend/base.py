@@ -223,13 +223,22 @@ class StorageBackend(ABC):
         result = self.execute(sql, params, returning=True, column_types=column_types)
         return result.data or []
 
+    def _handle_auto_commit(self) -> None:
+        """Handle auto commit based on connection and transaction state.
+
+        This is a base implementation that does nothing. Subclasses should
+        override this method with database-specific implementation.
+        """
+        pass  # Base implementation does nothing
+
     def insert(self,
                table: str,
                data: Dict,
                returning: bool = False,
                column_types: Optional[ColumnTypes] = None,
                returning_columns: Optional[List[str]] = None,
-               force_returning: bool = False) -> QueryResult:
+               force_returning: bool = False,
+               auto_commit: bool = True) -> QueryResult:
         """Insert record
 
         Note on RETURNING support:
@@ -247,6 +256,8 @@ class StorageBackend(ABC):
             returning_columns: Specific columns to return in RETURNING clause. None means all columns.
             force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
                 despite known limitations. Has no effect with other database backends.
+            auto_commit: If True and autocommit is disabled and not in active transaction,
+                         automatically commit after operation. Default is True.
 
         Returns:
             QueryResult: Execution result
@@ -275,6 +286,11 @@ class StorageBackend(ABC):
         # Execute query and get result
         result = self.execute(sql, tuple(values), returning, column_types, returning_columns, force_returning)
 
+        # Handle auto_commit if specified - this will be overridden by subclasses
+        # with specific implementations
+        if auto_commit:
+            self._handle_auto_commit()
+
         # If we have returning data, ensure the column names are consistently without quotes
         if returning and result.data:
             cleaned_data = []
@@ -296,7 +312,8 @@ class StorageBackend(ABC):
                returning: bool = False,
                column_types: Optional[ColumnTypes] = None,
                returning_columns: Optional[List[str]] = None,
-               force_returning: bool = False) -> QueryResult:
+               force_returning: bool = False,
+               auto_commit: bool = True) -> QueryResult:
         """Update record
 
         Note on RETURNING support:
@@ -316,6 +333,8 @@ class StorageBackend(ABC):
             returning_columns: Specific columns to return in RETURNING clause. None means all columns.
             force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
                 despite known limitations. Has no effect with other database backends.
+            auto_commit: If True and autocommit is disabled and not in active transaction,
+                         automatically commit after operation. Default is True.
 
         Returns:
             QueryResult: Execution result
@@ -330,7 +349,14 @@ class StorageBackend(ABC):
 
         sql = f"UPDATE {table} SET {', '.join(set_items)} WHERE {where}"
 
-        return self.execute(sql, tuple(values) + params, returning, column_types, returning_columns, force_returning)
+        result = self.execute(sql, tuple(values) + params, returning, column_types, returning_columns, force_returning)
+
+        # Handle auto_commit if specified - this will be overridden by subclasses
+        # with specific implementations
+        if auto_commit:
+            self._handle_auto_commit()
+
+        return result
 
     def delete(self,
                table: str,
@@ -339,7 +365,8 @@ class StorageBackend(ABC):
                returning: bool = False,
                column_types: Optional[ColumnTypes] = None,
                returning_columns: Optional[List[str]] = None,
-               force_returning: bool = False) -> QueryResult:
+               force_returning: bool = False,
+               auto_commit: bool = True) -> QueryResult:
         """Delete record
 
         Note on RETURNING support:
@@ -358,6 +385,8 @@ class StorageBackend(ABC):
             returning_columns: Specific columns to return in RETURNING clause. None means all columns.
             force_returning: If True, allows RETURNING clause in SQLite with Python <3.10
                 despite known limitations. Has no effect with other database backends.
+            auto_commit: If True and autocommit is disabled and not in active transaction,
+                         automatically commit after operation. Default is True.
 
         Returns:
             QueryResult: Execution result
@@ -368,7 +397,13 @@ class StorageBackend(ABC):
         """
         sql = f"DELETE FROM {table} WHERE {where}"
 
-        return self.execute(sql, params, returning, column_types, returning_columns, force_returning)
+        result = self.execute(sql, params, returning, column_types, returning_columns, force_returning)
+
+        # Handle auto_commit if specified
+        if auto_commit:
+            self._handle_auto_commit()
+
+        return result
 
     def begin_transaction(self) -> None:
         """Begin transaction - fully delegate to transaction manager"""

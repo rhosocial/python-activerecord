@@ -34,7 +34,6 @@ class SQLiteBackend(StorageBackend):
         # Extract custom pragmas from options
         self._pragmas = self._get_pragma_settings(kwargs)
 
-
     @property
     def pragmas(self) -> Dict[str, str]:
         """Get current pragma settings
@@ -477,6 +476,31 @@ class SQLiteBackend(StorageBackend):
         except Exception as e:
             self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
             self._handle_error(e)
+
+    def _handle_auto_commit(self) -> None:
+        """Handle auto commit based on SQLite connection and transaction state.
+
+        This method will commit the current connection if:
+        1. The connection exists and is open
+        2. There is no active transaction managed by transaction_manager
+
+        It's used by insert/update/delete operations to ensure changes are
+        persisted immediately when auto_commit=True is specified.
+        """
+        try:
+            # Check if connection exists
+            if not self._connection:
+                return
+
+            # Check if we're not in an active transaction
+            if not self._transaction_manager or not self._transaction_manager.is_active:
+                # For SQLite, we always need to commit explicitly since we set isolation_level=None
+                # in connect() which disables autocommit
+                self._connection.commit()
+                self.log(logging.DEBUG, "Auto-committed operation (not in active transaction)")
+        except Exception as e:
+            # Just log the error but don't raise - this is a convenience feature
+            self.log(logging.WARNING, f"Failed to auto-commit: {str(e)}")
 
     @property
     def transaction_manager(self) -> SQLiteTransactionManager:
