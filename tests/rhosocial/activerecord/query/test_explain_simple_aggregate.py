@@ -1,13 +1,19 @@
 """Test explain functionality with simple aggregates for SQLite."""
 from decimal import Decimal
+
+import pytest
+
 from .utils import create_order_fixtures
 from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
-def test_explain_count(order_fixtures):
+def test_explain_count(order_fixtures, request):
     """Test explain with COUNT aggregate"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test user
@@ -42,8 +48,11 @@ def test_explain_count(order_fixtures):
     assert isinstance(plan, str)
     assert "SCAN" in plan  # SQLite optimizes this to table scan
 
-def test_explain_sum(order_fixtures):
+def test_explain_sum(order_fixtures, request):
     """Test explain with SUM aggregate"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -72,8 +81,11 @@ def test_explain_sum(order_fixtures):
     assert isinstance(plan, str)
     assert "SCAN" in plan
 
-def test_explain_avg(order_fixtures):
+def test_explain_avg(order_fixtures, request):
     """Test explain with AVG aggregate"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -101,8 +113,11 @@ def test_explain_avg(order_fixtures):
     assert isinstance(plan, str)
     assert "SCAN" in plan
 
-def test_explain_min_max(order_fixtures):
+def test_explain_min_max(order_fixtures, request):
     """Test explain with MIN and MAX aggregates"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -129,8 +144,11 @@ def test_explain_min_max(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
-def test_explain_complex_aggregates(order_fixtures):
+def test_explain_complex_aggregates(order_fixtures, request):
     """Test explain with aggregate functions and complex conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)

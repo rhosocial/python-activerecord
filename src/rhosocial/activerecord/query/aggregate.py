@@ -262,7 +262,21 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         if limit_offset_sql:
             query_parts.append(limit_offset_sql)
 
-        return " ".join(query_parts), tuple(all_params)
+        raw_sql = " ".join(query_parts)
+        params = tuple(all_params)
+
+        # Get the target database placeholder
+        backend = self.model_class.backend()
+        placeholder = backend.dialect.get_placeholder()
+
+        # Only replace if the placeholder is not a question mark
+        if placeholder != '?':
+            # Replace all question marks with the correct placeholder
+            processed_sql = super()._replace_question_marks(raw_sql, placeholder)
+        else:
+            processed_sql = raw_sql
+
+        return processed_sql, params
 
     def to_sql(self) -> Tuple[str, Tuple]:
         """Get complete SQL query with parameters for debugging.

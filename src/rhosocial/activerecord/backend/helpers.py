@@ -98,7 +98,7 @@ def parse_datetime(
         value: str,
         format: Optional[str] = None,
         timezone: Optional[str] = None
-) -> Union[datetime, date]:
+) -> Union[datetime, date, timed]:  # Note: added 'timed' to return type
     """Parse datetime string, uses system timezone if not provided
 
     Args:
@@ -107,7 +107,7 @@ def parse_datetime(
         timezone: Timezone string (e.g. 'UTC', 'Asia/Shanghai')
 
     Returns:
-        Union[datetime, date]: Parsed datetime or date object
+        Union[datetime, date, timed]: Parsed datetime, date, or time object
 
     Raises:
         TypeConversionError: If the datetime string cannot be parsed
@@ -119,16 +119,25 @@ def parse_datetime(
             if 'T' in value:
                 dt = datetime.fromisoformat(value)
             elif '.' in value:
-                dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+                if ':' in value:  # Check for time with microseconds
+                    dt = datetime.strptime(value, '%H:%M:%S.%f') if ' ' not in value else datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+                else:
+                    dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
             elif ' ' in value:
                 dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S')
+            elif ':' in value:  # Add this check for time-only strings
+                if '.' in value:
+                    dt = datetime.strptime(value, '%H:%M:%S.%f').time()
+                else:
+                    dt = datetime.strptime(value, '%H:%M:%S').time()
             else:
                 return datetime.strptime(value, '%Y-%m-%d').date()
 
-        if timezone:
+        # Only apply timezone if dt is a datetime object (not date or time)
+        if timezone and isinstance(dt, datetime):
             tz = ZoneInfo(timezone)
             dt = dt.replace(tzinfo=tz)
-        else:
+        elif isinstance(dt, datetime):
             dt = dt.astimezone()
 
         return dt

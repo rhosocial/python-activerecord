@@ -1,13 +1,19 @@
 """Test explain functionality with grouped aggregates for SQLite."""
 from decimal import Decimal
+
+import pytest
+
 from .utils import create_order_fixtures
 from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat, ExplainOptions
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
-def test_explain_basic_group_by(order_fixtures):
+def test_explain_basic_group_by(order_fixtures, request):
     """Test explain with basic GROUP BY"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
@@ -47,8 +53,11 @@ def test_explain_basic_group_by(order_fixtures):
     assert "GROUP BY" in plan.upper()
 
 
-def test_explain_aggregate_with_having(order_fixtures):
+def test_explain_aggregate_with_having(order_fixtures, request):
     """Test explain with GROUP BY and HAVING"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -81,8 +90,11 @@ def test_explain_aggregate_with_having(order_fixtures):
     # Note: HAVING might be optimized into the GROUP BY B-TREE operation
     assert "TEMP B-TREE" in plan.upper()
 
-def test_explain_multiple_aggregates(order_fixtures):
+def test_explain_multiple_aggregates(order_fixtures, request):
     """Test explain with multiple aggregate functions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -109,8 +121,11 @@ def test_explain_multiple_aggregates(order_fixtures):
     # Should see multiple aggregate function operations
     assert any(op in plan for op in ['Aggregate', 'Function', 'Column'])
 
-def test_explain_multiple_group_by(order_fixtures):
+def test_explain_multiple_group_by(order_fixtures, request):
     """Test explain with multiple GROUP BY columns"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
@@ -143,8 +158,11 @@ def test_explain_multiple_group_by(order_fixtures):
     # Multiple columns in GROUP BY create more complex sort operations
     assert "COMPOUND" in plan.upper() or "TEMP" in plan.upper()
 
-def test_explain_aggregate_with_joins(order_fixtures):
+def test_explain_aggregate_with_joins(order_fixtures, request):
     """Test explain with aggregates and joins"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
@@ -174,8 +192,11 @@ def test_explain_aggregate_with_joins(order_fixtures):
               for table in [Order.__table_name__, User.__table_name__])
     assert "GROUP BY" in plan.upper()
 
-def test_explain_aggregate_with_subqueries(order_fixtures):
+def test_explain_aggregate_with_subqueries(order_fixtures, request):
     """Test explain with aggregates containing subqueries"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data

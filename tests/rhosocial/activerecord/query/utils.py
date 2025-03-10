@@ -11,61 +11,66 @@ from tests.rhosocial.activerecord.utils import load_schema_file, DB_HELPERS, DB_
 
 
 def generate_unique_test_id():
-    """生成唯一的测试ID
+    """Generate a unique test ID.
 
     Returns:
-        str: 唯一的测试ID
+        str: Unique test ID
     """
     return f"{int(time.time())}_{uuid.uuid4().hex[:8]}"
 
+
 def generate_case_id():
-    """生成唯一的测试用例ID
+    """Generate a unique test case ID.
 
     Returns:
-        str: 唯一的测试用例ID
+        str: Unique test case ID
     """
     return uuid.uuid4().hex[:8]
 
+
 def modify_sqlite_config(config, config_name, test_id, case_id):
-    """为SQLite配置修改数据库连接参数，使每个测试用例有自己的连接
+    """Modify SQLite connection parameters to give each test case its own connection.
 
     Args:
-        config: 数据库配置
-        config_name: 配置名称
-        test_id: 测试ID
-        case_id: 测试用例ID
+        config: Database configuration
+        config_name: Configuration name
+        test_id: Test ID
+        case_id: Test case ID
 
     Returns:
-        dict: 修改后的配置
+        dict: Modified configuration
     """
     if config_name == 'file' and 'database' in config:
         if config['database'] != ':memory:':
             config['database'] = f"test_db_{test_id}_{config_name}_{case_id}.sqlite"
     elif config_name == 'memory' and 'database' in config:
-        # 为内存数据库使用唯一URI，加入测试用例ID确保每个测试有自己的连接
+        # Use unique URI for in-memory database, including test case ID to ensure each test has its own connection
         config['database'] = f"file:memdb_{test_id}_{case_id}?mode=memory&cache=shared"
-        # 添加URI选项以启用URI文件名解析
+        # Add URI option to enable URI filename parsing
         if 'options' not in config:
             config['options'] = {}
         config['options']['uri'] = True
     return config
 
-def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Optional[List[str]] = None, test_id: Optional[str] = None):
-    """生成测试配置组合
+
+def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Optional[List[str]] = None,
+                          test_id: Optional[str] = None):
+    """Generate test configuration combinations.
 
     Args:
-        model_classes: ActiveRecord模型类列表
-        configs: 数据库配置名列表。如果为None，使用所有可用配置
+        model_classes: List of ActiveRecord model classes
+        configs: List of database configuration names. If None, use all available configurations
+        test_id: Test ID. If None, generate a new one
 
     Yields:
-        DBTestConfig: 测试配置对象
+        DBTestConfig: Test configuration object
     """
-    # 如果没有提供测试ID，则生成一个新的
+    # If no test ID is provided, generate a new one
     if test_id is None:
         test_id = generate_unique_test_id()
 
     for backend in DB_HELPERS.keys():
-        # 检查所有模型是否都支持当前后端
+        # Check if all models support the current backend
         supported = True
         for model_class in model_classes:
             if hasattr(model_class, "__supported_backends__"):
@@ -75,95 +80,98 @@ def generate_test_configs(model_classes: List[Type[IActiveRecord]], configs: Opt
         if not supported:
             continue
 
-        # 获取当前后端的所有配置
+        # Get all configurations for the current backend
         backend_configs = DB_CONFIGS[backend]
         test_configs = configs if configs else list(backend_configs.keys())
 
         for config_name in test_configs:
             if config_name in backend_configs:
-                # 创建配置的深拷贝
+                # Create a deep copy of the configuration
                 config = backend_configs[config_name].copy()
-
-                # 为SQLite数据库创建唯一标识
-                if backend == 'sqlite':
-                    if config_name == 'file' and 'database' in config:
-                        if config['database'] != ':memory:':
-                            config['database'] = f"test_db_{test_id}_{config_name}.sqlite"
-                    elif config_name == 'memory' and 'database' in config:
-                        # 为内存数据库使用唯一URI
-                        config['database'] = f"file:memdb_{test_id}?mode=memory&cache=shared"
-                        # 添加URI选项以启用URI文件名解析
-                        if 'options' not in config:
-                            config['options'] = {}
-                        config['options']['uri'] = True
-
                 yield DBTestConfig(backend, config_name, config)
 
 
-def create_order_fixtures():
-    """创建订单相关的多表测试夹具
+def drop_table_if_exists(model_class, logger=None):
+    """Drop table if it exists.
 
-    按照外键依赖关系创建表：
-    1. users (被orders引用)
-    2. orders (被order_items引用)
-    3. order_items
+    Args:
+        model_class: ActiveRecord model class
+        logger: Optional logger instance
+
+    Returns:
+        bool: True if successful, False otherwise
     """
-    from .fixtures.models import User, Order, OrderItem
-    model_classes = [User, Order, OrderItem]
-    test_id = generate_unique_test_id()
+    if logger is None:
+        logger = logging.getLogger('activerecord_test')
 
-    @pytest.fixture(
-        params=list(generate_test_configs(model_classes, test_id=test_id)),
-        ids=lambda x: f"{x.backend}-{x.config_name}"
-    )
-    def _fixture(request) -> Tuple[Type[User], Type[Order], Type[OrderItem]]:
-        """创建和配置订单相关表的测试环境"""
-        db_config = request.param
+    table_name = model_class.__table_name__
+    backend = model_class.__backend__
 
-        # 为每个测试用例生成唯一ID
-        case_id = generate_case_id()
+    try:
+        logger.debug(f"Attempting to drop table {table_name} if it exists")
+        drop_result = backend.execute(f"DROP TABLE IF EXISTS {table_name}")
+        logger.debug(f"Drop table result affected_rows: {drop_result.affected_rows if drop_result else 'N/A'}")
 
-        # 创建配置副本，以便修改不影响其他测试
-        config = db_config.config.copy()
+        # For MySQL, ensure the drop operation is completed (flush)
+        # if backend.__class__.__name__.lower().find('mysql') >= 0 and hasattr(backend, 'commit_transaction'):
+        #     backend.commit_transaction()
+        #     logger.debug(f"Committed drop table operation for MySQL")
+        return True
+    except Exception as e:
+        logger.error(f"Error dropping table {table_name}: {e}")
+        return False
 
-        # 如果是SQLite，为每个测试用例创建唯一连接
-        if db_config.backend == 'sqlite':
-            config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
 
-        # 创建后端实例
-        backend = db_config.helper["class"](**config)
-        logging.log(logging.DEBUG, f"db_config: {config}, case_id: {case_id}")
+def verify_table_dropped(model_class, db_config, logger=None):
+    """Verify table has been dropped.
 
-        # 配置所有模型使用相同的后端实例
-        for model_class in model_classes:
-            model_class.__connection_config__ = ConnectionConfig(**config)
-            model_class.__backend_class__ = db_config.helper["class"]
-            model_class.__backend__ = backend
-            # result = model_class.backend().execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name= ?;", (model_class.__table_name__, ), returning=True)
-            # logging.log(logging.DEBUG, f"Check whether if the {model_class.__table_name__} exists: {result}")
-            # model_class.backend().execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+    Args:
+        model_class: ActiveRecord model class
+        db_config: Database configuration
+        logger: Optional logger instance
 
-        # 按依赖顺序创建表
-        for model_class in model_classes:
-            schema = load_schema_file(
-                model_class,
-                db_config.backend,
-                f"{model_class.__table_name__}.sql"
-            )
-            result = model_class.__backend__.execute(schema)
-            # 验证表创建结果
-            if result is None or result.affected_rows != -1:  # SQLite创建表成功时返回-1
-                raise RuntimeError(f"Failed to create table {model_class.__table_name__}")
+    Returns:
+        bool: True if table doesn't exist, False otherwise
+    """
+    if logger is None:
+        logger = logging.getLogger('activerecord_test')
 
-        yield User, Order, OrderItem
+    table_name = model_class.__table_name__
+    backend = model_class.__backend__
 
-        # 按相反顺序清理表
-        for model_class in reversed(model_classes):
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
-            model_class.__backend__.disconnect()
-            model_class.__backend__ = None
+    try:
+        if db_config.backend.startswith('mysql'):
+            # For MySQL, check information_schema
+            db_name = db_config.config.get('database')
+            verify_query = f"SELECT COUNT(*) as count FROM information_schema.tables WHERE table_schema = '{db_name}' AND table_name = '{table_name}'"
+            verify_result = backend.execute(verify_query, returning=True)
+            result = verify_result.data[0] if verify_result and verify_result.data else None
+            count = result.get('count', 0) if result else 0
 
-    return _fixture
+            if count > 0:
+                logger.error(f"CLEANUP FAILED: Table {table_name} still exists after DROP")
+                return False
+            else:
+                logger.debug(f"CLEANUP VERIFIED: Table {table_name} successfully dropped")
+                return True
+        elif db_config.backend == 'sqlite':
+            # For SQLite, try to query the sqlite_master table
+            if db_config.config.get('database') != ":memory:":  # Skip for in-memory databases
+                verify_query = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+                verify_result = backend.execute(verify_query, returning=True)
+                rows = verify_result.data if verify_result else []
+
+                if rows and len(rows) > 0:
+                    logger.error(f"CLEANUP FAILED: Table {table_name} still exists after DROP")
+                    return False
+                else:
+                    logger.debug(f"CLEANUP VERIFIED: Table {table_name} successfully dropped")
+                    return True
+            return True
+    except Exception as e:
+        logger.error(f"Error verifying table cleanup: {e}")
+
+    return False
 
 
 def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: Optional[Dict[str, str]] = None):
@@ -182,6 +190,7 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
         for model in model_classes
     }
     test_id = generate_unique_test_id()
+    logger = logging.getLogger('activerecord_test')
 
     @pytest.fixture(
         params=list(generate_test_configs(model_classes, test_id=test_id)),
@@ -191,51 +200,151 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
         """Create and configure test environment for related tables."""
         db_config = request.param
 
-        # 为每个测试用例生成唯一ID
+        # Generate a unique ID for each test case
         case_id = generate_case_id()
 
-        # 创建配置副本，以便修改不影响其他测试
+        # Create a copy of the configuration to avoid affecting other tests
         config = db_config.config.copy()
 
-        # 如果是SQLite，为每个测试用例创建唯一连接
+        # If SQLite, create a unique connection for each test case
         if db_config.backend == 'sqlite':
             config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
 
         # Create backend instance
         backend = db_config.helper["class"](**config)
-        logging.log(logging.DEBUG, f"db_config: {config}")
+        logger.debug(f"db_config: {config}, case_id: {case_id}")
 
         # Configure all models to use the same backend instance
         for model_class in model_classes:
             model_class.__connection_config__ = ConnectionConfig(**config)
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
-            # result = model_class.backend().execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name= ?;", (model_class.__table_name__, ), returning=True)
-            # logging.log(logging.DEBUG, f"Check whether if the {model_class.__table_name__} exists: {result}")
-            # model_class.backend().execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
+
+        # First drop any existing tables in reverse dependency order
+        for model_class in reversed(model_classes):
+            if not drop_table_if_exists(model_class, logger):
+                raise RuntimeError(f"Error dropping table {model_class.__table_name__}")
 
         # Create tables in dependency order
         for model_class in model_classes:
-            schema = load_schema_file(
-                model_class,
-                db_config.backend,
-                schema_map[model_class.__table_name__]
-            )
-            result = model_class.__backend__.execute(schema)
-            # Verify table creation
-            if result is None or result.affected_rows != -1:
-                raise RuntimeError(f"Failed to create table {model_class.__table_name__}")
+            table_name = model_class.__table_name__
+            try:
+                schema = load_schema_file(
+                    model_class,
+                    db_config.backend,
+                    schema_map[table_name]
+                )
+                logger.debug(f"Creating table {table_name} with schema")
+                result = model_class.__backend__.execute(schema)
+
+                # Verify table creation success
+                if result is None:
+                    raise RuntimeError(f"Failed to create table {table_name}: No result returned")
+
+                logger.debug(f"Table {table_name} created successfully, affected_rows: {result.affected_rows}")
+            except Exception as e:
+                logger.error(f"Error creating table {table_name}: {e}")
+                # Clean up resources even if table creation fails
+                for cleanup_model in reversed(model_classes):
+                    try:
+                        drop_table_if_exists(cleanup_model, logger)
+                    except:
+                        pass
+
+                try:
+                    backend.disconnect()
+                except:
+                    pass
+
+                for model_class in model_classes:
+                    model_class.__backend__ = None
+
+                raise  # Re-raise the exception to fail the test
 
         yield tuple(model_classes)
 
         # Cleanup tables in reverse order
         for model_class in reversed(model_classes):
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
-            model_class.__backend__.disconnect()
+            try:
+                # Ensure any pending transactions are finished before dropping the table
+                if hasattr(model_class.__backend__, 'commit_transaction'):
+                    try:
+                        logger.debug(f"Committing any pending transactions before cleanup")
+                        model_class.__backend__.commit_transaction()
+                    except Exception as e:
+                        logger.error(f"Error committing pending transactions: {e}")
+                        # Try to rollback if commit fails
+                        if hasattr(model_class.__backend__, 'rollback_transaction'):
+                            try:
+                                model_class.__backend__.rollback_transaction()
+                                logger.debug(f"Rolled back pending transactions")
+                            except Exception as rollback_err:
+                                logger.error(f"Error rolling back transactions: {rollback_err}")
+                                # raise
+                        # raise
+
+                drop_table_if_exists(model_class, logger)
+                verify_table_dropped(model_class, db_config, logger)
+            except Exception as e:
+                logger.error(f"Error during cleanup for table {model_class.__table_name__}: {e}")
+                # raise
+
+        # Disconnect from the database
+        try:
+            logger.debug(f"Disconnecting database connection")
+            backend.disconnect()
+            logger.debug(f"Database disconnected successfully")
+        except Exception as e:
+            logger.error(f"Error disconnecting from database: {e}")
+            raise
+
+        # Clear backend reference
+        for model_class in model_classes:
             model_class.__backend__ = None
 
-
     return _fixture
+
+
+def create_order_fixtures():
+    """Create test fixtures for order-related tables.
+
+    Creates tables in dependency order:
+    1. users (referenced by orders)
+    2. orders (referenced by order_items)
+    3. order_items
+    """
+    from .fixtures.models import User, Order, OrderItem
+    model_classes = [User, Order, OrderItem]
+
+    # Define schema mapping
+    schema_map = {
+        User.__table_name__: "users.sql",
+        Order.__table_name__: "orders.sql",
+        OrderItem.__table_name__: "order_items.sql"
+    }
+
+    return create_table_fixture(model_classes, schema_map)
+
+
+def create_blog_fixtures():
+    """Create blog-related table fixtures.
+
+    Creates tables in dependency order:
+    1. users
+    2. posts (depends on users)
+    3. comments (depends on users and posts)
+    """
+    from .fixtures.models import User, Post, Comment
+    model_classes = [User, Post, Comment]
+
+    # Define schema mapping
+    schema_map = {
+        User.__table_name__: "users.sql",
+        Post.__table_name__: "posts.sql",
+        Comment.__table_name__: "comments.sql"
+    }
+
+    return create_table_fixture(model_classes, schema_map)
 
 
 def create_order_fixture_factory(User: Type[IActiveRecord],
@@ -251,6 +360,11 @@ def create_order_fixture_factory(User: Type[IActiveRecord],
     Returns:
         Function that creates fixtures for specific Order variants
     """
+    base_schema_map = base_schema_map or {
+        User.__table_name__: "users.sql",
+        "orders": "orders.sql",  # Generic schema for all Order variants
+        OrderItem.__table_name__: "order_items.sql"
+    }
 
     def create_order_fixture(Order: Type[IActiveRecord]) -> Any:
         """Create fixture for specific Order variant.
@@ -262,17 +376,13 @@ def create_order_fixture_factory(User: Type[IActiveRecord],
             pytest fixture that yields (User, Order, OrderItem)
         """
         model_classes = [User, Order, OrderItem]
-        schema_map = base_schema_map or {
-            User.__table_name__: "users.sql",
-            Order.__table_name__: "orders.sql",  # All Order variants use same schema
-            OrderItem.__table_name__: "order_items.sql"
-        }
+        schema_map = base_schema_map.copy()
+        schema_map[Order.__table_name__] = base_schema_map["orders"]
         return create_table_fixture(model_classes, schema_map)
 
     return create_order_fixture
 
 
-# Create fixture factory for order-related tests
 def setup_order_fixtures():
     """Set up fixture factory for order-related tests.
 
@@ -293,84 +403,3 @@ def setup_order_fixtures():
         'limited_cache_order': create_fixture(OrderWithLimitedCache),
         'complex_cache_order': create_fixture(OrderWithComplexCache)
     }
-
-# Example usage in tests:
-# from .utils import setup_order_fixtures
-# order_fixtures = setup_order_fixtures(User, OrderItem)
-#
-# def test_basic_order(order_fixtures['basic_order']):
-#     User, Order, OrderItem = order_fixtures['basic_order']
-#     ...
-#
-# def test_custom_cache(order_fixtures['custom_cache_order']):
-#     User, Order, OrderItem = order_fixtures['custom_cache_order']
-#     ...
-
-def create_blog_fixtures():
-    """Create blog-related table fixtures.
-
-    Creates tables in dependency order:
-    1. users
-    2. posts (depends on users)
-    3. comments (depends on users and posts)
-    """
-    from .fixtures.models import User, Post, Comment
-    model_classes = [User, Post, Comment]
-    test_id = generate_unique_test_id()
-
-    @pytest.fixture(params=list(generate_test_configs(model_classes)),
-                    ids=lambda x: f"{x.backend}-{x.config_name}", scope="function")
-    def _fixture(request) -> Tuple[Type[User], Type[Post], Type[Comment]]:
-        """Create and configure blog test environment."""
-        db_config = request.param
-
-        # 为每个测试用例生成唯一ID
-        case_id = generate_case_id()
-
-        # 创建配置副本，以便修改不影响其他测试
-        config = db_config.config.copy()
-
-        # 如果是SQLite，为每个测试用例创建唯一连接
-        if db_config.backend == 'sqlite':
-            config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
-
-        # Create backend instance
-        backend = db_config.helper["class"](**config)
-        logging.log(logging.DEBUG, f"Test ID: {test_id}, db_config: {config}")
-
-        # Configure all models to use the same backend instance
-        for model_class in model_classes:
-            model_class.__connection_config__ = ConnectionConfig(**config)
-            model_class.__backend_class__ = db_config.helper["class"]
-            model_class.__backend__ = backend
-            # result = model_class.backend().execute(f"SELECT name FROM sqlite_master WHERE type='table' AND name= ?;", (model_class.__table_name__, ), returning=True)
-            # logging.log(logging.DEBUG, f"Check whether if the {model_class.__table_name__} exists: {result}")
-            # model_class.backend().execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
-
-        # Create tables in dependency order
-        table_schemas = {
-            User: "users.sql",
-            Post: "posts.sql",
-            Comment: "comments.sql"
-        }
-
-        for model_class in model_classes:
-            schema = load_schema_file(
-                model_class,
-                db_config.backend,
-                table_schemas[model_class]
-            )
-            result = model_class.__backend__.execute(schema)
-            if result is None or result.affected_rows != -1:
-                raise RuntimeError(f"Failed to create table {model_class.__table_name__}")
-
-        yield User, Post, Comment
-
-        # Cleanup tables in reverse order
-        for model_class in reversed(model_classes):
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
-            model_class.__backend__.disconnect()
-            model_class.__backend__ = None
-
-
-    return _fixture

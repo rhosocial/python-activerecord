@@ -28,6 +28,41 @@ class CustomModuleFormatter(logging.Formatter):
 # Type variable for interface
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
+"""Utility functions for database placeholder handling."""
+
+
+def replace_question_marks(sql: str, placeholder: str) -> str:
+    """Replace question mark placeholders with database-specific placeholders.
+
+    This utility function carefully replaces question marks that are used as parameter
+    placeholders, while preserving question marks that might appear in string literals.
+
+    Args:
+        sql: Original SQL with question mark placeholders
+        placeholder: Database-specific placeholder to use
+
+    Returns:
+        SQL with replaced placeholders
+    """
+    # Check if we need indexed placeholders (e.g., $1, $2, $3 for PostgreSQL)
+    if placeholder.find('%d') != -1:
+        # For indexed placeholders
+        parts = []
+        param_index = 1
+        i = 0
+        while i < len(sql):
+            if sql[i] == '?':
+                # Replace with indexed placeholder
+                parts.append(placeholder % param_index)
+                param_index += 1
+            else:
+                parts.append(sql[i])
+            i += 1
+        return ''.join(parts)
+    else:
+        # For non-indexed placeholders
+        return sql.replace('?', placeholder)
+
 
 class IActiveRecord(BaseModel, ABC):
     """Base interface for ActiveRecord models.
@@ -259,6 +294,18 @@ class IActiveRecord(BaseModel, ABC):
         return result
 
     def _update_internal(self, data) -> Any:
+        """Internal method for updating an existing record with enhanced conditions and expressions.
+
+        This method handles the construction of the update query with all necessary conditions
+        and special expressions from model mixins. It properly converts placeholders to match
+        the database backend's requirements.
+
+        Args:
+            data: The data dictionary to be updated
+
+        Returns:
+            The result of the update operation
+        """
         # Update existing record with enhanced conditions and expressions
         update_conditions = []
         update_expressions = {}
@@ -279,12 +326,26 @@ class IActiveRecord(BaseModel, ABC):
                 if behavior_expressions:
                     update_expressions.update(behavior_expressions)
 
+        # Get the database backend
+        backend = self.backend()
+
+        # Get the appropriate placeholder for this database
+        placeholder = backend.dialect.get_placeholder()
+
         # Combine base condition with additional conditions
-        conditions = [f"{self.primary_key()} = ?"]
+        base_condition = f"{self.primary_key()} = ?"
+
+        # Only convert if the placeholder is not a question mark
+        if placeholder != '?':
+            base_condition = replace_question_marks(base_condition, placeholder)
+
+        conditions = [base_condition]
         params = [getattr(self, self.primary_key())]
 
-        # Add additional conditions
+        # Add additional conditions and convert placeholders if needed
         for condition, condition_params in update_conditions:
+            if placeholder != '?':
+                condition = replace_question_marks(condition, placeholder)
             conditions.append(condition)
             if condition_params:
                 params.extend(condition_params)
@@ -297,7 +358,7 @@ class IActiveRecord(BaseModel, ABC):
                  f"data={data}, conditions={conditions}, params={params}")
 
         # Execute update with combined conditions
-        result = self.backend().update(
+        result = backend.update(
             self.table_name(),
             data,
             " AND ".join(conditions),

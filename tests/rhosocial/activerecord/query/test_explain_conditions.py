@@ -1,13 +1,19 @@
 """Test explain functionality with various conditions for SQLite."""
 from decimal import Decimal
+
+import pytest
+
 from .utils import create_order_fixtures
 from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat, ExplainOptions
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
-def test_explain_simple_where(order_fixtures):
+def test_explain_simple_where(order_fixtures, request):
     """Test explain with simple WHERE conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test user
@@ -44,8 +50,11 @@ def test_explain_simple_where(order_fixtures):
     # Non-indexed column should use SCAN
     assert "SCAN" in plan
 
-def test_explain_primary_key_condition(order_fixtures):
+def test_explain_primary_key_condition(order_fixtures, request):
     """Test explain with primary key conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -67,8 +76,11 @@ def test_explain_primary_key_condition(order_fixtures):
     assert "SEARCH" in plan  # Should use index search
     assert "PRIMARY KEY" in plan
 
-def test_explain_foreign_key_condition(order_fixtures):
+def test_explain_foreign_key_condition(order_fixtures, request):
     """Test explain with foreign key conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -90,8 +102,11 @@ def test_explain_foreign_key_condition(order_fixtures):
     # you need to explicitly create an index on the foreign key column
     # CREATE INDEX idx_orders_user_id ON orders(user_id)
 
-def test_explain_complex_conditions(order_fixtures):
+def test_explain_complex_conditions(order_fixtures, request):
     """Test explain with complex condition combinations"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -114,8 +129,11 @@ def test_explain_complex_conditions(order_fixtures):
     assert isinstance(plan, str)
     assert "SCAN" in plan  # Should use table scan for non-indexed columns
 
-def test_explain_or_conditions(order_fixtures):
+def test_explain_or_conditions(order_fixtures, request):
     """Test explain with OR conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -140,8 +158,11 @@ def test_explain_or_conditions(order_fixtures):
     assert isinstance(plan, str)
     assert "SCAN" in plan  # OR typically causes full table scan
 
-def test_explain_range_conditions(order_fixtures):
+def test_explain_range_conditions(order_fixtures, request):
     """Test explain with range conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -173,8 +194,11 @@ def test_explain_range_conditions(order_fixtures):
     assert isinstance(plan, str)
     assert "SCAN" in plan  # LIKE typically causes full table scan
 
-def test_explain_in_conditions(order_fixtures):
+def test_explain_in_conditions(order_fixtures, request):
     """Test explain with IN conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
