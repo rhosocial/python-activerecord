@@ -6,7 +6,7 @@ Provides BelongsTo, HasOne, and HasMany relationship types.
 import logging
 from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, cast, Dict
 
-from .cache import RelationCache, CacheConfig
+from .cache import CacheConfig, InstanceCache
 from .interfaces import RelationValidation, RelationManagementInterface, RelationLoader
 from .. import QueryMixin
 from ..interface import IActiveRecord
@@ -63,12 +63,12 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
 class RelationDescriptor(Generic[T]):
     """
     Generic descriptor for managing model relations.
+    Modified to use instance-level caching for proper isolation.
 
     Args:
         foreign_key: Foreign key field name
         inverse_of: Name of inverse relation
         loader: Custom loader implementation
-        query: Custom query implementation
         validator: Custom validation implementation
         cache_config: Cache configuration
 
@@ -92,7 +92,7 @@ class RelationDescriptor(Generic[T]):
         self._validator = validator
         if cache_config is not None and not isinstance(cache_config, CacheConfig):
             raise TypeError("cache_config must be instance of CacheConfig")
-        self._cache = RelationCache(cache_config)
+        self._cache_config = cache_config or CacheConfig()
         self._cached_model: Optional[Type[T]] = None
         self._owner = None
 
@@ -117,7 +117,7 @@ class RelationDescriptor(Generic[T]):
         """Set descriptor name and register with owner."""
         self.name = name
         self._owner = owner
-        self._cache.relation_name = name
+        # self._cache.relation_name = name
 
         self.log(logging.DEBUG, f"Registering relation `{name}` with `{owner.__name__}`")
         owner.register_relation(name, self)
@@ -142,7 +142,7 @@ class RelationDescriptor(Generic[T]):
     def __delete__(self, instance: Any) -> None:
         """Clear cache on deletion."""
         self.log(logging.DEBUG, f"Clearing cache for `{self.name}` relation")
-        self._cache.delete(instance)
+        InstanceCache.delete(instance, self.name)
 
     def get_related_model(self, owner: Type[Any]) -> Type[T]:
         """
@@ -283,7 +283,7 @@ class RelationDescriptor(Generic[T]):
         if self._cached_model is None:
             self.get_related_model(type(instance))
 
-        cached = self._cache.get(instance)
+        cached = InstanceCache.get(instance, self.name, self._cache_config)
         if cached is not None:
             self.log(logging.DEBUG, f"Using cached relation for `{self.name}`")
             return cached
@@ -291,7 +291,7 @@ class RelationDescriptor(Generic[T]):
         try:
             self.log(logging.DEBUG, f"Loading relation `{self.name}` for {type(instance).__name__}")
             data = self._loader.load(instance) if self._loader else None
-            self._cache.set(instance, data)
+            InstanceCache.set(instance, self.name, data, self._cache_config)
             return data
         except Exception as e:
             self.log(logging.ERROR, f"Error loading relation: {e}")
@@ -317,7 +317,7 @@ class RelationDescriptor(Generic[T]):
         result = {}
         # Try cache first
         for record in records:
-            cached = self._cache.get(record)
+            cached = InstanceCache.get(record, self.name, self._cache_config)
             if cached is not None:
                 result[id(record)] = cached
 
@@ -340,7 +340,7 @@ class RelationDescriptor(Generic[T]):
                 for record_id, data in loaded_data.items():
                     for record in records_to_load:
                         if id(record) == record_id:
-                            self._cache.set(record, data)
+                            InstanceCache.set(record, self.name, data, self._cache_config)
                             break
                 result.update(loaded_data)
         except Exception as e:

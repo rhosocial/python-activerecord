@@ -5,6 +5,7 @@ Provides core descriptor and mixin implementations.
 
 from typing import Optional, List
 
+from .cache import InstanceCache
 from .descriptors import RelationDescriptor
 from .interfaces import RelationManagementInterface
 
@@ -42,7 +43,8 @@ class RelationManagementMixin(RelationManagementInterface):
 
     def clear_relation_cache(self, name: Optional[str] = None) -> None:
         """
-        Clear relation cache(s).
+        Clear relation cache(s) for this instance.
+        Modified to use instance-level caching.
 
         Args:
             name: Specific relation or None for all
@@ -55,7 +57,9 @@ class RelationManagementMixin(RelationManagementInterface):
             relation = self.get_relation(name)
             if relation is None:
                 raise ValueError(f"Unknown relation: {name}")
-            relation.__delete__(self)
+            # Clear specific relation cache using InstanceCache
+            InstanceCache.delete(self, name)
         else:
-            for relation in relations.values():
-                relation.__delete__(self)
+            # Clear all relation caches
+            for relation_name in relations:
+                InstanceCache.delete(self, relation_name)
