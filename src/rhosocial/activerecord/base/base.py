@@ -268,22 +268,36 @@ class BaseActiveRecord(IActiveRecord):
 
         self._trigger_event(ModelEvent.BEFORE_DELETE)
 
+        # Get the backend
+        backend = self.backend()
+
+        # Get the appropriate placeholder for this database
+        placeholder = backend.dialect.get_placeholder()
+
+        # Create the condition with the standard question mark
+        condition = f"{self.primary_key()} = ?"
+
+        # Only convert if the placeholder is not a question mark
+        if placeholder != '?':
+            from ..interface.model import replace_question_marks
+            condition = replace_question_marks(condition, placeholder)
+
         is_soft_delete = hasattr(self, 'prepare_delete')
 
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{getattr(self, self.primary_key())}")
             data = self.prepare_delete()
-            result = self.backend().update(
+            result = backend.update(
                 self.table_name(),
                 data,
-                f"{self.primary_key()} = ?",
+                condition,
                 (getattr(self, self.primary_key()),)
             )
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{getattr(self, self.primary_key())}")
-            result = self.backend().delete(
+            result = backend.delete(
                 self.table_name(),
-                f"{self.primary_key()} = ?",
+                condition,
                 (getattr(self, self.primary_key()),)
             )
 

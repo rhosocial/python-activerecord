@@ -1,6 +1,3 @@
-import pytest
-from unittest.mock import patch
-
 from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainOptions
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from src.rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

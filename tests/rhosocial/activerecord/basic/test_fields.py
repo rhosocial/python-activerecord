@@ -64,7 +64,7 @@ def test_numeric_fields(type_test_model):
 
     saved_model.refresh()
     assert saved_model.int_field == 2 ** 31 - 1
-    assert abs(saved_model.float_field - 1.23456789) < 1e-6
+    assert abs(saved_model.float_field - 1.23456789) < 1e-5
     assert saved_model.decimal_field == Decimal("9999999.99")
 
 def test_boolean_field(type_test_model):

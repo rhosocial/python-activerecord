@@ -1,9 +1,10 @@
-import pytest
-from unittest.mock import patch, MagicMock
+from unittest.mock import patch
 
-from src.rhosocial.activerecord.backend.errors import ReturningNotSupportedError, QueryError, OperationalError
-from src.rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteReturningHandler
+import pytest
+
+from src.rhosocial.activerecord.backend.errors import ReturningNotSupportedError, OperationalError
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from src.rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteReturningHandler
 
 
 def test_returning_not_supported():

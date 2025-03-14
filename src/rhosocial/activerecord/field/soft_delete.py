@@ -53,10 +53,24 @@ class SoftDeleteMixin(IActiveRecord):
         if self.deleted_at is None:
             return 0
 
-        result = self.backend().update(
+        # Get the backend
+        backend = self.backend()
+
+        # Get the appropriate placeholder for this database
+        placeholder = backend.dialect.get_placeholder()
+
+        # Create the condition with the standard question mark
+        condition = f"{self.primary_key()} = ?"
+
+        # Only convert if the placeholder is not a question mark
+        if placeholder != '?':
+            from ..interface.model import replace_question_marks
+            condition = replace_question_marks(condition, placeholder)
+
+        result = backend.update(
             self.table_name(),
             {'deleted_at': None},
-            f"{self.primary_key()} = ?",
+            condition,
             (getattr(self, self.primary_key()),)
         )
 

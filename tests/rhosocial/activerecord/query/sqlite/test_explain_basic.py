@@ -1,13 +1,19 @@
 """Test basic explain functionality for SQLite."""
 from decimal import Decimal
-from .utils import create_order_fixtures
-from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat, ExplainOptions
+
+import pytest
+
+from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
+from tests.rhosocial.activerecord.query.utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
-def test_basic_explain(order_fixtures):
+def test_basic_explain(order_fixtures, request):
     """Test basic EXPLAIN output"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -29,8 +35,11 @@ def test_basic_explain(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan for op in ['Trace', 'Goto', 'OpenRead'])
 
-def test_query_plan_explain(order_fixtures):
+def test_query_plan_explain(order_fixtures, request):
     """Test EXPLAIN QUERY PLAN output"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -41,8 +50,11 @@ def test_query_plan_explain(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan for op in ['SCAN', 'SEARCH'])
 
-def test_explain_with_options(order_fixtures):
+def test_explain_with_options(order_fixtures, request):
     """Test explain with different options"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -65,8 +77,11 @@ def test_explain_with_options(order_fixtures):
     ).all()
     assert isinstance(plan, str)
 
-def test_explain_query_building(order_fixtures):
+def test_explain_query_building(order_fixtures, request):
     """Test explain with query building methods"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)
@@ -82,8 +97,11 @@ def test_explain_query_building(order_fixtures):
     assert isinstance(plan, str)
 
 
-def test_invalid_explain_options(order_fixtures):
+def test_invalid_explain_options(order_fixtures, request):
     """Test invalid explain options"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     user = User(username='test_user', email='test@example.com', age=30)

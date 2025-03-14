@@ -281,7 +281,11 @@ class BaseQueryMixin(IQuery[ModelT]):
         if params is None:
             params = tuple()
         elif not isinstance(params, tuple):
-            params = tuple(params)
+            try:
+                params = tuple(params)
+            except TypeError:
+                self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
+                raise QueryError("Did you forget to pass scalar values in a tuple?") from None
 
         self.condition_groups[self.current_group].append((condition, params, 'AND'))
         self._log(logging.DEBUG, f"Added WHERE condition: {condition}, parameters: {params}")
@@ -314,7 +318,11 @@ class BaseQueryMixin(IQuery[ModelT]):
         if params is None:
             params = tuple()
         elif not isinstance(params, tuple):
-            params = tuple(params)
+            try:
+                params = tuple(params)
+            except TypeError:
+                self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
+                raise QueryError("Did you forget to pass scalar values in a tuple?") from None
 
         self.condition_groups[self.current_group].append((condition, params, 'OR'))
         self._log(logging.DEBUG, f"Added OR WHERE condition: {condition}, parameters: {params}")
@@ -427,6 +435,42 @@ class BaseQueryMixin(IQuery[ModelT]):
         dialect = self.model_class.backend().dialect
         return dialect.format_limit_offset(self.limit_count, self.offset_count)
 
+    def _replace_question_marks(self, sql: str, placeholder: str) -> str:
+        """Replace question mark placeholders with database-specific placeholders.
+
+        This method carefully replaces question marks that are used as parameter
+        placeholders, while preserving question marks that might appear in string literals.
+
+        Args:
+            sql: Original SQL with question mark placeholders
+            placeholder: Database-specific placeholder to use
+
+        Returns:
+            SQL with replaced placeholders
+        """
+        # Simple implementation: directly replace all question marks
+        # Note: This implementation assumes all question marks in SQL are placeholders, not part of string literals
+        # For complex cases, more sophisticated parsing might be needed
+
+        # Check if we need indexed placeholders (e.g., $1, $2, $3 for PostgreSQL)
+        if placeholder.find('%d') != -1:
+            # For indexed placeholders
+            parts = []
+            param_index = 1
+            i = 0
+            while i < len(sql):
+                if sql[i] == '?':
+                    # Replace with indexed placeholder
+                    parts.append(placeholder % param_index)
+                    param_index += 1
+                else:
+                    parts.append(sql[i])
+                i += 1
+            return ''.join(parts)
+        else:
+            # For non-indexed placeholders
+            return sql.replace('?', placeholder)
+
     def build(self) -> Tuple[str, tuple]:
         """Build complete SQL query with parameters.
 
@@ -462,7 +506,22 @@ class BaseQueryMixin(IQuery[ModelT]):
         if limit_offset_sql:
             query_parts.append(limit_offset_sql)
 
-        return " ".join(query_parts), tuple(all_params)
+        raw_sql = " ".join(query_parts)
+        params = tuple(all_params)
+
+        # Get the target database placeholder
+        backend = self.model_class.backend()
+        placeholder = backend.dialect.get_placeholder()
+
+        # Only replace if the placeholder is not a question mark
+        if placeholder != '?':
+            # Replace all question marks with the correct placeholder
+            # Note: We need to handle question marks that might appear in string literals
+            processed_sql = self._replace_question_marks(raw_sql, placeholder)
+        else:
+            processed_sql = raw_sql
+
+        return processed_sql, params
 
     def all(self) -> List[ModelT]:
         """Execute query and return all matching records.

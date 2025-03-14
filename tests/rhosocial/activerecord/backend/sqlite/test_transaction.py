@@ -1,6 +1,6 @@
 import logging
 import sqlite3
-from unittest.mock import MagicMock, patch, call
+from unittest.mock import MagicMock, patch
 
 import pytest
 

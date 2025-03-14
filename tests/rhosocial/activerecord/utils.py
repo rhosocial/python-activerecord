@@ -1,22 +1,30 @@
 import inspect
 import logging
 import os
+import sys
 from typing import Type, List, Optional, Dict
 
 import pytest
 
+# from src.rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from src.rhosocial.activerecord.backend.typing import ConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
 
-# 存储后端助手映射
+# Database backend helper mapping
 DB_HELPERS = {
     'sqlite': {
         "class": SQLiteBackend,
-    }
+    },
+    # 'mysql56': {
+    #     "class": MySQLBackend,
+    # },
+    # 'mysql80': {
+    #     "class": MySQLBackend,
+    # },
 }
 
-# 数据库配置
+# Database configurations
 DB_CONFIGS = {
     "sqlite": {
         "memory": {
@@ -27,14 +35,24 @@ DB_CONFIGS = {
             "delete_on_close": True,
         },
     },
-    "mysql": {
+    # "mysql56": {
+    #     "local": {
+    #         "host": "localhost",
+    #         "port": 3306,
+    #         "username": "root",
+    #         "password": "password",
+    #         "database": "test_db",
+    #     }
+    # },
+    "mysql80": {
         "local": {
             "host": "localhost",
             "port": 3306,
-            "user": "test_user",
-            "password": "test_password",
+            "username": "root",
+            "password": "password",
             "database": "test_db",
-        },
+            "version": (8, 0, 0),
+        }
     },
     "postgresql": {
         "local": {
@@ -47,27 +65,35 @@ DB_CONFIGS = {
     },
 }
 
+# Setup logger
+logger = logging.getLogger('activerecord_test')
+logger.setLevel(logging.DEBUG)
+handler = logging.StreamHandler(sys.stdout)
+handler.setFormatter(logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s'))
+logger.addHandler(handler)
+
+
 def get_backend_name(model_class: Type[IActiveRecord]) -> str:
-    """获取模型类使用的后端名称"""
+    """Get the backend name used by the model class"""
     return model_class.__backend__.__class__.__name__.lower().replace('backend', '')
 
 
 def load_schema_file(model_class: Type[IActiveRecord], backend: str, filename: str) -> str:
-    """从文件加载指定数据库的表结构定义
+    """Load the table schema definition file for the specified database
 
     Args:
-        model_class: ActiveRecord 模型类，用于定位 schema 文件
-        backend: 数据库后端名称 (sqlite, mysql, postgresql)
-        filename: SQL文件名
+        model_class: ActiveRecord model class, used to locate the schema file
+        backend: Database backend name (sqlite, mysql, postgresql)
+        filename: SQL file name
 
     Returns:
-        str: SQL语句内容
+        str: SQL statement content
     """
-    # 获取模型类所在的文件路径
+    # Get the file path of the model class
     model_file = inspect.getfile(model_class)
     model_dir = os.path.dirname(os.path.abspath(model_file))
 
-    # schema 文件路径相对于模型文件所在目录
+    # Schema file path relative to the model file directory
     schema_path = os.path.join(model_dir, 'schema', backend, filename)
 
     with open(schema_path, 'r', encoding='utf-8') as f:
@@ -75,7 +101,8 @@ def load_schema_file(model_class: Type[IActiveRecord], backend: str, filename: s
 
 
 class DBTestConfig:
-    """数据库测试配置类"""
+    """Database test configuration class"""
+
     def __init__(self, backend: str, config_name: str, custom_config: Optional[Dict] = None):
         self.backend = backend
         self.config_name = config_name
@@ -89,7 +116,7 @@ class DBTestConfig:
 
     @property
     def config(self) -> Dict:
-        # 如果提供了自定义配置，使用它而不是从 DB_CONFIGS 获取
+        # If a custom configuration is provided, use it instead of getting from DB_CONFIGS
         if self._custom_config is not None:
             return self._custom_config
         return DB_CONFIGS[self.backend][self.config_name]
@@ -100,14 +127,14 @@ class DBTestConfig:
 
 
 def generate_test_configs(model_class, configs):
-    """生成测试配置组合"""
+    """Generate test configuration combinations"""
     for backend in DB_HELPERS.keys():
-        # 检查模型是否支持当前后端
+        # Check if the model supports the current backend
         if hasattr(model_class, "__supported_backends__"):
             if backend not in model_class.__supported_backends__:
                 continue
 
-        # 获取当前后端的所有配置
+        # Get all configurations for the current backend
         backend_configs = DB_CONFIGS[backend]
         test_configs = configs if configs else list(backend_configs.keys())
 
@@ -115,39 +142,130 @@ def generate_test_configs(model_class, configs):
             if config_name in backend_configs:
                 yield DBTestConfig(backend, config_name)
 
+
 def create_active_record_fixture(model_class: Type[IActiveRecord],
                                  configs: Optional[List[str]] = None):
-    """创建特定 ActiveRecord 类的夹具工厂函数"""
+    """Create a fixture factory function for a specific ActiveRecord class"""
 
-    @pytest.fixture(params=list(generate_test_configs(model_class, configs)), ids=lambda x: f"{x.backend}-{x.config_name}", scope="function")
+    @pytest.fixture(params=list(generate_test_configs(model_class, configs)),
+                    ids=lambda x: f"{x.backend}-{x.config_name}", scope="function")
     def _fixture(request):
-        """实际的夹具函数"""
+        """Actual fixture function"""
         db_config = request.param
+        table_name = model_class.__table_name__
 
-        # 配置模型类
+        # Configure the model class
         model_class.configure(
             config=ConnectionConfig(**db_config.config),
             backend_class=db_config.helper["class"]
         )
-        logging.log(logging.DEBUG, f"db_config: {db_config.config}")
+        logger.debug(f"Test fixture setup for {model_class.__name__} with config: {db_config}")
 
-        # 创建表结构
-        schema = load_schema_file(
-            model_class,
-            db_config.backend,
-            f"{model_class.__table_name__}.sql"
-        )
-        result = model_class.__backend__.execute(schema)
+        # ENHANCEMENT 1: Drop table if exists before creating it
+        try:
+            logger.debug(f"Attempting to drop table {table_name} if it exists")
+            drop_result = model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}")
+            logger.debug(f"Drop table result affected_rows: {drop_result.affected_rows if drop_result else 'N/A'}")
 
-        # 验证建表成功
-        assert result is not None
-        assert result.affected_rows == -1
+            # For MySQL, ensure the drop operation is completed (flush)
+            if db_config.backend.startswith('mysql') and hasattr(model_class.__backend__, 'commit'):
+                model_class.__backend__.commit()
+                logger.debug(f"Committed drop table operation for MySQL")
+        except Exception as e:
+            logger.error(f"Error dropping table {table_name}: {e}")
+            # Continue even if drop fails - the create table might still work
+
+        # Create table structure
+        try:
+            schema = load_schema_file(
+                model_class,
+                db_config.backend,
+                f"{table_name}.sql"
+            )
+            logger.debug(f"Creating table {table_name} with schema")
+            result = model_class.__backend__.execute(schema)
+
+            # Verify table creation success
+            assert result is not None
+            # Different databases return different affected_rows for DDL statements
+            # MySQL usually returns 0, SQLite might return -1
+            # Just check that we have a result object, don't verify specific affected_rows value
+            logger.debug(f"Table creation result affected_rows: {result.affected_rows}")
+            logger.debug(f"Table {table_name} created successfully")
+        except Exception as e:
+            logger.error(f"Error creating table {table_name}: {e}")
+            # Clean up resources even if table creation fails
+            try:
+                model_class.__backend__.disconnect()
+            except:
+                pass
+            model_class.__backend__ = None
+            raise  # Re-raise the exception to fail the test
 
         yield model_class
 
-        # 清理
-        model_class.__backend__.execute(f"DROP TABLE IF EXISTS {model_class.__table_name__}")
-        model_class.__backend__.disconnect()
+        # ENHANCEMENT 2: Improved cleanup process with logging
+        try:
+            # Ensure any pending transactions are finished before dropping the table
+            # This helps with MySQL where open transactions can prevent cleanup
+            try:
+                if hasattr(model_class.__backend__, 'commit'):
+                    logger.debug(f"Committing any pending transactions before cleanup")
+                    model_class.__backend__.commit()
+            except Exception as e:
+                logger.error(f"Error committing pending transactions: {e}")
+                # Try to rollback if commit fails
+                if hasattr(model_class.__backend__, 'rollback'):
+                    try:
+                        model_class.__backend__.rollback()
+                        logger.debug(f"Rolled back pending transactions")
+                    except Exception as rollback_err:
+                        logger.error(f"Error rolling back transactions: {rollback_err}")
+
+            logger.debug(f"Cleanup: Dropping table {table_name}")
+            cleanup_result = model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}")
+            logger.debug(
+                f"Cleanup drop table result affected_rows: {cleanup_result.affected_rows if cleanup_result else 'N/A'}")
+
+            # Verify table doesn't exist anymore (using database-specific approach)
+            if db_config.backend.startswith('mysql'):
+                try:
+                    # For MySQL, check information_schema
+                    db_name = db_config.config.get('database')
+                    verify_query = f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '{db_name}' AND table_name = '{table_name}'"
+                    verify_result = model_class.__backend__.execute(verify_query)
+                    rows = verify_result.fetch_all()
+                    if rows and rows[0][0] > 0:
+                        logger.error(f"CLEANUP FAILED: Table {table_name} still exists after DROP")
+                    else:
+                        logger.debug(f"CLEANUP VERIFIED: Table {table_name} successfully dropped")
+                except Exception as e:
+                    logger.error(f"Error verifying table cleanup: {e}")
+            elif db_config.backend == 'sqlite':
+                try:
+                    # For SQLite, try to query the sqlite_master table
+                    if db_config.config.get('database') != ":memory:":  # Skip for in-memory databases
+                        verify_query = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
+                        verify_result = model_class.__backend__.execute(verify_query)
+                        rows = verify_result.fetch_all()
+                        if rows and len(rows) > 0:
+                            logger.error(f"CLEANUP FAILED: Table {table_name} still exists after DROP")
+                        else:
+                            logger.debug(f"CLEANUP VERIFIED: Table {table_name} successfully dropped")
+                except Exception as e:
+                    logger.error(f"Error verifying table cleanup: {e}")
+        except Exception as e:
+            logger.error(f"Error during table cleanup: {e}")
+
+        # Disconnect from the database
+        try:
+            logger.debug(f"Disconnecting database connection")
+            model_class.__backend__.disconnect()
+            logger.debug(f"Database disconnected successfully")
+        except Exception as e:
+            logger.error(f"Error disconnecting from database: {e}")
+            raise
+
         model_class.__backend__ = None
 
     return _fixture

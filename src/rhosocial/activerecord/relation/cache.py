@@ -6,7 +6,8 @@ Provides configurable caching with TTL and size limits.
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from threading import Lock
-from typing import Any, Optional, Dict
+from typing import Any, Optional, Dict, Generic, TypeVar
+
 
 @dataclass
 class CacheConfig:
@@ -109,3 +110,104 @@ class RelationCache:
         """Clear all cached values."""
         with self._lock:
             self._cache.clear()
+
+T = TypeVar('T')
+
+class InstanceCache(Generic[T]):
+    """
+    Instance-level cache management system.
+
+    Instead of using a shared cache at the descriptor level, this system
+    stores cache data directly on each model instance, ensuring proper
+    isolation between instances.
+    """
+
+    @staticmethod
+    def get_cache_attr_name(relation_name: str) -> str:
+        """Generate attribute name for storing cache on the instance.
+
+        Args:
+            relation_name: Name of the relation
+
+        Returns:
+            Attribute name to use for this relation's cache
+        """
+        return f"_relation_cache_{relation_name}"
+
+    @staticmethod
+    def get_instance_cache(instance: Any, relation_name: str) -> Dict:
+        """Get or create cache dict on the instance.
+
+        Args:
+            instance: Model instance
+            relation_name: Name of the relation
+
+        Returns:
+            Cache dictionary for this instance and relation
+        """
+        cache_attr = InstanceCache.get_cache_attr_name(relation_name)
+
+        # Create cache dict if it doesn't exist
+        if not hasattr(instance, cache_attr):
+            setattr(instance, cache_attr, {})
+
+        return getattr(instance, cache_attr)
+
+    @staticmethod
+    def get(instance: Any, relation_name: str, config: CacheConfig) -> Optional[T]:
+        """Get cached relation value from the instance.
+
+        Args:
+            instance: Model instance
+            relation_name: Name of the relation
+            config: Cache configuration
+
+        Returns:
+            Cached value or None if not found or expired
+        """
+        if not config.enabled:
+            return None
+
+        cache = InstanceCache.get_instance_cache(instance, relation_name)
+
+        if "entry" not in cache:
+            return None
+
+        entry = cache["entry"]
+        if entry.is_expired():
+            # Remove expired entry
+            del cache["entry"]
+            return None
+
+        return entry.value
+
+    @staticmethod
+    def set(instance: Any, relation_name: str, value: T, config: CacheConfig) -> None:
+        """Store relation value in the instance cache.
+
+        Args:
+            instance: Model instance
+            relation_name: Name of the relation
+            value: Value to cache
+            config: Cache configuration
+        """
+        if not config.enabled:
+            return
+
+        cache = InstanceCache.get_instance_cache(instance, relation_name)
+        cache["entry"] = CacheEntry(value, config.ttl)
+
+    @staticmethod
+    def delete(instance: Any, relation_name: str) -> None:
+        """Remove cached relation value from the instance.
+
+        Args:
+            instance: Model instance
+            relation_name: Name of the relation
+        """
+        cache_attr = InstanceCache.get_cache_attr_name(relation_name)
+
+        if hasattr(instance, cache_attr):
+            cache = getattr(instance, cache_attr)
+            if "entry" in cache:
+                del cache["entry"]

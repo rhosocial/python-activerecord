@@ -1,9 +1,7 @@
 """Relational query methods implementation."""
 import logging
 from dataclasses import dataclass
-from threading import local
-from typing import Dict, TypeVar, Iterator, Any, Optional, Tuple, List, Mapping, KeysView, ValuesView, ItemsView, \
-    Callable, Union, Type
+from typing import Dict, Any, Optional, List, Callable, Union, Type
 
 from ..interface import ModelT, IQuery
 from ..interface.query import ThreadSafeDict
@@ -30,9 +28,9 @@ class RelationalQueryMixin(IQuery[ModelT]):
         super().__init__(*args, **kwargs)
         # Stores relation loading configurations by relation path
         self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
-        # self._eager_loads: Dict[str, RelationConfig] = {}
-        # Cache for loaded relation data, keyed by relation path and record id
-        self._loaded_relations: ThreadSafeDict[str, ThreadSafeDict[int, Any]] = ThreadSafeDict()
+        # We no longer need _loaded_relations as a shared cache
+        # Relations will be cached directly on model instances
+        # self._loaded_relations: ThreadSafeDict[str, ThreadSafeDict[int, Any]] = ThreadSafeDict()
 
     def with_(self, *relations: Union[str, tuple]) -> 'IQuery[ModelT]':
         """Configure eager loading for model relationships. This method allows specifying which relations
@@ -188,8 +186,8 @@ class RelationalQueryMixin(IQuery[ModelT]):
         """
         # Initialize relation cache if needed
         self._log(logging.INFO, f"Loading relation: {relation_name}, config: {config}")
-        if relation_name not in self._loaded_relations:
-            self._loaded_relations[relation_name] = ThreadSafeDict()
+        # if relation_name not in self._loaded_relations:
+        #     self._loaded_relations[relation_name] = ThreadSafeDict()
 
         # Get relation descriptor
         relation = self._get_relation(relation_name)
@@ -211,23 +209,8 @@ class RelationalQueryMixin(IQuery[ModelT]):
         # Delegate batch loading to relation descriptor
         loaded_data = relation.batch_load(records, base_query)
 
-        # Get record IDs that should have relations
-        record_ids = {record.id for record in records}
-
-        # Clear cache for records that no longer have relations
-        if relation_name in self._loaded_relations:
-            cache = self._loaded_relations[relation_name]
-            for record_id in record_ids:
-                if record_id in cache and (not loaded_data or record_id not in loaded_data):
-                    del cache[record_id]
-                    self._log(logging.DEBUG, f"Cleared cached relation {relation_name} for record {record_id}")
-
         # Update cache with new data
-        if loaded_data:
-            for record_id, related_data in loaded_data.items():
-                self._loaded_relations[relation_name][record_id] = related_data
-
-            # Handle nested relations
+        if loaded_data and config.nested:
             self._process_nested_relations(loaded_data, config, related_model)
 
     def _get_relation(self, relation_name: str) -> Optional[Any]:

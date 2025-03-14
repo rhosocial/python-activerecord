@@ -1,13 +1,19 @@
 """Test explain functionality with various joins for SQLite."""
 from decimal import Decimal
-from .utils import create_order_fixtures
-from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
+
+import pytest
+
+from src.rhosocial.activerecord.backend.dialect import ExplainType
+from tests.rhosocial.activerecord.query.utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
-def test_explain_inner_join(order_fixtures):
+def test_explain_inner_join(order_fixtures, request):
     """Test explain with INNER JOIN"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test user
@@ -44,8 +50,11 @@ def test_explain_inner_join(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
-def test_explain_left_join(order_fixtures):
+def test_explain_left_join(order_fixtures, request):
     """Test explain with LEFT JOIN"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
@@ -81,8 +90,11 @@ def test_explain_left_join(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
-def test_explain_multiple_joins(order_fixtures):
+def test_explain_multiple_joins(order_fixtures, request):
     """Test explain with multiple JOINs"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
@@ -135,8 +147,11 @@ def test_explain_multiple_joins(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
-def test_explain_join_with_conditions(order_fixtures):
+def test_explain_join_with_conditions(order_fixtures, request):
     """Test explain with JOINs and WHERE conditions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
@@ -175,8 +190,11 @@ def test_explain_join_with_conditions(order_fixtures):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
-def test_explain_join_with_aggregates(order_fixtures):
+def test_explain_join_with_aggregates(order_fixtures, request):
     """Test explain with JOINs and aggregate functions"""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+
     User, Order, OrderItem = order_fixtures
 
     # Create test data
