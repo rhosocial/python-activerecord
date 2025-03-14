@@ -4,7 +4,7 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List
 
-from src.rhosocial.activerecord.backend.transaction import TransactionManager
+from .transaction import TransactionManager
 from .dialect import TypeMapper, ValueMapper, DatabaseType, SQLDialectBase, SQLExpressionBase, SQLBuilder
 from .typing import ConnectionConfig, QueryResult
 

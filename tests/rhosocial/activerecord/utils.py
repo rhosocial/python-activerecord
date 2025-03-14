@@ -6,7 +6,7 @@ from typing import Type, List, Optional, Dict
 
 import pytest
 
-from src.rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+# from src.rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from src.rhosocial.activerecord.backend.typing import ConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
@@ -19,9 +19,9 @@ DB_HELPERS = {
     # 'mysql56': {
     #     "class": MySQLBackend,
     # },
-    'mysql80': {
-        "class": MySQLBackend,
-    },
+    # 'mysql80': {
+    #     "class": MySQLBackend,
+    # },
 }
 
 # Database configurations

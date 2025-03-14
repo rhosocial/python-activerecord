@@ -281,7 +281,11 @@ class BaseQueryMixin(IQuery[ModelT]):
         if params is None:
             params = tuple()
         elif not isinstance(params, tuple):
-            params = tuple(params)
+            try:
+                params = tuple(params)
+            except TypeError:
+                self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
+                raise QueryError("Did you forget to pass scalar values in a tuple?") from None
 
         self.condition_groups[self.current_group].append((condition, params, 'AND'))
         self._log(logging.DEBUG, f"Added WHERE condition: {condition}, parameters: {params}")
@@ -314,7 +318,11 @@ class BaseQueryMixin(IQuery[ModelT]):
         if params is None:
             params = tuple()
         elif not isinstance(params, tuple):
-            params = tuple(params)
+            try:
+                params = tuple(params)
+            except TypeError:
+                self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
+                raise QueryError("Did you forget to pass scalar values in a tuple?") from None
 
         self.condition_groups[self.current_group].append((condition, params, 'OR'))
         self._log(logging.DEBUG, f"Added OR WHERE condition: {condition}, parameters: {params}")

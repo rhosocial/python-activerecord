@@ -3,8 +3,8 @@ from decimal import Decimal
 
 import pytest
 
-from .utils import create_order_fixtures
-from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat, ExplainOptions
+from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
+from tests.rhosocial.activerecord.query.utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
