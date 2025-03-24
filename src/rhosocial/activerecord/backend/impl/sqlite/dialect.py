@@ -3,13 +3,14 @@ import sys
 import uuid
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Optional, List, Set
+from typing import Optional, List, Set, Union
 from typing import Tuple, Any
 
 from .types import SQLITE_TYPE_MAPPINGS
 from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
-    ExplainOptions, ExplainType, ExplainFormat
-from ...errors import TypeConversionError, ReturningNotSupportedError
+    ExplainOptions, ExplainType, ExplainFormat, AggregateHandler
+from ...errors import TypeConversionError, ReturningNotSupportedError, WindowFunctionNotSupportedError, \
+    GroupingSetNotSupportedError
 from ...helpers import safe_json_dumps, parse_datetime, convert_datetime, array_converter, safe_json_loads
 from ...typing import ConnectionConfig
 
@@ -279,6 +280,7 @@ class SQLiteDialect(SQLDialectBase):
         self._type_mapper = SQLiteTypeMapper()
         self._value_mapper = SQLiteValueMapper(config)
         self._returning_handler = SQLiteReturningHandler(version)
+        self._aggregate_handler = SQLiteAggregateHandler(version)  # Add aggregate handler
 
     def format_expression(self, expr: SQLExpressionBase) -> str:
         """Format SQLite expression"""
@@ -351,6 +353,7 @@ class SQLiteDialect(SQLDialectBase):
         """Create SQLite expression"""
         return SQLiteExpression(expression)
 
+
 class SQLiteReturningHandler(ReturningClauseHandler):
     """SQLite RETURNING clause handler implementation"""
 
@@ -419,3 +422,156 @@ class SQLiteReturningHandler(ReturningClauseHandler):
             return f'"{clean_name}"'
 
         return clean_name
+
+
+class SQLiteAggregateHandler(AggregateHandler):
+    """SQLite-specific aggregate functionality handler."""
+
+    def __init__(self, version: tuple):
+        """Initialize with SQLite version.
+
+        Args:
+            version: SQLite version tuple (major, minor, patch)
+        """
+        super().__init__(version)
+
+    @property
+    def supports_window_functions(self) -> bool:
+        """Check if SQLite supports window functions.
+
+        SQLite supports window functions from version 3.25.0
+        """
+        return self._version >= (3, 25, 0)
+
+    @property
+    def supports_json_operations(self) -> bool:
+        """Check if SQLite supports JSON operations.
+
+        SQLite supports JSON1 extension in most builds,
+        but we cannot reliably detect it at runtime.
+        """
+        # Assume JSON1 extension is available
+        return True
+
+    @property
+    def supports_advanced_grouping(self) -> bool:
+        """Check if SQLite supports advanced grouping.
+
+        SQLite does not support CUBE, ROLLUP, or GROUPING SETS.
+        """
+        return False
+
+    def format_window_function(self,
+                               expr: str,
+                               partition_by: Optional[List[str]] = None,
+                               order_by: Optional[List[str]] = None,
+                               frame_type: Optional[str] = None,
+                               frame_start: Optional[str] = None,
+                               frame_end: Optional[str] = None,
+                               exclude_option: Optional[str] = None) -> str:
+        """Format window function SQL for SQLite.
+
+        Args:
+            expr: Base expression for window function
+            partition_by: PARTITION BY columns
+            order_by: ORDER BY columns
+            frame_type: Window frame type (ROWS/RANGE only, GROUPS not supported)
+            frame_start: Frame start specification
+            frame_end: Frame end specification
+            exclude_option: Frame exclusion option (not supported in SQLite)
+
+        Returns:
+            str: Formatted window function SQL
+
+        Raises:
+            WindowFunctionNotSupportedError: If window functions not supported or using unsupported features
+        """
+        if not self.supports_window_functions:
+            raise WindowFunctionNotSupportedError(
+                f"Window functions not supported in SQLite {'.'.join(map(str, self._version))}"
+            )
+
+        window_parts = []
+
+        if partition_by:
+            window_parts.append(f"PARTITION BY {', '.join(partition_by)}")
+
+        if order_by:
+            window_parts.append(f"ORDER BY {', '.join(order_by)}")
+
+        # Build frame clause
+        frame_clause = []
+        if frame_type:
+            if frame_type == "GROUPS":
+                raise WindowFunctionNotSupportedError("GROUPS frame type not supported in SQLite")
+
+            frame_clause.append(frame_type)
+
+            if frame_start:
+                if frame_end:
+                    frame_clause.append(f"BETWEEN {frame_start} AND {frame_end}")
+                else:
+                    frame_clause.append(frame_start)
+
+        if frame_clause:
+            window_parts.append(" ".join(frame_clause))
+
+        if exclude_option:
+            raise WindowFunctionNotSupportedError("EXCLUDE options not supported in SQLite")
+
+        window_clause = " ".join(window_parts)
+        return f"{expr} OVER ({window_clause})"
+
+    def format_json_operation(self,
+                              column: str,
+                              path: str,
+                              operation: str = "extract",
+                              value: Any = None) -> str:
+        """Format JSON operation SQL for SQLite.
+
+        Args:
+            column: JSON column name
+            path: JSON path string
+            operation: Operation type (extract, contains, exists)
+            value: Value for contains operation
+
+        Returns:
+            str: Formatted JSON operation SQL
+
+        Raises:
+            JsonOperationNotSupportedError: If JSON operations not supported
+            ValueError: For unsupported operations
+        """
+        # SQLite uses json_extract, json_each, etc.
+        if operation == "extract":
+            return f"json_extract({column}, '{path}')"
+        elif operation == "contains":
+            if value is None:
+                raise ValueError("Value is required for 'contains' operation")
+            # For string comparison of JSON values
+            if isinstance(value, str):
+                return f"json_extract({column}, '{path}') = '{value}'"
+            # For numeric/boolean comparison
+            return f"json_extract({column}, '{path}') = {value}"
+        elif operation == "exists":
+            return f"json_extract({column}, '{path}') IS NOT NULL"
+        else:
+            raise ValueError(f"Unsupported JSON operation: {operation}")
+
+    def format_grouping_sets(self,
+                             type_name: str,
+                             columns: List[Union[str, List[str]]]) -> str:
+        """Format grouping sets SQL for SQLite.
+
+        SQLite does not support CUBE, ROLLUP, or GROUPING SETS.
+
+        Args:
+            type_name: Grouping type (CUBE, ROLLUP, GROUPING SETS)
+            columns: Columns to group by
+
+        Raises:
+            GroupingSetNotSupportedError: Always raised as SQLite doesn't support these
+        """
+        raise GroupingSetNotSupportedError(
+            f"{type_name} not supported in SQLite. Consider using basic GROUP BY instead."
+        )

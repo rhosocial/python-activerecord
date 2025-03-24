@@ -152,20 +152,41 @@ class SQLiteBackend(StorageBackend):
                 if self._delete_on_close and self.config.database != ":memory:":
                     try:
                         import os
+                        import time
                         self.log(logging.INFO, f"Deleting database files: {self.config.database}")
+                        
+                        # Define retry delete function
+                        def retry_delete(file_path, max_retries=5, retry_delay=0.1):
+                            for attempt in range(max_retries):
+                                try:
+                                    if os.path.exists(file_path):
+                                        os.remove(file_path)
+                                        return True
+                                    return True  # File doesn't exist, consider deletion successful
+                                except OSError as e:
+                                    if attempt < max_retries - 1:  # If not the last attempt
+                                        self.log(logging.DEBUG, f"Failed to delete file {file_path}, retrying: {str(e)}")
+                                        time.sleep(retry_delay)  # Wait for a while before retrying
+                                    else:
+                                        self.log(logging.WARNING, f"Failed to delete file {file_path}, maximum retry attempts reached: {str(e)}")
+                                        return False
+                            return False
+                        
                         # Delete main database file
-                        if os.path.exists(self.config.database):
-                            os.remove(self.config.database)
-
-                        # Delete WAL and SHM files if they exist
+                        main_db_deleted = retry_delete(self.config.database)
+                        
+                        # Delete WAL and SHM files
                         wal_file = f"{self.config.database}-wal"
                         shm_file = f"{self.config.database}-shm"
-                        if os.path.exists(wal_file):
-                            os.remove(wal_file)
-                        if os.path.exists(shm_file):
-                            os.remove(shm_file)
-                        self.log(logging.INFO, "Database files deleted successfully")
-                    except OSError as e:
+                        wal_deleted = retry_delete(wal_file)
+                        shm_deleted = retry_delete(shm_file)
+                        
+                        # Record deletion results
+                        if main_db_deleted and wal_deleted and shm_deleted:
+                            self.log(logging.INFO, "Database files deleted successfully")
+                        else:
+                            self.log(logging.WARNING, "Some database files could not be deleted after multiple attempts")
+                    except Exception as e:
                         self.log(logging.ERROR, f"Failed to delete database files: {str(e)}")
                         raise ConnectionError(f"Failed to delete database files: {str(e)}")
             except sqlite3.Error as e:

@@ -44,14 +44,15 @@ def test_single_group_aggregates(order_fixtures):
     results = (Order.query()
                .group_by('status')
                .count('*', 'order_count')
-               .sum('total_amount', 'total_amount')
+               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               # but if columns with the same name continue to appear, the query results may be different from other databases.
                .avg('total_amount', 'avg_amount')
                .aggregate())
 
     assert len(results) == 3
     for result in results:
         assert result['order_count'] == 2
-        assert result['total_amount'] == Decimal('300.00')
+        assert result['sum_amount'] == Decimal('300.00')
         assert result['avg_amount'] == Decimal('150.00')
 
 
@@ -88,13 +89,14 @@ def test_group_with_conditions(order_fixtures):
                .where('total_amount > ?', (Decimal('150.00'),))
                .group_by('status')
                .count('*', 'order_count')
-               .sum('total_amount', 'total_amount')
+               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               # but if columns with the same name continue to appear, the query results may be different from other databases.
                .aggregate())
 
     assert len(results) == 3
     for result in results:
         assert result['order_count'] == 3  # 3 users * 1 order (200.00) per status
-        assert result['total_amount'] == Decimal('600.00')  # 3 * 200.00
+        assert result['sum_amount'] == Decimal('600.00')  # 3 * 200.00
 
     # TODO: Test group by with having condition
     # results = (Order.query()
@@ -140,13 +142,14 @@ def test_multiple_group_by(order_fixtures):
     results = (Order.query()
                .group_by('user_id', 'status')
                .count('*', 'order_count')
-               .sum('total_amount', 'total_sum')
+               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               # but if columns with the same name continue to appear, the query results may be different from other databases.
                .aggregate())
 
     assert len(results) == 4  # 2 users * 2 statuses
     for result in results:
         assert result['order_count'] == 2  # 2 orders per user-status combination
-        assert result['total_sum'] == Decimal('300.00')  # 100 + 200 per group
+        assert result['sum_amount'] == Decimal('300.00')  # 100 + 200 per group
 
 
 def test_aggregate_ordering(order_fixtures):
@@ -174,16 +177,17 @@ def test_aggregate_ordering(order_fixtures):
     results = (Order.query()
                .group_by('status')
                .count('*', 'order_count')
-               .sum('total_amount', 'total_amount')
-               .order_by('total_amount DESC')
+               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               # but if columns with the same name continue to appear, the query results may be different from other databases.
+               .order_by('sum_amount DESC')
                .aggregate())
 
     assert len(results) == 3
     previous_amount = None
     for result in results:
         if previous_amount is not None:
-            assert result['total_amount'] <= previous_amount
-        previous_amount = result['total_amount']
+            assert result['sum_amount'] <= previous_amount
+        previous_amount = result['sum_amount']
 
 
 def test_complex_aggregates(order_fixtures):
@@ -221,7 +225,8 @@ def test_complex_aggregates(order_fixtures):
                .group_by('user_id', 'status')
                .having('COUNT(*) > ?', (1,))
                .count('*', 'order_count')
-               .sum('total_amount', 'total_amount')
+               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               # but if columns with the same name continue to appear, the query results may be different from other databases.
                .avg('total_amount', 'avg_amount')
                .min('total_amount', 'min_amount')
                .max('total_amount', 'max_amount')
@@ -235,12 +240,12 @@ def test_complex_aggregates(order_fixtures):
         # Verify counts and amounts
         assert result['order_count'] > 1  # From HAVING clause
         assert result['min_amount'] >= Decimal('200.00')  # From WHERE clause
-        assert result['total_amount'] == result['order_count'] * result['avg_amount']
+        assert result['sum_amount'] == result['order_count'] * result['avg_amount']
         assert result['min_amount'] <= result['max_amount']
 
     # Verify ordering
     previous_amount = None
     for result in results:
         if previous_amount is not None:
-            assert result['total_amount'] <= previous_amount
-        previous_amount = result['total_amount']
+            assert result['sum_amount'] <= previous_amount
+        previous_amount = result['sum_amount']

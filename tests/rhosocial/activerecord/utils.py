@@ -16,7 +16,10 @@ DB_HELPERS = {
     'sqlite': {
         "class": SQLiteBackend,
     },
-    # 'mysql56': {
+    # 'mysql92': {
+    #     "class": MySQLBackend,
+    # },
+    # 'mysql84': {
     #     "class": MySQLBackend,
     # },
     # 'mysql80': {
@@ -35,34 +38,15 @@ DB_CONFIGS = {
             "delete_on_close": True,
         },
     },
-    # "mysql56": {
+    # "postgresql": {
     #     "local": {
     #         "host": "localhost",
-    #         "port": 3306,
-    #         "username": "root",
-    #         "password": "password",
+    #         "port": 5432,
+    #         "user": "test_user",
+    #         "password": "test_password",
     #         "database": "test_db",
-    #     }
+    #     },
     # },
-    "mysql80": {
-        "local": {
-            "host": "localhost",
-            "port": 3306,
-            "username": "root",
-            "password": "password",
-            "database": "test_db",
-            "version": (8, 0, 0),
-        }
-    },
-    "postgresql": {
-        "local": {
-            "host": "localhost",
-            "port": 5432,
-            "user": "test_user",
-            "password": "test_password",
-            "database": "test_db",
-        },
-    },
 }
 
 # Setup logger
