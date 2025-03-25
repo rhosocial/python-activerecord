@@ -116,7 +116,7 @@ class DictQuery(Generic[ModelT]):
 
             sql, params = self._query.build()
             self._query._log(
-                "INFO",
+                logging.INFO,
                 f"Executing direct dictionary query: {sql}, parameters: {params}"
             )
 

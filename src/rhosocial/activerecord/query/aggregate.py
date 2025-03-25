@@ -52,8 +52,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         self._expressions: List[SQLExpression] = []
         self._window_definitions: Dict[str, Dict] = {}  # Named window definitions
         self._grouping_sets: Optional[GroupingSetExpression] = None
-        # Flag indicating if the query will return multiple rows
-        self._is_multi_row_query: bool = False
 
     def group_by(self, *columns: str) -> 'AggregateQueryMixin':
         """Add GROUP BY columns
@@ -135,10 +133,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             # If user has only selected "*" (not other columns), clear it
             self.select_columns = []
 
-        # Check if this expression might result in multiple rows
-        if isinstance(expr, WindowExpression):
-            self._is_multi_row_query = True
-
         self._log(logging.DEBUG, f"Added SELECT expression: {expr.as_sql()}")
         return self
 
@@ -173,9 +167,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             frame_type, frame_start, frame_end,
             exclude_option, window_name
         )
-
-        # Window functions always return multiple rows
-        self._is_multi_row_query = True
 
         self._log(logging.DEBUG,
                   f"Added WINDOW function: {window_expr.as_sql()}",
@@ -393,37 +384,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         """
         return bool(self._expressions or self._group_columns or self._grouping_sets)
 
-    def _will_return_multiple_rows(self) -> bool:
-        """Determine if the query will return multiple rows.
-
-        Returns:
-            bool: True if the query is expected to return multiple rows
-        """
-        # If we explicitly know this is a multi-row query (window functions, etc.)
-        if self._is_multi_row_query:
-            return True
-
-        # If there are GROUP BY clauses or grouping sets
-        if self._group_columns or self._grouping_sets:
-            return True
-
-        # If we're using subqueries that might return multiple rows
-        for expr in self._expressions:
-            if isinstance(expr, SubqueryExpression) and expr.type not in ('EXISTS', 'IN', 'NOT IN', 'ALL', 'ANY'):
-                return True
-
-        # Check for expressions that typically return row-by-row results
-        # like JSON array extractions or case expressions with no conditions
-        for expr in self._expressions:
-            if isinstance(expr, JsonExpression) and expr.operation == "extract" and ".[]" in expr.path:
-                return True
-
-        # If limit is greater than 1, expect multiple rows
-        if self.limit_count and self.limit_count > 1:
-            return True
-
-        return False
-
     def _execute_simple_aggregate(self, func: str, column: str,
                                 distinct: bool = False) -> Optional[Any]:
         """Execute a simple aggregate function without grouping.
@@ -445,13 +405,11 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         # Save original state
         original_select = self.select_columns
         original_exprs = self._expressions
-        original_multi_row = self._is_multi_row_query
 
         self._log(logging.DEBUG, f"Executing simple aggregate: {func}({column})", extra={"distinct": distinct}, offset=2)
 
         # Clear any existing expressions
         self._expressions = []
-        self._is_multi_row_query = False
 
         # Add single aggregate expression
         expr = AggregateExpression(func, column, distinct, "result")
@@ -470,7 +428,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         # Restore original state
         self.select_columns = original_select
         self._expressions = original_exprs
-        self._is_multi_row_query = original_multi_row
 
         return result["result"] if result else None
 
