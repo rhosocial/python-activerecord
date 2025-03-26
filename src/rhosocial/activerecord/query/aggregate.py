@@ -384,12 +384,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         """
         return bool(self._expressions or self._group_columns or self._grouping_sets)
 
-    def _execute_simple_aggregate(self, func: str, column: str,
+    def _execute_scalar_aggregate(self, func: str, column: str,
                                 distinct: bool = False) -> Optional[Any]:
-        """Execute a simple aggregate function without grouping.
+        """Execute a scalar aggregate function without grouping.
 
         This internal method handles both normal execution and explain mode for
-        simple aggregate functions (COUNT, SUM, AVG, etc.). It temporarily modifies
+        scalar aggregate functions (COUNT, SUM, AVG, etc.). It temporarily modifies
         the query state to execute a single aggregate operation, then restores
         the original state.
 
@@ -406,7 +406,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         original_select = self.select_columns
         original_exprs = self._expressions
 
-        self._log(logging.DEBUG, f"Executing simple aggregate: {func}({column})", extra={"distinct": distinct}, offset=2)
+        self._log(logging.DEBUG, f"Executing scalar aggregate: {func}({column})", extra={"distinct": distinct}, offset=2)
 
         # Clear any existing expressions
         self._expressions = []
@@ -417,7 +417,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         # Execute query
         sql, params = super().build()
-        self._log(logging.INFO, f"Executing simple aggregate: {sql}, parameters: {params}", offset=2)
+        self._log(logging.INFO, f"Executing scalar aggregate: {sql}, parameters: {params}", offset=2)
 
         # Handle explain if enabled
         if self._explain_enabled:
@@ -632,7 +632,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
     # Aggregate function shortcuts
     def count(self, column: str = "*", alias: Optional[str] = None,
              distinct: bool = False) -> Union['AggregateQueryMixin', int]:
-        """Add COUNT expression or execute simple count.
+        """Add COUNT expression or execute scalar count.
 
         This method has two behaviors:
         1. When used in aggregate query (with GROUP BY or other aggregates):
@@ -648,7 +648,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         Returns:
             Query instance for chaining if in aggregate query
-            Count result if simple count
+            Count result if scalar count
             Execution plan if explain is enabled
 
         Examples:
@@ -672,35 +672,35 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             return self.select_expr(expr)
 
         # Simple count
-        return self._execute_simple_aggregate("COUNT", column, distinct) or 0
+        return self._execute_scalar_aggregate("COUNT", column, distinct) or 0
 
     def sum(self, column: str, alias: Optional[str] = None) -> Union['AggregateQueryMixin', Optional[Union[int, float]]]:
-        """Add SUM expression or execute simple sum."""
+        """Add SUM expression or execute scalar sum."""
         expr = AggregateExpression("SUM", column, alias=alias)
         if self._is_aggregate_query():
             return self.select_expr(expr)
-        return self._execute_simple_aggregate("SUM", column)
+        return self._execute_scalar_aggregate("SUM", column)
 
     def avg(self, column: str, alias: Optional[str] = None) -> Union['AggregateQueryMixin', Optional[float]]:
-        """Add AVG expression or execute simple average."""
+        """Add AVG expression or execute scalar average."""
         expr = AggregateExpression("AVG", column, alias=alias)
         if self._is_aggregate_query():
             return self.select_expr(expr)
-        return self._execute_simple_aggregate("AVG", column)
+        return self._execute_scalar_aggregate("AVG", column)
 
     def min(self, column: str, alias: Optional[str] = None) -> Union['AggregateQueryMixin', Optional[Any]]:
-        """Add MIN expression or execute simple min."""
+        """Add MIN expression or execute scalar min."""
         expr = AggregateExpression("MIN", column, alias=alias)
         if self._is_aggregate_query():
             return self.select_expr(expr)
-        return self._execute_simple_aggregate("MIN", column)
+        return self._execute_scalar_aggregate("MIN", column)
 
     def max(self, column: str, alias: Optional[str] = None) -> Union['AggregateQueryMixin', Optional[Any]]:
-        """Add MAX expression or execute simple max."""
+        """Add MAX expression or execute scalar max."""
         expr = AggregateExpression("MAX", column, alias=alias)
         if self._is_aggregate_query():
             return self.select_expr(expr)
-        return self._execute_simple_aggregate("MAX", column)
+        return self._execute_scalar_aggregate("MAX", column)
 
     def aggregate(self) -> List[Dict[str, Any]]:
         """Execute aggregate query with all configured expressions and groupings.
