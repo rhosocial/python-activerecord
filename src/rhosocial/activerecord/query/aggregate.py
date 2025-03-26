@@ -529,15 +529,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             window_spec = []
 
             if definition.get('partition_by'):
-                partition_cols = [self._format_identifier(col) for col in definition['partition_by']]
-                window_spec.append(f"PARTITION BY {', '.join(partition_cols)}")
+                window_spec.append(f"PARTITION BY {', '.join(definition['partition_by'])}")
 
             if definition.get('order_by'):
-                order_cols = [self._format_identifier(col) for col in definition['order_by']]
-                window_spec.append(f"ORDER BY {', '.join(order_cols)}")
+                window_spec.append(f"ORDER BY {', '.join(definition['order_by'])}")
 
-            formatted_name = self._format_identifier(name)
-            window_parts.append(f"{formatted_name} AS ({' '.join(window_spec)})")
+            window_parts.append(f"{name} AS ({' '.join(window_spec)})")
 
         if window_parts:
             return f"WINDOW {', '.join(window_parts)}"

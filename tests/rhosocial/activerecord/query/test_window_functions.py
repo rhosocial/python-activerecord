@@ -233,7 +233,8 @@ def test_named_window_definitions(order_fixtures, skip_if_unsupported):
         query.define_window(
             name="amount_window",
             partition_by=["status"],
-            order_by=["total_amount DESC"]
+            order_by=["total_amount ASC"]  # Changed from DESC to ASC
+            # Here we want to test whether the sorting method can organize the SQL correctly, so it cannot be deleted.
         )
 
         # Use the named window in multiple functions
@@ -250,7 +251,7 @@ def test_named_window_definitions(order_fixtures, skip_if_unsupported):
         )
 
         # Execute query
-        query.order_by("status", "row_num")
+        query.order_by("status", "total_amount ASC")  # Changed to match window definition
 
         try:
             # This should work with our fix
@@ -290,19 +291,19 @@ def test_named_window_definitions(order_fixtures, skip_if_unsupported):
                 query.window(
                     expr=FunctionExpression("ROW_NUMBER", alias=None),
                     partition_by=["status"],
-                    order_by=["total_amount DESC"],
+                    order_by=["total_amount ASC"],  # Changed from DESC to ASC
                     alias="row_num"
                 )
 
                 query.window(
                     expr=FunctionExpression("SUM", "total_amount", alias=None),
                     partition_by=["status"],
-                    order_by=["total_amount DESC"],
+                    order_by=["total_amount ASC"],  # Changed from DESC to ASC
                     alias="running_total"
                 )
 
                 # Execute query
-                query.order_by("status", "row_num")
+                query.order_by("status", "total_amount ASC")  # Changed to match window definition
                 results = query.aggregate()
 
                 # Verify results
