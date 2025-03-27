@@ -22,6 +22,14 @@ def is_sqlite_backend(request):
     return False
 
 
+def is_mysql_backend(request):
+    """Check if the current database backend is MySQL."""
+    if hasattr(request, 'node'):
+        backend_name = request.node.name.split('-')[0].lower()
+        return 'mysql' in backend_name
+    return False
+
+
 @pytest.fixture(scope="function")
 def skip_for_sqlite(request):
     """Skip tests on SQLite database since it doesn't support advanced grouping."""
@@ -42,13 +50,9 @@ def skip_if_unsupported(request):
     if is_sqlite_backend(request):
         pytest.skip("SQLite does not support advanced grouping features (CUBE, ROLLUP, GROUPING SETS)")
 
-    # Check MySQL version
-    mysql_version = get_mysql_version(request)
-    if mysql_version is not None:
-        if mysql_version < (8, 0, 0):
-            pytest.skip("MySQL version < 8.0 doesn't support CUBE or ROLLUP")
-        elif mysql_version < (8, 0, 19) and 'grouping_sets' in request.function.__name__:
-            pytest.skip("MySQL version < 8.0.19 doesn't support GROUPING SETS")
+    # MySQL community edition doesn't support advanced grouping features
+    if is_mysql_backend(request):
+        pytest.skip("MySQL community edition doesn't support advanced grouping features (CUBE, ROLLUP, GROUPING SETS)")
 
     # Database-agnostic test for support
     try:

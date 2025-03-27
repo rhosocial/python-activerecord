@@ -256,9 +256,9 @@ def test_dict_query_to_sql(order_fixtures):
 
     # Verify SQL contains expected clauses
     assert 'SELECT' in sql
-    assert 'FROM "orders"' in sql
+    assert 'FROM' in sql and 'orders' in sql
     assert 'WHERE' in sql
-    assert 'status = ?' in sql
+    assert 'status = ?' in sql or 'status = %s' in sql
     assert 'ORDER BY' in sql
     assert 'LIMIT' in sql
 
@@ -284,7 +284,7 @@ def test_dict_query_attribute_delegation(order_fixtures):
 
     # Verify delegated calls affected the query
     assert 'WHERE' in sql
-    assert 'status = ?' in sql
+    assert 'status = ?' in sql or 'status = %s' in sql
     assert 'LIMIT 5' in sql or 'LIMIT ? 5' in sql
     assert params == ('complete',)
 

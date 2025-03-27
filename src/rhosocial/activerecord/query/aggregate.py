@@ -466,7 +466,14 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         # Add group columns with proper quoting if not already included
         for col in self._group_columns:
-            if col not in selected_columns:
+            # Check if column exists in expressions with same name
+            col_exists_in_expr = any(
+                expr.alias == col.split('.')[-1]  # Handle table.column format
+                for expr in self._expressions
+                if hasattr(expr, 'alias') and expr.alias
+            )
+            
+            if col not in selected_columns and not col_exists_in_expr:
                 select_parts.append(dialect.format_identifier(col))
                 selected_columns.add(col)
 

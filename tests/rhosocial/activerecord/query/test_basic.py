@@ -1,15 +1,15 @@
 from decimal import Decimal
 from .utils import create_order_fixtures
 
-# 创建多表测试夹具
+# Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
 
 def test_find_by_id(order_fixtures):
-    """测试通过ID查找记录"""
+    """Test finding record by ID"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建测试用户
+    # Create test user
     user = User(
         username='test_user',
         email='test@example.com',
@@ -17,7 +17,7 @@ def test_find_by_id(order_fixtures):
     )
     user.save()
 
-    # 创建订单
+    # Create order
     order = Order(
         user_id=user.id,
         order_number='ORD-001',
@@ -31,7 +31,7 @@ def test_find_by_id(order_fixtures):
 
 
 def test_find_by_condition(order_fixtures):
-    """测试条件查找记录"""
+    """Test finding record by conditions"""
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -54,7 +54,7 @@ def test_find_by_condition(order_fixtures):
 
 
 def test_find_all(order_fixtures):
-    """测试查找所有记录"""
+    """Test finding all records"""
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -77,7 +77,7 @@ def test_find_all(order_fixtures):
 
 
 def test_count(order_fixtures):
-    """测试记录计数"""
+    """Test record counting"""
     User, Order, OrderItem = order_fixtures
 
     user = User(

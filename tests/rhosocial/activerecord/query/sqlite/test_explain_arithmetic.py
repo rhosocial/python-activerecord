@@ -4,7 +4,6 @@ from decimal import Decimal
 import pytest
 
 from src.rhosocial.activerecord.backend.dialect import ExplainType
-from src.rhosocial.activerecord.query.expression import ArithmeticExpression
 from tests.rhosocial.activerecord.query.utils import create_order_fixtures
 
 # Create multi-table test fixtures
