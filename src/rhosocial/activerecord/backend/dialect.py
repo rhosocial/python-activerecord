@@ -188,12 +188,6 @@ class AggregateHandler(ABC):
 
     @property
     @abstractmethod
-    def supports_json_operations(self) -> bool:
-        """Check if database supports JSON operations."""
-        pass
-
-    @property
-    @abstractmethod
     def supports_advanced_grouping(self) -> bool:
         """Check if database supports advanced grouping (CUBE, ROLLUP, GROUPING SETS)."""
         pass
@@ -227,28 +221,6 @@ class AggregateHandler(ABC):
         pass
 
     @abstractmethod
-    def format_json_operation(self,
-                              column: str,
-                              path: str,
-                              operation: str = "extract",
-                              value: Any = None) -> str:
-        """Format JSON operation SQL for specific database dialect.
-
-        Args:
-            column: JSON column name
-            path: JSON path string
-            operation: Operation type (extract, contains, exists)
-            value: Value for contains operation
-
-        Returns:
-            str: Formatted JSON operation SQL
-
-        Raises:
-            JsonOperationNotSupportedError: If JSON operations not supported
-        """
-        pass
-
-    @abstractmethod
     def format_grouping_sets(self,
                              type_name: str,
                              columns: List[Union[str, List[str]]]) -> str:
@@ -263,6 +235,61 @@ class AggregateHandler(ABC):
 
         Raises:
             GroupingSetNotSupportedError: If grouping sets not supported
+        """
+        pass
+
+class JsonOperationHandler:
+    """Interface for database-specific JSON operation support.
+
+    This class defines methods that should be implemented by each database dialect
+    to handle JSON operations according to their specific syntax.
+    """
+
+    @property
+    @abstractmethod
+    def supports_json_operations(self) -> bool:
+        """Check if database supports JSON operations."""
+        pass
+
+    @property
+    @abstractmethod
+    def supports_json_arrows(self) -> bool:
+        """Check if database supports -> and ->> arrow operators for JSON access."""
+        pass
+
+    @abstractmethod
+    def format_json_operation(self,
+                              column: Union[str, Any],
+                              path: Optional[str] = None,
+                              operation: str = "extract",
+                              value: Any = None,
+                              alias: Optional[str] = None) -> str:
+        """Format JSON operation SQL for specific database dialect.
+
+        Args:
+            column: JSON column name or expression
+            path: JSON path string
+            operation: Operation type (extract, text, contains, exists, etc.)
+            value: Value for operations that need it (contains, insert, etc.)
+            alias: Optional alias for the result
+
+        Returns:
+            str: Formatted JSON operation SQL
+
+        Raises:
+            JsonOperationNotSupportedError: If JSON operations not supported
+        """
+        pass
+
+    @abstractmethod
+    def supports_json_function(self, function_name: str) -> bool:
+        """Check if specific JSON function is supported by the database.
+
+        Args:
+            function_name: Name of JSON function to check (e.g., "json_extract", "json_array")
+
+        Returns:
+            bool: True if function is supported
         """
         pass
 
@@ -348,7 +375,8 @@ class SQLDialectBase(ABC):
     _type_mapper: TypeMapper
     _value_mapper: ValueMapper
     _returning_handler: ReturningClauseHandler
-    _aggregate_handler: AggregateHandler  # Add aggregate handler
+    _aggregate_handler: AggregateHandler
+    _json_operation_handler: JsonOperationHandler
     _version: tuple
 
     def __init__(self, version: tuple) -> None:
@@ -383,6 +411,11 @@ class SQLDialectBase(ABC):
     def aggregate_handler(self) -> AggregateHandler:
         """Get aggregate functionality handler"""
         return self._aggregate_handler
+
+    @property
+    def json_operation_handler(self) -> JsonOperationHandler:
+        """Get JSON operation handler"""
+        return self._json_operation_handler
 
     @abstractmethod
     def format_expression(self, expr: SQLExpressionBase) -> str:
@@ -484,6 +517,34 @@ class SQLDialectBase(ABC):
     def create_expression(self, expression: str) -> SQLExpressionBase:
         """Create SQL expression"""
         pass
+
+    def format_json_expression(self, expr) -> str:
+        """Format JSON expression according to dialect rules.
+
+        Delegates to the aggregate_handler's format_json_operation method
+        for database-specific JSON formatting.
+
+        Args:
+            expr: JsonExpression to format
+
+        Returns:
+            str: Database-specific JSON expression
+
+        Raises:
+            ValueError: If expression is not a JsonExpression
+            JsonOperationNotSupportedError: If JSON operations not supported
+        """
+        if not hasattr(expr, 'get_parameters'):
+            raise ValueError(f"Expected JsonExpression, got {type(expr)}")
+
+        params = expr.get_parameters()
+        return self.json_operation_handler.format_json_operation(
+            column=params['column'],
+            path=params['path'],
+            operation=params['operation'],
+            value=params['value'],
+            alias=params['alias']
+        )
 
 class SQLBuilder:
     """SQL Builder

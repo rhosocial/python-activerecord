@@ -312,21 +312,271 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
                   operation: str = "extract",
                   value: Any = None,
                   alias: Optional[str] = None) -> 'AggregateQueryMixin':
-        """Add a JSON expression
+        """Add a JSON expression with specified operation.
+
+        This is the core method for all JSON operations, providing database-agnostic
+        access to JSON functionality. Other JSON methods call this method internally.
 
         Args:
-            column: JSON column name
-            path: JSON path string
-            operation: Operation type (extract, contains, exists)
-            value: Value for contains operation
+            column: JSON column name or expression
+            path: JSON path string (e.g. '$.name', '$.addresses[0].city')
+            operation: Operation type (extract, contains, exists, etc.)
+            value: Value for operations that need it (contains, insert, etc.)
             alias: Optional alias for the result
 
         Returns:
             Self for method chaining
+
+        Example:
+            User.query()\
+                .json_expr('settings', '$.theme', 'extract', alias='theme_setting')\
+                .where('active = ?', (True,))\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
         """
+        # Check if JSON operations are supported by the database
+        if not self.model_class.backend().dialect.json_operation_handler.supports_json_operations:
+            self._log(logging.WARNING, "JSON operations are not supported by the current database")
+
         json_expr = JsonExpression(column, path, operation, value, alias)
         self._log(logging.DEBUG, f"Added JSON expression: {json_expr.as_sql()}")
         return self.select_expr(json_expr)
+
+    def json(self, column: Union[str, SQLExpression],
+             path: Optional[str] = None,
+             alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON extract expression (using -> operator when available).
+
+        This method adds an expression to extract a value from a JSON column.
+        The exact SQL syntax will be determined by the database dialect.
+
+        Args:
+            column: JSON column
+            path: JSON path
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json('settings', '$.theme', 'user_theme')\
+                .where('status = ?', ('active',))\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.EXTRACT, alias=alias)
+
+    def json_text(self, column: Union[str, SQLExpression],
+                  path: Optional[str] = None,
+                  alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON extract as text expression (using ->> operator when available).
+
+        This method adds an expression to extract a value from a JSON column as text.
+        The exact SQL syntax will be determined by the database dialect.
+
+        Args:
+            column: JSON column
+            path: JSON path
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_text('settings', '$.theme', 'user_theme')\
+                .where('status = ?', ('active',))\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.EXTRACT_TEXT, alias=alias)
+
+    def json_type(self, column: Union[str, SQLExpression],
+                  path: Optional[str] = None,
+                  alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON type expression.
+
+        Gets the type of a JSON value (object, array, string, number, etc.).
+
+        Args:
+            column: JSON column
+            path: JSON path
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_type('settings', '$.preferences', 'pref_type')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.TYPE, alias=alias)
+
+    def json_contains(self, column: Union[str, SQLExpression],
+                      path: Optional[str],
+                      value: Any,
+                      alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON contains expression.
+
+        Checks if a JSON value contains a specific value.
+
+        Note: SQLite doesn't have a native json_contains function. For SQLite backends,
+        this method uses json_extract with comparison operators to simulate similar
+        functionality. The exact behavior may differ from databases with native
+        json_contains functions (like MySQL or PostgreSQL).
+
+        Args:
+            column: JSON column
+            path: JSON path to check
+            value: Value to check for
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_contains('settings', '$.roles', 'admin', 'is_admin')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support any JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.CONTAINS, value, alias)
+
+    def json_exists(self, column: Union[str, SQLExpression],
+                    path: str,
+                    alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON exists expression.
+
+        Checks if a path exists in a JSON document.
+        Note: Some databases like SQLite implement this through json_extract() IS NOT NULL
+
+        Args:
+            column: JSON column
+            path: JSON path to check
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_exists('settings', '$.address', 'has_address')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.EXISTS, alias=alias)
+
+    def json_set(self, column: Union[str, SQLExpression],
+                 path: str, value: Any,
+                 alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON set expression.
+
+        Sets a value in a JSON document (insert if not exists, replace if exists).
+
+        Args:
+            column: JSON column
+            path: JSON path
+            value: Value to set
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_set('settings', '$.theme', 'dark', 'updated_settings')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.SET, value, alias)
+
+    def json_insert(self, column: Union[str, SQLExpression],
+                    path: str, value: Any,
+                    alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON insert expression (only inserts if path doesn't exist).
+
+        Args:
+            column: JSON column
+            path: JSON path
+            value: Value to insert
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_insert('settings', '$.new_field', 'value', 'inserted_settings')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.INSERT, value, alias)
+
+    def json_replace(self, column: Union[str, SQLExpression],
+                     path: str, value: Any,
+                     alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON replace expression (only replaces if path exists).
+
+        Args:
+            column: JSON column
+            path: JSON path
+            value: Value to replace with
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_replace('settings', '$.theme', 'light', 'replaced_settings')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.REPLACE, value, alias)
+
+    def json_remove(self, column: Union[str, SQLExpression],
+                    path: str,
+                    alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add JSON remove expression.
+
+        Args:
+            column: JSON column
+            path: JSON path to remove
+            alias: Optional result alias
+
+        Returns:
+            Self for method chaining
+
+        Example:
+            User.query()\
+                .json_remove('settings', '$.theme', 'removed_settings')\
+                .all()
+
+        Raises:
+            JsonOperationNotSupportedError: If database doesn't support JSON operations
+        """
+        return self.json_expr(column, path, JsonExpression.REMOVE, alias=alias)
 
     def cube(self, *columns: str) -> 'AggregateQueryMixin':
         """Add CUBE grouping for multi-dimensional analysis

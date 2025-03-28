@@ -4,7 +4,8 @@ import sqlite3
 
 import pytest
 
-from src.rhosocial.activerecord.query.expression import FunctionExpression, JsonExpression, CaseExpression
+from src.rhosocial.activerecord.backend import SQLDialectBase, OperationalError
+from src.rhosocial.activerecord.query.expression import JsonExpression, CaseExpression
 from tests.rhosocial.activerecord.query.utils import create_json_test_fixtures
 
 # Create multi-table test fixtures
@@ -18,7 +19,7 @@ def is_json_supported():
     return version >= (3, 9, 0)
 
 
-@pytest.fixture(scope="module")
+@pytest.fixture(scope="function")
 def skip_if_unsupported(request):
     """Skip tests if SQLite version doesn't support JSON functions."""
     if 'sqlite' not in request.node.name:
@@ -27,58 +28,12 @@ def skip_if_unsupported(request):
         pytest.skip("SQLite version doesn't support JSON functions (requires 3.9.0+)")
 
 
-def test_json_extract(json_fixtures, skip_if_unsupported):
-    """Test JSON extract operations."""
-    JsonUser = json_fixtures[0]  # 只有一个模型类
-
-    # Create test user with JSON data
-    user = JsonUser(
-        username='test_user',
-        email='test@example.com',
-        age=30,
-        settings=json.dumps({
-            "theme": "dark",
-            "notifications": {
-                "email": True,
-                "push": False
-            },
-            "preferences": ["news", "updates"]
-        })
-    )
-    user.save()
-
-    try:
-        # Test basic JSON extract
-        query = JsonUser.query().where('username = ?', ('test_user',))
-        query.json_expr('settings', '$.theme', alias='theme')
-        results = query.aggregate()[0]
-
-        assert 'theme' in results
-        assert results['theme'] == 'dark'
-
-        # Test extracting from nested JSON
-        query = JsonUser.query().where('username = ?', ('test_user',))
-        query.json_expr('settings', '$.notifications.email', alias='email_notifications')
-        results = query.aggregate()[0]
-
-        assert 'email_notifications' in results
-        assert results['email_notifications'] == 1 or results['email_notifications'] == True
-
-        # Test extracting from array
-        query = JsonUser.query().where('username = ?', ('test_user',))
-        query.json_expr('settings', '$.preferences[0]', alias='first_preference')
-        results = query.aggregate()[0]
-
-        assert 'first_preference' in results
-        assert results['first_preference'] == 'news'
-    except Exception as e:
-        if 'no such function: json_extract' in str(e).lower():
-            pytest.skip("SQLite installation doesn't have JSON1 extension")
-        raise
-
-
 def test_json_contains(json_fixtures, skip_if_unsupported):
-    """Test JSON contains operations."""
+    """Test JSON contains operations.
+
+    SQLite doesn't have a native json_contains() function, but we implement it using
+    json_extract with equality comparison.
+    """
     User = json_fixtures[0]
 
     # Create test users with JSON data
@@ -123,72 +78,20 @@ def test_json_contains(json_fixtures, skip_if_unsupported):
     except Exception as e:
         if 'no such function: json_contains' in str(e).lower() or 'json_extract' in str(e).lower():
             try:
-                # Try an alternative approach with json_extract and LIKE if json_contains not available
+                # Try an alternative approach with json_extract and string comparison
+                # which is what our SQLiteJsonHandler should be doing anyway
                 query = User.query()
                 query.select("username, json_extract(tags, '$') as tags_json")
                 results = query.aggregate()
 
-                # If this works, we'll skip the original test
-                pytest.skip("SQLite installation doesn't have json_contains function")
+                # Check if we get any results with the alternative approach
+                assert results is not None and len(results) > 0
+
+                # If we get here, the test is passing with the alternative approach
+                # Skip the original test since our alternative works
+                pytest.skip("SQLite installation doesn't have json_contains function, using alternative")
             except:
                 pytest.skip("SQLite installation doesn't have JSON1 extension")
-        raise
-
-
-def test_json_exists(json_fixtures, skip_if_unsupported):
-    """Test JSON exists operations."""
-    User = json_fixtures[0]
-
-    # Create test users with varying JSON data
-    users_data = [
-        {
-            "username": "complete_user",
-            "email": "complete@example.com",
-            "age": 30,
-            "profile": json.dumps({
-                "address": {
-                    "city": "New York",
-                    "zip": "10001"
-                },
-                "phone": "555-1234"
-            })
-        },
-        {
-            "username": "partial_user",
-            "email": "partial@example.com",
-            "age": 25,
-            "profile": json.dumps({
-                "phone": "555-5678"
-                # No address information
-            })
-        }
-    ]
-
-    for data in users_data:
-        user = User(**data)
-        user.save()
-
-    try:
-        # Test if path exists in JSON
-        query = User.query()
-        query.json_expr('profile', '$.address', operation='exists', alias='has_address')
-        results = query.aggregate()
-
-        assert len(results) == 2
-        users_with_address = [r for r in results if r['has_address'] == 1]
-        assert len(users_with_address) == 1
-        assert users_with_address[0]['username'] == 'complete_user'
-
-        # Test another path
-        query = User.query()
-        query.json_expr('profile', '$.phone', operation='exists', alias='has_phone')
-        results = query.aggregate()
-
-        users_with_phone = [r for r in results if r['has_phone'] == 1]
-        assert len(users_with_phone) == 2  # Both users have phone
-    except Exception as e:
-        if 'no such function' in str(e).lower():
-            pytest.skip("SQLite installation doesn't have required JSON functions")
         raise
 
 
@@ -231,7 +134,7 @@ def test_json_expressions_in_where(json_fixtures, skip_if_unsupported):
         results = query.aggregate()
 
         assert len(results) == 1
-        assert results[0].username == 'admin_user'
+        assert results[0]['username'] == 'admin_user'
 
         # Find all editors
         query = User.query()
@@ -239,76 +142,6 @@ def test_json_expressions_in_where(json_fixtures, skip_if_unsupported):
         results = query.aggregate()
 
         assert len(results) == 2  # Both users are editors
-    except Exception as e:
-        if 'no such function' in str(e).lower():
-            pytest.skip("SQLite installation doesn't have required JSON functions")
-        raise
-
-
-def test_json_with_aggregation(json_fixtures, skip_if_unsupported):
-    """Test JSON expressions with aggregation."""
-    User = json_fixtures[0]
-
-    # Create test users with JSON data containing scores
-    users_data = [
-        {
-            "username": "user1",
-            "email": "user1@example.com",
-            "scores": json.dumps({
-                "math": 90,
-                "science": 85,
-                "history": 75
-            })
-        },
-        {
-            "username": "user2",
-            "email": "user2@example.com",
-            "scores": json.dumps({
-                "math": 80,
-                "science": 95,
-                "history": 70
-            })
-        },
-        {
-            "username": "user3",
-            "email": "user3@example.com",
-            "scores": json.dumps({
-                "math": 85,
-                "science": 90,
-                "history": 80
-            })
-        }
-    ]
-
-    for data in users_data:
-        user = User(**data)
-        user.save()
-
-    try:
-        # Calculate average math score
-        query = User.query()
-        query.select("AVG(json_extract(scores, '$.math')) as avg_math_score")
-        results = query.aggregate()[0]
-
-        assert 'avg_math_score' in results
-        assert abs(float(results['avg_math_score']) - 85.0) < 0.01  # (90 + 80 + 85) / 3 = 85
-
-        # Calculate max science score
-        query = User.query()
-        query.select("MAX(json_extract(scores, '$.science')) as max_science_score")
-        results = query.aggregate()[0]
-
-        assert 'max_science_score' in results
-        assert float(results['max_science_score']) == 95.0
-
-        # Count users with history score > 75
-        query = User.query()
-        query.select("COUNT(*) as advanced_history_count")
-        query.where("json_extract(scores, '$.history') > 75")
-        results = query.aggregate()[0]
-
-        assert 'advanced_history_count' in results
-        assert results['advanced_history_count'] == 1  # Only user3 has history > 75
     except Exception as e:
         if 'no such function' in str(e).lower():
             pytest.skip("SQLite installation doesn't have required JSON functions")
@@ -360,14 +193,8 @@ def test_json_with_case_expressions(json_fixtures, skip_if_unsupported):
                 (f"{(JsonExpression('subscription', '$.type')).as_sql()} = 'premium'", 'High Priority'),
                 (f"{JsonExpression('subscription', '$.type').as_sql()} = 'basic'", 'Medium Priority')
             ]
-        , 'Low Priority', 'support_priority'))
-        # query.select("""
-        # CASE
-        #     WHEN json_extract(subscription, '$.type') = 'premium' THEN 'High Priority'
-        #     WHEN json_extract(subscription, '$.type') = 'basic' THEN 'Medium Priority'
-        #     ELSE 'Low Priority'
-        # END as support_priority
-        # """)
+            , 'Low Priority', 'support_priority'))
+
         query.group_by("support_priority")
 
         results = query.aggregate()
@@ -375,7 +202,7 @@ def test_json_with_case_expressions(json_fixtures, skip_if_unsupported):
         # Verify results
         assert len(results) == 3
 
-        # Create mapping for easy verification
+        # Create mapping for easy verification - 使用字典访问而非对象属性
         priorities = {r['username']: r['support_priority'] for r in results}
 
         assert priorities['premium_user'] == 'High Priority'
@@ -486,3 +313,500 @@ def test_json_in_group_by(json_fixtures, skip_if_unsupported):
         if 'no such function' in str(e).lower():
             pytest.skip("SQLite installation doesn't have required JSON functions")
         raise
+
+
+# Helper to check if current SQLite version supports JSON1 extension and JSON operators
+def is_json_arrows_supported():
+    # SQLite added -> and ->> operators in version 3.38.0 (2022-02-22)
+    version = sqlite3.sqlite_version_info
+    return version >= (3, 38, 0)
+
+
+@pytest.fixture(scope="function")
+def skip_if_arrows_unsupported(request):
+    """Skip tests if SQLite version doesn't support JSON arrow operators."""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
+    if not is_json_arrows_supported():
+        pytest.skip("SQLite version doesn't support JSON arrow operators (requires 3.38.0+)")
+
+
+def test_json_extract(json_fixtures, skip_if_unsupported):
+    """Test basic JSON extraction using database-agnostic API."""
+    JsonUser = json_fixtures[0]
+
+    # Create test user with JSON data
+    user = JsonUser(
+        username='extract_user',
+        email='extract@example.com',
+        age=30,
+        settings=json.dumps({
+            "theme": "dark",
+            "notifications": {
+                "email": True,
+                "push": False
+            },
+            "preferences": ["news", "updates"]
+        })
+    )
+    user.save()
+
+    try:
+        # Test JSON extract with query builder method
+        query = JsonUser.query().where('username = ?', ('extract_user',))
+        query.json('settings', '$.theme', 'theme_setting')
+        results = query.aggregate()[0]
+
+        assert 'theme_setting' in results
+        assert results['theme_setting'] == 'dark'
+
+        # Test nested JSON path
+        query = JsonUser.query().where('username = ?', ('extract_user',))
+        query.json('settings', '$.notifications.email', 'email_notifications')
+        results = query.aggregate()[0]
+
+        assert 'email_notifications' in results
+        assert results['email_notifications'] == 1 or results['email_notifications'] is True
+
+        # Test JSON array element
+        query = JsonUser.query().where('username = ?', ('extract_user',))
+        query.json('settings', '$.preferences[0]', 'first_preference')
+        results = query.aggregate()[0]
+
+        assert 'first_preference' in results
+        assert results['first_preference'] == 'news'
+
+    except Exception as e:
+        if 'no such function: json_extract' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have JSON1 extension")
+        raise
+
+
+def test_json_text(json_fixtures, skip_if_unsupported):
+    """Test JSON text extraction using database-agnostic API."""
+    JsonUser = json_fixtures[0]
+
+    # Create test user with JSON data
+    user = JsonUser(
+        username='text_user',
+        email='text@example.com',
+        age=35,
+        settings=json.dumps({
+            "theme": "light",
+            "numbers": [42, 73, 101],
+            "level": 5
+        })
+    )
+    user.save()
+
+    try:
+        # Test JSON text extract with query builder method
+        query = JsonUser.query().where('username = ?', ('text_user',))
+        query.json_text('settings', '$.theme', 'theme_setting')
+        results = query.aggregate()[0]
+
+        assert 'theme_setting' in results
+        assert results['theme_setting'] == 'light'
+
+        # Test numeric value extraction as text
+        query = JsonUser.query().where('username = ?', ('text_user',))
+        query.json_text('settings', '$.level', 'level_text')
+        results = query.aggregate()[0]
+
+        assert 'level_text' in results
+        # Text representation might be an actual number or string depending on SQLite version
+        assert results['level_text'] == 5 or results['level_text'] == '5'
+
+    except Exception as e:
+        if 'no such function: json_extract' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have JSON1 extension")
+        raise
+
+
+def test_json_type(json_fixtures, skip_if_unsupported):
+    """Test JSON type checking."""
+    JsonUser = json_fixtures[0]
+
+    # Create test user with various JSON types
+    user = JsonUser(
+        username='type_user',
+        email='type@example.com',
+        age=40,
+        settings=json.dumps({
+            "number": 42,
+            "string": "hello",
+            "boolean": True,
+            "array": [1, 2, 3],
+            "object": {"key": "value"},
+            "null": None
+        })
+    )
+    user.save()
+
+    try:
+        # Test json_type on different value types
+        query = JsonUser.query().where('username = ?', ('type_user',))
+        query.json_type('settings', '$.number', 'number_type')
+        query.json_type('settings', '$.string', 'string_type')
+        query.json_type('settings', '$.boolean', 'boolean_type')
+        query.json_type('settings', '$.array', 'array_type')
+        query.json_type('settings', '$.object', 'object_type')
+        query.json_type('settings', '$.null', 'null_type')
+        results = query.aggregate()[0]
+
+        assert results['number_type'] == 'integer'
+        assert results['string_type'] == 'text'
+        assert results['boolean_type'] == 'true'  # SQLite may store booleans as integers
+        assert results['array_type'] == 'array'
+        assert results['object_type'] == 'object'
+        assert results['null_type'] == 'null'
+
+    except Exception as e:
+        if 'no such function: json_type' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have json_type function")
+        raise
+
+
+def test_json_exists(json_fixtures, skip_if_unsupported):
+    """Test if a JSON path exists.
+
+    SQLite doesn't have a direct json_exists() function, but this test should work
+    because we implement it using json_extract() IS NOT NULL.
+    """
+    JsonUser = json_fixtures[0]
+
+    # Create test users with varying JSON data
+    users_data = [
+        {
+            "username": "complete_user",
+            "email": "complete@example.com",
+            "age": 45,
+            "profile": json.dumps({
+                "address": {
+                    "city": "New York",
+                    "zip": "10001"
+                },
+                "phone": "555-1234"
+            })
+        },
+        {
+            "username": "partial_user",
+            "email": "partial@example.com",
+            "age": 50,
+            "profile": json.dumps({
+                "phone": "555-5678"
+                # No address information
+            })
+        }
+    ]
+
+    for data in users_data:
+        user = JsonUser(**data)
+        user.save()
+
+    try:
+        # Test if path exists in JSON using json_exists
+        query = JsonUser.query()
+        query.json_exists('profile', '$.address', 'has_address')
+        results = query.aggregate()
+
+        assert len(results) == 2
+        users_with_address = [r for r in results if r['has_address'] == 1]
+        assert len(users_with_address) == 1
+        assert users_with_address[0]['username'] == 'complete_user'
+
+        # Test another path
+        query = JsonUser.query()
+        query.json_exists('profile', '$.phone', 'has_phone')
+        results = query.aggregate()
+
+        users_with_phone = [r for r in results if r['has_phone'] == 1]
+        assert len(users_with_phone) == 2  # Both users have phone
+
+    except Exception as e:
+        # Check if the error is related to json_exists or json_extract not being supported
+        if 'no such function' in str(e).lower():
+            if 'json_exists' in str(e).lower():
+                # Our fallback should have used json_extract
+                pytest.skip("SQLite doesn't support json_exists and fallback with json_extract failed")
+            elif 'json_extract' in str(e).lower():
+                # If json_extract fails, then SQLite JSON1 extension is not available
+                pytest.skip("SQLite installation doesn't have JSON1 extension")
+        raise
+
+
+def test_json_modify_operations(json_fixtures, skip_if_unsupported):
+    """Test JSON modification operations (set, insert, replace, remove)."""
+    JsonUser = json_fixtures[0]
+
+    # Create test user with JSON data to modify
+    user = JsonUser(
+        username='modify_user',
+        email='modify@example.com',
+        age=55,
+        settings=json.dumps({
+            "existing": "value",
+            "nested": {
+                "existing": "nested_value"
+            }
+        })
+    )
+    user.save()
+    try:
+        # Test json_set - should insert new or replace existing
+        query = JsonUser.query().where('username = ?', ('modify_user',))
+        query.json_set('settings', '$.new_key', 'new_value', 'set_result')
+        results = query.aggregate()[0]
+
+        modified = json.loads(results['set_result'])
+        assert modified['existing'] == 'value'
+        assert modified['new_key'] == 'new_value'
+
+        # Test json_insert - only adds if not exists
+        query = JsonUser.query().where('username = ?', ('modify_user',))
+        query.json_insert('settings', '$.insert_key', 'inserted', 'insert_result')
+        query.json_insert('settings', '$.existing', 'wont_change', 'insert_existing')
+        results = query.aggregate()[0]
+
+        modified_insert = json.loads(results['insert_result'])
+        assert modified_insert['insert_key'] == 'inserted'
+
+        modified_existing = json.loads(results['insert_existing'])
+        assert modified_existing['existing'] == 'value'  # unchanged
+
+        # Test json_replace - only changes if exists
+        query = JsonUser.query().where('username = ?', ('modify_user',))
+        query.json_replace('settings', '$.existing', 'replaced', 'replace_result')
+        query.json_replace('settings', '$.nonexistent', 'wont_add', 'replace_nonexistent')
+        results = query.aggregate()[0]
+
+        modified_replace = json.loads(results['replace_result'])
+        assert modified_replace['existing'] == 'replaced'
+
+        modified_nonexistent = json.loads(results['replace_nonexistent'])
+        assert 'nonexistent' not in modified_nonexistent
+
+        # Test json_remove
+        query = JsonUser.query().where('username = ?', ('modify_user',))
+        query.json_remove('settings', '$.existing', 'removed_result')
+        results = query.aggregate()[0]
+
+        modified_remove = json.loads(results['removed_result'])
+        assert 'existing' not in modified_remove
+        assert 'nested' in modified_remove
+
+    except Exception as e:
+        if 'no such function' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have all required JSON modification functions")
+        raise
+
+
+def test_json_with_aggregation(json_fixtures, skip_if_unsupported):
+    """Test JSON expressions with aggregation functions."""
+    JsonUser = json_fixtures[0]
+
+    # Create test users with JSON data containing scores
+    users_data = [
+        {
+            "username": "user1",
+            "email": "user1@example.com",
+            "scores": json.dumps({
+                "math": 90,
+                "science": 85,
+                "history": 75
+            })
+        },
+        {
+            "username": "user2",
+            "email": "user2@example.com",
+            "scores": json.dumps({
+                "math": 80,
+                "science": 95,
+                "history": 70
+            })
+        },
+        {
+            "username": "user3",
+            "email": "user3@example.com",
+            "scores": json.dumps({
+                "math": 85,
+                "science": 90,
+                "history": 80
+            })
+        }
+    ]
+
+    for data in users_data:
+        user = JsonUser(**data)
+        user.save()
+
+    try:
+        # Calculate average math score
+        query = JsonUser.query()
+        query.select("AVG(json_extract(scores, '$.math')) as avg_math_score")
+        results = query.aggregate()[0]
+
+        assert 'avg_math_score' in results
+        assert abs(float(results['avg_math_score']) - 85.0) < 0.01  # (90 + 80 + 85) / 3 = 85
+
+        # Using built-in json() method
+        query = JsonUser.query()
+        query.select("username")
+        query.json('scores', '$.math', 'math_score')
+        query.order_by("math_score DESC")
+        results = query.aggregate()
+
+        assert len(results) == 3
+        assert results[0]['username'] == 'user1'  # Highest math score
+        assert results[0]['math_score'] == 90
+
+        # Count users with history score > 75
+        query = JsonUser.query()
+        query.json('scores', '$.history', 'history_score')
+        query.select("COUNT(*) as count")
+        query.where("history_score > 75")
+        results = query.aggregate()[0]
+
+        assert results['count'] == 1  # Only user3 has history > 75
+
+    except Exception as e:
+        if 'no such function' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have required JSON functions")
+        raise
+
+
+def test_json_arrow_operators(json_fixtures, skip_if_arrows_unsupported):
+    """Test -> and ->> JSON operators if available."""
+    JsonUser = json_fixtures[0]
+
+    # Create test user with JSON data
+    user = JsonUser(
+        username='arrow_user',
+        email='arrow@example.com',
+        age=60,
+        settings=json.dumps({
+            "theme": "dark",
+            "notifications": {
+                "email": True,
+                "push": True
+            },
+            "favorites": ["books", "music", "movies"]
+        })
+    )
+    user.save()
+
+    # Test if the database supports arrow operators
+    dialect: SQLDialectBase = JsonUser.backend().dialect
+    if not dialect.json_operation_handler.supports_json_arrows:
+        pytest.skip("Database doesn't support -> and ->> operators")
+
+    try:
+        # Test with direct SQL using -> operator
+        query = JsonUser.query().where('username = ?', ('arrow_user',))
+        query.select("settings->'$.theme' as direct_theme")
+        results = query.aggregate()[0]
+
+        assert 'direct_theme' in results
+        assert results['direct_theme'] == '"dark"'
+
+        # Test with direct SQL using ->> operator
+        query = JsonUser.query().where('username = ?', ('arrow_user',))
+        query.select("settings->>'$.theme' as direct_theme_text")
+        results = query.aggregate()[0]
+
+        assert 'direct_theme_text' in results
+        assert results['direct_theme_text'] == 'dark'
+
+        # Test comparison in WHERE clause using -> operator
+        query = JsonUser.query()
+        query.where("settings->'$.theme' = '\"dark\"'")
+        results = query.all()
+
+        assert len(results) == 1
+        assert results[0].username == 'arrow_user'
+
+    except Exception as e:
+        if 'near "->": syntax error' in str(e):
+            pytest.skip("SQLite installation doesn't support -> operator")
+        elif 'json_extract' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have JSON1 extension")
+        raise
+
+
+def test_json_invalid_path_error(json_fixtures, skip_if_unsupported):
+    """Test that invalid JSON paths properly raise OperationalError.
+
+    SQLite throws an OperationalError for invalid JSON paths, not return NULL.
+    This test verifies that using pytest's exception testing pattern.
+    """
+    JsonUser = json_fixtures[0]
+
+    # Create test user
+    user = JsonUser(
+        username='error_user',
+        email='error@example.com',
+        age=65,
+        settings=json.dumps({"valid": "json"})
+    )
+    user.save()
+
+    # Test invalid JSON path using pytest's exception testing pattern
+    try:
+        # First check if JSON1 extension is available
+        JsonUser.query().select("json_extract('{}', '$')").aggregate()
+    except Exception as e:
+        if 'json_extract' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have JSON1 extension")
+        raise
+
+    # If we get here, JSON1 is available, so test the invalid path
+    with pytest.raises(OperationalError) as excinfo:
+        query = JsonUser.query().where('username = ?', ('error_user',))
+        query.json('settings', '$invalid.path', 'invalid_path')
+        query.aggregate()
+
+    # Verify error message
+    assert "bad JSON path" in str(excinfo.value).lower() or "bad json path:" in str(excinfo.value).lower()
+
+
+def test_json_non_json_column(json_fixtures, skip_if_unsupported):
+    """Test behavior when extracting JSON from non-JSON column.
+
+    Different databases handle this differently:
+    - Some return NULL
+    - Some throw an error
+
+    This test handles both possibilities.
+    """
+    JsonUser = json_fixtures[0]
+
+    # Create test user
+    user = JsonUser(
+        username='error_user',
+        email='error@example.com',
+        age=65,
+        settings=json.dumps({"valid": "json"})
+    )
+    user.save()
+
+    try:
+        # First check if JSON1 extension is available
+        JsonUser.query().select("json_extract('{}', '$')").aggregate()
+    except Exception as e:
+        if 'json_extract' in str(e).lower():
+            pytest.skip("SQLite installation doesn't have JSON1 extension")
+        raise
+
+    # Different databases may behave differently for extracting from non-JSON columns
+    try:
+        query = JsonUser.query().where('username = ?', ('error_user',))
+        query.json('username', '$.anything', 'extract_from_non_json')
+        results = query.aggregate()[0]
+
+        # For databases that return NULL for non-JSON columns
+        assert results['extract_from_non_json'] is None
+
+    except OperationalError:
+        # For databases like SQLite that might throw an error
+        # Just verify that we caught the expected exception type
+        pass
