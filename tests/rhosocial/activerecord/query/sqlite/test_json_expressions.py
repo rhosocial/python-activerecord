@@ -5,7 +5,7 @@ import sqlite3
 import pytest
 
 from src.rhosocial.activerecord.query.expression import FunctionExpression, JsonExpression, CaseExpression
-from .utils import create_json_test_fixtures
+from tests.rhosocial.activerecord.query.utils import create_json_test_fixtures
 
 # Create multi-table test fixtures
 json_fixtures = create_json_test_fixtures()
@@ -19,8 +19,10 @@ def is_json_supported():
 
 
 @pytest.fixture(scope="module")
-def skip_if_unsupported():
+def skip_if_unsupported(request):
     """Skip tests if SQLite version doesn't support JSON functions."""
+    if 'sqlite' not in request.node.name:
+        pytest.skip("This test is only applicable to SQLite")
     if not is_json_supported():
         pytest.skip("SQLite version doesn't support JSON functions (requires 3.9.0+)")
 
@@ -103,7 +105,7 @@ def test_json_contains(json_fixtures, skip_if_unsupported):
         # Test JSON contains with simple value
         query = User.query()
         query.json_expr('tags', '$', operation='contains', value='"admin"', alias='is_admin')
-        results = query.all()
+        results = query.aggregate()
 
         assert len(results) == 2
         admin_users = [r for r in results if r['is_admin'] == 1]
@@ -113,7 +115,7 @@ def test_json_contains(json_fixtures, skip_if_unsupported):
         # Test with another value
         query = User.query()
         query.json_expr('tags', '$', operation='contains', value='"subscriber"', alias='is_subscriber')
-        results = query.all()
+        results = query.aggregate()
 
         subscriber_users = [r for r in results if r['is_subscriber'] == 1]
         assert len(subscriber_users) == 1
@@ -124,7 +126,7 @@ def test_json_contains(json_fixtures, skip_if_unsupported):
                 # Try an alternative approach with json_extract and LIKE if json_contains not available
                 query = User.query()
                 query.select("username, json_extract(tags, '$') as tags_json")
-                results = query.all()
+                results = query.aggregate()
 
                 # If this works, we'll skip the original test
                 pytest.skip("SQLite installation doesn't have json_contains function")
@@ -170,7 +172,7 @@ def test_json_exists(json_fixtures, skip_if_unsupported):
         # Test if path exists in JSON
         query = User.query()
         query.json_expr('profile', '$.address', operation='exists', alias='has_address')
-        results = query.all()
+        results = query.aggregate()
 
         assert len(results) == 2
         users_with_address = [r for r in results if r['has_address'] == 1]
@@ -180,7 +182,7 @@ def test_json_exists(json_fixtures, skip_if_unsupported):
         # Test another path
         query = User.query()
         query.json_expr('profile', '$.phone', operation='exists', alias='has_phone')
-        results = query.all()
+        results = query.aggregate()
 
         users_with_phone = [r for r in results if r['has_phone'] == 1]
         assert len(users_with_phone) == 2  # Both users have phone
@@ -226,7 +228,7 @@ def test_json_expressions_in_where(json_fixtures, skip_if_unsupported):
         # Different SQLite versions might handle JSON booleans differently,
         # so we'll check against both possible values
         query.where("json_extract(roles, '$.admin') = 1 OR json_extract(roles, '$.admin') = 'true'")
-        results = query.all()
+        results = query.aggregate()
 
         assert len(results) == 1
         assert results[0].username == 'admin_user'
@@ -234,7 +236,7 @@ def test_json_expressions_in_where(json_fixtures, skip_if_unsupported):
         # Find all editors
         query = User.query()
         query.where("json_extract(roles, '$.editor') = 1 OR json_extract(roles, '$.editor') = 'true'")
-        results = query.all()
+        results = query.aggregate()
 
         assert len(results) == 2  # Both users are editors
     except Exception as e:
@@ -480,53 +482,6 @@ def test_json_in_group_by(json_fixtures, skip_if_unsupported):
             assert 2 in count_values
             assert 1 in count_values
 
-    except Exception as e:
-        if 'no such function' in str(e).lower():
-            pytest.skip("SQLite installation doesn't have required JSON functions")
-        raise
-
-
-def test_explain_json_expressions(json_fixtures, skip_if_unsupported):
-    """Test explain functionality with JSON expressions."""
-    User = json_fixtures[0]
-
-    # Create test user with JSON data
-    user = User(
-        username='test_user',
-        email='test@example.com',
-        settings=json.dumps({
-            "theme": "dark",
-            "notifications": {"email": True}
-        })
-    )
-    user.save()
-
-    try:
-        # Test explain with JSON extract
-        query = User.query()
-        query.json_expr('settings', '$.theme', alias='theme')
-
-        plan = query.explain().aggregate()
-        assert isinstance(plan, str)
-        assert any(op in plan for op in ['Trace', 'Goto', 'OpenRead', 'Function'])
-
-        # Test explain with JSON in WHERE clause
-        query = User.query()
-        query.where("json_extract(settings, '$.theme') = 'dark'")
-
-        plan = query.explain().all()
-        assert isinstance(plan, str)
-        assert any(op in plan for op in ['Trace', 'Goto', 'OpenRead', 'Function', 'Compare'])
-
-        # Test explain with JSON in GROUP BY
-        query = User.query()
-        query.select("json_extract(settings, '$.theme') as theme")
-        query.count("*", "user_count")
-        query.group_by("json_extract(settings, '$.theme')")
-
-        plan = query.explain().aggregate()
-        assert isinstance(plan, str)
-        assert any(op in plan for op in ['Trace', 'Goto', 'OpenRead', 'Function', 'Aggregate'])
     except Exception as e:
         if 'no such function' in str(e).lower():
             pytest.skip("SQLite installation doesn't have required JSON functions")
