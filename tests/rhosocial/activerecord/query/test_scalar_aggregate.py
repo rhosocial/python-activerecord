@@ -1,11 +1,11 @@
-"""Test simple aggregate calculations without grouping."""
+"""Test scalar aggregate calculations without grouping."""
 from decimal import Decimal
 from .utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
-def test_simple_count(order_fixtures):
+def test_scalar_count(order_fixtures):
     """Test basic COUNT aggregation"""
     User, Order, OrderItem = order_fixtures
 
@@ -42,7 +42,7 @@ def test_simple_count(order_fixtures):
     count = Order.query().count('user_id', distinct=True)
     assert count == 1
 
-def test_simple_sum(order_fixtures):
+def test_scalar_sum(order_fixtures):
     """Test basic SUM aggregation"""
     User, Order, OrderItem = order_fixtures
 
@@ -67,7 +67,7 @@ def test_simple_sum(order_fixtures):
     total = Order.query().where('total_amount > ?', (Decimal('150.00'),)).sum('total_amount')
     assert total == Decimal('500.00')
 
-def test_simple_avg(order_fixtures):
+def test_scalar_avg(order_fixtures):
     """Test basic AVG aggregation"""
     User, Order, OrderItem = order_fixtures
 
@@ -89,7 +89,7 @@ def test_simple_avg(order_fixtures):
     avg_age = User.query().where('age > ?', (27,)).avg('age')
     assert avg_age == 32.5
 
-def test_simple_min_max(order_fixtures):
+def test_scalar_min_max(order_fixtures):
     """Test basic MIN and MAX aggregations"""
     User, Order, OrderItem = order_fixtures
 

@@ -3,13 +3,13 @@ import sqlite3
 import sys
 import time
 from sqlite3 import ProgrammingError
-from typing import Optional, Tuple, List, Any, Dict
+from typing import Optional, Tuple, List, Any, Dict, Union
 
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from ...base import StorageBackend, ColumnTypes
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
-    ReturningNotSupportedError
+    ReturningNotSupportedError, JsonOperationNotSupportedError
 from ...typing import QueryResult
 
 
@@ -152,20 +152,41 @@ class SQLiteBackend(StorageBackend):
                 if self._delete_on_close and self.config.database != ":memory:":
                     try:
                         import os
+                        import time
                         self.log(logging.INFO, f"Deleting database files: {self.config.database}")
+                        
+                        # Define retry delete function
+                        def retry_delete(file_path, max_retries=5, retry_delay=0.1):
+                            for attempt in range(max_retries):
+                                try:
+                                    if os.path.exists(file_path):
+                                        os.remove(file_path)
+                                        return True
+                                    return True  # File doesn't exist, consider deletion successful
+                                except OSError as e:
+                                    if attempt < max_retries - 1:  # If not the last attempt
+                                        self.log(logging.DEBUG, f"Failed to delete file {file_path}, retrying: {str(e)}")
+                                        time.sleep(retry_delay)  # Wait for a while before retrying
+                                    else:
+                                        self.log(logging.WARNING, f"Failed to delete file {file_path}, maximum retry attempts reached: {str(e)}")
+                                        return False
+                            return False
+                        
                         # Delete main database file
-                        if os.path.exists(self.config.database):
-                            os.remove(self.config.database)
-
-                        # Delete WAL and SHM files if they exist
+                        main_db_deleted = retry_delete(self.config.database)
+                        
+                        # Delete WAL and SHM files
                         wal_file = f"{self.config.database}-wal"
                         shm_file = f"{self.config.database}-shm"
-                        if os.path.exists(wal_file):
-                            os.remove(wal_file)
-                        if os.path.exists(shm_file):
-                            os.remove(shm_file)
-                        self.log(logging.INFO, "Database files deleted successfully")
-                    except OSError as e:
+                        wal_deleted = retry_delete(wal_file)
+                        shm_deleted = retry_delete(shm_file)
+                        
+                        # Record deletion results
+                        if main_db_deleted and wal_deleted and shm_deleted:
+                            self.log(logging.INFO, "Database files deleted successfully")
+                        else:
+                            self.log(logging.WARNING, "Some database files could not be deleted after multiple attempts")
+                    except Exception as e:
                         self.log(logging.ERROR, f"Failed to delete database files: {str(e)}")
                         raise ConnectionError(f"Failed to delete database files: {str(e)}")
             except sqlite3.Error as e:
@@ -560,3 +581,36 @@ class SQLiteBackend(StorageBackend):
                          f"Failed to determine SQLite version, defaulting to 3.35.0: {str(e)}")
 
         return SQLiteBackend._sqlite_version_cache
+
+    def format_json_operation(self, column: Union[str, Any], path: Optional[str] = None,
+                              operation: str = "extract", value: Any = None,
+                              alias: Optional[str] = None) -> str:
+        """Format JSON operation according to database dialect.
+
+        Delegates to the dialect's json_operation_handler for database-specific formatting.
+
+        Args:
+            column: JSON column name or expression
+            path: JSON path
+            operation: Operation type (extract, contains, exists, etc.)
+            value: Value for operations that need it (contains, insert, etc.)
+            alias: Optional alias for the result
+
+        Returns:
+            str: Database-specific JSON operation SQL
+
+        Raises:
+            JsonOperationNotSupportedError: If JSON operations not supported
+        """
+        if not hasattr(self.dialect, 'json_operation_handler'):
+            raise JsonOperationNotSupportedError(
+                f"JSON operations not supported by {self.dialect.__class__.__name__}"
+            )
+
+        return self.dialect.json_operation_handler.format_json_operation(
+            column=column,
+            path=path,
+            operation=operation,
+            value=value,
+            alias=alias
+        )

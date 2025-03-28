@@ -32,6 +32,40 @@ class BaseQueryMixin(IQuery[ModelT]):
         self._log(logging.DEBUG, f"Generated SQL: {sql}, parameters: {params}")
         return sql, params
 
+    def _format_identifier(self, identifier: str, dialect=None) -> str:
+        """Format a column or table identifier according to database dialect rules.
+
+        This method properly handles:
+        - Simple identifiers (e.g., "name")
+        - Table-qualified identifiers (e.g., "users.name")
+        - Aliases (e.g., "name AS display_name")
+        - Already quoted identifiers (preserves them)
+
+        Args:
+            identifier: The identifier to format
+            dialect: Optional dialect to use (defaults to model's dialect)
+
+        Returns:
+            Properly formatted and quoted identifier
+        """
+        if not dialect:
+            dialect = self.model_class.backend().dialect
+
+        # If the identifier contains function calls, subqueries, or is already quoted
+        # or contains an alias definition, return it as is
+        if any(token in identifier for token in ['(', ')', ' as ', ' AS ', '"', '`', "'", '*']):
+            return identifier
+
+        # Check if this is a column with table qualification
+        parts = identifier.split('.')
+        if len(parts) == 2:
+            # Handle "table.column" format
+            table, column = parts
+            return f"{dialect.format_identifier(table)}.{dialect.format_identifier(column)}"
+
+        # Simple identifier
+        return dialect.format_identifier(identifier)
+
     def explain(self,
                 type: Optional[ExplainType] = None,
                 format: ExplainFormat = ExplainFormat.TEXT,
@@ -127,14 +161,19 @@ class BaseQueryMixin(IQuery[ModelT]):
         # Format text output
         return "\n".join(str(row) for row in result.data)
 
-    def select(self, *columns: str) -> 'IQuery':
+    def select(self, *columns: str, append: bool = False) -> 'IQuery':
         """Select specific columns to retrieve from the query.
 
         This method allows you to specify which columns should be included in the query results.
         If no columns are specified, all columns (*) will be selected.
 
+        By default, each call to select() replaces previously selected columns.
+        If append=True is specified, new columns will be added to the existing selection.
+
         Args:
             *columns: Variable number of column names to select
+            append: If True, append columns to existing selection.
+                   If False (default), replace existing selection.
 
         Returns:
             IQuery: Query instance for method chaining
@@ -148,9 +187,29 @@ class BaseQueryMixin(IQuery[ModelT]):
 
             # Select with table alias
             User.query().select('users.id', 'users.name')
+
+            # Replace previous selection
+            query = User.query().select('id', 'name')
+            query.select('email')  # Only 'email' will be selected
+
+            # Append to previous selection
+            query = User.query().select('id', 'name')
+            query.select('email', append=True)  # 'id', 'name', and 'email' will be selected
+
+            # Build complex queries incrementally
+            query = Order.query()
+                .select('id', 'status')
+                .select('SUM(amount) as total', append=True)
         """
-        self.select_columns = list(columns) if columns else ["*"]
-        self._log(logging.DEBUG, f"Set select columns: {self.select_columns}")
+        if append:
+            if not hasattr(self, 'select_columns') or self.select_columns is None:
+                self.select_columns = []
+            self.select_columns.extend(columns)
+            self._log(logging.DEBUG, f"Added columns to SELECT: {columns}")
+        else:
+            self.select_columns = list(columns) if columns else None
+            self._log(logging.DEBUG, f"Set SELECT columns to: {columns}")
+
         return self
 
     def query(self, conditions: Optional[Dict[str, Any]] = None) -> 'IQuery[ModelT]':
@@ -388,14 +447,132 @@ class BaseQueryMixin(IQuery[ModelT]):
         return self
 
     def _build_select(self) -> str:
-        """Build SELECT and FROM clauses."""
+        """Build SELECT and FROM clauses with proper dialect quoting."""
         dialect = self.model_class.backend().dialect
         table = dialect.format_identifier(self.model_class.table_name())
-        return f"SELECT {', '.join(self.select_columns)} FROM {table}"
+
+        # If select_columns is None, select all columns
+        if self.select_columns is None:
+            return f"SELECT * FROM {table}"
+
+        # Format each column identifier
+        formatted_columns = []
+        for col in self.select_columns:
+            # Handle special case for COUNT(*) and other aggregate functions
+            if '*' in col and any(agg in col.lower() for agg in ['count(', 'sum(', 'avg(', 'min(', 'max(']):
+                formatted_columns.append(col)
+            else:
+                # Handle 'column AS alias' format
+                parts = col.split(' as ')
+                if len(parts) == 2:
+                    col_name, alias = parts
+                    formatted_columns.append(
+                        f"{self._format_identifier(col_name)} AS {dialect.format_identifier(alias)}")
+                else:
+                    formatted_columns.append(self._format_identifier(col))
+
+        return f"SELECT {', '.join(formatted_columns)} FROM {table}"
+
+    def _format_on_condition_part(self, condition_part: str, dialect) -> str:
+        """Format a part of an ON condition with proper quoting."""
+        # Remove any ON keyword if present
+        if condition_part.upper().startswith('ON '):
+            condition_part = condition_part[3:].strip()
+
+        # Handle table.column format
+        parts = condition_part.split('.')
+        if len(parts) == 2:
+            table, column = parts
+            return f"{dialect.format_identifier(table)}.{dialect.format_identifier(column)}"
+
+        return condition_part
 
     def _build_joins(self) -> List[str]:
-        """Build JOIN clauses."""
-        return self.join_clauses.copy() if self.join_clauses else []
+        """Build JOIN clauses with dialect awareness.
+
+        This method handles formatting of table names and columns in JOIN clauses
+        according to the database dialect.
+
+        Returns:
+            List of formatted JOIN clauses
+        """
+        if not self.join_clauses:
+            return []
+
+        dialect = self.model_class.backend().dialect
+        formatted_joins = []
+
+        for join_clause in self.join_clauses:
+            # Parse JOIN clause to identify and quote tables and columns
+            join_lower = join_clause.lower()
+
+            # Handle basic JOIN types
+            join_type_index = -1
+            for join_keyword in (' join ', ' inner join ', ' left join ', ' right join ', ' full join '):
+                if join_keyword in join_lower:
+                    join_type_index = join_lower.index(join_keyword) + len(join_keyword)
+                    break
+
+            if join_type_index > 0:
+                # Get the join prefix (JOIN type)
+                join_prefix = join_clause[:join_type_index]
+
+                # Extract the table reference
+                on_index = join_lower.find(' on ')
+                using_index = join_lower.find(' using ')
+
+                # Determine where the table reference ends
+                if on_index > 0:
+                    table_ref = join_clause[join_type_index:on_index].strip()
+                    condition_part = join_clause[on_index:]
+                elif using_index > 0:
+                    table_ref = join_clause[join_type_index:using_index].strip()
+                    condition_part = join_clause[using_index:]
+                else:
+                    # Just a simple JOIN without ON or USING
+                    table_ref = join_clause[join_type_index:].strip()
+                    condition_part = ""
+
+                # Handle table reference with alias (e.g., "users AS u")
+                alias_match = False
+                formatted_table = ""
+                for alias_keyword in (' as ', ' '):
+                    if alias_keyword in table_ref.lower():
+                        table_parts = table_ref.split(alias_keyword, 1)
+                        if len(table_parts) == 2 and table_parts[1].strip():
+                            table_name = table_parts[0].strip()
+                            alias = table_parts[1].strip()
+                            formatted_table = f"{dialect.format_identifier(table_name)}{alias_keyword}{dialect.format_identifier(alias)}"
+                            alias_match = True
+                            break
+
+                if not alias_match:
+                    # Simple table without alias
+                    formatted_table = dialect.format_identifier(table_ref)
+
+                # Format the JOIN condition if it exists
+                formatted_condition = condition_part
+                if ' on ' in condition_part.lower():
+                    # Format column references in ON condition
+                    # This is complex and would need a proper SQL parser for full correctness
+                    # For now, we'll do basic formatting of common patterns
+                    condition_parts = condition_part.split('=')
+                    if len(condition_parts) == 2:
+                        left_part = condition_parts[0].strip().replace(' on ', ' ON ')
+                        right_part = condition_parts[1].strip()
+
+                        # Try to format column references (table.column)
+                        left_formatted = self._format_on_condition_part(left_part, dialect)
+                        right_formatted = self._format_on_condition_part(right_part, dialect)
+
+                        formatted_condition = f" ON {left_formatted} = {right_formatted}"
+
+                formatted_joins.append(f"{join_prefix}{formatted_table}{formatted_condition}")
+            else:
+                # If we can't parse the JOIN clause, use it as is
+                formatted_joins.append(join_clause)
+
+        return formatted_joins
 
     def _build_where(self) -> Tuple[Optional[str], List[Any]]:
         """Build WHERE clause and collect parameters."""
@@ -425,10 +602,26 @@ class BaseQueryMixin(IQuery[ModelT]):
         return None, params
 
     def _build_order(self) -> Optional[str]:
-        """Build ORDER BY clause."""
-        if self.order_clauses:
-            return f"ORDER BY {', '.join(self.order_clauses)}"
-        return None
+        """Build ORDER BY clause with proper column quoting."""
+        if not self.order_clauses:
+            return None
+
+        dialect = self.model_class.backend().dialect
+        formatted_clauses = []
+
+        for clause in self.order_clauses:
+            # Handle "column ASC/DESC" format
+            parts = clause.split()
+            if len(parts) == 2 and parts[1].upper() in ('ASC', 'DESC'):
+                column = parts[0]
+                direction = parts[1]
+                formatted_column = self._format_identifier(column, dialect)
+                formatted_clauses.append(f"{formatted_column} {direction}")
+            else:
+                # Simple column or complex expression
+                formatted_clauses.append(self._format_identifier(clause, dialect))
+
+        return f"ORDER BY {', '.join(formatted_clauses)}"
 
     def _build_limit_offset(self) -> Optional[str]:
         """Build LIMIT/OFFSET clause using dialect."""
@@ -711,7 +904,48 @@ class BaseQueryMixin(IQuery[ModelT]):
         """Check if any matching records exist."""
         return self.count() > 0
 
-    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None) -> 'DictQuery':
-        """Convert to dictionary query."""
+    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None,
+                direct_dict: bool = False) -> 'DictQuery':
+        """Convert query results to dictionary format.
+
+        This method provides two approaches to dictionary conversion:
+
+        1. Standard mode (default): First instantiates model objects (with validation),
+           then converts them to dictionaries
+
+        2. Direct dictionary mode: Bypasses model instantiation entirely and returns
+           raw dictionaries from the database. This is useful for JOIN queries or
+           when the result set contains columns not defined in the model.
+
+        Args:
+            include: Optional set of fields to include in results
+            exclude: Optional set of fields to exclude from results
+            direct_dict: If True, bypasses model instantiation entirely and returns
+                         raw dictionaries from the database
+
+        Returns:
+            DictQuery: A query wrapper that returns dictionary results
+
+        Examples:
+            # Standard usage - models are instantiated first
+            users = User.query().to_dict().all()
+
+            # For JOIN queries - bypass model instantiation
+            results = User.query()\\
+                .join("JOIN orders ON users.id = orders.user_id")\\
+                .select("users.id", "users.name", "orders.total")\\
+                .to_dict(direct_dict=True)\\
+                .all()
+
+            # Including only specific fields
+            users = User.query()\\
+                .to_dict(include={'id', 'name', 'email'})\\
+                .all()
+
+            # Excluding specific fields
+            users = User.query()\\
+                .to_dict(exclude={'password', 'secret_token'})\\
+                .all()
+        """
         from .dict_query import DictQuery
-        return DictQuery(self, include, exclude)
+        return DictQuery(self, include, exclude, direct_dict)

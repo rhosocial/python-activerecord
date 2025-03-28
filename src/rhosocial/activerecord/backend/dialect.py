@@ -159,6 +159,140 @@ class ReturningClauseHandler(ABC):
         """
         pass
 
+class AggregateHandler(ABC):
+    """Base class for handling database-specific aggregate functionality.
+
+    This handler provides a consistent interface to check for database
+    compatibility with various aggregate features and to format
+    SQL expressions appropriately for each database dialect.
+    """
+
+    def __init__(self, version: tuple):
+        """Initialize the aggregate handler.
+
+        Args:
+            version: Database version tuple (major, minor, patch)
+        """
+        self._version = version
+
+    @property
+    def version(self) -> tuple:
+        """Get database version."""
+        return self._version
+
+    @property
+    @abstractmethod
+    def supports_window_functions(self) -> bool:
+        """Check if database supports window functions."""
+        pass
+
+    @property
+    @abstractmethod
+    def supports_advanced_grouping(self) -> bool:
+        """Check if database supports advanced grouping (CUBE, ROLLUP, GROUPING SETS)."""
+        pass
+
+    @abstractmethod
+    def format_window_function(self,
+                               expr: str,
+                               partition_by: Optional[List[str]] = None,
+                               order_by: Optional[List[str]] = None,
+                               frame_type: Optional[str] = None,
+                               frame_start: Optional[str] = None,
+                               frame_end: Optional[str] = None,
+                               exclude_option: Optional[str] = None) -> str:
+        """Format window function SQL for specific database dialect.
+
+        Args:
+            expr: Base expression for window function
+            partition_by: PARTITION BY columns
+            order_by: ORDER BY columns
+            frame_type: Window frame type (ROWS/RANGE/GROUPS)
+            frame_start: Frame start specification
+            frame_end: Frame end specification
+            exclude_option: Frame exclusion option
+
+        Returns:
+            str: Formatted window function SQL
+
+        Raises:
+            WindowFunctionNotSupportedError: If window functions not supported
+        """
+        pass
+
+    @abstractmethod
+    def format_grouping_sets(self,
+                             type_name: str,
+                             columns: List[Union[str, List[str]]]) -> str:
+        """Format grouping sets SQL for specific database dialect.
+
+        Args:
+            type_name: Grouping type (CUBE, ROLLUP, GROUPING SETS)
+            columns: Columns to group by
+
+        Returns:
+            str: Formatted grouping sets SQL
+
+        Raises:
+            GroupingSetNotSupportedError: If grouping sets not supported
+        """
+        pass
+
+class JsonOperationHandler:
+    """Interface for database-specific JSON operation support.
+
+    This class defines methods that should be implemented by each database dialect
+    to handle JSON operations according to their specific syntax.
+    """
+
+    @property
+    @abstractmethod
+    def supports_json_operations(self) -> bool:
+        """Check if database supports JSON operations."""
+        pass
+
+    @property
+    @abstractmethod
+    def supports_json_arrows(self) -> bool:
+        """Check if database supports -> and ->> arrow operators for JSON access."""
+        pass
+
+    @abstractmethod
+    def format_json_operation(self,
+                              column: Union[str, Any],
+                              path: Optional[str] = None,
+                              operation: str = "extract",
+                              value: Any = None,
+                              alias: Optional[str] = None) -> str:
+        """Format JSON operation SQL for specific database dialect.
+
+        Args:
+            column: JSON column name or expression
+            path: JSON path string
+            operation: Operation type (extract, text, contains, exists, etc.)
+            value: Value for operations that need it (contains, insert, etc.)
+            alias: Optional alias for the result
+
+        Returns:
+            str: Formatted JSON operation SQL
+
+        Raises:
+            JsonOperationNotSupportedError: If JSON operations not supported
+        """
+        pass
+
+    @abstractmethod
+    def supports_json_function(self, function_name: str) -> bool:
+        """Check if specific JSON function is supported by the database.
+
+        Args:
+            function_name: Name of JSON function to check (e.g., "json_extract", "json_array")
+
+        Returns:
+            bool: True if function is supported
+        """
+        pass
+
 class SQLExpressionBase(ABC):
     """Base class for SQL expressions
 
@@ -241,6 +375,8 @@ class SQLDialectBase(ABC):
     _type_mapper: TypeMapper
     _value_mapper: ValueMapper
     _returning_handler: ReturningClauseHandler
+    _aggregate_handler: AggregateHandler
+    _json_operation_handler: JsonOperationHandler
     _version: tuple
 
     def __init__(self, version: tuple) -> None:
@@ -270,6 +406,16 @@ class SQLDialectBase(ABC):
     def returning_handler(self) -> ReturningClauseHandler:
         """Get returning clause handler"""
         return self._returning_handler
+
+    @property
+    def aggregate_handler(self) -> AggregateHandler:
+        """Get aggregate functionality handler"""
+        return self._aggregate_handler
+
+    @property
+    def json_operation_handler(self) -> JsonOperationHandler:
+        """Get JSON operation handler"""
+        return self._json_operation_handler
 
     @abstractmethod
     def format_expression(self, expr: SQLExpressionBase) -> str:
@@ -371,6 +517,45 @@ class SQLDialectBase(ABC):
     def create_expression(self, expression: str) -> SQLExpressionBase:
         """Create SQL expression"""
         pass
+
+    def format_json_expression(self, **params) -> str:
+        """Format JSON expression according to dialect rules.
+
+        Delegates to the json_operation_handler for database-specific JSON formatting.
+        Uses keyword arguments to avoid direct coupling with the expression classes.
+
+        Args:
+            **params: JSON expression parameters including:
+                column: Column name or expression
+                path: JSON path string
+                operation: Operation type (extract, contains, exists, etc.)
+                value: Value for operations that need it (optional)
+                alias: Optional result alias (optional)
+
+        Returns:
+            str: Database-specific JSON expression
+
+        Raises:
+            ValueError: If required parameters are missing
+            JsonOperationNotSupportedError: If JSON operations not supported
+        """
+        # Check the required parameters
+        if 'column' not in params or 'path' not in params:
+            raise ValueError("Missing required parameters for JSON expression: 'column' and 'path' are required")
+
+        # Set the default value
+        operation = params.get('operation', 'extract')
+        value = params.get('value', None)
+        alias = params.get('alias', None)
+
+        # Delegates to the json_operation_handler for database-specific JSON formatting
+        return self.json_operation_handler.format_json_operation(
+            column=params['column'],
+            path=params['path'],
+            operation=operation,
+            value=value,
+            alias=alias
+        )
 
 class SQLBuilder:
     """SQL Builder

@@ -8,7 +8,7 @@ from tests.rhosocial.activerecord.utils import create_active_record_fixture
 
 
 class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
-    """带时间戳的博文模型"""
+    """Blog post model with timestamps"""
     __table_name__ = "timestamped_posts"
 
     id: Optional[int] = None
@@ -17,7 +17,7 @@ class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
 
 class VersionedProduct(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
-    """带乐观锁的产品模型"""
+    """Product model with optimistic locking"""
     __table_name__ = "versioned_products"
 
     id: Optional[int] = None
@@ -26,7 +26,7 @@ class VersionedProduct(IntegerPKMixin, OptimisticLockMixin, ActiveRecord):
 
 
 class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
-    """支持软删除的任务模型"""
+    """Task model supporting soft deletion"""
     __table_name__ = "tasks"
 
     id: Optional[int] = None
@@ -35,7 +35,7 @@ class Task(IntegerPKMixin, SoftDeleteMixin, ActiveRecord):
 
 
 class CombinedArticle(IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
-    """综合使用所有混入的文章模型"""
+    """Article model combining all mixins"""
     __table_name__ = "combined_articles"
 
     id: Optional[int] = None
@@ -44,7 +44,7 @@ class CombinedArticle(IntegerPKMixin, TimestampMixin, OptimisticLockMixin, SoftD
     status: str = Field(default="draft")
 
 
-# 创建测试夹具
+# Create test fixtures
 timestamped_post = create_active_record_fixture(TimestampedPost)
 versioned_product = create_active_record_fixture(VersionedProduct)
 task = create_active_record_fixture(Task)

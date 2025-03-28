@@ -7,8 +7,8 @@ from .fixtures.models import combined_article
 
 
 def test_combined_update(combined_article):
-    """测试更新记录时的综合功能"""
-    # 创建并更新文章
+    """Test combined functionality when updating records"""
+    # Create and update article
     article = combined_article(title="Test", content="Test")
     article.save()
     original_updated_at = article.updated_at
@@ -18,24 +18,24 @@ def test_combined_update(combined_article):
     time.sleep(0.1)
     article.save()
 
-    # 验证更新后的状态
-    assert article.version == 2  # 版本号增加
-    assert article.created_at == original_updated_at  # 创建时间不变
-    assert article.updated_at > original_updated_at  # 更新时间变化
+    # Verify updated state
+    assert article.version == 2  # Version number increments
+    assert article.created_at == original_updated_at  # Creation time remains unchanged
+    assert article.updated_at > original_updated_at  # Update time changes
 
 
 def test_combined_delete(combined_article):
-    """测试删除记录时的综合功能"""
-    # 创建并删除文章
+    """Test combined functionality when deleting records"""
+    # Create and delete article
     article = combined_article(title="Test", content="Test")
     article.save()
     article.delete()
 
-    # 验证软删除状态
+    # Verify soft delete status
     assert article.deleted_at is not None
     assert combined_article.find_one(article.id) is None
 
-    # 验证可以找到已删除的记录
+    # Verify deleted records can be found
     found_article = combined_article.query_with_deleted().where(
         f"{combined_article.primary_key()} = ?",
         (article.id,)
@@ -46,27 +46,27 @@ def test_combined_delete(combined_article):
 
 
 def test_combined_concurrent_update(combined_article):
-    """测试并发更新时的综合功能"""
-    # 创建文章
+    """Test combined functionality during concurrent updates"""
+    # Create article
     article = combined_article(title="Test", content="Test")
     article.save()
 
-    # 模拟并发更新
+    # Simulate concurrent updates
     concurrent_article = combined_article.query_with_deleted().where(
         f"{combined_article.primary_key()} = ?",
         (article.id,)
     ).one()
 
-    # 第一次更新成功
+    # First update succeeds
     article.content = "Updated by first"
     article.save()
 
-    # 第二次更新失败
+    # Second update fails
     concurrent_article.content = "Updated by second"
     with pytest.raises(DatabaseError, match="Record was updated by another process"):
         concurrent_article.save()
 
-    # 验证最终状态
+    # Verify final state
     final_article = combined_article.find_one(article.id)
     assert final_article.content == "Updated by first"
     assert final_article.version == 2

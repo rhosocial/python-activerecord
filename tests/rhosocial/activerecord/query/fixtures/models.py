@@ -9,7 +9,6 @@ from src.rhosocial.activerecord.relation import HasMany, BelongsTo, CacheConfig
 from tests.rhosocial.activerecord.utils import create_active_record_fixture
 
 
-
 class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """User model with basic relations."""
     __table_name__ = "users"
@@ -33,6 +32,25 @@ class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
         foreign_key='user_id',
         inverse_of='user'
     )
+
+
+class JsonUser(IntegerPKMixin, TimestampMixin, ActiveRecord):
+    """User model specialized for JSON testing."""
+    __table_name__ = "json_users"
+
+    id: Optional[int] = None
+    username: str
+    email: EmailStr
+    age: Optional[int] = Field(None, ge=0, le=100)
+
+    # JSON fields
+    settings: Optional[str] = None  # For theme and notification preferences
+    tags: Optional[str] = None  # For user roles as array
+    profile: Optional[str] = None  # For address and contact information
+    roles: Optional[str] = None  # For admin/editor roles
+    scores: Optional[str] = None  # For test scores in different subjects
+    subscription: Optional[str] = None  # For subscription type and expiration
+    preferences: Optional[str] = None  # For user preferences including region
 
 
 class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):

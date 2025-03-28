@@ -46,7 +46,18 @@ class ReturningNotSupportedError(DatabaseError):
     """Raised when RETURNING clause is not supported by the database"""
     pass
 
-
 class IsolationLevelError(TransactionError):
     """Raised when attempting to change isolation level during active transaction."""
+    pass
+
+class WindowFunctionNotSupportedError(DatabaseError):
+    """Raised when window functions are not supported by the database."""
+    pass
+
+class JsonOperationNotSupportedError(DatabaseError):
+    """Raised when JSON operations are not supported by the database."""
+    pass
+
+class GroupingSetNotSupportedError(DatabaseError):
+    """Raised when advanced grouping operations (CUBE, ROLLUP, GROUPING SETS) are not supported."""
     pass

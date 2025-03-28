@@ -7,6 +7,7 @@ import pytest
 
 from src.rhosocial.activerecord.backend.typing import ConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
+from tests.rhosocial.activerecord.query.fixtures.models import JsonUser
 from tests.rhosocial.activerecord.utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
 
 
@@ -383,6 +384,24 @@ def create_order_fixture_factory(User: Type[IActiveRecord],
     return create_order_fixture
 
 
+def create_json_test_fixtures():
+    """Create test fixtures specifically for JSON functionality tests.
+
+    This creates a separate json_users table that won't interfere with
+    other tests using the standard users table.
+
+    Returns:
+        pytest fixture that yields JsonUser model
+    """
+    model_classes = [JsonUser]
+
+    # Define schema mapping
+    schema_map = {
+        JsonUser.__table_name__: "json_users.sql"
+    }
+
+    return create_table_fixture(model_classes, schema_map)
+
 def setup_order_fixtures():
     """Set up fixture factory for order-related tests.
 
@@ -403,3 +422,48 @@ def setup_order_fixtures():
         'limited_cache_order': create_fixture(OrderWithLimitedCache),
         'complex_cache_order': create_fixture(OrderWithComplexCache)
     }
+
+
+def get_mysql_version(request):
+    """Get MySQL version from test request.
+
+    Extract MySQL version information from the test name.
+
+    Args:
+        request: pytest request object
+
+    Returns:
+        tuple: MySQL version as (major, minor, patch) or None if not MySQL or version can't be determined
+    """
+    if not hasattr(request, 'node'):
+        return None
+
+    # Extract backend name from test name (e.g., 'mysql80-memory-Test.test_method')
+    backend_name = request.node.name.split('-')[0]
+
+    if not backend_name.startswith('mysql'):
+        return None
+
+    # Extract version from backend name
+    if backend_name == 'mysql56':
+        return (5, 6, 0)
+    elif backend_name == 'mysql57':
+        return (5, 7, 0)
+    elif backend_name == 'mysql8' or backend_name == 'mysql80':
+        return (8, 0, 0)
+    elif backend_name == 'mysql83':
+        return (8, 3, 0)
+
+    # If we can't determine the version from the name,
+    # try to get it from the backend directly
+    try:
+        if hasattr(request, 'getfixturevalue'):
+            model_classes = request.getfixturevalue('order_fixtures')
+            if model_classes and len(model_classes) > 0:
+                model_class = model_classes[0]
+                if hasattr(model_class, '__backend__') and model_class.__backend__:
+                    return model_class.__backend__.get_server_version()
+    except:
+        pass
+
+    return None

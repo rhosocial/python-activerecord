@@ -6,7 +6,6 @@ from typing import Type, List, Optional, Dict
 
 import pytest
 
-# from src.rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from src.rhosocial.activerecord.backend.typing import ConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
@@ -16,12 +15,6 @@ DB_HELPERS = {
     'sqlite': {
         "class": SQLiteBackend,
     },
-    # 'mysql56': {
-    #     "class": MySQLBackend,
-    # },
-    # 'mysql80': {
-    #     "class": MySQLBackend,
-    # },
 }
 
 # Database configurations
@@ -35,34 +28,15 @@ DB_CONFIGS = {
             "delete_on_close": True,
         },
     },
-    # "mysql56": {
+    # "postgresql": {
     #     "local": {
     #         "host": "localhost",
-    #         "port": 3306,
-    #         "username": "root",
-    #         "password": "password",
+    #         "port": 5432,
+    #         "user": "test_user",
+    #         "password": "test_password",
     #         "database": "test_db",
-    #     }
+    #     },
     # },
-    "mysql80": {
-        "local": {
-            "host": "localhost",
-            "port": 3306,
-            "username": "root",
-            "password": "password",
-            "database": "test_db",
-            "version": (8, 0, 0),
-        }
-    },
-    "postgresql": {
-        "local": {
-            "host": "localhost",
-            "port": 5432,
-            "user": "test_user",
-            "password": "test_password",
-            "database": "test_db",
-        },
-    },
 }
 
 # Setup logger
