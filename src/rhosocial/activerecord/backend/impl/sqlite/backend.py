@@ -3,13 +3,13 @@ import sqlite3
 import sys
 import time
 from sqlite3 import ProgrammingError
-from typing import Optional, Tuple, List, Any, Dict
+from typing import Optional, Tuple, List, Any, Dict, Union
 
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from ...base import StorageBackend, ColumnTypes
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
-    ReturningNotSupportedError
+    ReturningNotSupportedError, JsonOperationNotSupportedError
 from ...typing import QueryResult
 
 
@@ -581,3 +581,36 @@ class SQLiteBackend(StorageBackend):
                          f"Failed to determine SQLite version, defaulting to 3.35.0: {str(e)}")
 
         return SQLiteBackend._sqlite_version_cache
+
+    def format_json_operation(self, column: Union[str, Any], path: Optional[str] = None,
+                              operation: str = "extract", value: Any = None,
+                              alias: Optional[str] = None) -> str:
+        """Format JSON operation according to database dialect.
+
+        Delegates to the dialect's json_operation_handler for database-specific formatting.
+
+        Args:
+            column: JSON column name or expression
+            path: JSON path
+            operation: Operation type (extract, contains, exists, etc.)
+            value: Value for operations that need it (contains, insert, etc.)
+            alias: Optional alias for the result
+
+        Returns:
+            str: Database-specific JSON operation SQL
+
+        Raises:
+            JsonOperationNotSupportedError: If JSON operations not supported
+        """
+        if not hasattr(self.dialect, 'json_operation_handler'):
+            raise JsonOperationNotSupportedError(
+                f"JSON operations not supported by {self.dialect.__class__.__name__}"
+            )
+
+        return self.dialect.json_operation_handler.format_json_operation(
+            column=column,
+            path=path,
+            operation=operation,
+            value=value,
+            alias=alias
+        )

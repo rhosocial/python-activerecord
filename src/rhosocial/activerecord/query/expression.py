@@ -294,7 +294,33 @@ class SubqueryExpression(SQLExpression):
 
 
 class JsonExpression(SQLExpression):
-    """Represents JSON operations expression with cross-database compatibility"""
+    """JSON expression for database-agnostic JSON operations.
+
+    This class defines JSON operations in a database-agnostic way, with the actual
+    SQL generation delegated to the database dialect implementation.
+
+    Operations:
+    - EXTRACT: Get value at path
+    - EXTRACT_TEXT: Get value at path as text (unquoted)
+    - CONTAINS: Check if JSON contains value (note: SQLite implements this with json_extract)
+    - EXISTS: Check if path exists (note: SQLite implements this with json_extract IS NOT NULL)
+    - TYPE: Get JSON type
+    - REMOVE: Remove element at path
+    - INSERT: Insert element at path if doesn't exist
+    - REPLACE: Replace element at path if exists
+    - SET: Set value at path (insert or replace)
+    """
+
+    # JSON operation types
+    EXTRACT = "extract"  # Get value at path
+    EXTRACT_TEXT = "text"  # Get value at path as text (unquoted)
+    CONTAINS = "contains"  # Check if contains value
+    EXISTS = "exists"  # Check if path exists
+    TYPE = "type"  # Get JSON type
+    REMOVE = "remove"  # Remove element at path
+    INSERT = "insert"  # Insert at path if doesn't exist
+    REPLACE = "replace"  # Replace at path if exists
+    SET = "set"  # Set value at path (insert or replace)
 
     def __init__(self,
                  column: Union[str, SQLExpression],
@@ -302,6 +328,15 @@ class JsonExpression(SQLExpression):
                  operation: str = "extract",  # extract, contains, exists
                  value: Any = None,
                  alias: Optional[str] = None):
+        """Initialize JSON expression.
+
+        Args:
+            column: JSON column or expression
+            path: JSON path (e.g. '$.name', '$.addresses[0].city')
+            operation: Operation type (extract, text, contains, exists, etc.)
+            value: Value for operations that need it (contains, insert, etc.)
+            alias: Optional result alias
+        """
         super().__init__(alias)
         self.column = column if isinstance(column, SQLExpression) else Column(column)
         self.path = path
@@ -309,18 +344,65 @@ class JsonExpression(SQLExpression):
         self.value = value
 
     def as_sql(self) -> str:
-        # This is a simplified implementation that would need to be adapted
-        # based on actual dialect differences in the system
-        expr = f"JSON_EXTRACT({self.column.as_sql()}, '{self.path}')"
+        """Convert to SQL string using a generic placeholder format.
 
-        if self.operation == "contains" and self.value is not None:
-            expr = f"JSON_CONTAINS({self.column.as_sql()}, '{self.value}', '{self.path}')"
-        elif self.operation == "exists":
-            expr = f"JSON_EXISTS({self.column.as_sql()}, '{self.path}')"
+        This method creates a generic representation of the JSON operation.
+        The actual SQL will be determined by the database dialect when the query
+        is executed. This method is used primarily for debugging and logging.
 
+        For actual SQL generation, the database dialect will be asked to format
+        this expression appropriately based on the specific JSON capabilities
+        of that database.
+
+        Returns:
+            str: Generic SQL representation of the JSON expression
+        """
+        # Generate a generic representation for display/logging purposes
+        # The actual SQL will be determined by the dialect handler
+
+        # Format column
+        col_str = self.column.as_sql() if isinstance(self.column, SQLExpression) else str(self.column)
+
+        # Basic format based on operation
+        if self.operation == self.EXTRACT:
+            expr = f"JSON_EXTRACT({col_str}, '{self.path}')"
+        elif self.operation == self.EXTRACT_TEXT:
+            expr = f"JSON_EXTRACT_TEXT({col_str}, '{self.path}')"
+        elif self.operation == self.CONTAINS:
+            expr = f"JSON_CONTAINS({col_str}, '{self.value}', '{self.path}')"
+        elif self.operation == self.EXISTS:
+            expr = f"JSON_EXISTS({col_str}, '{self.path}')"
+        elif self.operation == self.TYPE:
+            expr = f"JSON_TYPE({col_str}, '{self.path}')"
+        elif self.operation == self.REMOVE:
+            expr = f"JSON_REMOVE({col_str}, '{self.path}')"
+        elif self.operation == self.INSERT:
+            expr = f"JSON_INSERT({col_str}, '{self.path}', '{self.value}')"
+        elif self.operation == self.REPLACE:
+            expr = f"JSON_REPLACE({col_str}, '{self.path}', '{self.value}')"
+        elif self.operation == self.SET:
+            expr = f"JSON_SET({col_str}, '{self.path}', '{self.value}')"
+        else:
+            expr = f"JSON_EXTRACT({col_str}, '{self.path}')"
+
+        # Add alias if specified
         if self.alias:
             return f"{expr} as {self.alias}"
         return expr
+
+    def get_parameters(self):
+        """Get expression parameters for dialect formatting.
+
+        Returns:
+            dict: Parameters needed for dialect-specific formatting
+        """
+        return {
+            'column': self.column,
+            'path': self.path,
+            'operation': self.operation,
+            'value': self.value,
+            'alias': self.alias
+        }
 
 
 class GroupingSetExpression(SQLExpression):
