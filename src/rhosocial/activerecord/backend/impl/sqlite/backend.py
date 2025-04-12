@@ -1,4 +1,5 @@
 import logging
+import re
 import sqlite3
 import sys
 import time
@@ -7,6 +8,7 @@ from typing import Optional, Tuple, List, Any, Dict, Union
 
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
+from ...dialect import ReturningOptions
 from ...base import StorageBackend, ColumnTypes
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
@@ -222,196 +224,205 @@ class SQLiteBackend(StorageBackend):
                 return True
             return False
 
-    def execute(
-            self,
-            sql: str,
-            params: Optional[Tuple] = None,
-            returning: bool = False,
-            column_types: Optional[ColumnTypes] = None,
-            returning_columns: Optional[List[str]] = None,
-            force_returning: bool = False) -> Optional[QueryResult]:
-        """Execute SQL statement and return results
+    @property
+    def is_sqlite(self) -> bool:
+        """Flag to identify SQLite backend for compatibility checks"""
+        return True
 
-        Due to SQLite and Python version differences, RETURNING clause behavior varies:
-        - Python 3.10+: Full support for RETURNING clause in INSERT/UPDATE/DELETE
-        - Python 3.9 and earlier: RETURNING clause has known issues where affected_rows
-          always returns 0, regardless of actual rows affected
+    def _get_statement_type(self, sql: str) -> str:
+        """
+        Parse the SQL statement type from the query.
 
-        To ensure data consistency and prevent silent failures:
-        - SELECT statements work normally in all Python versions when returning=True
-        - For INSERT/UPDATE/DELETE in Python 3.9 and earlier:
-          - If returning=True and force_returning=False (default), raises ReturningNotSupportedError
-          - If returning=True and force_returning=True, executes with warning that affected_rows will be 0
-          - Users should either:
-            1. Upgrade to Python 3.10+ for full RETURNING support
-            2. Set returning=False to execute without RETURNING
-            3. Set force_returning=True to execute with known limitations
+        SQLite supports pragmas which start with 'PRAGMA'.
 
         Args:
-            sql: SQL statement to execute
-            params: Query parameters tuple for parameterized queries
-            returning: Controls result fetching behavior:
-                - For SELECT: True to fetch results (default), False to skip fetching
-                - For INSERT/UPDATE/DELETE: True to use RETURNING clause (fully supported in Python 3.10+)
-            column_types: Column type mapping for automated type conversion
-                Example: {"created_at": DatabaseType.DATETIME, "settings": DatabaseType.JSON}
-            returning_columns: Columns to include in RETURNING clause
-                - None: Return all columns (*)
-                - List[str]: Return specific columns
-                - Only used when returning=True for DML statements
-                - Ignored for SELECT statements
-            force_returning: If True, allows RETURNING clause in Python <3.10 with known issues:
-                - affected_rows will always be 0
-                - last_insert_id may be unreliable
-                - Only use if you understand and can handle these limitations
+            sql: SQL statement
 
         Returns:
-            QueryResult with fields:
-                - data: List[Dict] for SELECT/RETURNING results, None otherwise
-                - affected_rows: Number of rows affected (always 0 if force_returning=True in Python <3.10)
-                - last_insert_id: Last inserted row ID for INSERT statements
-                - duration: Query execution time in seconds
+            str: Statement type in uppercase
+        """
+        # Strip comments and whitespace for better detection
+        clean_sql = re.sub(r'--.*$', '', sql, flags=re.MULTILINE).strip()
+
+        # Check for PRAGMA statements
+        if clean_sql.upper().startswith('PRAGMA'):
+            return 'PRAGMA'
+
+        # Default to base implementation
+        return super()._get_statement_type(clean_sql)
+
+    def _is_select_statement(self, stmt_type: str) -> bool:
+        """
+        Check if statement is a SELECT-like query.
+
+        SQLite includes pragmas as read operations.
+
+        Args:
+            stmt_type: Statement type
+
+        Returns:
+            bool: True if statement is a read-only query
+        """
+        return stmt_type in ("SELECT", "EXPLAIN", "PRAGMA", "ANALYZE")
+
+    def _check_returning_compatibility(self, options: ReturningOptions) -> None:
+        """
+        Check compatibility issues with RETURNING clause in SQLite.
+
+        SQLite with Python < 3.10 has known issues with RETURNING where
+        affected_rows is always reported as 0.
+
+        Args:
+            options: RETURNING options
 
         Raises:
-            ConnectionError: Database connection failed or was lost
-            QueryError: Invalid SQL syntax or statement execution failed
-            TypeConversionError: Failed to convert data types
-            ReturningNotSupportedError:
-                - RETURNING clause used in Python <3.10 for DML statements without force_returning=True
-                - RETURNING clause not supported by SQLite version
-            DatabaseError: Other database-related errors
+            ReturningNotSupportedError: If compatibility issues found and not forced
         """
-        start_time = time.perf_counter()
-
-        # Log query start
-        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
-
-        try:
-            # Ensure active connection
-            if not self._connection:
-                self.log(logging.DEBUG, "No active connection, establishing new connection")
-                self.connect()
-
-            # Parse statement type from SQL
-            stmt_type = sql.strip().split(None, 1)[0].upper()
-            is_select = stmt_type in ("SELECT", "EXPLAIN")
-            is_dml = stmt_type in ("INSERT", "UPDATE", "DELETE")
-            need_returning = returning and is_dml
-
-            # Add RETURNING clause for DML statements if needed
-            if need_returning:
-                # First check if SQLite version supports RETURNING clause
-                handler = self.dialect.returning_handler
-                if not handler.is_supported:
-                    error_msg = f"RETURNING clause not supported by current SQLite version {sqlite3.sqlite_version}"
-                    self.log(logging.WARNING, error_msg)
-                    raise ReturningNotSupportedError(error_msg)
-
-                # Then check Python version compatibility
-                py_version = sys.version_info[:2]
-                if py_version < (3, 10) and not force_returning:
-                    error_msg = (
-                        f"RETURNING clause not supported in Python <3.10 for {stmt_type} statements. "
-                        f"Current Python version {py_version[0]}.{py_version[1]} has known SQLite "
-                        f"adapter issues where affected_rows is always 0 with RETURNING clause.\n"
-                        f"You have three options:\n"
-                        f"1. Upgrade to Python 3.10 or higher for full RETURNING support\n"
-                        f"2. Set returning=False to execute without RETURNING clause\n"
-                        f"3. Set force_returning=True to execute with RETURNING clause, but note:\n"
-                        f"   - affected_rows will always be 0\n"
-                        f"   - last_insert_id may be unreliable\n"
-                        f"   Only use force_returning if you understand these limitations"
-                    )
-                    self.log(logging.WARNING,
-                             f"RETURNING clause not supported in Python {py_version[0]}.{py_version[1]} "
-                             f"for {stmt_type} statements")
-                    raise ReturningNotSupportedError(error_msg)
-                elif py_version < (3, 10) and force_returning:
-                    self.log(logging.WARNING,
-                             f"Force executing {stmt_type} with RETURNING clause in "
-                             f"Python {py_version[0]}.{py_version[1]}. affected_rows will be 0")
-                    import warnings
-                    warnings.warn(
-                        f"Executing {stmt_type} with RETURNING clause in Python {py_version[0]}.{py_version[1]}. "
-                        f"Be aware that:\n"
-                        f"- affected_rows will always be 0\n"
-                        f"- last_insert_id may be unreliable",
-                        RuntimeWarning
-                    )
-
-                # Format and append RETURNING clause
-                sql += " " + handler.format_clause(returning_columns)
-
-            # Get or create cursor
-            cursor = self._cursor or self._connection.cursor()
-
-            # Process SQL and parameters through dialect
-            final_sql, final_params = self.build_sql(sql, params)
-            self.log(logging.DEBUG, f"Processed SQL: {final_sql}, parameters: {params}")
-
-            # Execute query with type conversion for parameters
-            if final_params:
-                processed_params = tuple(
-                    self.dialect.value_mapper.to_database(value, None)
-                    for value in final_params
-                )
-                cursor.execute(final_sql, processed_params)
-            else:
-                cursor.execute(final_sql)
-
-            # Handle result set for SELECT or RETURNING
-            data = None
-            if returning:
-                rows = cursor.fetchall()
-                self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
-                # Apply type conversions if specified
-                if column_types:
-                    self.log(logging.DEBUG, "Applying type conversions")
-                    data = []
-                    for row in rows:
-                        converted_row = {}
-                        for key, value in dict(row).items():
-                            db_type = column_types.get(key)
-                            converted_row[key] = (
-                                self.dialect.value_mapper.from_database(value, db_type)
-                                if db_type is not None
-                                else value
-                            )
-                        data.append(converted_row)
-                else:
-                    # Return raw dictionaries if no type conversion needed
-                    data = [dict(row) for row in rows]
-
-            duration = time.perf_counter() - start_time
-
-            # Log completion and metrics
-            if is_dml:
-                self.log(logging.INFO,
-                         f"{stmt_type} affected {cursor.rowcount} rows, "
-                         f"last_insert_id={cursor.lastrowid}, duration={duration:.3f}s")
-            elif is_select:
-                row_count = len(data) if data is not None else 0
-                self.log(logging.INFO,
-                         f"SELECT returned {row_count} rows, duration={duration:.3f}s")
-
-            # Build and return result
-            return QueryResult(
-                data=data,
-                affected_rows=cursor.rowcount,
-                last_insert_id=cursor.lastrowid,
-                duration=duration
+        # Check SQLite version support
+        version = sqlite3.sqlite_version_info
+        if version < (3, 35, 0) and not options.force:
+            error_msg = (
+                f"RETURNING clause requires SQLite 3.35.0+. Current version: {sqlite3.sqlite_version}. "
+                f"Use force=True to attempt anyway if your SQLite binary supports it."
             )
+            self.log(logging.WARNING, error_msg)
+            raise ReturningNotSupportedError(error_msg)
 
-        except sqlite3.Error as e:
-            self.log(logging.ERROR, f"SQLite error executing query: {str(e)}")
-            self._handle_error(e)
-        except Exception as e:
-            # Re-raise non-database errors
-            if not isinstance(e, DatabaseError):
-                self.log(logging.ERROR, f"Non-database error executing query: {str(e)}")
-                raise
-            self.log(logging.ERROR, f"Database error executing query: {str(e)}")
-            self._handle_error(e)
+        # Check Python version compatibility
+        if sys.version_info < (3, 10) and not options.force:
+            error_msg = (
+                "RETURNING clause has known issues in Python < 3.10 with SQLite: "
+                "affected_rows always reports 0 regardless of actual rows affected. "
+                "Use force=True to use anyway if you understand these limitations."
+            )
+            self.log(logging.WARNING, error_msg)
+            raise ReturningNotSupportedError(error_msg)
+
+    def _get_cursor(self):
+        """
+        Get or create cursor for SQLite.
+
+        Returns:
+            sqlite3.Cursor: SQLite cursor with row factory
+        """
+        if self._cursor:
+            return self._cursor
+
+        # Create cursor with SQLite Row factory for dict-like access
+        cursor = self._connection.cursor()
+        return cursor
+
+    def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
+        """
+        Execute query in SQLite.
+
+        Args:
+            cursor: SQLite cursor
+            sql: SQL statement
+            params: Query parameters
+
+        Returns:
+            sqlite3.Cursor: Cursor with executed query
+        """
+        # Execute with parameters if provided
+        if params:
+            processed_params = tuple(
+                self.dialect.value_mapper.to_database(value, None)
+                for value in params
+            )
+            cursor.execute(sql, processed_params)
+        else:
+            cursor.execute(sql)
+
+        return cursor
+
+    def _process_result_set(self, cursor, is_select: bool, need_returning: bool, column_types: Optional[ColumnTypes]) -> \
+    Optional[List[Dict]]:
+        """
+        Process query result set for SQLite.
+
+        SQLite returns Row objects which can be accessed like dictionaries.
+
+        Args:
+            cursor: SQLite cursor with executed query
+            is_select: Whether this is a SELECT query
+            need_returning: Whether RETURNING clause was used
+            column_types: Column type mapping for conversion
+
+        Returns:
+            Optional[List[Dict]]: Processed result rows or None
+        """
+        if not (is_select or need_returning):
+            return None
+
+        # Fetch all rows
+        rows = cursor.fetchall()
+        self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
+
+        if not rows:
+            return []
+
+        # Apply type conversions if specified
+        if column_types:
+            self.log(logging.DEBUG, "Applying type conversions")
+            data = []
+            for row in rows:
+                # Convert sqlite3.Row to dict and apply type conversions
+                converted_row = {}
+                for key in row.keys():
+                    value = row[key]
+                    db_type = column_types.get(key)
+                    if db_type is not None:
+                        converted_row[key] = self.dialect.value_mapper.from_database(value, db_type)
+                    else:
+                        converted_row[key] = value
+                data.append(converted_row)
+            return data
+        else:
+            # Convert sqlite3.Row objects to regular dictionaries
+            return [dict(row) for row in rows]
+
+    def _handle_auto_commit_if_needed(self) -> None:
+        """
+        Handle auto-commit for SQLite.
+
+        SQLite requires explicit commit when using isolation_level=None.
+        """
+        if not self.in_transaction and self._connection:
+            self._connection.commit()
+            self.log(logging.DEBUG, "Auto-committed operation (not in active transaction)")
+
+    def _handle_execution_error(self, error: Exception):
+        """
+        Handle SQLite-specific errors during execution.
+
+        Args:
+            error: Exception raised during execution
+
+        Raises:
+            Appropriate database exception based on error type
+        """
+        if isinstance(error, sqlite3.Error):
+            error_msg = str(error)
+
+            if isinstance(error, sqlite3.OperationalError):
+                if "database is locked" in error_msg:
+                    self.log(logging.ERROR, f"Database lock error: {error_msg}")
+                    raise OperationalError("Database is locked")
+                elif "no such table" in error_msg:
+                    self.log(logging.ERROR, f"Table not found: {error_msg}")
+                    raise QueryError(f"Table not found: {error_msg}")
+
+            elif isinstance(error, sqlite3.IntegrityError):
+                if "UNIQUE constraint failed" in error_msg:
+                    self.log(logging.ERROR, f"Unique constraint violation: {error_msg}")
+                    raise IntegrityError(f"Unique constraint violation: {error_msg}")
+                elif "FOREIGN KEY constraint failed" in error_msg:
+                    self.log(logging.ERROR, f"Foreign key constraint violation: {error_msg}")
+                    raise IntegrityError(f"Foreign key constraint violation: {error_msg}")
+
+        # Call parent handler for common error processing
+        super()._handle_execution_error(error)
 
     def _handle_error(self, error: Exception) -> None:
         """Handle SQLite-specific errors and convert to appropriate exceptions"""

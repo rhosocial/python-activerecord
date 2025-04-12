@@ -5,6 +5,7 @@ import pytest
 from src.rhosocial.activerecord.backend.errors import ReturningNotSupportedError, OperationalError
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from src.rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteReturningHandler
+from src.rhosocial.activerecord.backend.dialect import ReturningOptions
 
 
 def test_returning_not_supported():
@@ -18,12 +19,12 @@ def test_returning_not_supported():
     # Test format_clause raises ReturningNotSupportedError
     with pytest.raises(ReturningNotSupportedError) as exc_info:
         handler.format_clause()
-    assert "SQLite version does not support RETURNING" in str(exc_info.value)
+    assert "RETURNING clause not supported in SQLite 3.34.0" in str(exc_info.value)
 
     # Test with specific columns
     with pytest.raises(ReturningNotSupportedError) as exc_info:
         handler.format_clause(columns=["id", "name"])
-    assert "SQLite version does not support RETURNING" in str(exc_info.value)
+    assert "RETURNING clause not supported in SQLite 3.34.0" in str(exc_info.value)
 
 
 def test_returning_with_columns():
@@ -51,6 +52,39 @@ def test_returning_with_columns():
     assert result == "RETURNING *"
 
 
+def test_advanced_returning_format():
+    """Test advanced RETURNING clause format with expressions and aliases"""
+    # Mock SQLite version 3.35.0 (RETURNING supported)
+    handler = SQLiteReturningHandler((3, 35, 0))
+
+    # Test with columns and aliases
+    result = handler.format_advanced_clause(
+        columns=["id", "name"],
+        aliases={"id": "user_id", "name": "full_name"}
+    )
+    assert result == 'RETURNING id AS user_id, name AS full_name'
+
+    # Test with expressions
+    result = handler.format_advanced_clause(
+        expressions=[
+            {"expression": "count(*)", "alias": "total_count"},
+            {"expression": "avg(age)", "alias": "average_age"}
+        ]
+    )
+    assert result == 'RETURNING count(*) AS total_count, avg(age) AS average_age'
+
+    # Test with both columns and expressions
+    result = handler.format_advanced_clause(
+        columns=["id"],
+        expressions=[{"expression": "name || ' ' || surname", "alias": "full_name"}]
+    )
+    assert result == 'RETURNING id, name || \' \' || surname AS full_name'
+
+    # Test with no columns or expressions
+    result = handler.format_advanced_clause()
+    assert result == "RETURNING *"
+
+
 @patch('sqlite3.sqlite_version', '3.34.0')
 def test_backend_returning_not_supported():
     """Test SQLite backend RETURNING functionality when not supported"""
@@ -59,12 +93,30 @@ def test_backend_returning_not_supported():
     # Test supports_returning property
     assert not backend.supports_returning
 
-    # Test execute with RETURNING
+    # Test execute with RETURNING as boolean
     with pytest.raises(ReturningNotSupportedError) as exc_info:
         backend.execute(
             "INSERT INTO users (name) VALUES (?)",
             params=("test",),
             returning=True
+        )
+    assert "RETURNING clause not supported" in str(exc_info.value)
+
+    # Test execute with RETURNING as column list
+    with pytest.raises(ReturningNotSupportedError) as exc_info:
+        backend.execute(
+            "INSERT INTO users (name) VALUES (?)",
+            params=("test",),
+            returning=["id", "name"]
+        )
+    assert "RETURNING clause not supported" in str(exc_info.value)
+
+    # Test execute with ReturningOptions
+    with pytest.raises(ReturningNotSupportedError) as exc_info:
+        backend.execute(
+            "INSERT INTO users (name) VALUES (?)",
+            params=("test",),
+            returning=ReturningOptions(enabled=True, columns=["id", "name"])
         )
     assert "RETURNING clause not supported" in str(exc_info.value)
 
@@ -117,7 +169,7 @@ def test_backend_returning_with_columns():
         )
     """)
 
-    # Test insert with specific RETURNING columns
+    # Test insert with specific RETURNING columns as list
     result = backend.insert(
         "users",
         {
@@ -125,9 +177,7 @@ def test_backend_returning_with_columns():
             "email": "test@example.com",
             "created_at": "2024-02-11 10:00:00"
         },
-        returning=True,
-        returning_columns=["id", "name"],
-        force_returning=True,
+        returning=ReturningOptions(enabled=True, columns=["id", "name"], force=True)
     )
     assert result.data
     assert len(result.data) == 1
@@ -136,15 +186,30 @@ def test_backend_returning_with_columns():
     assert "email" not in result.data[0]
     assert "created_at" not in result.data[0]
 
+    # Test insert with ReturningOptions
+    result = backend.insert(
+        "users",
+        {
+            "name": "test_options",
+            "email": "options@example.com",
+            "created_at": "2024-02-11 10:00:00"
+        },
+        returning=ReturningOptions(enabled=True, columns=["id", "email"], force=True)
+    )
+    assert result.data
+    assert len(result.data) == 1
+    assert "id" in result.data[0]
+    assert "email" in result.data[0]
+    assert "name" not in result.data[0]
+    assert "created_at" not in result.data[0]
+
     # Test update with specific RETURNING columns
     result = backend.update(
         "users",
         {"name": "updated", "email": "updated@example.com"},
         "id = ?",
         (1,),
-        returning=True,
-        returning_columns=["name", "email"],
-        force_returning=True,
+        returning=ReturningOptions(enabled=True, columns=["name", "email"], force=True)
     )
     assert result.data
     assert len(result.data) == 1
@@ -154,14 +219,12 @@ def test_backend_returning_with_columns():
     assert result.data[0]["name"] == "updated"
     assert result.data[0]["email"] == "updated@example.com"
 
-    # Test delete with specific RETURNING columns
+    # Test delete with specific RETURNING columns and force=True
     result = backend.delete(
         "users",
         "id = ?",
         (1,),
-        returning=True,
-        returning_columns=["id"],
-        force_returning=True,
+        returning=ReturningOptions(enabled=True, columns=["id"], force=True)
     )
     assert result.data
     assert len(result.data) == 1
@@ -190,9 +253,7 @@ def test_returning_invalid_columns():
         backend.insert(
             "users",
             {"name": "test", "email": "test@example.com"},
-            returning=True,
-            returning_columns=["nonexistent_column"],
-            force_returning=True,
+            returning=ReturningOptions(enabled=True, columns=["nonexistent_column"], force=True)
         )
     assert "no such column: nonexistent_column" in str(exc_info.value).lower()
 
@@ -201,9 +262,7 @@ def test_returning_invalid_columns():
         backend.insert(
             "users",
             {"name": "test", "email": "test@example.com"},
-            returning=True,
-            returning_columns=["invalid1", "invalid2"],
-            force_returning=True,
+            returning=ReturningOptions(enabled=True, columns=["invalid1", "invalid2"], force=True)
         )
     assert "no such column: invalid1" in str(exc_info.value).lower()
 
@@ -212,9 +271,7 @@ def test_returning_invalid_columns():
         backend.insert(
             "users",
             {"name": "test", "email": "test@example.com"},
-            returning=True,
-            returning_columns=["id", "nonexistent", "name"],
-            force_returning=True,
+            returning=ReturningOptions(enabled=True, columns=["id", "nonexistent", "name"], force=True)
         )
     assert "no such column: nonexistent" in str(exc_info.value).lower()
 
@@ -225,9 +282,7 @@ def test_returning_invalid_columns():
             {"name": "updated"},
             "id = ?",
             (1,),
-            returning=True,
-            returning_columns=["id", "fake_column"],
-            force_returning=True,
+            returning=ReturningOptions(enabled=True, columns=["id", "fake_column"], force=True)
         )
     assert "no such column: fake_column" in str(exc_info.value).lower()
 
@@ -237,9 +292,7 @@ def test_returning_invalid_columns():
             "users",
             "id = ?",
             (1,),
-            returning=True,
-            returning_columns=["id", "ghost_column"],
-            force_returning=True,
+            returning=ReturningOptions(enabled=True, columns=["id", "ghost_column"], force=True)
         )
     assert "no such column: ghost_column" in str(exc_info.value).lower()
 
@@ -273,9 +326,11 @@ def test_column_name_validation():
             '"with.dot"': "test2",
             '"with space"': "test3"
         },
-        returning=True,
-        returning_columns=['"special name"', '"with.dot"', '"with space"'],
-        force_returning=True,
+        returning=ReturningOptions(
+            enabled=True,
+            columns=['"special name"', '"with.dot"', '"with space"'],
+            force=True
+        )
     )
 
     assert result.data
@@ -302,9 +357,11 @@ def test_column_name_validation():
             backend.insert(
                 "items",
                 {'"special name"': "test"},
-                returning=True,
-                returning_columns=[pattern],
-                force_returning=True,
+                returning=ReturningOptions(
+                    enabled=True,
+                    columns=[pattern],
+                    force=True
+                )
             )
         assert "Invalid column name" in str(exc_info.value)
 
@@ -342,9 +399,11 @@ def test_column_name_safety():
             backend.insert(
                 "data",
                 {"name": "test"},
-                returning=True,
-                returning_columns=[col],
-                force_returning=True,
+                returning=ReturningOptions(
+                    enabled=True,
+                    columns=[col],
+                    force=True
+                )
             )
         assert "Invalid column name" in str(exc_info.value)
 
@@ -355,13 +414,17 @@ def test_column_name_safety():
         )
         assert result.data[0]['cnt'] == 1
 
+
 import sys
+
 is_py38_39 = sys.version_info >= (3, 8) and sys.version_info < (3, 10)
 
 py38_39_only = pytest.mark.skipif(
     not is_py38_39,
     reason="This test is specific to Python 3.8 and 3.9"
 )
+
+
 @py38_39_only
 def test_python38_returning_with_quoted_columns():
     """Test RETURNING clause handling in Python 3.8/3.9 with quoted column names"""
@@ -385,9 +448,11 @@ def test_python38_returning_with_quoted_columns():
             '"with.dot"': "test2",
             '"with space"': "test3"
         },
-        returning=True,
-        returning_columns=['"special name"', '"with.dot"', '"with space"'],
-        force_returning=True,
+        returning=ReturningOptions(
+            enabled=True,
+            columns=['"special name"', '"with.dot"', '"with space"'],
+            force=True
+        )
     )
 
     # Verify result structure
@@ -410,9 +475,11 @@ def test_python38_returning_with_quoted_columns():
                 '"with.dot"': f"dot{i}",
                 '"with space"': f"space{i}"
             },
-            returning=True,
-            returning_columns=['"special name"', '"with.dot"', '"with space"'],
-            force_returning=True,
+            returning=ReturningOptions(
+                enabled=True,
+                columns=['"special name"', '"with.dot"', '"with space"'],
+                force=True
+            )
         )
         assert result.affected_rows == 1
         assert len(result.data) == 1
@@ -421,3 +488,32 @@ def test_python38_returning_with_quoted_columns():
         assert row['with.dot'] == f"dot{i}"
         assert row['with space'] == f"space{i}"
 
+
+def test_returning_options_factory_methods():
+    """Test ReturningOptions factory methods"""
+    # Test from_legacy
+    options = ReturningOptions.from_legacy(True, True)
+    assert options.enabled
+    assert options.force
+    assert not options.columns
+
+    # Test columns_only
+    options = ReturningOptions.columns_only(["id", "name"])
+    assert options.enabled
+    assert not options.force
+    assert options.columns == ["id", "name"]
+
+    # Test with_expressions
+    expr = [{"expression": "COUNT(*)", "alias": "count"}]
+    aliases = {"id": "user_id"}
+    options = ReturningOptions.with_expressions(expr, aliases, True)
+    assert options.enabled
+    assert options.force
+    assert options.expressions == expr
+    assert options.aliases == aliases
+
+    # Test all_columns
+    options = ReturningOptions.all_columns(True)
+    assert options.enabled
+    assert options.force
+    assert not options.has_column_specification()

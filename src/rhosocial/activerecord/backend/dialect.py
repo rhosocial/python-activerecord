@@ -4,67 +4,325 @@ from dataclasses import dataclass
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Optional, get_origin, Union, List, Tuple, Set
+from typing import Any, Callable, Dict, Optional, Union, List, Tuple, Set, get_origin
 
+from .errors import ReturningNotSupportedError
 
 class DatabaseType(Enum):
-    """Unified database type definitions"""
-    # Numeric types
-    TINYINT = auto()
-    SMALLINT = auto()
-    INTEGER = auto()
-    BIGINT = auto()
-    FLOAT = auto()
-    DOUBLE = auto()
-    DECIMAL = auto()
+    """
+    Unified database type definitions across various database systems.
 
-    # String types
-    CHAR = auto()
-    VARCHAR = auto()
-    TEXT = auto()
+    This enum provides a standard set of database column types that can be
+    mapped to specific implementations in each database backend.
+    """
 
-    # Date and time types
-    DATE = auto()
-    TIME = auto()
-    DATETIME = auto()
-    TIMESTAMP = auto()
+    # --- Standard numeric types ---
+    TINYINT = auto()  # Small integer (usually 1 byte)
+    SMALLINT = auto()  # Small integer (usually 2 bytes)
+    INTEGER = auto()  # Standard integer (usually 4 bytes)
+    BIGINT = auto()  # Large integer (usually 8 bytes)
+    FLOAT = auto()  # Single-precision floating point
+    DOUBLE = auto()  # Double-precision floating point
+    DECIMAL = auto()  # Fixed-precision decimal number
+    NUMERIC = auto()  # Generic numeric type
+    REAL = auto()  # Real number type
 
-    # Binary types
-    BLOB = auto()
+    # --- Standard string types ---
+    CHAR = auto()  # Fixed-length character string
+    VARCHAR = auto()  # Variable-length character string with limit
+    TEXT = auto()  # Variable-length character string without limit
+    TINYTEXT = auto()  # Very small text (max 255 chars)
+    MEDIUMTEXT = auto()  # Medium-sized text
+    LONGTEXT = auto()  # Large text
 
-    # Boolean type
-    BOOLEAN = auto()
+    # --- Standard date and time types ---
+    DATE = auto()  # Date only (year, month, day)
+    TIME = auto()  # Time only (hour, minute, second)
+    DATETIME = auto()  # Date and time without timezone
+    TIMESTAMP = auto()  # Date and time with timezone
+    INTERVAL = auto()  # Time interval
 
-    # Other types
-    UUID = auto()
-    JSON = auto()
-    ARRAY = auto()
-    # Extensible database-specific types
-    CUSTOM = auto()
+    # --- Standard binary types ---
+    BLOB = auto()  # Binary large object
+    TINYBLOB = auto()  # Small binary object
+    MEDIUMBLOB = auto()  # Medium binary object
+    LONGBLOB = auto()  # Large binary object
+    BYTEA = auto()  # Binary data
+
+    # --- Standard boolean type ---
+    BOOLEAN = auto()  # Boolean (true/false)
+
+    # --- Common extended types ---
+    UUID = auto()  # Universally unique identifier
+
+    # --- JSON types ---
+    JSON = auto()  # JSON document
+    JSONB = auto()  # Binary JSON
+
+    # --- Array types ---
+    ARRAY = auto()  # Array of values
+
+    # --- XML type ---
+    XML = auto()  # XML document
+
+    # --- Key-value type ---
+    HSTORE = auto()  # Key-value store
+
+    # --- Network address types ---
+    INET = auto()  # IPv4 or IPv6 host address
+    CIDR = auto()  # IPv4 or IPv6 network address
+    MACADDR = auto()  # MAC address
+    MACADDR8 = auto()  # MAC address (EUI-64 format)
+
+    # --- Geometric types ---
+    POINT = auto()  # Point on a plane (x,y)
+    LINE = auto()  # Infinite line
+    LSEG = auto()  # Line segment
+    BOX = auto()  # Rectangular box
+    PATH = auto()  # Closed and open paths
+    POLYGON = auto()  # Polygon (similar to closed path)
+    CIRCLE = auto()  # Circle
+    GEOMETRY = auto()  # Generic geometry type
+    GEOGRAPHY = auto()  # Geographic data type
+
+    # --- Range types ---
+    INT4RANGE = auto()  # Range of integers
+    INT8RANGE = auto()  # Range of bigints
+    NUMRANGE = auto()  # Range of numerics
+    TSRANGE = auto()  # Range of timestamps without time zone
+    TSTZRANGE = auto()  # Range of timestamps with time zone
+    DATERANGE = auto()  # Range of dates
+
+    # --- Full text search types ---
+    TSVECTOR = auto()  # Text search document
+    TSQUERY = auto()  # Text search query
+
+    # --- Money type ---
+    MONEY = auto()  # Currency amount
+
+    # --- Bit string types ---
+    BIT = auto()  # Fixed-length bit string
+    VARBIT = auto()  # Variable-length bit string
+
+    # --- Enumeration and set types ---
+    ENUM = auto()  # Enumeration of string values
+    SET = auto()  # Set of string values
+
+    # --- Large object types ---
+    CLOB = auto()  # Character large object
+    NCLOB = auto()  # National character large object
+
+    # --- Unicode types ---
+    NCHAR = auto()  # Unicode fixed-length character data
+    NVARCHAR = auto()  # Unicode variable-length character data
+    NTEXT = auto()  # Unicode variable-length character data
+
+    # --- Row identifier types ---
+    ROWID = auto()  # Physical row address
+    UROWID = auto()  # Universal row id
+
+    # --- Hierarchical type ---
+    HIERARCHYID = auto()  # Tree hierarchy position
+
+    # --- Extensible custom type ---
+    CUSTOM = auto()  # For database-specific types not covered above
 
 @dataclass
 class TypeMapping:
-    """Type mapping rules"""
+    """Type mapping rules between DatabaseType and specific database implementation"""
     db_type: str
     format_func: Optional[Callable[[str, Dict[str, Any]], str]] = None
 
+
 class TypeMapper(ABC):
-    """Abstract base class for type mappers"""
+    """
+    Abstract base class for database type mapping.
+
+    This class defines the interface for mapping between unified DatabaseType
+    enum values and specific database column type definitions. Each database
+    backend should implement a concrete TypeMapper that handles its specific
+    type syntax and options.
+
+    Note: While this abstract class attempts to accommodate a wide range of
+    database types, specific database backends may need to handle additional
+    types or parameters not covered by the base interface.
+    """
+
+    def __init__(self):
+        """Initialize type mapper"""
+        self._placeholder_counter = 0
+        self._supported_types: Set[DatabaseType] = set()
+        self._type_mappings: Dict[DatabaseType, TypeMapping] = {}
 
     @abstractmethod
     def get_column_type(self, db_type: DatabaseType, **params) -> str:
-        """Get database column type definition
+        """
+        Get database-specific column type definition string for a given unified type.
 
         Args:
-            db_type: Unified type definition
-            **params: Type parameters (length, precision, etc.)
+            db_type: Unified database type from DatabaseType enum
+            **params: Type-specific parameters, which may include:
+                - length: For string types (CHAR, VARCHAR)
+                - precision: For numeric types (DECIMAL, FLOAT)
+                - scale: For DECIMAL type
+                - timezone: For time/timestamp types
+                - array_dimensions: For ARRAY types
+                - geometry_type: For geometric types (POINT, POLYGON, etc.)
+                - enum_values: For ENUM types
+                - custom_type: For database-specific CUSTOM types
+
+        Returns:
+            str: Formatted column type definition for the target database
+
+        Raises:
+            ValueError: If the type is not supported by this database
         """
         pass
 
     @abstractmethod
     def get_placeholder(self, db_type: Optional[DatabaseType] = None) -> str:
-        """Get parameter placeholder"""
+        """
+        Get parameter placeholder for prepared statements.
+
+        Different databases use different placeholder syntax:
+        - SQLite: ?
+        - MySQL: %s
+        - PostgreSQL: %s or $1, $2 (depending on driver)
+        - MariaDB: ?
+        - SQL Server: @p1, @p2 or ?
+
+        Args:
+            db_type: Optional database type for type-specific placeholders
+                     (some databases may use different placeholders for different types)
+
+        Returns:
+            str: Parameter placeholder string
+        """
         pass
+
+    @abstractmethod
+    def reset_placeholders(self) -> None:
+        """
+        Reset placeholder counter if the database uses positional placeholders.
+
+        This is needed for databases like PostgreSQL with asyncpg driver ($1, $2)
+        or Oracle (:1, :2) where placeholder position matters.
+        """
+        pass
+
+    def supports_type(self, db_type: DatabaseType) -> bool:
+        """
+        Check if this database supports the given type.
+
+        Args:
+            db_type: DatabaseType to check
+
+        Returns:
+            bool: True if the type is supported
+        """
+        return db_type in self._supported_types
+
+    def get_supported_types(self) -> Set[DatabaseType]:
+        """
+        Get all supported database types.
+
+        Returns:
+            Set[DatabaseType]: Set of supported database types
+        """
+        return self._supported_types.copy()
+
+    def format_type_with_modifiers(self, base_type: str, **modifiers) -> str:
+        """
+        Format complete type definition with modifiers.
+
+        This helper method creates a full type definition including modifiers
+        like NULL/NOT NULL, DEFAULT, etc.
+
+        Args:
+            base_type: Base type definition string
+            **modifiers: Type modifiers which may include:
+                - nullable: bool
+                - default: Any
+                - primary_key: bool
+                - unique: bool
+                - check: str (constraint expression)
+                - collate: str (collation name)
+                - autoincrement: bool
+
+        Returns:
+            str: Formatted type definition with modifiers
+        """
+        parts = [base_type]
+
+        if modifiers.get('nullable') is False:
+            parts.append("NOT NULL")
+
+        if 'default' in modifiers:
+            default_val = modifiers['default']
+            if isinstance(default_val, str):
+                parts.append(f"DEFAULT '{default_val}'")
+            else:
+                parts.append(f"DEFAULT {default_val}")
+
+        if modifiers.get('primary_key'):
+            parts.append("PRIMARY KEY")
+
+        if modifiers.get('unique'):
+            parts.append("UNIQUE")
+
+        if 'check' in modifiers:
+            parts.append(f"CHECK ({modifiers['check']})")
+
+        if 'collate' in modifiers:
+            parts.append(f"COLLATE {modifiers['collate']}")
+
+        return " ".join(parts)
+
+    def format_with_length(self, base_type: str, params: Dict[str, Any]) -> str:
+        """
+        Format type with length parameter.
+
+        Args:
+            base_type: Base type name
+            params: Type parameters including 'length'
+
+        Returns:
+            str: Formatted type with length
+        """
+        if 'length' in params:
+            return f"{base_type}({params['length']})"
+        return base_type
+
+    def format_decimal(self, base_type: str, params: Dict[str, Any]) -> str:
+        """
+        Format decimal type with precision and scale.
+
+        Args:
+            base_type: Base type name
+            params: Type parameters including 'precision' and 'scale'
+
+        Returns:
+            str: Formatted decimal type
+        """
+        precision = params.get('precision', 10)
+        scale = params.get('scale', 0)
+        return f"{base_type}({precision}, {scale})"
+
+    def format_enum(self, base_type: str, params: Dict[str, Any]) -> str:
+        """
+        Format enum type with values.
+
+        Args:
+            base_type: Base type name
+            params: Type parameters including 'values'
+
+        Returns:
+            str: Formatted enum type
+        """
+        if 'values' in params:
+            values_str = ", ".join(f"'{v}'" for v in params['values'])
+            return f"{base_type}({values_str})"
+        return base_type
 
     @classmethod
     def get_pydantic_model_field_type(cls, field_info) -> Optional[DatabaseType]:
@@ -132,15 +390,22 @@ class ValueMapper(ABC):
         pass
 
 class ReturningClauseHandler(ABC):
-    """Base class for RETURNING clause handlers"""
+    """
+    Base class for RETURNING clause handlers.
+
+    This abstract class defines the interface for handling RETURNING clauses
+    across different database systems, with support for advanced features like
+    expressions, aliases, and database-specific options.
+    """
 
     @property
     @abstractmethod
     def is_supported(self) -> bool:
-        """Whether RETURNING clause is supported
+        """
+        Check if RETURNING clause is supported by this database.
 
         Returns:
-            bool: True if supported
+            bool: True if supported, False otherwise
         """
         pass
 
@@ -158,6 +423,110 @@ class ReturningClauseHandler(ABC):
             ReturningNotSupportedError: If RETURNING not supported
         """
         pass
+
+    def format_advanced_clause(self,
+                            columns: Optional[List[str]] = None,
+                            expressions: Optional[List[Dict[str, Any]]] = None,
+                            aliases: Optional[Dict[str, str]] = None,
+                            dialect_options: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Format advanced RETURNING clause with expressions and aliases.
+
+        Args:
+            columns: List of column names to return
+            expressions: List of expressions to return, each a dict with expression details
+            aliases: Dictionary mapping column/expression names to aliases
+            dialect_options: Database-specific options
+
+        Returns:
+            str: Formatted RETURNING clause
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING not supported or features not supported
+        """
+        # Default implementation using basic RETURNING functionality
+        if not self.is_supported:
+            raise ReturningNotSupportedError("RETURNING clause not supported by this database")
+
+        # If only columns specified, use basic format for compatibility
+        if columns and not expressions and not aliases:
+            return self.format_clause(columns)
+
+        # Process expressions and aliases
+        items = []
+
+        # Add columns with potential aliases
+        if columns:
+            for col in columns:
+                alias = aliases.get(col) if aliases else None
+                if alias:
+                    items.append(f"{self._validate_column_name(col)} AS {self._validate_column_name(alias)}")
+                else:
+                    items.append(self._validate_column_name(col))
+
+        # Add expressions with potential aliases
+        if expressions:
+            for expr in expressions:
+                expr_text = expr.get("expression", "")
+                expr_alias = expr.get("alias")
+                if expr_alias:
+                    items.append(f"{expr_text} AS {self._validate_column_name(expr_alias)}")
+                else:
+                    items.append(expr_text)
+
+        # If no items specified, return all columns
+        if not items:
+            return "RETURNING *"
+
+        return f"RETURNING {', '.join(items)}"
+
+    def _validate_column_name(self, column: str) -> str:
+        """
+        Validate and escape column name or alias to prevent SQL injection.
+
+        Args:
+            column: Column name or alias to validate
+
+        Returns:
+            str: Validated and properly quoted column name
+
+        Raises:
+            ValueError: If column name is invalid
+        """
+        # Basic implementation, can be overridden by specific databases
+        # Remove any quotes first
+        clean_name = column.strip('"').strip('`')
+
+        # Basic validation
+        if not clean_name or clean_name.isspace():
+            raise ValueError("Empty column name")
+
+        # Check for common SQL injection patterns
+        dangerous_patterns = [';', '--', 'union', 'select', 'drop', 'delete', 'update']
+        lower_name = clean_name.lower()
+        if any(pattern in lower_name for pattern in dangerous_patterns):
+            raise ValueError(f"Invalid column name: {column}")
+
+        # If name contains special chars, wrap in quotes
+        if ' ' in clean_name or '.' in clean_name or '"' in clean_name:
+            return f'"{clean_name}"'
+
+        return clean_name
+
+    def supports_feature(self, feature: str) -> bool:
+        """
+        Check if a specific RETURNING feature is supported.
+
+        Args:
+            feature: Feature name, such as "expressions", "aliases", "output_params"
+
+        Returns:
+            bool: True if feature is supported, False otherwise
+        """
+        # Default implementation, can be overridden by specific databases
+        # Most basic databases only support column names
+        supported_features = {"columns"}
+        return feature in supported_features
 
 class AggregateHandler(ABC):
     """Base class for handling database-specific aggregate functionality.
@@ -696,3 +1065,122 @@ class SQLBuilder:
             str: Formatted expression according to dialect rules
         """
         return self.dialect.format_expression(expr)
+
+
+class ReturningOptions:
+    """
+    Comprehensive configuration options for RETURNING clause.
+
+    This class encapsulates all options related to RETURNING clause functionality
+    across different database systems, supporting simple column lists, expressions,
+    aliases, and database-specific features.
+    """
+
+    def __init__(self,
+                 enabled: bool = False,
+                 columns: Optional[List[str]] = None,
+                 expressions: Optional[List[Dict[str, Any]]] = None,
+                 aliases: Optional[Dict[str, str]] = None,
+                 output_params: Optional[List[str]] = None,  # For Oracle/SQL Server output parameters
+                 format: Optional[str] = None,  # Optional formatting style
+                 force: bool = False,  # Force RETURNING even if compatibility issues exist
+                 dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+                 ):
+        """
+        Initialize RETURNING options.
+
+        Args:
+            enabled: Whether RETURNING is enabled
+            columns: List of column names to return
+            expressions: List of expressions to return (each a dict with expression details)
+            aliases: Dictionary mapping column/expression names to aliases
+            output_params: List of output parameter names (for Oracle/SQL Server)
+            format: Optional formatting style (database-specific)
+            force: Force RETURNING even with known compatibility issues
+            dialect_options: Database-specific options
+        """
+        self.enabled = enabled
+        self.columns = columns or []
+        self.expressions = expressions or []
+        self.aliases = aliases or {}
+        self.output_params = output_params or []
+        self.format = format
+        self.force = force
+        self.dialect_options = dialect_options or {}
+
+    @classmethod
+    def from_legacy(cls, returning: bool, force: bool = False) -> 'ReturningOptions':
+        """
+        Create options from legacy boolean value.
+
+        Args:
+            returning: Legacy boolean returning flag
+            force: Legacy force_returning flag
+
+        Returns:
+            ReturningOptions instance
+        """
+        return cls(enabled=returning, force=force)
+
+    @classmethod
+    def columns_only(cls, columns: List[str], force: bool = False) -> 'ReturningOptions':
+        """
+        Create options to return only specified columns.
+
+        Args:
+            columns: List of column names to return
+            force: Force RETURNING even with known compatibility issues
+
+        Returns:
+            ReturningOptions instance
+        """
+        return cls(enabled=True, columns=columns, force=force)
+
+    @classmethod
+    def with_expressions(cls,
+                         expressions: List[Dict[str, Any]],
+                         aliases: Optional[Dict[str, str]] = None,
+                         force: bool = False) -> 'ReturningOptions':
+        """
+        Create options with expressions in RETURNING clause.
+
+        Args:
+            expressions: List of expressions to return
+            aliases: Optional aliases for expressions
+            force: Force RETURNING even with known compatibility issues
+
+        Returns:
+            ReturningOptions instance
+        """
+        return cls(enabled=True, expressions=expressions, aliases=aliases, force=force)
+
+    @classmethod
+    def all_columns(cls, force: bool = False) -> 'ReturningOptions':
+        """
+        Create options to return all columns.
+
+        Args:
+            force: Force RETURNING even with known compatibility issues
+
+        Returns:
+            ReturningOptions instance
+        """
+        return cls(enabled=True, force=force)
+
+    def __bool__(self) -> bool:
+        """
+        Boolean conversion returns whether RETURNING is enabled.
+
+        Returns:
+            True if RETURNING is enabled, False otherwise
+        """
+        return self.enabled
+
+    def has_column_specification(self) -> bool:
+        """
+        Check if specific columns or expressions are specified.
+
+        Returns:
+            True if specific columns or expressions are specified, False for RETURNING *
+        """
+        return bool(self.columns or self.expressions)

@@ -1,10 +1,12 @@
 """ActiveQuery implementation combining all query mixins."""
 from .aggregate import AggregateQueryMixin
+from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
 
 
 class ActiveQuery(
+    JoinQueryMixin,
     RelationalQueryMixin,
     AggregateQueryMixin,
     RangeQueryMixin,

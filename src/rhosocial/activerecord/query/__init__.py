@@ -3,6 +3,7 @@
 from .dict_query import DictQuery
 from .active_query import ActiveQuery
 from .base import BaseQueryMixin
+from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .aggregate import AggregateQueryMixin
 from .relational import RelationalQueryMixin, RelationConfig
@@ -13,6 +14,7 @@ __all__ = [
     'BaseQueryMixin',
     'RangeQueryMixin',
     'AggregateQueryMixin',
+    'JoinQueryMixin',
     'RelationalQueryMixin',
     'RelationConfig'
 ]

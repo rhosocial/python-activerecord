@@ -3,12 +3,11 @@ import sys
 import uuid
 from datetime import datetime, date, time
 from decimal import Decimal
-from typing import Optional, List, Set, Union
+from typing import Optional, List, Set, Union, Dict
 from typing import Tuple, Any
 
-from .types import SQLITE_TYPE_MAPPINGS
 from ...dialect import TypeMapper, ValueMapper, DatabaseType, SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
-    ExplainOptions, ExplainType, ExplainFormat, AggregateHandler, JsonOperationHandler
+    ExplainOptions, ExplainType, ExplainFormat, AggregateHandler, JsonOperationHandler, TypeMapping
 from ...errors import TypeConversionError, ReturningNotSupportedError, WindowFunctionNotSupportedError, \
     GroupingSetNotSupportedError, JsonOperationNotSupportedError
 from ...helpers import safe_json_dumps, parse_datetime, convert_datetime, array_converter, safe_json_loads
@@ -19,15 +18,99 @@ if sys.version_info >= (3, 9):
 else:
     TupleType = Tuple
 
+
 class SQLiteTypeMapper(TypeMapper):
-    """SQLite type mapper implementation"""
+    """
+    SQLite type mapper implementation
+
+    SQLite has a flexible type system with only a few storage classes:
+    NULL, INTEGER, REAL, TEXT, and BLOB.
+
+    This mapper handles the mapping from the unified DatabaseType enum to
+    SQLite-specific type definitions.
+    """
+
+    def __init__(self, version: tuple = None):
+        """
+        Initialize SQLite type mapper
+
+        Args:
+            version: Optional SQLite version tuple (major, minor, patch)
+        """
+        super().__init__()
+
+        # Store the SQLite version
+        self._version = version
+
+        # Define SQLite type mappings
+        self._type_mappings = {
+            # Numbers - all map to INTEGER or REAL
+            DatabaseType.TINYINT: TypeMapping("INTEGER"),
+            DatabaseType.SMALLINT: TypeMapping("INTEGER"),
+            DatabaseType.INTEGER: TypeMapping("INTEGER"),
+            DatabaseType.BIGINT: TypeMapping("INTEGER"),
+            DatabaseType.FLOAT: TypeMapping("REAL"),
+            DatabaseType.DOUBLE: TypeMapping("REAL"),
+            DatabaseType.DECIMAL: TypeMapping("NUMERIC"),
+            DatabaseType.NUMERIC: TypeMapping("NUMERIC"),
+            DatabaseType.REAL: TypeMapping("REAL"),
+
+            # Strings - all map to TEXT
+            DatabaseType.CHAR: TypeMapping("TEXT", self.format_with_length),
+            DatabaseType.VARCHAR: TypeMapping("TEXT", self.format_with_length),
+            DatabaseType.TEXT: TypeMapping("TEXT"),
+            DatabaseType.TINYTEXT: TypeMapping("TEXT"),
+            DatabaseType.MEDIUMTEXT: TypeMapping("TEXT"),
+            DatabaseType.LONGTEXT: TypeMapping("TEXT"),
+
+            # Date and time - stored as TEXT, REAL (Julian day), or INTEGER (Unix time)
+            DatabaseType.DATE: TypeMapping("TEXT"),  # ISO8601 string ("YYYY-MM-DD")
+            DatabaseType.TIME: TypeMapping("TEXT"),  # ISO8601 string ("HH:MM:SS.SSS")
+            DatabaseType.DATETIME: TypeMapping("TEXT"),  # ISO8601 string ("YYYY-MM-DD HH:MM:SS.SSS")
+            DatabaseType.TIMESTAMP: TypeMapping("TEXT"),  # ISO8601 string with timezone
+
+            # Binary data
+            DatabaseType.BLOB: TypeMapping("BLOB"),
+            DatabaseType.TINYBLOB: TypeMapping("BLOB"),
+            DatabaseType.MEDIUMBLOB: TypeMapping("BLOB"),
+            DatabaseType.LONGBLOB: TypeMapping("BLOB"),
+            DatabaseType.BYTEA: TypeMapping("BLOB"),
+
+            # Boolean - SQLite has no native boolean, uses INTEGER 0/1
+            DatabaseType.BOOLEAN: TypeMapping("INTEGER"),
+
+            # Other types - map to TEXT or BLOB
+            DatabaseType.UUID: TypeMapping("TEXT"),  # Stored as text string
+            DatabaseType.JSON: TypeMapping("TEXT"),  # JSON stored as text
+            DatabaseType.ARRAY: TypeMapping("TEXT"),  # Arrays stored as JSON text
+
+            # Advanced types - some may be supported in newer SQLite versions
+            # Most map to TEXT or BLOB
+            DatabaseType.XML: TypeMapping("TEXT"),
+            DatabaseType.ENUM: TypeMapping("TEXT"),
+            DatabaseType.MONEY: TypeMapping("NUMERIC"),
+
+            # Custom type - map to TEXT by default
+            DatabaseType.CUSTOM: TypeMapping("TEXT"),
+        }
+
+        # Add JSONB support for SQLite 3.45.0+
+        if self._version and self._version >= (3, 45, 0):
+            self._type_mappings[DatabaseType.JSONB] = TypeMapping("JSONB")
+        else:
+            self._type_mappings[DatabaseType.JSONB] = TypeMapping("TEXT")  # Fallback to TEXT
+
+        # Set of supported types
+        self._supported_types = set(self._type_mappings.keys())
 
     def get_column_type(self, db_type: DatabaseType, **params) -> str:
-        """Get SQLite column type definition
+        """
+        Get SQLite column type definition
 
         Args:
             db_type: Generic database type
             **params: Type parameters (length, precision, etc.)
+                      These are mostly ignored for SQLite as it has a flexible type system
 
         Returns:
             str: SQLite column type definition
@@ -35,17 +118,51 @@ class SQLiteTypeMapper(TypeMapper):
         Raises:
             ValueError: If type is not supported
         """
-        if db_type not in SQLITE_TYPE_MAPPINGS:
-            raise ValueError(f"Unsupported type: {db_type}")
+        if db_type not in self._type_mappings:
+            raise ValueError(f"Unsupported type for SQLite: {db_type}")
 
-        mapping = SQLITE_TYPE_MAPPINGS[db_type]
+        mapping = self._type_mappings[db_type]
+        base_type = mapping.db_type
+
+        # Apply any type-specific formatting
         if mapping.format_func:
-            return mapping.format_func(mapping.db_type, params)
-        return mapping.db_type
+            formatted_type = mapping.format_func(base_type, params)
+        else:
+            formatted_type = base_type
+
+        # Apply common modifiers (PRIMARY KEY, NOT NULL, etc.)
+        if params:
+            return self.format_type_with_modifiers(formatted_type, **params)
+
+        return formatted_type
 
     def get_placeholder(self, db_type: Optional[DatabaseType] = None) -> str:
-        """Get parameter placeholder"""
+        """
+        Get parameter placeholder
+
+        SQLite uses ? for all parameter types
+
+        Args:
+            db_type: Ignored in SQLite, as all placeholders use the same syntax
+
+        Returns:
+            str: Parameter placeholder for SQLite (?)
+        """
         return "?"
+
+    def reset_placeholders(self) -> None:
+        return
+
+    def supports_jsonb(self) -> bool:
+        """
+        Check if JSONB is supported in this SQLite version
+
+        JSONB support was added in SQLite 3.45.0
+
+        Returns:
+            bool: True if JSONB is supported
+        """
+        return self._version and self._version >= (3, 45, 0)
 
 
 class SQLiteValueMapper(ValueMapper):
@@ -359,32 +476,44 @@ class SQLiteReturningHandler(ReturningClauseHandler):
     """SQLite RETURNING clause handler implementation"""
 
     def __init__(self, version: tuple):
-        """Initialize SQLite RETURNING handler
+        """
+        Initialize SQLite RETURNING handler with version information.
 
         Args:
-            version: SQLite version tuple
+            version: SQLite version tuple (major, minor, patch)
         """
         self._version = version
 
     @property
     def is_supported(self) -> bool:
-        """Check if RETURNING clause is supported"""
+        """
+        Check if RETURNING clause is supported.
+
+        RETURNING clause was added in SQLite 3.35.0.
+
+        Returns:
+            bool: True if supported, False otherwise
+        """
         return self._version >= (3, 35, 0)
 
     def format_clause(self, columns: Optional[List[str]] = None) -> str:
-        """Format RETURNING clause
+        """
+        Format RETURNING clause.
 
         Args:
-            columns: Column names to return. None means all columns.
+            columns: Column names to return. None means all columns (*).
 
         Returns:
             str: Formatted RETURNING clause
 
         Raises:
-            ReturningNotSupportedError: If RETURNING not supported
+            ReturningNotSupportedError: If RETURNING not supported by SQLite version
         """
         if not self.is_supported:
-            raise ReturningNotSupportedError("SQLite version does not support RETURNING")
+            raise ReturningNotSupportedError(
+                f"RETURNING clause not supported in SQLite {'.'.join(map(str, self._version))}. "
+                f"Version 3.35.0 or higher is required."
+            )
 
         if not columns:
             return "RETURNING *"
@@ -393,20 +522,80 @@ class SQLiteReturningHandler(ReturningClauseHandler):
         safe_columns = [self._validate_column_name(col) for col in columns]
         return f"RETURNING {', '.join(safe_columns)}"
 
+    def format_advanced_clause(self,
+                               columns: Optional[List[str]] = None,
+                               expressions: Optional[List[Dict[str, Any]]] = None,
+                               aliases: Optional[Dict[str, str]] = None,
+                               dialect_options: Optional[Dict[str, Any]] = None) -> str:
+        """
+        Format advanced RETURNING clause for SQLite.
+
+        SQLite supports expressions in RETURNING clause since 3.35.0.
+
+        Args:
+            columns: List of column names to return
+            expressions: List of expressions to return
+            aliases: Dictionary mapping column/expression names to aliases
+            dialect_options: SQLite-specific options
+
+        Returns:
+            str: Formatted RETURNING clause
+
+        Raises:
+            ReturningNotSupportedError: If RETURNING not supported
+        """
+        if not self.is_supported:
+            raise ReturningNotSupportedError(
+                f"RETURNING clause not supported in SQLite {'.'.join(map(str, self._version))}. "
+                f"Version 3.35.0 or higher is required."
+            )
+
+        # Process returning clause components
+        items = []
+
+        # Add columns with potential aliases
+        if columns:
+            for col in columns:
+                alias = aliases.get(col) if aliases else None
+                if alias:
+                    items.append(f"{self._validate_column_name(col)} AS {self._validate_column_name(alias)}")
+                else:
+                    items.append(self._validate_column_name(col))
+
+        # Add expressions with potential aliases
+        if expressions:
+            for expr in expressions:
+                expr_text = expr.get("expression", "")
+                expr_alias = expr.get("alias")
+                if expr_alias:
+                    items.append(f"{expr_text} AS {self._validate_column_name(expr_alias)}")
+                else:
+                    items.append(expr_text)
+
+        # If no items specified, return all columns
+        if not items:
+            return "RETURNING *"
+
+        return f"RETURNING {', '.join(items)}"
+
     def _validate_column_name(self, column: str) -> str:
-        """Validate and escape column name
+        """
+        Validate and escape column name for SQLite.
+
+        SQLite uses double quotes or backticks for identifiers.
+        We choose double quotes as it's more standard SQL.
 
         Args:
             column: Column name to validate
 
         Returns:
-            str: Escaped column name
+            str: Validated and properly quoted column name
 
         Raises:
             ValueError: If column name is invalid
         """
         # Remove any quotes first
-        clean_name = column.strip('"')
+        clean_name = column.strip('"').strip('`')
 
         # Basic validation
         if not clean_name or clean_name.isspace():
@@ -423,6 +612,25 @@ class SQLiteReturningHandler(ReturningClauseHandler):
             return f'"{clean_name}"'
 
         return clean_name
+
+    def supports_feature(self, feature: str) -> bool:
+        """
+        Check if a specific RETURNING feature is supported by SQLite.
+
+        SQLite supports basic expressions and aliases in RETURNING.
+
+        Args:
+            feature: Feature name, such as "expressions", "aliases"
+
+        Returns:
+            bool: True if feature is supported, False otherwise
+        """
+        if not self.is_supported:
+            return False
+
+        # SQLite supports basic expressions and aliases
+        supported_features = {"columns", "expressions", "aliases"}
+        return feature in supported_features
 
 
 class SQLiteAggregateHandler(AggregateHandler):

@@ -271,7 +271,8 @@ class IActiveRecord(BaseModel, ABC):
             self.table_name(),
             data,
             column_types=self.column_types(),
-            returning=False
+            returning=False,
+            primary_key=self.primary_key()
         )
 
         # Handle auto-increment primary key if needed

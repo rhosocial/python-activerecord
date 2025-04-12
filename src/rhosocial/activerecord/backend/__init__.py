@@ -9,6 +9,8 @@ This module provides a generic interface for database operations, with support f
 - Connection pooling
 """
 
+__version__ = "0.5.0"
+
 # Core interfaces and base classes
 from .base import StorageBackend
 from .dialect import (
@@ -17,7 +19,7 @@ from .dialect import (
     ValueMapper,
     TypeMapping,
     SQLDialectBase,
-    SQLExpressionBase,
+    SQLExpressionBase, ReturningOptions,
 )
 
 # Type definitions and configuration
@@ -62,7 +64,6 @@ from .transaction import (
 __all__ = [
     # Base classes
     'StorageBackend',
-
     # Dialect related
     'DatabaseType',
     'TypeMapper',
@@ -104,5 +105,3 @@ __all__ = [
     'TransactionManager',
     'IsolationLevel',
 ]
-
-__version__ = '0.4.0'
