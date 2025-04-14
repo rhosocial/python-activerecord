@@ -25,6 +25,61 @@ Python ActiveRecord 提供了一系列全面的功能，旨在简化数据库交
 - **高级聚合**：强大的聚合功能，包括窗口函数、CUBE、ROLLUP 等
 - **异步支持**：双同步和异步 API，实现灵活的应用程序设计
 
+## 结构
+
+```mermaid
+flowchart TD
+    %% 核心 ORM 层
+    subgraph "ORM 层"
+        AR["ActiveRecord 基础"]:::core
+        FD["字段定义"]:::field
+        QB["查询构建工具"]:::query
+        BA["存储后端抽象"]:::backend
+        SI["SQLite 实现"]:::backend
+        IL["接口层"]:::interface
+        RL["关联关系层"]:::relation
+    end
+
+    %% 测试和文档
+    subgraph "测试和文档"
+        TEST["测试组件"]:::test
+    end
+
+    %% 外部依赖
+    PD["Pydantic"]:::external
+    SQLITE["SQLite (sqlite3)"]:::external
+
+    %% 关联关系
+    AR -->|"使用"| FD
+    AR -->|"触发"| QB
+    FD -->|"使用其验证"| PD
+    QB -->|"通过其执行"| BA
+    BA -->|"具体实现为"| SI
+    AR -->|"实现其接口"| IL
+    AR -->|"管理关联关系"| RL
+    BA -->|"连接到"| SQLITE
+
+    %% 点击事件
+    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base"
+    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field"
+    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query"
+    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend"
+    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite"
+    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface"
+    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation"
+    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests"
+
+    %% 风格
+    classDef core fill:#F9E79F,stroke:#B9770E,stroke-width:2px;
+    classDef field fill:#AED6F1,stroke:#2471A3,stroke-width:2px;
+    classDef query fill:#A9DFBF,stroke:#196F3D,stroke-width:2px;
+    classDef backend fill:#F5B7B1,stroke:#C0392B,stroke-width:2px;
+    classDef interface fill:#FDEBD0,stroke:#CA6F1E,stroke-width:2px;
+    classDef relation fill:#D2B4DE,stroke:#6C3483,stroke-width:2px;
+    classDef test fill:#D7DBDD,stroke:#707B7C,stroke-width:2px;
+    classDef external fill:#FAD7A0,stroke:#E67E22,stroke-width:2px;
+```
+
 ## 要求
 
 要使用 Python ActiveRecord，您需要：
@@ -68,7 +123,7 @@ Python ActiveRecord 提供了一系列全面的功能，旨在简化数据库交
 ## 快速开始
 
 ```python
-from activerecord import ActiveRecord
+from rhosocial.activerecord import ActiveRecord
 from typing import Optional
 from datetime import datetime
 from pydantic import EmailStr

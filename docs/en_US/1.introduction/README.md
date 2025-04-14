@@ -121,7 +121,7 @@ Additionally, for optimal development experience:
 ## Quick Start
 
 ```python
-from activerecord import ActiveRecord
+from rhosocial.activerecord import ActiveRecord
 from typing import Optional
 from datetime import datetime
 from pydantic import EmailStr
