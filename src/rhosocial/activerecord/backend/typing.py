@@ -18,7 +18,6 @@ class ConnectionConfig:
     password: Optional[str] = None
 
     # Connection characteristics
-    database: Optional[str] = None
     charset: str = 'utf8mb4'
     timezone: Optional[str] = None  # Use 'UTC' instead of '+00:00'
 

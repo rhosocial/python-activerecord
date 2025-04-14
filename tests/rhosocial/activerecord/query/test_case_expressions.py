@@ -229,9 +229,9 @@ def test_case_with_calculations(order_fixtures):
     # Calculate different taxes based on status
     query.select("""
         CASE 
-            WHEN status = 'pending' THEN total_amount * 0.05  -- 5% tax
-            WHEN status = 'paid' THEN total_amount * 0.08     -- 8% tax
-            WHEN status = 'shipped' THEN total_amount * 0.1   -- 10% tax
+            WHEN status = 'pending' THEN total_amount * 0.05
+            WHEN status = 'paid' THEN total_amount * 0.08
+            WHEN status = 'shipped' THEN total_amount * 0.1
             ELSE 0  -- No tax for cancelled orders
         END as tax_amount
     """, append=True)
