@@ -61,13 +61,13 @@ users = User.where("age > ?", (25,)).order_by("created_at DESC").limit(10).all()
 
 ### 使用explain()方法
 
-`explain()`方法显示数据库将如何执行查询，帮助您理解查询的执行计划和性能特征：
+`explain()`方法是一个**标记方法**，它不会直接返回执行计划，而是标记当前查询应该返回执行计划。您需要将其与执行方法（如`all()`、`one()`等）结合使用，以获取数据库将如何执行查询的信息：
 
 ```python
 from rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
 
 # 获取基本查询执行计划
-explanation = User.where("age > ?", (25,)).order_by("created_at DESC").explain()
+explanation = User.where("age > ?", (25,)).order_by("created_at DESC").explain().all()
 print(explanation)
 
 # 使用特定类型的执行计划（SQLite特有的QUERYPLAN类型）
@@ -139,7 +139,7 @@ print(f"检索到 {len(result)} 条记录")
 
 ```python
 # 获取原始SQL而不执行查询
-query = User.joins("posts").where("posts.published = ?", (True,)).group("users.id")
+query = User.joins("posts").where("posts.published = ?", (True,)).group_by("users.id")
 raw_sql, params = query.to_sql()  # 注意：to_sql()同时返回SQL和参数
 print(f"生成的SQL: {raw_sql}")
 print(f"参数: {params}")
@@ -169,7 +169,7 @@ sql, params = query.to_sql()
 print(f"第二个where之后: {sql}，参数 {params}")
 
 # 添加分组
-query = query.group("users.id")
+query = query.group_by("users.id")
 sql, params = query.to_sql()
 print(f"分组之后: {sql}，参数 {params}")
 
@@ -187,7 +187,7 @@ result = query.all()
 
 ```python
 # 检查关系是否已加载
-user = User.find_by_id(1)
+user = User.find_one(1)  # 注意：使用find_one而不是find_by_id
 print(f"posts关系是否已加载？{'_loaded_relations' in dir(user) and 'posts' in user._loaded_relations}")
 
 # 检查已加载的关系数据
@@ -202,7 +202,7 @@ if hasattr(user, '_loaded_relations') and 'posts' in user._loaded_relations:
 configure_logging(level=logging.DEBUG, component="relation")
 
 # 使用with_预加载关系
-user = User.with_("posts.comments").find_by_id(1)
+user = User.with_("posts.comments").find_one(1)  # 注意：使用find_one而不是find_by_id
 
 # 您还可以调试为预加载生成的SQL
 sql, params = User.with_("posts.comments").to_sql()
@@ -210,9 +210,9 @@ print(f"预加载SQL: {sql}")
 print(f"参数: {params}")
 
 # 检查已加载的关系
-print(f"用户有 {len(user.posts)} 篇文章")
-for post in user.posts:
-    print(f"文章 {post.id} 有 {len(post.comments)} 条评论")
+print(f"用户有 {len(user.posts())} 篇文章")  # 注意：使用posts()而不是posts
+for post in user.posts():
+    print(f"文章 {post.id} 有 {len(post.comments())} 条评论")  # 注意：使用comments()而不是comments
 ```
 
 ## 排查常见问题
@@ -228,13 +228,13 @@ configure_logging(level=logging.DEBUG, component="query")
 # 不好的方法（导致N+1查询）
 users = User.all()  # 1个查询获取所有用户
 for user in users:  # 如果有100个用户，这将触发100个额外查询
-    print(f"用户 {user.username} 有 {len(user.posts)} 篇文章")  # 每次访问user.posts都会触发一个查询
+    print(f"用户 {user.username} 有 {len(user.posts())} 篇文章")  # 每次访问user.posts()都会触发一个查询
 # 总计：101个查询（1 + N）
 
 # 更好的方法（使用预加载）
 users = User.with_("posts").all()  # 1个查询获取用户 + 1个查询获取所有相关文章
 for user in users:  # 无论有多少用户，都不会有额外查询
-    print(f"用户 {user.username} 有 {len(user.posts)} 篇文章")  # 不会有额外查询
+    print(f"用户 {user.username} 有 {len(user.posts())} 篇文章")  # 不会有额外查询
 # 总计：2个查询
 ```
 
@@ -272,7 +272,7 @@ configure_logging(level=logging.DEBUG, component="query")
 # 执行可能存在N+1问题的代码
 users = User.all()
 for user in users:
-    _ = user.posts  # 如果没有预加载，这将触发N个单独的查询
+    _ = user.posts()  # 如果没有预加载，这将触发N个单独的查询
 ```
 
 #### 关系性能的数据库索引
@@ -315,46 +315,178 @@ for user in results:
     print(f"用户: {user.username}, 年龄: {user.age}, 活跃: {user.active}")
 ```
 
-### 事务问题
+## 关联关系预加载的工作原理
 
-调试事务问题：
+理解关联关系预加载的内部工作原理对于有效调试和优化查询至关重要。
+
+### 预加载的本质
+
+预加载（Eager Loading）是一种优化技术，它通过减少数据库查询的数量来提高性能。当您使用`with_()`方法时，ActiveRecord会执行以下步骤：
+
+1. 执行主查询获取父记录（例如用户）
+2. 收集所有父记录的主键值
+3. 执行单个查询获取所有相关记录（例如所有这些用户的帖子）
+4. 在内存中将相关记录与其父记录关联起来
+
+这种方法将查询次数从N+1（1个主查询 + N个关系查询）减少到2（1个主查询 + 1个关系查询）。
+
+### 预加载的实际示例
+
+以下是预加载如何工作的详细示例：
 
 ```python
-# 启用事务日志
-configure_logging(level=logging.DEBUG, component="transaction")
+# 不使用预加载（N+1问题）
+users = User.where("active = ?", [True]).all()  # 1个查询
 
-try:
-    with db_connection.transaction():
-        user = User(username="test_user", email="test@example.com")
-        user.save()
-        
-        # 模拟错误
-        if not user.validate_email():
-            raise ValueError("无效的电子邮件")
-            
-        # 如果发生错误，这不会执行
-        print("事务成功完成")
-except Exception as e:
-    print(f"事务失败: {e}")
+# 生成的SQL：
+# SELECT * FROM users WHERE active = ?
+
+for user in users:  # 假设返回3个用户
+    posts = user.posts()  # 为每个用户执行1个查询
+    # 生成的SQL（重复3次，每次使用不同的user.id）：
+    # SELECT * FROM posts WHERE user_id = ?
+
+# 总计：4个查询（1 + 3）
+
+# 使用预加载
+users = User.where("active = ?", [True]).with_("posts").all()  # 2个查询
+
+# 生成的SQL：
+# 查询1：SELECT * FROM users WHERE active = ?
+# 查询2：SELECT * FROM posts WHERE user_id IN (1, 2, 3)  # 假设用户ID是1、2和3
+
+for user in users:
+    posts = user.posts()  # 不执行额外查询，使用已加载的数据
+
+# 总计：2个查询
 ```
 
-### 数据库连接问题
+### 嵌套预加载的工作原理
 
-排查数据库连接问题：
+嵌套预加载（例如`with_("posts.comments")`）以类似的方式工作，但会执行额外的查询来加载嵌套关系：
 
 ```python
-# 检查连接状态
-try:
-    db_connection.execute("SELECT 1")
-    print("数据库连接正常")
-except Exception as e:
-    print(f"数据库连接错误: {e}")
+users = User.where("active = ?", [True]).with_("posts.comments").all()  # 3个查询
+
+# 生成的SQL：
+# 查询1：SELECT * FROM users WHERE active = ?
+# 查询2：SELECT * FROM posts WHERE user_id IN (1, 2, 3)
+# 查询3：SELECT * FROM comments WHERE post_id IN (101, 102, 103, ...)  # 假设帖子ID是101、102、103等
+```
+
+### 条件预加载
+
+您可以使用查询修饰符来限制预加载的记录：
+
+```python
+# 只预加载已发布的帖子
+users = User.with_(("posts", lambda q: q.where("published = ?", [True]))).all()
+
+# 生成的SQL：
+# 查询1：SELECT * FROM users
+# 查询2：SELECT * FROM posts WHERE user_id IN (1, 2, 3) AND published = ?
+```
+
+### 关系查询方法
+
+除了直接访问关系（如`user.posts()`）外，您还可以使用关系查询方法（如`user.posts_query()`）来进一步自定义关系查询：
+
+```python
+# 获取用户
+user = User.find_one(1)
+
+# 使用关系查询方法
+posts_query = user.posts_query()  # 返回一个查询对象，尚未执行
+
+# 自定义查询
+recent_posts = posts_query.where("created_at > ?", [一周前的日期]).order_by("created_at DESC").limit(5).all()
+```
+
+这种方法允许您在关系的基础上应用额外的过滤、排序和限制，而不需要加载所有相关记录。
+
+## 大数据量查询的分页处理
+
+处理大量数据时，分页是一种重要的优化技术。以下是在ActiveRecord中实现分页的几种方法：
+
+### 基本分页
+
+使用`limit`和`offset`进行基本分页：
+
+```python
+# 获取第2页，每页10条记录
+page = 2
+per_page = 10
+offset = (page - 1) * per_page
+
+users = User.order_by("created_at DESC").limit(per_page).offset(offset).all()
+```
+
+### 关系查询的分页
+
+对关系查询也可以应用分页：
+
+```python
+# 获取用户
+user = User.find_one(1)
+
+# 分页获取用户的帖子
+page = 2
+per_page = 10
+offset = (page - 1) * per_page
+
+posts = user.posts_query().order_by("created_at DESC").limit(per_page).offset(offset).all()
+```
+
+### 预加载与分页的结合
+
+当使用预加载时，您可能需要限制预加载的相关记录数量：
+
+```python
+# 获取用户并预加载其最新的5篇帖子
+users = User.with_(("posts", lambda q: q.order_by("created_at DESC").limit(5))).all()
+
+# 现在每个用户最多有5篇最新帖子被预加载
+for user in users:
+    recent_posts = user.posts()  # 包含最多5篇最新帖子
+```
+
+### 游标分页
+
+对于非常大的数据集，基于游标的分页通常比基于偏移的分页更高效：
+
+```python
+# 初始查询（第一页）
+first_page = User.order_by("id ASC").limit(10).all()
+
+# 如果有结果，获取最后一个ID作为游标
+if first_page:
+    last_id = first_page[-1].id
     
-# 检查连接池状态（如果使用连接池）
-if hasattr(db_connection, "pool"):
-    print(f"活动连接: {db_connection.pool.active_connections}")
-    print(f"可用连接: {db_connection.pool.available_connections}")
+    # 获取下一页（使用游标）
+    next_page = User.where("id > ?", [last_id]).order_by("id ASC").limit(10).all()
 ```
+
+### 计算总记录数
+
+为了实现分页UI，您通常需要知道总记录数：
+
+```python
+# 获取总记录数
+total_count = User.count()
+
+# 计算总页数
+per_page = 10
+total_pages = (total_count + per_page - 1) // per_page  # 向上取整
+
+print(f"总记录数: {total_count}, 总页数: {total_pages}")
+```
+
+### 分页性能优化
+
+1. **添加适当的索引**：确保排序和过滤条件使用的列上有索引
+2. **避免大偏移**：对于大数据集，避免使用大的`offset`值，考虑使用基于游标的分页
+3. **限制预加载的数据量**：使用条件预加载限制每个关系加载的记录数
+4. **使用计数缓存**：对于频繁的计数查询，考虑缓存总记录数
 
 ## 使用Python调试器
 
@@ -389,42 +521,14 @@ def process_user_data():
         pass
 ```
 
-## 调试工具和扩展
+## 总结
 
-### 特定数据库的工具
+有效的调试是开发高质量ActiveRecord应用程序的关键。通过使用本指南中描述的技术，您可以更轻松地识别和解决常见问题，包括：
 
-许多数据库提供自己的调试工具：
+- 使用日志和`explain()`方法了解查询执行
+- 通过预加载解决N+1查询问题
+- 使用关系查询方法自定义关系查询
+- 实现有效的分页策略处理大数据量
+- 利用Python调试工具进行深入调试
 
-- **SQLite**：SQLite Browser、SQLite Analyzer
-- **PostgreSQL**：pgAdmin、pg_stat_statements
-- **MySQL**：MySQL Workbench、EXPLAIN ANALYZE
-
-### IDE集成
-
-现代IDE提供出色的调试支持：
-
-- **PyCharm**：集成调试器和数据库工具
-- **VS Code**：带有断点和变量检查的Python调试器扩展
-- **Jupyter Notebooks**：使用`%debug`魔术命令进行交互式调试
-
-## 调试最佳实践
-
-1. **从简单开始**：从能重现问题的最简单测试用例开始
-
-2. **隔离问题**：确定问题是在您的代码、ActiveRecord库还是数据库中
-
-3. **策略性使用日志**：仅为您正在调试的组件启用详细日志
-
-4. **检查您的假设**：验证变量包含您期望的内容
-
-5. **阅读错误消息**：ActiveRecord错误消息通常包含有关出错原因的有价值信息
-
-6. **检查生成的SQL**：始终检查实际执行的SQL
-
-7. **隔离测试**：单独测试各个查询或操作以精确定位问题
-
-8. **使用版本控制**：进行小的、增量的更改并频繁提交，以便更容易识别问题引入的时间
-
-9. **编写回归测试**：修复bug后，编写测试以确保它不会再次出现
-
-10. **记录您的发现**：记录您遇到的bug和解决方法
+记住，良好的调试实践不仅有助于解决问题，还能帮助您编写更高效、更可维护的代码。

@@ -49,10 +49,10 @@ from rhosocial.activerecord import configure_logging
 configure_logging(level=logging.DEBUG, component="query")
 
 # Now all SQL queries will be logged
-users = User.where("age > ?", [25]).order("created_at DESC").limit(10).all()
+users = User.where("age > ?", (25,)).order_by("created_at DESC").limit(10).all()
 
 # Example log output:
-# DEBUG:rhosocial.activerecord.query:Executing SQL: SELECT * FROM users WHERE age > ? ORDER BY created_at DESC LIMIT 10 with params [25]
+# DEBUG:rhosocial.activerecord.query:Executing SQL: SELECT * FROM users WHERE age > ? ORDER BY created_at DESC LIMIT 10 with params (25,)
 ```
 
 ## Inspecting Query Execution
@@ -61,17 +61,61 @@ Understanding how ActiveRecord translates your code into SQL queries is crucial 
 
 ### Using explain() Method
 
-The `explain()` method shows how the database will execute a query:
+The `explain()` method shows how the database will execute a query, helping you understand the execution plan and performance characteristics:
 
 ```python
-# Get the query execution plan
-explanation = User.where("age > ?", [25]).order("created_at DESC").explain()
+from rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
+
+# Get basic query execution plan
+explanation = User.where("age > ?", (25,)).order_by("created_at DESC").explain()
 print(explanation)
 
-# For more detailed output (if supported by the database)
-detailed_explanation = User.where("age > ?", [25]).explain(analyze=True, verbose=True)
+# Use specific type of execution plan (SQLite-specific QUERYPLAN type)
+query_plan = User.where("age > ?", (25,)).explain(type=ExplainType.QUERYPLAN).all()
+print(query_plan)  # Outputs more readable query plan
+
+# Use detailed options (depending on database support)
+detailed_explanation = User.where("age > ?", (25,)).explain(
+    type=ExplainType.BASIC,  # Basic execution plan
+    format=ExplainFormat.TEXT,  # Text format output
+    verbose=True  # Detailed information
+).all()
 print(detailed_explanation)
 ```
+
+#### Supported Parameters
+
+The `explain()` method supports the following parameters:
+
+- **type**: Type of execution plan
+  - `ExplainType.BASIC`: Basic execution plan (default)
+  - `ExplainType.ANALYZE`: Include actual execution statistics
+  - `ExplainType.QUERYPLAN`: Query plan only (SQLite specific)
+
+- **format**: Output format
+  - `ExplainFormat.TEXT`: Human readable text (default, supported by all databases)
+  - `ExplainFormat.JSON`: JSON format (supported by some databases)
+  - `ExplainFormat.XML`: XML format (supported by some databases)
+  - `ExplainFormat.YAML`: YAML format (supported by PostgreSQL)
+  - `ExplainFormat.TREE`: Tree format (supported by MySQL)
+
+- **Other options**:
+  - `costs=True`: Show estimated costs
+  - `buffers=False`: Show buffer usage
+  - `timing=True`: Include timing information
+  - `verbose=False`: Show additional information
+  - `settings=False`: Show modified settings (PostgreSQL)
+  - `wal=False`: Show WAL usage (PostgreSQL)
+
+#### Database Differences
+
+Different databases have varying levels of support for `explain()`:
+
+- **SQLite**: Supports `BASIC` and `QUERYPLAN` types, only supports `TEXT` format
+- **PostgreSQL**: Supports more options like `buffers`, `settings`, and `wal`
+- **MySQL**: Supports `TREE` format output
+
+Note that if you specify options not supported by a particular database, those options will be ignored or may raise an error.
 
 ### Analyzing Query Performance
 
@@ -82,7 +126,7 @@ import time
 
 # Measure query execution time
 start_time = time.time()
-result = User.where("age > ?", [25]).order("created_at DESC").all()
+result = User.where("age > ?", (25,)).order_by("created_at DESC").all()
 end_time = time.time()
 
 print(f"Query took {end_time - start_time:.6f} seconds")
@@ -95,13 +139,45 @@ For complex queries with joins, eager loading, or aggregations:
 
 ```python
 # Get the raw SQL without executing the query
-query = User.joins("posts").where("posts.published = ?", [True]).group("users.id")
-raw_sql = query.to_sql()
+query = User.joins("posts").where("posts.published = ?", (True,)).group("users.id")
+raw_sql, params = query.to_sql()  # Note: to_sql() returns both SQL and parameters
 print(f"Generated SQL: {raw_sql}")
+print(f"Parameters: {params}")
 
 # Execute with debug logging
 result = query.all()
 ```
+
+#### Incremental Debugging with Chain Calls
+
+For complex chain calls, you can debug each step by examining the SQL after each method call:
+
+```python
+# Start with a basic query
+query = User.where("active = ?", (True,))
+sql, params = query.to_sql()
+print(f"After where: {sql} with params {params}")
+
+# Add a join
+query = query.joins("posts")
+sql, params = query.to_sql()
+print(f"After join: {sql} with params {params}")
+
+# Add a condition on the joined table
+query = query.where("posts.published = ?", (True,))
+sql, params = query.to_sql()
+print(f"After second where: {sql} with params {params}")
+
+# Add grouping
+query = query.group("users.id")
+sql, params = query.to_sql()
+print(f"After grouping: {sql} with params {params}")
+
+# Finally execute
+result = query.all()
+```
+
+This approach helps you understand how each method in the chain affects the final SQL query, making it easier to identify where issues might be occurring.
 
 ## Debugging Relationship Issues
 
@@ -128,11 +204,39 @@ configure_logging(level=logging.DEBUG, component="relation")
 # Use with_ to eager load relationships
 user = User.with_("posts.comments").find_by_id(1)
 
+# You can also debug the SQL generated for eager loading
+sql, params = User.with_("posts.comments").to_sql()
+print(f"Eager loading SQL: {sql}")
+print(f"Parameters: {params}")
+
 # Inspect the loaded relationships
 print(f"User has {len(user.posts)} posts")
 for post in user.posts:
     print(f"Post {post.id} has {len(post.comments)} comments")
 ```
+
+#### Dot Notation for Relationship Names
+
+When using eager loading with `with_()`, you can use dot notation to specify nested relationships. Understanding this naming convention is crucial for effective debugging:
+
+```python
+# Load a single relationship
+users = User.with_("posts").all()
+
+# Load multiple relationships at the same level
+users = User.with_("posts", "profile", "settings").all()
+
+# Load nested relationships (posts and their comments)
+users = User.with_("posts.comments").all()
+
+# Load deeply nested relationships
+users = User.with_("posts.comments.author.profile").all()
+
+# Load multiple nested paths
+users = User.with_("posts.comments", "posts.tags", "profile.settings").all()
+```
+
+Each dot in the relationship path represents a level of nesting. The system will generate the appropriate JOIN statements to fetch all the required data in the minimum number of queries.
 
 ## Troubleshooting Common Issues
 
@@ -145,15 +249,52 @@ The N+1 query problem occurs when you fetch N records and then execute N additio
 configure_logging(level=logging.DEBUG, component="query")
 
 # Bad approach (causes N+1 queries)
-users = User.all()
-for user in users:
+users = User.all()  # 1 query to fetch all users
+for user in users:  # If there are 100 users, this will trigger 100 more queries
     print(f"User {user.username} has {len(user.posts)} posts")  # Each access to user.posts triggers a query
+# Total: 101 queries (1 + N)
 
 # Better approach (uses eager loading)
-users = User.with_("posts").all()
-for user in users:
+users = User.with_("posts").all()  # 1 query for users + 1 query for all related posts
+for user in users:  # No matter how many users, no additional queries
     print(f"User {user.username} has {len(user.posts)} posts")  # No additional queries
+# Total: 2 queries
 ```
+
+#### Debugging N+1 Problems
+
+To identify N+1 problems, watch for patterns in your logs where the same type of query is repeated many times with different parameters:
+
+```python
+# Enable detailed query logging
+configure_logging(level=logging.DEBUG, component="query")
+
+# Execute code that might have N+1 issues
+users = User.all()
+for user in users:
+    _ = user.posts  # This will trigger N separate queries if not eager loaded
+```
+
+#### Database Indexing for Relationship Performance
+
+Proper database indexing is crucial for relationship performance:
+
+```python
+# Example of creating indexes in a migration
+def up(self):
+    # Create index on foreign key columns
+    self.add_index("posts", "user_id")  # Speeds up User.posts relationship
+    
+    # Create composite indexes for multiple conditions
+    self.add_index("posts", ["user_id", "published"])  # Speeds up User.posts.where(published=True)
+```
+
+When debugging relationship performance issues:
+
+1. Check if appropriate indexes exist on foreign key columns
+2. Use `explain()` to see if your indexes are being used
+3. Consider adding composite indexes for frequently filtered relationships
+4. Monitor query execution time with and without indexes to measure improvement
 
 ### Unexpected Query Results
 
