@@ -1,5 +1,7 @@
 # Cross-database Queries
 
+> **⚠️ IMPORTANT NOTE:** The multiple database connection functionality (including master-slave configuration) described in this document is **not yet implemented** and may undergo significant changes in future releases. Cross-database transactions described here are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve cross-database atomicity**.
+
 This section covers how to work with multiple databases simultaneously in Python ActiveRecord, including connecting to different database systems, integrating heterogeneous data sources, synchronizing data between databases, and handling transactions across multiple databases.
 
 ## Contents
@@ -245,6 +247,8 @@ def process_user_events():
 ```
 
 ## Cross-database Transaction Handling
+
+> **⚠️ IMPORTANT NOTE:** Cross-database transactions described here are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve true cross-database atomicity**. The strategies described below are workarounds for this limitation.
 
 Handling transactions across multiple databases is challenging because most database systems don't support distributed transactions natively. Python ActiveRecord provides several strategies to manage cross-database operations.
 

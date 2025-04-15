@@ -1,5 +1,7 @@
 # Cross-database Connection Configuration
 
+> **⚠️ IMPORTANT NOTE:** The multiple database connection functionality (including master-slave configuration) described in this document is **not yet implemented** and may undergo significant changes in future releases.
+
 This document provides detailed information about configuring and managing connections to multiple databases in Python ActiveRecord, including how to set up connections to different database systems, manage connection pools, and switch between connections at runtime.
 
 ## Basic Connection Configuration

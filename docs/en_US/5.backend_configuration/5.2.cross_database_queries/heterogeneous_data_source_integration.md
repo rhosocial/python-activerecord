@@ -1,5 +1,7 @@
 # Heterogeneous Data Source Integration
 
+> **⚠️ IMPORTANT NOTE:** The heterogeneous data source integration functionality described in this document is **not yet implemented** and may undergo significant changes in future releases. Cross-database operations described here cannot achieve true cross-database atomicity.
+
 This document explains how Python ActiveRecord can be used to integrate data from different types of database systems, allowing you to work with heterogeneous data sources in a unified way.
 
 ## Overview

@@ -2,13 +2,16 @@
 
 Python ActiveRecord provides support for multiple database systems, allowing you to use the same ActiveRecord API regardless of the underlying database. This section provides detailed information about each supported database system, including configuration options, specific features, and optimization techniques.
 
+> **Important Note**: Currently, only SQLite is included as the built-in default backend. Other database backends (MySQL, MariaDB, PostgreSQL, Oracle, SQL Server) are being developed as separate packages and will be released in the future. The documentation for these backends is provided as a reference for upcoming features.
+
 ## Contents
 
-- [MySQL/MariaDB](mysql_mariadb.md) - Configuration and features for MySQL and MariaDB
-- [PostgreSQL](postgresql.md) - Working with PostgreSQL databases
-- [Oracle](oracle.md) - Oracle database integration
-- [SQL Server](sql_server.md) - Microsoft SQL Server support
-- [SQLite](sqlite.md) - Lightweight file-based database support
+- [MySQL](mysql.md) - Configuration and features for MySQL database (coming soon)
+- [MariaDB](mariadb.md) - Configuration and features for MariaDB database (coming soon)
+- [PostgreSQL](postgresql.md) - Working with PostgreSQL databases (coming soon)
+- [Oracle](oracle.md) - Oracle database integration (coming soon)
+- [SQL Server](sql_server.md) - Microsoft SQL Server support (coming soon)
+- [SQLite](sqlite.md) - Lightweight file-based database support (built-in)
 
 ## Common Configuration
 

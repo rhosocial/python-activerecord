@@ -1,5 +1,7 @@
 # Data Synchronization Strategies
 
+> **⚠️ IMPORTANT NOTE:** The data synchronization functionality described in this document is **not yet implemented** and may undergo significant changes in future releases. The synchronization strategies described here are theoretical and depend on multiple database connection features that are still under development.
+
 This document outlines various strategies for synchronizing data between multiple databases when using Python ActiveRecord in a cross-database environment.
 
 ## Overview

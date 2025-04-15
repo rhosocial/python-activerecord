@@ -80,10 +80,7 @@ except RecordNotFound:
 
 ```python
 # 通过条件查找单个记录
-user = User.find_one({"username": "johndoe"})
-
-# 查找所有匹配条件的记录
-active_users = User.find_all({"status": "active"})
+user = User.find_one(1)  # 通过主键查找
 
 # 查找所有记录
 all_users = User.find_all()
@@ -96,11 +93,48 @@ all_users = User.find_all()
 ```python
 # 查找年龄大于25的活跃用户，按创建时间排序
 users = User.query()\
-    .where({"status": "active"})\
-    .where("age > ?", 25)\
+    .where("status = ?", ("active",))\
+    .where("age > ?", (25,))\
     .order_by("created_at DESC")\
     .all()
 ```
+
+### 使用OR条件查询
+
+当您需要使用OR逻辑连接多个条件时，可以使用`or_where`方法：
+
+```python
+# 查找状态为活跃或VIP的用户
+users = User.query()\
+    .where("status = ?", ("active",))\
+    .or_where("status = ?", ("vip",))\
+    .all()
+# 等同于: SELECT * FROM users WHERE status = 'active' OR status = 'vip'
+
+# 组合AND和OR条件
+users = User.query()\
+    .where("status = ?", ("active",))\
+    .where("age > ?", (25,))\
+    .or_where("vip_level > ?", (0,))\
+    .all()
+# 等同于: SELECT * FROM users WHERE (status = 'active' AND age > 25) OR vip_level > 0
+```
+
+您还可以使用条件组来创建更复杂的逻辑组合：
+
+```python
+# 使用条件组创建复杂查询
+users = User.query()\
+    .where("status = ?", ("active",))\
+    .start_or_group()\
+    .where("age > ?", (25,))\
+    .or_where("vip_level > ?", (0,))\
+    .end_or_group()\
+    .all()
+# 等同于: SELECT * FROM users WHERE status = 'active' AND (age > 25 OR vip_level > 0)
+```
+
+> **注意**：查询条件必须使用SQL表达式和参数占位符，不支持直接传入字典。参数值必须以元组形式传递，即使只有一个参数也需要加逗号：`(value,)`。
 
 ## 更新记录
 
@@ -119,12 +153,14 @@ if user:
 
 ### 批量更新
 
-对于批量更新，可以使用查询构建器：
+> **注意**：批量更新功能目前暂未实现。
+
+理论上，批量更新将允许您使用查询构建器一次更新多条记录：
 
 ```python
-# 将所有不活跃用户的状态更新为已归档
+# 将所有不活跃用户的状态更新为已归档（示例代码，目前不可用）
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ("inactive",))\
     .update({"status": "archived"})
 
 print(f"已更新{affected_rows}条记录")
@@ -185,6 +221,8 @@ all_users = User.query().with_deleted().all()
 # 只查询已删除的记录
 deleted_users = User.query().only_deleted().all()
 ```
+
+> **重要**：即使记录被删除后，实例对象依然存在于内存中，您仍然可以修改其属性并调用`save()`方法将其恢复或更新到数据库。对于软删除的记录，这将自动恢复记录；对于硬删除的记录，这将创建一个具有相同属性的新记录（可能具有新的主键）。
 
 ### 删除过程中的生命周期事件
 

@@ -99,7 +99,8 @@
 
 ## [5. Backend Configuration](5.backend_configuration/README.md)
 ### 5.1 Supported Databases
-- [MySQL/MariaDB](5.backend_configuration/5.1.supported_databases/mysql_mariadb.md)
+- [MySQL](5.backend_configuration/5.1.supported_databases/mysql.md)
+- [MariaDB](5.backend_configuration/5.1.supported_databases/mariadb.md)
 - [PostgreSQL](5.backend_configuration/5.1.supported_databases/postgresql.md)
 - [Oracle](5.backend_configuration/5.1.supported_databases/oracle.md)
 - [SQL Server](5.backend_configuration/5.1.supported_databases/sql_server.md)

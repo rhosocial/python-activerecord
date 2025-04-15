@@ -79,11 +79,8 @@ except RecordNotFound:
 You can use conditions to find records:
 
 ```python
-# Find a single record by condition
-user = User.find_one({"username": "johndoe"})
-
-# Find all records matching a condition
-active_users = User.find_all({"status": "active"})
+# Find a single record by primary key
+user = User.find_one(1)  # Query by primary key
 
 # Find all records
 all_users = User.find_all()
@@ -96,11 +93,48 @@ For more complex queries, you can use ActiveQuery:
 ```python
 # Find active users older than 25, ordered by creation date
 users = User.query()\
-    .where({"status": "active"})\
-    .where("age > ?", 25)\
+    .where("status = ?", ("active",))\
+    .where("age > ?", (25,))\
     .order_by("created_at DESC")\
     .all()
 ```
+
+### Using OR Conditions
+
+When you need to connect multiple conditions with OR logic, you can use the `or_where` method:
+
+```python
+# Find users with active or VIP status
+users = User.query()\
+    .where("status = ?", ("active",))\
+    .or_where("status = ?", ("vip",))\
+    .all()
+# Equivalent to: SELECT * FROM users WHERE status = 'active' OR status = 'vip'
+
+# Combining AND and OR conditions
+users = User.query()\
+    .where("status = ?", ("active",))\
+    .where("age > ?", (25,))\
+    .or_where("vip_level > ?", (0,))\
+    .all()
+# Equivalent to: SELECT * FROM users WHERE (status = 'active' AND age > 25) OR vip_level > 0
+```
+
+You can also use condition groups to create more complex logical combinations:
+
+```python
+# Using condition groups for complex queries
+users = User.query()\
+    .where("status = ?", ("active",))\
+    .start_or_group()\
+    .where("age > ?", (25,))\
+    .or_where("vip_level > ?", (0,))\
+    .end_or_group()\
+    .all()
+# Equivalent to: SELECT * FROM users WHERE status = 'active' AND (age > 25 OR vip_level > 0)
+```
+
+> **Note**: Query conditions must use SQL expressions and parameter placeholders. Dictionary input is not supported. Parameter values must be passed as tuples, even for single values: `(value,)`.
 
 ## Updating Records
 
@@ -119,12 +153,14 @@ if user:
 
 ### Batch Updates
 
-For batch updates, you can use the query builder:
+> **Note**: Batch update functionality is not yet implemented.
+
+Theoretically, batch updates would allow you to update multiple records at once using the query builder:
 
 ```python
-# Update all inactive users to archived status
+# Update all inactive users to archived status (example code, currently unavailable)
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ("inactive",))\
     .update({"status": "archived"})
 
 print(f"Updated {affected_rows} records")
@@ -185,6 +221,8 @@ all_users = User.query().with_deleted().all()
 # Query only deleted records
 deleted_users = User.query().only_deleted().all()
 ```
+
+> **Important**: Even after a record is deleted, the instance object still exists in memory. You can still modify its attributes and call the `save()` method to restore or update it to the database. For soft-deleted records, this will automatically restore the record; for hard-deleted records, this will create a new record with the same attributes (possibly with a new primary key).
 
 ### Lifecycle Events During Deletion
 

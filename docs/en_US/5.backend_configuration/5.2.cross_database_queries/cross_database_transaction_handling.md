@@ -1,5 +1,7 @@
 # Cross-database Transaction Handling
 
+> **⚠️ IMPORTANT NOTE:** Cross-database transactions described in this document are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve true cross-database atomicity**. The implementation strategies described here are workarounds for this fundamental limitation and may undergo significant changes in future releases.
+
 This document explains how to handle transactions that span multiple databases in Python ActiveRecord, including the challenges, available approaches, and best practices.
 
 ## Understanding Cross-database Transactions

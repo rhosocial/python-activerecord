@@ -2,13 +2,16 @@
 
 Python ActiveRecord提供对多种数据库系统的支持，使您能够使用相同的ActiveRecord API，而不管底层数据库是什么。本节提供了关于每个支持的数据库系统的详细信息，包括配置选项、特定功能和优化技术。
 
+> **重要提示**：目前，只有SQLite作为内置的默认后端包含在内。其他数据库后端（MySQL/MariaDB、PostgreSQL、Oracle、SQL Server）正在作为单独的代码包开发中，将在未来陆续发布。这些后端的文档作为即将推出的功能的参考提供。
+
 ## 目录
 
-- [MySQL/MariaDB](mysql_mariadb.md) - MySQL和MariaDB的配置和功能
-- [PostgreSQL](postgresql.md) - 使用PostgreSQL数据库
-- [Oracle](oracle.md) - Oracle数据库集成
-- [SQL Server](sql_server.md) - Microsoft SQL Server支持
-- [SQLite](sqlite.md) - 轻量级文件型数据库支持
+- [MySQL](mysql.md) - MySQL数据库的配置和功能（即将推出）
+- [MariaDB](mariadb.md) - MariaDB数据库的配置和功能（即将推出）
+- [PostgreSQL](postgresql.md) - 使用PostgreSQL数据库（即将推出）
+- [Oracle](oracle.md) - Oracle数据库集成（即将推出）
+- [SQL Server](sql_server.md) - Microsoft SQL Server支持（即将推出）
+- [SQLite](sqlite.md) - 轻量级文件型数据库支持（内置）
 
 ## 通用配置
 

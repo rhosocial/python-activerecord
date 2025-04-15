@@ -99,7 +99,10 @@
 
 ## [5. 后端配置](5.backend_configuration/README.md)
 ### 5.1 支持的数据库
-- [MySQL/MariaDB](5.backend_configuration/5.1.supported_databases/mysql_mariadb.md)
+> **注意：** 除SQLite外的其他数据库后端都是额外的代码包，正在开发中。
+
+- [MySQL](5.backend_configuration/5.1.supported_databases/mysql.md)
+- [MariaDB](5.backend_configuration/5.1.supported_databases/mariadb.md)
 - [PostgreSQL](5.backend_configuration/5.1.supported_databases/postgresql.md)
 - [Oracle](5.backend_configuration/5.1.supported_databases/oracle.md)
 - [SQL Server](5.backend_configuration/5.1.supported_databases/sql_server.md)
