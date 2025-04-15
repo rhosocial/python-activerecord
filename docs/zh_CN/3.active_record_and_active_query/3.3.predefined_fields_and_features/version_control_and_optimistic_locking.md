@@ -17,7 +17,7 @@ from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.field import OptimisticLockMixin
 
 class Account(OptimisticLockMixin, ActiveRecord):
-    __tablename__ = 'accounts'
+    __table_name__ = 'accounts'
     
     name: str
     balance: float
@@ -133,7 +133,7 @@ from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, OptimisticLockMixin, SoftDeleteMixin
 
 class Account(TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, ActiveRecord):
-    __tablename__ = 'accounts'
+    __table_name__ = 'accounts'
     
     name: str
     balance: float

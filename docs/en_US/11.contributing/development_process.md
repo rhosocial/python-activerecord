@@ -94,6 +94,30 @@ Python ActiveRecord uses GitHub Actions for continuous integration. When you sub
 - Rebase your branch before submitting a pull request
 - Avoid merge commits when possible
 
+## Repository Release Conventions
+
+1. **Permanent Branches**:
+   - The repository maintains two permanent branches: `main` and `docs`.
+   - Non-permanent branches include specific release version branches and feature branches.
+
+2. **Branch Creation Rules**:
+   - When developing new features or fixing existing issues, always create a branch based on the `main` branch or a specific release version branch.
+   - After development is mature, merge back to the target branch.
+   - Recommended branch naming conventions:
+     - Feature branches should start with `feature-` followed by the GitHub issue number
+     - Bug fix branches should start with `issue-` followed by the GitHub issue number
+
+3. **Version Release Process**:
+   - All version releases follow a sequential approach, with each major version release based on the `main` branch.
+   - After a release, a major version branch is immediately created.
+   - The `main` branch has continuous integration enabled, and feature branches attempting to merge into `main` will automatically trigger continuous integration.
+   - Passing continuous integration is a necessary condition for merging into the `main` branch.
+
+4. **Documentation Branch Management**:
+   - The `docs` branch is based on the `main` branch and is regularly synchronized with changes from the `main` branch to ensure it remains up-to-date.
+   - The `docs` branch is only responsible for receiving documentation updates for the main development version.
+   - After changes are merged into the `docs` branch, they are promptly synchronized back to the `main` branch.
+
 ## Communication
 
 If you have questions during the development process:

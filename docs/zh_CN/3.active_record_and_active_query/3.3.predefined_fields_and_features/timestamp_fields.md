@@ -20,7 +20,7 @@ from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
-    __tablename__ = 'articles'
+    __table_name__ = 'articles'
     
     title: str
     content: str
@@ -81,7 +81,7 @@ from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
-    __tablename__ = 'articles'
+    __table_name__ = 'articles'
     __timezone__ = pytz.timezone('UTC')  # 对时间戳使用UTC
     
     title: str
@@ -108,7 +108,7 @@ class CustomTimestampMixin(TimestampMixin):
             instance.last_viewed_at = datetime.now(self.__timezone__)
 
 class Article(CustomTimestampMixin, ActiveRecord):
-    __tablename__ = 'articles'
+    __table_name__ = 'articles'
     
     title: str
     content: str

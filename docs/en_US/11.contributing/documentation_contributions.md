@@ -77,13 +77,31 @@ For markdown documentation:
 - Link to other relevant documentation
 - Include screenshots or diagrams when helpful
 
+## Translation Guidelines
+
+When translating documentation:
+
+1. **Maintain Technical Accuracy**: Ensure technical terms are correctly translated
+2. **Consider Cultural Context**: Adapt to the cultural norms and conventions of the target language
+3. **Maintain Consistent Terminology**: Create and use a consistent glossary for technical terms
+4. **Review Translations**: Have others review your translations when possible
+5. **Translation Directory Naming Convention**:
+   - Follow the latest revision of ISO 639 standard
+   - Use lowercase for language codes (e.g., `zh`, `en`)
+   - Use uppercase for country/region codes (e.g., `CN`, `US`)
+   - Separate language and country/region codes with an underscore (e.g., `zh_CN`, `en_US`)
+6. **Code Comments and Messages**:
+   - Comments, log messages, and exception messages in code should currently be in English only
+   - Unless specifically designed for a particular region or language feature
+
 ## Documentation Workflow
 
-1. **Make Changes**: Update or create documentation files
-
-2. **Preview Changes**: For markdown files, preview them locally before submitting
-
-3. **Submit a Pull Request**:
+1. **Use the docs Branch**: Documentation improvements should only be submitted to the docs branch
+2. **Limit the Scope of Changes**:
+   - Only modify files within the `docs/` directory
+   - Do not include executable scripts, binary files, etc.
+3. **Preview Changes**: For markdown files, preview them locally before submitting
+4. **Submit a Pull Request**:
    - Follow the guidelines in the [Development Process](development_process.md)
    - Describe what documentation you've added or improved
    - Request review from someone familiar with the topic

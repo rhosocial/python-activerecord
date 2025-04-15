@@ -20,7 +20,7 @@ from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.field import SoftDeleteMixin
 
 class Article(SoftDeleteMixin, ActiveRecord):
-    __tablename__ = 'articles'
+    __table_name__ = 'articles'
     
     title: str
     content: str
@@ -123,7 +123,7 @@ from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin
 
 class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
-    __tablename__ = 'articles'
+    __table_name__ = 'articles'
     
     title: str
     content: str
