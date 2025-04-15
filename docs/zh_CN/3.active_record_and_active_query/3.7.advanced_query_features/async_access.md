@@ -1,10 +1,12 @@
 # 异步访问
 
+> **注意**：本文档中描述的异步访问功能目前**目前尚未实现**，且设计可能会在未来版本中有所调整。本文档仅概述了计划中的功能。
+
 本文档说明如何使用ActiveRecord的异步数据库操作来提高I/O绑定应用程序的性能。
 
 ## 介绍
 
-异步编程允许您的应用程序在等待数据库操作完成的同时执行其他任务，这可以显著提高I/O绑定应用程序的性能和响应能力。ActiveRecord通过兼容的异步数据库驱动程序提供对异步数据库操作的支持。
+异步编程允许您的应用程序在等待数据库操作完成的同时执行其他任务，这可以显著提高I/O绑定应用程序的性能和响应能力。ActiveRecord计划通过兼容的异步数据库驱动程序提供对异步数据库操作的支持。
 
 ## 何时使用异步访问
 
@@ -45,7 +47,7 @@ import asyncio
 from rhosocial.activerecord import ActiveRecord
 
 class User(ActiveRecord):
-    __table__ = 'users'
+    __table_name__ = 'users'
 
 async def get_users():
     # 异步查询执行

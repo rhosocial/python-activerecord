@@ -21,7 +21,7 @@ The simplest way to define query scopes is to add methods to your model class th
 from rhosocial.activerecord import ActiveRecord
 
 class Article(ActiveRecord):
-    __table__ = 'articles'
+    __table_name__ = 'articles'
     
     @classmethod
     def published(cls):
@@ -87,11 +87,11 @@ Then apply these mixins to your models:
 
 ```python
 class User(ActiveRecord, TimeScopeMixin, SoftDeleteScopeMixin):
-    __table__ = 'users'
+    __table_name__ = 'users'
     # ...
 
 class Post(ActiveRecord, TimeScopeMixin, SoftDeleteScopeMixin):
-    __table__ = 'posts'
+    __table_name__ = 'posts'
     # ...
 ```
 
@@ -129,7 +129,7 @@ Scopes can accept parameters to make them more flexible:
 
 ```python
 class Product(ActiveRecord):
-    __table__ = 'products'
+    __table_name__ = 'products'
     
     @classmethod
     def price_range(cls, min_price, max_price):
@@ -169,7 +169,7 @@ You can implement default scopes that are automatically applied to all queries f
 
 ```python
 class Post(ActiveRecord):
-    __table__ = 'posts'
+    __table_name__ = 'posts'
     
     @classmethod
     def query(cls):
@@ -182,13 +182,14 @@ With this implementation, all queries on the `Post` model will automatically inc
 
 ## Unscoping
 
-To remove a default scope or reset specific query conditions, you can use the `unscope` method:
+To remove a default scope or reset specific query conditions, you can create a fresh query instance:
 
 ```python
-# Remove specific conditions
-all_posts = Post.query().unscope('where').all()  # Removes all WHERE conditions
+# Create a completely fresh query without any default scopes
+from rhosocial.activerecord.query import ActiveQuery
+all_posts = ActiveQuery(Post).all()  # Creates a new query instance directly
 
-# Or use a completely fresh query
+# Or use the query class constructor
 all_posts = Post.query().__class__(Post).all()  # Creates a new query instance
 ```
 
@@ -206,6 +207,46 @@ all_posts = Post.query().__class__(Post).all()  # Creates a new query instance
 
 6. **Avoid Side Effects**: Scopes should only modify the query, not perform other actions.
 
+## Custom Query Classes
+
+In addition to query scopes, you can extend query functionality through custom query classes. By setting the `__query_class__` attribute on your model, you can replace the default query instance:
+
+```python
+from rhosocial.activerecord import ActiveRecord
+from .queries import CustomArticleQuery
+
+class Article(ActiveRecord):
+    __table_name__ = 'articles'
+    __query_class__ = CustomArticleQuery  # Specify the custom query class
+    
+    # Model definition continues...
+```
+
+### Creating Additional Query Methods
+
+You can also create additional query methods that coexist with the original query method:
+
+```python
+class Article(ActiveRecord):
+    __table_name__ = 'articles'
+    
+    @classmethod
+    def query_special(cls):
+        """Returns a special query instance."""
+        from .queries import SpecialArticleQuery
+        return SpecialArticleQuery(cls)
+```
+
+This way, you can use both default and special queries:
+
+```python
+# Using default query
+regular_results = Article.query().all()
+
+# Using special query
+special_results = Article.query_special().all()
+```
+
 ## Conclusion
 
-Query scopes are a powerful feature that helps you organize your query logic, reduce code duplication, and create more readable and maintainable code. By defining common query patterns as scopes, you can simplify complex queries and ensure consistent behavior across your application.
+Query scopes are a powerful feature that helps you organize your query logic, reduce code duplication, and create more readable and maintainable code. By defining common query patterns as scopes and utilizing custom query classes, you can simplify complex queries and ensure consistent behavior across your application while maintaining flexibility.

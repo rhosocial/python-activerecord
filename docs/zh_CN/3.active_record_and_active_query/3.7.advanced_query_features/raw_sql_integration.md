@@ -21,7 +21,7 @@ ActiveRecord提供了几种将原生SQL集成到应用程序中的方法，同�
 from rhosocial.activerecord import ActiveRecord
 
 class Product(ActiveRecord):
-    __table__ = 'products'
+    __table_name__ = 'products'
 
 # 在WHERE子句中使用原生SQL
 products = Product.query().where('price > 100 AND category_id IN (1, 2, 3)').all()

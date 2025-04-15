@@ -42,7 +42,7 @@ from .queries import UserQuery
 class User(ActiveRecord):
     """带有自定义查询类的用户模型。"""
     
-    __table__ = 'users'
+    __table_name__ = 'users'
     __query_class__ = UserQuery  # 指定自定义查询类
     
     # 模型定义继续...

@@ -14,7 +14,7 @@ ActiveRecord's query builder is designed to support dynamic construction through
 from rhosocial.activerecord import ActiveRecord
 
 class Product(ActiveRecord):
-    __table__ = 'products'
+    __table_name__ = 'products'
 
 def search_products(filters):
     """Search products with dynamic filters."""

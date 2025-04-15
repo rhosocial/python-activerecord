@@ -21,7 +21,7 @@
 from rhosocial.activerecord import ActiveRecord
 
 class Article(ActiveRecord):
-    __table__ = 'articles'
+    __table_name__ = 'articles'
     
     @classmethod
     def published(cls):
@@ -87,11 +87,11 @@ class SoftDeleteScopeMixin:
 
 ```python
 class User(ActiveRecord, TimeScopeMixin, SoftDeleteScopeMixin):
-    __table__ = 'users'
+    __table_name__ = 'users'
     # ...
 
 class Post(ActiveRecord, TimeScopeMixin, SoftDeleteScopeMixin):
-    __table__ = 'posts'
+    __table_name__ = 'posts'
     # ...
 ```
 
@@ -129,7 +129,7 @@ results = Article.published()\
 
 ```python
 class Product(ActiveRecord):
-    __table__ = 'products'
+    __table_name__ = 'products'
     
     @classmethod
     def price_range(cls, min_price, max_price):
@@ -169,7 +169,7 @@ results = Product.price_range(0, 100)\
 
 ```python
 class Post(ActiveRecord):
-    __table__ = 'posts'
+    __table_name__ = 'posts'
     
     @classmethod
     def query(cls):
@@ -182,13 +182,14 @@ class Post(ActiveRecord):
 
 ## 取消作用域
 
-要移除默认作用域或重置特定查询条件，可以使用`unscope`方法：
+要移除默认作用域或重置特定查询条件，可以创建一个全新的查询实例：
 
 ```python
-# 移除特定条件
-all_posts = Post.query().unscope('where').all()  # 移除所有WHERE条件
+# 创建一个没有任何默认作用域的全新查询
+from rhosocial.activerecord.query import ActiveQuery
+all_posts = ActiveQuery(Post).all()  # 直接创建一个新的查询实例
 
-# 或使用全新的查询
+# 或使用查询类构造函数
 all_posts = Post.query().__class__(Post).all()  # 创建新的查询实例
 ```
 
@@ -206,6 +207,46 @@ all_posts = Post.query().__class__(Post).all()  # 创建新的查询实例
 
 6. **使用参数化查询**：始终使用参数化查询来防止SQL注入。
 
+## 自定义查询类
+
+除了使用查询作用域，您还可以通过自定义查询类来扩展查询功能。通过设置模型的`__query_class__`属性，您可以替换默认的查询实例：
+
+```python
+from rhosocial.activerecord import ActiveRecord
+from .queries import CustomArticleQuery
+
+class Article(ActiveRecord):
+    __table_name__ = 'articles'
+    __query_class__ = CustomArticleQuery  # 指定自定义查询类
+    
+    # 模型定义继续...
+```
+
+### 创建额外的查询方法
+
+您还可以创建额外的查询方法与原查询方法共存：
+
+```python
+class Article(ActiveRecord):
+    __table_name__ = 'articles'
+    
+    @classmethod
+    def query_special(cls):
+        """返回特殊查询实例。"""
+        from .queries import SpecialArticleQuery
+        return SpecialArticleQuery(cls)
+```
+
+这样，您可以同时使用默认查询和特殊查询：
+
+```python
+# 使用默认查询
+regular_results = Article.query().all()
+
+# 使用特殊查询
+special_results = Article.query_special().all()
+```
+
 ## 结论
 
-查询作用域是ActiveRecord中一个强大的功能，它允许您创建可重用、可组合的查询片段。通过有效使用作用域，您可以使数据库交互更加简洁、一致和安全，同时提高代码的可维护性。
+查询作用域是ActiveRecord中一个强大的功能，它允许您创建可重用、可组合的查询片段。通过有效使用作用域和自定义查询类，您可以使数据库交互更加简洁、一致和安全，同时提高代码的可维护性和灵活性。

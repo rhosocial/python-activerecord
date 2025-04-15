@@ -14,7 +14,7 @@ ActiveRecord的查询构建器设计为通过方法链支持动态构建。您�
 from rhosocial.activerecord import ActiveRecord
 
 class Product(ActiveRecord):
-    __table__ = 'products'
+    __table_name__ = 'products'
 
 def search_products(filters):
     """使用动态过滤器搜索产品。"""

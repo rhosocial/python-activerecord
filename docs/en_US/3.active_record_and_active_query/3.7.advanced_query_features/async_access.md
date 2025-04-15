@@ -1,10 +1,12 @@
 # Async Access
 
+> **Note**: The async access feature described in this document is currently **not yet  implemented** and the design may be subject to change in future releases. This documentation outlines the planned functionality.
+
 This document explains how to use asynchronous database operations with ActiveRecord to improve performance in I/O-bound applications.
 
 ## Introduction
 
-Asynchronous programming allows your application to perform other tasks while waiting for database operations to complete, which can significantly improve performance and responsiveness in I/O-bound applications. ActiveRecord provides support for asynchronous database operations through compatible async database drivers.
+Asynchronous programming allows your application to perform other tasks while waiting for database operations to complete, which can significantly improve performance and responsiveness in I/O-bound applications. ActiveRecord plans to provide support for asynchronous database operations through compatible async database drivers.
 
 ## When to Use Async Access
 
@@ -45,7 +47,7 @@ import asyncio
 from rhosocial.activerecord import ActiveRecord
 
 class User(ActiveRecord):
-    __table__ = 'users'
+    __table_name__ = 'users'
 
 async def get_users():
     # Async query execution
