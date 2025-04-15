@@ -230,6 +230,50 @@ class JSONEnhancedPostgreSQLBackend(PostgreSQLBackend):
 4. **全面测试**：为您的扩展后端创建全面的测试
 5. **记录更改**：清晰记录您的扩展后端中的更改和添加内容
 
+## 实现位置的灵活性
+
+虽然标准后端实现通常位于`rhosocial.activerecord.backend.impl`目录下，但您的扩展后端可以放置在项目的任何位置：
+
+1. **在impl目录中**：如果您计划将扩展贡献回主项目，可以将其放在impl目录中
+2. **在自立目录中**：如果您的扩展是特定于应用程序的或将作为单独的包发布，可以将其放在任何Python模块中
+
+```python
+# 在自定义位置实现的扩展后端
+from your_package.database.backends import CustomSQLiteBackend
+
+# 配置ActiveRecord使用您的扩展后端
+from rhosocial.activerecord import configure
+configure(backend=CustomSQLiteBackend(database='your_database.db'))
+```
+
+## 测试您的扩展
+
+彻底测试您的扩展后端至关重要：
+
+1. **模仿现有后端测试**：查看Python ActiveRecord的测试套件，了解如何测试标准后端
+2. **确保分支覆盖完整**：测试所有重写方法的各种条件和边缘情况
+3. **模拟各种使用场景**：测试您的后端在不同查询类型、事务和错误条件下的行为
+
+```python
+import unittest
+from your_package.database.backends import ExtendedSQLiteBackend
+
+class TestExtendedSQLiteBackend(unittest.TestCase):
+    def setUp(self):
+        self.backend = ExtendedSQLiteBackend(database=':memory:')
+        self.backend.connect()
+        
+    def tearDown(self):
+        self.backend.disconnect()
+        
+    def test_custom_functionality(self):
+        # 测试您添加的自定义功能
+        result = self.backend.execute("SELECT sqlite_version()")
+        self.assertIsNotNone(result)
+        
+    # 添加更多测试...
+```
+
 ## 限制和注意事项
 
 1. **升级兼容性**：升级到较新版本的Python ActiveRecord时，您的扩展可能会中断

@@ -8,7 +8,8 @@
 - [统一类型系统](#统一类型系统)
 - [数据库特定类型映射](#数据库特定类型映射)
   - [SQLite](#sqlite)
-  - [MySQL/MariaDB](#mysqlmariadb)
+  - [MySQL](#mysql)
+  - [MariaDB](#mariadb)
   - [PostgreSQL](#postgresql)
   - [Oracle](#oracle)
   - [SQL Server](#sql-server)
@@ -95,9 +96,9 @@ class DatabaseType(Enum):
 | ARRAY             | TEXT              | 存储为JSON字符串 |
 | ENUM              | TEXT              | 存储为字符串 |
 
-### MySQL/MariaDB
+### MySQL
 
-| ActiveRecord类型 | MySQL/MariaDB原生类型 | 备注 |
+| ActiveRecord类型 | MySQL原生类型 | 备注 |
 |-------------------|--------------------------|-------|
 | CHAR              | CHAR                     | |
 | VARCHAR           | VARCHAR                  | |
@@ -114,7 +115,31 @@ class DatabaseType(Enum):
 | TIMESTAMP         | TIMESTAMP                | |
 | BOOLEAN           | TINYINT(1)               | |
 | BLOB              | BLOB                     | |
-| JSON              | JSON                     | MySQL 5.7+和MariaDB 10.2+中的原生JSON类型 |
+| JSON              | JSON                     | MySQL 5.7+中的原生JSON类型 |
+| UUID              | CHAR(36)                 | |
+| ARRAY             | JSON                     | 存储为JSON数组 |
+| ENUM              | ENUM                     | 原生ENUM类型 |
+
+### MariaDB
+
+| ActiveRecord类型 | MariaDB原生类型 | 备注 |
+|-------------------|--------------------------|-------|
+| CHAR              | CHAR                     | |
+| VARCHAR           | VARCHAR                  | |
+| TEXT              | TEXT                     | |
+| INTEGER           | INT                      | |
+| BIGINT            | BIGINT                   | |
+| SMALLINT          | SMALLINT                 | |
+| FLOAT             | FLOAT                    | |
+| DOUBLE            | DOUBLE                   | |
+| DECIMAL           | DECIMAL                  | |
+| DATE              | DATE                     | |
+| TIME              | TIME                     | |
+| DATETIME          | DATETIME                 | |
+| TIMESTAMP         | TIMESTAMP                | |
+| BOOLEAN           | TINYINT(1)               | |
+| BLOB              | BLOB                     | |
+| JSON              | JSON                     | MariaDB 10.2+中的原生JSON类型 |
 | UUID              | CHAR(36)                 | |
 | ARRAY             | JSON                     | 存储为JSON数组 |
 | ENUM              | ENUM                     | 原生ENUM类型 |

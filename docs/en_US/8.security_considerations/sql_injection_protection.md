@@ -23,10 +23,10 @@ Python ActiveRecord uses parameterized queries by default, which is the most eff
 
 ```python
 # Safe: Using ActiveRecord's query methods
-users = User.objects.filter(username=username_input)
+users = User.query().where('username = ?', (username_input,)).all()
 
 # Safe: Using parameterized queries with raw SQL
-users = User.objects.raw_query("SELECT * FROM users WHERE username = ?", [username_input])
+users = User.query().backend.execute("SELECT * FROM users WHERE username = ?", (username_input,))
 ```
 
 ## Common Pitfalls to Avoid
@@ -36,11 +36,11 @@ users = User.objects.raw_query("SELECT * FROM users WHERE username = ?", [userna
 ```python
 # UNSAFE - vulnerable to SQL injection
 query = f"SELECT * FROM users WHERE username = '{username_input}'"
-users = User.objects.execute_raw(query)
+users = User.query().backend.execute(query)
 
 # SAFE - using parameterized queries
 query = "SELECT * FROM users WHERE username = ?"
-users = User.objects.execute_raw(query, [username_input])
+users = User.query().backend.execute(query, (username_input,))
 ```
 
 ### Dynamic Table or Column Names
@@ -48,17 +48,16 @@ users = User.objects.execute_raw(query, [username_input])
 When you need to use dynamic table or column names, Python ActiveRecord provides safe methods to validate and escape these identifiers:
 
 ```python
-from rhosocial.activerecord.backend.dialect import escape_identifier
-
-# Safe way to use dynamic table names
-table_name = escape_identifier(user_input_table_name)
+# Note: Use the identifier escaping functionality provided by your database backend
+# This is just an example, actual implementation may vary by backend
+table_name = User.query().backend.dialect.escape_identifier(user_input_table_name)
 query = f"SELECT * FROM {table_name} WHERE id = ?"
-results = Model.objects.execute_raw(query, [id_value])
+results = User.query().backend.execute(query, (id_value,))
 ```
 
 ## Best Practices
 
-1. **Use ActiveRecord's Query Methods**: Whenever possible, use the built-in query methods like `filter()`, `exclude()`, etc., which automatically use parameterized queries.
+1. **Use ActiveRecord's Query Methods**: Whenever possible, use the built-in query methods like `query().where()`, `query().select()`, etc., which automatically use parameterized queries.
 
 2. **Parameterize All User Input**: When using raw SQL, always use parameterized queries with placeholders (`?`) instead of string concatenation.
 

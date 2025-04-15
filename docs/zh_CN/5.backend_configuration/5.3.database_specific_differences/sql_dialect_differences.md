@@ -21,7 +21,8 @@
   - [大小写敏感性](#大小写敏感性)
 - [数据库特定SQL功能](#数据库特定sql功能)
   - [SQLite](#sqlite)
-  - [MySQL/MariaDB](#mysqlmariadb)
+  - [MySQL](#mysql)
+  - [MariaDB](#mariadb)
   - [PostgreSQL](#postgresql)
   - [Oracle](#oracle)
   - [SQL Server](#sql-server)
@@ -59,9 +60,10 @@ Python ActiveRecord通过其查询构建器和SQL生成系统抽象了许多方�
 不同的数据库使用不同的占位符样式进行参数化查询：
 
 | 数据库        | 占位符样式 | 示例                          |
-|---------------|-------------------|------------------------------|
+|---------------|-------------------|-------------------------------|
 | SQLite        | `?`               | `SELECT * FROM users WHERE id = ?` |
-| MySQL/MariaDB | `?`               | `SELECT * FROM users WHERE id = ?` |
+| MySQL         | `?`               | `SELECT * FROM users WHERE id = ?` |
+| MariaDB       | `?`               | `SELECT * FROM users WHERE id = ?` |
 | PostgreSQL    | `$n`              | `SELECT * FROM users WHERE id = $1` |
 | Oracle        | `:name`           | `SELECT * FROM users WHERE id = :id` |
 | SQL Server    | `@name`           | `SELECT * FROM users WHERE id = @id` |
@@ -72,14 +74,14 @@ Python ActiveRecord通过将占位符转换为每个数据库后端的适当样�
 
 常见函数在不同数据库系统中通常有不同的名称或行为：
 
-| 函数              | SQLite                | MySQL/MariaDB         | PostgreSQL            | Oracle                | SQL Server            |
-|-------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
-| 字符串连接       | `||` 或 `concat()`    | `concat()`            | `||` 或 `concat()`    | `||` 或 `concat()`    | `+` 或 `concat()`     |
-| 子字符串         | `substr()`            | `substring()`         | `substring()`         | `substr()`            | `substring()`         |
-| 当前日期         | `date('now')`         | `curdate()`           | `current_date`        | `sysdate`             | `getdate()`           |
-| 当前时间戳       | `datetime('now')`     | `now()`               | `current_timestamp`   | `systimestamp`        | `getdate()`           |
-| IFNULL            | `ifnull()`            | `ifnull()`            | `coalesce()`          | `nvl()`               | `isnull()`            |
-| 随机值           | `random()`            | `rand()`              | `random()`            | `dbms_random.value`   | `rand()`              |
+| 函数              | SQLite                | MySQL                | MariaDB              | PostgreSQL            | Oracle                | SQL Server            |
+|-------------------|------------------------|----------------------|----------------------|------------------------|------------------------|------------------------|
+| 字符串连接       | `||` 或 `concat()`    | `concat()`           | `concat()`           | `||` 或 `concat()`    | `||` 或 `concat()`    | `+` 或 `concat()`     |
+| 子字符串         | `substr()`            | `substring()`        | `substring()`        | `substring()`         | `substr()`            | `substring()`         |
+| 当前日期         | `date('now')`         | `curdate()`          | `curdate()`          | `current_date`        | `sysdate`             | `getdate()`           |
+| 当前时间戳       | `datetime('now')`     | `now()`              | `now()`              | `current_timestamp`   | `systimestamp`        | `getdate()`           |
+| IFNULL            | `ifnull()`            | `ifnull()`           | `ifnull()`           | `coalesce()`          | `nvl()`               | `isnull()`            |
+| 随机值           | `random()`            | `rand()`             | `rand()`             | `random()`            | `dbms_random.value`   | `rand()`              |
 
 Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统的适当等效项。
 
@@ -90,7 +92,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 分页语法                                            |
 |---------------|--------------------------------------------------------|
 | SQLite        | `LIMIT [limit] OFFSET [offset]`                        |
-| MySQL/MariaDB | `LIMIT [offset], [limit]` 或 `LIMIT [limit] OFFSET [offset]` |
+| MySQL         | `LIMIT [offset], [limit]` 或 `LIMIT [limit] OFFSET [offset]` |
+| MariaDB       | `LIMIT [offset], [limit]` 或 `LIMIT [limit] OFFSET [offset]` |
 | PostgreSQL    | `LIMIT [limit] OFFSET [offset]`                        |
 | Oracle        | `OFFSET [offset] ROWS FETCH NEXT [limit] ROWS ONLY` (12c+) 或带`ROWNUM`的子查询 |
 | SQL Server    | `OFFSET [offset] ROWS FETCH NEXT [limit] ROWS ONLY` (2012+) 或带子查询的`TOP` |
@@ -109,7 +112,7 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 
 | 操作              | 标准SQL             | 变体                                          |
 |---------------------|----------------------|-------------------------------------------------|
-| 开始事务         | `BEGIN TRANSACTION`  | `START TRANSACTION` (MySQL), `BEGIN` (PostgreSQL) |
+| 开始事务         | `BEGIN TRANSACTION`  | `START TRANSACTION` (MySQL), `START TRANSACTION` (MariaDB), `BEGIN` (PostgreSQL) |
 | 提交事务         | `COMMIT`             | 通常一致                                      |
 | 回滚事务         | `ROLLBACK`           | 通常一致                                      |
 | 保存点           | `SAVEPOINT [name]`   | 通常一致                                      |
@@ -123,7 +126,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 悲观锁语法                                         |
 |---------------|-------------------------------------------------------|
 | SQLite        | 通过`BEGIN IMMEDIATE`提供有限支持                   |
-| MySQL/MariaDB | `SELECT ... FOR UPDATE` 或 `SELECT ... LOCK IN SHARE MODE` |
+| MySQL         | `SELECT ... FOR UPDATE` 或 `SELECT ... LOCK IN SHARE MODE` |
+| MariaDB       | `SELECT ... FOR UPDATE` 或 `SELECT ... LOCK IN SHARE MODE` |
 | PostgreSQL    | `SELECT ... FOR UPDATE` 或 `SELECT ... FOR SHARE`     |
 | Oracle        | `SELECT ... FOR UPDATE` 或 `SELECT ... FOR UPDATE NOWAIT` |
 | SQL Server    | `SELECT ... WITH (UPDLOCK)` 或 `SELECT ... WITH (HOLDLOCK)` |
@@ -135,7 +139,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 对RETURNING的支持                                   |
 |---------------|-------------------------------------------------------|
 | SQLite        | 通过`RETURNING`支持（在较新版本中）                 |
-| MySQL/MariaDB | 不直接支持（需要单独查询）                          |
+| MySQL         | 不直接支持（需要单独查询）                          |
+| MariaDB       | 10.5+版本通过`RETURNING`支持                        |
 | PostgreSQL    | 通过`RETURNING`完全支持                             |
 | Oracle        | 通过`RETURNING ... INTO`支持                        |
 | SQL Server    | 通过`OUTPUT`支持                                    |
@@ -147,7 +152,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 原生JSON支持 | JSON路径语法                        |
 |---------------|---------------------|------------------------------------|
 | SQLite        | 有限              | 带路径参数的JSON函数                |
-| MySQL/MariaDB | 是 (5.7+/10.2+)     | `->` 和 `->>` 运算符               |
+| MySQL         | 是 (5.7+)          | `->` 和 `->>` 运算符               |
+| MariaDB       | 是 (10.2+)         | `->` 和 `->>` 运算符               |
 | PostgreSQL    | 是 (JSONB类型)      | `->` 和 `->>` 运算符, `@>` 包含    |
 | Oracle        | 是 (21c+)           | JSON_VALUE, JSON_QUERY函数         |
 | SQL Server    | 是 (2016+)          | JSON_VALUE, JSON_QUERY函数         |
@@ -159,7 +165,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 窗口函数支持                                        |
 |---------------|-----------------------------------------------------|
 | SQLite        | 在较新版本中有限支持                               |
-| MySQL/MariaDB | 在MySQL 8.0+和MariaDB 10.2+中支持                  |
+| MySQL         | 在MySQL 8.0+中支持                                 |
+| MariaDB       | 在MariaDB 10.2+中支持                              |
 | PostgreSQL    | 全面支持                                           |
 | Oracle        | 全面支持                                           |
 | SQL Server    | 全面支持                                           |
@@ -171,7 +178,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | CTE支持                                             |
 |---------------|-----------------------------------------------------|
 | SQLite        | 支持（包括递归）                                    |
-| MySQL/MariaDB | 在MySQL 8.0+和MariaDB 10.2+中支持（包括递归）      |
+| MySQL         | 在MySQL 8.0+中支持（包括递归）                     |
+| MariaDB       | 在MariaDB 10.2+中支持（包括递归）                  |
 | PostgreSQL    | 全面支持（包括递归）                               |
 | Oracle        | 全面支持（包括递归）                               |
 | SQL Server    | 全面支持（包括递归）                               |
@@ -183,7 +191,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 标识符引用                                          |
 |---------------|-----------------------------------------------------|
 | SQLite        | 双引号或反引号                                      |
-| MySQL/MariaDB | 反引号                                             |
+| MySQL         | 反引号                                             |
+| MariaDB       | 反引号                                             |
 | PostgreSQL    | 双引号                                             |
 | Oracle        | 双引号                                             |
 | SQL Server    | 方括号或双引号                                     |
@@ -195,7 +204,8 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 | 数据库        | 标识符大小写敏感性 | 字符串比较大小写敏感性 |
 |---------------|-----------------------------|---------------------------------|
 | SQLite        | 默认不区分大小写 | 默认区分大小写       |
-| MySQL/MariaDB | 取决于操作系统和配置 | 取决于排序规则（通常不区分大小写） |
+| MySQL         | 取决于操作系统和配置 | 取决于排序规则（通常不区分大小写） |
+| MariaDB       | 取决于操作系统和配置 | 取决于排序规则（通常不区分大小写） |
 | PostgreSQL    | 默认区分大小写   | 默认区分大小写       |
 | Oracle        | 默认不区分大小写 | 默认区分大小写       |
 | SQL Server    | 默认不区分大小写 | 取决于排序规则（通常不区分大小写） |
@@ -211,12 +221,23 @@ Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统�
 - **窗口函数**：在较新版本中有限支持
 - **简单且可移植**：基于文件的数据库，无需服务器
 
-### MySQL/MariaDB
+### MySQL
 
 - **存储引擎**：InnoDB、MyISAM、Memory等
 - **全文搜索**：内置全文搜索功能
-- **JSON函数**：在较新版本中全面支持JSON
+- **JSON函数**：在MySQL 5.7+中全面支持JSON
 - **地理函数**：空间数据类型和函数
+- **窗口函数**：MySQL 8.0+支持
+- **CTE**：MySQL 8.0+支持
+
+### MariaDB
+
+- **存储引擎**：InnoDB、MyISAM、Memory、Aria等
+- **全文搜索**：内置全文搜索功能
+- **JSON函数**：在MariaDB 10.2+中支持JSON
+- **地理函数**：空间数据类型和函数
+- **列式存储**：ColumnStore引擎
+- **RETURNING子句**：MariaDB 10.5+支持
 
 ### PostgreSQL
 

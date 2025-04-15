@@ -163,12 +163,12 @@
 - Microservice Example
 - Command-line Tool Example
 
-## 11. Contributing
-- Ideas & Feature Requests
-- Development Process
-- Bug Fixes
-- Documentation Contributions
-- Sponsorship
+## [11. Contributing](11.contributing/README.md)
+- [Ideas & Feature Requests](11.contributing/ideas_and_feature_requests.md)
+- [Development Process](11.contributing/development_process.md)
+- [Bug Fixes](11.contributing/bug_fixes.md)
+- [Documentation Contributions](11.contributing/documentation_contributions.md)
+- [Sponsorship](11.contributing/sponsorship.md)
 
 ## 12. API Reference
 - Complete Class/Method Documentation

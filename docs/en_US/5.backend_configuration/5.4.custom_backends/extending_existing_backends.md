@@ -236,6 +236,24 @@ class JSONEnhancedPostgreSQLBackend(PostgreSQLBackend):
 2. **Performance Impact**: Complex extensions may impact performance
 3. **Maintenance Burden**: You'll need to maintain your extensions as the base implementation evolves
 
+## Implementation Location
+
+When implementing your extended backend, you have flexibility in where to place your code:
+
+1. **Within the ActiveRecord Package**: You can place your implementation directly in the `rhosocial.activerecord.backend.impl` directory if you're modifying the core package.
+2. **In a Separate Package**: You can create your own package structure outside the core ActiveRecord package, which is recommended if you plan to distribute your extension separately.
+
+Both approaches are valid, with the separate package offering better isolation and easier distribution.
+
+## Testing Your Extended Backend
+
+Thoroughly testing your extended backend is crucial for ensuring reliability. You should:
+
+1. **Mirror Existing Tests**: Study and mirror the test structure of existing backends (e.g., in the `tests/rhosocial/activerecord/backend` directory)
+2. **Ensure Branch Coverage**: Write tests that cover all code branches and edge cases
+3. **Simulate Real-World Scenarios**: Create tests that simulate various usage scenarios your backend will encounter
+4. **Test Integration**: Verify that your extended backend works correctly with the rest of the ActiveRecord framework
+
 ## Conclusion
 
 Extending existing database backends provides a powerful way to customize Python ActiveRecord for your specific needs without creating an entirely new implementation. By following the approaches outlined in this guide, you can add functionality, modify behavior, or integrate with additional services while maintaining compatibility with the ActiveRecord framework.

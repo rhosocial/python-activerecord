@@ -21,7 +21,8 @@ This document explores the differences in SQL dialects between the database syst
   - [Case Sensitivity](#case-sensitivity)
 - [Database-Specific SQL Features](#database-specific-sql-features)
   - [SQLite](#sqlite)
-  - [MySQL/MariaDB](#mysqlmariadb)
+  - [MySQL](#mysql)
+  - [MariaDB](#mariadb)
   - [PostgreSQL](#postgresql)
   - [Oracle](#oracle)
   - [SQL Server](#sql-server)
@@ -61,7 +62,8 @@ Different databases use different placeholder styles for parameterized queries:
 | Database      | Placeholder Style | Example                      |
 |---------------|-------------------|------------------------------|
 | SQLite        | `?`               | `SELECT * FROM users WHERE id = ?` |
-| MySQL/MariaDB | `?`               | `SELECT * FROM users WHERE id = ?` |
+| MySQL         | `?`               | `SELECT * FROM users WHERE id = ?` |
+| MariaDB       | `?`               | `SELECT * FROM users WHERE id = ?` |
 | PostgreSQL    | `$n`              | `SELECT * FROM users WHERE id = $1` |
 | Oracle        | `:name`           | `SELECT * FROM users WHERE id = :id` |
 | SQL Server    | `@name`           | `SELECT * FROM users WHERE id = @id` |
@@ -72,14 +74,14 @@ Python ActiveRecord handles these differences by converting placeholders to the 
 
 Common functions often have different names or behavior across database systems:
 
-| Function          | SQLite                | MySQL/MariaDB         | PostgreSQL            | Oracle                | SQL Server            |
-|-------------------|------------------------|------------------------|------------------------|------------------------|------------------------|
-| String Concat     | `||` or `concat()`    | `concat()`            | `||` or `concat()`    | `||` or `concat()`    | `+` or `concat()`     |
-| Substring         | `substr()`            | `substring()`         | `substring()`         | `substr()`            | `substring()`         |
-| Current Date      | `date('now')`         | `curdate()`           | `current_date`        | `sysdate`             | `getdate()`           |
-| Current Timestamp | `datetime('now')`     | `now()`               | `current_timestamp`   | `systimestamp`        | `getdate()`           |
-| IFNULL            | `ifnull()`            | `ifnull()`            | `coalesce()`          | `nvl()`               | `isnull()`            |
-| Random Value      | `random()`            | `rand()`              | `random()`            | `dbms_random.value`   | `rand()`              |
+| Function          | SQLite                | MySQL                | MariaDB              | PostgreSQL            | Oracle                | SQL Server            |
+|-------------------|------------------------|----------------------|----------------------|------------------------|------------------------|------------------------|
+| String Concat     | `||` or `concat()`    | `concat()`           | `concat()`           | `||` or `concat()`    | `||` or `concat()`    | `+` or `concat()`     |
+| Substring         | `substr()`            | `substring()`        | `substring()`        | `substring()`         | `substr()`            | `substring()`         |
+| Current Date      | `date('now')`         | `curdate()`          | `curdate()`          | `current_date`        | `sysdate`             | `getdate()`           |
+| Current Timestamp | `datetime('now')`     | `now()`              | `now()`              | `current_timestamp`   | `systimestamp`        | `getdate()`           |
+| IFNULL            | `ifnull()`            | `ifnull()`           | `ifnull()`           | `coalesce()`          | `nvl()`               | `isnull()`            |
+| Random Value      | `random()`            | `rand()`             | `rand()`             | `random()`            | `dbms_random.value`   | `rand()`              |
 
 Python ActiveRecord's SQL dialect classes map these functions to their appropriate equivalents for each database system.
 
@@ -90,7 +92,8 @@ Different databases have different syntax for pagination:
 | Database      | Pagination Syntax                                      |
 |---------------|--------------------------------------------------------|
 | SQLite        | `LIMIT [limit] OFFSET [offset]`                        |
-| MySQL/MariaDB | `LIMIT [offset], [limit]` or `LIMIT [limit] OFFSET [offset]` |
+| MySQL         | `LIMIT [offset], [limit]` or `LIMIT [limit] OFFSET [offset]` |
+| MariaDB       | `LIMIT [offset], [limit]` or `LIMIT [limit] OFFSET [offset]` |
 | PostgreSQL    | `LIMIT [limit] OFFSET [offset]`                        |
 | Oracle        | `OFFSET [offset] ROWS FETCH NEXT [limit] ROWS ONLY` (12c+) or subquery with `ROWNUM` |
 | SQL Server    | `OFFSET [offset] ROWS FETCH NEXT [limit] ROWS ONLY` (2012+) or `TOP` with subquery |
@@ -109,7 +112,7 @@ Transaction control statements have some variations:
 
 | Operation           | Standard SQL         | Variations                                      |
 |---------------------|----------------------|-------------------------------------------------|
-| Begin Transaction   | `BEGIN TRANSACTION`  | `START TRANSACTION` (MySQL), `BEGIN` (PostgreSQL) |
+| Begin Transaction   | `BEGIN TRANSACTION`  | `START TRANSACTION` (MySQL/MariaDB), `BEGIN` (PostgreSQL) |
 | Commit Transaction  | `COMMIT`             | Generally consistent                            |
 | Rollback Transaction| `ROLLBACK`           | Generally consistent                            |
 | Savepoint          | `SAVEPOINT [name]`   | Generally consistent                            |
@@ -123,7 +126,8 @@ Row-level locking syntax varies significantly:
 | Database      | Pessimistic Lock Syntax                               |
 |---------------|-------------------------------------------------------|
 | SQLite        | Limited support via `BEGIN IMMEDIATE`                 |
-| MySQL/MariaDB | `SELECT ... FOR UPDATE` or `SELECT ... LOCK IN SHARE MODE` |
+| MySQL         | `SELECT ... FOR UPDATE` or `SELECT ... LOCK IN SHARE MODE` |
+| MariaDB       | `SELECT ... FOR UPDATE` or `SELECT ... LOCK IN SHARE MODE` |
 | PostgreSQL    | `SELECT ... FOR UPDATE` or `SELECT ... FOR SHARE`     |
 | Oracle        | `SELECT ... FOR UPDATE` or `SELECT ... FOR UPDATE NOWAIT` |
 | SQL Server    | `SELECT ... WITH (UPDLOCK)` or `SELECT ... WITH (HOLDLOCK)` |
@@ -135,7 +139,8 @@ The ability to return affected rows from INSERT, UPDATE, or DELETE operations va
 | Database      | Support for RETURNING                                 |
 |---------------|-------------------------------------------------------|
 | SQLite        | Supported via `RETURNING` (in newer versions)         |
-| MySQL/MariaDB | Not directly supported (requires separate query)      |
+| MySQL         | Not directly supported (requires separate query)      |
+| MariaDB       | Not directly supported (requires separate query)      |
 | PostgreSQL    | Fully supported via `RETURNING`                       |
 | Oracle        | Supported via `RETURNING ... INTO`                    |
 | SQL Server    | Supported via `OUTPUT`                                |
@@ -145,9 +150,10 @@ The ability to return affected rows from INSERT, UPDATE, or DELETE operations va
 Support for JSON operations varies widely:
 
 | Database      | Native JSON Support | JSON Path Syntax                    |
-|---------------|---------------------|------------------------------------|
+|---------------|---------------------|------------------------------------|  
 | SQLite        | Limited            | JSON functions with path arguments  |
-| MySQL/MariaDB | Yes (5.7+/10.2+)   | `->` and `->>` operators           |
+| MySQL         | Yes (5.7+)         | `->` and `->>` operators           |
+| MariaDB       | Yes (10.2+)        | `->` and `->>` operators           |
 | PostgreSQL    | Yes (JSONB type)    | `->` and `->>` operators, `@>` contains |
 | Oracle        | Yes (21c+)          | JSON_VALUE, JSON_QUERY functions   |
 | SQL Server    | Yes (2016+)         | JSON_VALUE, JSON_QUERY functions   |
@@ -159,7 +165,8 @@ Window functions (OVER clause) support varies:
 | Database      | Window Function Support                              |
 |---------------|-----------------------------------------------------|
 | SQLite        | Limited support in newer versions                   |
-| MySQL/MariaDB | Supported in MySQL 8.0+ and MariaDB 10.2+           |
+| MySQL         | Supported in MySQL 8.0+                             |
+| MariaDB       | Supported in MariaDB 10.2+                          |
 | PostgreSQL    | Comprehensive support                               |
 | Oracle        | Comprehensive support                               |
 | SQL Server    | Comprehensive support                               |
@@ -171,7 +178,8 @@ Support for CTEs and recursive queries:
 | Database      | CTE Support                                          |
 |---------------|-----------------------------------------------------|
 | SQLite        | Supported (including recursive)                      |
-| MySQL/MariaDB | Supported in MySQL 8.0+ and MariaDB 10.2+ (including recursive) |
+| MySQL         | Supported in MySQL 8.0+ (including recursive)        |
+| MariaDB       | Supported in MariaDB 10.2+ (including recursive)     |
 | PostgreSQL    | Comprehensive support (including recursive)          |
 | Oracle        | Comprehensive support (including recursive)          |
 | SQL Server    | Comprehensive support (including recursive)          |
@@ -183,7 +191,8 @@ Different databases use different characters to quote identifiers:
 | Database      | Identifier Quoting                                   |
 |---------------|-----------------------------------------------------|
 | SQLite        | Double quotes or backticks                          |
-| MySQL/MariaDB | Backticks                                           |
+| MySQL         | Backticks                                           |
+| MariaDB       | Backticks                                           |
 | PostgreSQL    | Double quotes                                       |
 | Oracle        | Double quotes                                       |
 | SQL Server    | Square brackets or double quotes                    |
@@ -195,7 +204,8 @@ Databases differ in how they handle case sensitivity in identifiers and string c
 | Database      | Identifier Case Sensitivity | String Comparison Case Sensitivity |
 |---------------|-----------------------------|---------------------------------|
 | SQLite        | Case-insensitive by default | Case-sensitive by default       |
-| MySQL/MariaDB | Depends on OS and configuration | Depends on collation (often case-insensitive) |
+| MySQL         | Depends on OS and configuration | Depends on collation (often case-insensitive) |
+| MariaDB       | Depends on OS and configuration | Depends on collation (often case-insensitive) |
 | PostgreSQL    | Case-sensitive by default   | Case-sensitive by default       |
 | Oracle        | Case-insensitive by default | Case-sensitive by default       |
 | SQL Server    | Case-insensitive by default | Depends on collation (often case-insensitive) |
@@ -211,12 +221,23 @@ Each database system has unique features that aren't available in other systems:
 - **Window Functions**: Limited support in newer versions
 - **Simple and Portable**: File-based database with no server required
 
-### MySQL/MariaDB
+### MySQL
 
 - **Storage Engines**: InnoDB, MyISAM, Memory, etc.
 - **Full-Text Search**: Built-in full-text search capabilities
-- **JSON Functions**: Comprehensive JSON support in newer versions
+- **JSON Functions**: Comprehensive JSON support in MySQL 5.7+
 - **Geographic Functions**: Spatial data types and functions
+- **Window Functions**: Comprehensive support in MySQL 8.0+
+- **Document Store**: X DevAPI for document store functionality in MySQL 8.0+
+
+### MariaDB
+
+- **Storage Engines**: InnoDB, MyISAM, Memory, Aria, etc.
+- **Full-Text Search**: Built-in full-text search capabilities
+- **JSON Functions**: Comprehensive JSON support in MariaDB 10.2+
+- **Geographic Functions**: Spatial data types and functions
+- **Columnar Storage**: ColumnStore engine for analytical workloads
+- **Temporal Tables**: System-versioned tables for point-in-time queries
 
 ### PostgreSQL
 
@@ -265,6 +286,8 @@ When you need to use raw SQL (via the `raw_sql` method or similar), consider the
            return "SELECT ... PostgreSQL specific syntax ..."
        elif db_type == 'mysql':
            return "SELECT ... MySQL specific syntax ..."
+       elif db_type == 'mariadb':
+           return "SELECT ... MariaDB specific syntax ..."
        # ...
    ```
 

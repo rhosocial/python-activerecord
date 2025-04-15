@@ -54,24 +54,32 @@ class Post(IntegerPKMixin, ActiveRecord):
 
 ### 关系配置选项
 
-`HasMany`和`BelongsTo`关系支持多种配置选项：
+`HasMany`和`BelongsTo`关系支持以下配置选项：
 
-#### HasMany选项
+#### 共同选项
 
-- `foreign_key`：指定关联模型中的外键字段名（默认为`{当前模型名小写}_id`）
-- `inverse_of`：指定关联模型中的反向关系属性名
-- `primary_key`：指定当前模型中的主键字段名（默认为`id`）
-- `dependent`：指定当删除当前模型时如何处理关联记录（可选值：`'cascade'`、`'nullify'`、`'restrict'`）
-- `conditions`：指定额外的查询条件
-- `order`：指定关联记录的默认排序
+- `foreign_key`：指定外键字段名（必填）
+- `inverse_of`：指定关联模型中的反向关系属性名（可选，但强烈建议设置）
+- `loader`：自定义加载器实现（可选）
+- `validator`：自定义验证器实现（可选）
+- `cache_config`：缓存配置（可选）
 
-#### BelongsTo选项
+这些选项在`RelationDescriptor`基类中定义，并被`HasMany`和`BelongsTo`类继承。例如：
 
-- `foreign_key`：指定当前模型中的外键字段名（默认为`{关联模型名小写}_id`）
-- `inverse_of`：指定关联模型中的反向关系属性名
-- `primary_key`：指定关联模型中的主键字段名（默认为`id`）
-- `polymorphic`：指定是否为多态关系
-- `conditions`：指定额外的查询条件
+```python
+# HasMany示例
+posts: ClassVar[HasMany['Post']] = HasMany(
+    foreign_key='user_id',  # Post模型中的外键字段
+    inverse_of='user',      # Post模型中的反向关系属性名
+    cache_config=CacheConfig(ttl=300)  # 可选的缓存配置
+)
+
+# BelongsTo示例
+user: ClassVar[BelongsTo['User']] = BelongsTo(
+    foreign_key='user_id',  # 当前模型中的外键字段
+    inverse_of='posts'      # User模型中的反向关系属性名
+)
+```
 
 ## 使用一对多关系
 
@@ -81,7 +89,7 @@ class Post(IntegerPKMixin, ActiveRecord):
 
 ```python
 # 获取用户
-user = User.find_by(username="example_user")
+user = User.query().where('username = ?', ("example_user",)).one()
 
 # 获取用户的所有帖子
 posts = user.posts()
@@ -92,7 +100,7 @@ for post in posts:
     print(f"内容: {post.content}")
 
 # 从帖子获取用户
-post = Post.find_by(title="示例帖子")
+post = Post.query().where('title = ?', ("示例帖子",)).one()
 post_author = post.user()
 print(f"作者: {post_author.username}")
 ```
@@ -103,7 +111,7 @@ Python ActiveRecord提供了多种方式来创建关联记录：
 
 ```python
 # 获取用户
-user = User.find_by(username="example_user")
+user = User.query().where('username = ?', ("example_user",)).one()
 
 # 方法1：直接创建并设置外键
 new_post = Post(
@@ -135,7 +143,7 @@ new_post.save()
 
 ```python
 # 获取用户
-user = User.find_by(username="example_user")
+user = User.query().where('username = ?', ("example_user",)).one()
 
 # 查询用户的特定帖子
 recent_posts = user.posts().where(created_at__gt=datetime.now() - timedelta(days=7)).all()
@@ -153,7 +161,7 @@ keyword_posts = user.posts().where(content__contains="Python").all()
 
 ```python
 # 获取所有用户及其帖子（单个查询）
-users = User.find_all().with_("posts").all()
+users = User.query().with_("posts").all()
 
 # 现在可以访问每个用户的帖子，而不会触发额外的查询
 for user in users:
@@ -164,40 +172,26 @@ for user in users:
 
 ## 高级用法
 
-### 依赖关系
+### 手动处理级联操作
 
-您可以指定当删除父记录时如何处理关联记录：
+在处理一对多关系时，您可能需要手动实现级联操作，例如当删除父记录时删除所有关联记录：
 
 ```python
-class User(IntegerPKMixin, ActiveRecord):
-    # ...
-    
-    # 当删除用户时级联删除所有帖子
-    posts: ClassVar[HasMany['Post']] = HasMany(
-        foreign_key='user_id',
-        inverse_of='user',
-        dependent='cascade'  # 可选值：'cascade'、'nullify'、'restrict'
-    )
+# 删除用户及其所有帖子
+user = User.query().where('username = ?', ("example_user",)).one()
+
+# 首先删除所有帖子
+Post.query().where('user_id = ?', (user.id,)).delete().execute()
+
+# 然后删除用户
+user.delete()
 ```
 
-依赖选项：
-- `'cascade'`：删除所有关联记录
-- `'nullify'`：将关联记录的外键设置为NULL
-- `'restrict'`：如果存在关联记录，则阻止删除父记录
+您也可以在应用程序中实现其他级联策略：
 
-### 条件关系
-
-您可以定义带有条件的关系：
-
-```python
-class User(IntegerPKMixin, ActiveRecord):
-    # ...
-    
-    # 只获取已发布的帖子
-    published_posts: ClassVar[HasMany['Post']] = HasMany(
-        foreign_key='user_id',
-        conditions={'published': True}
-    )
+- **级联删除**：删除父记录时删除所有关联记录
+- **设置为NULL**：删除父记录时将关联记录的外键设置为NULL
+- **阻止删除**：如果存在关联记录，则阻止删除父记录
 ```
 
 ### 排序关系
@@ -340,7 +334,7 @@ comment = Comment(
 comment.save()
 
 # 获取帖子及其评论和作者
-post_with_relations = Post.find_by(id=post.id).with_("author", "comments.author")
+post_with_relations = Post.query().where('id = ?', (post.id,)).with_("author", "comments.author").one()
 
 print(f"帖子: {post_with_relations.title}")
 print(f"作者: {post_with_relations.author().username}")

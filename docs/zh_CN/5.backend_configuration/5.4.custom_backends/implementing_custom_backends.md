@@ -16,13 +16,25 @@
 
 ### 1. 创建后端目录结构
 
-在实现目录下为您的后端创建一个新目录：
+您可以在两个位置实现自定义后端：
+
+#### 在标准实现目录中
+
+如果您计划将后端贡献回主项目，可以在标准实现目录中创建：
 
 ```
 rhosocial/activerecord/backend/impl/your_backend_name/
 ```
 
-在此目录中，创建以下文件：
+#### 在自定义位置
+
+如果您的后端是特定于应用程序的或将作为单独的包发布，可以在任何Python模块中实现：
+
+```
+your_package/database/backends/your_backend_name/
+```
+
+无论选择哪个位置，都应创建以下文件：
 
 ```
 __init__.py       # 包初始化和导出
@@ -270,20 +282,96 @@ def _handle_execution_error(self, error):
 4. 错误处理测试
 5. 性能测试
 
-## 与ActiveRecord集成
+## 注册您的后端
 
-要使您的后端可用于ActiveRecord，您需要在后端工厂中注册它：
+一旦您实现了自定义后端，您需要将其注册到ActiveRecord：
 
 ```python
-# 在rhosocial.activerecord.backend.__init__.py或自定义工厂中
+from rhosocial.activerecord import configure
+from your_module import YourBackendName
 
-from rhosocial.activerecord.backend.impl.your_backend_name import YourBackendName
+# 创建您的后端的实例
+your_backend = YourBackendName(**config)
+
+# 配置ActiveRecord使用您的后端
+configure(backend=your_backend)
+```
+
+或者，您可以扩展后端工厂以支持您的自定义后端：
+
+```python
+from rhosocial.activerecord.backend import create_backend as original_create_backend
+from your_module import YourBackendName
 
 def create_backend(backend_type, **config):
-    # 现有后端...
-    elif backend_type == 'your_backend_name':
+    """扩展后端工厂"""
+    if backend_type == 'your_backend_name':
         return YourBackendName(**config)
+    else:
+        return original_create_backend(backend_type, **config)
+
+# 替换原始工厂
+import rhosocial.activerecord.backend
+rhosocial.activerecord.backend.create_backend = create_backend
 ```
+
+## 测试您的后端
+
+彻底测试您的自定义后端对于确保其可靠性和兼容性至关重要：
+
+### 创建全面的测试套件
+
+```python
+import unittest
+from rhosocial.activerecord import configure
+from your_module import YourBackendName
+
+class TestYourBackend(unittest.TestCase):
+    def setUp(self):
+        # 使用适合测试的配置初始化您的后端
+        self.backend = YourBackendName(in_memory=True)  # 如果支持内存模式
+        self.backend.connect()
+        configure(backend=self.backend)
+        
+    def tearDown(self):
+        self.backend.disconnect()
+        
+    def test_basic_operations(self):
+        # 测试基本CRUD操作
+        self.backend.execute("CREATE TABLE test (id INTEGER, name TEXT)")
+        self.backend.execute("INSERT INTO test VALUES (1, 'Test')")
+        result = self.backend.execute("SELECT * FROM test")
+        self.assertEqual(len(result.rows), 1)
+        self.assertEqual(result.rows[0]['name'], 'Test')
+        
+    def test_transactions(self):
+        # 测试事务支持
+        self.backend.create_table('test_tx', {'id': 'INTEGER', 'value': 'TEXT'})
+        
+        # 测试提交
+        self.backend.begin_transaction()
+        self.backend.execute("INSERT INTO test_tx VALUES (1, 'Commit')")
+        self.backend.commit_transaction()
+        result = self.backend.execute("SELECT * FROM test_tx")
+        self.assertEqual(len(result.rows), 1)
+        
+        # 测试回滚
+        self.backend.begin_transaction()
+        self.backend.execute("INSERT INTO test_tx VALUES (2, 'Rollback')")
+        self.backend.rollback_transaction()
+        result = self.backend.execute("SELECT * FROM test_tx")
+        self.assertEqual(len(result.rows), 1)  # 仍然只有一行
+        
+    # 添加更多测试...
+```
+
+### 测试最佳实践
+
+1. **模仿现有后端测试**：查看Python ActiveRecord的测试套件，了解如何测试标准后端
+2. **确保分支覆盖完整**：测试所有方法的各种条件和边缘情况
+3. **模拟各种使用场景**：测试您的后端在不同查询类型、事务和错误条件下的行为
+4. **集成测试**：测试您的后端与ActiveRecord模型的集成
+5. **性能测试**：评估您的后端在各种负载条件下的性能
 
 ## 使用示例
 

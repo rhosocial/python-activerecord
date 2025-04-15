@@ -8,7 +8,8 @@ This document explains how Python ActiveRecord maps data types between Python, t
 - [Unified Type System](#unified-type-system)
 - [Database-Specific Type Mappings](#database-specific-type-mappings)
   - [SQLite](#sqlite)
-  - [MySQL/MariaDB](#mysqlmariadb)
+  - [MySQL](#mysql)
+  - [MariaDB](#mariadb)
   - [PostgreSQL](#postgresql)
   - [Oracle](#oracle)
   - [SQL Server](#sql-server)
@@ -95,29 +96,53 @@ Each database backend implements a `TypeMapper` that maps the unified `DatabaseT
 | ARRAY             | TEXT              | Stored as JSON string |
 | ENUM              | TEXT              | Stored as string |
 
-### MySQL/MariaDB
+### MySQL
 
-| ActiveRecord Type | MySQL/MariaDB Native Type | Notes |
-|-------------------|--------------------------|-------|
-| CHAR              | CHAR                     | |
-| VARCHAR           | VARCHAR                  | |
-| TEXT              | TEXT                     | |
-| INTEGER           | INT                      | |
-| BIGINT            | BIGINT                   | |
-| SMALLINT          | SMALLINT                 | |
-| FLOAT             | FLOAT                    | |
-| DOUBLE            | DOUBLE                   | |
-| DECIMAL           | DECIMAL                  | |
-| DATE              | DATE                     | |
-| TIME              | TIME                     | |
-| DATETIME          | DATETIME                 | |
-| TIMESTAMP         | TIMESTAMP                | |
-| BOOLEAN           | TINYINT(1)               | |
-| BLOB              | BLOB                     | |
-| JSON              | JSON                     | Native JSON type in MySQL 5.7+ and MariaDB 10.2+ |
-| UUID              | CHAR(36)                 | |
-| ARRAY             | JSON                     | Stored as JSON array |
-| ENUM              | ENUM                     | Native ENUM type |
+| ActiveRecord Type | MySQL Native Type | Notes |
+|-------------------|-------------------|-------|
+| CHAR              | CHAR              | |
+| VARCHAR           | VARCHAR           | |
+| TEXT              | TEXT              | |
+| INTEGER           | INT               | |
+| BIGINT            | BIGINT            | |
+| SMALLINT          | SMALLINT          | |
+| FLOAT             | FLOAT             | |
+| DOUBLE            | DOUBLE            | |
+| DECIMAL           | DECIMAL           | |
+| DATE              | DATE              | |
+| TIME              | TIME              | |
+| DATETIME          | DATETIME          | |
+| TIMESTAMP         | TIMESTAMP         | |
+| BOOLEAN           | TINYINT(1)        | |
+| BLOB              | BLOB              | |
+| JSON              | JSON              | Native JSON type in MySQL 5.7+ |
+| UUID              | CHAR(36)          | |
+| ARRAY             | JSON              | Stored as JSON array |
+| ENUM              | ENUM              | Native ENUM type |
+
+### MariaDB
+
+| ActiveRecord Type | MariaDB Native Type | Notes |
+|-------------------|---------------------|-------|
+| CHAR              | CHAR                | |
+| VARCHAR           | VARCHAR             | |
+| TEXT              | TEXT                | |
+| INTEGER           | INT                 | |
+| BIGINT            | BIGINT              | |
+| SMALLINT          | SMALLINT            | |
+| FLOAT             | FLOAT               | |
+| DOUBLE            | DOUBLE              | |
+| DECIMAL           | DECIMAL             | |
+| DATE              | DATE                | |
+| TIME              | TIME                | |
+| DATETIME          | DATETIME            | |
+| TIMESTAMP         | TIMESTAMP           | |
+| BOOLEAN           | TINYINT(1)          | |
+| BLOB              | BLOB                | |
+| JSON              | JSON                | Native JSON type in MariaDB 10.2+ |
+| UUID              | CHAR(36)            | |
+| ARRAY             | JSON                | Stored as JSON array |
+| ENUM              | ENUM                | Native ENUM type |
 
 ### PostgreSQL
 

@@ -23,10 +23,10 @@ Python ActiveRecord默认使用参数化查询，这是防止SQL注入最有效�
 
 ```python
 # 安全：使用ActiveRecord的查询方法
-users = User.objects.filter(username=username_input)
+users = User.query().where('username = ?', (username_input,)).all()
 
 # 安全：使用原始SQL的参数化查询
-users = User.objects.raw_query("SELECT * FROM users WHERE username = ?", [username_input])
+users = User.query().backend.execute("SELECT * FROM users WHERE username = ?", (username_input,))
 ```
 
 ## 常见陷阱需要避免
@@ -36,11 +36,11 @@ users = User.objects.raw_query("SELECT * FROM users WHERE username = ?", [userna
 ```python
 # 不安全 - 容易受到SQL注入攻击
 query = f"SELECT * FROM users WHERE username = '{username_input}'"
-users = User.objects.execute_raw(query)
+users = User.query().backend.execute(query)
 
 # 安全 - 使用参数化查询
 query = "SELECT * FROM users WHERE username = ?"
-users = User.objects.execute_raw(query, [username_input])
+users = User.query().backend.execute(query, (username_input,))
 ```
 
 ### 动态表名或列名
@@ -48,17 +48,17 @@ users = User.objects.execute_raw(query, [username_input])
 当您需要使用动态表名或列名时，Python ActiveRecord提供了安全的方法来验证和转义这些标识符：
 
 ```python
-from rhosocial.activerecord.backend.dialect import escape_identifier
-
 # 安全使用动态表名的方法
-table_name = escape_identifier(user_input_table_name)
+# 注意：应当使用数据库后端提供的标识符转义功能
+# 这里仅作为示例，实际实现可能因后端而异
+table_name = User.query().backend.dialect.escape_identifier(user_input_table_name)
 query = f"SELECT * FROM {table_name} WHERE id = ?"
-results = Model.objects.execute_raw(query, [id_value])
+results = User.query().backend.execute(query, (id_value,))
 ```
 
 ## 最佳实践
 
-1. **使用ActiveRecord的查询方法**：尽可能使用内置的查询方法，如`filter()`、`exclude()`等，它们会自动使用参数化查询。
+1. **使用ActiveRecord的查询方法**：尽可能使用内置的查询方法，如`query().where()`、`query().select()`等，它们会自动使用参数化查询。
 
 2. **对所有用户输入进行参数化**：使用原始SQL时，始终使用带占位符（`?`）的参数化查询，而不是字符串拼接。
 

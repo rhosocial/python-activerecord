@@ -7,7 +7,8 @@
 - [通用性能考量](#通用性能考量)
 - [数据库特定性能特征](#数据库特定性能特征)
   - [SQLite](#sqlite)
-  - [MySQL/MariaDB](#mysqlmariadb)
+  - [MySQL](#mysql)
+  - [MariaDB](#mariadb)
   - [PostgreSQL](#postgresql)
   - [Oracle](#oracle)
   - [SQL Server](#sql-server)
@@ -81,14 +82,16 @@
        # ...
    ```
 
-### MySQL/MariaDB
+### MySQL
 
 #### 优势
 
 - **易用性**：设置和管理简单
 - **读取性能**：适当配置下出色的读取性能
-- **存储引擎选项**：不同用例的不同存储引擎
+- **存储引擎选项**：不同用例的不同存储引擎（InnoDB、MyISAM、Memory等）
 - **复制**：强大的复制功能，可扩展读取
+- **JSON支持**：MySQL 5.7+中的原生JSON支持
+- **窗口函数**：MySQL 8.0+支持
 
 #### 限制
 
@@ -124,6 +127,55 @@
 5. **分区**：对非常大的表使用表分区
 
 6. **索引策略**：
+   - 对多列查询使用复合索引
+   - 考虑为经常使用的查询使用覆盖索引
+   - 使用EXPLAIN验证索引使用情况
+
+### MariaDB
+
+#### 优势
+
+- **易用性**：设置和管理简单
+- **读取性能**：适当配置下出色的读取性能
+- **存储引擎选项**：不同用例的不同存储引擎（InnoDB、MyISAM、Memory、Aria等）
+- **复制**：强大的复制功能，可扩展读取
+- **列式存储**：ColumnStore引擎支持分析工作负载
+- **RETURNING子句**：MariaDB 10.5+支持
+- **JSON支持**：MariaDB 10.2+中的JSON支持
+
+#### 限制
+
+- **复杂查询**：可能难以处理非常复杂的查询
+- **写入扩展**：写入密集型工作负载的垂直扩展
+
+#### 优化技巧
+
+1. **存储引擎选择**：
+   - InnoDB：ACID兼容，行级锁定，适用于大多数用例
+   - MyISAM：对于写入最少的读取密集型工作负载更快
+   - Memory：对于可以放入内存的临时数据超快
+   - Aria：MyISAM的崩溃安全替代品
+   - ColumnStore：用于分析查询的列式存储
+
+2. **缓冲池大小**：调整InnoDB缓冲池大小以缓存数据和索引
+   ```python
+   # 检查当前缓冲池大小
+   connection.execute("SHOW VARIABLES LIKE 'innodb_buffer_pool_size';")
+   ```
+
+3. **连接池**：适当配置连接池大小
+   ```python
+   # 在Python ActiveRecord配置中
+   config = ConnectionConfig(
+       # ...
+       pool_size=10,
+       pool_recycle=3600,  # 1小时后回收连接
+   )
+   ```
+
+4. **分区**：对非常大的表使用表分区
+
+5. **索引策略**：
    - 对多列查询使用复合索引
    - 考虑为经常使用的查询使用覆盖索引
    - 使用EXPLAIN验证索引使用情况

@@ -41,3 +41,21 @@ backend/
 ```
 
 This architecture makes it straightforward to add new backends while ensuring they integrate properly with the rest of the framework.
+
+## Implementation Location
+
+When implementing your custom backend or extending an existing one, you have flexibility in where to place your code:
+
+1. **Within the ActiveRecord Package**: You can place your implementation directly in the `rhosocial.activerecord.backend.impl` directory if you're modifying the core package.
+2. **In a Separate Package**: You can create your own package structure outside the core ActiveRecord package, which is recommended if you plan to distribute your backend separately.
+
+Both approaches are valid, with the separate package offering better isolation and easier distribution.
+
+## Testing Your Backend
+
+Thoroughly testing your backend implementation is crucial for ensuring reliability. You should:
+
+1. **Mirror Existing Tests**: Study and mirror the test structure of existing backends (e.g., in the `tests/rhosocial/activerecord/backend` directory)
+2. **Ensure Branch Coverage**: Write tests that cover all code branches and edge cases
+3. **Simulate Real-World Scenarios**: Create tests that simulate various usage scenarios your backend will encounter
+4. **Test Integration**: Verify that your backend works correctly with the rest of the ActiveRecord framework

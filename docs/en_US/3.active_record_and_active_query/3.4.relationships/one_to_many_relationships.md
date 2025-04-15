@@ -38,6 +38,27 @@ class User(IntegerPKMixin, ActiveRecord):
     )
 ```
 
+### Relationship Configuration Options
+
+Both `HasMany` and `BelongsTo` relationships support the following configuration options:
+
+- `foreign_key`: Specifies the foreign key field name (required)
+- `inverse_of`: Specifies the name of the inverse relationship in the related model (optional but highly recommended)
+- `loader`: Custom loader implementation (optional)
+- `validator`: Custom validation implementation (optional)
+- `cache_config`: Cache configuration (optional)
+
+These options are defined in the `RelationDescriptor` base class and inherited by both `HasMany` and `BelongsTo` classes. For example:
+
+```python
+# HasMany example
+posts: ClassVar[HasMany['Post']] = HasMany(
+    foreign_key='user_id',  # Foreign key field in Post model
+    inverse_of='user',      # Corresponding relationship name in Post model
+    cache_config=CacheConfig(ttl=300)  # Optional cache configuration
+)
+```
+
 ### The "Many" Side (BelongsTo)
 
 The model that represents the "many" side of the relationship uses the `BelongsTo` descriptor to define its relationship with the "one" side:
@@ -72,7 +93,7 @@ class Post(IntegerPKMixin, ActiveRecord):
 To access all posts belonging to a user:
 
 ```python
-user = User.find_by(username="example_user")
+user = User.query().where('username = ?', ("example_user",)).one()
 
 # Get all posts for this user
 posts = user.posts()
@@ -87,7 +108,7 @@ for post in posts:
 To access the user who owns a post:
 
 ```python
-post = Post.find_by(title="Example Post")
+post = Post.query().where('title = ?', ("Example Post",)).one()
 
 # Get the user who owns this post
 user = post.user()
@@ -100,7 +121,7 @@ print(f"Post author: {user.username}")
 #### Creating a Post for a User
 
 ```python
-user = User.find_by(username="example_user")
+user = User.query().where('username = ?', ("example_user",)).one()
 
 # Create a new post associated with this user
 new_post = Post(
@@ -117,14 +138,14 @@ new_post.save()
 
 ```python
 # Find all users who have at least one post
-users_with_posts = User.find_all().join(Post).all()
+users_with_posts = User.query().join('JOIN posts ON users.id = posts.user_id').all()
 ```
 
 #### Finding Posts by a Specific User
 
 ```python
 # Find all posts by a specific user
-posts_by_user = Post.find_all().where(user_id=user.id).all()
+posts_by_user = Post.query().where('user_id = ?', (user.id,)).all()
 ```
 
 ## Eager Loading
@@ -133,7 +154,7 @@ To optimize performance when accessing related records, you can use eager loadin
 
 ```python
 # Eager load posts when fetching users
-users_with_posts = User.find_all().with_("posts").all()
+users_with_posts = User.query().with_("posts").all()
 
 # Now you can access posts without additional queries
 for user in users_with_posts:
@@ -148,10 +169,10 @@ When working with one-to-many relationships, you often need to handle cascading 
 
 ```python
 # Delete a user and all their posts
-user = User.find_by(username="example_user")
+user = User.query().where('username = ?', ("example_user",)).one()
 
 # First delete all posts
-Post.delete_all().where(user_id=user.id).execute()
+Post.delete_all().where('user_id = ?', (user.id,)).execute()
 
 # Then delete the user
 user.delete()

@@ -7,7 +7,8 @@ This document explores the performance characteristics of different database sys
 - [General Performance Considerations](#general-performance-considerations)
 - [Database-Specific Performance Characteristics](#database-specific-performance-characteristics)
   - [SQLite](#sqlite)
-  - [MySQL/MariaDB](#mysqlmariadb)
+  - [MySQL](#mysql)
+  - [MariaDB](#mariadb)
   - [PostgreSQL](#postgresql)
   - [Oracle](#oracle)
   - [SQL Server](#sql-server)
@@ -81,7 +82,7 @@ Each database system has unique performance characteristics and optimization tec
        # ...
    ```
 
-### MySQL/MariaDB
+### MySQL
 
 #### Strengths
 
@@ -106,7 +107,7 @@ Each database system has unique performance characteristics and optimization tec
 2. **Buffer Pool Size**: Adjust InnoDB buffer pool size for caching data and indexes
    ```python
    # Check current buffer pool size
-   connection.execute("SHOW VARIABLES LIKE 'innodb_buffer_pool_size';")
+   connection.execute("SHOW VARIABLES LIKE 'innodb_buffer_pool_size';") 
    ```
 
 3. **Query Cache**: Use query cache for read-heavy workloads (deprecated in MySQL 8.0+)
@@ -122,6 +123,54 @@ Each database system has unique performance characteristics and optimization tec
    ```
 
 5. **Partitioning**: Use table partitioning for very large tables
+
+6. **Indexing Strategies**:
+   - Use composite indexes for multi-column queries
+   - Consider covering indexes for frequently used queries
+   - Use EXPLAIN to verify index usage
+
+### MariaDB
+
+#### Strengths
+
+- **Ease of Use**: Simple to set up and manage
+- **Read Performance**: Excellent read performance with proper configuration
+- **Storage Engine Options**: More storage engines than MySQL including Aria and ColumnStore
+- **Replication**: Advanced replication capabilities including multi-source replication
+
+#### Limitations
+
+- **Complex Queries**: Can struggle with very complex queries
+- **Write Scaling**: Vertical scaling for write-heavy workloads
+- **Compatibility**: Some newer MySQL features may not be fully compatible
+
+#### Optimization Tips
+
+1. **Storage Engine Selection**:
+   - InnoDB: ACID compliant, row-level locking, good for most use cases
+   - Aria: Enhanced MyISAM replacement with crash recovery
+   - ColumnStore: For analytical workloads and data warehousing
+   - Memory: Ultra-fast for temporary data that can fit in memory
+
+2. **Buffer Pool Size**: Adjust InnoDB buffer pool size for caching data and indexes
+   ```python
+   # Check current buffer pool size
+   connection.execute("SHOW VARIABLES LIKE 'innodb_buffer_pool_size';") 
+   ```
+
+3. **Query Cache**: Use query cache for read-heavy workloads
+
+4. **Connection Pool**: Configure connection pool size appropriately
+   ```python
+   # In Python ActiveRecord configuration
+   config = ConnectionConfig(
+       # ...
+       pool_size=10,
+       pool_recycle=3600,  # Recycle connections after 1 hour
+   )
+   ```
+
+5. **Thread Pool**: Enable thread pool for better connection handling
 
 6. **Indexing Strategies**:
    - Use composite indexes for multi-column queries
