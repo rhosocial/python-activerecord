@@ -1,0 +1,7 @@
+pytest~=8.3.5
+pytest-xdist
+pytest-rerunfailures
+coverage
+pydantic[email]
+pyyaml
+mysql-connector-python
