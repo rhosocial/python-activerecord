@@ -5,14 +5,20 @@
 > **📝 Documentation Notation:** Throughout the documentation, you may see labels such as "Not Yet Implemented", "Partially Implemented", or "Subject to Change". These labels indicate that the related features are not fully implemented or may differ from the actual implementation. Please refer to the actual code for the most accurate information.
 
 ## [1. Introduction](1.introduction/README.md)
-- Overview
-- Features
-- Requirements
-- [Comparison with Other Python ORM Frameworks](1.introduction/orm_comparison.md)
-  - Comparison with SQLAlchemy
-  - Comparison with Django ORM
-  - Comparison with Peewee
-  - Reasons to Choose ActiveRecord
+- [Overview](1.introduction/docs/introduction.md)
+- [Features](1.introduction/docs/features.md)
+- [Requirements](1.introduction/README.md#requirements)
+- [Philosophy](1.introduction/docs/philosophy.md)
+- [Pydantic Integration](1.introduction/docs/pydantic-integration.md)
+- [Asynchronous Support](1.introduction/docs/async-support.md)
+- [Relationships](1.introduction/docs/relationships.md)
+- [Aggregation](1.introduction/docs/aggregation.md)
+- [Performance](1.introduction/docs/performance.md)
+- [Learning Curve](1.introduction/docs/learning-curve.md)
+- [Community](1.introduction/docs/community.md)
+- [When to Choose](1.introduction/docs/when-to-choose.md)
+- [Code Comparison](1.introduction/docs/code-comparison.md)
+- [Conclusion](1.introduction/docs/conclusion.md)
 
 ## [2. Quick Start (SQLite Example)](2.quick_start/README.md)
 - [Installation](2.quick_start/installation.md)

@@ -5,14 +5,20 @@
 > **📝 文档标注说明：** 在文档中，您可能会看到如"目前暂未实现"、"部分实现"、"存在调整可能"等标签。这些标签表示相关功能尚未完全实现或可能与实际实现不符，请以实际代码为准。
 
 ## [1. 介绍](1.introduction/README.md)
-- 概述
-- 特点
-- 系统需求
-- [与其他Python ORM框架的比较](1.introduction/orm_comparison.md)
-  - 与SQLAlchemy的对比
-  - 与Django ORM的对比
-  - 与Peewee的对比
-  - 选择ActiveRecord的理由
+- [概述](1.introduction/docs/introduction.md)
+- [特点](1.introduction/docs/features.md)
+- [系统需求](1.introduction/README.md#requirements)
+- [设计理念](1.introduction/docs/philosophy.md)
+- [Pydantic集成](1.introduction/docs/pydantic-integration.md)
+- [异步支持](1.introduction/docs/async-support.md)
+- [关系管理](1.introduction/docs/relationships.md)
+- [聚合功能](1.introduction/docs/aggregation.md)
+- [性能表现](1.introduction/docs/performance.md)
+- [学习曲线](1.introduction/docs/learning-curve.md)
+- [社区生态](1.introduction/docs/community.md)
+- [何时选择](1.introduction/docs/when-to-choose.md)
+- [代码对比](1.introduction/docs/code-comparison.md)
+- [总结](1.introduction/docs/conclusion.md)
 
 ## [2. 快速入门（SQLite示例）](2.quick_start/README.md)
 - [安装指南](2.quick_start/installation.md)
