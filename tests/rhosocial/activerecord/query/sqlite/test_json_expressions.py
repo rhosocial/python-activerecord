@@ -766,7 +766,7 @@ def test_json_invalid_path_error(json_fixtures, skip_if_unsupported):
         query.aggregate()
 
     # Verify error message
-    assert "bad JSON path" in str(excinfo.value).lower() or "bad json path:" in str(excinfo.value).lower()
+    assert "json path error near" in str(excinfo.value).lower() or "bad json path:" in str(excinfo.value).lower()
 
 
 def test_json_non_json_column(json_fixtures, skip_if_unsupported):

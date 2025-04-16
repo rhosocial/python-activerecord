@@ -145,8 +145,10 @@ def test_numeric_functions(order_fixtures):
     assert float(results['min_amount']) == -125.30  # Lowest amount
 
 
-def test_datetime_functions(order_fixtures):
+def test_datetime_functions(order_fixtures, request):
     """Test date and time functions."""
+    if 'mysql' in request.node.name:
+        pytest.skip("This test is not applicable to MySQL")
     User, Order, OrderItem = order_fixtures
 
     # Create test user

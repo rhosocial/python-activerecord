@@ -14,7 +14,7 @@ from .dialect import (
     SQLiteDialect,
     SQLiteExpression,
     SQLiteTypeMapper,
-    SQLiteValueMapper,
+    SQLiteValueMapper, SQLiteReturningHandler, SQLiteAggregateHandler, SQLiteJsonHandler,
 )
 from .transaction import SQLiteTransactionManager
 from .types import (
@@ -32,6 +32,9 @@ __all__ = [
     'SQLiteExpression',
     'SQLiteTypeMapper',
     'SQLiteValueMapper',
+    'SQLiteReturningHandler',
+    'SQLiteAggregateHandler',  # Add SQLiteAggregateHandler
+    'SQLiteJsonHandler',  # Add SQLiteJsonHandler
 
     # Transaction
     'SQLiteTransactionManager',

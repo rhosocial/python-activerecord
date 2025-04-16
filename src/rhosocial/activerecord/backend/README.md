@@ -111,3 +111,44 @@ Benefits of this design:
     And other database-agnostic utility functions
     """
 ```
+
+# Database Backend Implementation Comparison
+
+| Feature | SQLite | MySQL | MariaDB | PostgreSQL |
+|---------|--------|-------|---------|------------|
+| **RETURNING Support** | ✅ Since v3.35.0 | ❌ Not supported | ✅ Since v10.5.0 | ✅ All versions |
+| **Python Version Compatibility** | ⚠️ Issues with 3.9 and below | N/A | ✅ All versions | ✅ All versions |
+| **Expression Support** | ✅ Basic expressions | N/A | ✅ Basic expressions | ✅ Complex expressions |
+| **RETURNING Emulation** | N/A | ⚠️ Limited fallback | N/A | N/A |
+
+## Hook Method Implementation Status
+
+| Hook Method | SQLite | MySQL | MariaDB |
+|-------------|--------|-------|---------|
+| `_get_statement_type` | ✅ Custom | ❌ Base | ❌ Base |
+| `_is_select_statement` | ✅ Custom | ✅ Custom | ✅ Custom |
+| `_is_dml_statement` | ❌ Base | ❌ Base | ❌ Base |
+| `_check_returning_compatibility` | ✅ Custom | ❌ Base | ✅ Custom |
+| `_prepare_returning_clause` | ❌ Base | ✅ Custom | ✅ Custom |
+| `_get_cursor` | ✅ Custom | ✅ Custom | ✅ Custom |
+| `_execute_query` | ✅ Custom | ❌ Base | ✅ Custom |
+| `_process_result_set` | ✅ Custom | ✅ Custom | ✅ Custom |
+| `_build_query_result` | ❌ Base | ✅ Custom | ✅ Custom |
+| `_handle_auto_commit_if_needed` | ✅ Custom | ✅ Custom | ✅ Custom |
+| `_handle_execution_error` | ✅ Custom | ✅ Custom | ✅ Custom |
+
+## Database-Specific Features
+
+### SQLite
+- PRAGMA statements handled as special case
+- Python version compatibility checks
+- SQLite version compatibility checks
+
+### MySQL
+- RETURNING clause emulation for INSERT with LAST_INSERT_ID()
+- Separate query for fetching after INSERT
+- Limited UPDATE/DELETE tracking
+
+### MariaDB
+- Version compatibility checks for RETURNING
+- Custom error handling for specific MariaDB error codes

@@ -83,7 +83,7 @@ def test_left_join(order_fixtures):
     item.save()
 
     # 测试LEFT JOIN
-    results = Order.query() \
+    results = Order.query().select('orders.*') \
         .join(f"""
             LEFT JOIN {OrderItem.__table_name__} 
             ON {Order.__table_name__}.id = {OrderItem.__table_name__}.order_id

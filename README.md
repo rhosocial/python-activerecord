@@ -1,5 +1,7 @@
 # rhosocial ActiveRecord
 
+> **⚠️ 开发阶段声明：** 当前项目尚处于开发阶段，特性随时可能增减，且可能存在缺陷，甚至与实际实现不对应。因此文档内容存在随时调整的可能性，目前仅供参考。
+
 [![PyPI version](https://badge.fury.io/py/rhosocial-activerecord.svg)](https://badge.fury.io/py/rhosocial-activerecord)
 [![Python](https://img.shields.io/pypi/pyversions/rhosocial-activerecord.svg)](https://pypi.org/project/rhosocial-activerecord/)
 [![Tests](https://github.com/rhosocial/python-activerecord/actions/workflows/test.yml/badge.svg)](https://github.com/rhosocial/python-activerecord/actions)
@@ -27,32 +29,26 @@
 
 ## Requirements
 
-- Python 3.8+ (Note: SQLite backend has limitations in Python <3.10)
+- Python 3.8+
 - Pydantic 2.10+
-- SQLite 3.35+ (if using SQLite backend)
-
-Important: When using SQLite backend with Python <3.10, RETURNING clause has known limitations:
-- affected_rows always returns 0
-- last_insert_id may be unreliable
-
-These limitations are specific to SQLite backend and do not affect other database backends.
-For full SQLite RETURNING clause support, Python 3.10+ is recommended.
+- SQLite 3.25+ (if using SQLite backend)
 
 All dependencies are handled through the package manager with no external ORM requirements.
 
-Note that the sqlite3 version must be greater than 3.35, otherwise it will not work.
+Note that the sqlite3 version must be greater than 3.25, otherwise it will not work.
 You can run the following command to check the sqlite3 version:
 
 ```shell
 python3 -c "import sqlite3; print(sqlite3.sqlite_version);"
 ```
 
-When using Python 3.9 and earlier versions with SQLite backend, there are known limitations with the RETURNING clause
-where the `rowcount` parameter always returns 0. This limitation is specific to SQLite and does not affect other
-database backends. For full SQLite RETURNING clause support, Python 3.10+ is recommended.
+As of the release of this software, the latest version of pydantic is 2.11.x. This version supports Python3.13 free-threaded mode (PEP 703).
 
-As of the release of this software, the latest version of pydantic is 2.10.x. As of this version,
-Python no-GIL is not supported. Therefore, this software can only run on python3.13, not python3.13t.
+Note that pydantic 2.11 has dropped support for Python3.8. If you need to use Python3.8, please stick with pydantic 2.10.
+
+Also note that according to Python's official development plan (https://peps.python.org/pep-0703/),
+the free-threaded mode will remain experimental for several years and is not recommended for production environments,
+even though both pydantic and this project support it.
 
 ## Installation
 
@@ -62,6 +58,7 @@ pip install rhosocial-activerecord
 
 # Optional database backends
 pip install rhosocial-activerecord[mysql]     # MySQL support
+pip install rhosocial-activerecord[mariadb]   # MariaDB support
 pip install rhosocial-activerecord[pgsql]     # PostgreSQL support
 pip install rhosocial-activerecord[oracle]    # Oracle support
 pip install rhosocial-activerecord[mssql]     # SQL Server support

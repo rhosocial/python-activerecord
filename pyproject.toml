@@ -34,9 +34,14 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    "pydantic>=2.10.0",
+    # Pydantic dropped Python 3.8 support since v2.11, but we still support it in this version,
+    "pydantic>=2.10.6; python_version == '3.8'",
+    "pydantic-core>=2.27.2; python_version == '3.8'",
+    # For Python 3.9+, we use newer Pydantic versions with latest features,
+    "pydantic>=2.11.1; python_version >= '3.9'",
+    "pydantic-core>=2.33.0; python_version >= '3.9'",
     "typing-extensions>=4.12.0",
-    "pytz>=2025.1",
+    "pytz>=2025.2",
     "python-dateutil>=2.9.0",
     "tzlocal>=5.2",
 ]
@@ -45,6 +50,9 @@ dependencies = [
 # Database backend dependencies
 mysql = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
+]
+mariadb = [
+    "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
 ]
 pgsql = [
     "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
@@ -58,6 +66,7 @@ mssql = [
 # All databases together
 databases = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
     "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
@@ -69,6 +78,7 @@ migration = [
 # All features combined
 all = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
     "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
