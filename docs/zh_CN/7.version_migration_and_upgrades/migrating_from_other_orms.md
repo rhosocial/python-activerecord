@@ -2,7 +2,7 @@
 
 ## 介绍
 
-从一个ORM框架迁移到另一个可能是一项重大工作。本指南提供了从流行的Python ORM（如SQLAlchemy、Django ORM和Peewee）迁移到Python ActiveRecord的策略和最佳实践。我们将涵盖代码转换、数据迁移和测试方法，以确保平稳过渡。
+从一个ORM框架迁移到另一个可能是一项重大工作。本指南提供了从流行的Python ORM（如SQLAlchemy、Django ORM和Peewee）迁移到rhosocial ActiveRecord的策略和最佳实践。我们将涵盖代码转换、数据迁移和测试方法，以确保平稳过渡。
 
 ## 通用迁移策略
 
@@ -33,7 +33,7 @@
 
 ### 概念差异
 
-| SQLAlchemy | Python ActiveRecord |
+| SQLAlchemy | rhosocial ActiveRecord |
 |------------|---------------------|
 | 显式会话管理 | 隐式连接管理 |
 | 声明式模型定义 | 活动记录模式 |
@@ -80,7 +80,7 @@ class Post(Base):
         return f'<Post {self.title}>'
 ```
 
-**等效的Python ActiveRecord模型：**
+**等效的rhosocial ActiveRecord模型：**
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -148,7 +148,7 @@ session.delete(user)
 session.commit()
 ```
 
-**等效的Python ActiveRecord查询：**
+**等效的rhosocial ActiveRecord查询：**
 
 ```python
 # 创建新用户
@@ -179,7 +179,7 @@ user.delete()
 
 ### 概念差异
 
-| Django ORM | Python ActiveRecord |
+| Django ORM | rhosocial ActiveRecord |
 |------------|---------------------|
 | 与Django紧密集成 | 独立的ORM |
 | 模型定义在应用特定的models.py中 | 模型可以在任何地方定义 |
@@ -216,7 +216,7 @@ class Product(models.Model):
         return self.name
 ```
 
-**等效的Python ActiveRecord模型：**
+**等效的rhosocial ActiveRecord模型：**
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -293,7 +293,7 @@ product.save()
 product.delete()
 ```
 
-**等效的Python ActiveRecord查询：**
+**等效的rhosocial ActiveRecord查询：**
 
 ```python
 # 创建新分类
@@ -341,7 +341,7 @@ product.delete()
 
 ### 概念差异
 
-| Peewee | Python ActiveRecord |
+| Peewee | rhosocial ActiveRecord |
 |--------|---------------------|
 | 轻量级，简单的API | 具有活动记录模式的全功能ORM |
 | 以模型为中心的设计 | 以模型为中心的设计 |
@@ -378,7 +378,7 @@ class Pet(BaseModel):
         return f'{self.name} ({self.animal_type})'
 ```
 
-**等效的Python ActiveRecord模型：**
+**等效的rhosocial ActiveRecord模型：**
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -442,7 +442,7 @@ person.save()
 pet.delete_instance()
 ```
 
-**等效的Python ActiveRecord查询：**
+**等效的rhosocial ActiveRecord查询：**
 
 ```python
 # 创建人员
@@ -601,7 +601,7 @@ def benchmark_query():
 
 **挑战**：迁移自定义SQL或数据库特定功能。
 
-**解决方案**：使用Python ActiveRecord的原始SQL功能：
+**解决方案**：使用rhosocial ActiveRecord的原始SQL功能：
 
 ```python
 # 旧SQLAlchemy原始查询
@@ -658,6 +658,6 @@ class Order(ActiveRecord):
 
 ## 结论
 
-从一个ORM迁移到另一个需要仔细规划、系统转换和彻底测试。通过遵循本指南中的模式和示例，您可以成功地将应用程序从SQLAlchemy、Django ORM或Peewee迁移到Python ActiveRecord，同时最小化中断并保持功能。
+从一个ORM迁移到另一个需要仔细规划、系统转换和彻底测试。通过遵循本指南中的模式和示例，您可以成功地将应用程序从SQLAlchemy、Django ORM或Peewee迁移到rhosocial ActiveRecord，同时最小化中断并保持功能。
 
-请记住，迁移是改进数据模型和查询模式的机会。在迁移过程中，利用Python ActiveRecord的功能来增强应用程序的数据库交互。
+请记住，迁移是改进数据模型和查询模式的机会。在迁移过程中，利用rhosocial ActiveRecord的功能来增强应用程序的数据库交互。

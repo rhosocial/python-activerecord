@@ -6,7 +6,7 @@
 
 ### 内置查询统计
 
-Python ActiveRecord提供了内置的查询统计功能，帮助您识别慢查询：
+rhosocial ActiveRecord提供了内置的查询统计功能，帮助您识别慢查询：
 
 ```python
 from rhosocial.activerecord import stats
@@ -166,7 +166,7 @@ python -m line_profiler script.py.lprof
 
 ### 自定义性能指标
 
-Python ActiveRecord允许您定义和收集自定义性能指标：
+rhosocial ActiveRecord允许您定义和收集自定义性能指标：
 
 ```python
 from rhosocial.activerecord import metrics

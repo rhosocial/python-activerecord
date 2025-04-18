@@ -1,10 +1,10 @@
 # Pydantic Integration Advantages
 
-Python ActiveRecord's tight integration with Pydantic provides significant advantages that deserve special attention:
+rhosocial ActiveRecord's tight integration with Pydantic provides significant advantages that deserve special attention:
 
 ## 1. Seamless Ecosystem Integration
 
-Python ActiveRecord models can be directly used with other Pydantic-based libraries and frameworks:
+rhosocial ActiveRecord models can be directly used with other Pydantic-based libraries and frameworks:
 
 - **FastAPI**: Models can be used as request/response schemas without conversion
 - **Pydantic Settings**: Configuration management with the same validation
@@ -14,7 +14,7 @@ Python ActiveRecord models can be directly used with other Pydantic-based librar
 
 ## 2. Advanced Type Validation
 
-Python ActiveRecord inherits Pydantic's robust validation capabilities:
+rhosocial ActiveRecord inherits Pydantic's robust validation capabilities:
 
 - **Complex Types**: Support for nested models, unions, literals, and generics
 - **Custom Validators**: Field-level and model-level validation functions
@@ -38,7 +38,7 @@ Python ActiveRecord inherits Pydantic's robust validation capabilities:
 
 ## Integration Example
 
-Here's how Python ActiveRecord models integrate seamlessly with a FastAPI application:
+Here's how rhosocial ActiveRecord models integrate seamlessly with a FastAPI application:
 
 ```python
 from fastapi import FastAPI

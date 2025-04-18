@@ -1,10 +1,10 @@
 # One-to-One Relationships
 
-One-to-one relationships represent a connection between two models where each record in the first model is associated with exactly one record in the second model, and vice versa. In Python ActiveRecord, one-to-one relationships can be implemented using either `HasOne` or `BelongsTo` descriptors, depending on which model holds the foreign key.
+One-to-one relationships represent a connection between two models where each record in the first model is associated with exactly one record in the second model, and vice versa. In rhosocial ActiveRecord, one-to-one relationships can be implemented using either `HasOne` or `BelongsTo` descriptors, depending on which model holds the foreign key.
 
 ## Types of One-to-One Relationships
 
-There are two ways to implement one-to-one relationships in Python ActiveRecord:
+There are two ways to implement one-to-one relationships in rhosocial ActiveRecord:
 
 1. **HasOne**: Used when the related model contains the foreign key
 2. **BelongsTo**: Used when the current model contains the foreign key
@@ -108,7 +108,7 @@ Inverse relationships are automatically set up when you define the `inverse_of` 
 
 ## Cascading Operations
 
-By default, Python ActiveRecord doesn't automatically cascade delete operations to related records. If you want to delete related records when the parent record is deleted, you need to implement this behavior manually:
+By default, rhosocial ActiveRecord doesn't automatically cascade delete operations to related records. If you want to delete related records when the parent record is deleted, you need to implement this behavior manually:
 
 ```python
 class User(IntegerPKMixin, ActiveRecord):
@@ -169,4 +169,4 @@ for user in users:
 
 ## Conclusion
 
-One-to-one relationships in Python ActiveRecord provide a powerful way to model connections between related entities. By understanding the difference between `HasOne` and `BelongsTo` relationships and following best practices for relationship definition and usage, you can build efficient and maintainable data models for your applications.
+One-to-one relationships in rhosocial ActiveRecord provide a powerful way to model connections between related entities. By understanding the difference between `HasOne` and `BelongsTo` relationships and following best practices for relationship definition and usage, you can build efficient and maintainable data models for your applications.

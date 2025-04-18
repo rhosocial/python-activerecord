@@ -1,6 +1,6 @@
 # Statistical Queries
 
-Python ActiveRecord provides capabilities for performing statistical analysis directly in your database queries. This document covers how to use aggregate functions and expressions to perform various statistical calculations.
+rhosocial ActiveRecord provides capabilities for performing statistical analysis directly in your database queries. This document covers how to use aggregate functions and expressions to perform various statistical calculations.
 
 ## Basic Statistical Functions
 
@@ -294,7 +294,7 @@ Statistical function support varies by database:
 - **MySQL/MariaDB**: Good support for basic statistical functions
 - **SQLite**: Limited built-in statistical functions
 
-Python ActiveRecord provides a consistent API where possible, but some advanced statistical functions may require database-specific approaches or post-processing in Python.
+rhosocial ActiveRecord provides a consistent API where possible, but some advanced statistical functions may require database-specific approaches or post-processing in Python.
 
 ## Performance Considerations
 

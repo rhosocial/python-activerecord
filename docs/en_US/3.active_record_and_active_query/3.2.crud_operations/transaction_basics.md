@@ -1,6 +1,6 @@
 # Transaction Basics
 
-This document covers the fundamentals of database transactions in Python ActiveRecord. Transactions ensure that a series of database operations are executed atomically, meaning they either all succeed or all fail together.
+This document covers the fundamentals of database transactions in rhosocial ActiveRecord. Transactions ensure that a series of database operations are executed atomically, meaning they either all succeed or all fail together.
 
 ## Understanding Transactions
 
@@ -83,7 +83,7 @@ except Exception as e:
 
 ## Nested Transactions
 
-Python ActiveRecord supports nested transactions. The behavior depends on the database backend, but generally follows the pattern where a nested transaction creates a savepoint:
+rhosocial ActiveRecord supports nested transactions. The behavior depends on the database backend, but generally follows the pattern where a nested transaction creates a savepoint:
 
 ```python
 with Transaction() as outer_transaction:
@@ -178,4 +178,4 @@ with Transaction() as transaction:
 
 ## Summary
 
-Transactions are a powerful feature in Python ActiveRecord that help maintain data integrity. By understanding and properly using transactions, you can ensure that your database operations are reliable and consistent, even in the face of errors or concurrent access.
+Transactions are a powerful feature in rhosocial ActiveRecord that help maintain data integrity. By understanding and properly using transactions, you can ensure that your database operations are reliable and consistent, even in the face of errors or concurrent access.

@@ -4,7 +4,7 @@
 
 ## 基本结构定义
 
-在Python ActiveRecord中，表结构通过模型类定义来定义。类的每个属性代表数据库表中的一列。
+在rhosocial ActiveRecord中，表结构通过模型类定义来定义。类的每个属性代表数据库表中的一列。
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -54,7 +54,7 @@ class Product(ActiveRecord):
 
 ## 字段类型和数据库映射
 
-Python ActiveRecord利用Pydantic的类型系统，并将Python类型映射到适当的数据库列类型。以下是常见Python类型如何映射到数据库类型：
+rhosocial ActiveRecord利用Pydantic的类型系统，并将Python类型映射到适当的数据库列类型。以下是常见Python类型如何映射到数据库类型：
 
 | Python类型 | SQLite | MySQL | PostgreSQL |
 |-------------|--------|-------|------------|
@@ -193,4 +193,4 @@ class Product(ActiveRecord):
 
 ## 结论
 
-通过Python ActiveRecord模型定义表结构提供了一种干净、类型安全的方式来构建数据库。Python类型提示和Pydantic验证的结合确保了数据在整个应用程序中保持完整性。
+通过rhosocial ActiveRecord模型定义表结构提供了一种干净、类型安全的方式来构建数据库。Python类型提示和Pydantic验证的结合确保了数据在整个应用程序中保持完整性。

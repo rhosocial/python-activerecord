@@ -1,6 +1,6 @@
 # Web Application Development
 
-Web applications represent one of the most common use cases for ORM frameworks like Python ActiveRecord. This section explores how to effectively implement ActiveRecord in web application development, covering both API backends and integration with popular web frameworks.
+Web applications represent one of the most common use cases for ORM frameworks like rhosocial ActiveRecord. This section explores how to effectively implement ActiveRecord in web application development, covering both API backends and integration with popular web frameworks.
 
 ## Contents
 
@@ -9,7 +9,7 @@ Web applications represent one of the most common use cases for ORM frameworks l
 
 ## Overview
 
-Modern web applications typically separate frontend and backend concerns, with the backend responsible for data management, business logic, and API endpoints. Python ActiveRecord excels in this environment by providing a clean, intuitive interface for database operations that integrates seamlessly with web frameworks.
+Modern web applications typically separate frontend and backend concerns, with the backend responsible for data management, business logic, and API endpoints. rhosocial ActiveRecord excels in this environment by providing a clean, intuitive interface for database operations that integrates seamlessly with web frameworks.
 
 The ActiveRecord pattern is particularly well-suited for web applications because:
 

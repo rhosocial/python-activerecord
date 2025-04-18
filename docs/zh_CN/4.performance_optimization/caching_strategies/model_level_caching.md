@@ -1,6 +1,6 @@
 # 模型级缓存
 
-模型级缓存是一种强大的性能优化技术，它将整个模型实例存储在缓存中，允许在不执行数据库查询的情况下检索它们。本文档探讨了如何在Python ActiveRecord应用程序中实现和管理模型级缓存。
+模型级缓存是一种强大的性能优化技术，它将整个模型实例存储在缓存中，允许在不执行数据库查询的情况下检索它们。本文档探讨了如何在rhosocial ActiveRecord应用程序中实现和管理模型级缓存。
 
 ## 简介
 
@@ -8,7 +8,7 @@
 
 ## 基本实现
 
-Python ActiveRecord提供了一个`ModelCache`类来处理模型级缓存：
+rhosocial ActiveRecord提供了一个`ModelCache`类来处理模型级缓存：
 
 ```python
 from rhosocial.activerecord.models import User
@@ -30,7 +30,7 @@ if cached_user is None:
 
 ## 自动模型缓存
 
-为了方便，Python ActiveRecord可以配置为自动缓存模型实例：
+为了方便，rhosocial ActiveRecord可以配置为自动缓存模型实例：
 
 ```python
 from rhosocial.activerecord.models import User
@@ -69,7 +69,7 @@ class User(ActiveRecord):
 
 ## 缓存键生成
 
-Python ActiveRecord使用一致的策略生成缓存键：
+rhosocial ActiveRecord使用一致的策略生成缓存键：
 
 ```python
 from rhosocial.activerecord.cache import generate_model_cache_key
@@ -127,7 +127,7 @@ if cached_user:
 
 ## 缓存序列化
 
-模型实例必须是可序列化的才能被缓存。Python ActiveRecord在大多数情况下会自动处理这个问题，但对于复杂模型，您可能需要自定义序列化：
+模型实例必须是可序列化的才能被缓存。rhosocial ActiveRecord在大多数情况下会自动处理这个问题，但对于复杂模型，您可能需要自定义序列化：
 
 ```python
 class User(ActiveRecord):
@@ -219,6 +219,6 @@ print(f"命中率: {stats.hit_ratio:.2f}")
 
 ## 结论
 
-模型级缓存是提高Python ActiveRecord应用程序性能的强大技术。通过缓存频繁访问的模型实例，您可以显著减少数据库负载并改善响应时间。
+模型级缓存是提高rhosocial ActiveRecord应用程序性能的强大技术。通过缓存频繁访问的模型实例，您可以显著减少数据库负载并改善响应时间。
 
 在实现模型级缓存时，请仔细考虑要缓存哪些模型、缓存多长时间以及如何处理缓存失效，以确保数据一致性的同时最大化性能优势。

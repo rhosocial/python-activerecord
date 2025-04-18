@@ -1,6 +1,6 @@
 # 特性比较
 
-| 特性 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| 特性 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |---------|-------------------|------------|------------|--------|
 | **数据库支持** | SQLite, MySQL, PostgreSQL, MariaDB, Oracle, SQL Server | 几乎所有 SQL 数据库的广泛支持 | SQLite, MySQL, PostgreSQL, Oracle | SQLite, MySQL, PostgreSQL |
 | **模式定义** | 带类型验证的 Pydantic 模型 | 声明式类或显式表定义 | Django 模型类 | 带字段定义的模型类 |
@@ -20,7 +20,7 @@
 
 ## 聚合功能比较
 
-| 聚合功能 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| 聚合功能 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |--------------------|-------------------|------------|------------|--------|
 | **标量查询** | 全面支持 | 全面支持 | 良好支持 | 良好支持 |
 | **聚合函数** | 完全支持（COUNT, SUM, AVG 等，含 DISTINCT） | 完全支持 | 良好支持 | 基本支持 |
@@ -36,7 +36,7 @@
 
 ## 调试功能比较
 
-| 调试功能 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| 调试功能 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |-------------------|-------------------|------------|------------|--------|
 | **SQL 语句日志记录** | 内置，带格式选项 | 全面，多级日志 | 通过 Django 调试工具栏 | 基本 |
 | **参数绑定检查** | 完整参数检查 | 全面检查 | 有限 | 基本 |

@@ -4,7 +4,7 @@
 
 ## 关系类型概述
 
-Python ActiveRecord支持以下主要关系类型：
+rhosocial ActiveRecord支持以下主要关系类型：
 
 - **BelongsTo**：表示HasMany或HasOne的反向关系，当前模型包含引用另一个模型的外键
 - **HasMany（一对多）**：表示另一个模型中的多条记录包含引用当前模型的外键
@@ -108,7 +108,7 @@ orders: ClassVar[HasMany['Order']] = HasMany(
 
 ### 自动生成的方法
 
-当您定义一个关系时，Python ActiveRecord会自动为每个关系生成两个方法：
+当您定义一个关系时，rhosocial ActiveRecord会自动为每个关系生成两个方法：
 
 1. **relation_name()** - 用于访问相关记录的方法
 2. **relation_name_query()** - 用于访问关系的预配置查询构建器的方法
@@ -147,7 +147,7 @@ total_amount = user.orders_query().sum('amount')
 
 ### 关系缓存管理
 
-Python ActiveRecord为关系提供实例级缓存。关系描述符实现了`__delete__`方法，用于清除缓存而非删除关系本身：
+rhosocial ActiveRecord为关系提供实例级缓存。关系描述符实现了`__delete__`方法，用于清除缓存而非删除关系本身：
 
 ```python
 # 清除特定关系的缓存
@@ -289,4 +289,4 @@ users = User.with_relation('posts', lambda q: q.where(status='published')).all()
 
 ## 总结
 
-Python ActiveRecord的关系系统提供了一种直观且类型安全的方式来定义和使用数据库关系。通过适当地使用关系，您可以创建更加清晰和高效的代码，同时避免常见的性能陷阱。
+rhosocial ActiveRecord的关系系统提供了一种直观且类型安全的方式来定义和使用数据库关系。通过适当地使用关系，您可以创建更加清晰和高效的代码，同时避免常见的性能陷阱。

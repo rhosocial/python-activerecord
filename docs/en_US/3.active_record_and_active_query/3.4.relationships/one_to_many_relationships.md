@@ -1,6 +1,6 @@
 # One-to-Many Relationships
 
-One-to-many relationships represent a connection between two models where a record in the first model can be associated with multiple records in the second model, but each record in the second model is associated with only one record in the first model. In Python ActiveRecord, one-to-many relationships are implemented using the `HasMany` descriptor on the "one" side and the `BelongsTo` descriptor on the "many" side.
+One-to-many relationships represent a connection between two models where a record in the first model can be associated with multiple records in the second model, but each record in the second model is associated with only one record in the first model. In rhosocial ActiveRecord, one-to-many relationships are implemented using the `HasMany` descriptor on the "one" side and the `BelongsTo` descriptor on the "many" side.
 
 ## Overview
 
@@ -10,7 +10,7 @@ A one-to-many relationship is one of the most common relationship types in datab
 - A department has many employees
 - A product has many reviews
 
-In Python ActiveRecord, these relationships are defined using descriptors that create a seamless API for accessing related records.
+In rhosocial ActiveRecord, these relationships are defined using descriptors that create a seamless API for accessing related records.
 
 ## Defining One-to-Many Relationships
 
@@ -165,7 +165,7 @@ for user in users_with_posts:
 
 ## Cascading Operations
 
-When working with one-to-many relationships, you often need to handle cascading operations such as deleting related records when a parent record is deleted. Python ActiveRecord doesn't automatically handle cascading operations, so you need to implement them manually:
+When working with one-to-many relationships, you often need to handle cascading operations such as deleting related records when a parent record is deleted. rhosocial ActiveRecord doesn't automatically handle cascading operations, so you need to implement them manually:
 
 ```python
 # Delete a user and all their posts
@@ -192,4 +192,4 @@ user.delete()
 
 ## Conclusion
 
-One-to-many relationships are a fundamental part of database design and are well-supported in Python ActiveRecord. By using the `HasMany` and `BelongsTo` descriptors, you can create intuitive and type-safe relationships between your models, making it easy to work with related data in your application.
+One-to-many relationships are a fundamental part of database design and are well-supported in rhosocial ActiveRecord. By using the `HasMany` and `BelongsTo` descriptors, you can create intuitive and type-safe relationships between your models, making it easy to work with related data in your application.

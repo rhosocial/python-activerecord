@@ -4,7 +4,7 @@ This section covers how to define ActiveRecord models in your application. Model
 
 ## Overview
 
-In Python ActiveRecord, models are defined as classes that inherit from the `ActiveRecord` base class. Each model corresponds to a database table, and each instance of a model corresponds to a row in that table. Models leverage Pydantic for data validation and type safety.
+In rhosocial ActiveRecord, models are defined as classes that inherit from the `ActiveRecord` base class. Each model corresponds to a database table, and each instance of a model corresponds to a row in that table. Models leverage Pydantic for data validation and type safety.
 
 ## Contents
 
@@ -56,7 +56,7 @@ class CustomModel(ActiveRecord):
 
 ### Field Types
 
-Python ActiveRecord leverages Pydantic's type system, supporting all standard Python types and Pydantic's specialized types. Common field types include:
+rhosocial ActiveRecord leverages Pydantic's type system, supporting all standard Python types and Pydantic's specialized types. Common field types include:
 
 - Basic types: `int`, `float`, `str`, `bool`
 - Date/time types: `datetime`, `date`, `time`

@@ -1,10 +1,10 @@
 # PostgreSQL Support
 
-Python ActiveRecord provides comprehensive support for PostgreSQL, a powerful open-source object-relational database system. This document covers the specific features, configuration options, and considerations when using Python ActiveRecord with PostgreSQL.
+rhosocial ActiveRecord provides comprehensive support for PostgreSQL, a powerful open-source object-relational database system. This document covers the specific features, configuration options, and considerations when using rhosocial ActiveRecord with PostgreSQL.
 
 ## Overview
 
-PostgreSQL is an advanced, enterprise-class open-source relational database that supports both SQL (relational) and JSON (non-relational) querying. Python ActiveRecord's PostgreSQL backend leverages PostgreSQL's rich feature set while providing a consistent ActiveRecord API.
+PostgreSQL is an advanced, enterprise-class open-source relational database that supports both SQL (relational) and JSON (non-relational) querying. rhosocial ActiveRecord's PostgreSQL backend leverages PostgreSQL's rich feature set while providing a consistent ActiveRecord API.
 
 ## Features
 
@@ -19,7 +19,7 @@ PostgreSQL is an advanced, enterprise-class open-source relational database that
 
 ## Configuration
 
-To use PostgreSQL with Python ActiveRecord, you need to configure your model with the PostgreSQL backend:
+To use PostgreSQL with rhosocial ActiveRecord, you need to configure your model with the PostgreSQL backend:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -65,7 +65,7 @@ The actual pool size is managed with min_size (approximately half of pool_size) 
 
 ## Transactions
 
-Python ActiveRecord provides comprehensive transaction support for PostgreSQL, including all standard isolation levels:
+rhosocial ActiveRecord provides comprehensive transaction support for PostgreSQL, including all standard isolation levels:
 
 ```python
 # Start a transaction with a specific isolation level
@@ -121,7 +121,7 @@ class User(ActiveRecord):
 
 ## Data Type Mapping
 
-Python ActiveRecord maps Python types to PostgreSQL data types automatically. Here are some common mappings:
+rhosocial ActiveRecord maps Python types to PostgreSQL data types automatically. Here are some common mappings:
 
 | Python Type | PostgreSQL Type |
 |-------------|----------------|
@@ -140,7 +140,7 @@ Python ActiveRecord maps Python types to PostgreSQL data types automatically. He
 
 ## JSON/JSONB Support
 
-PostgreSQL offers robust support for JSON data through its JSON and JSONB data types. Python ActiveRecord provides a convenient API for working with JSON data:
+PostgreSQL offers robust support for JSON data through its JSON and JSONB data types. rhosocial ActiveRecord provides a convenient API for working with JSON data:
 
 ```python
 # Query with JSON conditions

@@ -1,6 +1,6 @@
 # Custom Fields
 
-Python ActiveRecord allows you to extend your models with custom fields and field behaviors. This document explains how to create and use custom fields in your ActiveRecord models.
+rhosocial ActiveRecord allows you to extend your models with custom fields and field behaviors. This document explains how to create and use custom fields in your ActiveRecord models.
 
 ## Overview
 

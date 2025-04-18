@@ -1,10 +1,10 @@
 # ActiveRecord & ActiveQuery
 
-This section covers the core components of the Python ActiveRecord framework: ActiveRecord models and ActiveQuery functionality.
+This section covers the core components of the rhosocial ActiveRecord framework: ActiveRecord models and ActiveQuery functionality.
 
 ## Overview
 
-The ActiveRecord pattern is an architectural pattern that maps database tables to classes and rows to objects. It encapsulates database access and adds domain logic to the data. Python ActiveRecord implements this pattern with modern Python features, leveraging Pydantic for data validation and type safety.
+The ActiveRecord pattern is an architectural pattern that maps database tables to classes and rows to objects. It encapsulates database access and adds domain logic to the data. rhosocial ActiveRecord implements this pattern with modern Python features, leveraging Pydantic for data validation and type safety.
 
 ActiveQuery is the query builder component that provides a fluent interface for constructing database queries. It allows you to build complex queries in a readable and maintainable way, without writing raw SQL in most cases.
 

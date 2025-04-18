@@ -1,10 +1,10 @@
 # Predefined Fields and Features
 
-Python ActiveRecord provides several predefined fields and features that you can easily incorporate into your models. These features are implemented as mixins that can be added to your model classes to provide common functionality without having to reimplement it yourself.
+rhosocial ActiveRecord provides several predefined fields and features that you can easily incorporate into your models. These features are implemented as mixins that can be added to your model classes to provide common functionality without having to reimplement it yourself.
 
 ## Overview
 
-Predefined fields and features in Python ActiveRecord include:
+Predefined fields and features in rhosocial ActiveRecord include:
 
 - Primary key configuration
 - Timestamp fields for tracking creation and update times

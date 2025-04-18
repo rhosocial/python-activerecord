@@ -1,6 +1,6 @@
-# Report Generation with Python ActiveRecord
+# Report Generation with rhosocial ActiveRecord
 
-Report generation is a common requirement in data analysis applications. Python ActiveRecord provides powerful features that make it easy to generate reports from your database data. This document explores various approaches to report generation using ActiveRecord.
+Report generation is a common requirement in data analysis applications. rhosocial ActiveRecord provides powerful features that make it easy to generate reports from your database data. This document explores various approaches to report generation using ActiveRecord.
 
 ## Basic Report Generation
 
@@ -288,6 +288,6 @@ def get_monthly_sales_report(year, month, force_refresh=False):
 
 ## Conclusion
 
-Python ActiveRecord provides a powerful and flexible foundation for report generation in data analysis applications. By leveraging its aggregate query capabilities, window functions, and expression support, you can create sophisticated reports without writing complex SQL. The integration with Python's rich ecosystem of data processing and visualization libraries further enhances its utility for reporting purposes.
+rhosocial ActiveRecord provides a powerful and flexible foundation for report generation in data analysis applications. By leveraging its aggregate query capabilities, window functions, and expression support, you can create sophisticated reports without writing complex SQL. The integration with Python's rich ecosystem of data processing and visualization libraries further enhances its utility for reporting purposes.
 
 Whether you're building simple summary reports, complex cross-tabulations, or real-time dashboards, ActiveRecord's intuitive API and performance optimization features make it an excellent choice for report generation tasks.

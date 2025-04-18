@@ -1,6 +1,6 @@
 # Supported Databases
 
-Python ActiveRecord provides support for multiple database systems, allowing you to use the same ActiveRecord API regardless of the underlying database. This section provides detailed information about each supported database system, including configuration options, specific features, and optimization techniques.
+rhosocial ActiveRecord provides support for multiple database systems, allowing you to use the same ActiveRecord API regardless of the underlying database. This section provides detailed information about each supported database system, including configuration options, specific features, and optimization techniques.
 
 > **Important Note**: Currently, only SQLite is included as the built-in default backend. Other database backends (MySQL, MariaDB, PostgreSQL, Oracle, SQL Server) are being developed as separate packages and will be released in the future. The documentation for these backends is provided as a reference for upcoming features.
 
@@ -15,7 +15,7 @@ Python ActiveRecord provides support for multiple database systems, allowing you
 
 ## Common Configuration
 
-All database backends in Python ActiveRecord are configured using the `ConnectionConfig` class, which provides a consistent interface for specifying connection parameters. While each database system has its own specific parameters, the basic configuration pattern remains the same:
+All database backends in rhosocial ActiveRecord are configured using the `ConnectionConfig` class, which provides a consistent interface for specifying connection parameters. While each database system has its own specific parameters, the basic configuration pattern remains the same:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -47,7 +47,7 @@ When selecting a database for your application, consider the following factors:
 
 ## Database-Specific Features
 
-While Python ActiveRecord provides a unified API across all supported databases, it also allows you to leverage database-specific features when needed. Each database backend implements the core ActiveRecord functionality while also exposing unique capabilities of the underlying database system.
+While rhosocial ActiveRecord provides a unified API across all supported databases, it also allows you to leverage database-specific features when needed. Each database backend implements the core ActiveRecord functionality while also exposing unique capabilities of the underlying database system.
 
 Refer to the specific database documentation for detailed information about:
 
@@ -59,6 +59,6 @@ Refer to the specific database documentation for detailed information about:
 
 ## Multiple Database Support
 
-Python ActiveRecord allows you to work with multiple databases simultaneously, even of different types. This is particularly useful for applications that need to integrate data from various sources or that use different databases for different parts of the application.
+rhosocial ActiveRecord allows you to work with multiple databases simultaneously, even of different types. This is particularly useful for applications that need to integrate data from various sources or that use different databases for different parts of the application.
 
 See the [Cross-database Queries](../5.2.cross_database_queries/README.md) section for more information on working with multiple databases.

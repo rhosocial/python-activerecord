@@ -22,7 +22,7 @@ test_db = SQLiteBackend(":memory:")  # 使用内存SQLite进行测试
 
 ### 测试夹具（Fixtures）
 
-夹具提供一致的测试数据集。Python ActiveRecord与pytest夹具配合良好：
+夹具提供一致的测试数据集。rhosocial ActiveRecord与pytest夹具配合良好：
 
 ```python
 import pytest

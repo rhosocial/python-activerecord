@@ -1,6 +1,6 @@
 # Having子句
 
-HAVING子句用于根据聚合条件过滤聚合查询中的组。虽然WHERE子句在分组之前过滤行，但HAVING子句在执行聚合后过滤组。Python ActiveRecord为使用HAVING子句提供了一个简洁的API。
+HAVING子句用于根据聚合条件过滤聚合查询中的组。虽然WHERE子句在分组之前过滤行，但HAVING子句在执行聚合后过滤组。rhosocial ActiveRecord为使用HAVING子句提供了一个简洁的API。
 
 ## 基本用法
 
@@ -94,7 +94,7 @@ user_stats = User.query()\
     .aggregate()
 ```
 
-如果Python ActiveRecord检测到HAVING子句中可能使用了别名，它会发出警告。
+如果rhosocial ActiveRecord检测到HAVING子句中可能使用了别名，它会发出警告。
 
 ## 结合WHERE和HAVING
 
@@ -168,4 +168,4 @@ HAVING子句被所有主要数据库后端支持，但可能存在细微的行�
 - 某些数据库可能允许在HAVING子句中引用别名（非标准SQL）
 - HAVING子句中的函数可用性可能因数据库而异
 
-Python ActiveRecord遵循SQL标准行为，其中HAVING子句应该使用聚合函数或GROUP BY子句中的列，而不是SELECT子句中的别名。
+rhosocial ActiveRecord遵循SQL标准行为，其中HAVING子句应该使用聚合函数或GROUP BY子句中的列，而不是SELECT子句中的别名。

@@ -4,7 +4,7 @@ This document explains how to use lifecycle hooks in your ActiveRecord models. L
 
 ## Overview
 
-Python ActiveRecord provides a comprehensive event system that allows you to hook into various stages of a model's lifecycle. This enables you to implement custom behavior, such as:
+rhosocial ActiveRecord provides a comprehensive event system that allows you to hook into various stages of a model's lifecycle. This enables you to implement custom behavior, such as:
 
 - Data transformation before saving
 - Validation beyond basic field validation
@@ -297,4 +297,4 @@ self.once(ModelEvent.AFTER_SAVE, self.send_confirmation)
 
 ## Conclusion
 
-Lifecycle hooks are a powerful feature of Python ActiveRecord that allow you to customize the behavior of your models at various points in their lifecycle. By leveraging these hooks, you can implement complex business logic, automate repetitive tasks, and ensure data consistency throughout your application.
+Lifecycle hooks are a powerful feature of rhosocial ActiveRecord that allow you to customize the behavior of your models at various points in their lifecycle. By leveraging these hooks, you can implement complex business logic, automate repetitive tasks, and ensure data consistency throughout your application.

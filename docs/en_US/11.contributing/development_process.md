@@ -1,11 +1,11 @@
 # Development Process
 
-This document outlines the development process for contributing code to Python ActiveRecord.
+This document outlines the development process for contributing code to rhosocial ActiveRecord.
 
 ## Getting Started
 
 1. **Fork the Repository**:
-   - Visit the [Python ActiveRecord repository](https://github.com/rhosocial/python-activerecord)
+   - Visit the [rhosocial ActiveRecord repository](https://github.com/rhosocial/python-activerecord)
    - Click the "Fork" button to create your own copy
 
 2. **Clone Your Fork**:
@@ -29,7 +29,7 @@ This document outlines the development process for contributing code to Python A
 
 ## Coding Standards
 
-When contributing code to Python ActiveRecord, please follow these standards:
+When contributing code to rhosocial ActiveRecord, please follow these standards:
 
 - **Follow PEP 8**: Adhere to [PEP 8](https://www.python.org/dev/peps/pep-0008/) style guidelines
 - **Meaningful Names**: Use descriptive variable, function, and class names
@@ -86,7 +86,7 @@ After submitting a pull request:
 
 ## Continuous Integration
 
-Python ActiveRecord uses GitHub Actions for continuous integration. When you submit a pull request, automated tests will run to verify your changes.
+rhosocial ActiveRecord uses GitHub Actions for continuous integration. When you submit a pull request, automated tests will run to verify your changes.
 
 ## Version Control Practices
 
@@ -126,4 +126,4 @@ If you have questions during the development process:
 - Start a discussion in GitHub Discussions
 - Reach out to maintainers
 
-Thank you for contributing to Python ActiveRecord!
+Thank you for contributing to rhosocial ActiveRecord!

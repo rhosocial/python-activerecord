@@ -1,10 +1,10 @@
 # Oracle Support
 
-Python ActiveRecord provides support for Oracle Database, a robust enterprise-grade relational database management system. This document covers the specific features, configuration options, and considerations when using Python ActiveRecord with Oracle.
+rhosocial ActiveRecord provides support for Oracle Database, a robust enterprise-grade relational database management system. This document covers the specific features, configuration options, and considerations when using rhosocial ActiveRecord with Oracle.
 
 ## Overview
 
-Oracle Database is a multi-model database management system produced and marketed by Oracle Corporation. It is one of the most trusted and widely-used relational database systems for enterprise applications. Python ActiveRecord's Oracle backend provides a consistent interface to Oracle databases while leveraging Oracle-specific features.
+Oracle Database is a multi-model database management system produced and marketed by Oracle Corporation. It is one of the most trusted and widely-used relational database systems for enterprise applications. rhosocial ActiveRecord's Oracle backend provides a consistent interface to Oracle databases while leveraging Oracle-specific features.
 
 ## Features
 
@@ -19,7 +19,7 @@ Oracle Database is a multi-model database management system produced and markete
 
 ## Configuration
 
-To use Oracle with Python ActiveRecord, you need to configure your model with the Oracle backend:
+To use Oracle with rhosocial ActiveRecord, you need to configure your model with the Oracle backend:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -72,7 +72,7 @@ You can configure the connection pool with these parameters:
 
 ## Transactions
 
-Python ActiveRecord provides comprehensive transaction support for Oracle, including different isolation levels:
+rhosocial ActiveRecord provides comprehensive transaction support for Oracle, including different isolation levels:
 
 ```python
 # Start a transaction with a specific isolation level
@@ -107,7 +107,7 @@ with User.transaction() as tx:
 
 ## Sequences and Auto-incrementing IDs
 
-Oracle uses sequences for generating auto-incrementing values. Python ActiveRecord supports Oracle sequences for primary key generation:
+Oracle uses sequences for generating auto-incrementing values. rhosocial ActiveRecord supports Oracle sequences for primary key generation:
 
 ```python
 class User(ActiveRecord):
@@ -117,7 +117,7 @@ class User(ActiveRecord):
 
 ## Data Type Mapping
 
-Python ActiveRecord maps Python types to Oracle data types automatically. Here are some common mappings:
+rhosocial ActiveRecord maps Python types to Oracle data types automatically. Here are some common mappings:
 
 | Python Type | Oracle Type     |
 |-------------|----------------|

@@ -4,7 +4,7 @@ Effective logging is crucial for monitoring, debugging, and analyzing ActiveReco
 
 ## Setting Up Logging
 
-Python ActiveRecord provides a flexible logging system that integrates with Python's standard logging module.
+rhosocial ActiveRecord provides a flexible logging system that integrates with Python's standard logging module.
 
 ### Basic Logging Configuration
 
@@ -33,7 +33,7 @@ configure_logging(component="relation", level=logging.WARNING)
 
 ### Available Logging Components
 
-Python ActiveRecord provides several logging components:
+rhosocial ActiveRecord provides several logging components:
 
 - `query`: Logs SQL queries and their parameters
 - `transaction`: Logs transaction operations (begin, commit, rollback)

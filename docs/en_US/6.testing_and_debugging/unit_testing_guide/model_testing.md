@@ -22,7 +22,7 @@ Using an in-memory SQLite database for tests offers several advantages:
 
 ### Test Fixtures
 
-Fixtures provide a consistent set of test data. Python ActiveRecord works well with pytest fixtures:
+Fixtures provide a consistent set of test data. rhosocial ActiveRecord works well with pytest fixtures:
 
 ```python
 import pytest

@@ -1,4 +1,4 @@
-# Python ActiveRecord Documentation Outline (English Version)
+# rhosocial ActiveRecord Documentation Outline (English Version)
 
 > **⚠️ Development Stage Notice:** This project is currently in the development stage. Features may be added or removed at any time, and there may be defects or inconsistencies with the actual implementation. Therefore, the documentation content may be adjusted at any time and is currently for reference only.
 >

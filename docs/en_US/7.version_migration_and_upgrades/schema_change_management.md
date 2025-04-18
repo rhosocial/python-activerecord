@@ -2,13 +2,13 @@
 
 ## Introduction
 
-Database schema changes are an inevitable part of application development. As your application evolves, you'll need to add new tables, modify existing columns, or restructure relationships. Python ActiveRecord provides a systematic approach to manage these changes through migration scripts.
+Database schema changes are an inevitable part of application development. As your application evolves, you'll need to add new tables, modify existing columns, or restructure relationships. rhosocial ActiveRecord provides a systematic approach to manage these changes through migration scripts.
 
 ## Migration Basics
 
 ### What is a Migration?
 
-A migration is a versioned change to your database schema that can be applied or reverted as needed. Migrations in Python ActiveRecord are Python scripts that define transformations to your database structure.
+A migration is a versioned change to your database schema that can be applied or reverted as needed. Migrations in rhosocial ActiveRecord are Python scripts that define transformations to your database structure.
 
 ### Migration File Structure
 
@@ -175,7 +175,7 @@ def up(self):
 
 ## Database-Specific Considerations
 
-While Python ActiveRecord aims to provide database-agnostic migrations, some operations may have database-specific behaviors. Consult the documentation for your specific database backend for details on how certain operations are implemented.
+While rhosocial ActiveRecord aims to provide database-agnostic migrations, some operations may have database-specific behaviors. Consult the documentation for your specific database backend for details on how certain operations are implemented.
 
 ## Conclusion
 

@@ -1,6 +1,6 @@
 # SQL注入防护
 
-SQL注入是数据库应用程序中最常见和最危险的安全漏洞之一。Python ActiveRecord提供了内置的防护机制来抵御SQL注入攻击，但了解这些保护机制的工作原理以及如何正确使用它们非常重要。
+SQL注入是数据库应用程序中最常见和最危险的安全漏洞之一。rhosocial ActiveRecord提供了内置的防护机制来抵御SQL注入攻击，但了解这些保护机制的工作原理以及如何正确使用它们非常重要。
 
 ## 什么是SQL注入？
 
@@ -11,9 +11,9 @@ SQL注入发生在未经适当验证或净化的不可信用户输入直接被�
 - 删除数据库记录
 - 在数据库上执行管理操作
 
-## Python ActiveRecord如何防止SQL注入
+## rhosocial ActiveRecord如何防止SQL注入
 
-Python ActiveRecord默认使用参数化查询，这是防止SQL注入最有效的方法。使用参数化查询时：
+rhosocial ActiveRecord默认使用参数化查询，这是防止SQL注入最有效的方法。使用参数化查询时：
 
 1. 首先定义带有占位符的SQL语句结构
 2. 实际值被单独发送到数据库
@@ -45,7 +45,7 @@ users = User.query().backend.execute(query, (username_input,))
 
 ### 动态表名或列名
 
-当您需要使用动态表名或列名时，Python ActiveRecord提供了安全的方法来验证和转义这些标识符：
+当您需要使用动态表名或列名时，rhosocial ActiveRecord提供了安全的方法来验证和转义这些标识符：
 
 ```python
 # 安全使用动态表名的方法
@@ -70,7 +70,7 @@ results = User.query().backend.execute(query, (id_value,))
 
 6. **审计您的查询**：定期检查代码中潜在的SQL注入漏洞，特别是在使用原始SQL的区域。
 
-7. **保持ActiveRecord更新**：始终使用最新版本的Python ActiveRecord，以便从安全改进和修复中受益。
+7. **保持ActiveRecord更新**：始终使用最新版本的rhosocial ActiveRecord，以便从安全改进和修复中受益。
 
 ## 测试SQL注入
 
@@ -82,6 +82,6 @@ results = User.query().backend.execute(query, (id_value,))
 
 ## 结论
 
-SQL注入仍然是数据库应用程序面临的最关键安全威胁之一。通过利用Python ActiveRecord的内置保护和遵循最佳实践，您可以显著降低应用程序中SQL注入攻击的风险。
+SQL注入仍然是数据库应用程序面临的最关键安全威胁之一。通过利用rhosocial ActiveRecord的内置保护和遵循最佳实践，您可以显著降低应用程序中SQL注入攻击的风险。
 
 请记住，安全是一个持续的过程，而不是一次性实施。了解新的安全威胁并定期更新您的安全实践。

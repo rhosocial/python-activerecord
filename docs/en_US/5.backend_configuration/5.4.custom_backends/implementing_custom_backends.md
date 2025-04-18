@@ -1,12 +1,12 @@
 # Implementing Custom Database Backends
 
-This guide provides detailed instructions on how to implement a custom database backend for Python ActiveRecord.
+This guide provides detailed instructions on how to implement a custom database backend for rhosocial ActiveRecord.
 
 ## Prerequisites
 
 Before implementing a custom database backend, you should:
 
-1. Be familiar with the Python ActiveRecord architecture
+1. Be familiar with the rhosocial ActiveRecord architecture
 2. Understand the database system you want to implement
 3. Have the necessary database driver package installed
 
@@ -144,7 +144,7 @@ class YourTypeMapper(TypeMapper):
     def __init__(self):
         super().__init__()
         self._type_map = {
-            # Map Python ActiveRecord types to your database types
+            # Map rhosocial ActiveRecord types to your database types
             DatabaseType.INTEGER: TypeMapping("INTEGER"),
             DatabaseType.FLOAT: TypeMapping("FLOAT"),
             DatabaseType.TEXT: TypeMapping("TEXT"),
@@ -162,7 +162,7 @@ class YourTypeMapper(TypeMapper):
 In `__init__.py`, export your backend class:
 
 ```python
-"""Your database backend implementation for Python ActiveRecord.
+"""Your database backend implementation for rhosocial ActiveRecord.
 
 This module provides:
 - Your database backend with connection management and query execution
@@ -328,4 +328,4 @@ Thoroughly testing your custom backend is crucial for ensuring reliability. You 
 
 ## Conclusion
 
-Implementing a custom database backend for Python ActiveRecord requires careful attention to detail and thorough understanding of both the ActiveRecord architecture and your target database system. By following this guide, you can create a robust backend implementation that integrates seamlessly with the ActiveRecord framework.
+Implementing a custom database backend for rhosocial ActiveRecord requires careful attention to detail and thorough understanding of both the ActiveRecord architecture and your target database system. By following this guide, you can create a robust backend implementation that integrates seamlessly with the ActiveRecord framework.

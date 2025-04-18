@@ -1,10 +1,10 @@
 # Bug Fixes
 
-Finding and fixing bugs is a valuable contribution to Python ActiveRecord. This guide will help you effectively report and fix bugs.
+Finding and fixing bugs is a valuable contribution to rhosocial ActiveRecord. This guide will help you effectively report and fix bugs.
 
 ## Reporting Bugs
 
-If you encounter a bug in Python ActiveRecord:
+If you encounter a bug in rhosocial ActiveRecord:
 
 1. **Search Existing Issues**: Check [GitHub Issues](https://github.com/rhosocial/python-activerecord/issues) to see if the bug has already been reported.
 
@@ -18,7 +18,7 @@ If you encounter a bug in Python ActiveRecord:
    - A clear description of what happened and what you expected to happen
    - Steps to reproduce the issue
    - Python version
-   - Python ActiveRecord version
+   - rhosocial ActiveRecord version
    - Database type and version
    - Any relevant code snippets or error messages
    - Environment details (OS, etc.)
@@ -81,7 +81,7 @@ When reviewing bug fixes from others:
 
 ## Common Bug Sources
 
-Common areas where bugs might occur in Python ActiveRecord:
+Common areas where bugs might occur in rhosocial ActiveRecord:
 
 - Database dialect differences
 - Transaction handling
@@ -92,4 +92,4 @@ Common areas where bugs might occur in Python ActiveRecord:
 
 Understanding these areas can help you identify and fix bugs more effectively.
 
-Thank you for helping make Python ActiveRecord more reliable!
+Thank you for helping make rhosocial ActiveRecord more reliable!

@@ -1,6 +1,6 @@
 # Eager Loading and Lazy Loading
 
-Efficient data loading is crucial for application performance, especially when working with related records. Python ActiveRecord provides two primary approaches for loading related data: eager loading and lazy loading. This document explores these loading strategies in depth, providing practical examples and best practices.
+Efficient data loading is crucial for application performance, especially when working with related records. rhosocial ActiveRecord provides two primary approaches for loading related data: eager loading and lazy loading. This document explores these loading strategies in depth, providing practical examples and best practices.
 
 ## Understanding Loading Strategies
 
@@ -13,11 +13,11 @@ The choice between these strategies can significantly impact your application's 
 
 ## Lazy Loading
 
-Lazy loading is the default behavior in Python ActiveRecord. When you access a relationship, the framework executes a separate database query to retrieve the related data.
+Lazy loading is the default behavior in rhosocial ActiveRecord. When you access a relationship, the framework executes a separate database query to retrieve the related data.
 
 ### How Lazy Loading Works
 
-When you define a relationship in your model, Python ActiveRecord creates a method that, when called, executes a query to fetch the related records:
+When you define a relationship in your model, rhosocial ActiveRecord creates a method that, when called, executes a query to fetch the related records:
 
 ```python
 from typing import ClassVar, Optional
@@ -98,7 +98,7 @@ This pattern can lead to performance issues as the number of records increases.
 
 ## Eager Loading
 
-Eager loading addresses the N+1 query problem by loading related data in advance. Python ActiveRecord provides the `with_` method to specify which relationships should be eager loaded.
+Eager loading addresses the N+1 query problem by loading related data in advance. rhosocial ActiveRecord provides the `with_` method to specify which relationships should be eager loaded.
 
 ### Basic Eager Loading
 
@@ -114,7 +114,7 @@ for author in authors:
     print(f"Author: {author.name}, Books: {len(books)}")
 ```
 
-Behind the scenes, Python ActiveRecord executes two queries:
+Behind the scenes, rhosocial ActiveRecord executes two queries:
 1. One query to fetch all authors
 2. Another query to fetch all books for those authors
 

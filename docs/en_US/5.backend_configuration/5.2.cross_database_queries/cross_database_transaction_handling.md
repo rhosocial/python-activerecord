@@ -2,7 +2,7 @@
 
 > **⚠️ IMPORTANT NOTE:** Cross-database transactions described in this document are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve true cross-database atomicity**. The implementation strategies described here are workarounds for this fundamental limitation and may undergo significant changes in future releases.
 
-This document explains how to handle transactions that span multiple databases in Python ActiveRecord, including the challenges, available approaches, and best practices.
+This document explains how to handle transactions that span multiple databases in rhosocial ActiveRecord, including the challenges, available approaches, and best practices.
 
 ## Understanding Cross-database Transactions
 
@@ -25,7 +25,7 @@ The traditional two-phase commit (2PC) protocol for distributed transactions is:
 
 Ensuring data consistency across multiple databases requires careful planning and implementation, especially when databases have different transaction isolation levels or capabilities.
 
-## Approaches to Cross-database Transactions in Python ActiveRecord
+## Approaches to Cross-database Transactions in rhosocial ActiveRecord
 
 ### 1. Best-Effort Transactions
 
@@ -575,6 +575,6 @@ def transfer_funds_with_queue(from_account_id, to_account_id, amount):
 
 ## Conclusion
 
-Handling transactions across multiple databases is challenging but can be managed with careful design and implementation. Python ActiveRecord provides the tools needed to work with multiple databases, but the responsibility for ensuring data consistency across them falls to the application code.
+Handling transactions across multiple databases is challenging but can be managed with careful design and implementation. rhosocial ActiveRecord provides the tools needed to work with multiple databases, but the responsibility for ensuring data consistency across them falls to the application code.
 
 By understanding the limitations of cross-database transactions and implementing appropriate patterns like sagas, event-driven approaches, or transaction coordinators, you can build reliable systems that maintain data integrity across multiple database systems.

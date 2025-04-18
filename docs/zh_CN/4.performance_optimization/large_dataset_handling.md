@@ -1,10 +1,10 @@
 # 大数据集处理
 
-在数据库应用程序中高效处理大型数据集是一个常见挑战。本文档探讨了在Python ActiveRecord应用程序中处理大量数据的各种技术和策略，同时不影响性能或内存使用。
+在数据库应用程序中高效处理大型数据集是一个常见挑战。本文档探讨了在rhosocial ActiveRecord应用程序中处理大量数据的各种技术和策略，同时不影响性能或内存使用。
 
 ## 简介
 
-当处理包含数千或数百万条记录的表时，一次加载所有数据可能导致性能问题、内存耗尽和糟糕的用户体验。Python ActiveRecord提供了几种高效处理大型数据集的方法。
+当处理包含数千或数百万条记录的表时，一次加载所有数据可能导致性能问题、内存耗尽和糟糕的用户体验。rhosocial ActiveRecord提供了几种高效处理大型数据集的方法。
 
 ## 分页
 
@@ -32,7 +32,7 @@ total_pages = (total_count + page_size - 1) // page_size
 
 ### 分页助手
 
-Python ActiveRecord提供了一个分页助手以便使用：
+rhosocial ActiveRecord提供了一个分页助手以便使用：
 
 ```python
 from rhosocial.activerecord.pagination import paginate
@@ -79,7 +79,7 @@ if articles:
 
 ### 游标分页助手
 
-Python ActiveRecord提供了一个基于游标的分页助手：
+rhosocial ActiveRecord提供了一个基于游标的分页助手：
 
 ```python
 from rhosocial.activerecord.pagination import cursor_paginate
@@ -133,7 +133,7 @@ while True:
 
 ### 批处理助手
 
-Python ActiveRecord提供了一个批处理助手：
+rhosocial ActiveRecord提供了一个批处理助手：
 
 ```python
 from rhosocial.activerecord.models import Article
@@ -316,4 +316,4 @@ print(profiler.summary())
 9. **监控和分析**您的大型数据集操作
 10. **考虑特定数据库的优化**用于批量操作
 
-通过应用这些大型数据集处理技术，您可以高效地处理包含数百万条记录的表，同时在Python ActiveRecord应用程序中保持良好的性能和内存使用。
+通过应用这些大型数据集处理技术，您可以高效地处理包含数百万条记录的表，同时在rhosocial ActiveRecord应用程序中保持良好的性能和内存使用。

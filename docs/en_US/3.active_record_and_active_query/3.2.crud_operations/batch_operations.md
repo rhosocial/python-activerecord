@@ -1,6 +1,6 @@
 # Batch Operations
 
-This document covers batch operations in Python ActiveRecord, which allow you to efficiently perform operations on multiple records at once.
+This document covers batch operations in rhosocial ActiveRecord, which allow you to efficiently perform operations on multiple records at once.
 
 ## Batch Creation
 
@@ -194,4 +194,4 @@ with conn.cursor() as cursor:
 
 ## Summary
 
-Batch operations in Python ActiveRecord provide efficient ways to perform operations on multiple records. By using these features, you can significantly improve the performance of your application when working with large datasets.
+Batch operations in rhosocial ActiveRecord provide efficient ways to perform operations on multiple records. By using these features, you can significantly improve the performance of your application when working with large datasets.

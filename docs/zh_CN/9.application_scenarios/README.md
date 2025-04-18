@@ -1,6 +1,6 @@
 # 应用场景
 
-本节探讨了Python ActiveRecord可以有效应用的各种实际应用场景。了解ActiveRecord如何适应不同的应用环境，有助于开发者在何时以及如何使用这个ORM框架方面做出明智的决策。
+本节探讨了rhosocial ActiveRecord可以有效应用的各种实际应用场景。了解ActiveRecord如何适应不同的应用环境，有助于开发者在何时以及如何使用这个ORM框架方面做出明智的决策。
 
 ## 目录
 
@@ -22,7 +22,7 @@
 
 ## 概述
 
-Python ActiveRecord是一个多功能的ORM框架，可应用于广泛的应用场景。本节提供了在各种环境中实现ActiveRecord的详细指导，包括实用示例和最佳实践。
+rhosocial ActiveRecord是一个多功能的ORM框架，可应用于广泛的应用场景。本节提供了在各种环境中实现ActiveRecord的详细指导，包括实用示例和最佳实践。
 
 每个小节都专注于特定的应用领域，突出ActiveRecord在该特定用例中带来的独特优势。通过探索这些场景，您将了解如何在自己的项目中有效利用ActiveRecord的功能。
 

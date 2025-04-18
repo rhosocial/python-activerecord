@@ -1,6 +1,6 @@
 # Transactions & Isolation Levels
 
-Transactions are a fundamental concept in database management systems that ensure data integrity by grouping a set of operations into a single logical unit. Python ActiveRecord provides comprehensive transaction support with various isolation levels to meet different application requirements.
+Transactions are a fundamental concept in database management systems that ensure data integrity by grouping a set of operations into a single logical unit. rhosocial ActiveRecord provides comprehensive transaction support with various isolation levels to meet different application requirements.
 
 ## Contents
 
@@ -12,7 +12,7 @@ Transactions are a fundamental concept in database management systems that ensur
 
 ## Overview
 
-Transactions in Python ActiveRecord follow the ACID properties:
+Transactions in rhosocial ActiveRecord follow the ACID properties:
 
 - **Atomicity**: All operations within a transaction succeed or fail together
 - **Consistency**: A transaction brings the database from one valid state to another
@@ -39,4 +39,4 @@ except Exception:
     raise
 ```
 
-The transaction system in Python ActiveRecord is designed to be database-agnostic while still allowing access to database-specific features when needed.
+The transaction system in rhosocial ActiveRecord is designed to be database-agnostic while still allowing access to database-specific features when needed.

@@ -1,10 +1,10 @@
 # Bug修复
 
-发现和修复Bug是对Python ActiveRecord的宝贵贡献。本指南将帮助您有效地报告和修复Bug。
+发现和修复Bug是对rhosocial ActiveRecord的宝贵贡献。本指南将帮助您有效地报告和修复Bug。
 
 ## 报告Bug
 
-如果您在Python ActiveRecord中遇到Bug：
+如果您在rhosocial ActiveRecord中遇到Bug：
 
 1. **搜索现有问题**：检查[GitHub Issues](https://github.com/rhosocial/python-activerecord/issues)，查看该Bug是否已被报告。
 
@@ -18,7 +18,7 @@
    - 清晰描述发生了什么以及您期望发生什么
    - 重现问题的步骤
    - Python版本
-   - Python ActiveRecord版本
+   - rhosocial ActiveRecord版本
    - 数据库类型和版本
    - 任何相关的代码片段或错误消息
    - 环境详情（操作系统等）
@@ -94,4 +94,4 @@
 
 如果您发现安全漏洞，请**不要**创建公开的GitHub问题。相反，请按照我们的[安全政策](https://github.com/rhosocial/python-activerecord/security/policy)中概述的流程进行报告。
 
-感谢您帮助使Python ActiveRecord更加稳定和可靠！
+感谢您帮助使rhosocial ActiveRecord更加稳定和可靠！

@@ -1,8 +1,8 @@
 # 赞助支持
 
-财务支持对于Python ActiveRecord的持续开发和维护至关重要。本页概述了您如何为项目提供财务贡献。
+财务支持对于rhosocial ActiveRecord的持续开发和维护至关重要。本页概述了您如何为项目提供财务贡献。
 
-## 为什么赞助Python ActiveRecord？
+## 为什么赞助rhosocial ActiveRecord？
 
 您的捐赠直接用于：
 
@@ -13,7 +13,7 @@
 
 ## 赞助渠道
 
-您可以通过以下渠道支持Python ActiveRecord：
+您可以通过以下渠道支持rhosocial ActiveRecord：
 
 ### 1. GitHub Sponsors（首选）
 
@@ -44,7 +44,7 @@ Open Collective提供透明的资金管理，适合个人和组织。
 
 ## 企业赞助
 
-如果您的公司使用Python ActiveRecord，请考虑成为企业赞助者。企业赞助有助于确保项目的可持续性，并可能包括：
+如果您的公司使用rhosocial ActiveRecord，请考虑成为企业赞助者。企业赞助有助于确保项目的可持续性，并可能包括：
 
 - 问题的优先支持
 - 对项目路线图的意见
@@ -76,4 +76,4 @@ Open Collective提供透明的资金管理，适合个人和组织。
 - 通过GitHub问题
 - 通过项目的官方电子邮件
 
-感谢您考虑支持Python ActiveRecord！您的贡献对于确保项目的长期成功和可持续性至关重要。
+感谢您考虑支持rhosocial ActiveRecord！您的贡献对于确保项目的长期成功和可持续性至关重要。

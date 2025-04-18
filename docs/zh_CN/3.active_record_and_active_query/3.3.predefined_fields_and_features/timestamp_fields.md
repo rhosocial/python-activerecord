@@ -1,6 +1,6 @@
 # 时间戳字段
 
-时间戳字段对于跟踪记录的创建和更新时间至关重要。Python ActiveRecord提供了`TimestampMixin`来自动管理这些字段。
+时间戳字段对于跟踪记录的创建和更新时间至关重要。rhosocial ActiveRecord提供了`TimestampMixin`来自动管理这些字段。
 
 ## 概述
 
@@ -126,7 +126,7 @@ class Article(CustomTimestampMixin, ActiveRecord):
 - **MySQL/MariaDB**：使用`DATETIME`或`TIMESTAMP`类型
 - **PostgreSQL**：使用`TIMESTAMP`或`TIMESTAMP WITH TIME ZONE`类型
 
-Python ActiveRecord为您处理这些差异，确保跨数据库后端的一致行为。
+rhosocial ActiveRecord为您处理这些差异，确保跨数据库后端的一致行为。
 
 ## 最佳实践
 

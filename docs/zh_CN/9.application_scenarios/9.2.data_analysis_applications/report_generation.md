@@ -1,6 +1,6 @@
-# 使用Python ActiveRecord生成报表
+# 使用rhosocial ActiveRecord生成报表
 
-报表生成是数据分析应用中的常见需求。Python ActiveRecord提供了强大的功能，使从数据库数据生成报表变得简单。本文档探讨了使用ActiveRecord生成报表的各种方法。
+报表生成是数据分析应用中的常见需求。rhosocial ActiveRecord提供了强大的功能，使从数据库数据生成报表变得简单。本文档探讨了使用ActiveRecord生成报表的各种方法。
 
 ## 基本报表生成
 
@@ -288,6 +288,6 @@ def get_monthly_sales_report(year, month, force_refresh=False):
 
 ## 结论
 
-Python ActiveRecord为数据分析应用中的报表生成提供了强大而灵活的基础。通过利用其聚合查询功能、窗口函数和表达式支持，您可以创建复杂的报表，而无需编写复杂的SQL。与Python丰富的数据处理和可视化库的集成进一步增强了其在报表生成方面的实用性。
+rhosocial ActiveRecord为数据分析应用中的报表生成提供了强大而灵活的基础。通过利用其聚合查询功能、窗口函数和表达式支持，您可以创建复杂的报表，而无需编写复杂的SQL。与Python丰富的数据处理和可视化库的集成进一步增强了其在报表生成方面的实用性。
 
 无论您是构建简单的摘要报表、复杂的交叉表还是实时仪表板，ActiveRecord直观的API和性能优化功能使其成为报表生成任务的绝佳选择。

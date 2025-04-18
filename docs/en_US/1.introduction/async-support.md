@@ -1,6 +1,6 @@
 # Asynchronous Support
 
-Python ActiveRecord provides a well-designed asynchronous interface, distinguishing it from many competing ORMs.
+rhosocial ActiveRecord provides a well-designed asynchronous interface, distinguishing it from many competing ORMs.
 The approach to async support prioritizes usability, flexibility, and backward compatibility.
 
 ## Dual API Architecture
@@ -119,5 +119,5 @@ async def get_department_statistics():
 - **vs Django ORM**: More comprehensive async support compared to Django's limited async capabilities
 - **vs Peewee**: Integrated async support versus Peewee's separate peewee-async extension
 
-The asynchronous capabilities of Python ActiveRecord make it particularly well-suited for modern Python applications
+The asynchronous capabilities of rhosocial ActiveRecord make it particularly well-suited for modern Python applications
 that require high performance and scalability, especially when combined with async web frameworks like FastAPI.

@@ -1,6 +1,6 @@
 # 一对多关系
 
-一对多关系是数据库中最常见的关系类型之一，它表示一个模型的单个实例可以与另一个模型的多个实例相关联。在Python ActiveRecord中，这种关系通过`HasMany`和`BelongsTo`关系类型来实现。
+一对多关系是数据库中最常见的关系类型之一，它表示一个模型的单个实例可以与另一个模型的多个实例相关联。在rhosocial ActiveRecord中，这种关系通过`HasMany`和`BelongsTo`关系类型来实现。
 
 ## 概述
 
@@ -16,7 +16,7 @@
 
 ### 使用HasMany和BelongsTo
 
-在Python ActiveRecord中，一对多关系通过在两个模型之间定义`HasMany`和`BelongsTo`关系来实现：
+在rhosocial ActiveRecord中，一对多关系通过在两个模型之间定义`HasMany`和`BelongsTo`关系来实现：
 
 ```python
 from typing import ClassVar, Optional, List
@@ -107,7 +107,7 @@ print(f"作者: {post_author.username}")
 
 ### 创建关联记录
 
-Python ActiveRecord提供了多种方式来创建关联记录：
+rhosocial ActiveRecord提供了多种方式来创建关联记录：
 
 ```python
 # 获取用户
@@ -319,8 +319,8 @@ user.save()
 # 创建帖子
 post = Post(
     user_id=user.id,
-    title="Python ActiveRecord简介",
-    content="这是一个关于Python ActiveRecord的帖子。",
+    title="rhosocial ActiveRecord简介",
+    content="这是一个关于rhosocial ActiveRecord的帖子。",
     published=True
 )
 post.save()
@@ -345,6 +345,6 @@ for comment in post_with_relations.comments():
 
 ## 结论
 
-一对多关系是数据库设计中的基础关系类型，Python ActiveRecord提供了强大而灵活的API来处理这些关系。通过正确定义和使用`HasMany`和`BelongsTo`关系，您可以构建复杂的数据模型，同时保持代码的可读性和可维护性。
+一对多关系是数据库设计中的基础关系类型，rhosocial ActiveRecord提供了强大而灵活的API来处理这些关系。通过正确定义和使用`HasMany`和`BelongsTo`关系，您可以构建复杂的数据模型，同时保持代码的可读性和可维护性。
 
 记住要考虑性能影响，特别是在处理大型数据集时，并使用预加载和其他优化技术来确保应用程序的高效运行。

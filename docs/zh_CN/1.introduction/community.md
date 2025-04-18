@@ -1,6 +1,6 @@
 # 社区和生态系统
 
-## Python ActiveRecord
+## rhosocial ActiveRecord
 - **社区规模**：不断增长
 - **扩展**：不断扩大的插件集
 - **支持**：积极开发

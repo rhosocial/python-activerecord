@@ -1,10 +1,10 @@
 # Version Migration and Upgrades
 
-This chapter covers the essential aspects of managing schema changes, data migrations, and transitioning from other ORM frameworks to Python ActiveRecord.
+This chapter covers the essential aspects of managing schema changes, data migrations, and transitioning from other ORM frameworks to rhosocial ActiveRecord.
 
 ## Overview
 
-As applications evolve, database schemas often need to change to accommodate new features, improve performance, or fix design issues. Python ActiveRecord provides tools and patterns to manage these changes effectively while minimizing disruption to your application.
+As applications evolve, database schemas often need to change to accommodate new features, improve performance, or fix design issues. rhosocial ActiveRecord provides tools and patterns to manage these changes effectively while minimizing disruption to your application.
 
 ## Topics Covered
 

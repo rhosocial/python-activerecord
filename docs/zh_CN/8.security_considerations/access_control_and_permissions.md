@@ -1,6 +1,6 @@
 # 访问控制与权限
 
-实施适当的访问控制和权限管理对于保护数据库应用程序至关重要。本文档概述了使用Python ActiveRecord实施访问控制的策略和最佳实践。
+实施适当的访问控制和权限管理对于保护数据库应用程序至关重要。本文档概述了使用rhosocial ActiveRecord实施访问控制的策略和最佳实践。
 
 ## 访问控制级别
 
@@ -8,7 +8,7 @@
 
 1. **数据库级别**：由数据库系统本身强制执行的权限
 2. **应用程序级别**：由应用程序代码强制执行的权限
-3. **ORM级别**：通过Python ActiveRecord强制执行的权限
+3. **ORM级别**：通过rhosocial ActiveRecord强制执行的权限
 
 ## 数据库级别访问控制
 
@@ -25,7 +25,7 @@ CREATE USER app_readwrite WITH PASSWORD 'different_secure_password';
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_readwrite;
 ```
 
-在Python ActiveRecord配置中，您可以根据所需的访问级别使用不同的连接设置：
+在rhosocial ActiveRecord配置中，您可以根据所需的访问级别使用不同的连接设置：
 
 ```python
 read_only_config = {
@@ -60,7 +60,7 @@ CREATE POLICY user_documents ON documents
     USING (user_id = current_user_id());
 ```
 
-要在Python ActiveRecord中使用RLS，您需要在数据库会话中设置当前用户上下文：
+要在rhosocial ActiveRecord中使用RLS，您需要在数据库会话中设置当前用户上下文：
 
 ```python
 class Document(ActiveRecord):
@@ -335,7 +335,7 @@ def update_document(user, document_id, new_content):
 
 ## 结论
 
-实施强大的访问控制对于保护数据库应用程序至关重要。Python ActiveRecord提供了在不同级别实施各种访问控制策略的灵活性。
+实施强大的访问控制对于保护数据库应用程序至关重要。rhosocial ActiveRecord提供了在不同级别实施各种访问控制策略的灵活性。
 
 通过结合数据库级别权限、应用程序级别基于角色的访问控制和ORM级别查询过滤，您可以创建一个全面的安全模型，保护您的数据同时为授权用户提供适当的访问。
 

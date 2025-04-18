@@ -1,6 +1,6 @@
 # Timestamp Fields
 
-Timestamp fields are essential for tracking when records are created and updated. Python ActiveRecord provides the `TimestampMixin` to automatically manage these fields for you.
+Timestamp fields are essential for tracking when records are created and updated. rhosocial ActiveRecord provides the `TimestampMixin` to automatically manage these fields for you.
 
 ## Overview
 
@@ -126,7 +126,7 @@ Different databases handle datetime fields differently:
 - **MySQL/MariaDB**: Uses `DATETIME` or `TIMESTAMP` types
 - **PostgreSQL**: Uses `TIMESTAMP` or `TIMESTAMP WITH TIME ZONE` types
 
-Python ActiveRecord handles these differences for you, ensuring consistent behavior across database backends.
+rhosocial ActiveRecord handles these differences for you, ensuring consistent behavior across database backends.
 
 ## Best Practices
 

@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Migrating from one ORM framework to another can be a significant undertaking. This guide provides strategies and best practices for transitioning from popular Python ORMs like SQLAlchemy, Django ORM, and Peewee to Python ActiveRecord. We'll cover approaches for code conversion, data migration, and testing to ensure a smooth transition.
+Migrating from one ORM framework to another can be a significant undertaking. This guide provides strategies and best practices for transitioning from popular Python ORMs like SQLAlchemy, Django ORM, and Peewee to rhosocial ActiveRecord. We'll cover approaches for code conversion, data migration, and testing to ensure a smooth transition.
 
 ## General Migration Strategy
 
@@ -33,7 +33,7 @@ Choose the migration approach that best fits your project:
 
 ### Conceptual Differences
 
-| SQLAlchemy | Python ActiveRecord |
+| SQLAlchemy | rhosocial ActiveRecord |
 |------------|---------------------|
 | Explicit session management | Implicit connection management |
 | Declarative model definition | Active Record pattern |
@@ -80,7 +80,7 @@ class Post(Base):
         return f'<Post {self.title}>'
 ```
 
-**Equivalent Python ActiveRecord Model:**
+**Equivalent rhosocial ActiveRecord Model:**
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -148,7 +148,7 @@ session.delete(user)
 session.commit()
 ```
 
-**Equivalent Python ActiveRecord Queries:**
+**Equivalent rhosocial ActiveRecord Queries:**
 
 ```python
 # Create a new user
@@ -179,7 +179,7 @@ user.delete()
 
 ### Conceptual Differences
 
-| Django ORM | Python ActiveRecord |
+| Django ORM | rhosocial ActiveRecord |
 |------------|---------------------|
 | Tightly integrated with Django | Standalone ORM |
 | Models defined in app-specific models.py | Models can be defined anywhere |
@@ -216,7 +216,7 @@ class Product(models.Model):
         return self.name
 ```
 
-**Equivalent Python ActiveRecord Model:**
+**Equivalent rhosocial ActiveRecord Model:**
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -293,7 +293,7 @@ product.save()
 product.delete()
 ```
 
-**Equivalent Python ActiveRecord Queries:**
+**Equivalent rhosocial ActiveRecord Queries:**
 
 ```python
 # Create a new category
@@ -341,7 +341,7 @@ product.delete()
 
 ### Conceptual Differences
 
-| Peewee | Python ActiveRecord |
+| Peewee | rhosocial ActiveRecord |
 |--------|---------------------|
 | Lightweight, simple API | Full-featured ORM with Active Record pattern |
 | Model-centric design | Model-centric design |
@@ -378,7 +378,7 @@ class Pet(BaseModel):
         return f'{self.name} ({self.animal_type})'
 ```
 
-**Equivalent Python ActiveRecord Model:**
+**Equivalent rhosocial ActiveRecord Model:**
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -442,7 +442,7 @@ person.save()
 pet.delete_instance()
 ```
 
-**Equivalent Python ActiveRecord Queries:**
+**Equivalent rhosocial ActiveRecord Queries:**
 
 ```python
 # Create a person
@@ -601,7 +601,7 @@ def benchmark_query():
 
 **Challenge**: Migrating custom SQL or database-specific features.
 
-**Solution**: Use Python ActiveRecord's raw SQL capabilities:
+**Solution**: Use rhosocial ActiveRecord's raw SQL capabilities:
 
 ```python
 # Old SQLAlchemy raw query
@@ -658,6 +658,6 @@ class Order(ActiveRecord):
 
 ## Conclusion
 
-Migrating from one ORM to another requires careful planning, systematic conversion, and thorough testing. By following the patterns and examples in this guide, you can successfully transition your application from SQLAlchemy, Django ORM, or Peewee to Python ActiveRecord while minimizing disruption and maintaining functionality.
+Migrating from one ORM to another requires careful planning, systematic conversion, and thorough testing. By following the patterns and examples in this guide, you can successfully transition your application from SQLAlchemy, Django ORM, or Peewee to rhosocial ActiveRecord while minimizing disruption and maintaining functionality.
 
-Remember that migration is an opportunity to improve your data model and query patterns. Take advantage of Python ActiveRecord's features to enhance your application's database interactions as you migrate.
+Remember that migration is an opportunity to improve your data model and query patterns. Take advantage of rhosocial ActiveRecord's features to enhance your application's database interactions as you migrate.

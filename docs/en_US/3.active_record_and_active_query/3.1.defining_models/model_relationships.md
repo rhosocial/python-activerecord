@@ -4,7 +4,7 @@ This document explains how to define and use relationships in ActiveRecord model
 
 ## Relationship Types Overview
 
-Python ActiveRecord supports the following main relationship types:
+rhosocial ActiveRecord supports the following main relationship types:
 
 - **BelongsTo**: Represents the inverse relationship of HasMany or HasOne, where the current model contains a foreign key referencing another model
 - **HasMany (One-to-Many)**: Indicates that multiple records in another model contain foreign keys referencing the current model
@@ -108,7 +108,7 @@ orders: ClassVar[HasMany['Order']] = HasMany(
 
 ### Automatically Generated Methods
 
-When you define a relationship, Python ActiveRecord automatically generates two methods for each relationship:
+When you define a relationship, rhosocial ActiveRecord automatically generates two methods for each relationship:
 
 1. **relation_name()** - A method to access the related record(s)
 2. **relation_name_query()** - A method to access a pre-configured query builder for the relationship
@@ -144,7 +144,7 @@ active_orders = user.orders_query().where(status='active').all()
 
 ### Relationship Cache Management
 
-Python ActiveRecord provides instance-level caching for relationships. The relationship descriptor implements the `__delete__` method, which clears the cache rather than deleting the relationship itself:
+rhosocial ActiveRecord provides instance-level caching for relationships. The relationship descriptor implements the `__delete__` method, which clears the cache rather than deleting the relationship itself:
 
 ```python
 # Clear cache for a specific relationship
@@ -282,4 +282,4 @@ users = User.with_relation('posts', lambda q: q.where(status='published')).all()
 
 ## Summary
 
-Python ActiveRecord's relationship system provides an intuitive and type-safe way to define and use database relationships. By using relationships appropriately, you can create clearer and more efficient code while avoiding common performance pitfalls.
+rhosocial ActiveRecord's relationship system provides an intuitive and type-safe way to define and use database relationships. By using relationships appropriately, you can create clearer and more efficient code while avoiding common performance pitfalls.

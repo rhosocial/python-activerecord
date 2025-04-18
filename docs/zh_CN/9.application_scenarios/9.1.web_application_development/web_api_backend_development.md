@@ -1,6 +1,6 @@
 # Web API后端开发
 
-构建Web API后端是Python ActiveRecord最常见的使用场景之一。本文档探讨如何在API驱动的应用程序中有效实现ActiveRecord，并提供实用示例和最佳实践。
+构建Web API后端是rhosocial ActiveRecord最常见的使用场景之一。本文档探讨如何在API驱动的应用程序中有效实现ActiveRecord，并提供实用示例和最佳实践。
 
 ## 目录
 
@@ -16,7 +16,7 @@
 
 ## 概述
 
-现代Web应用通常将前端和后端关注点分离，后端暴露API供前端应用消费。Python ActiveRecord为API后端的数据访问层提供了一个优雅的解决方案，提供：
+现代Web应用通常将前端和后端关注点分离，后端暴露API供前端应用消费。rhosocial ActiveRecord为API后端的数据访问层提供了一个优雅的解决方案，提供：
 
 - 直接映射到API资源的直观模型定义
 - 用于复杂数据检索的灵活查询构建
@@ -25,7 +25,7 @@
 
 ## 基本API后端架构
 
-使用Python ActiveRecord的典型API后端由以下组件组成：
+使用rhosocial ActiveRecord的典型API后端由以下组件组成：
 
 ```
 ┌─────────────────────────────────────┐
@@ -562,4 +562,4 @@ async def update_user(
     return user
 ```
 
-这些示例展示了Python ActiveRecord如何在API后端开发中有效使用，为数据库操作提供了一个干净、直观的接口，同时与流行的Web框架无缝集成。
+这些示例展示了rhosocial ActiveRecord如何在API后端开发中有效使用，为数据库操作提供了一个干净、直观的接口，同时与流行的Web框架无缝集成。

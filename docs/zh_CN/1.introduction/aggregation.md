@@ -1,6 +1,6 @@
 # 高级聚合功能
 
-Python ActiveRecord 提供了一个强大而富有表现力的聚合系统，在功能和易用性方面超越了许多竞争对手的 ORM。
+rhosocial ActiveRecord 提供了一个强大而富有表现力的聚合系统，在功能和易用性方面超越了许多竞争对手的 ORM。
 
 ## 丰富的表达式系统
 
@@ -15,7 +15,7 @@ Python ActiveRecord 提供了一个强大而富有表现力的聚合系统，在
 
 ## 高级分组操作
 
-Python ActiveRecord 支持 SQL 标准的高级分组操作：
+rhosocial ActiveRecord 支持 SQL 标准的高级分组操作：
 
 - **CUBE**：多维分析，具有所有可能的分组组合
 - **ROLLUP**：具有递进小计的层次聚合
@@ -78,7 +78,7 @@ result = User.query()
     .aggregate()
 ```
 
-与其他 ORM 相比，Python ActiveRecord 的聚合功能提供了权力和简单性的平衡：
+与其他 ORM 相比，rhosocial ActiveRecord 的聚合功能提供了权力和简单性的平衡：
 
 - 比 SQLAlchemy 的聚合 API 更直观
 - 比 Django ORM 的有限聚合函数更强大

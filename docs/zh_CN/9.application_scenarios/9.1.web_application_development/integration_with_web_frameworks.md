@@ -1,6 +1,6 @@
 # 与各种Web框架集成
 
-Python ActiveRecord设计为与流行的Web框架无缝集成。本文档探讨如何有效地将ActiveRecord与各种Web框架结合使用，提供实用示例和最佳实践。
+rhosocial ActiveRecord设计为与流行的Web框架无缝集成。本文档探讨如何有效地将ActiveRecord与各种Web框架结合使用，提供实用示例和最佳实践。
 
 ## 目录
 
@@ -16,7 +16,7 @@ Python ActiveRecord设计为与流行的Web框架无缝集成。本文档探讨�
 
 ## 概述
 
-虽然Python ActiveRecord可以作为独立的ORM使用，但它在与Web框架集成时真正发挥其优势。ActiveRecord模式补充了大多数Web框架使用的MVC（模型-视图-控制器）或类似的架构模式。
+虽然rhosocial ActiveRecord可以作为独立的ORM使用，但它在与Web框架集成时真正发挥其优势。ActiveRecord模式补充了大多数Web框架使用的MVC（模型-视图-控制器）或类似的架构模式。
 
 将ActiveRecord与Web框架集成的主要优势包括：
 
@@ -706,4 +706,4 @@ def get_profile():
     return jsonify(request.user.to_dict())
 ```
 
-通过遵循这些集成模式和最佳实践，您可以有效地将Python ActiveRecord与您首选的Web框架结合使用，创建可维护且高效的Web应用程序。
+通过遵循这些集成模式和最佳实践，您可以有效地将rhosocial ActiveRecord与您首选的Web框架结合使用，创建可维护且高效的Web应用程序。

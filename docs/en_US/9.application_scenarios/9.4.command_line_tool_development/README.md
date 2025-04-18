@@ -1,10 +1,10 @@
 # Command-line Tool Development
 
-This section explores how Python ActiveRecord can be effectively utilized in command-line tool development, providing powerful database interaction capabilities for scripts and automation tools.
+This section explores how rhosocial ActiveRecord can be effectively utilized in command-line tool development, providing powerful database interaction capabilities for scripts and automation tools.
 
 ## Overview
 
-Command-line tools are essential for automation, data processing, and system administration tasks. Python ActiveRecord offers a robust ORM solution that can significantly enhance the development of these tools by providing:
+Command-line tools are essential for automation, data processing, and system administration tasks. rhosocial ActiveRecord offers a robust ORM solution that can significantly enhance the development of these tools by providing:
 
 - Simplified database access with an intuitive API
 - Consistent data handling across different database backends
@@ -21,7 +21,7 @@ This section covers the following topics:
 
 ## Use Cases
 
-Command-line tools built with Python ActiveRecord are particularly valuable in scenarios such as:
+Command-line tools built with rhosocial ActiveRecord are particularly valuable in scenarios such as:
 
 - Automated data import/export operations
 - Database maintenance and administration utilities
@@ -41,4 +41,4 @@ Using ActiveRecord for command-line tool development offers several advantages:
 - **Transaction Safety**: Ensure data integrity with built-in transaction support
 - **Performance Optimization**: Utilize ActiveRecord's query optimization features for efficient data processing
 
-Explore the subsections to learn more about specific implementation techniques and best practices for command-line tool development with Python ActiveRecord.
+Explore the subsections to learn more about specific implementation techniques and best practices for command-line tool development with rhosocial ActiveRecord.

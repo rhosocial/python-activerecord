@@ -1,10 +1,10 @@
 # Custom Backends
 
-This section covers how to implement custom database backends and extend existing ones in Python ActiveRecord.
+This section covers how to implement custom database backends and extend existing ones in rhosocial ActiveRecord.
 
 ## Overview
 
-Python ActiveRecord is designed with extensibility in mind, allowing developers to create custom database backends beyond the built-in ones (SQLite, MySQL/MariaDB, PostgreSQL, etc.). This capability is useful when:
+rhosocial ActiveRecord is designed with extensibility in mind, allowing developers to create custom database backends beyond the built-in ones (SQLite, MySQL/MariaDB, PostgreSQL, etc.). This capability is useful when:
 
 - You need to support a database system not included in the standard distribution
 - You want to add specialized functionality to an existing backend
@@ -17,7 +17,7 @@ The following pages provide detailed guidance on implementing and extending data
 
 ## Architecture
 
-The backend system in Python ActiveRecord follows a modular architecture with clear separation of concerns:
+The backend system in rhosocial ActiveRecord follows a modular architecture with clear separation of concerns:
 
 1. **Abstract Base Classes**: The `StorageBackend` abstract base class defines the interface that all backends must implement
 2. **Dialect System**: SQL dialect differences are handled through the dialect system

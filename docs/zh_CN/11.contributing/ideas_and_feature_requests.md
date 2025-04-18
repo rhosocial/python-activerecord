@@ -1,6 +1,6 @@
 # 想法与功能请求
 
-我们欢迎能够帮助改进Python ActiveRecord的想法和功能请求。您的意见对于塑造项目的未来方向非常宝贵。
+我们欢迎能够帮助改进rhosocial ActiveRecord的想法和功能请求。您的意见对于塑造项目的未来方向非常宝贵。
 
 ## 如何提交想法或功能请求
 
@@ -38,7 +38,7 @@
 
 ## 讨论想法
 
-对于关于Python ActiveRecord方向的更广泛讨论，您可以：
+对于关于rhosocial ActiveRecord方向的更广泛讨论，您可以：
 
 1. 在GitHub Discussions部分开始讨论
 2. 在我们的社区渠道分享您的想法
@@ -48,4 +48,4 @@
 
 浏览问题时，寻找"enhancement"标签，找到正在考虑或正在进行的功能请求。
 
-我们感谢您的创造力和意见，使Python ActiveRecord对所有人都更好！
+我们感谢您的创造力和意见，使rhosocial ActiveRecord对所有人都更好！

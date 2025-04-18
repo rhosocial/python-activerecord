@@ -1,10 +1,10 @@
 # 跨数据库连接配置
 
-本文档提供了关于在Python ActiveRecord中配置和管理多个数据库连接的详细信息，包括如何设置连接到不同的数据库系统、管理连接池以及在运行时切换连接。
+本文档提供了关于在rhosocial ActiveRecord中配置和管理多个数据库连接的详细信息，包括如何设置连接到不同的数据库系统、管理连接池以及在运行时切换连接。
 
 ## 基本连接配置
 
-Python ActiveRecord允许您同时配置和连接多个数据库，即使它们是不同类型的数据库。这种能力对于需要访问来自各种来源的数据或者对应用程序的不同部分使用不同数据库的应用程序至关重要。
+rhosocial ActiveRecord允许您同时配置和连接多个数据库，即使它们是不同类型的数据库。这种能力对于需要访问来自各种来源的数据或者对应用程序的不同部分使用不同数据库的应用程序至关重要。
 
 ### 配置多个数据库连接
 
@@ -85,7 +85,7 @@ ConnectionManager.configure('secondary', secondary_config)
 
 ### 连接池
 
-Python ActiveRecord使用连接池来高效管理数据库连接。连接池维护一组可以重用的开放连接，减少为每个数据库操作建立新连接的开销。
+rhosocial ActiveRecord使用连接池来高效管理数据库连接。连接池维护一组可以重用的开放连接，减少为每个数据库操作建立新连接的开销。
 
 您可以为每个数据库连接配置连接池参数：
 
@@ -209,7 +209,7 @@ with User.using_connection(tenant_connection):
 
 ### 连接生命周期管理
 
-Python ActiveRecord自动管理数据库连接的生命周期，但如果需要，您可以显式控制连接的创建和处置：
+rhosocial ActiveRecord自动管理数据库连接的生命周期，但如果需要，您可以显式控制连接的创建和处置：
 
 ```python
 from rhosocial.activerecord import ConnectionManager
@@ -332,6 +332,6 @@ ConnectionEvents.on_disconnect(lambda conn: print(f"连接 {conn.id} 已关闭")
 
 ## 结论
 
-正确配置和管理数据库连接对于使用多个数据库的应用程序至关重要。Python ActiveRecord提供了一个灵活而强大的连接管理系统，允许您同时使用多个不同类型的数据库，同时抽象出许多相关的复杂性。
+正确配置和管理数据库连接对于使用多个数据库的应用程序至关重要。rhosocial ActiveRecord提供了一个灵活而强大的连接管理系统，允许您同时使用多个不同类型的数据库，同时抽象出许多相关的复杂性。
 
 通过遵循本文档中概述的最佳实践，您可以确保应用程序的数据库连接高效、可靠且安全。

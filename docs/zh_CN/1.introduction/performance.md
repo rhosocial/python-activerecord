@@ -4,7 +4,7 @@
 
 ## 小数据集操作（1,000 条记录）
 
-| 操作 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| 操作 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |-----------|-------------------|------------|------------|--------|
 | 简单检索 | 快 | 中等 | 快 | 最快 |
 | 复杂查询 | 中等 | 快 | 中等 | 快 |
@@ -14,7 +14,7 @@
 
 ## 大数据集操作（100,000+ 条记录）
 
-| 操作 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| 操作 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |-----------|-------------------|------------|------------|--------|
 | 简单检索 | 中等 | 快 | 慢 | 中等 |
 | 复杂查询 | 中等 | 最快 | 慢 | 快 |
@@ -24,7 +24,7 @@
 
 ## 内存使用（相对比较）
 
-| 场景 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| 场景 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |----------|-------------------|------------|------------|--------|
 | 加载 10,000 条记录 | 中等 | 高 | 高 | 低 |
 | 复杂对象层次结构 | 中等 | 高 | 高 | 低 |
@@ -32,7 +32,7 @@
 
 ## 异步性能
 
-| 场景 | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee-Async |
+| 场景 | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee-Async |
 |----------|-------------------|------------|------------|--------------|
 | 并发操作 | 优秀 | 良好 | 有限 | 良好 |
 | 连接效率 | 优秀 | 良好 | 中等 | 良好 |
@@ -42,7 +42,7 @@
 
 - Peewee 由于其轻量级设计，通常具有最低的内存占用
 - SQLAlchemy 因其查询优化而在复杂查询方面表现出色
-- Python ActiveRecord 提供平衡的性能，同时具有验证优势
+- rhosocial ActiveRecord 提供平衡的性能，同时具有验证优势
 - Django ORM 在大型数据集上可能较慢，但对于典型的 Web 应用负载表现良好
-- Python ActiveRecord 中的 Pydantic 验证增加了一些开销，但在早期防止了数据问题
-- 在异步场景中，Python ActiveRecord 的设计为并发操作提供了出色的性能
+- rhosocial ActiveRecord 中的 Pydantic 验证增加了一些开销，但在早期防止了数据问题
+- 在异步场景中，rhosocial ActiveRecord 的设计为并发操作提供了出色的性能

@@ -1,16 +1,16 @@
 # 保存点
 
-保存点提供了一种在事务内设置中间标记的方法，允许部分回滚而不必中止整个事务。Python ActiveRecord提供全面的保存点支持，使你能够对事务操作进行精细控制。
+保存点提供了一种在事务内设置中间标记的方法，允许部分回滚而不必中止整个事务。rhosocial ActiveRecord提供全面的保存点支持，使你能够对事务操作进行精细控制。
 
 ## 理解保存点
 
 保存点是事务中的一个点，你可以回滚到该点而不必回滚整个事务。这对于复杂操作特别有用，在这些操作中，如果发生错误，你可能只想重试事务的一部分。
 
-保存点也是Python ActiveRecord中实现嵌套事务的底层机制。
+保存点也是rhosocial ActiveRecord中实现嵌套事务的底层机制。
 
 ## 基本保存点操作
 
-Python ActiveRecord提供了三种主要的保存点操作：
+rhosocial ActiveRecord提供了三种主要的保存点操作：
 
 1. **创建保存点**：在事务中标记一个点，你可以稍后回滚到该点
 2. **释放保存点**：移除保存点（但保留自保存点创建以来所做的所有更改）
@@ -61,7 +61,7 @@ except Exception:
 
 ## 自动保存点命名
 
-如果你在创建保存点时不提供名称，Python ActiveRecord将自动生成一个：
+如果你在创建保存点时不提供名称，rhosocial ActiveRecord将自动生成一个：
 
 ```python
 # 创建具有自动生成名称的保存点
@@ -73,7 +73,7 @@ print(f"创建的保存点：{savepoint_name}")
 
 ## 保存点和嵌套事务
 
-Python ActiveRecord中的嵌套事务是使用保存点实现的。当你开始一个嵌套事务时，会自动创建一个保存点：
+rhosocial ActiveRecord中的嵌套事务是使用保存点实现的。当你开始一个嵌套事务时，会自动创建一个保存点：
 
 ```python
 # 开始外部事务
@@ -143,7 +143,7 @@ User.backend().commit_transaction()
 - **MySQL/MariaDB**：完全支持保存点
 - **SQLite**：基本支持保存点
 
-Python ActiveRecord事务管理器自动适应底层数据库的功能。
+rhosocial ActiveRecord事务管理器自动适应底层数据库的功能。
 
 ## 保存点的错误处理
 

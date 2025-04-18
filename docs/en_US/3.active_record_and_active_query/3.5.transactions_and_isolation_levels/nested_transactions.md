@@ -1,10 +1,10 @@
 # Nested Transactions
 
-Nested transactions allow you to start a new transaction within an already running transaction. Python ActiveRecord provides robust support for nested transactions through savepoints, enabling more granular control over complex database operations.
+Nested transactions allow you to start a new transaction within an already running transaction. rhosocial ActiveRecord provides robust support for nested transactions through savepoints, enabling more granular control over complex database operations.
 
 ## Understanding Nested Transactions
 
-In Python ActiveRecord, when you begin a transaction inside an already active transaction, the framework creates a savepoint rather than starting a new physical transaction. This approach allows for partial rollbacks within a larger transaction.
+In rhosocial ActiveRecord, when you begin a transaction inside an already active transaction, the framework creates a savepoint rather than starting a new physical transaction. This approach allows for partial rollbacks within a larger transaction.
 
 The transaction nesting level is tracked internally, and each nested transaction operation affects only the current nesting level:
 
@@ -26,7 +26,7 @@ with User.transaction():
 
 ## How Nested Transactions Work
 
-Python ActiveRecord implements nested transactions using the following approach:
+rhosocial ActiveRecord implements nested transactions using the following approach:
 
 1. The first `begin_transaction()` call starts a real database transaction
 2. Subsequent `begin_transaction()` calls create savepoints

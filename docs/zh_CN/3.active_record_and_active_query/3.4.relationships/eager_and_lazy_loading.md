@@ -1,6 +1,6 @@
 # 预加载和延迟加载
 
-高效的数据加载对应用程序性能至关重要，特别是在处理相关记录时。Python ActiveRecord提供了两种主要的相关数据加载方法：预加载和延迟加载。本文档深入探讨这些加载策略，提供实用示例和最佳实践。
+高效的数据加载对应用程序性能至关重要，特别是在处理相关记录时。rhosocial ActiveRecord提供了两种主要的相关数据加载方法：预加载和延迟加载。本文档深入探讨这些加载策略，提供实用示例和最佳实践。
 
 ## 理解加载策略
 
@@ -13,11 +13,11 @@
 
 ## 延迟加载
 
-延迟加载是Python ActiveRecord中的默认行为。当您访问关系时，框架执行单独的数据库查询来检索相关数据。
+延迟加载是rhosocial ActiveRecord中的默认行为。当您访问关系时，框架执行单独的数据库查询来检索相关数据。
 
 ### 延迟加载的工作原理
 
-当您在模型中定义关系时，Python ActiveRecord会创建一个方法，当调用该方法时，会执行查询来获取相关记录：
+当您在模型中定义关系时，rhosocial ActiveRecord会创建一个方法，当调用该方法时，会执行查询来获取相关记录：
 
 ```python
 from typing import ClassVar, Optional
@@ -98,7 +98,7 @@ for author in authors:
 
 ## 预加载
 
-预加载通过提前加载相关数据来解决N+1查询问题。Python ActiveRecord提供了`with_`方法来指定应该预加载哪些关系。
+预加载通过提前加载相关数据来解决N+1查询问题。rhosocial ActiveRecord提供了`with_`方法来指定应该预加载哪些关系。
 
 ### 基本预加载
 
@@ -114,7 +114,7 @@ for author in authors:
     print(f"作者: {author.name}, 书籍数量: {len(books)}")
 ```
 
-在后台，Python ActiveRecord执行两个查询：
+在后台，rhosocial ActiveRecord执行两个查询：
 1. 一个查询获取所有作者
 2. 另一个查询获取这些作者的所有书籍
 

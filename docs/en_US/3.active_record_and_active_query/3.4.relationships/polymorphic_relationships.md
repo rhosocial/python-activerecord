@@ -1,6 +1,6 @@
 # Polymorphic Relationships
 
-Polymorphic relationships allow a model to belong to more than one type of model through a single association. In Python ActiveRecord, polymorphic relationships enable you to create flexible and reusable code by allowing a model to be associated with multiple other models using a single set of foreign keys.
+Polymorphic relationships allow a model to belong to more than one type of model through a single association. In rhosocial ActiveRecord, polymorphic relationships enable you to create flexible and reusable code by allowing a model to be associated with multiple other models using a single set of foreign keys.
 
 ## Overview
 
@@ -270,4 +270,4 @@ class Article(IntegerPKMixin, ActiveRecord):
 
 ## Conclusion
 
-Polymorphic relationships provide a powerful way to create flexible associations between models in Python ActiveRecord. By using polymorphic relationships, you can reduce code duplication and create more maintainable and extensible applications. While they require a bit more setup than standard relationships, the flexibility they provide is often worth the extra effort for complex applications.
+Polymorphic relationships provide a powerful way to create flexible associations between models in rhosocial ActiveRecord. By using polymorphic relationships, you can reduce code duplication and create more maintainable and extensible applications. While they require a bit more setup than standard relationships, the flexibility they provide is often worth the extra effort for complex applications.

@@ -4,7 +4,7 @@
 
 ## 定义模型
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 from activerecord import ActiveRecord
 from typing import Optional
@@ -95,7 +95,7 @@ class User(Model):
 
 ## CRUD 操作
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 # 创建
 user = User(name="John Doe", email="john@domain.com")
@@ -172,7 +172,7 @@ user.delete_instance()
 
 ## 异步操作
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 # 创建
 user = AsyncUser(name="John Doe", email="john@domain.com")

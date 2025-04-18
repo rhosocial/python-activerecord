@@ -1,6 +1,6 @@
 # Ideas & Feature Requests
 
-We welcome ideas and feature requests that can help improve Python ActiveRecord. Your input is valuable in shaping the future direction of the project.
+We welcome ideas and feature requests that can help improve rhosocial ActiveRecord. Your input is valuable in shaping the future direction of the project.
 
 ## How to Submit Ideas or Feature Requests
 
@@ -38,7 +38,7 @@ After submitting a feature request:
 
 ## Discussing Ideas
 
-For broader discussions about the direction of Python ActiveRecord, you can:
+For broader discussions about the direction of rhosocial ActiveRecord, you can:
 
 1. Start a discussion in the GitHub Discussions section
 2. Share your thoughts in our community channels
@@ -48,4 +48,4 @@ For broader discussions about the direction of Python ActiveRecord, you can:
 
 When browsing issues, look for the "enhancement" label to find feature requests that are being considered or worked on.
 
-We appreciate your creativity and input in making Python ActiveRecord better for everyone!
+We appreciate your creativity and input in making rhosocial ActiveRecord better for everyone!

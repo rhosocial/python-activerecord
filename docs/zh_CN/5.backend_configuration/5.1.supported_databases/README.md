@@ -1,6 +1,6 @@
 # 支持的数据库
 
-Python ActiveRecord提供对多种数据库系统的支持，使您能够使用相同的ActiveRecord API，而不管底层数据库是什么。本节提供了关于每个支持的数据库系统的详细信息，包括配置选项、特定功能和优化技术。
+rhosocial ActiveRecord提供对多种数据库系统的支持，使您能够使用相同的ActiveRecord API，而不管底层数据库是什么。本节提供了关于每个支持的数据库系统的详细信息，包括配置选项、特定功能和优化技术。
 
 > **重要提示**：目前，只有SQLite作为内置的默认后端包含在内。其他数据库后端（MySQL/MariaDB、PostgreSQL、Oracle、SQL Server）正在作为单独的代码包开发中，将在未来陆续发布。这些后端的文档作为即将推出的功能的参考提供。
 
@@ -15,7 +15,7 @@ Python ActiveRecord提供对多种数据库系统的支持，使您能够使用�
 
 ## 通用配置
 
-Python ActiveRecord中的所有数据库后端都使用`ConnectionConfig`类进行配置，该类为指定连接参数提供了一致的接口。虽然每个数据库系统都有其自己的特定参数，但基本配置模式保持不变：
+rhosocial ActiveRecord中的所有数据库后端都使用`ConnectionConfig`类进行配置，该类为指定连接参数提供了一致的接口。虽然每个数据库系统都有其自己的特定参数，但基本配置模式保持不变：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -47,7 +47,7 @@ MyModel.configure(
 
 ## 数据库特定功能
 
-虽然Python ActiveRecord在所有支持的数据库中提供统一的API，但它也允许您在需要时利用数据库特定的功能。每个数据库后端都实现了核心ActiveRecord功能，同时还公开了底层数据库系统的独特功能。
+虽然rhosocial ActiveRecord在所有支持的数据库中提供统一的API，但它也允许您在需要时利用数据库特定的功能。每个数据库后端都实现了核心ActiveRecord功能，同时还公开了底层数据库系统的独特功能。
 
 请参阅特定数据库文档，了解有关以下内容的详细信息：
 
@@ -59,6 +59,6 @@ MyModel.configure(
 
 ## 多数据库支持
 
-Python ActiveRecord允许您同时使用多个数据库，甚至是不同类型的数据库。这对于需要集成来自各种来源的数据的应用程序，或者对于使用不同数据库用于应用程序不同部分的应用程序特别有用。
+rhosocial ActiveRecord允许您同时使用多个数据库，甚至是不同类型的数据库。这对于需要集成来自各种来源的数据的应用程序，或者对于使用不同数据库用于应用程序不同部分的应用程序特别有用。
 
 有关使用多个数据库的更多信息，请参阅[跨数据库查询](../5.2.cross_database_queries/README.md)部分。

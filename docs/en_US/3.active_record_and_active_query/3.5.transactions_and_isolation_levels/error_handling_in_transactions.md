@@ -1,10 +1,10 @@
 # Error Handling in Transactions
 
-Proper error handling is crucial when working with database transactions. Python ActiveRecord provides several mechanisms to handle errors that occur during transaction processing, ensuring data integrity while giving developers flexibility in error management.
+Proper error handling is crucial when working with database transactions. rhosocial ActiveRecord provides several mechanisms to handle errors that occur during transaction processing, ensuring data integrity while giving developers flexibility in error management.
 
 ## Transaction Error Types
 
-Python ActiveRecord defines several error types related to transactions:
+rhosocial ActiveRecord defines several error types related to transactions:
 
 - **TransactionError**: Base class for all transaction-related errors
 - **IsolationLevelError**: Raised when attempting to change isolation level during an active transaction
@@ -60,7 +60,7 @@ except Exception as e:
 
 ## Handling Specific Database Errors
 
-Different database systems may raise different types of errors. Python ActiveRecord attempts to normalize these errors, but you may still need to handle database-specific errors in some cases:
+Different database systems may raise different types of errors. rhosocial ActiveRecord attempts to normalize these errors, but you may still need to handle database-specific errors in some cases:
 
 ```python
 from rhosocial.activerecord.backend.errors import (
@@ -178,7 +178,7 @@ except Exception as e:
 
 ## Logging Transaction Errors
 
-Python ActiveRecord's transaction manager includes built-in logging for transaction operations and errors. You can configure the logger to capture more detailed information:
+rhosocial ActiveRecord's transaction manager includes built-in logging for transaction operations and errors. You can configure the logger to capture more detailed information:
 
 ```python
 import logging

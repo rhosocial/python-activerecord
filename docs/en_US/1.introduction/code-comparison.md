@@ -4,7 +4,7 @@ Let's compare how common database operations look across these ORMs:
 
 ## Defining Models
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 from activerecord import ActiveRecord
 from typing import Optional
@@ -95,7 +95,7 @@ class User(Model):
 
 ## CRUD Operations
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 # Create
 user = User(name="John Doe", email="john@domain.com")
@@ -172,7 +172,7 @@ user.delete_instance()
 
 ## Asynchronous Operations
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 # Create
 user = AsyncUser(name="John Doe", email="john@domain.com")

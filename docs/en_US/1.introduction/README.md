@@ -1,14 +1,14 @@
-# Python ActiveRecord
+# rhosocial ActiveRecord
 
 ## Overview
 
-Python ActiveRecord is a robust object-relational mapping (ORM) library that provides an intuitive interface for database interactions in Python applications. Built on the ActiveRecord pattern popularized by Ruby on Rails, this library offers a clean, model-centric approach to database access that significantly reduces boilerplate code while maintaining flexibility and performance.
+rhosocial ActiveRecord is a robust object-relational mapping (ORM) library that provides an intuitive interface for database interactions in Python applications. Built on the ActiveRecord pattern popularized by Ruby on Rails, this library offers a clean, model-centric approach to database access that significantly reduces boilerplate code while maintaining flexibility and performance.
 
 The library allows developers to represent database tables as Python classes and rows as objects, creating a natural mapping between object-oriented domain models and relational database structures. This approach emphasizes convention over configuration, making database operations more intuitive and less error-prone.
 
 ## Features
 
-Python ActiveRecord offers a comprehensive set of features designed to streamline database interactions:
+rhosocial ActiveRecord offers a comprehensive set of features designed to streamline database interactions:
 
 - **Intuitive Model-Based API**: Define your database schema as Python classes with built-in validation
 - **Comprehensive CRUD Operations**: Easily create, read, update, and delete records
@@ -80,7 +80,7 @@ flowchart TD
 
 ## Requirements
 
-To use Python ActiveRecord, you need:
+To use rhosocial ActiveRecord, you need:
 
 - **Python**: Version 3.8 or higher
 - **Pydantic**:
@@ -148,5 +148,5 @@ active_users = User.query().where('is_active = ?', (True,)).all()
 Python offers several established ORM solutions, each with their own philosophy and design approach. Understanding these
 differences can help you choose the right tool for your specific needs.
 
-For a detailed analysis of how Python ActiveRecord compares to these frameworks with specific code examples, performance
+For a detailed analysis of how rhosocial ActiveRecord compares to these frameworks with specific code examples, performance
 benchmarks, and use case recommendations, please see the [When to Choose Each ORM](docs/when-to-choose.md) guide.

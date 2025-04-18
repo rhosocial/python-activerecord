@@ -4,7 +4,7 @@
 
 ## 概述
 
-在Python ActiveRecord中，模型被定义为继承自`ActiveRecord`基类的类。每个模型对应一个数据库表，模型的每个实例对应表中的一行。模型利用Pydantic进行数据验证和类型安全。
+在rhosocial ActiveRecord中，模型被定义为继承自`ActiveRecord`基类的类。每个模型对应一个数据库表，模型的每个实例对应表中的一行。模型利用Pydantic进行数据验证和类型安全。
 
 ## 目录
 
@@ -56,7 +56,7 @@ class CustomModel(ActiveRecord):
 
 ### 字段类型
 
-Python ActiveRecord利用Pydantic的类型系统，支持所有标准Python类型和Pydantic的专用类型。常见字段类型包括：
+rhosocial ActiveRecord利用Pydantic的类型系统，支持所有标准Python类型和Pydantic的专用类型。常见字段类型包括：
 
 - 基本类型：`int`、`float`、`str`、`bool`
 - 日期/时间类型：`datetime`、`date`、`time`

@@ -1,12 +1,12 @@
 # MariaDB 支持
 
-Python ActiveRecord 为 MariaDB 数据库系统提供了全面的支持。本文档涵盖了在使用 Python ActiveRecord 与 MariaDB 时的特定功能、配置选项和注意事项。
+rhosocial ActiveRecord 为 MariaDB 数据库系统提供了全面的支持。本文档涵盖了在使用 rhosocial ActiveRecord 与 MariaDB 时的特定功能、配置选项和注意事项。
 
 > **重要提示**：MariaDB 后端正在作为单独的代码包开发中，将在未来发布。本文档作为即将推出的功能的参考提供。
 
 ## 概述
 
-MariaDB 是 MySQL 的一个社区开发的分支，由 MySQL 的原始开发者创建，旨在保持开源并提供更多功能。Python ActiveRecord 的 MariaDB 后端提供了一个一致的接口，同时尊重 MariaDB 的独特特性。
+MariaDB 是 MySQL 的一个社区开发的分支，由 MySQL 的原始开发者创建，旨在保持开源并提供更多功能。rhosocial ActiveRecord 的 MariaDB 后端提供了一个一致的接口，同时尊重 MariaDB 的独特特性。
 
 ## MariaDB 特有功能
 
@@ -21,7 +21,7 @@ MariaDB 是 MySQL 的一个社区开发的分支，由 MySQL 的原始开发者�
 
 ## 配置
 
-要将 MariaDB 与 Python ActiveRecord 一起使用，您需要使用 MariaDB 后端配置您的模型：
+要将 MariaDB 与 rhosocial ActiveRecord 一起使用，您需要使用 MariaDB 后端配置您的模型：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -53,7 +53,7 @@ User.configure(
 
 ## 数据类型映射
 
-Python ActiveRecord 将 Python 数据类型映射到 MariaDB 数据类型，以下是主要的映射关系：
+rhosocial ActiveRecord 将 Python 数据类型映射到 MariaDB 数据类型，以下是主要的映射关系：
 
 | Python 类型 | MariaDB 类型 |
 |------------|----------------|
@@ -71,7 +71,7 @@ Python ActiveRecord 将 Python 数据类型映射到 MariaDB 数据类型，以�
 
 ## 存储引擎
 
-MariaDB 支持多种存储引擎，包括一些 MySQL 中不可用的引擎。Python ActiveRecord 允许您在表级别指定存储引擎：
+MariaDB 支持多种存储引擎，包括一些 MySQL 中不可用的引擎。rhosocial ActiveRecord 允许您在表级别指定存储引擎：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -103,7 +103,7 @@ MariaDB 特有的存储引擎包括：
 
 ## 事务支持
 
-MariaDB 支持事务（使用 InnoDB 引擎），Python ActiveRecord 提供了简单的事务管理接口：
+MariaDB 支持事务（使用 InnoDB 引擎），rhosocial ActiveRecord 提供了简单的事务管理接口：
 
 ```python
 from rhosocial.activerecord.backend import TransactionIsolationLevel
@@ -130,7 +130,7 @@ MariaDB 支持的隔离级别包括：
 
 ## 锁定策略
 
-Python ActiveRecord 支持 MariaDB 的锁定功能，用于处理并发访问：
+rhosocial ActiveRecord 支持 MariaDB 的锁定功能，用于处理并发访问：
 
 ```python
 # 悲观锁 - 使用 FOR UPDATE 锁定行
@@ -167,7 +167,7 @@ User.delete_all(where={'status': 'inactive'})
 
 ## JSON 支持
 
-MariaDB 10.2+ 提供了原生 JSON 支持，Python ActiveRecord 允许您使用这些功能：
+MariaDB 10.2+ 提供了原生 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -197,7 +197,7 @@ products = Product.find_all(
 
 ## 全文搜索
 
-MariaDB 提供全文搜索功能，Python ActiveRecord 支持这一特性：
+MariaDB 提供全文搜索功能，rhosocial ActiveRecord 支持这一特性：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -277,4 +277,4 @@ articles = Article.find_all(
 
 ## 总结
 
-Python ActiveRecord 的 MariaDB 后端提供了一个强大而灵活的接口，用于与 MariaDB 数据库交互。通过利用 MariaDB 的特定功能，同时保持 ActiveRecord 的简洁 API，您可以构建高效且可维护的数据库驱动应用程序。
+rhosocial ActiveRecord 的 MariaDB 后端提供了一个强大而灵活的接口，用于与 MariaDB 数据库交互。通过利用 MariaDB 的特定功能，同时保持 ActiveRecord 的简洁 API，您可以构建高效且可维护的数据库驱动应用程序。

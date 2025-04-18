@@ -1,12 +1,12 @@
 # MariaDB Support
 
-Python ActiveRecord provides robust support for MariaDB database, offering a seamless integration with this popular open-source relational database management system. This document covers the specific features, configuration options, and considerations when using Python ActiveRecord with MariaDB.
+rhosocial ActiveRecord provides robust support for MariaDB database, offering a seamless integration with this popular open-source relational database management system. This document covers the specific features, configuration options, and considerations when using rhosocial ActiveRecord with MariaDB.
 
 > **Important Note**: MariaDB backend is being developed as a separate package and will be released in the future. This documentation is provided as a reference for upcoming features.
 
 ## Overview
 
-MariaDB is a community-developed fork of MySQL, designed to remain free and open-source. Python ActiveRecord supports MariaDB with a dedicated backend implementation that leverages its specific features while providing a consistent ActiveRecord API.
+MariaDB is a community-developed fork of MySQL, designed to remain free and open-source. rhosocial ActiveRecord supports MariaDB with a dedicated backend implementation that leverages its specific features while providing a consistent ActiveRecord API.
 
 ## Features
 
@@ -85,7 +85,7 @@ The MariaDB backend supports the following data types:
 
 ### JSON Support
 
-For MariaDB 10.2 and above, Python ActiveRecord provides support for JSON data type and operations:
+For MariaDB 10.2 and above, rhosocial ActiveRecord provides support for JSON data type and operations:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, fields
@@ -133,7 +133,7 @@ class Product(ActiveRecord):
 
 ### Full-Text Search
 
-MariaDB's full-text search capabilities are accessible through Python ActiveRecord:
+MariaDB's full-text search capabilities are accessible through rhosocial ActiveRecord:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, fields
@@ -156,7 +156,7 @@ class Article(ActiveRecord):
 
 ### Indexing
 
-Proper indexing is crucial for MariaDB performance. Python ActiveRecord provides methods to define indexes in your models:
+Proper indexing is crucial for MariaDB performance. rhosocial ActiveRecord provides methods to define indexes in your models:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, fields, indexes
@@ -230,7 +230,7 @@ MyModel.configure(config, MariaDBBackend)
 
 ## Version-Specific Features
 
-Python ActiveRecord adapts to different MariaDB versions, enabling you to use version-specific features when available:
+rhosocial ActiveRecord adapts to different MariaDB versions, enabling you to use version-specific features when available:
 
 | Feature | Minimum MariaDB Version |
 |---------|------------------------|
@@ -258,5 +258,5 @@ Python ActiveRecord adapts to different MariaDB versions, enabling you to use ve
 ## Further Reading
 
 - [MariaDB Documentation](https://mariadb.com/kb/en/documentation/)
-- [Python ActiveRecord Transaction Management](../../../3.active_record_and_active_query/3.4.transaction_management.md)
+- [rhosocial ActiveRecord Transaction Management](../../../3.active_record_and_active_query/3.4.transaction_management.md)
 - [Performance Optimization](../../../4.performance_optimization/README.md)

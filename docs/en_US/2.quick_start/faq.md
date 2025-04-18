@@ -1,14 +1,14 @@
 # Frequently Asked Questions
 
-This guide addresses common questions and issues you might encounter when getting started with Python ActiveRecord.
+This guide addresses common questions and issues you might encounter when getting started with rhosocial ActiveRecord.
 
 ## General Questions
 
 ### What is the difference between ActiveRecord and other ORMs?
 
-Python ActiveRecord follows the ActiveRecord pattern, which combines data access and business logic in a single object. This differs from other ORMs like SQLAlchemy, which often separate these concerns. Key differences include:
+rhosocial ActiveRecord follows the ActiveRecord pattern, which combines data access and business logic in a single object. This differs from other ORMs like SQLAlchemy, which often separate these concerns. Key differences include:
 
-- **Integration with Pydantic**: Python ActiveRecord leverages Pydantic for type validation and conversion
+- **Integration with Pydantic**: rhosocial ActiveRecord leverages Pydantic for type validation and conversion
 - **Simpler API**: Designed to be intuitive and require less boilerplate code
 - **Fluent Query Interface**: Provides a chainable API for building complex queries
 - **Built-in SQLite Support**: Works out of the box with SQLite
@@ -17,13 +17,13 @@ For a detailed comparison, see the [ORM Comparison](../1.introduction) document.
 
 ### Can I use ActiveRecord with existing databases?
 
-Yes, Python ActiveRecord works with existing databases. Simply define your models to match your existing table structure. You don't need to use the `create_table` method if your tables already exist.
+Yes, rhosocial ActiveRecord works with existing databases. Simply define your models to match your existing table structure. You don't need to use the `create_table` method if your tables already exist.
 
 ## Installation and Setup
 
 ### Why am I getting "SQLite version too old" errors?
 
-Python ActiveRecord requires SQLite 3.25 or higher due to its use of window functions and other modern SQL features. You can check your SQLite version with:
+rhosocial ActiveRecord requires SQLite 3.25 or higher due to its use of window functions and other modern SQL features. You can check your SQLite version with:
 
 ```python
 import sqlite3
@@ -57,7 +57,7 @@ Product.configure(
 
 ### How do I define a primary key?
 
-By default, Python ActiveRecord uses a field named `id` as the primary key. You can customize this by setting the `__primary_key__` attribute:
+By default, rhosocial ActiveRecord uses a field named `id` as the primary key. You can customize this by setting the `__primary_key__` attribute:
 
 ```python
 class User(ActiveRecord):
@@ -74,7 +74,7 @@ For SQLite, integer primary keys are automatically auto-incrementing. For other 
 
 ### Can I use UUID primary keys?
 
-Yes, Python ActiveRecord supports UUID primary keys through the `UUIDField` mixin:
+Yes, rhosocial ActiveRecord supports UUID primary keys through the `UUIDField` mixin:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -138,7 +138,7 @@ The returned `QueryResult` object contains the following attributes:
 
 ### How do I handle database migrations?
 
-Python ActiveRecord doesn't include a built-in migration system in the core package. For simple schema changes, you can use methods like `create_table`, `add_column`, etc. For more complex migrations, consider:
+rhosocial ActiveRecord doesn't include a built-in migration system in the core package. For simple schema changes, you can use methods like `create_table`, `add_column`, etc. For more complex migrations, consider:
 
 1. Using the optional migration package: `pip install rhosocial-activerecord[migration]`
 2. Using a dedicated migration tool like Alembic

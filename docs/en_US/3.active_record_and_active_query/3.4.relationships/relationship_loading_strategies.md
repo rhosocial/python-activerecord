@@ -1,10 +1,10 @@
 # Relationship Loading Strategies
 
-When working with related data in Python ActiveRecord, the way relationships are loaded can significantly impact your application's performance. This document explains the different relationship loading strategies available in Python ActiveRecord and provides guidance on when to use each strategy.
+When working with related data in rhosocial ActiveRecord, the way relationships are loaded can significantly impact your application's performance. This document explains the different relationship loading strategies available in rhosocial ActiveRecord and provides guidance on when to use each strategy.
 
 ## Overview
 
-Python ActiveRecord supports two main strategies for loading related data:
+rhosocial ActiveRecord supports two main strategies for loading related data:
 
 1. **Lazy Loading**: Related data is loaded only when explicitly accessed
 2. **Eager Loading**: Related data is loaded upfront in a single query or a minimal number of queries
@@ -13,11 +13,11 @@ Each strategy has its advantages and disadvantages, and choosing the right strat
 
 ## Lazy Loading
 
-Lazy loading is the default loading strategy in Python ActiveRecord. With lazy loading, related data is loaded only when you explicitly access it through the relationship method.
+Lazy loading is the default loading strategy in rhosocial ActiveRecord. With lazy loading, related data is loaded only when you explicitly access it through the relationship method.
 
 ### How Lazy Loading Works
 
-When you define a relationship using `HasOne`, `HasMany`, or `BelongsTo`, Python ActiveRecord creates a method that, when called, executes a query to load the related data.
+When you define a relationship using `HasOne`, `HasMany`, or `BelongsTo`, rhosocial ActiveRecord creates a method that, when called, executes a query to load the related data.
 
 ```python
 from typing import ClassVar, Optional
@@ -82,11 +82,11 @@ for post in posts:
 
 ## Eager Loading
 
-Eager loading is a strategy where related data is loaded upfront in a single query or a minimal number of queries. This is done using the `with_` method in Python ActiveRecord.
+Eager loading is a strategy where related data is loaded upfront in a single query or a minimal number of queries. This is done using the `with_` method in rhosocial ActiveRecord.
 
 ### How Eager Loading Works
 
-When you use eager loading, Python ActiveRecord loads the related data in a separate query and then associates it with the appropriate records in memory.
+When you use eager loading, rhosocial ActiveRecord loads the related data in a separate query and then associates it with the appropriate records in memory.
 
 ```python
 # Eager load posts when fetching users
@@ -192,7 +192,7 @@ for user in users:
 
 ## Caching and Relationship Loading
 
-Python ActiveRecord includes a caching mechanism for relationship loading. When you access a relationship, the result is cached for the duration of the request, so subsequent accesses to the same relationship don't trigger additional queries.
+rhosocial ActiveRecord includes a caching mechanism for relationship loading. When you access a relationship, the result is cached for the duration of the request, so subsequent accesses to the same relationship don't trigger additional queries.
 
 ### Relationship Caching Configuration
 
@@ -244,4 +244,4 @@ GlobalCacheConfig.ttl = 600
 
 ## Conclusion
 
-Choosing the right relationship loading strategy is crucial for building performant applications with Python ActiveRecord. By understanding the trade-offs between lazy loading and eager loading, and by using techniques like caching and batch processing, you can optimize your application's database interactions and provide a better experience for your users.
+Choosing the right relationship loading strategy is crucial for building performant applications with rhosocial ActiveRecord. By understanding the trade-offs between lazy loading and eager loading, and by using techniques like caching and batch processing, you can optimize your application's database interactions and provide a better experience for your users.

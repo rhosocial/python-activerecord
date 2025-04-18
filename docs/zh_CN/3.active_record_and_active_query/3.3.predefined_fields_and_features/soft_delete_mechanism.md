@@ -1,6 +1,6 @@
 # 软删除机制
 
-软删除是一种模式，其中记录被标记为已删除，而不是从数据库中物理删除。Python ActiveRecord提供了`SoftDeleteMixin`来在您的模型中实现这种模式。
+软删除是一种模式，其中记录被标记为已删除，而不是从数据库中物理删除。rhosocial ActiveRecord提供了`SoftDeleteMixin`来在您的模型中实现这种模式。
 
 ## 概述
 

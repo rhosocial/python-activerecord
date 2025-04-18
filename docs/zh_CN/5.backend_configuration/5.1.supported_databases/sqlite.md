@@ -1,10 +1,10 @@
 # SQLite 支持
 
-Python ActiveRecord 为 SQLite 数据库系统提供了全面的支持。本文档涵盖了在使用 Python ActiveRecord 与 SQLite 时的特定功能、配置选项和注意事项。
+rhosocial ActiveRecord 为 SQLite 数据库系统提供了全面的支持。本文档涵盖了在使用 rhosocial ActiveRecord 与 SQLite 时的特定功能、配置选项和注意事项。
 
 ## 概述
 
-SQLite 是一个自包含、无服务器、零配置、事务性 SQL 数据库引擎。它是一个 C 语言库，提供了一个轻量级的基于磁盘的数据库，不需要单独的服务器进程。它非常适合开发、测试和中小型应用程序。Python ActiveRecord 的 SQLite 后端提供了一个一致的接口，同时尊重 SQLite 的独特特性。
+SQLite 是一个自包含、无服务器、零配置、事务性 SQL 数据库引擎。它是一个 C 语言库，提供了一个轻量级的基于磁盘的数据库，不需要单独的服务器进程。它非常适合开发、测试和中小型应用程序。rhosocial ActiveRecord 的 SQLite 后端提供了一个一致的接口，同时尊重 SQLite 的独特特性。
 
 ## 功能
 
@@ -19,7 +19,7 @@ SQLite 是一个自包含、无服务器、零配置、事务性 SQL 数据库�
 
 ## 配置
 
-要将 SQLite 与 Python ActiveRecord 一起使用，您需要使用 SQLite 后端配置您的模型：
+要将 SQLite 与 rhosocial ActiveRecord 一起使用，您需要使用 SQLite 后端配置您的模型：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -56,7 +56,7 @@ User.configure(
 
 ## 数据类型映射
 
-Python ActiveRecord 将 Python 数据类型映射到 SQLite 数据类型，以下是主要的映射关系：
+rhosocial ActiveRecord 将 Python 数据类型映射到 SQLite 数据类型，以下是主要的映射关系：
 
 | Python 类型 | SQLite 类型 |
 |------------|-------------|
@@ -72,11 +72,11 @@ Python ActiveRecord 将 Python 数据类型映射到 SQLite 数据类型，以�
 | uuid.UUID  | TEXT        |
 | dict, list | TEXT (JSON) |
 
-请注意，SQLite 使用动态类型系统，称为"类型亲和性"。这意味着 SQLite 可以存储任何类型的数据到任何列中，但会尝试将数据转换为列的声明类型。Python ActiveRecord 处理这些转换，确保数据正确存储和检索。
+请注意，SQLite 使用动态类型系统，称为"类型亲和性"。这意味着 SQLite 可以存储任何类型的数据到任何列中，但会尝试将数据转换为列的声明类型。rhosocial ActiveRecord 处理这些转换，确保数据正确存储和检索。
 
 ## 事务支持
 
-SQLite 提供了事务支持，Python ActiveRecord 提供了简单的事务管理接口：
+SQLite 提供了事务支持，rhosocial ActiveRecord 提供了简单的事务管理接口：
 
 ```python
 # 使用默认隔离级别的事务
@@ -124,7 +124,7 @@ User.delete_all(where={'status': 'inactive'})
 
 ## JSON 支持
 
-SQLite 3.9+ 版本提供了 JSON 支持，Python ActiveRecord 允许您使用这些功能：
+SQLite 3.9+ 版本提供了 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -154,7 +154,7 @@ products = Product.find_all(
 
 ## 全文搜索
 
-SQLite 提供了 FTS5（全文搜索）扩展，Python ActiveRecord 支持这一特性：
+SQLite 提供了 FTS5（全文搜索）扩展，rhosocial ActiveRecord 支持这一特性：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -242,7 +242,7 @@ User.configure(
 
 ## 版本兼容性
 
-Python ActiveRecord 的 SQLite 后端支持以下版本：
+rhosocial ActiveRecord 的 SQLite 后端支持以下版本：
 
 - SQLite 3.7.0 及更高版本
 
@@ -254,4 +254,4 @@ Python ActiveRecord 的 SQLite 后端支持以下版本：
 
 ## 总结
 
-SQLite 是一个轻量级但功能强大的数据库选项，特别适合开发、测试和中小型应用程序。Python ActiveRecord 的 SQLite 后端提供了一个简单而强大的接口，使您能够充分利用 SQLite 的功能，同时保持与其他数据库后端的 API 一致性。
+SQLite 是一个轻量级但功能强大的数据库选项，特别适合开发、测试和中小型应用程序。rhosocial ActiveRecord 的 SQLite 后端提供了一个简单而强大的接口，使您能够充分利用 SQLite 的功能，同时保持与其他数据库后端的 API 一致性。

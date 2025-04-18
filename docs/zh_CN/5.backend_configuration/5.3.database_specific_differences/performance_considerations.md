@@ -1,6 +1,6 @@
 # 性能考量
 
-本文档探讨了Python ActiveRecord支持的不同数据库系统的性能特征，并提供了针对每个系统优化性能的指导。
+本文档探讨了rhosocial ActiveRecord支持的不同数据库系统的性能特征，并提供了针对每个系统优化性能的指导。
 
 ## 目录
 
@@ -116,7 +116,7 @@
 
 4. **连接池**：适当配置连接池大小
    ```python
-   # 在Python ActiveRecord配置中
+   # 在rhosocial ActiveRecord配置中
    config = ConnectionConfig(
        # ...
        pool_size=10,
@@ -165,7 +165,7 @@
 
 3. **连接池**：适当配置连接池大小
    ```python
-   # 在Python ActiveRecord配置中
+   # 在rhosocial ActiveRecord配置中
    config = ConnectionConfig(
        # ...
        pool_size=10,
@@ -302,7 +302,7 @@
 
 ### 使用EXPLAIN/执行计划
 
-Python ActiveRecord提供了获取查询执行计划的统一接口：
+rhosocial ActiveRecord提供了获取查询执行计划的统一接口：
 
 ```python
 # 获取查询的执行计划
@@ -364,7 +364,7 @@ print(plan)
 
 ## 连接和池管理
 
-连接池对多用户应用程序的性能至关重要。Python ActiveRecord提供了连接池功能，应根据您的数据库系统和工作负载进行配置：
+连接池对多用户应用程序的性能至关重要。rhosocial ActiveRecord提供了连接池功能，应根据您的数据库系统和工作负载进行配置：
 
 ```python
 config = ConnectionConfig(
@@ -409,7 +409,7 @@ config = ConnectionConfig(
 
 ## 缓存策略
 
-Python ActiveRecord支持各种缓存策略：
+rhosocial ActiveRecord支持各种缓存策略：
 
 1. **查询结果缓存**：缓存经常执行的查询结果
 2. **模型缓存**：缓存经常访问的模型实例
@@ -453,7 +453,7 @@ Python ActiveRecord支持各种缓存策略：
 | Oracle        | 直接路径INSERT或多值INSERT                          | MERGE语句                                        |
 | SQL Server    | BULK INSERT或表值参数                               | MERGE语句                                        |
 
-Python ActiveRecord提供了批量操作方法，为每个数据库系统使用最有效的方法。
+rhosocial ActiveRecord提供了批量操作方法，为每个数据库系统使用最有效的方法。
 
 ## 监控和分析
 
@@ -467,4 +467,4 @@ Python ActiveRecord提供了批量操作方法，为每个数据库系统使用�
 | Oracle        | AWR报告，V$ 视图                                   | 等待事件，缓冲缓存命中率，SQL统计                |
 | SQL Server    | 动态管理视图，查询存储                              | 查询性能，等待统计，缓冲使用情况                 |
 
-Python ActiveRecord通过其诊断接口提供与这些监控工具的集成。
+rhosocial ActiveRecord通过其诊断接口提供与这些监控工具的集成。

@@ -1,10 +1,10 @@
 # 异构数据源集成
 
-本文档解释了如何使用Python ActiveRecord集成来自不同类型数据库系统的数据，使您能够以统一的方式处理异构数据源。
+本文档解释了如何使用rhosocial ActiveRecord集成来自不同类型数据库系统的数据，使您能够以统一的方式处理异构数据源。
 
 ## 概述
 
-异构数据源集成是指在单个应用程序中使用多种不同类型的数据库或数据存储系统的能力。Python ActiveRecord提供了工具和模式，使这种集成变得无缝，允许您：
+异构数据源集成是指在单个应用程序中使用多种不同类型的数据库或数据存储系统的能力。rhosocial ActiveRecord提供了工具和模式，使这种集成变得无缝，允许您：
 
 - 使用一致的API从不同的数据库系统查询数据
 - 连接或组合来自不同来源的数据
@@ -15,7 +15,7 @@
 
 ### 基于模型的集成
 
-Python ActiveRecord中最常见的异构数据源集成方法是通过基于模型的集成，其中不同的模型连接到不同的数据源：
+rhosocial ActiveRecord中最常见的异构数据源集成方法是通过基于模型的集成，其中不同的模型连接到不同的数据源：
 
 ```python
 from rhosocial.activerecord import ActiveRecord, ConnectionManager
@@ -73,7 +73,7 @@ class CustomerAnalyticsService:
 
 ### 数据联合
 
-Python ActiveRecord还支持数据联合模式，您可以创建组合来自多个源的数据的虚拟模型：
+rhosocial ActiveRecord还支持数据联合模式，您可以创建组合来自多个源的数据的虚拟模型：
 
 ```python
 class CustomerWithEvents:
@@ -97,7 +97,7 @@ class CustomerWithEvents:
 
 ### 处理类型差异
 
-不同的数据库系统可能有不同的数据类型和类型转换规则。Python ActiveRecord自动处理大多数常见的类型转换，但您可能需要注意一些差异：
+不同的数据库系统可能有不同的数据类型和类型转换规则。rhosocial ActiveRecord自动处理大多数常见的类型转换，但您可能需要注意一些差异：
 
 ```python
 # PostgreSQL特定的JSON操作
@@ -146,7 +146,7 @@ class UserActivity(ActiveRecord):
 
 ## 与非关系型数据源的集成
 
-虽然Python ActiveRecord主要是为关系型数据库设计的，但您可以通过自定义适配器或使用混合方法与非关系型数据源集成：
+虽然rhosocial ActiveRecord主要是为关系型数据库设计的，但您可以通过自定义适配器或使用混合方法与非关系型数据源集成：
 
 ```python
 # 集成关系型和文档型数据库数据的服务示例
@@ -204,4 +204,4 @@ class UserProfileService:
 
 ## 结论
 
-Python ActiveRecord提供了灵活的工具来集成异构数据源，使您能够利用不同数据库系统的优势，同时保持一致的编程模型。通过遵循本文档中概述的模式和实践，您可以构建能够无缝处理跨多种数据库技术的数据的强大应用程序。
+rhosocial ActiveRecord提供了灵活的工具来集成异构数据源，使您能够利用不同数据库系统的优势，同时保持一致的编程模型。通过遵循本文档中概述的模式和实践，您可以构建能够无缝处理跨多种数据库技术的数据的强大应用程序。

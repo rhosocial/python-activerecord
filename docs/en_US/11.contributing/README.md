@@ -1,6 +1,6 @@
-# Contributing to Python ActiveRecord
+# Contributing to rhosocial ActiveRecord
 
-Thank you for considering contributing to Python ActiveRecord! This section provides guidelines and information for contributors who want to help improve the project.
+Thank you for considering contributing to rhosocial ActiveRecord! This section provides guidelines and information for contributors who want to help improve the project.
 
 ## Table of Contents
 
@@ -12,7 +12,7 @@ Thank you for considering contributing to Python ActiveRecord! This section prov
 
 ## Overview
 
-Python ActiveRecord is an open-source project that welcomes contributions from everyone. Whether you're fixing a bug, adding a feature, improving documentation, or providing financial support, your contributions are greatly appreciated.
+rhosocial ActiveRecord is an open-source project that welcomes contributions from everyone. Whether you're fixing a bug, adding a feature, improving documentation, or providing financial support, your contributions are greatly appreciated.
 
 For detailed information on how to contribute, please refer to the specific sections linked above. You can also check our [CONTRIBUTING.md](https://github.com/rhosocial/python-activerecord/blob/main/CONTRIBUTING.md) file in the repository root for a quick reference.
 

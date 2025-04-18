@@ -1,10 +1,10 @@
 # SQL Server Support
 
-Python ActiveRecord provides support for Microsoft SQL Server, a robust enterprise-grade relational database management system. This document covers the specific features, configuration options, and considerations when using Python ActiveRecord with SQL Server.
+rhosocial ActiveRecord provides support for Microsoft SQL Server, a robust enterprise-grade relational database management system. This document covers the specific features, configuration options, and considerations when using rhosocial ActiveRecord with SQL Server.
 
 ## Overview
 
-Microsoft SQL Server is a relational database management system developed by Microsoft. It is widely used in enterprise environments and offers a comprehensive set of features for data management, business intelligence, and analytics. Python ActiveRecord's SQL Server backend provides a consistent interface to SQL Server databases while leveraging SQL Server-specific features.
+Microsoft SQL Server is a relational database management system developed by Microsoft. It is widely used in enterprise environments and offers a comprehensive set of features for data management, business intelligence, and analytics. rhosocial ActiveRecord's SQL Server backend provides a consistent interface to SQL Server databases while leveraging SQL Server-specific features.
 
 ## Features
 
@@ -19,7 +19,7 @@ Microsoft SQL Server is a relational database management system developed by Mic
 
 ## Configuration
 
-To use SQL Server with Python ActiveRecord, you need to configure your model with the SQL Server backend:
+To use SQL Server with rhosocial ActiveRecord, you need to configure your model with the SQL Server backend:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -66,7 +66,7 @@ You can configure the connection pool with the `pool_size` parameter in the `Con
 
 ## Transactions
 
-Python ActiveRecord provides comprehensive transaction support for SQL Server, including different isolation levels:
+rhosocial ActiveRecord provides comprehensive transaction support for SQL Server, including different isolation levels:
 
 ```python
 # Start a transaction with a specific isolation level
@@ -123,7 +123,7 @@ class User(ActiveRecord):
 
 ## Identity Columns and Sequences
 
-SQL Server supports both identity columns and sequences for generating auto-incrementing values. Python ActiveRecord supports both mechanisms for primary key generation:
+SQL Server supports both identity columns and sequences for generating auto-incrementing values. rhosocial ActiveRecord supports both mechanisms for primary key generation:
 
 ```python
 # Using identity column (default)
@@ -139,7 +139,7 @@ class Product(ActiveRecord):
 
 ## Data Type Mapping
 
-Python ActiveRecord maps Python types to SQL Server data types automatically. Here are some common mappings:
+rhosocial ActiveRecord maps Python types to SQL Server data types automatically. Here are some common mappings:
 
 | Python Type | SQL Server Type |
 |-------------|----------------|
@@ -157,7 +157,7 @@ Python ActiveRecord maps Python types to SQL Server data types automatically. He
 
 ## JSON Support
 
-SQL Server 2016 and later versions support JSON functions. Python ActiveRecord provides a convenient API for working with JSON data:
+SQL Server 2016 and later versions support JSON functions. rhosocial ActiveRecord provides a convenient API for working with JSON data:
 
 ```python
 # Query with JSON conditions (SQL Server 2016+)

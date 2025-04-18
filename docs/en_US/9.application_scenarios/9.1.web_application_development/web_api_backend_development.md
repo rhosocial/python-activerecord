@@ -1,6 +1,6 @@
 # Web API Backend Development
 
-Building Web API backends is one of the most common use cases for Python ActiveRecord. This document explores how to effectively implement ActiveRecord in API-driven applications, with practical examples and best practices.
+Building Web API backends is one of the most common use cases for rhosocial ActiveRecord. This document explores how to effectively implement ActiveRecord in API-driven applications, with practical examples and best practices.
 
 ## Contents
 
@@ -16,7 +16,7 @@ Building Web API backends is one of the most common use cases for Python ActiveR
 
 ## Overview
 
-Modern web applications often separate frontend and backend concerns, with the backend exposing APIs that frontend applications consume. Python ActiveRecord provides an elegant solution for the data access layer of API backends, offering:
+Modern web applications often separate frontend and backend concerns, with the backend exposing APIs that frontend applications consume. rhosocial ActiveRecord provides an elegant solution for the data access layer of API backends, offering:
 
 - Intuitive model definitions that map directly to API resources
 - Flexible query building for complex data retrieval
@@ -25,7 +25,7 @@ Modern web applications often separate frontend and backend concerns, with the b
 
 ## Basic API Backend Architecture
 
-A typical API backend using Python ActiveRecord consists of these components:
+A typical API backend using rhosocial ActiveRecord consists of these components:
 
 ```
 ┌─────────────────────────────────────┐
@@ -562,4 +562,4 @@ async def update_user(
     return user
 ```
 
-These examples demonstrate how Python ActiveRecord can be effectively used in API backend development, providing a clean, intuitive interface for database operations while integrating seamlessly with popular web frameworks.
+These examples demonstrate how rhosocial ActiveRecord can be effectively used in API backend development, providing a clean, intuitive interface for database operations while integrating seamlessly with popular web frameworks.

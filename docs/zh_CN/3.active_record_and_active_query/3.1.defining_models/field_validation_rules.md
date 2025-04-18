@@ -4,7 +4,7 @@
 
 ## 概述
 
-Python ActiveRecord利用Pydantic强大的验证系统提供全面的字段验证。这允许您直接在模型定义中定义约束和验证规则。
+rhosocial ActiveRecord利用Pydantic强大的验证系统提供全面的字段验证。这允许您直接在模型定义中定义约束和验证规则。
 
 ## 基本验证
 
@@ -244,4 +244,4 @@ except ValidationError as e:
 
 ## 结论
 
-字段验证是维护应用程序数据完整性的关键部分。Python ActiveRecord与Pydantic的集成提供了一种强大的声明式方式，直接在模型定义中定义验证规则。
+字段验证是维护应用程序数据完整性的关键部分。rhosocial ActiveRecord与Pydantic的集成提供了一种强大的声明式方式，直接在模型定义中定义验证规则。

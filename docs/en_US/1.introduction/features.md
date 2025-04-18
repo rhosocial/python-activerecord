@@ -1,6 +1,6 @@
 # Feature Comparison
 
-| Feature | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| Feature | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |---------|-------------------|------------|------------|--------|
 | **Database Support** | SQLite, MySQL, PostgreSQL, MariaDB, Oracle, SQL Server | Extensive support for almost all SQL databases | SQLite, MySQL, PostgreSQL, Oracle | SQLite, MySQL, PostgreSQL |
 | **Schema Definition** | Pydantic models with type validation | Declarative classes or explicit table definitions | Django model classes | Model classes with field definitions |
@@ -20,7 +20,7 @@
 
 ## Aggregation Feature Comparison
 
-| Aggregation Feature | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| Aggregation Feature | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |--------------------|-------------------|------------|------------|--------|
 | **Scalar Queries** | Comprehensive support | Comprehensive support | Good support | Good support |
 | **Aggregate Functions** | Full support (COUNT, SUM, AVG, etc. with DISTINCT) | Full support | Good support | Basic support |
@@ -36,7 +36,7 @@
 
 ## Debugging Capabilities Comparison
 
-| Debugging Feature | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| Debugging Feature | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |-------------------|-------------------|------------|------------|--------|
 | **SQL Statement Logging** | Built-in with format options | Comprehensive with multiple log levels | Via Django debug toolbar | Basic |
 | **Parameter Binding Inspection** | Full parameter inspection | Comprehensive inspection | Limited | Basic |

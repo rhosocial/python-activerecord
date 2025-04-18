@@ -1,8 +1,8 @@
 # Sponsorship
 
-Financial support is vital for the continued development and maintenance of Python ActiveRecord. This page outlines how you can contribute financially to the project.
+Financial support is vital for the continued development and maintenance of rhosocial ActiveRecord. This page outlines how you can contribute financially to the project.
 
-## Why Sponsor Python ActiveRecord?
+## Why Sponsor rhosocial ActiveRecord?
 
 Your donations directly contribute to:
 
@@ -13,7 +13,7 @@ Your donations directly contribute to:
 
 ## Sponsorship Channels
 
-You can support Python ActiveRecord through the following channels:
+You can support rhosocial ActiveRecord through the following channels:
 
 ### 1. GitHub Sponsors (Preferred)
 
@@ -44,7 +44,7 @@ All sponsors will be acknowledged in our SPONSORS.md file unless you prefer to r
 
 ## Corporate Sponsorship
 
-If your company uses Python ActiveRecord, consider becoming a corporate sponsor. Corporate sponsorship helps ensure the project's sustainability and can include:
+If your company uses rhosocial ActiveRecord, consider becoming a corporate sponsor. Corporate sponsorship helps ensure the project's sustainability and can include:
 
 - Priority support for issues
 - Input on the project roadmap
@@ -60,10 +60,10 @@ If financial contribution isn't possible, you can still support the project by:
 - Contributing code or documentation
 - Reporting bugs and suggesting features
 - Helping other users in discussions
-- Sharing your experience with Python ActiveRecord
+- Sharing your experience with rhosocial ActiveRecord
 
 ## Transparency
 
 We are committed to transparency in how sponsorship funds are used. Regular updates on project expenses and development priorities will be shared with sponsors and the community.
 
-Thank you for considering supporting Python ActiveRecord financially. Your contribution makes a significant difference in the project's development and sustainability.
+Thank you for considering supporting rhosocial ActiveRecord financially. Your contribution makes a significant difference in the project's development and sustainability.

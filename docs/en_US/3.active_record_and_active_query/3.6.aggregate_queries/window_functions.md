@@ -1,6 +1,6 @@
 # Window Functions
 
-Window functions are a powerful feature of SQL that allow you to perform calculations across a set of rows that are related to the current row, without collapsing the result into a single row like aggregate functions do. Python ActiveRecord provides comprehensive support for window functions through its query API.
+Window functions are a powerful feature of SQL that allow you to perform calculations across a set of rows that are related to the current row, without collapsing the result into a single row like aggregate functions do. rhosocial ActiveRecord provides comprehensive support for window functions through its query API.
 
 ## Introduction to Window Functions
 
@@ -22,7 +22,7 @@ ranked_products = Product.query()\
 
 ## Window Function Components
 
-A window function in Python ActiveRecord consists of several components:
+A window function in rhosocial ActiveRecord consists of several components:
 
 1. **Base function**: The function to apply (e.g., RANK, SUM, AVG)
 2. **PARTITION BY**: Divides rows into groups (optional)
@@ -31,7 +31,7 @@ A window function in Python ActiveRecord consists of several components:
 
 ## Supported Window Functions
 
-Python ActiveRecord supports various types of window functions:
+rhosocial ActiveRecord supports various types of window functions:
 
 ### Ranking Functions
 
@@ -333,7 +333,7 @@ Window function support varies by database:
 - **MariaDB**: Basic support from version 10.2+
 - **SQLite**: Basic support from version 3.25+
 
-Python ActiveRecord checks database compatibility at runtime and raises appropriate exceptions when unsupported features are used:
+rhosocial ActiveRecord checks database compatibility at runtime and raises appropriate exceptions when unsupported features are used:
 
 ```python
 # This will raise WindowFunctionNotSupportedError on older database versions

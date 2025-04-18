@@ -1,6 +1,6 @@
 # Web应用开发
 
-Web应用是ORM框架（如Python ActiveRecord）最常见的使用场景之一。本节探讨如何在Web应用开发中有效实现ActiveRecord，涵盖API后端和与流行Web框架的集成。
+Web应用是ORM框架（如rhosocial ActiveRecord）最常见的使用场景之一。本节探讨如何在Web应用开发中有效实现ActiveRecord，涵盖API后端和与流行Web框架的集成。
 
 ## 目录
 
@@ -9,7 +9,7 @@ Web应用是ORM框架（如Python ActiveRecord）最常见的使用场景之一�
 
 ## 概述
 
-现代Web应用通常将前端和后端关注点分离，后端负责数据管理、业务逻辑和API端点。Python ActiveRecord在这种环境中表现出色，提供了一个干净、直观的数据库操作接口，可以与Web框架无缝集成。
+现代Web应用通常将前端和后端关注点分离，后端负责数据管理、业务逻辑和API端点。rhosocial ActiveRecord在这种环境中表现出色，提供了一个干净、直观的数据库操作接口，可以与Web框架无缝集成。
 
 ActiveRecord模式特别适合Web应用，因为：
 

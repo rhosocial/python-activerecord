@@ -1,6 +1,6 @@
 # Group By Operations
 
-The GROUP BY clause is a fundamental component of aggregate queries that allows you to organize your data into groups before applying aggregate functions. Python ActiveRecord provides a clean and intuitive API for working with GROUP BY operations.
+The GROUP BY clause is a fundamental component of aggregate queries that allows you to organize your data into groups before applying aggregate functions. rhosocial ActiveRecord provides a clean and intuitive API for working with GROUP BY operations.
 
 ## Basic Grouping
 
@@ -41,7 +41,7 @@ product_stats = Product.query()\
 
 ## Column Aliases in GROUP BY
 
-It's important to note that GROUP BY should use the original column expressions, not aliases. Python ActiveRecord will automatically strip aliases from GROUP BY columns and issue a warning:
+It's important to note that GROUP BY should use the original column expressions, not aliases. rhosocial ActiveRecord will automatically strip aliases from GROUP BY columns and issue a warning:
 
 ```python
 # This works but generates a warning
@@ -96,7 +96,7 @@ price_ranges = Product.query()\
 
 ## Handling NULL Values in Grouping
 
-In SQL, NULL values are grouped together when using GROUP BY. This behavior is preserved in Python ActiveRecord:
+In SQL, NULL values are grouped together when using GROUP BY. This behavior is preserved in rhosocial ActiveRecord:
 
 ```python
 # Group users by optional fields
@@ -180,4 +180,4 @@ The basic GROUP BY functionality is supported by all database backends. However,
 - **MySQL/MariaDB**: Supports GROUP BY with extensions like WITH ROLLUP
 - **PostgreSQL**: Offers the most comprehensive GROUP BY support, including CUBE and GROUPING SETS
 
-Python ActiveRecord abstracts these differences where possible, providing a consistent API across different database backends.
+rhosocial ActiveRecord abstracts these differences where possible, providing a consistent API across different database backends.

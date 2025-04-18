@@ -1,6 +1,6 @@
 # Documentation Contributions
 
-Documentation is a crucial part of Python ActiveRecord. Good documentation makes the project more accessible and easier to use. This guide will help you contribute to our documentation.
+Documentation is a crucial part of rhosocial ActiveRecord. Good documentation makes the project more accessible and easier to use. This guide will help you contribute to our documentation.
 
 ## Types of Documentation Contributions
 
@@ -123,4 +123,4 @@ When your documentation pull request is reviewed:
 - **Update Related Docs**: If you change one document, update related ones
 - **Test Your Instructions**: Follow your own instructions to verify they work
 
-Thank you for helping improve Python ActiveRecord's documentation!
+Thank you for helping improve rhosocial ActiveRecord's documentation!

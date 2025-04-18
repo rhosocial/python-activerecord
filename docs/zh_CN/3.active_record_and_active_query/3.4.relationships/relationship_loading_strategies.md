@@ -1,10 +1,10 @@
 # 关系加载策略
 
-在Python ActiveRecord中处理相关数据时，关系的加载方式会显著影响应用程序的性能。本文档解释了Python ActiveRecord中可用的不同关系加载策略，并提供了何时使用每种策略的指导。
+在rhosocial ActiveRecord中处理相关数据时，关系的加载方式会显著影响应用程序的性能。本文档解释了rhosocial ActiveRecord中可用的不同关系加载策略，并提供了何时使用每种策略的指导。
 
 ## 概述
 
-Python ActiveRecord支持两种主要的相关数据加载策略：
+rhosocial ActiveRecord支持两种主要的相关数据加载策略：
 
 1. **延迟加载（Lazy Loading）**：仅在显式访问时才加载相关数据
 2. **预加载（Eager Loading）**：在单个查询或最少数量的查询中预先加载相关数据
@@ -13,11 +13,11 @@ Python ActiveRecord支持两种主要的相关数据加载策略：
 
 ## 延迟加载
 
-延迟加载是Python ActiveRecord中的默认加载策略。使用延迟加载时，只有当您通过关系方法显式访问相关数据时，才会加载相关数据。
+延迟加载是rhosocial ActiveRecord中的默认加载策略。使用延迟加载时，只有当您通过关系方法显式访问相关数据时，才会加载相关数据。
 
 ### 延迟加载的工作原理
 
-当您使用`HasOne`、`HasMany`或`BelongsTo`定义关系时，Python ActiveRecord会创建一个方法，当调用该方法时，会执行查询来加载相关数据。
+当您使用`HasOne`、`HasMany`或`BelongsTo`定义关系时，rhosocial ActiveRecord会创建一个方法，当调用该方法时，会执行查询来加载相关数据。
 
 ```python
 from typing import ClassVar, Optional
@@ -82,11 +82,11 @@ for post in posts:
 
 ## 预加载
 
-预加载是一种策略，它在单个查询或最少数量的查询中预先加载相关数据。在Python ActiveRecord中，这是通过`with_`方法实现的。
+预加载是一种策略，它在单个查询或最少数量的查询中预先加载相关数据。在rhosocial ActiveRecord中，这是通过`with_`方法实现的。
 
 ### 预加载的工作原理
 
-当您使用预加载时，Python ActiveRecord会在单独的查询中加载相关数据，然后在内存中将其与适当的记录关联起来。
+当您使用预加载时，rhosocial ActiveRecord会在单独的查询中加载相关数据，然后在内存中将其与适当的记录关联起来。
 
 ```python
 # 获取用户时预加载帖子
@@ -192,7 +192,7 @@ for user in users:
 
 ## 缓存和关系加载
 
-Python ActiveRecord包含关系加载的缓存机制。当您访问关系时，结果会在请求期间被缓存，因此对同一关系的后续访问不会触发额外的查询。
+rhosocial ActiveRecord包含关系加载的缓存机制。当您访问关系时，结果会在请求期间被缓存，因此对同一关系的后续访问不会触发额外的查询。
 
 ### 关系缓存配置
 
@@ -244,4 +244,4 @@ GlobalCacheConfig.ttl = 600
 
 ## 结论
 
-选择正确的关系加载策略对于使用Python ActiveRecord构建高性能应用程序至关重要。通过理解延迟加载和预加载之间的权衡，并使用缓存和批处理等技术，您可以优化应用程序的数据库交互，为用户提供更好的体验。
+选择正确的关系加载策略对于使用rhosocial ActiveRecord构建高性能应用程序至关重要。通过理解延迟加载和预加载之间的权衡，并使用缓存和批处理等技术，您可以优化应用程序的数据库交互，为用户提供更好的体验。

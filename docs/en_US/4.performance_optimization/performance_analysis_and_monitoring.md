@@ -1,16 +1,16 @@
 # Performance Analysis and Monitoring
 
-Identifying performance bottlenecks is a critical step in optimizing database applications. This document explores various tools and techniques for analyzing and monitoring the performance of Python ActiveRecord applications.
+Identifying performance bottlenecks is a critical step in optimizing database applications. This document explores various tools and techniques for analyzing and monitoring the performance of rhosocial ActiveRecord applications.
 
 ## Introduction
 
-Performance analysis and monitoring help you understand how your application interacts with the database, identify slow queries, and measure the impact of optimization efforts. Python ActiveRecord provides several built-in tools to assist with these tasks.
+Performance analysis and monitoring help you understand how your application interacts with the database, identify slow queries, and measure the impact of optimization efforts. rhosocial ActiveRecord provides several built-in tools to assist with these tasks.
 
 ## Query Profiling
 
 ### Basic Query Profiling
 
-Python ActiveRecord includes a `QueryProfiler` class that helps you track and analyze database queries:
+rhosocial ActiveRecord includes a `QueryProfiler` class that helps you track and analyze database queries:
 
 ```python
 from rhosocial.activerecord.models import User
@@ -361,4 +361,4 @@ print(f"Performance improvement: {improvement:.2f}%")
 
 10. **Implement Continuous Monitoring**: Set up alerts for performance regressions
 
-By implementing these performance analysis and monitoring practices, you can ensure your Python ActiveRecord applications maintain optimal performance as they evolve and grow.
+By implementing these performance analysis and monitoring practices, you can ensure your rhosocial ActiveRecord applications maintain optimal performance as they evolve and grow.

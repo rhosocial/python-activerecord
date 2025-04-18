@@ -1,10 +1,10 @@
 # Create, Read, Update, Delete Operations
 
-This document covers the basic CRUD (Create, Read, Update, Delete) operations in Python ActiveRecord. These operations form the foundation of database interactions in your applications.
+This document covers the basic CRUD (Create, Read, Update, Delete) operations in rhosocial ActiveRecord. These operations form the foundation of database interactions in your applications.
 
 ## Creating Records
 
-Python ActiveRecord provides several methods for creating new records:
+rhosocial ActiveRecord provides several methods for creating new records:
 
 ### Method 1: Instantiate and Save
 
@@ -57,7 +57,7 @@ During the creation process, several events are triggered that you can hook into
 
 ## Reading Records
 
-Python ActiveRecord provides various methods for querying records:
+rhosocial ActiveRecord provides various methods for querying records:
 
 ### Finding by Primary Key
 
@@ -261,4 +261,4 @@ if user.is_dirty:
 
 ## Summary
 
-Python ActiveRecord provides an intuitive and powerful API for performing CRUD operations. With these basic operations, you can easily interact with your database while leveraging lifecycle events and validations to ensure data integrity and consistency.
+rhosocial ActiveRecord provides an intuitive and powerful API for performing CRUD operations. With these basic operations, you can easily interact with your database while leveraging lifecycle events and validations to ensure data integrity and consistency.

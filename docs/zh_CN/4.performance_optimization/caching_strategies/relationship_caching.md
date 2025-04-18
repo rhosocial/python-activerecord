@@ -1,6 +1,6 @@
 # 关系缓存
 
-关系缓存是一种专门的缓存形式，用于存储模型之间的关系查询结果。这种技术对于防止N+1查询问题特别有效，并且在处理相关数据时能显著提高应用程序性能。本文档探讨了如何在Python ActiveRecord应用程序中实现和管理关系缓存。
+关系缓存是一种专门的缓存形式，用于存储模型之间的关系查询结果。这种技术对于防止N+1查询问题特别有效，并且在处理相关数据时能显著提高应用程序性能。本文档探讨了如何在rhosocial ActiveRecord应用程序中实现和管理关系缓存。
 
 ## 简介
 
@@ -22,7 +22,7 @@ for user in users:  # N个额外查询，每个用户一个
 
 ## 基本关系缓存
 
-Python ActiveRecord为模型关系提供了内置缓存：
+rhosocial ActiveRecord为模型关系提供了内置缓存：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -71,7 +71,7 @@ GlobalCacheConfig.max_size = 100  # 集合的默认最大大小
 
 ## 缓存管理
 
-Python ActiveRecord提供了管理关系缓存的方法：
+rhosocial ActiveRecord提供了管理关系缓存的方法：
 
 ```python
 # 清除特定关系的缓存
@@ -116,7 +116,7 @@ orders_again = user.orders  # 使用缓存数据，无数据库查询
 
 ## 实现细节
 
-在底层，Python ActiveRecord使用`InstanceCache`系统直接在模型实例上存储关系数据：
+在底层，rhosocial ActiveRecord使用`InstanceCache`系统直接在模型实例上存储关系数据：
 
 ```python
 from rhosocial.activerecord.relation.cache import InstanceCache
@@ -191,7 +191,7 @@ class User(ActiveRecord):
 
 ## 调试关系缓存
 
-Python ActiveRecord提供了调试关系缓存的工具：
+rhosocial ActiveRecord提供了调试关系缓存的工具：
 
 ```python
 from rhosocial.activerecord.cache import CacheStats
@@ -210,6 +210,6 @@ print(f"命中率: {stats.hit_ratio:.2f}")
 
 ## 结论
 
-关系缓存是提高Python ActiveRecord应用程序性能的强大技术，特别是在处理相关数据时。通过缓存关系查询的结果，您可以消除N+1查询问题并显著减少数据库负载。
+关系缓存是提高rhosocial ActiveRecord应用程序性能的强大技术，特别是在处理相关数据时。通过缓存关系查询的结果，您可以消除N+1查询问题并显著减少数据库负载。
 
 在实现关系缓存时，请仔细考虑要缓存哪些关系、缓存多长时间以及如何处理缓存失效，以确保数据一致性的同时最大化性能优势。

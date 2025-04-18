@@ -1,6 +1,6 @@
 # 事务与隔离级别
 
-事务是数据库管理系统中的基本概念，通过将一组操作组合成单个逻辑单元来确保数据完整性。Python ActiveRecord提供全面的事务支持，具有各种隔离级别，以满足不同的应用需求。
+事务是数据库管理系统中的基本概念，通过将一组操作组合成单个逻辑单元来确保数据完整性。rhosocial ActiveRecord提供全面的事务支持，具有各种隔离级别，以满足不同的应用需求。
 
 ## 目录
 
@@ -12,7 +12,7 @@
 
 ## 概述
 
-Python ActiveRecord中的事务遵循ACID属性：
+rhosocial ActiveRecord中的事务遵循ACID属性：
 
 - **原子性（Atomicity）**：事务中的所有操作要么全部成功，要么全部失败
 - **一致性（Consistency）**：事务将数据库从一个有效状态转变为另一个有效状态
@@ -39,4 +39,4 @@ except Exception:
     raise
 ```
 
-Python ActiveRecord中的事务系统设计为数据库无关的，同时仍允许在需要时访问特定数据库的功能。
+rhosocial ActiveRecord中的事务系统设计为数据库无关的，同时仍允许在需要时访问特定数据库的功能。

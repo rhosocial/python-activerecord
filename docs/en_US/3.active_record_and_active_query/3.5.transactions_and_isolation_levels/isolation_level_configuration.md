@@ -1,12 +1,12 @@
 # Isolation Level Configuration
 
-Transaction isolation levels determine how transactions interact with each other, particularly when multiple transactions are running concurrently. Python ActiveRecord supports standard SQL isolation levels and provides a flexible way to configure them.
+Transaction isolation levels determine how transactions interact with each other, particularly when multiple transactions are running concurrently. rhosocial ActiveRecord supports standard SQL isolation levels and provides a flexible way to configure them.
 
 ## Understanding Isolation Levels
 
 Isolation levels control the degree to which one transaction must be isolated from resource or data modifications made by other transactions. Higher isolation levels increase data consistency but may reduce concurrency and performance.
 
-Python ActiveRecord supports the following standard isolation levels through the `IsolationLevel` enum:
+rhosocial ActiveRecord supports the following standard isolation levels through the `IsolationLevel` enum:
 
 | Isolation Level | Description | Prevents |
 |----------------|-------------|----------|

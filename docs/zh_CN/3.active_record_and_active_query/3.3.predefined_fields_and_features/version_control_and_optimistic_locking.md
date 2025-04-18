@@ -1,6 +1,6 @@
 # 版本控制和乐观锁
 
-乐观锁是一种并发控制方法，它允许多个用户访问同一条记录进行编辑，同时防止意外覆盖更改。Python ActiveRecord提供了`OptimisticLockMixin`来在您的模型中实现这种模式。
+乐观锁是一种并发控制方法，它允许多个用户访问同一条记录进行编辑，同时防止意外覆盖更改。rhosocial ActiveRecord提供了`OptimisticLockMixin`来在您的模型中实现这种模式。
 
 ## 概述
 

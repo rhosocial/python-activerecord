@@ -1,6 +1,6 @@
 # Many-to-Many Relationships
 
-Many-to-many relationships represent a connection between two models where multiple records in the first model can be associated with multiple records in the second model. In Python ActiveRecord, many-to-many relationships are typically implemented using an intermediate join table and a combination of `HasMany` relationships.
+Many-to-many relationships represent a connection between two models where multiple records in the first model can be associated with multiple records in the second model. In rhosocial ActiveRecord, many-to-many relationships are typically implemented using an intermediate join table and a combination of `HasMany` relationships.
 
 ## Overview
 
@@ -14,7 +14,7 @@ In database design, many-to-many relationships are implemented using a join tabl
 
 ## Implementing Many-to-Many Relationships
 
-In Python ActiveRecord, there are two main approaches to implementing many-to-many relationships:
+In rhosocial ActiveRecord, there are two main approaches to implementing many-to-many relationships:
 
 1. **Using an explicit join model**: Define a separate model for the join table and use two one-to-many relationships
 2. **Using a through relationship**: Use a more direct approach with a special configuration (not yet implemented in the current version)
@@ -207,4 +207,4 @@ for enrollment in honor_students:
 
 ## Conclusion
 
-Many-to-many relationships are a powerful feature in database design and are well-supported in Python ActiveRecord through the use of join models. By following the patterns described in this document, you can implement complex relationships between your models while maintaining clean, readable code and good performance.
+Many-to-many relationships are a powerful feature in database design and are well-supported in rhosocial ActiveRecord through the use of join models. By following the patterns described in this document, you can implement complex relationships between your models while maintaining clean, readable code and good performance.

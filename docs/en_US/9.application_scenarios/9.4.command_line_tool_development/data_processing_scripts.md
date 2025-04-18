@@ -1,10 +1,10 @@
 # Data Processing Scripts
 
-This document explores how to leverage Python ActiveRecord for building efficient data processing scripts in command-line environments.
+This document explores how to leverage rhosocial ActiveRecord for building efficient data processing scripts in command-line environments.
 
 ## Introduction
 
-Data processing scripts are essential tools for automating routine data operations, transformations, and analyses. Python ActiveRecord provides an elegant and powerful ORM framework that simplifies database interactions in these scripts, allowing developers to focus on business logic rather than database connectivity details.
+Data processing scripts are essential tools for automating routine data operations, transformations, and analyses. rhosocial ActiveRecord provides an elegant and powerful ORM framework that simplifies database interactions in these scripts, allowing developers to focus on business logic rather than database connectivity details.
 
 ## Common Use Cases
 
@@ -362,6 +362,6 @@ if __name__ == '__main__':
 
 ## Conclusion
 
-Python ActiveRecord provides a powerful foundation for building data processing scripts that are maintainable, efficient, and robust. By leveraging ActiveRecord's ORM capabilities, developers can focus on implementing business logic rather than dealing with low-level database operations.
+rhosocial ActiveRecord provides a powerful foundation for building data processing scripts that are maintainable, efficient, and robust. By leveraging ActiveRecord's ORM capabilities, developers can focus on implementing business logic rather than dealing with low-level database operations.
 
 The examples in this document demonstrate common patterns and best practices for command-line data processing tools, but ActiveRecord's flexibility allows for many more specialized applications. As you develop your own scripts, remember to take advantage of ActiveRecord's transaction support, batch processing capabilities, and query optimization features to ensure your tools perform well even with large datasets.

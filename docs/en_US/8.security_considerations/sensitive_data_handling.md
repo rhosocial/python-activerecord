@@ -1,6 +1,6 @@
 # Sensitive Data Handling
 
-Handling sensitive data properly is a critical aspect of application security. This document outlines best practices for managing sensitive data when using Python ActiveRecord.
+Handling sensitive data properly is a critical aspect of application security. This document outlines best practices for managing sensitive data when using rhosocial ActiveRecord.
 
 ## What Constitutes Sensitive Data?
 
@@ -236,6 +236,6 @@ Ensure your data handling practices meet the requirements of applicable regulati
 
 ## Conclusion
 
-Protecting sensitive data requires a multi-layered approach. Python ActiveRecord provides the flexibility to implement these security measures, but it's up to you to ensure they are properly implemented and maintained.
+Protecting sensitive data requires a multi-layered approach. rhosocial ActiveRecord provides the flexibility to implement these security measures, but it's up to you to ensure they are properly implemented and maintained.
 
 Regularly review your sensitive data handling practices and stay informed about emerging security threats and best practices.

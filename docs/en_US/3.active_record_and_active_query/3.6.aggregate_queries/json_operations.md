@@ -1,6 +1,6 @@
 # JSON Operations
 
-Python ActiveRecord provides a comprehensive set of database-agnostic JSON operations that allow you to work with JSON data stored in your database. These operations are particularly useful for working with semi-structured data and flexible schemas.
+rhosocial ActiveRecord provides a comprehensive set of database-agnostic JSON operations that allow you to work with JSON data stored in your database. These operations are particularly useful for working with semi-structured data and flexible schemas.
 
 ## JSON Support in Databases
 
@@ -10,7 +10,7 @@ JSON support varies across different database systems:
 - **MySQL/MariaDB**: Good JSON support (from MySQL 5.7+ and MariaDB 10.2+)
 - **SQLite**: Basic JSON support through JSON1 extension (from version 3.9+)
 
-Python ActiveRecord abstracts these differences, providing a consistent API across all supported databases.
+rhosocial ActiveRecord abstracts these differences, providing a consistent API across all supported databases.
 
 ## JSON Operation Methods
 
@@ -255,4 +255,4 @@ except JsonOperationNotSupportedError as e:
 - Basic JSON functionality with simpler path expressions
 - Limited indexing capabilities for JSON data
 
-Python ActiveRecord abstracts these differences where possible, providing a consistent API across different database backends.
+rhosocial ActiveRecord abstracts these differences where possible, providing a consistent API across different database backends.

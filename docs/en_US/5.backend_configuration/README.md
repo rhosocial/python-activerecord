@@ -1,6 +1,6 @@
 # Backend Configuration
 
-This section covers the configuration and usage of different database backends supported by Python ActiveRecord. Understanding the backend configuration is essential for optimizing your application's database interactions.
+This section covers the configuration and usage of different database backends supported by rhosocial ActiveRecord. Understanding the backend configuration is essential for optimizing your application's database interactions.
 
 ## Contents
 
@@ -28,9 +28,9 @@ This section covers the configuration and usage of different database backends s
 
 ## Introduction
 
-Python ActiveRecord is designed to work with multiple database systems through a unified interface. This architecture allows you to write database-agnostic code while still leveraging specific features of each database system when needed.
+rhosocial ActiveRecord is designed to work with multiple database systems through a unified interface. This architecture allows you to write database-agnostic code while still leveraging specific features of each database system when needed.
 
-The backend configuration determines how Python ActiveRecord connects to your database, manages connections, handles transactions, and translates ActiveRecord operations into database-specific SQL statements.
+The backend configuration determines how rhosocial ActiveRecord connects to your database, manages connections, handles transactions, and translates ActiveRecord operations into database-specific SQL statements.
 
 ## Key Concepts
 
@@ -65,10 +65,10 @@ User.configure(
 
 ### Connection Pooling
 
-Most database backends in Python ActiveRecord support connection pooling, which helps manage database connections efficiently. Connection pooling reduces the overhead of establishing new connections by reusing existing ones from a pool.
+Most database backends in rhosocial ActiveRecord support connection pooling, which helps manage database connections efficiently. Connection pooling reduces the overhead of establishing new connections by reusing existing ones from a pool.
 
 ### Transactions
 
-Python ActiveRecord provides a consistent transaction API across all supported databases, while respecting the specific transaction capabilities and isolation levels of each database system.
+rhosocial ActiveRecord provides a consistent transaction API across all supported databases, while respecting the specific transaction capabilities and isolation levels of each database system.
 
 Refer to the specific database documentation in this section for detailed information about configuration options, supported features, and optimization techniques for each database backend.
