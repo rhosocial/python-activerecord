@@ -60,14 +60,21 @@ flowchart TD
     BA -->|"连接到"| SQLITE
 
     %% 点击事件
-    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base"
-    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field"
-    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query"
-    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend"
-    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite"
-    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface"
-    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation"
-    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests"
+    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base" "查看源代码"
+    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field" "查看源代码"
+    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query" "查看源代码"
+    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend" "查看源代码"
+    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite" "查看源代码"
+    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface" "查看源代码"
+    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation" "查看源代码"
+    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests" "查看源代码"
+    
+    %% 组件结构文档链接
+    click AR "component_structure.md#activerecord-基础结构" "查看组件结构"
+    click FD "component_structure.md#字段定义结构" "查看组件结构"
+    click QB "component_structure.md#查询构建工具结构" "查看组件结构"
+    click IL "component_structure.md#接口层结构" "查看组件结构"
+    click RL "component_structure.md#关联关系层结构" "查看组件结构"
 
     %% 风格
     classDef core fill:#F9E79F,stroke:#B9770E,stroke-width:2px;

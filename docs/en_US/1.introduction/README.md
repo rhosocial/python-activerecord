@@ -58,14 +58,26 @@ flowchart TD
     BA -->|"connects_to"| SQLITE
 
     %% Click Events
-    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base"
-    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field"
-    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query"
-    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend"
-    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite"
-    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface"
-    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation"
-    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests"
+    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base" "View source code"
+    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field" "View source code"
+    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query" "View source code"
+    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend" "View source code"
+    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite" "View source code"
+    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface" "View source code"
+    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation" "View source code"
+    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests" "View source code"
+    
+    %% Component Structure Documentation Links
+    click AR "component_structure.md#activerecord-base-structure" "View component structure"
+    click FD "component_structure.md#field-definitions-structure" "View component structure"
+    click QB "component_structure.md#query-builder-structure" "View component structure"
+    click IL "component_structure.md#interface-layer-structure" "View component structure"
+    click RL "component_structure.md#relation-layer-structure" "View component structure"
+    click AR "component_structure.md#activerecord-base-structure" "View component structure"
+    click FD "component_structure.md#field-definitions-structure" "View component structure"
+    click QB "component_structure.md#query-builder-structure" "View component structure"
+    click IL "component_structure.md#interface-layer-structure" "View component structure"
+    click RL "component_structure.md#relation-layer-structure" "View component structure"
 
     %% Styles
     classDef core fill:#F9E79F,stroke:#B9770E,stroke-width:2px;

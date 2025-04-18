@@ -5,7 +5,8 @@
 ## 目录
 
 - [支持的数据库](5.1.supported_databases/README.md) - 关于每个支持的数据库系统的详细信息
-  - [MySQL/MariaDB](5.1.supported_databases/mysql_mariadb.md)
+  - [MySQL](5.1.supported_databases/mysql.md)
+  - [MariaDB](5.1.supported_databases/mariadb.md)
   - [PostgreSQL](5.1.supported_databases/postgresql.md)
   - [Oracle](5.1.supported_databases/oracle.md)
   - [SQL Server](5.1.supported_databases/sql_server.md)

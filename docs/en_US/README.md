@@ -47,7 +47,7 @@
 - [Pessimistic Locking Strategies](3.active_record_and_active_query/3.3.predefined_fields_and_features/pessimistic_locking_strategies.md)
 - [Custom Fields](3.active_record_and_active_query/3.3.predefined_fields_and_features/custom_fields.md)
 
-### 3.4 Relationships
+### [3.4 Relationships](3.active_record_and_active_query/3.4.relationships/README.md)
 - [One-to-One Relationships](3.active_record_and_active_query/3.4.relationships/one_to_one_relationships.md)
 - [One-to-Many Relationships](3.active_record_and_active_query/3.4.relationships/one_to_many_relationships.md)
 - [Many-to-Many Relationships](3.active_record_and_active_query/3.4.relationships/many_to_many_relationships.md)
@@ -57,7 +57,7 @@
 - [Eager Loading and Lazy Loading](3.active_record_and_active_query/3.4.relationships/eager_and_lazy_loading.md)
 - [Cross-database Relationships](3.active_record_and_active_query/3.4.relationships/cross_database_relationships.md)
 
-### 3.5 Transactions & Isolation Levels
+### [3.5 Transactions & Isolation Levels](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/README.md)
 - [Transaction Management](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/transaction_management.md)
 - [Isolation Level Configuration](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/isolation_level_configuration.md)
 - [Nested Transactions](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/nested_transactions.md)
@@ -86,7 +86,7 @@
   - Subquery Expressions
   - Grouping Set Expressions (CUBE, ROLLUP, GROUPING SETS)
 
-### 3.7 Advanced Query Features
+### [3.7 Advanced Query Features](3.active_record_and_active_query/3.7.advanced_query_features/README.md)
 - [Custom ActiveQuery Classes](3.active_record_and_active_query/3.7.advanced_query_features/custom_activequery_classes.md)
 - [Query Scopes](3.active_record_and_active_query/3.7.advanced_query_features/query_scopes.md)
 - [Dynamic Query Building](3.active_record_and_active_query/3.7.advanced_query_features/dynamic_query_building.md)
@@ -163,7 +163,7 @@
 - [Data Processing Scripts](9.application_scenarios/9.4.command_line_tool_development/data_processing_scripts.md)
 - [ETL Process Implementation](9.application_scenarios/9.4.command_line_tool_development/etl_process_implementation.md)
 
-## 10. Complete Usage Examples
+## [10. Complete Usage Examples](10.complete_examples/README.md)
 - Web Application Example
 - Data Analysis Example
 - Microservice Example
@@ -176,5 +176,5 @@
 - [Documentation Contributions](11.contributing/documentation_contributions.md)
 - [Sponsorship](11.contributing/sponsorship.md)
 
-## 12. API Reference
+## [12. API Reference](12.api_reference/README.md)
 - Complete Class/Method Documentation
