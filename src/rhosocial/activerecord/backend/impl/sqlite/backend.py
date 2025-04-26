@@ -8,7 +8,9 @@ from typing import Optional, Tuple, List, Any, Dict, Union
 
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
+from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter
 from ...dialect import ReturningOptions
+from ...typing import DatabaseType
 from ...base import StorageBackend, ColumnTypes
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
@@ -29,12 +31,25 @@ class SQLiteBackend(StorageBackend):
         super().__init__(**kwargs)
         self._cursor = None
         self._isolation_level = kwargs.get("isolation_level", None)
-        self._transaction_manager = None
         self._dialect = SQLiteDialect(self.config)
         self._delete_on_close = kwargs.get("delete_on_close", False)
 
         # Extract custom pragmas from options
         self._pragmas = self._get_pragma_settings(kwargs)
+        # Register SQLite-specific converters
+        self._register_sqlite_converters()
+
+    def _register_sqlite_converters(self):
+        """Register SQLite-specific type converters"""
+        # Register SQLite BLOB converter
+        self.dialect.register_converter(SQLiteBlobConverter(),
+                                      names=["BLOB", "BYTEA"],
+                                      types=[DatabaseType.BLOB, DatabaseType.BYTEA])
+
+        # Register SQLite JSON converter with higher priority
+        self.dialect.register_converter(SQLiteJSONConverter(),
+                                      names=["JSON"],
+                                      types=[DatabaseType.JSON])
 
     @property
     def pragmas(self) -> Dict[str, str]:
@@ -325,9 +340,10 @@ class SQLiteBackend(StorageBackend):
             sqlite3.Cursor: Cursor with executed query
         """
         # Execute with parameters if provided
+        # Parameters are already processed by build_sql
         if params:
             processed_params = tuple(
-                self.dialect.value_mapper.to_database(value, None)
+                self.dialect.to_database(value, None)
                 for value in params
             )
             cursor.execute(sql, processed_params)
@@ -337,20 +353,11 @@ class SQLiteBackend(StorageBackend):
         return cursor
 
     def _process_result_set(self, cursor, is_select: bool, need_returning: bool, column_types: Optional[ColumnTypes]) -> \
-    Optional[List[Dict]]:
+            Optional[List[Dict]]:
         """
         Process query result set for SQLite.
 
         SQLite returns Row objects which can be accessed like dictionaries.
-
-        Args:
-            cursor: SQLite cursor with executed query
-            is_select: Whether this is a SELECT query
-            need_returning: Whether RETURNING clause was used
-            column_types: Column type mapping for conversion
-
-        Returns:
-            Optional[List[Dict]]: Processed result rows or None
         """
         if not (is_select or need_returning):
             return None
@@ -371,15 +378,32 @@ class SQLiteBackend(StorageBackend):
                 converted_row = {}
                 for key in row.keys():
                     value = row[key]
-                    db_type = column_types.get(key)
-                    if db_type is not None:
-                        converted_row[key] = self.dialect.value_mapper.from_database(value, db_type)
-                    else:
+                    type_spec = column_types.get(key)
+                    if type_spec is None:
+                        # No conversion specified
                         converted_row[key] = value
+                    elif isinstance(type_spec, DatabaseType):
+                        # Using DatabaseType enum for conversion
+                        converted_row[key] = self.dialect.from_database(value, type_spec)
+                    elif isinstance(type_spec, str):
+                        # Using type name string
+                        converter = self.dialect.type_registry.find_converter_by_name(type_spec)
+                        if converter:
+                            converted_row[key] = converter.from_database(value, type_spec)
+                        else:
+                            converted_row[key] = value
+                    else:
+                        # Assume it's a converter instance or similar
+                        try:
+                            # Try to use the converter directly
+                            converted_row[key] = type_spec.from_database(value, None)
+                        except (AttributeError, TypeError):
+                            # If it's not a converter, use it as a type hint
+                            converted_row[key] = self.dialect.from_database(value, type_spec)
                 data.append(converted_row)
             return data
         else:
-            # Convert sqlite3.Row objects to regular dictionaries
+            # No type conversion needed
             return [dict(row) for row in rows]
 
     def _handle_auto_commit_if_needed(self) -> None:
@@ -490,7 +514,7 @@ class SQLiteBackend(StorageBackend):
             for params in params_list:
                 if params:
                     converted = tuple(
-                        self.value_mapper.to_database(value, None)
+                        self.dialect.to_database(value, None)
                         for value in params
                     )
                     converted_params.append(converted)

@@ -4,15 +4,15 @@ from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List, Union
 
-from .dialect import TypeMapper, ValueMapper, DatabaseType, SQLDialectBase, SQLExpressionBase, SQLBuilder, \
+from .dialect import SQLDialectBase, SQLExpressionBase, SQLBuilder, \
     ReturningOptions
 from .errors import ReturningNotSupportedError
 from .transaction import TransactionManager
-from .typing import ConnectionConfig, QueryResult
+from .type_converters import TypeRegistry
+from .typing import ConnectionConfig, QueryResult, DatabaseType
 
 # Type hints
-ColumnTypes = Dict[str, DatabaseType]
-ValueConverter = Dict[str, callable]
+ColumnTypes = Dict[str, Union[DatabaseType, str, Any]]
 
 
 class StorageBackend(ABC):
@@ -42,6 +42,7 @@ class StorageBackend(ABC):
             self.config = kwargs["connection_config"]
         self._connection = None
         self._transaction_level = 0
+        self._transaction_manager = None
         self._cursor = None
         self._server_version_cache = None
 
@@ -113,12 +114,21 @@ class StorageBackend(ABC):
         return builder.build(sql, params)
 
     @property
-    def type_mapper(self) -> TypeMapper:
-        return self._dialect.type_mapper
+    def type_registry(self) -> TypeRegistry:
+        """Get the type registry from the dialect"""
+        return self.dialect.type_registry
 
-    @property
-    def value_mapper(self) -> ValueMapper:
-        return self._dialect.value_mapper
+    def register_converter(self, converter: Any, names: Optional[List[str]] = None,
+                           types: Optional[List[Any]] = None) -> None:
+        """
+        Register a type converter with this backend's dialect.
+
+        Args:
+            converter: Type converter to register
+            names: Optional list of type names this converter handles
+            types: Optional list of DatabaseType enum values this converter handles
+        """
+        self.dialect.register_converter(converter, names, types)
 
     @abstractmethod
     def connect(self) -> None:
@@ -411,20 +421,16 @@ class StorageBackend(ABC):
         """
         # Convert parameters if needed
         if params:
-            processed_params = tuple(
-                self.dialect.value_mapper.to_database(value, None)
-                for value in params
-            )
-            cursor.execute(sql, processed_params)
+            cursor.execute(sql, params)
         else:
             cursor.execute(sql)
 
         return cursor
 
     def _process_result_set(self, cursor, is_select: bool, need_returning: bool, column_types: Optional[ColumnTypes]) -> \
-    Optional[List[Dict]]:
+            Optional[List[Dict]]:
         """
-        Process query result set.
+        Process query result set with type conversion.
 
         Args:
             cursor: Database cursor with executed query
@@ -457,31 +463,57 @@ class StorageBackend(ABC):
                     for row in rows:
                         converted_row = {}
                         for key, value in row.items():
-                            db_type = column_types.get(key)
-                            if db_type is not None:
-                                converted_row[key] = (
-                                    self.dialect.value_mapper.from_database(
-                                        value, db_type
-                                    )
-                                )
-                            else:
+                            type_spec = column_types.get(key)
+                            if type_spec is None:
+                                # No conversion specified
                                 converted_row[key] = value
+                            elif isinstance(type_spec, DatabaseType):
+                                # Using DatabaseType enum for conversion
+                                converted_row[key] = self.dialect.from_database(value, type_spec)
+                            elif isinstance(type_spec, str):
+                                # Using type name string
+                                converter = self.dialect.type_registry.find_converter_by_name(type_spec)
+                                if converter:
+                                    converted_row[key] = converter.from_database(value, type_spec)
+                                else:
+                                    converted_row[key] = value
+                            else:
+                                # Assume it's a converter instance or similar
+                                try:
+                                    # Try to use the converter directly
+                                    converted_row[key] = type_spec.from_database(value, None)
+                                except (AttributeError, TypeError):
+                                    # If it's not a converter, use it as a type hint
+                                    converted_row[key] = self.dialect.from_database(value, type_spec)
                         result.append(converted_row)
                 else:  # Tuple-like rows
-                    column_names = cursor.description
+                    column_names = [desc[0] for desc in cursor.description]
                     for row in rows:
                         converted_row = {}
                         for i, value in enumerate(row):
-                            key = column_names[i][0]
-                            db_type = column_types.get(key)
-                            if db_type is not None:
-                                converted_row[key] = (
-                                    self.dialect.value_mapper.from_database(
-                                        value, db_type
-                                    )
-                                )
-                            else:
+                            key = column_names[i]
+                            type_spec = column_types.get(key)
+                            if type_spec is None:
+                                # No conversion specified
                                 converted_row[key] = value
+                            elif isinstance(type_spec, DatabaseType):
+                                # Using DatabaseType enum for conversion
+                                converted_row[key] = self.dialect.from_database(value, type_spec)
+                            elif isinstance(type_spec, str):
+                                # Using type name string
+                                converter = self.dialect.type_registry.find_converter_by_name(type_spec)
+                                if converter:
+                                    converted_row[key] = converter.from_database(value, type_spec)
+                                else:
+                                    converted_row[key] = value
+                            else:
+                                # Assume it's a converter instance or similar
+                                try:
+                                    # Try to use the converter directly
+                                    converted_row[key] = type_spec.from_database(value, None)
+                                except (AttributeError, TypeError):
+                                    # If it's not a converter, use it as a type hint
+                                    converted_row[key] = self.dialect.from_database(value, type_spec)
                         result.append(converted_row)
 
                 return result
@@ -636,8 +668,7 @@ class StorageBackend(ABC):
 
         # Use dialect's format_identifier to ensure correct quoting
         fields = [self.dialect.format_identifier(field) for field in cleaned_data.keys()]
-        values = [self.value_mapper.to_database(v, column_types.get(k.strip('"').strip('`')) if column_types else None)
-                  for k, v in data.items()]
+        values = list(cleaned_data.values())
         placeholders = [self.dialect.get_placeholder() for _ in fields]
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
@@ -692,8 +723,7 @@ class StorageBackend(ABC):
         # Format update statement
         set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
                      for k in data.keys()]
-        values = [self.value_mapper.to_database(v, column_types.get(k) if column_types else None)
-                  for k, v in data.items()]
+        values = list(data.values())
 
         sql = f"UPDATE {table} SET {', '.join(set_items)} WHERE {where}"
 

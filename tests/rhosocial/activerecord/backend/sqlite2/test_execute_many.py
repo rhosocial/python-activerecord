@@ -1,5 +1,5 @@
 def test_execute_many(db, setup_test_table):
-    """测试批量插入"""
+    """Test batch insertion"""
     data = [
         ("name1", 20),
         ("name2", 30),

@@ -1,6 +1,7 @@
 from typing import Dict
 
-from ...dialect import DatabaseType, TypeMapping
+from ...dialect import TypeMapping
+from ...typing import DatabaseType
 from ...helpers import format_with_length
 
 # SQLite type mapping configuration

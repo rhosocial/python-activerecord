@@ -4,14 +4,14 @@ from src.rhosocial.activerecord.backend.errors import DatabaseError, Operational
 
 
 def test_update_with_expression(db, setup_test_table):
-    """测试使用表达式进行更新"""
-    # 插入测试数据
+    """Test updating with an expression"""
+    # Insert test data
     db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?)",
         ("test_user", 20)
     )
-    
-    # 使用表达式更新age
+
+    # Use expression to update age
     result = db.execute(
         "UPDATE test_table SET age = ? WHERE name = ?",
         (db.create_expression("age + 1"), "test_user")
@@ -19,7 +19,7 @@ def test_update_with_expression(db, setup_test_table):
 
     assert result.affected_rows == 1
 
-    # 验证更新结果
+    # Verify update result
     row = db.execute(
         "SELECT age FROM test_table WHERE name = ?",
         ("test_user",),
@@ -29,7 +29,7 @@ def test_update_with_expression(db, setup_test_table):
 
 
 def test_multiple_expressions(db, setup_test_table):
-    """测试在同一SQL中使用多个表达式"""
+    """Test using multiple expressions in the same SQL"""
     db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?)",
         ("test_user", 20)
@@ -56,7 +56,7 @@ def test_multiple_expressions(db, setup_test_table):
 
 
 def test_mixed_params_and_expressions(db, setup_test_table):
-    """测试混合使用普通参数和表达式"""
+    """Test mixing regular parameters and expressions"""
     db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?)",
         ("test_user", 20)
@@ -84,7 +84,7 @@ def test_mixed_params_and_expressions(db, setup_test_table):
 
 
 def test_expression_with_placeholder(db, setup_test_table):
-    """测试表达式中包含问号的情况"""
+    """Test expression containing a question mark"""
     with pytest.raises(DatabaseError):
         db.execute(
             "UPDATE test_table SET age = ? WHERE name = ?",
@@ -93,29 +93,31 @@ def test_expression_with_placeholder(db, setup_test_table):
 
 
 def test_expression_in_subquery(db, setup_test_table):
-    """测试在子查询中使用表达式"""
-    # 插入测试数据
+    """Test using expression in subquery"""
+    # Insert test data
     result = db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?), (?, ?)",
         ("user1", 20, "user2", 30),
         returning=False
     )
-    assert result.affected_rows == 2, "应该插入两条记录"
+    assert result.affected_rows == 2, "Should insert two records"
 
-    # 验证插入的数据
+    # Verify inserted data
     rows = db.execute(
         "SELECT * FROM test_table ORDER BY age",
         returning=True
     ).data
-    assert len(rows) == 2, "应该有两条记录"
-    assert rows[0]["age"] == 20, "第一条记录age应为20"
-    assert rows[1]["age"] == 30, "第二条记录age应为30"
+    assert len(rows) == 2, "Should have two records"
+    assert rows[0]["age"] == 20, "First record age should be 20"
+    assert rows[1]["age"] == 30, "Second record age should be 30"
 
-    # 测试带表达式的子查询
+    # Test subquery with expression
     result = db.execute(
         """
-        SELECT * FROM test_table 
-        WHERE age > ? AND age < ?
+        SELECT *
+        FROM test_table
+        WHERE age > ?
+          AND age < ?
         """,
         (
             db.create_expression("(SELECT MIN(age) FROM test_table)"),
@@ -124,11 +126,11 @@ def test_expression_in_subquery(db, setup_test_table):
         returning=True
     )
 
-    assert len(result.data) == 0, "不应该有符合条件的记录，因为条件是 MIN < age < MAX"
+    assert len(result.data) == 0, "Should not have matching records since condition is MIN < age < MAX"
 
 
 def test_expression_in_insert(db, setup_test_table):
-    """测试在INSERT语句中使用表达式"""
+    """Test using expression in INSERT statement"""
     db.execute(
         "INSERT INTO test_table (name, age, created_at) VALUES (?, ?, ?)",
         (
@@ -144,12 +146,12 @@ def test_expression_in_insert(db, setup_test_table):
         returning=True
     ).data[0]
 
-    assert row["age"] is None  # 因为表中还没有数据，MAX(age)为NULL
-    assert isinstance(row["created_at"], str)  # 确保时间戳被正确设置
+    assert row["age"] is None  # Since there's no data in the table yet, MAX(age) is NULL
+    assert isinstance(row["created_at"], str)  # Ensure timestamp is correctly set
 
 
 def test_complex_expression(db, setup_test_table):
-    """测试复杂表达式"""
+    """Test complex expression"""
     db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?)",
         ("test_user", 20)
@@ -180,7 +182,7 @@ def test_complex_expression(db, setup_test_table):
 
 
 def test_invalid_expression(db, setup_test_table):
-    """测试无效的表达式"""
+    """Test invalid expression"""
     db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?)",
         ("test_user", 20)
@@ -194,22 +196,22 @@ def test_invalid_expression(db, setup_test_table):
 
 
 def test_expression_count_mismatch(db, setup_test_table):
-    """测试参数数量不匹配的情况"""
+    """Test parameter count mismatch scenario"""
     db.execute(
         "INSERT INTO test_table (name, age) VALUES (?, ?)",
         ("test_user", 20)
     )
 
-    # 情况1: 参数太少
+    # Case 1: Too few parameters
     with pytest.raises(ValueError, match="Parameter count mismatch: SQL needs 3 parameters but 2 were provided"):
         db.execute(
             "UPDATE test_table SET age = ? WHERE name = ? AND age = ?",
-            (db.create_expression("age + 1"), "test_user")  # 缺少最后一个参数
+            (db.create_expression("age + 1"), "test_user")  # Missing last parameter
         )
 
-    # 情况2: 参数太多
+    # Case 2: Too many parameters
     with pytest.raises(ValueError, match="Parameter count mismatch: SQL needs 2 parameters but 3 were provided"):
         db.execute(
             "UPDATE test_table SET age = ? WHERE name = ?",
-            (db.create_expression("age + 1"), "test_user", 20)  # 多余的参数
+            (db.create_expression("age + 1"), "test_user", 20)  # Extra parameter
         )

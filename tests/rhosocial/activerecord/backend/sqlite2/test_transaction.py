@@ -1,12 +1,12 @@
 def test_transaction_commit(db, setup_test_table):
-    """测试事务提交"""
+    """Test transaction commit"""
     with db.transaction():
         db.insert("test_table", {"name": "test", "age": 20})
     row = db.fetch_one("SELECT * FROM test_table WHERE name = ?", ("test",))
     assert row is not None
 
 def test_transaction_rollback(db, setup_test_table):
-    """测试事务回滚"""
+    """Test transaction rollback"""
     try:
         with db.transaction():
             db.insert("test_table", {"name": "test", "age": 20})
@@ -17,7 +17,7 @@ def test_transaction_rollback(db, setup_test_table):
     assert row is None
 
 def test_nested_transaction(db, setup_test_table):
-    """测试嵌套事务"""
+    """Test nested transactions"""
     with db.transaction():
         db.insert("test_table", {"name": "outer", "age": 20})
         with db.transaction():
