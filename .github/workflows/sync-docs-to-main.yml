@@ -1,0 +1,68 @@
+name: Sync docs to main branch
+
+# This workflow automatically syncs changes from docs branch to main branch
+# without triggering CI pipelines or requiring pull requests
+# File location: .github/workflows/sync-docs-to-main.yml (on main branch)
+
+on:
+  # Run automatically on a schedule
+  schedule:
+    # Runs at 2 AM UTC every day (adjust as needed)
+    - cron: '0 2 * * *'
+  
+  # Allow manual triggering through GitHub Actions UI
+  workflow_dispatch:
+
+jobs:
+  sync-branches:
+    runs-on: ubuntu-latest
+    
+    # Ensure the workflow has permission to push to the repository
+    permissions:
+      contents: write
+    
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v3
+        with:
+          # Fetch all history for all branches
+          fetch-depth: 0
+          # Use GitHub token for authentication
+          token: ${{ secrets.GITHUB_TOKEN }}
+      
+      - name: Configure Git
+        run: |
+          # Set up Git user identity for the commit
+          git config --global user.name "GitHub Actions Bot"
+          git config --global user.email "github-actions[bot]@users.noreply.github.com"
+      
+      - name: Sync docs to main
+        run: |
+          # Ensure we have the latest changes from remote
+          git fetch origin
+          
+          # Check if there are differences between docs and main branches
+          if git diff --quiet origin/main origin/docs; then
+            echo "No changes to sync between docs and main branches."
+            exit 0
+          fi
+          
+          # Switch to main branch
+          git checkout main
+          
+          # Try to merge docs branch into main
+          # If merge succeeds, proceed normally
+          # If merge fails due to conflicts, use docs branch version
+          if ! git merge --no-ff origin/docs -m "Auto-sync docs to main [skip ci] [no ci]"; then
+            echo "Merge conflict detected, using docs branch version to resolve conflicts"
+            # Abort the failed merge attempt
+            git merge --abort
+            
+            # Retry merge with strategy to prefer docs branch changes
+            git merge -X theirs --no-ff origin/docs -m "Auto-sync docs to main (conflicts resolved with docs version) [skip ci] [no ci]"
+          fi
+          
+          # Push changes to remote repository
+          git push origin main
+          
+          echo "Successfully synced docs branch to main"
