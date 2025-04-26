@@ -89,20 +89,13 @@ class YourBackendName(StorageBackend):
 In `dialect.py`, create a class that inherits from `SQLDialectBase`:
 
 ```python
-from ...dialect import SQLDialectBase, SQLBuilder, TypeMapper
-from .types import YourTypeMapper
+from ...dialect import SQLDialectBase, SQLBuilder
 
 class YourDialectClass(SQLDialectBase):
     """SQL dialect implementation for your database"""
     
     def __init__(self):
         super().__init__()
-        self._type_mapper = YourTypeMapper()
-    
-    @property
-    def type_mapper(self) -> TypeMapper:
-        """Get type mapper for this dialect"""
-        return self._type_mapper
     
     def create_builder(self) -> SQLBuilder:
         """Create SQL builder for this dialect"""
@@ -133,28 +126,91 @@ class YourSQLBuilder(SQLBuilder):
 
 ### 4. Implement Type Mappings
 
-In `types.py`, create a class that inherits from `TypeMapper`:
+In `types.py`, define your database type mappings:
 
 ```python
-from ...dialect import TypeMapper, TypeMapping, DatabaseType
+from typing import Dict
 
-class YourTypeMapper(TypeMapper):
-    """Type mapper for your database"""
-    
-    def __init__(self):
-        super().__init__()
-        self._type_map = {
-            # Map rhosocial ActiveRecord types to your database types
-            DatabaseType.INTEGER: TypeMapping("INTEGER"),
-            DatabaseType.FLOAT: TypeMapping("FLOAT"),
-            DatabaseType.TEXT: TypeMapping("TEXT"),
-            DatabaseType.BOOLEAN: TypeMapping("BOOLEAN"),
-            DatabaseType.DATE: TypeMapping("DATE"),
-            DatabaseType.DATETIME: TypeMapping("DATETIME"),
-            DatabaseType.BINARY: TypeMapping("BLOB"),
-            # Add other type mappings as needed
-            DatabaseType.CUSTOM: TypeMapping("TEXT"),  # Default for custom types
-        }
+from ...dialect import TypeMapping
+from ...typing import DatabaseType
+from ...helpers import format_with_length
+
+# Your database type mapping configuration
+YOUR_DB_TYPE_MAPPINGS: Dict[DatabaseType, TypeMapping] = {
+    DatabaseType.TINYINT: TypeMapping("INTEGER"),
+    DatabaseType.SMALLINT: TypeMapping("INTEGER"),
+    DatabaseType.INTEGER: TypeMapping("INTEGER"),
+    DatabaseType.BIGINT: TypeMapping("INTEGER"),
+    DatabaseType.FLOAT: TypeMapping("REAL"),
+    DatabaseType.DOUBLE: TypeMapping("REAL"),
+    DatabaseType.DECIMAL: TypeMapping("REAL"),
+    DatabaseType.CHAR: TypeMapping("TEXT", format_with_length),
+    DatabaseType.VARCHAR: TypeMapping("TEXT", format_with_length),
+    DatabaseType.TEXT: TypeMapping("TEXT"),
+    DatabaseType.DATE: TypeMapping("TEXT"),
+    DatabaseType.TIME: TypeMapping("TEXT"),
+    DatabaseType.DATETIME: TypeMapping("TEXT"),
+    DatabaseType.TIMESTAMP: TypeMapping("TEXT"),
+    DatabaseType.BLOB: TypeMapping("BLOB"),
+    DatabaseType.BOOLEAN: TypeMapping("INTEGER"),
+    DatabaseType.UUID: TypeMapping("TEXT"),
+    DatabaseType.JSON: TypeMapping("TEXT"),
+    DatabaseType.ARRAY: TypeMapping("TEXT"),
+    # Your database specific types are set as CUSTOM
+    DatabaseType.CUSTOM: TypeMapping("TEXT"),
+}
+
+
+class YourDBTypes:
+    """Your database specific type constants"""
+    # Add your database specific types here
+
+
+class YourDBColumnType:
+    """Your database column type definition"""
+
+    def __init__(self, sql_type: str, **constraints):
+        """Initialize column type
+
+        Args:
+            sql_type: SQL type definition
+            **constraints: Constraint conditions
+        """
+        self.sql_type = sql_type
+        self.constraints = constraints
+
+    def __str__(self):
+        """Generate complete type definition statement"""
+        # Implement type definition string generation
+        pass
+
+    @classmethod
+    def get_type(cls, db_type: DatabaseType, **params) -> 'YourDBColumnType':
+        """Create your database column type from generic type
+
+        Args:
+            db_type: Generic database type definition
+            **params: Type parameters and constraints
+
+        Returns:
+            YourDBColumnType: Your database column type instance
+
+        Raises:
+            ValueError: If type is not supported
+        """
+        mapping = YOUR_DB_TYPE_MAPPINGS.get(db_type)
+        if not mapping:
+            raise ValueError(f"Unsupported type: {db_type}")
+
+        sql_type = mapping.db_type
+        if mapping.format_func:
+            sql_type = mapping.format_func(sql_type, params)
+
+        constraints = {k: v for k, v in params.items()
+                     if k in ['primary_key', 'autoincrement', 'unique',
+                             'not_null', 'default']}
+
+        return cls(sql_type, **constraints)
 ```
 
 ### 5. Update the Package Initialization
@@ -167,7 +223,7 @@ In `__init__.py`, export your backend class:
 This module provides:
 - Your database backend with connection management and query execution
 - SQL dialect implementation for your database
-- Type mapping between Python types and your database types
+- Type mapping between ActiveRecord types and your database types
 """
 
 from .backend import YourBackendName

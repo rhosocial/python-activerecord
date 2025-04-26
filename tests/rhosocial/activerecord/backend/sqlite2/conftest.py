@@ -11,6 +11,8 @@ def db_path(request) -> str:
         return ":memory:"  # 使用内存数据库便于测试
     elif request.param == "file":
         return "tests.activerecord.implementations.sqlite.sqlite"
+    return None
+
 
 @pytest.fixture
 def db(db_path) -> Generator[SQLiteBackend, None, None]:
