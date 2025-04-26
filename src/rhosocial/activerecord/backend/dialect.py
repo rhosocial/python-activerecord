@@ -1,131 +1,27 @@
+"""
+Abstract SQL dialect implementation for handling database differences.
+This module provides base classes for SQL dialect handling, including:
+
+- Type conversion between database and Python representations
+- SQL syntax differences
+- Parameter placeholder formatting
+- Identifier quoting
+- Special feature support (like RETURNING clause)
+"""
 import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import datetime, date, time
 from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Callable, Dict, Optional, Union, List, Tuple, Set, get_origin
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, get_origin
 
+from .typing import DatabaseType
+from .basic_type_converter import DateTimeConverter, BooleanConverter, UUIDConverter, \
+    JSONConverter, DecimalConverter, ArrayConverter, EnumConverter, BasicTypeConverter
 from .errors import ReturningNotSupportedError
+from .type_converters import TypeRegistry
 
-class DatabaseType(Enum):
-    """
-    Unified database type definitions across various database systems.
-
-    This enum provides a standard set of database column types that can be
-    mapped to specific implementations in each database backend.
-    """
-
-    # --- Standard numeric types ---
-    TINYINT = auto()  # Small integer (usually 1 byte)
-    SMALLINT = auto()  # Small integer (usually 2 bytes)
-    INTEGER = auto()  # Standard integer (usually 4 bytes)
-    BIGINT = auto()  # Large integer (usually 8 bytes)
-    FLOAT = auto()  # Single-precision floating point
-    DOUBLE = auto()  # Double-precision floating point
-    DECIMAL = auto()  # Fixed-precision decimal number
-    NUMERIC = auto()  # Generic numeric type
-    REAL = auto()  # Real number type
-
-    # --- Standard string types ---
-    CHAR = auto()  # Fixed-length character string
-    VARCHAR = auto()  # Variable-length character string with limit
-    TEXT = auto()  # Variable-length character string without limit
-    TINYTEXT = auto()  # Very small text (max 255 chars)
-    MEDIUMTEXT = auto()  # Medium-sized text
-    LONGTEXT = auto()  # Large text
-
-    # --- Standard date and time types ---
-    DATE = auto()  # Date only (year, month, day)
-    TIME = auto()  # Time only (hour, minute, second)
-    DATETIME = auto()  # Date and time without timezone
-    TIMESTAMP = auto()  # Date and time with timezone
-    INTERVAL = auto()  # Time interval
-
-    # --- Standard binary types ---
-    BLOB = auto()  # Binary large object
-    TINYBLOB = auto()  # Small binary object
-    MEDIUMBLOB = auto()  # Medium binary object
-    LONGBLOB = auto()  # Large binary object
-    BYTEA = auto()  # Binary data
-
-    # --- Standard boolean type ---
-    BOOLEAN = auto()  # Boolean (true/false)
-
-    # --- Common extended types ---
-    UUID = auto()  # Universally unique identifier
-
-    # --- JSON types ---
-    JSON = auto()  # JSON document
-    JSONB = auto()  # Binary JSON
-
-    # --- Array types ---
-    ARRAY = auto()  # Array of values
-
-    # --- XML type ---
-    XML = auto()  # XML document
-
-    # --- Key-value type ---
-    HSTORE = auto()  # Key-value store
-
-    # --- Network address types ---
-    INET = auto()  # IPv4 or IPv6 host address
-    CIDR = auto()  # IPv4 or IPv6 network address
-    MACADDR = auto()  # MAC address
-    MACADDR8 = auto()  # MAC address (EUI-64 format)
-
-    # --- Geometric types ---
-    POINT = auto()  # Point on a plane (x,y)
-    LINE = auto()  # Infinite line
-    LSEG = auto()  # Line segment
-    BOX = auto()  # Rectangular box
-    PATH = auto()  # Closed and open paths
-    POLYGON = auto()  # Polygon (similar to closed path)
-    CIRCLE = auto()  # Circle
-    GEOMETRY = auto()  # Generic geometry type
-    GEOGRAPHY = auto()  # Geographic data type
-
-    # --- Range types ---
-    INT4RANGE = auto()  # Range of integers
-    INT8RANGE = auto()  # Range of bigints
-    NUMRANGE = auto()  # Range of numerics
-    TSRANGE = auto()  # Range of timestamps without time zone
-    TSTZRANGE = auto()  # Range of timestamps with time zone
-    DATERANGE = auto()  # Range of dates
-
-    # --- Full text search types ---
-    TSVECTOR = auto()  # Text search document
-    TSQUERY = auto()  # Text search query
-
-    # --- Money type ---
-    MONEY = auto()  # Currency amount
-
-    # --- Bit string types ---
-    BIT = auto()  # Fixed-length bit string
-    VARBIT = auto()  # Variable-length bit string
-
-    # --- Enumeration and set types ---
-    ENUM = auto()  # Enumeration of string values
-    SET = auto()  # Set of string values
-
-    # --- Large object types ---
-    CLOB = auto()  # Character large object
-    NCLOB = auto()  # National character large object
-
-    # --- Unicode types ---
-    NCHAR = auto()  # Unicode fixed-length character data
-    NVARCHAR = auto()  # Unicode variable-length character data
-    NTEXT = auto()  # Unicode variable-length character data
-
-    # --- Row identifier types ---
-    ROWID = auto()  # Physical row address
-    UROWID = auto()  # Universal row id
-
-    # --- Hierarchical type ---
-    HIERARCHYID = auto()  # Tree hierarchy position
-
-    # --- Extensible custom type ---
-    CUSTOM = auto()  # For database-specific types not covered above
 
 @dataclass
 class TypeMapping:
@@ -133,261 +29,6 @@ class TypeMapping:
     db_type: str
     format_func: Optional[Callable[[str, Dict[str, Any]], str]] = None
 
-
-class TypeMapper(ABC):
-    """
-    Abstract base class for database type mapping.
-
-    This class defines the interface for mapping between unified DatabaseType
-    enum values and specific database column type definitions. Each database
-    backend should implement a concrete TypeMapper that handles its specific
-    type syntax and options.
-
-    Note: While this abstract class attempts to accommodate a wide range of
-    database types, specific database backends may need to handle additional
-    types or parameters not covered by the base interface.
-    """
-
-    def __init__(self):
-        """Initialize type mapper"""
-        self._placeholder_counter = 0
-        self._supported_types: Set[DatabaseType] = set()
-        self._type_mappings: Dict[DatabaseType, TypeMapping] = {}
-
-    @abstractmethod
-    def get_column_type(self, db_type: DatabaseType, **params) -> str:
-        """
-        Get database-specific column type definition string for a given unified type.
-
-        Args:
-            db_type: Unified database type from DatabaseType enum
-            **params: Type-specific parameters, which may include:
-                - length: For string types (CHAR, VARCHAR)
-                - precision: For numeric types (DECIMAL, FLOAT)
-                - scale: For DECIMAL type
-                - timezone: For time/timestamp types
-                - array_dimensions: For ARRAY types
-                - geometry_type: For geometric types (POINT, POLYGON, etc.)
-                - enum_values: For ENUM types
-                - custom_type: For database-specific CUSTOM types
-
-        Returns:
-            str: Formatted column type definition for the target database
-
-        Raises:
-            ValueError: If the type is not supported by this database
-        """
-        pass
-
-    @abstractmethod
-    def get_placeholder(self, db_type: Optional[DatabaseType] = None) -> str:
-        """
-        Get parameter placeholder for prepared statements.
-
-        Different databases use different placeholder syntax:
-        - SQLite: ?
-        - MySQL: %s
-        - PostgreSQL: %s or $1, $2 (depending on driver)
-        - MariaDB: ?
-        - SQL Server: @p1, @p2 or ?
-
-        Args:
-            db_type: Optional database type for type-specific placeholders
-                     (some databases may use different placeholders for different types)
-
-        Returns:
-            str: Parameter placeholder string
-        """
-        pass
-
-    @abstractmethod
-    def reset_placeholders(self) -> None:
-        """
-        Reset placeholder counter if the database uses positional placeholders.
-
-        This is needed for databases like PostgreSQL with asyncpg driver ($1, $2)
-        or Oracle (:1, :2) where placeholder position matters.
-        """
-        pass
-
-    def supports_type(self, db_type: DatabaseType) -> bool:
-        """
-        Check if this database supports the given type.
-
-        Args:
-            db_type: DatabaseType to check
-
-        Returns:
-            bool: True if the type is supported
-        """
-        return db_type in self._supported_types
-
-    def get_supported_types(self) -> Set[DatabaseType]:
-        """
-        Get all supported database types.
-
-        Returns:
-            Set[DatabaseType]: Set of supported database types
-        """
-        return self._supported_types.copy()
-
-    def format_type_with_modifiers(self, base_type: str, **modifiers) -> str:
-        """
-        Format complete type definition with modifiers.
-
-        This helper method creates a full type definition including modifiers
-        like NULL/NOT NULL, DEFAULT, etc.
-
-        Args:
-            base_type: Base type definition string
-            **modifiers: Type modifiers which may include:
-                - nullable: bool
-                - default: Any
-                - primary_key: bool
-                - unique: bool
-                - check: str (constraint expression)
-                - collate: str (collation name)
-                - autoincrement: bool
-
-        Returns:
-            str: Formatted type definition with modifiers
-        """
-        parts = [base_type]
-
-        if modifiers.get('nullable') is False:
-            parts.append("NOT NULL")
-
-        if 'default' in modifiers:
-            default_val = modifiers['default']
-            if isinstance(default_val, str):
-                parts.append(f"DEFAULT '{default_val}'")
-            else:
-                parts.append(f"DEFAULT {default_val}")
-
-        if modifiers.get('primary_key'):
-            parts.append("PRIMARY KEY")
-
-        if modifiers.get('unique'):
-            parts.append("UNIQUE")
-
-        if 'check' in modifiers:
-            parts.append(f"CHECK ({modifiers['check']})")
-
-        if 'collate' in modifiers:
-            parts.append(f"COLLATE {modifiers['collate']}")
-
-        return " ".join(parts)
-
-    def format_with_length(self, base_type: str, params: Dict[str, Any]) -> str:
-        """
-        Format type with length parameter.
-
-        Args:
-            base_type: Base type name
-            params: Type parameters including 'length'
-
-        Returns:
-            str: Formatted type with length
-        """
-        if 'length' in params:
-            return f"{base_type}({params['length']})"
-        return base_type
-
-    def format_decimal(self, base_type: str, params: Dict[str, Any]) -> str:
-        """
-        Format decimal type with precision and scale.
-
-        Args:
-            base_type: Base type name
-            params: Type parameters including 'precision' and 'scale'
-
-        Returns:
-            str: Formatted decimal type
-        """
-        precision = params.get('precision', 10)
-        scale = params.get('scale', 0)
-        return f"{base_type}({precision}, {scale})"
-
-    def format_enum(self, base_type: str, params: Dict[str, Any]) -> str:
-        """
-        Format enum type with values.
-
-        Args:
-            base_type: Base type name
-            params: Type parameters including 'values'
-
-        Returns:
-            str: Formatted enum type
-        """
-        if 'values' in params:
-            values_str = ", ".join(f"'{v}'" for v in params['values'])
-            return f"{base_type}({values_str})"
-        return base_type
-
-    @classmethod
-    def get_pydantic_model_field_type(cls, field_info) -> Optional[DatabaseType]:
-        """Infer database type from field type
-
-        Args:
-            field_info: Pydantic field information
-
-        Returns:
-            Optional[DatabaseType]: Inferred database type
-        """
-        from pydantic import Json
-        annotation = field_info.annotation
-
-        # Handle Optional/Union types
-        if get_origin(annotation) in (Union, Optional):
-            # Get non-None type
-            types = [t for t in field_info.annotation.__args__ if t is not type(None)]
-            if types:
-                annotation = types[0]
-
-        # Map Python types to DatabaseType
-        if annotation in (datetime, Optional[datetime]):
-            return DatabaseType.DATETIME
-        elif annotation in (date, Optional[date]):
-            return DatabaseType.DATE
-        elif annotation in (time, Optional[time]):
-            return DatabaseType.TIME
-        elif annotation in (bool, Optional[bool]):
-            return DatabaseType.BOOLEAN
-        elif annotation in (int, Optional[int]):
-            return DatabaseType.INTEGER
-        elif annotation in (float, Optional[float]):
-            return DatabaseType.FLOAT
-        elif annotation in (Decimal, Optional[Decimal]):
-            return DatabaseType.DECIMAL
-        elif annotation in (uuid.UUID, Optional[uuid.UUID]):
-            return DatabaseType.UUID
-        elif annotation in (list, List, Optional[list], Optional[List]):
-            return DatabaseType.ARRAY
-        elif annotation in (dict, Dict, Optional[dict], Optional[Dict]):
-            return DatabaseType.JSON
-        # Check if Json type (Pydantic specific)
-        elif get_origin(annotation) is Json:
-            return DatabaseType.JSON
-        # Check if Enum type
-        elif isinstance(annotation, type) and issubclass(annotation, Enum):
-            return DatabaseType.TEXT
-        elif annotation in (bytes, bytearray):
-            return DatabaseType.BLOB
-
-        return DatabaseType.TEXT
-
-class ValueMapper(ABC):
-    """Abstract base class for value mappers"""
-
-    @abstractmethod
-    def to_database(self, value: Any, db_type: DatabaseType) -> Any:
-        """Convert to database value"""
-        pass
-
-    @abstractmethod
-    def from_database(self, value: Any, db_type: DatabaseType) -> Any:
-        """Convert from database value"""
-        pass
 
 class ReturningClauseHandler(ABC):
     """
@@ -425,10 +66,10 @@ class ReturningClauseHandler(ABC):
         pass
 
     def format_advanced_clause(self,
-                            columns: Optional[List[str]] = None,
-                            expressions: Optional[List[Dict[str, Any]]] = None,
-                            aliases: Optional[Dict[str, str]] = None,
-                            dialect_options: Optional[Dict[str, Any]] = None) -> str:
+                               columns: Optional[List[str]] = None,
+                               expressions: Optional[List[Dict[str, Any]]] = None,
+                               aliases: Optional[Dict[str, str]] = None,
+                               dialect_options: Optional[Dict[str, Any]] = None) -> str:
         """
         Format advanced RETURNING clause with expressions and aliases.
 
@@ -528,6 +169,7 @@ class ReturningClauseHandler(ABC):
         supported_features = {"columns"}
         return feature in supported_features
 
+
 class AggregateHandler(ABC):
     """Base class for handling database-specific aggregate functionality.
 
@@ -607,6 +249,7 @@ class AggregateHandler(ABC):
         """
         pass
 
+
 class JsonOperationHandler:
     """Interface for database-specific JSON operation support.
 
@@ -662,6 +305,7 @@ class JsonOperationHandler:
         """
         pass
 
+
 class SQLExpressionBase(ABC):
     """Base class for SQL expressions
 
@@ -694,32 +338,35 @@ class SQLExpressionBase(ABC):
         """
         pass
 
+
 class ExplainType(Enum):
     """Type of EXPLAIN output"""
-    BASIC = auto()      # Basic execution plan
-    ANALYZE = auto()    # Include actual execution statistics
+    BASIC = auto()  # Basic execution plan
+    ANALYZE = auto()  # Include actual execution statistics
     QUERYPLAN = auto()  # Query plan only (SQLite specific)
+
 
 class ExplainFormat(Enum):
     """Output format for EXPLAIN results"""
-    TEXT = "text"    # Human readable text
-    JSON = "json"    # JSON format
-    XML = "xml"      # XML format (SQL Server)
-    YAML = "yaml"    # YAML format (PostgreSQL)
-    TREE = "tree"    # TREE format (MySQL)
+    TEXT = "text"  # Human readable text
+    JSON = "json"  # JSON format
+    XML = "xml"  # XML format (SQL Server)
+    YAML = "yaml"  # YAML format (PostgreSQL)
+    TREE = "tree"  # TREE format (MySQL)
+
 
 @dataclass
 class ExplainOptions:
     """Options for EXPLAIN command"""
     type: ExplainType = ExplainType.BASIC
     format: ExplainFormat = ExplainFormat.TEXT
-    costs: bool = True        # Show estimated costs
-    buffers: bool = False     # Show buffer usage
-    timing: bool = True       # Include timing information
-    verbose: bool = False     # Show additional information
-    settings: bool = False    # Show modified settings (PostgreSQL)
-    wal: bool = False        # Show WAL usage (PostgreSQL)
-    analyze: bool = False     # Same as type=ANALYZE, for compatibility
+    costs: bool = True  # Show estimated costs
+    buffers: bool = False  # Show buffer usage
+    timing: bool = True  # Include timing information
+    verbose: bool = False  # Show additional information
+    settings: bool = False  # Show modified settings (PostgreSQL)
+    wal: bool = False  # Show WAL usage (PostgreSQL)
+    analyze: bool = False  # Same as type=ANALYZE, for compatibility
 
     def __post_init__(self):
         """Validate options and handle compatibility"""
@@ -736,40 +383,75 @@ class ExplainOptions:
         if self.format not in self.supported_formats:
             raise ValueError(f"Format {self.format} not supported by {dialect}")
 
+
 class SQLDialectBase(ABC):
     """Base class for SQL dialects
 
     Defines SQL syntax differences between database backends
     """
-    _type_mapper: TypeMapper
-    _value_mapper: ValueMapper
     _returning_handler: ReturningClauseHandler
     _aggregate_handler: AggregateHandler
     _json_operation_handler: JsonOperationHandler
     _version: tuple
+    _type_registry: TypeRegistry
 
-    def __init__(self, version: tuple) -> None:
+    def __init__(self, version: tuple, type_registry: Optional[TypeRegistry] = None) -> None:
         """Initialize SQL dialect
 
         Args:
             version: Database version tuple
+            type_registry: Optional custom type registry
         """
         self._version = version
+        self._type_registry = type_registry or TypeRegistry()
+        self._register_default_converters()
 
     @property
     def version(self) -> tuple:
         """Get database version"""
         return self._version
 
-    @property
-    def type_mapper(self) -> TypeMapper:
-        """Get type mapper"""
-        return self._type_mapper
+    def _register_default_converters(self) -> None:
+        """Register default type converters"""
+        # Register standard converters
+        self._type_registry.register(BasicTypeConverter(),
+                                     names=["INTEGER", "INT", "SMALLINT", "BIGINT", "TINYINT"],
+                                     types=[DatabaseType.INTEGER, DatabaseType.SMALLINT,
+                                            DatabaseType.BIGINT, DatabaseType.TINYINT])
+
+        self._type_registry.register(DateTimeConverter(),
+                                     names=["DATE", "TIME", "DATETIME", "TIMESTAMP"],
+                                     types=[DatabaseType.DATE, DatabaseType.TIME,
+                                            DatabaseType.DATETIME, DatabaseType.TIMESTAMP])
+
+        self._type_registry.register(BooleanConverter(),
+                                     names=["BOOLEAN", "BOOL"],
+                                     types=[DatabaseType.BOOLEAN])
+
+        self._type_registry.register(UUIDConverter(),
+                                     names=["UUID"],
+                                     types=[DatabaseType.UUID])
+
+        self._type_registry.register(JSONConverter(),
+                                     names=["JSON", "JSONB"],
+                                     types=[DatabaseType.JSON, DatabaseType.JSONB])
+
+        self._type_registry.register(DecimalConverter(),
+                                     names=["DECIMAL", "NUMERIC"],
+                                     types=[DatabaseType.DECIMAL, DatabaseType.NUMERIC])
+
+        self._type_registry.register(ArrayConverter(),
+                                     names=["ARRAY"],
+                                     types=[DatabaseType.ARRAY])
+
+        self._type_registry.register(EnumConverter(),
+                                     names=["ENUM"],
+                                     types=[DatabaseType.ENUM])
 
     @property
-    def value_mapper(self) -> ValueMapper:
-        """Get value mapper"""
-        return self._value_mapper
+    def type_registry(self) -> TypeRegistry:
+        """Get the type registry used by this dialect"""
+        return self._type_registry
 
     @property
     def returning_handler(self) -> ReturningClauseHandler:
@@ -785,6 +467,18 @@ class SQLDialectBase(ABC):
     def json_operation_handler(self) -> JsonOperationHandler:
         """Get JSON operation handler"""
         return self._json_operation_handler
+
+    def register_converter(self, converter: Any, names: Optional[List[str]] = None,
+                           types: Optional[List[Any]] = None) -> None:
+        """
+        Register a type converter with this dialect.
+
+        Args:
+            converter: Type converter to register
+            names: Optional list of type names this converter handles
+            types: Optional list of DatabaseType enum values this converter handles
+        """
+        self._type_registry.register(converter, names, types)
 
     @abstractmethod
     def format_expression(self, expr: SQLExpressionBase) -> str:
@@ -833,7 +527,7 @@ class SQLDialectBase(ABC):
 
     @abstractmethod
     def format_limit_offset(self, limit: Optional[int] = None,
-                          offset: Optional[int] = None) -> str:
+                            offset: Optional[int] = None) -> str:
         """Format LIMIT and OFFSET clause.
 
         Args:
@@ -926,6 +620,84 @@ class SQLDialectBase(ABC):
             alias=alias
         )
 
+    def to_database(self, value: Any, target_type: Any = None) -> Any:
+        """
+        Convert a Python value to its database representation.
+
+        Args:
+            value: Python value to convert
+            target_type: DatabaseType or string type name
+
+        Returns:
+            Value converted for database storage
+        """
+        return self._type_registry.to_database(value, target_type)
+
+    def from_database(self, value: Any, source_type: Any = None) -> Any:
+        """
+        Convert a database value to its Python representation.
+
+        Args:
+            value: Database value to convert
+            source_type: DatabaseType or string type name
+
+        Returns:
+            Value converted to Python type
+        """
+        return self._type_registry.from_database(value, source_type)
+
+    @classmethod
+    def get_pydantic_model_field_type(cls, field_info) -> Optional[DatabaseType]:
+        """Infer database type from field type
+
+        Args:
+            field_info: Pydantic field information
+
+        Returns:
+            Optional[DatabaseType]: Inferred database type
+        """
+        from pydantic import Json
+        annotation = field_info.annotation
+
+        # Handle Optional/Union types
+        if get_origin(annotation) in (Union, Optional):
+            # Get non-None type
+            types = [t for t in field_info.annotation.__args__ if t is not type(None)]
+            if types:
+                annotation = types[0]
+
+        # Map Python types to DatabaseType
+        if annotation in (datetime, Optional[datetime]):
+            return DatabaseType.DATETIME
+        elif annotation in (date, Optional[date]):
+            return DatabaseType.DATE
+        elif annotation in (time, Optional[time]):
+            return DatabaseType.TIME
+        elif annotation in (bool, Optional[bool]):
+            return DatabaseType.BOOLEAN
+        elif annotation in (int, Optional[int]):
+            return DatabaseType.INTEGER
+        elif annotation in (float, Optional[float]):
+            return DatabaseType.FLOAT
+        elif annotation in (Decimal, Optional[Decimal]):
+            return DatabaseType.DECIMAL
+        elif annotation in (uuid.UUID, Optional[uuid.UUID]):
+            return DatabaseType.UUID
+        elif annotation in (list, List, Optional[list], Optional[List]):
+            return DatabaseType.ARRAY
+        elif annotation in (dict, Dict, Optional[dict], Optional[Dict]):
+            return DatabaseType.JSON
+        # Check if Json type (Pydantic specific)
+        elif get_origin(annotation) is Json:
+            return DatabaseType.JSON
+        # Check if Enum type
+        elif isinstance(annotation, type) and issubclass(annotation, Enum):
+            return DatabaseType.TEXT
+        elif annotation in (bytes, bytearray):
+            return DatabaseType.BLOB
+
+        return DatabaseType.TEXT
+
 class SQLBuilder:
     """SQL Builder
 
@@ -958,9 +730,28 @@ class SQLBuilder:
         if not params:
             return sql, ()
 
-        # Convert params to tuple if needed
-        if isinstance(params, (list, dict)):
-            params = tuple(params)
+        # Process parameters - convert different types to appropriate format
+        if isinstance(params, dict):
+            # Convert dictionary values to database format
+            processed_params = tuple(
+                self.dialect.to_database(value, None)
+                for value in params.values()
+            )
+        elif isinstance(params, list):
+            # Convert list values to database format
+            processed_params = tuple(
+                self.dialect.to_database(value, None)
+                for value in params
+            )
+        elif isinstance(params, tuple):
+            # Convert tuple values to database format
+            processed_params = tuple(
+                self.dialect.to_database(value, None)
+                for value in params
+            )
+        else:
+            # Handle unexpected parameter type
+            processed_params = (self.dialect.to_database(params, None),)
 
         # First pass: collect information about parameters
         final_params = []

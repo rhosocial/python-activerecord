@@ -2,21 +2,18 @@
 Database backend abstraction layer for Python ORMs.
 
 This module provides a generic interface for database operations, with support for:
-- Multiple database backends (SQLite, MySQL, PostgreSQL)
+- Multiple database backends (SQLite, MySQL, PostgreSQL, etc.)
 - Type mapping and conversion
 - Transaction management
 - SQL dialect handling
 - Connection pooling
 """
 
-__version__ = "0.5.0"
+__version__ = "0.6.0"
 
 # Core interfaces and base classes
 from .base import StorageBackend
 from .dialect import (
-    DatabaseType,
-    TypeMapper,
-    ValueMapper,
     TypeMapping,
     SQLDialectBase,
     SQLExpressionBase, ReturningOptions,
@@ -28,6 +25,7 @@ from .typing import (
     QueryResult,
     DatabaseValue,
     PythonValue,
+    DatabaseType,
 )
 
 # Error types
@@ -65,9 +63,6 @@ __all__ = [
     # Base classes
     'StorageBackend',
     # Dialect related
-    'DatabaseType',
-    'TypeMapper',
-    'ValueMapper',
     'TypeMapping',
 
     # Types and configs
@@ -75,6 +70,7 @@ __all__ = [
     'QueryResult',
     'DatabaseValue',
     'PythonValue',
+    'DatabaseType',
 
     # Errors
     'DatabaseError',

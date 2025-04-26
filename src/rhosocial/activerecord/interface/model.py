@@ -12,9 +12,8 @@ from pydantic.fields import FieldInfo
 
 from .base import ModelEvent
 from ..backend.base import StorageBackend, ColumnTypes
-from ..backend.dialect import DatabaseType
 from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.typing import ConnectionConfig
+from ..backend.typing import ConnectionConfig, DatabaseType
 
 
 class CustomModuleFormatter(logging.Formatter):
@@ -256,7 +255,7 @@ class IActiveRecord(BaseModel, ABC):
         model_fields: Dict[str, FieldInfo] = dict(self.model_fields)
 
         for field_name, field_info in model_fields.items():
-            db_type = self.backend().type_mapper.get_pydantic_model_field_type(field_info)
+            db_type = self.backend().dialect.get_pydantic_model_field_type(field_info)
             if db_type is not None:
                 types[field_name] = db_type
 

@@ -4,26 +4,26 @@ from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 def test_connect_success(db_path):
-    """测试连接成功"""
+    """Test successful connection"""
     backend = SQLiteBackend(database=db_path)
     backend.connect()
     assert backend._connection is not None
     backend.disconnect()
 
 def test_connect_invalid_path():
-    """测试无效路径连接失败"""
+    """Test connection failure with invalid path"""
     backend = SQLiteBackend(database="/invalid/path/db.sqlite")
     with pytest.raises(ConnectionError):
         backend.connect()
 
 def test_disconnect(db):
-    """测试断开连接"""
+    """Test disconnection"""
     db.disconnect()
     assert db._connection is None
     assert db._cursor is None
 
 def test_ping(db):
-    """测试ping功能"""
+    """Test ping functionality"""
     assert db.ping() is True
     db.disconnect()
     assert db.ping(reconnect=False) is False

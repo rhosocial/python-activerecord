@@ -152,11 +152,6 @@ def test_right_join(order_fixtures):
     order = Order(user_id=user1.id, order_number='ORD-001')
     order.save()
 
-    # Skip testing on SQLite as it doesn't support RIGHT JOIN
-    backend_name = Order.backend().__class__.__name__
-    if 'SQLite' in backend_name:
-        return  # Skip test for SQLite
-
     # Test RIGHT JOIN using enhanced right_join method
     # Should return both users since orders is on the left
     # and users on the right, and all users should be returned
@@ -164,12 +159,12 @@ def test_right_join(order_fixtures):
         .select(f'{User.__table_name__}.*') \
         .right_join(User.__table_name__, f'{Order.__table_name__}.user_id', f'{User.__table_name__}.id') \
         .order_by(f'{User.__table_name__}.username') \
-        .all()
+        .to_dict(direct_dict=True).all()
 
     assert len(results) >= 2  # Should return at least both users
 
     # Check that we have both users, including the one without orders
-    usernames = sorted([User.find_one(r.user_id).username for r in results if r.user_id])
+    usernames = sorted([User.find_one(r['id']).username for r in results if r['id']])
     assert 'user1' in usernames
     assert 'user2' in usernames
 
@@ -197,22 +192,17 @@ def test_right_outer_join(order_fixtures):
     order = Order(user_id=user1.id, order_number='ORD-001')
     order.save()
 
-    # Skip testing on SQLite as it doesn't support RIGHT JOIN
-    backend_name = Order.backend().__class__.__name__
-    if 'SQLite' in backend_name:
-        return  # Skip test for SQLite
-
     # Test RIGHT OUTER JOIN with outer keyword
     results = Order.query() \
         .select(f'{User.__table_name__}.*') \
         .right_join(User.__table_name__, f'{Order.__table_name__}.user_id', f'{User.__table_name__}.id', outer=True) \
         .order_by(f'{User.__table_name__}.username') \
-        .all()
+        .to_dict(direct_dict=True).all()
 
     assert len(results) >= 2  # Should return at least both users
 
     # Check that we have both users, including the one without orders
-    usernames = sorted([User.find_one(r.user_id).username for r in results if r.user_id])
+    usernames = sorted([User.find_one(r['id']).username for r in results if r['id']])
     assert 'user1' in usernames
     assert 'user2' in usernames
 

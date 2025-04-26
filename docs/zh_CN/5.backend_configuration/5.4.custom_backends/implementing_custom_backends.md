@@ -163,7 +163,7 @@ class YourTypeMapper(TypeMapper):
             DatabaseType.BOOLEAN: TypeMapping("BOOLEAN"),
             DatabaseType.DATE: TypeMapping("DATE"),
             DatabaseType.DATETIME: TypeMapping("DATETIME"),
-            DatabaseType.BINARY: TypeMapping("BLOB"),
+            DatabaseType.BLOB: TypeMapping("BLOB"),
             # 根据需要添加其他类型映射
             DatabaseType.CUSTOM: TypeMapping("TEXT"),  # 自定义类型的默认值
         }

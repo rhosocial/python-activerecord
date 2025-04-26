@@ -6,6 +6,8 @@
 
 - [类型系统概述](#类型系统概述)
 - [统一类型系统](#统一类型系统)
+- [类型转换器系统](#类型转换器系统)
+- [类型注册表](#类型注册表)
 - [数据库特定类型映射](#数据库特定类型映射)
   - [SQLite](#sqlite)
   - [MySQL](#mysql)
@@ -29,43 +31,232 @@ rhosocial ActiveRecord使用三层类型系统：
 
 ## 统一类型系统
 
-rhosocial ActiveRecord通过`dialect`模块中的`DatabaseType`枚举定义了统一的类型系统。这个枚举包括常见的数据类型，这些类型会映射到每个数据库后端的适当原生类型：
+rhosocial ActiveRecord通过`typing`模块中的`DatabaseType`枚举定义了统一的类型系统。这个枚举包括常见的数据类型，这些类型会映射到每个数据库后端的适当原生类型：
 
 ```python
 class DatabaseType(Enum):
-    # 字符串类型
-    CHAR = auto()
-    VARCHAR = auto()
-    TEXT = auto()
-    
-    # 数值类型
-    INTEGER = auto()
-    BIGINT = auto()
-    SMALLINT = auto()
-    FLOAT = auto()
-    DOUBLE = auto()
-    DECIMAL = auto()
-    
-    # 日期/时间类型
-    DATE = auto()
-    TIME = auto()
-    DATETIME = auto()
-    TIMESTAMP = auto()
-    
-    # 布尔类型
-    BOOLEAN = auto()
-    
-    # 二进制数据
-    BLOB = auto()
-    
-    # JSON数据
-    JSON = auto()
-    
-    # 其他类型
-    UUID = auto()
-    ARRAY = auto()
-    ENUM = auto()
+    """
+    跨各种数据库系统的统一数据库类型定义。
+
+    此枚举提供了一组标准的数据库列类型，可以映射到每个数据库后端的特定实现。
+    """
+
+    # --- 标准数值类型 ---
+    TINYINT = auto()  # 小整数（通常为1字节）
+    SMALLINT = auto()  # 小整数（通常为2字节）
+    INTEGER = auto()  # 标准整数（通常为4字节）
+    BIGINT = auto()  # 大整数（通常为8字节）
+    FLOAT = auto()  # 单精度浮点数
+    DOUBLE = auto()  # 双精度浮点数
+    DECIMAL = auto()  # 固定精度小数
+    NUMERIC = auto()  # 通用数值类型
+    REAL = auto()  # 实数类型
+
+    # --- 标准字符串类型 ---
+    CHAR = auto()  # 固定长度字符串
+    VARCHAR = auto()  # 有限制的可变长度字符串
+    TEXT = auto()  # 无限制的可变长度字符串
+    TINYTEXT = auto()  # 非常小的文本（最多255个字符）
+    MEDIUMTEXT = auto()  # 中等大小的文本
+    LONGTEXT = auto()  # 大文本
+
+    # --- 标准日期和时间类型 ---
+    DATE = auto()  # 仅日期（年、月、日）
+    TIME = auto()  # 仅时间（时、分、秒）
+    DATETIME = auto()  # 不带时区的日期和时间
+    TIMESTAMP = auto()  # 带时区的日期和时间
+    INTERVAL = auto()  # 时间间隔
+
+    # --- 标准二进制类型 ---
+    BLOB = auto()  # 二进制大对象
+    TINYBLOB = auto()  # 小二进制对象
+    MEDIUMBLOB = auto()  # 中等二进制对象
+    LONGBLOB = auto()  # 大二进制对象
+    BYTEA = auto()  # 二进制数据
+
+    # --- 标准布尔类型 ---
+    BOOLEAN = auto()  # 布尔值（真/假）
+
+    # --- 常见扩展类型 ---
+    UUID = auto()  # 通用唯一标识符
+
+    # --- JSON类型 ---
+    JSON = auto()  # JSON文档
+    JSONB = auto()  # 二进制JSON
+
+    # --- 数组类型 ---
+    ARRAY = auto()  # 值数组
+
+    # --- XML类型 ---
+    XML = auto()  # XML文档
+
+    # --- 键值类型 ---
+    HSTORE = auto()  # 键值存储
+
+    # --- 网络地址类型 ---
+    INET = auto()  # IPv4或IPv6主机地址
+    CIDR = auto()  # IPv4或IPv6网络地址
+    MACADDR = auto()  # MAC地址
+    MACADDR8 = auto()  # MAC地址（EUI-64格式）
+
+    # --- 几何类型 ---
+    POINT = auto()  # 平面上的点(x,y)
+    LINE = auto()  # 无限线
+    LSEG = auto()  # 线段
+    BOX = auto()  # 矩形框
+    PATH = auto()  # 闭合和开放路径
+    POLYGON = auto()  # 多边形（类似于闭合路径）
+    CIRCLE = auto()  # 圆
+    GEOMETRY = auto()  # 通用几何类型
+    GEOGRAPHY = auto()  # 地理数据类型
+
+    # --- 范围类型 ---
+    INT4RANGE = auto()  # 整数范围
+    INT8RANGE = auto()  # 大整数范围
+    NUMRANGE = auto()  # 数值范围
+    TSRANGE = auto()  # 不带时区的时间戳范围
+    TSTZRANGE = auto()  # 带时区的时间戳范围
+    DATERANGE = auto()  # 日期范围
+
+    # --- 全文搜索类型 ---
+    TSVECTOR = auto()  # 文本搜索文档
+    TSQUERY = auto()  # 文本搜索查询
+
+    # --- 货币类型 ---
+    MONEY = auto()  # 货币金额
+
+    # --- 位字符串类型 ---
+    BIT = auto()  # 固定长度位字符串
+    VARBIT = auto()  # 可变长度位字符串
+
+    # --- 枚举和集合类型 ---
+    ENUM = auto()  # 字符串值的枚举
+    SET = auto()  # 字符串值的集合
+
+    # --- 大对象类型 ---
+    CLOB = auto()  # 字符大对象
+    NCLOB = auto()  # 国家字符大对象
+
+    # --- Unicode类型 ---
+    NCHAR = auto()  # Unicode固定长度字符数据
+    NVARCHAR = auto()  # Unicode可变长度字符数据
+    NTEXT = auto()  # Unicode可变长度字符数据
+
+    # --- 行标识符类型 ---
+    ROWID = auto()  # 物理行地址
+    UROWID = auto()  # 通用行ID
+
+    # --- 层次类型 ---
+    HIERARCHYID = auto()  # 树层次位置
+
+    # --- 可扩展自定义类型 ---
     CUSTOM = auto()  # 用于上面未涵盖的数据库特定类型
+```
+
+## 类型转换器系统
+
+类型转换器系统负责在Python类型和数据库类型之间转换数据。它由一系列处理特定类型转换的转换器类组成。
+
+### 转换器架构
+
+转换器系统围绕以下组件构建：
+
+1. **BaseTypeConverter**：定义所有类型转换器接口的抽象基类
+2. **TypeConverterFactory**：创建和管理类型转换器实例的工厂类
+3. **专用转换器**：针对特定类型转换的具体实现
+
+```python
+class BaseTypeConverter(ABC):
+    @abstractmethod
+    def to_python(self, value, field=None):
+        """将数据库值转换为Python对象"""
+        pass
+        
+    @abstractmethod
+    def to_database(self, value, field=None):
+        """将Python对象转换为数据库值"""
+        pass
+```
+
+### 内置转换器
+
+rhosocial ActiveRecord为常见数据类型提供了内置转换器：
+
+| 转换器类 | Python类型 | 数据库类型 |
+|-----------------|-------------|---------------|
+| StringConverter | str | VARCHAR, CHAR, TEXT |
+| IntegerConverter | int | INTEGER, SMALLINT, BIGINT |
+| FloatConverter | float | FLOAT, DOUBLE |
+| DecimalConverter | Decimal | DECIMAL |
+| BooleanConverter | bool | BOOLEAN |
+| DateConverter | date | DATE |
+| TimeConverter | time | TIME |
+| DateTimeConverter | datetime | DATETIME, TIMESTAMP |
+| JsonConverter | dict, list | JSON |
+| UuidConverter | UUID | UUID |
+| BytesConverter | bytes | BLOB |
+
+## 类型注册表
+
+类型注册表是一个中央存储库，管理Python类型、ActiveRecord类型和数据库特定类型之间的映射。它允许动态注册自定义类型转换器。
+
+### 注册表架构
+
+注册表系统由以下部分组成：
+
+1. **TypeRegistry**：维护类型之间映射的单例类
+2. **TypeRegistration**：保存已注册类型信息的数据类
+
+```python
+class TypeRegistry:
+    _instance = None
+    
+    def __new__(cls):
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialize()
+        return cls._instance
+    
+    def _initialize(self):
+        self._python_to_db_type = {}
+        self._db_type_to_converter = {}
+        self._register_defaults()
+    
+    def register(self, python_type, db_type, converter_class):
+        """注册新的类型映射"""
+        self._python_to_db_type[python_type] = db_type
+        self._db_type_to_converter[db_type] = converter_class
+    
+    def get_db_type(self, python_type):
+        """获取Python类型对应的数据库类型"""
+        return self._python_to_db_type.get(python_type)
+    
+    def get_converter(self, db_type):
+        """获取数据库类型对应的转换器"""
+        return self._db_type_to_converter.get(db_type)
+```
+
+### 自定义类型注册
+
+您可以注册自定义类型转换器来处理专门的数据类型：
+
+```python
+# 创建自定义转换器
+class PointConverter(BaseTypeConverter):
+    def to_python(self, value, field=None):
+        if value is None:
+            return None
+        x, y = value.strip('()').split(',')
+        return Point(float(x), float(y))
+    
+    def to_database(self, value, field=None):
+        if value is None:
+            return None
+        return f'({value.x},{value.y})'
+
+# 注册自定义转换器
+registry = TypeRegistry()
+registry.register(Point, DatabaseType.CUSTOM, PointConverter)
 ```
 
 ## 数据库特定类型映射
@@ -257,3 +448,7 @@ class MyModel(ActiveRecord):
 6. **处理NULL值**：在不同数据库系统中一致地处理NULL值
 
 7. **记录自定义类型**：使用`CUSTOM`类型时，记录不同数据库系统中的预期行为
+
+8. **利用类型注册表**：为专门的数据类型注册自定义类型转换器，以确保在整个应用程序中一致处理
+
+9. **扩展转换器系统**：对于复杂的数据类型，实现正确处理序列化和反序列化的自定义转换器
