@@ -1,10 +1,10 @@
 # Pydantic 集成优势
 
-Python ActiveRecord 与 Pydantic 的紧密集成提供了显著的优势，值得特别关注：
+rhosocial ActiveRecord 与 Pydantic 的紧密集成提供了显著的优势，值得特别关注：
 
 ## 1. 无缝生态系统集成
 
-Python ActiveRecord 模型可以直接与其他基于 Pydantic 的库和框架一起使用：
+rhosocial ActiveRecord 模型可以直接与其他基于 Pydantic 的库和框架一起使用：
 
 - **FastAPI**：模型可以用作请求/响应模式，无需转换
 - **Pydantic Settings**：使用相同验证的配置管理
@@ -14,7 +14,7 @@ Python ActiveRecord 模型可以直接与其他基于 Pydantic 的库和框架�
 
 ## 2. 高级类型验证
 
-Python ActiveRecord 继承了 Pydantic 的强大验证能力：
+rhosocial ActiveRecord 继承了 Pydantic 的强大验证能力：
 
 - **复杂类型**：支持嵌套模型、联合类型、字面量和泛型
 - **自定义验证器**：字段级和模型级验证函数
@@ -38,7 +38,7 @@ Python ActiveRecord 继承了 Pydantic 的强大验证能力：
 
 ## 集成示例
 
-以下是 Python ActiveRecord 模型如何与 FastAPI 应用程序无缝集成的示例：
+以下是 rhosocial ActiveRecord 模型如何与 FastAPI 应用程序无缝集成的示例：
 
 ```python
 from fastapi import FastAPI

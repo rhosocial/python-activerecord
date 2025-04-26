@@ -1,6 +1,6 @@
 # Version Control and Optimistic Locking
 
-Optimistic locking is a concurrency control method that allows multiple users to access the same record for editing, while preventing inadvertent overwrites of changes. Python ActiveRecord provides the `OptimisticLockMixin` to implement this pattern in your models.
+Optimistic locking is a concurrency control method that allows multiple users to access the same record for editing, while preventing inadvertent overwrites of changes. rhosocial ActiveRecord provides the `OptimisticLockMixin` to implement this pattern in your models.
 
 ## Overview
 

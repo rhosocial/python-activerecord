@@ -1,6 +1,6 @@
 # Soft Delete Mechanism
 
-Soft deletion is a pattern where records are marked as deleted instead of being physically removed from the database. Python ActiveRecord provides the `SoftDeleteMixin` to implement this pattern in your models.
+Soft deletion is a pattern where records are marked as deleted instead of being physically removed from the database. rhosocial ActiveRecord provides the `SoftDeleteMixin` to implement this pattern in your models.
 
 ## Overview
 

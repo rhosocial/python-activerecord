@@ -4,7 +4,7 @@
 
 ## 定义您的第一个模型
 
-在Python ActiveRecord中，模型是继承自`ActiveRecord`的Python类，它们定义了数据库表的结构。
+在rhosocial ActiveRecord中，模型是继承自`ActiveRecord`的Python类，它们定义了数据库表的结构。
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -39,7 +39,7 @@ User.configure(
 
 ## 使用数据库表
 
-Python ActiveRecord可以与与您的模型定义匹配的现有数据库表一起工作。目前，该框架不支持迁移功能，因此在使用模型之前，您需要使用SQL或其他数据库管理工具创建数据库表。
+rhosocial ActiveRecord可以与与您的模型定义匹配的现有数据库表一起工作。目前，该框架不支持迁移功能，因此在使用模型之前，您需要使用SQL或其他数据库管理工具创建数据库表。
 
 ## 基本CRUD操作
 
@@ -120,7 +120,7 @@ if user:
 
 ## 使用查询构建器
 
-Python ActiveRecord包含一个强大的查询构建器，用于更复杂的查询：
+rhosocial ActiveRecord包含一个强大的查询构建器，用于更复杂的查询：
 
 ```python
 # 复杂查询示例

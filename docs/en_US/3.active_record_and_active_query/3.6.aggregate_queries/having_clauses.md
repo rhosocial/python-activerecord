@@ -1,6 +1,6 @@
 # Having Clauses
 
-The HAVING clause is used to filter groups in aggregate queries based on aggregate conditions. While the WHERE clause filters rows before they are grouped, the HAVING clause filters groups after aggregation has been performed. Python ActiveRecord provides a clean API for working with HAVING clauses.
+The HAVING clause is used to filter groups in aggregate queries based on aggregate conditions. While the WHERE clause filters rows before they are grouped, the HAVING clause filters groups after aggregation has been performed. rhosocial ActiveRecord provides a clean API for working with HAVING clauses.
 
 ## Basic Usage
 
@@ -94,7 +94,7 @@ user_stats = User.query()\
     .aggregate()
 ```
 
-Python ActiveRecord will issue a warning if it detects potential alias usage in HAVING clauses.
+rhosocial ActiveRecord will issue a warning if it detects potential alias usage in HAVING clauses.
 
 ## Combining WHERE and HAVING
 
@@ -168,4 +168,4 @@ The HAVING clause is supported by all major database backends, but there may be 
 - Some databases may allow referencing aliases in HAVING clauses (non-standard SQL)
 - Function availability in HAVING clauses may vary by database
 
-Python ActiveRecord follows SQL standard behavior where HAVING clauses should use aggregate functions or columns from the GROUP BY clause, not aliases from the SELECT clause.
+rhosocial ActiveRecord follows SQL standard behavior where HAVING clauses should use aggregate functions or columns from the GROUP BY clause, not aliases from the SELECT clause.

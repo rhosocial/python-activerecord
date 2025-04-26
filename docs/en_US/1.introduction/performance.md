@@ -4,7 +4,7 @@ Performance varies depending on the specific operations and database backend. He
 
 ## Small Dataset Operations (1,000 records)
 
-| Operation | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| Operation | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |-----------|-------------------|------------|------------|--------|
 | Simple Retrieval | Fast | Medium | Fast | Fastest |
 | Complex Query | Medium | Fast | Medium | Fast |
@@ -14,7 +14,7 @@ Performance varies depending on the specific operations and database backend. He
 
 ## Large Dataset Operations (100,000+ records)
 
-| Operation | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| Operation | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |-----------|-------------------|------------|------------|--------|
 | Simple Retrieval | Medium | Fast | Slow | Medium |
 | Complex Query | Medium | Fastest | Slow | Fast |
@@ -24,7 +24,7 @@ Performance varies depending on the specific operations and database backend. He
 
 ## Memory Usage (relative comparison)
 
-| Scenario | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee |
+| Scenario | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee |
 |----------|-------------------|------------|------------|--------|
 | Loading 10,000 records | Medium | High | High | Low |
 | Complex object hierarchy | Medium | High | High | Low |
@@ -32,7 +32,7 @@ Performance varies depending on the specific operations and database backend. He
 
 ## Asynchronous Performance
 
-| Scenario | Python ActiveRecord | SQLAlchemy | Django ORM | Peewee-Async |
+| Scenario | rhosocial ActiveRecord | SQLAlchemy | Django ORM | Peewee-Async |
 |----------|-------------------|------------|------------|--------------|
 | Concurrent operations | Excellent | Good | Limited | Good |
 | Connection efficiency | Excellent | Good | Medium | Good |
@@ -42,7 +42,7 @@ Performance varies depending on the specific operations and database backend. He
 
 - Peewee generally has the lowest memory footprint due to its lightweight design
 - SQLAlchemy excels at complex queries due to its query optimization
-- Python ActiveRecord provides balanced performance with validation benefits
+- rhosocial ActiveRecord provides balanced performance with validation benefits
 - Django ORM can be slower with large datasets but performs well for typical web app loads
-- The Pydantic validation in Python ActiveRecord adds some overhead but prevents data issues early
-- In async scenarios, Python ActiveRecord's design provides excellent performance for concurrent operations
+- The Pydantic validation in rhosocial ActiveRecord adds some overhead but prevents data issues early
+- In async scenarios, rhosocial ActiveRecord's design provides excellent performance for concurrent operations

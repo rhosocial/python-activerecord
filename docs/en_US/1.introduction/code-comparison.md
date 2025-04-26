@@ -1,10 +1,10 @@
-# 代码比较
+# Code Comparison
 
-让我们比较一下这些 ORM 中常见的数据库操作：
+Let's compare how common database operations look across these ORMs:
 
-## 定义模型
+## Defining Models
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
 from activerecord import ActiveRecord
 from typing import Optional
@@ -93,103 +93,103 @@ class User(Model):
         table_name = 'users'
 ```
 
-## CRUD 操作
+## CRUD Operations
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
-# 创建
+# Create
 user = User(name="John Doe", email="john@domain.com")
-user.save()  # 返回受影响的行数
+user.save()  # Returns affected rows count
 
-# 读取
-user = User.find_one(1)  # 通过主键
+# Read
+user = User.find_one(1)  # By primary key
 active_users = User.query().where('is_active = ?', (True,)).all()
 
-# 更新
+# Update
 user.name = "Jane Doe"
 user.save()
 
-# 删除
-user.delete()  # 返回受影响的行数
+# Delete
+user.delete()  # Returns affected rows count
 ```
 
 **SQLAlchemy**:
 ```python
 from sqlalchemy.orm import Session
 
-# 创建
+# Create
 session = Session(engine)
 user = User(name="John Doe", email="john@domain.com")
 session.add(user)
 session.commit()
 
-# 读取
-user = session.query(User).get(1)  # 通过主键
+# Read
+user = session.query(User).get(1)  # By primary key
 active_users = session.query(User).filter(User.is_active == True).all()
 
-# 更新
+# Update
 user.name = "Jane Doe"
 session.commit()
 
-# 删除
+# Delete
 session.delete(user)
 session.commit()
 ```
 
 **Django ORM**:
 ```python
-# 创建
+# Create
 user = User.objects.create(name="John Doe", email="john@domain.com")
 
-# 读取
-user = User.objects.get(id=1)  # 通过主键
+# Read
+user = User.objects.get(id=1)  # By primary key
 active_users = User.objects.filter(is_active=True)
 
-# 更新
+# Update
 user.name = "Jane Doe"
 user.save()
 
-# 删除
+# Delete
 user.delete()
 ```
 
 **Peewee**:
 ```python
-# 创建
+# Create
 user = User.create(name="John Doe", email="john@domain.com")
 
-# 读取
-user = User.get_by_id(1)  # 通过主键
+# Read
+user = User.get_by_id(1)  # By primary key
 active_users = User.select().where(User.is_active == True)
 
-# 更新
+# Update
 user.name = "Jane Doe"
 user.save()
 
-# 删除
+# Delete
 user.delete_instance()
 ```
 
-## 异步操作
+## Asynchronous Operations
 
-**Python ActiveRecord**:
+**rhosocial ActiveRecord**:
 ```python
-# 创建
+# Create
 user = AsyncUser(name="John Doe", email="john@domain.com")
 await user.save()
 
-# 读取
+# Read
 user = await AsyncUser.find_one(1)
 active_users = await AsyncUser.query().where('is_active = ?', (True,)).all()
 
-# 更新
+# Update
 user.name = "Jane Doe"
 await user.save()
 
-# 删除
+# Delete
 await user.delete()
 
-# 事务
+# Transaction
 async with AsyncUser.transaction():
     user = await AsyncUser.find_one(1)
     user.status = 'inactive'
@@ -200,32 +200,32 @@ async with AsyncUser.transaction():
 ```python
 from sqlalchemy.ext.asyncio import create_async_engine, AsyncSession
 
-# 创建
+# Create
 async with AsyncSession(engine) as session:
     user = User(name="John Doe", email="john@domain.com")
     session.add(user)
     await session.commit()
 
-# 读取
+# Read
 async with AsyncSession(engine) as session:
     user = await session.get(User, 1)
     query = select(User).where(User.is_active == True)
     result = await session.execute(query)
     active_users = result.scalars().all()
 
-# 更新
+# Update
 async with AsyncSession(engine) as session:
     user = await session.get(User, 1)
     user.name = "Jane Doe"
     await session.commit()
 
-# 删除
+# Delete
 async with AsyncSession(engine) as session:
     user = await session.get(User, 1)
     await session.delete(user)
     await session.commit()
 
-# 事务
+# Transaction
 async with AsyncSession(engine) as session:
     async with session.begin():
         user = await session.get(User, 1)
@@ -234,12 +234,12 @@ async with AsyncSession(engine) as session:
 
 **Django ORM**:
 ```python
-# 读取
+# Read
 user = await User.objects.aget(id=1)
 active_users = [user async for user in User.objects.filter(is_active=True)]
 
-# 注意：Django ORM 有限的异步支持 - 许多操作
-# 仍然需要同步代码或 sync_to_async 包装器
+# Note: Django ORM has limited async support - many operations 
+# still require synchronous code or sync_to_async wrappers
 ```
 
 **Peewee with peewee-async**:
@@ -250,20 +250,20 @@ import peewee_async
 database = peewee_async.PostgresqlDatabase('test')
 objects = peewee_async.Manager(database)
 
-# 创建
+# Create
 user = User(name="John Doe", email="john@domain.com")
 await objects.create(user)
 
-# 读取
+# Read
 user = await objects.get(User, id=1)
 active_users = await objects.execute(User.select().where(User.is_active == True))
 
-# 更新
+# Update
 user = await objects.get(User, id=1)
 user.name = "Jane Doe"
 await objects.update(user)
 
-# 删除
+# Delete
 user = await objects.get(User, id=1)
 await objects.delete(user)
 ```

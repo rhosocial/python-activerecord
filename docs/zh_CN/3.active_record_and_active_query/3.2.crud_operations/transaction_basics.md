@@ -1,6 +1,6 @@
 # 事务基础
 
-本文档涵盖了Python ActiveRecord中数据库事务的基础知识。事务确保一系列数据库操作以原子方式执行，这意味着它们要么全部成功，要么全部失败。
+本文档涵盖了rhosocial ActiveRecord中数据库事务的基础知识。事务确保一系列数据库操作以原子方式执行，这意味着它们要么全部成功，要么全部失败。
 
 ## 理解事务
 
@@ -83,7 +83,7 @@ except Exception as e:
 
 ## 嵌套事务
 
-Python ActiveRecord支持嵌套事务。行为取决于数据库后端，但通常遵循嵌套事务创建保存点的模式：
+rhosocial ActiveRecord支持嵌套事务。行为取决于数据库后端，但通常遵循嵌套事务创建保存点的模式：
 
 ```python
 with Transaction() as outer_transaction:
@@ -178,4 +178,4 @@ with Transaction() as transaction:
 
 ## 总结
 
-事务是Python ActiveRecord中的一个强大功能，有助于维护数据完整性。通过理解和正确使用事务，您可以确保您的数据库操作是可靠和一致的，即使在出现错误或并发访问的情况下也是如此。
+事务是rhosocial ActiveRecord中的一个强大功能，有助于维护数据完整性。通过理解和正确使用事务，您可以确保您的数据库操作是可靠和一致的，即使在出现错误或并发访问的情况下也是如此。

@@ -1,6 +1,6 @@
 # Model-level Caching
 
-Model-level caching is a powerful performance optimization technique that stores entire model instances in a cache, allowing them to be retrieved without executing database queries. This document explores how to implement and manage model-level caching in Python ActiveRecord applications.
+Model-level caching is a powerful performance optimization technique that stores entire model instances in a cache, allowing them to be retrieved without executing database queries. This document explores how to implement and manage model-level caching in rhosocial ActiveRecord applications.
 
 ## Introduction
 
@@ -8,7 +8,7 @@ Database queries, especially those that retrieve complex model instances with re
 
 ## Basic Implementation
 
-Python ActiveRecord provides a `ModelCache` class that handles model-level caching:
+rhosocial ActiveRecord provides a `ModelCache` class that handles model-level caching:
 
 ```python
 from rhosocial.activerecord.models import User
@@ -30,7 +30,7 @@ if cached_user is None:
 
 ## Automatic Model Caching
 
-For convenience, Python ActiveRecord can be configured to automatically cache model instances:
+For convenience, rhosocial ActiveRecord can be configured to automatically cache model instances:
 
 ```python
 from rhosocial.activerecord.models import User
@@ -69,7 +69,7 @@ class User(ActiveRecord):
 
 ## Cache Key Generation
 
-Python ActiveRecord uses a consistent strategy for generating cache keys:
+rhosocial ActiveRecord uses a consistent strategy for generating cache keys:
 
 ```python
 from rhosocial.activerecord.cache import generate_model_cache_key
@@ -127,7 +127,7 @@ if cached_user:
 
 ## Cache Serialization
 
-Model instances must be serializable to be cached. Python ActiveRecord handles this automatically for most cases, but you may need to customize serialization for complex models:
+Model instances must be serializable to be cached. rhosocial ActiveRecord handles this automatically for most cases, but you may need to customize serialization for complex models:
 
 ```python
 class User(ActiveRecord):
@@ -219,6 +219,6 @@ print(f"Hit ratio: {stats.hit_ratio:.2f}")
 
 ## Conclusion
 
-Model-level caching is a powerful technique for improving the performance of Python ActiveRecord applications. By caching frequently accessed model instances, you can significantly reduce database load and improve response times.
+Model-level caching is a powerful technique for improving the performance of rhosocial ActiveRecord applications. By caching frequently accessed model instances, you can significantly reduce database load and improve response times.
 
 When implementing model-level caching, carefully consider which models to cache, how long to cache them, and how to handle cache invalidation to ensure data consistency while maximizing performance benefits.

@@ -1,6 +1,6 @@
 # 查询优化技术
 
-高效的查询构建是数据库应用程序性能的基础。本文档探讨了在Python ActiveRecord应用程序中优化查询的各种技术。
+高效的查询构建是数据库应用程序性能的基础。本文档探讨了在rhosocial ActiveRecord应用程序中优化查询的各种技术。
 
 ## 理解查询执行计划
 
@@ -8,7 +8,7 @@
 
 ### 查看执行计划
 
-Python ActiveRecord提供了查看查询执行计划的方法：
+rhosocial ActiveRecord提供了查看查询执行计划的方法：
 
 ```python
 from rhosocial.activerecord.models import User
@@ -270,4 +270,4 @@ for query in profiler.queries:
 9. **批处理**大型数据集
 10. **优化连接和子查询**，以最小化数据处理
 
-通过应用这些查询优化技术，您可以显著提高Python ActiveRecord应用程序的性能，从而获得更好的响应时间和资源利用率。
+通过应用这些查询优化技术，您可以显著提高rhosocial ActiveRecord应用程序的性能，从而获得更好的响应时间和资源利用率。

@@ -1,10 +1,10 @@
 # 事务管理
 
-事务管理是数据库操作中确保数据完整性和一致性的关键方面。Python ActiveRecord提供了一个强大的事务管理系统，可以跨不同的数据库后端工作。
+事务管理是数据库操作中确保数据完整性和一致性的关键方面。rhosocial ActiveRecord提供了一个强大的事务管理系统，可以跨不同的数据库后端工作。
 
 ## 基本事务操作
 
-Python ActiveRecord提供了几种使用事务的方式：
+rhosocial ActiveRecord提供了几种使用事务的方式：
 
 ### 使用上下文管理器（推荐）
 
@@ -43,7 +43,7 @@ except Exception:
 
 ## 事务状态
 
-Python ActiveRecord中的事务可以处于以下状态之一：
+rhosocial ActiveRecord中的事务可以处于以下状态之一：
 
 - **INACTIVE**：无活动事务
 - **ACTIVE**：事务已开始但尚未提交或回滚
@@ -60,7 +60,7 @@ if User.backend().in_transaction:
 
 ## 事务管理器
 
-在后台，Python ActiveRecord使用`TransactionManager`类来处理事务操作。每个数据库后端实现自己的事务管理器，处理该数据库系统的特定功能。
+在后台，rhosocial ActiveRecord使用`TransactionManager`类来处理事务操作。每个数据库后端实现自己的事务管理器，处理该数据库系统的特定功能。
 
 事务管理器负责：
 
@@ -71,7 +71,7 @@ if User.backend().in_transaction:
 
 ## 自动提交行为
 
-当不在事务中时，Python ActiveRecord遵循以下自动提交规则：
+当不在事务中时，rhosocial ActiveRecord遵循以下自动提交规则：
 
 1. 默认情况下，单个操作会自动提交
 2. 批量操作也会自动提交，除非包装在事务中
@@ -85,7 +85,7 @@ User.backend().execute_sql("UPDATE users SET status = 'active'", auto_commit=Fal
 
 ## 数据库特定考虑因素
 
-虽然Python ActiveRecord在所有支持的数据库中提供一致的事务API，但有一些数据库特定的考虑因素：
+虽然rhosocial ActiveRecord在所有支持的数据库中提供一致的事务API，但有一些数据库特定的考虑因素：
 
 - **SQLite**：支持基本的事务功能，但对并发事务有限制
 - **MySQL/MariaDB**：提供完整的事务支持，具有各种隔离级别

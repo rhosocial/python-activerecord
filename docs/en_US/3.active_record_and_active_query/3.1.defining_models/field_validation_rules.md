@@ -4,7 +4,7 @@ This document explains how to define and use field validation rules in your Acti
 
 ## Overview
 
-Python ActiveRecord leverages Pydantic's powerful validation system to provide comprehensive field validation. This allows you to define constraints and validation rules directly in your model definition.
+rhosocial ActiveRecord leverages Pydantic's powerful validation system to provide comprehensive field validation. This allows you to define constraints and validation rules directly in your model definition.
 
 ## Basic Validation
 
@@ -244,4 +244,4 @@ except ValidationError as e:
 
 ## Conclusion
 
-Field validation is a critical part of maintaining data integrity in your application. Python ActiveRecord's integration with Pydantic provides a powerful, declarative way to define validation rules directly in your model definitions.
+Field validation is a critical part of maintaining data integrity in your application. rhosocial ActiveRecord's integration with Pydantic provides a powerful, declarative way to define validation rules directly in your model definitions.

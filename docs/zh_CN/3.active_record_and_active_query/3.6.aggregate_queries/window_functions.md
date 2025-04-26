@@ -1,6 +1,6 @@
 # 窗口函数
 
-窗口函数是SQL的一个强大特性，它允许您对与当前行相关的一组行执行计算，而不像聚合函数那样将结果折叠成单个行。Python ActiveRecord通过其查询API提供了对窗口函数的全面支持。
+窗口函数是SQL的一个强大特性，它允许您对与当前行相关的一组行执行计算，而不像聚合函数那样将结果折叠成单个行。rhosocial ActiveRecord通过其查询API提供了对窗口函数的全面支持。
 
 ## 窗口函数简介
 
@@ -22,7 +22,7 @@ ranked_products = Product.query()\
 
 ## 窗口函数组件
 
-Python ActiveRecord中的窗口函数由几个组件组成：
+rhosocial ActiveRecord中的窗口函数由几个组件组成：
 
 1. **基础函数**：要应用的函数（例如，RANK, SUM, AVG）
 2. **PARTITION BY**：将行划分为组（可选）
@@ -31,7 +31,7 @@ Python ActiveRecord中的窗口函数由几个组件组成：
 
 ## 支持的窗口函数
 
-Python ActiveRecord支持各种类型的窗口函数：
+rhosocial ActiveRecord支持各种类型的窗口函数：
 
 ### 排名函数
 
@@ -333,7 +333,7 @@ salary_distribution = Employee.query()\
 - **MariaDB**：从10.2+版本开始提供基本支持
 - **SQLite**：从3.25+版本开始提供基本支持
 
-Python ActiveRecord在运行时检查数据库兼容性，并在使用不支持的功能时引发适当的异常：
+rhosocial ActiveRecord在运行时检查数据库兼容性，并在使用不支持的功能时引发适当的异常：
 
 ```python
 # 这将在较旧的数据库版本上引发WindowFunctionNotSupportedError

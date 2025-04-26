@@ -2,11 +2,11 @@
 
 > **⚠️ IMPORTANT NOTE:** The multiple database connection functionality (including master-slave configuration) described in this document is **not yet implemented** and may undergo significant changes in future releases.
 
-This document provides detailed information about configuring and managing connections to multiple databases in Python ActiveRecord, including how to set up connections to different database systems, manage connection pools, and switch between connections at runtime.
+This document provides detailed information about configuring and managing connections to multiple databases in rhosocial ActiveRecord, including how to set up connections to different database systems, manage connection pools, and switch between connections at runtime.
 
 ## Basic Connection Configuration
 
-Python ActiveRecord allows you to configure and connect to multiple databases simultaneously, even if they are of different types. This capability is essential for applications that need to access data from various sources or that use different databases for different parts of the application.
+rhosocial ActiveRecord allows you to configure and connect to multiple databases simultaneously, even if they are of different types. This capability is essential for applications that need to access data from various sources or that use different databases for different parts of the application.
 
 ### Configuring Multiple Database Connections
 
@@ -87,7 +87,7 @@ Each database connection can be configured with various options depending on the
 
 ### Connection Pooling
 
-Python ActiveRecord uses connection pooling to efficiently manage database connections. Connection pooling maintains a set of open connections that can be reused, reducing the overhead of establishing new connections for each database operation.
+rhosocial ActiveRecord uses connection pooling to efficiently manage database connections. Connection pooling maintains a set of open connections that can be reused, reducing the overhead of establishing new connections for each database operation.
 
 You can configure connection pooling parameters for each database connection:
 
@@ -211,7 +211,7 @@ with User.using_connection(tenant_connection):
 
 ### Connection Lifecycle Management
 
-Python ActiveRecord automatically manages the lifecycle of database connections, but you can explicitly control connection creation and disposal if needed:
+rhosocial ActiveRecord automatically manages the lifecycle of database connections, but you can explicitly control connection creation and disposal if needed:
 
 ```python
 from rhosocial.activerecord import ConnectionManager
@@ -334,6 +334,6 @@ ConnectionEvents.on_disconnect(lambda conn: print(f"Connection {conn.id} closed"
 
 ## Conclusion
 
-Properly configuring and managing database connections is essential for applications that work with multiple databases. Python ActiveRecord provides a flexible and powerful connection management system that allows you to work with multiple databases of different types simultaneously, while abstracting away many of the complexities involved.
+Properly configuring and managing database connections is essential for applications that work with multiple databases. rhosocial ActiveRecord provides a flexible and powerful connection management system that allows you to work with multiple databases of different types simultaneously, while abstracting away many of the complexities involved.
 
 By following the best practices outlined in this document, you can ensure that your application's database connections are efficient, reliable, and secure.

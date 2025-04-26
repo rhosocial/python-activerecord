@@ -1,11 +1,11 @@
 # SQL方言差异
 
-本文档探讨了Python ActiveRecord支持的数据库系统之间的SQL方言差异，以及框架如何处理这些差异。
+本文档探讨了rhosocial ActiveRecord支持的数据库系统之间的SQL方言差异，以及框架如何处理这些差异。
 
 ## 目录
 
 - [SQL方言简介](#sql方言简介)
-- [Python ActiveRecord如何处理方言差异](#python-activerecord如何处理方言差异)
+- [rhosocial ActiveRecord如何处理方言差异](#python-activerecord如何处理方言差异)
 - [主要方言差异](#主要方言差异)
   - [查询语法](#查询语法)
   - [函数名称和行为](#函数名称和行为)
@@ -41,9 +41,9 @@ SQL方言在几个关键领域有所不同：
 - **限制**：每个系统特有的约束和限制
 - **扩展**：对SQL标准的供应商特定扩展
 
-## Python ActiveRecord如何处理方言差异
+## rhosocial ActiveRecord如何处理方言差异
 
-Python ActiveRecord通过其查询构建器和SQL生成系统抽象了许多方言差异。该框架使用分层方法：
+rhosocial ActiveRecord通过其查询构建器和SQL生成系统抽象了许多方言差异。该框架使用分层方法：
 
 1. **统一查询接口**：ActiveRecord和ActiveQuery提供了一个与数据库无关的API来构建查询
 2. **SQL方言类**：每个数据库后端实现了一个`SQLDialectBase`子类，处理特定方言的SQL生成
@@ -68,7 +68,7 @@ Python ActiveRecord通过其查询构建器和SQL生成系统抽象了许多方�
 | Oracle        | `:name`           | `SELECT * FROM users WHERE id = :id` |
 | SQL Server    | `@name`           | `SELECT * FROM users WHERE id = @id` |
 
-Python ActiveRecord通过将占位符转换为每个数据库后端的适当样式来处理这些差异。
+rhosocial ActiveRecord通过将占位符转换为每个数据库后端的适当样式来处理这些差异。
 
 ### 函数名称和行为
 
@@ -83,7 +83,7 @@ Python ActiveRecord通过将占位符转换为每个数据库后端的适当样�
 | IFNULL            | `ifnull()`            | `ifnull()`           | `ifnull()`           | `coalesce()`          | `nvl()`               | `isnull()`            |
 | 随机值           | `random()`            | `rand()`             | `rand()`             | `random()`            | `dbms_random.value`   | `rand()`              |
 
-Python ActiveRecord的SQL方言类将这些函数映射到每个数据库系统的适当等效项。
+rhosocial ActiveRecord的SQL方言类将这些函数映射到每个数据库系统的适当等效项。
 
 ### 分页和限制
 

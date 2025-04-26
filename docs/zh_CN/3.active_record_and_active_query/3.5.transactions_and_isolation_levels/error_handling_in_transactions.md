@@ -1,10 +1,10 @@
 # 事务中的错误处理
 
-在使用数据库事务时，正确的错误处理至关重要。Python ActiveRecord提供了多种机制来处理事务处理过程中发生的错误，确保数据完整性的同时为开发者提供错误管理的灵活性。
+在使用数据库事务时，正确的错误处理至关重要。rhosocial ActiveRecord提供了多种机制来处理事务处理过程中发生的错误，确保数据完整性的同时为开发者提供错误管理的灵活性。
 
 ## 事务错误类型
 
-Python ActiveRecord定义了几种与事务相关的错误类型：
+rhosocial ActiveRecord定义了几种与事务相关的错误类型：
 
 - **TransactionError**：所有事务相关错误的基类
 - **IsolationLevelError**：当尝试在活动事务期间更改隔离级别时引发
@@ -60,7 +60,7 @@ except Exception as e:
 
 ## 处理特定数据库错误
 
-不同的数据库系统可能引发不同类型的错误。Python ActiveRecord尝试规范化这些错误，但在某些情况下，你可能仍需要处理数据库特定的错误：
+不同的数据库系统可能引发不同类型的错误。rhosocial ActiveRecord尝试规范化这些错误，但在某些情况下，你可能仍需要处理数据库特定的错误：
 
 ```python
 from rhosocial.activerecord.backend.errors import (
@@ -178,7 +178,7 @@ except Exception as e:
 
 ## 记录事务错误
 
-Python ActiveRecord的事务管理器包含用于事务操作和错误的内置日志记录。你可以配置日志记录器以捕获更详细的信息：
+rhosocial ActiveRecord的事务管理器包含用于事务操作和错误的内置日志记录。你可以配置日志记录器以捕获更详细的信息：
 
 ```python
 import logging

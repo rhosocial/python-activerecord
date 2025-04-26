@@ -1,14 +1,14 @@
 # Caching Strategies
 
-Caching is a critical performance optimization technique that can significantly reduce database load and improve application response times. This document explores various caching strategies available in Python ActiveRecord and provides guidance on implementing them effectively.
+Caching is a critical performance optimization technique that can significantly reduce database load and improve application response times. This document explores various caching strategies available in rhosocial ActiveRecord and provides guidance on implementing them effectively.
 
 ## Introduction to Caching
 
-Database operations, especially complex queries, can be resource-intensive. Caching stores the results of expensive operations so they can be reused without repeating the operation. Python ActiveRecord provides several caching mechanisms at different levels of the application.
+Database operations, especially complex queries, can be resource-intensive. Caching stores the results of expensive operations so they can be reused without repeating the operation. rhosocial ActiveRecord provides several caching mechanisms at different levels of the application.
 
 ## Types of Caching in ActiveRecord
 
-Python ActiveRecord supports several types of caching:
+rhosocial ActiveRecord supports several types of caching:
 
 1. **Model-level Caching**: Caching entire model instances
 2. **Query Result Caching**: Caching the results of database queries
@@ -40,7 +40,7 @@ if cached_user is None:
 
 ### Automatic Model Caching
 
-Python ActiveRecord can be configured to automatically cache model instances:
+rhosocial ActiveRecord can be configured to automatically cache model instances:
 
 ```python
 from rhosocial.activerecord.models import User
@@ -136,7 +136,7 @@ Relationship caching stores the results of relationship queries, which helps pre
 
 ### Configuring Relationship Caching
 
-Python ActiveRecord provides built-in caching for model relationships:
+rhosocial ActiveRecord provides built-in caching for model relationships:
 
 ```python
 from rhosocial.activerecord.models import User, Order
@@ -240,6 +240,6 @@ Effective caching can dramatically improve application performance:
 
 ## Conclusion
 
-Caching is a powerful optimization technique that can significantly improve the performance of your Python ActiveRecord applications. By implementing the appropriate caching strategies at different levels of your application, you can reduce database load, improve response times, and enhance overall application scalability.
+Caching is a powerful optimization technique that can significantly improve the performance of your rhosocial ActiveRecord applications. By implementing the appropriate caching strategies at different levels of your application, you can reduce database load, improve response times, and enhance overall application scalability.
 
 Remember that caching introduces complexity, especially around cache invalidation. Always ensure your caching strategy maintains data consistency while providing performance benefits.

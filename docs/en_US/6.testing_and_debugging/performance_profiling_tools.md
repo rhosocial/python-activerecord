@@ -6,7 +6,7 @@ Performance profiling is a critical step in optimizing ActiveRecord applications
 
 ### Built-in Query Statistics
 
-Python ActiveRecord provides built-in query statistics to help you identify slow queries:
+rhosocial ActiveRecord provides built-in query statistics to help you identify slow queries:
 
 ```python
 from rhosocial.activerecord import stats
@@ -166,7 +166,7 @@ These tools can provide real-time performance monitoring, query analysis, and al
 
 ### Custom Performance Metrics
 
-Python ActiveRecord allows you to define and collect custom performance metrics:
+rhosocial ActiveRecord allows you to define and collect custom performance metrics:
 
 ```python
 from rhosocial.activerecord import metrics

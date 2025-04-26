@@ -1,6 +1,6 @@
 # Basic Aggregate Functions
 
-Python ActiveRecord provides a comprehensive set of basic aggregate functions that allow you to perform calculations across rows in your database. These functions are essential for data analysis and reporting.
+rhosocial ActiveRecord provides a comprehensive set of basic aggregate functions that allow you to perform calculations across rows in your database. These functions are essential for data analysis and reporting.
 
 ## Available Aggregate Functions
 

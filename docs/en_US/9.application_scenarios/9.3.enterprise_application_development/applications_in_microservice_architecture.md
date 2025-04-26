@@ -1,12 +1,12 @@
 # Applications in Microservice Architecture
 
-This document explores how Python ActiveRecord can be effectively utilized in microservice architectures, providing patterns, best practices, and implementation strategies.
+This document explores how rhosocial ActiveRecord can be effectively utilized in microservice architectures, providing patterns, best practices, and implementation strategies.
 
 ## Introduction to Microservices with ActiveRecord
 
 Microservice architecture is an approach to application development where a large application is built as a suite of small, independently deployable services. Each service runs in its own process and communicates with other services through well-defined APIs, typically HTTP-based RESTful interfaces or message queues.
 
-Python ActiveRecord offers several features that make it particularly well-suited for microservice implementations:
+rhosocial ActiveRecord offers several features that make it particularly well-suited for microservice implementations:
 
 - **Lightweight and focused**: ActiveRecord provides just what you need for data persistence without unnecessary overhead
 - **Database abstraction**: Allows different microservices to use different database technologies as needed
@@ -258,6 +258,6 @@ Each service uses ActiveRecord configured for its specific database needs, while
 
 ## Conclusion
 
-Python ActiveRecord provides a flexible and powerful foundation for building microservice architectures. By leveraging its database abstraction, transaction support, and performance optimization features, developers can create robust, scalable, and maintainable microservice systems.
+rhosocial ActiveRecord provides a flexible and powerful foundation for building microservice architectures. By leveraging its database abstraction, transaction support, and performance optimization features, developers can create robust, scalable, and maintainable microservice systems.
 
 The patterns and examples provided in this document demonstrate how ActiveRecord can be adapted to various microservice scenarios, from simple database-per-service implementations to complex event-driven architectures with distributed transactions.

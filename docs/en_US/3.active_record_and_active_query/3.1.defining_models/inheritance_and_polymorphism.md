@@ -4,7 +4,7 @@ This document explains how to use inheritance and polymorphism in your ActiveRec
 
 ## Overview
 
-Python ActiveRecord supports model inheritance, allowing you to create hierarchies of related models. This enables you to:
+rhosocial ActiveRecord supports model inheritance, allowing you to create hierarchies of related models. This enables you to:
 
 - Share common fields and behavior across related models
 - Implement specialized versions of base models

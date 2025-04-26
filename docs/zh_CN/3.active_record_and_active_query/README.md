@@ -1,10 +1,10 @@
 # ActiveRecord 与 ActiveQuery
 
-本节涵盖了Python ActiveRecord框架的核心组件：ActiveRecord模型和ActiveQuery功能。
+本节涵盖了rhosocial ActiveRecord框架的核心组件：ActiveRecord模型和ActiveQuery功能。
 
 ## 概述
 
-ActiveRecord模式是一种将数据库表映射到类、将行映射到对象的架构模式。它封装了数据库访问并为数据添加了领域逻辑。Python ActiveRecord使用现代Python特性实现了这种模式，利用Pydantic进行数据验证和类型安全。
+ActiveRecord模式是一种将数据库表映射到类、将行映射到对象的架构模式。它封装了数据库访问并为数据添加了领域逻辑。rhosocial ActiveRecord使用现代Python特性实现了这种模式，利用Pydantic进行数据验证和类型安全。
 
 ActiveQuery是查询构建器组件，它提供了一个流畅的接口来构建数据库查询。它允许您以可读和可维护的方式构建复杂查询，在大多数情况下无需编写原始SQL。
 

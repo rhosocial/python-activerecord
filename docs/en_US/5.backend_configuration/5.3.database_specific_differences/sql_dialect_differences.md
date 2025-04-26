@@ -1,11 +1,11 @@
 # SQL Dialect Differences
 
-This document explores the differences in SQL dialects between the database systems supported by Python ActiveRecord and how these differences are handled by the framework.
+This document explores the differences in SQL dialects between the database systems supported by rhosocial ActiveRecord and how these differences are handled by the framework.
 
 ## Contents
 
 - [Introduction to SQL Dialects](#introduction-to-sql-dialects)
-- [How Python ActiveRecord Handles Dialect Differences](#how-python-activerecord-handles-dialect-differences)
+- [How rhosocial ActiveRecord Handles Dialect Differences](#how-python-activerecord-handles-dialect-differences)
 - [Key Dialect Differences](#key-dialect-differences)
   - [Query Syntax](#query-syntax)
   - [Function Names and Behavior](#function-names-and-behavior)
@@ -41,9 +41,9 @@ SQL dialects differ in several key areas:
 - **Limitations**: Constraints and limitations specific to each system
 - **Extensions**: Vendor-specific extensions to the SQL standard
 
-## How Python ActiveRecord Handles Dialect Differences
+## How rhosocial ActiveRecord Handles Dialect Differences
 
-Python ActiveRecord abstracts away many dialect differences through its query builder and SQL generation system. The framework uses a layered approach:
+rhosocial ActiveRecord abstracts away many dialect differences through its query builder and SQL generation system. The framework uses a layered approach:
 
 1. **Unified Query Interface**: ActiveRecord and ActiveQuery provide a database-agnostic API for building queries
 2. **SQL Dialect Classes**: Each database backend implements a `SQLDialectBase` subclass that handles dialect-specific SQL generation
@@ -68,7 +68,7 @@ Different databases use different placeholder styles for parameterized queries:
 | Oracle        | `:name`           | `SELECT * FROM users WHERE id = :id` |
 | SQL Server    | `@name`           | `SELECT * FROM users WHERE id = @id` |
 
-Python ActiveRecord handles these differences by converting placeholders to the appropriate style for each database backend.
+rhosocial ActiveRecord handles these differences by converting placeholders to the appropriate style for each database backend.
 
 ### Function Names and Behavior
 
@@ -83,7 +83,7 @@ Common functions often have different names or behavior across database systems:
 | IFNULL            | `ifnull()`            | `ifnull()`           | `ifnull()`           | `coalesce()`          | `nvl()`               | `isnull()`            |
 | Random Value      | `random()`            | `rand()`             | `rand()`             | `random()`            | `dbms_random.value`   | `rand()`              |
 
-Python ActiveRecord's SQL dialect classes map these functions to their appropriate equivalents for each database system.
+rhosocial ActiveRecord's SQL dialect classes map these functions to their appropriate equivalents for each database system.
 
 ### Pagination and Limiting
 

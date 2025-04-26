@@ -1,12 +1,12 @@
 # 实现自定义数据库后端
 
-本指南提供了如何为Python ActiveRecord实现自定义数据库后端的详细说明。
+本指南提供了如何为rhosocial ActiveRecord实现自定义数据库后端的详细说明。
 
 ## 前提条件
 
 在实现自定义数据库后端之前，您应该：
 
-1. 熟悉Python ActiveRecord架构
+1. 熟悉rhosocial ActiveRecord架构
 2. 了解您想要实现的数据库系统
 3. 已安装必要的数据库驱动程序包
 
@@ -156,7 +156,7 @@ class YourTypeMapper(TypeMapper):
     def __init__(self):
         super().__init__()
         self._type_map = {
-            # 将Python ActiveRecord类型映射到您的数据库类型
+            # 将rhosocial ActiveRecord类型映射到您的数据库类型
             DatabaseType.INTEGER: TypeMapping("INTEGER"),
             DatabaseType.FLOAT: TypeMapping("FLOAT"),
             DatabaseType.TEXT: TypeMapping("TEXT"),
@@ -174,7 +174,7 @@ class YourTypeMapper(TypeMapper):
 在`__init__.py`中，导出您的后端类：
 
 ```python
-"""您的Python ActiveRecord数据库后端实现。
+"""您的rhosocial ActiveRecord数据库后端实现。
 
 本模块提供：
 - 您的数据库后端，具有连接管理和查询执行功能
@@ -367,7 +367,7 @@ class TestYourBackend(unittest.TestCase):
 
 ### 测试最佳实践
 
-1. **模仿现有后端测试**：查看Python ActiveRecord的测试套件，了解如何测试标准后端
+1. **模仿现有后端测试**：查看rhosocial ActiveRecord的测试套件，了解如何测试标准后端
 2. **确保分支覆盖完整**：测试所有方法的各种条件和边缘情况
 3. **模拟各种使用场景**：测试您的后端在不同查询类型、事务和错误条件下的行为
 4. **集成测试**：测试您的后端与ActiveRecord模型的集成
@@ -398,4 +398,4 @@ class User(ActiveRecord):
 
 ## 结论
 
-为Python ActiveRecord实现自定义数据库后端需要仔细关注细节，并全面了解ActiveRecord架构和您的目标数据库系统。通过遵循本指南，您可以创建一个与ActiveRecord框架无缝集成的强大后端实现。
+为rhosocial ActiveRecord实现自定义数据库后端需要仔细关注细节，并全面了解ActiveRecord架构和您的目标数据库系统。通过遵循本指南，您可以创建一个与ActiveRecord框架无缝集成的强大后端实现。

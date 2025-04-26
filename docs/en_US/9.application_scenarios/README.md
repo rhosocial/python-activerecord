@@ -1,6 +1,6 @@
 # Application Scenarios
 
-This section explores various real-world application scenarios where Python ActiveRecord can be effectively utilized. Understanding how ActiveRecord fits into different application contexts helps developers make informed decisions about when and how to use this ORM framework.
+This section explores various real-world application scenarios where rhosocial ActiveRecord can be effectively utilized. Understanding how ActiveRecord fits into different application contexts helps developers make informed decisions about when and how to use this ORM framework.
 
 ## Contents
 
@@ -22,7 +22,7 @@ This section explores various real-world application scenarios where Python Acti
 
 ## Overview
 
-Python ActiveRecord is a versatile ORM framework that can be applied to a wide range of application scenarios. This section provides detailed guidance on implementing ActiveRecord in various contexts, with practical examples and best practices.
+rhosocial ActiveRecord is a versatile ORM framework that can be applied to a wide range of application scenarios. This section provides detailed guidance on implementing ActiveRecord in various contexts, with practical examples and best practices.
 
 Each subsection focuses on a specific application domain, highlighting the unique advantages that ActiveRecord brings to that particular use case. By exploring these scenarios, you'll gain insights into how to leverage ActiveRecord's features effectively in your own projects.
 

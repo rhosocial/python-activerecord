@@ -1,10 +1,10 @@
 # Large Dataset Handling
 
-Working with large datasets efficiently is a common challenge in database applications. This document explores various techniques and strategies for handling large volumes of data in Python ActiveRecord applications without compromising performance or memory usage.
+Working with large datasets efficiently is a common challenge in database applications. This document explores various techniques and strategies for handling large volumes of data in rhosocial ActiveRecord applications without compromising performance or memory usage.
 
 ## Introduction
 
-When dealing with tables containing thousands or millions of records, loading all data at once can lead to performance issues, memory exhaustion, and poor user experience. Python ActiveRecord provides several approaches to work with large datasets efficiently.
+When dealing with tables containing thousands or millions of records, loading all data at once can lead to performance issues, memory exhaustion, and poor user experience. rhosocial ActiveRecord provides several approaches to work with large datasets efficiently.
 
 ## Pagination
 
@@ -32,7 +32,7 @@ total_pages = (total_count + page_size - 1) // page_size
 
 ### Pagination Helper
 
-Python ActiveRecord provides a pagination helper for convenience:
+rhosocial ActiveRecord provides a pagination helper for convenience:
 
 ```python
 from rhosocial.activerecord.pagination import paginate
@@ -79,7 +79,7 @@ if articles:
 
 ### Cursor Pagination Helper
 
-Python ActiveRecord provides a helper for cursor-based pagination:
+rhosocial ActiveRecord provides a helper for cursor-based pagination:
 
 ```python
 from rhosocial.activerecord.pagination import cursor_paginate
@@ -133,7 +133,7 @@ while True:
 
 ### Batch Processing Helper
 
-Python ActiveRecord provides a helper for batch processing:
+rhosocial ActiveRecord provides a helper for batch processing:
 
 ```python
 from rhosocial.activerecord.models import Article
@@ -316,4 +316,4 @@ print(profiler.summary())
 9. **Monitor and profile** your large dataset operations
 10. **Consider database-specific optimizations** for bulk operations
 
-By applying these large dataset handling techniques, you can work efficiently with tables containing millions of records while maintaining good performance and memory usage in your Python ActiveRecord applications.
+By applying these large dataset handling techniques, you can work efficiently with tables containing millions of records while maintaining good performance and memory usage in your rhosocial ActiveRecord applications.

@@ -1,6 +1,6 @@
 # Advanced Aggregation Capabilities
 
-Python ActiveRecord provides a powerful and expressive aggregation system that surpasses many competing ORMs in terms of both capabilities and ease of use.
+rhosocial ActiveRecord provides a powerful and expressive aggregation system that surpasses many competing ORMs in terms of both capabilities and ease of use.
 
 ## Rich Expression System
 
@@ -15,7 +15,7 @@ The framework implements a comprehensive SQL expression system that supports a w
 
 ## Advanced Grouping Operations
 
-Python ActiveRecord supports SQL standard advanced grouping operations:
+rhosocial ActiveRecord supports SQL standard advanced grouping operations:
 
 - **CUBE**: Multi-dimensional analysis with all possible grouping combinations
 - **ROLLUP**: Hierarchical aggregation with progressive subtotals
@@ -78,7 +78,7 @@ result = User.query()
     .aggregate()
 ```
 
-Compared to other ORMs, Python ActiveRecord's aggregation capabilities offer a balance of power and simplicity:
+Compared to other ORMs, rhosocial ActiveRecord's aggregation capabilities offer a balance of power and simplicity:
 
 - More intuitive than SQLAlchemy's aggregation API
 - More powerful than Django ORM's limited aggregation functions

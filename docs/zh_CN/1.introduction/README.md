@@ -1,8 +1,8 @@
-# Python ActiveRecord
+# rhosocial ActiveRecord
 
 ## 概述
 
-Python ActiveRecord 是一个强大的对象关系映射(ORM)库，为 Python 应用程序中的数据库交互提供了直观的接口。
+rhosocial ActiveRecord 是一个强大的对象关系映射(ORM)库，为 Python 应用程序中的数据库交互提供了直观的接口。
 基于 Ruby on Rails 流行的 ActiveRecord 模式构建，该库提供了一种干净、以模型为中心的数据库访问方法，显著减少了样板代码，同时保持了灵活性和性能。
 
 该库允许开发者将数据库表表示为 Python 类，将行表示为对象，在面向对象的领域模型和关系数据库结构之间创建自然映射。
@@ -10,7 +10,7 @@ Python ActiveRecord 是一个强大的对象关系映射(ORM)库，为 Python �
 
 ## 特性
 
-Python ActiveRecord 提供了一系列全面的功能，旨在简化数据库交互：
+rhosocial ActiveRecord 提供了一系列全面的功能，旨在简化数据库交互：
 
 - **直观的基于模型的 API**：使用内置验证定义数据库模式
 - **全面的 CRUD 操作**：轻松创建、读取、更新和删除记录
@@ -60,14 +60,21 @@ flowchart TD
     BA -->|"连接到"| SQLITE
 
     %% 点击事件
-    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base"
-    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field"
-    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query"
-    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend"
-    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite"
-    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface"
-    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation"
-    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests"
+    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base" "查看源代码"
+    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field" "查看源代码"
+    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query" "查看源代码"
+    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend" "查看源代码"
+    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite" "查看源代码"
+    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface" "查看源代码"
+    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation" "查看源代码"
+    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests" "查看源代码"
+    
+    %% 组件结构文档链接
+    click AR "component_structure.md#activerecord-基础结构" "查看组件结构"
+    click FD "component_structure.md#字段定义结构" "查看组件结构"
+    click QB "component_structure.md#查询构建工具结构" "查看组件结构"
+    click IL "component_structure.md#接口层结构" "查看组件结构"
+    click RL "component_structure.md#关联关系层结构" "查看组件结构"
 
     %% 风格
     classDef core fill:#F9E79F,stroke:#B9770E,stroke-width:2px;
@@ -82,7 +89,7 @@ flowchart TD
 
 ## 要求
 
-要使用 Python ActiveRecord，您需要：
+要使用 rhosocial ActiveRecord，您需要：
 
 - **Python**：版本 3.8 或更高
 - **Pydantic**：
@@ -149,4 +156,4 @@ active_users = User.query().where('is_active = ?', (True,)).all()
 
 Python 提供了多种成熟的 ORM 解决方案，每种都有自己的哲学和设计方法。了解这些差异可以帮助您为特定需求选择正确的工具。
 
-有关 Python ActiveRecord 与这些框架的详细分析、具体代码示例、性能基准和用例建议，请参阅 [何时选择各种 ORM](docs/when-to-choose.md) 指南。
+有关 rhosocial ActiveRecord 与这些框架的详细分析、具体代码示例、性能基准和用例建议，请参阅 [何时选择各种 ORM](docs/when-to-choose.md) 指南。

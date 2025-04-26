@@ -1,6 +1,6 @@
 # Security Considerations
 
-Security is a critical aspect of any database application. Python ActiveRecord provides several features and best practices to help you build secure applications. This chapter covers the key security considerations when using Python ActiveRecord.
+Security is a critical aspect of any database application. rhosocial ActiveRecord provides several features and best practices to help you build secure applications. This chapter covers the key security considerations when using rhosocial ActiveRecord.
 
 ## Contents
 
@@ -10,11 +10,11 @@ Security is a critical aspect of any database application. Python ActiveRecord p
 
 ## Overview
 
-When working with databases, security should always be a top priority. Python ActiveRecord is designed with security in mind, but it's important to understand how to use it correctly to maintain a secure application.
+When working with databases, security should always be a top priority. rhosocial ActiveRecord is designed with security in mind, but it's important to understand how to use it correctly to maintain a secure application.
 
 The three main security areas covered in this chapter are:
 
-1. **SQL Injection Protection**: How Python ActiveRecord helps prevent SQL injection attacks and best practices for writing secure queries.
+1. **SQL Injection Protection**: How rhosocial ActiveRecord helps prevent SQL injection attacks and best practices for writing secure queries.
 
 2. **Sensitive Data Handling**: Guidelines for handling sensitive data such as passwords, personal information, and API keys.
 

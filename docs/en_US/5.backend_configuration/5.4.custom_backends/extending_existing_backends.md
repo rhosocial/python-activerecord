@@ -1,10 +1,10 @@
 # Extending Existing Backends
 
-This guide explains how to extend or modify the behavior of existing database backends in Python ActiveRecord.
+This guide explains how to extend or modify the behavior of existing database backends in rhosocial ActiveRecord.
 
 ## Introduction
 
-Sometimes you may need to customize the behavior of an existing database backend without creating an entirely new implementation. Python ActiveRecord provides several approaches for extending existing backends to add functionality or modify behavior.
+Sometimes you may need to customize the behavior of an existing database backend without creating an entirely new implementation. rhosocial ActiveRecord provides several approaches for extending existing backends to add functionality or modify behavior.
 
 ## When to Extend an Existing Backend
 
@@ -232,7 +232,7 @@ class JSONEnhancedPostgreSQLBackend(PostgreSQLBackend):
 
 ## Limitations and Considerations
 
-1. **Upgrade Compatibility**: Your extensions may break when upgrading to newer versions of Python ActiveRecord
+1. **Upgrade Compatibility**: Your extensions may break when upgrading to newer versions of rhosocial ActiveRecord
 2. **Performance Impact**: Complex extensions may impact performance
 3. **Maintenance Burden**: You'll need to maintain your extensions as the base implementation evolves
 
@@ -256,4 +256,4 @@ Thoroughly testing your extended backend is crucial for ensuring reliability. Yo
 
 ## Conclusion
 
-Extending existing database backends provides a powerful way to customize Python ActiveRecord for your specific needs without creating an entirely new implementation. By following the approaches outlined in this guide, you can add functionality, modify behavior, or integrate with additional services while maintaining compatibility with the ActiveRecord framework.
+Extending existing database backends provides a powerful way to customize rhosocial ActiveRecord for your specific needs without creating an entirely new implementation. By following the approaches outlined in this guide, you can add functionality, modify behavior, or integrate with additional services while maintaining compatibility with the ActiveRecord framework.

@@ -1,6 +1,6 @@
 # 查询结果缓存
 
-查询结果缓存是一种有效的性能优化技术，它将数据库查询的结果存储在缓存中，允许在不多次执行相同查询的情况下重用这些结果。本文档探讨了如何在Python ActiveRecord应用程序中实现和管理查询结果缓存。
+查询结果缓存是一种有效的性能优化技术，它将数据库查询的结果存储在缓存中，允许在不多次执行相同查询的情况下重用这些结果。本文档探讨了如何在rhosocial ActiveRecord应用程序中实现和管理查询结果缓存。
 
 ## 简介
 
@@ -8,7 +8,7 @@
 
 ## 基本实现
 
-Python ActiveRecord提供了一个`QueryCache`类来处理查询结果缓存：
+rhosocial ActiveRecord提供了一个`QueryCache`类来处理查询结果缓存：
 
 ```python
 from rhosocial.activerecord.models import Article
@@ -33,7 +33,7 @@ if cached_results is None:
 
 ## 使用get_or_set简化缓存
 
-为了方便，Python ActiveRecord提供了一个`get_or_set`方法，它结合了缓存检索和查询执行：
+为了方便，rhosocial ActiveRecord提供了一个`get_or_set`方法，它结合了缓存检索和查询执行：
 
 ```python
 from rhosocial.activerecord.cache import QueryCache
@@ -78,7 +78,7 @@ results = QueryCache.get_or_set(cache_key, lambda: query.all(), ttl=300)
 
 ## 自动查询缓存
 
-Python ActiveRecord可以配置为自动缓存查询结果：
+rhosocial ActiveRecord可以配置为自动缓存查询结果：
 
 ```python
 from rhosocial.activerecord.cache import enable_query_cache
@@ -270,6 +270,6 @@ print(f"Article查询缓存命中率: {model_stats.hit_ratio:.2f}")
 
 ## 结论
 
-查询结果缓存是提高Python ActiveRecord应用程序性能的强大技术。通过缓存频繁执行或昂贵查询的结果，您可以显著减少数据库负载并改善响应时间。
+查询结果缓存是提高rhosocial ActiveRecord应用程序性能的强大技术。通过缓存频繁执行或昂贵查询的结果，您可以显著减少数据库负载并改善响应时间。
 
 在实现查询结果缓存时，请仔细考虑要缓存哪些查询、缓存多长时间以及如何处理缓存失效，以确保数据一致性的同时最大化性能优势。

@@ -1,14 +1,14 @@
 # 常见问题解答
 
-本指南解答了您在开始使用Python ActiveRecord时可能遇到的常见问题和问题。
+本指南解答了您在开始使用rhosocial ActiveRecord时可能遇到的常见问题和问题。
 
 ## 一般问题
 
 ### ActiveRecord与其他ORM有什么区别？
 
-Python ActiveRecord遵循ActiveRecord模式，将数据访问和业务逻辑合并在一个对象中。这与其他ORM（如SQLAlchemy）不同，后者通常将这些关注点分开。主要区别包括：
+rhosocial ActiveRecord遵循ActiveRecord模式，将数据访问和业务逻辑合并在一个对象中。这与其他ORM（如SQLAlchemy）不同，后者通常将这些关注点分开。主要区别包括：
 
-- **与Pydantic集成**：Python ActiveRecord利用Pydantic进行类型验证和转换
+- **与Pydantic集成**：rhosocial ActiveRecord利用Pydantic进行类型验证和转换
 - **更简单的API**：设计为直观且需要更少的样板代码
 - **流畅的查询接口**：提供可链接的API来构建复杂查询
 - **内置SQLite支持**：开箱即用，支持SQLite
@@ -17,13 +17,13 @@ Python ActiveRecord遵循ActiveRecord模式，将数据访问和业务逻辑合�
 
 ### 我可以将ActiveRecord用于现有数据库吗？
 
-是的，Python ActiveRecord可以与现有数据库一起使用。只需定义与现有表结构匹配的模型即可。如果您的表已经存在，则不需要使用`create_table`方法。
+是的，rhosocial ActiveRecord可以与现有数据库一起使用。只需定义与现有表结构匹配的模型即可。如果您的表已经存在，则不需要使用`create_table`方法。
 
 ## 安装和设置
 
 ### 为什么我收到"SQLite版本太旧"的错误？
 
-Python ActiveRecord需要SQLite 3.25或更高版本，因为它使用了窗口函数和其他现代SQL功能。您可以使用以下命令检查SQLite版本：
+rhosocial ActiveRecord需要SQLite 3.25或更高版本，因为它使用了窗口函数和其他现代SQL功能。您可以使用以下命令检查SQLite版本：
 
 ```python
 import sqlite3
@@ -57,7 +57,7 @@ Product.configure(
 
 ### 如何定义主键？
 
-默认情况下，Python ActiveRecord使用名为`id`的字段作为主键。您可以通过设置`__primary_key__`属性来自定义这一点：
+默认情况下，rhosocial ActiveRecord使用名为`id`的字段作为主键。您可以通过设置`__primary_key__`属性来自定义这一点：
 
 ```python
 class User(ActiveRecord):
@@ -74,7 +74,7 @@ class User(ActiveRecord):
 
 ### 我可以使用UUID主键吗？
 
-是的，Python ActiveRecord通过`UUIDField`混入支持UUID主键：
+是的，rhosocial ActiveRecord通过`UUIDField`混入支持UUID主键：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -138,7 +138,7 @@ users = backend.fetch_all("SELECT * FROM users WHERE status = ?", params=('activ
 
 ### 如何处理数据库迁移？
 
-Python ActiveRecord的核心包中不包含内置的迁移系统。对于简单的架构更改，您可以使用`create_table`、`add_column`等方法。对于更复杂的迁移，请考虑：
+rhosocial ActiveRecord的核心包中不包含内置的迁移系统。对于简单的架构更改，您可以使用`create_table`、`add_column`等方法。对于更复杂的迁移，请考虑：
 
 1. 使用可选的迁移包：`pip install rhosocial-activerecord[migration]`
 2. 使用专用迁移工具，如Alembic

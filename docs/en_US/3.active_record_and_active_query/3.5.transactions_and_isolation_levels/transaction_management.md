@@ -1,10 +1,10 @@
 # Transaction Management
 
-Transaction management is a critical aspect of database operations that ensures data integrity and consistency. Python ActiveRecord provides a robust transaction management system that works across different database backends.
+Transaction management is a critical aspect of database operations that ensures data integrity and consistency. rhosocial ActiveRecord provides a robust transaction management system that works across different database backends.
 
 ## Basic Transaction Operations
 
-Python ActiveRecord offers several ways to work with transactions:
+rhosocial ActiveRecord offers several ways to work with transactions:
 
 ### Using the Context Manager (Recommended)
 
@@ -43,7 +43,7 @@ except Exception:
 
 ## Transaction States
 
-A transaction in Python ActiveRecord can be in one of the following states:
+A transaction in rhosocial ActiveRecord can be in one of the following states:
 
 - **INACTIVE**: No active transaction
 - **ACTIVE**: Transaction has been started but not yet committed or rolled back
@@ -60,7 +60,7 @@ if User.backend().in_transaction:
 
 ## Transaction Manager
 
-Behind the scenes, Python ActiveRecord uses a `TransactionManager` class to handle transaction operations. Each database backend implements its own transaction manager that handles the specifics of that database system.
+Behind the scenes, rhosocial ActiveRecord uses a `TransactionManager` class to handle transaction operations. Each database backend implements its own transaction manager that handles the specifics of that database system.
 
 The transaction manager is responsible for:
 
@@ -71,7 +71,7 @@ The transaction manager is responsible for:
 
 ## Auto-Commit Behavior
 
-When not in a transaction, Python ActiveRecord follows these auto-commit rules:
+When not in a transaction, rhosocial ActiveRecord follows these auto-commit rules:
 
 1. By default, individual operations are auto-committed
 2. Batch operations are also auto-committed unless wrapped in a transaction
@@ -85,7 +85,7 @@ User.backend().execute_sql("UPDATE users SET status = 'active'", auto_commit=Fal
 
 ## Database-Specific Considerations
 
-While Python ActiveRecord provides a consistent transaction API across all supported databases, there are some database-specific considerations:
+While rhosocial ActiveRecord provides a consistent transaction API across all supported databases, there are some database-specific considerations:
 
 - **SQLite**: Supports basic transaction functionality but has limitations with concurrent transactions
 - **MySQL/MariaDB**: Provides full transaction support with various isolation levels

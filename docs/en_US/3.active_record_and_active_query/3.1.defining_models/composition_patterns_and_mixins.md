@@ -4,7 +4,7 @@ This document explains how to use composition patterns and mixins in your Active
 
 ## Overview
 
-Composition is a design pattern where complex objects are built from smaller, reusable components. In Python ActiveRecord, composition is often implemented using mixins - classes that provide specific functionality that can be "mixed in" to other classes.
+Composition is a design pattern where complex objects are built from smaller, reusable components. In rhosocial ActiveRecord, composition is often implemented using mixins - classes that provide specific functionality that can be "mixed in" to other classes.
 
 Mixins offer several advantages over traditional inheritance:
 
@@ -15,7 +15,7 @@ Mixins offer several advantages over traditional inheritance:
 
 ## Using Predefined Mixins
 
-Python ActiveRecord comes with several predefined mixins that provide common functionality:
+rhosocial ActiveRecord comes with several predefined mixins that provide common functionality:
 
 ### TimestampMixin
 

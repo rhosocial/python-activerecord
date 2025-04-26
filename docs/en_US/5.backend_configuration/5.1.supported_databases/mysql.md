@@ -1,12 +1,12 @@
 # MySQL Support
 
-Python ActiveRecord provides robust support for MySQL database, offering a seamless integration with this popular relational database management system. This document covers the specific features, configuration options, and considerations when using Python ActiveRecord with MySQL.
+rhosocial ActiveRecord provides robust support for MySQL database, offering a seamless integration with this popular relational database management system. This document covers the specific features, configuration options, and considerations when using rhosocial ActiveRecord with MySQL.
 
 > **Important Note**: MySQL backend is being developed as a separate package and will be released in the future. This documentation is provided as a reference for upcoming features.
 
 ## Overview
 
-MySQL is one of the world's most popular open-source relational database management systems. Python ActiveRecord supports MySQL with a dedicated backend implementation that leverages its specific features while providing a consistent ActiveRecord API.
+MySQL is one of the world's most popular open-source relational database management systems. rhosocial ActiveRecord supports MySQL with a dedicated backend implementation that leverages its specific features while providing a consistent ActiveRecord API.
 
 ## Features
 
@@ -85,7 +85,7 @@ The MySQL backend supports the following data types:
 
 ### JSON Support
 
-For MySQL 5.7 and above, Python ActiveRecord provides support for JSON data type and operations:
+For MySQL 5.7 and above, rhosocial ActiveRecord provides support for JSON data type and operations:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, fields
@@ -107,7 +107,7 @@ products = Product.where("JSON_EXTRACT(properties, '$.color') = ?", ['silver'])
 
 ### Full-Text Search
 
-MySQL's full-text search capabilities are accessible through Python ActiveRecord:
+MySQL's full-text search capabilities are accessible through rhosocial ActiveRecord:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, fields
@@ -130,7 +130,7 @@ class Article(ActiveRecord):
 
 ### Indexing
 
-Proper indexing is crucial for MySQL performance. Python ActiveRecord provides methods to define indexes in your models:
+Proper indexing is crucial for MySQL performance. rhosocial ActiveRecord provides methods to define indexes in your models:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, fields, indexes
@@ -204,7 +204,7 @@ MyModel.configure(config, MySQLBackend)
 
 ## Version-Specific Features
 
-Python ActiveRecord adapts to different MySQL versions, enabling you to use version-specific features when available:
+rhosocial ActiveRecord adapts to different MySQL versions, enabling you to use version-specific features when available:
 
 | Feature | Minimum MySQL Version |
 |---------|------------------------|
@@ -231,5 +231,5 @@ Python ActiveRecord adapts to different MySQL versions, enabling you to use vers
 ## Further Reading
 
 - [MySQL Documentation](https://dev.mysql.com/doc/)
-- [Python ActiveRecord Transaction Management](../../../3.active_record_and_active_query/3.4.transaction_management.md)
+- [rhosocial ActiveRecord Transaction Management](../../../3.active_record_and_active_query/3.4.transaction_management.md)
 - [Performance Optimization](../../../4.performance_optimization/README.md)

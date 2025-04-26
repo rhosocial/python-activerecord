@@ -4,7 +4,7 @@ This guide walks you through creating your first ActiveRecord model and performi
 
 ## Defining Your First Model
 
-In Python ActiveRecord, models are Python classes that inherit from `ActiveRecord` and define the structure of your database tables.
+In rhosocial ActiveRecord, models are Python classes that inherit from `ActiveRecord` and define the structure of your database tables.
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -39,7 +39,7 @@ User.configure(
 
 ## Working with Database Tables
 
-Python ActiveRecord works with existing database tables that match your model definitions. Currently, the framework does not support migration capabilities, so you'll need to create your database tables using SQL or other database management tools before using your models.
+rhosocial ActiveRecord works with existing database tables that match your model definitions. Currently, the framework does not support migration capabilities, so you'll need to create your database tables using SQL or other database management tools before using your models.
 
 ## Basic CRUD Operations
 
@@ -120,7 +120,7 @@ if user:
 
 ## Using the Query Builder
 
-Python ActiveRecord includes a powerful query builder for more complex queries:
+rhosocial ActiveRecord includes a powerful query builder for more complex queries:
 
 ```python
 # Complex query example

@@ -4,7 +4,7 @@ Effective debugging is essential for developing and maintaining ActiveRecord app
 
 ## Using Logging for Debugging
 
-Logging is one of the most powerful tools for debugging ActiveRecord applications. Python ActiveRecord provides comprehensive logging capabilities to help you understand what's happening under the hood.
+Logging is one of the most powerful tools for debugging ActiveRecord applications. rhosocial ActiveRecord provides comprehensive logging capabilities to help you understand what's happening under the hood.
 
 ### Configuring Logging
 
@@ -21,7 +21,7 @@ configure_logging(level=logging.DEBUG, component="query")
 
 ### Log Levels
 
-Python ActiveRecord uses standard Python logging levels:
+rhosocial ActiveRecord uses standard Python logging levels:
 
 - `DEBUG`: Detailed information, typically useful only for diagnosing problems
 - `INFO`: Confirmation that things are working as expected

@@ -1,6 +1,6 @@
 # Complex Aggregations
 
-Python ActiveRecord provides powerful capabilities for building complex aggregate queries that go beyond basic grouping and simple aggregate functions. This document explores advanced aggregation techniques that allow you to solve sophisticated data analysis problems.
+rhosocial ActiveRecord provides powerful capabilities for building complex aggregate queries that go beyond basic grouping and simple aggregate functions. This document explores advanced aggregation techniques that allow you to solve sophisticated data analysis problems.
 
 ## Combining Multiple Aggregate Functions
 
@@ -228,4 +228,4 @@ Complex aggregation support varies by database:
 - **MySQL/MariaDB** support most features but may have limitations with certain expressions
 - **SQLite** has more limited support for advanced features
 
-Python ActiveRecord will raise appropriate exceptions when unsupported features are used with a particular database backend.
+rhosocial ActiveRecord will raise appropriate exceptions when unsupported features are used with a particular database backend.

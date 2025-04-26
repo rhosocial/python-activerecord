@@ -1,6 +1,6 @@
 # 数据类型映射
 
-本文档解释了Python ActiveRecord如何在Python、统一的ActiveRecord类型系统和每个支持的数据库系统的原生类型之间映射数据类型。
+本文档解释了rhosocial ActiveRecord如何在Python、统一的ActiveRecord类型系统和每个支持的数据库系统的原生类型之间映射数据类型。
 
 ## 目录
 
@@ -19,7 +19,7 @@
 
 ## 类型系统概述
 
-Python ActiveRecord使用三层类型系统：
+rhosocial ActiveRecord使用三层类型系统：
 
 1. **Python类型**：应用程序代码中使用的原生Python类型（str、int、float、datetime等）
 2. **统一ActiveRecord类型**：在`DatabaseType`枚举中定义的标准化类型集，为所有数据库后端提供一致的接口
@@ -29,7 +29,7 @@ Python ActiveRecord使用三层类型系统：
 
 ## 统一类型系统
 
-Python ActiveRecord通过`dialect`模块中的`DatabaseType`枚举定义了统一的类型系统。这个枚举包括常见的数据类型，这些类型会映射到每个数据库后端的适当原生类型：
+rhosocial ActiveRecord通过`dialect`模块中的`DatabaseType`枚举定义了统一的类型系统。这个枚举包括常见的数据类型，这些类型会映射到每个数据库后端的适当原生类型：
 
 ```python
 class DatabaseType(Enum):
@@ -218,7 +218,7 @@ class DatabaseType(Enum):
 
 ## 自定义类型处理
 
-对于统一类型系统未涵盖的数据库特定类型，Python ActiveRecord在`DatabaseType`枚举中提供了`CUSTOM`类型。使用此类型时，您可以将确切的原生类型指定为字符串：
+对于统一类型系统未涵盖的数据库特定类型，rhosocial ActiveRecord在`DatabaseType`枚举中提供了`CUSTOM`类型。使用此类型时，您可以将确切的原生类型指定为字符串：
 
 ```python
 class MyModel(ActiveRecord):

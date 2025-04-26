@@ -1,10 +1,10 @@
 # Custom Expressions
 
-Python ActiveRecord provides a powerful expression system that allows you to build complex SQL expressions for your queries. These expressions can be used in SELECT clauses, WHERE conditions, HAVING clauses, and other parts of your queries.
+rhosocial ActiveRecord provides a powerful expression system that allows you to build complex SQL expressions for your queries. These expressions can be used in SELECT clauses, WHERE conditions, HAVING clauses, and other parts of your queries.
 
 ## Expression Types
 
-The following expression types are available in Python ActiveRecord:
+The following expression types are available in rhosocial ActiveRecord:
 
 | Expression Type | Description | Class |
 |-----------------|-------------|-------|
@@ -336,7 +336,7 @@ Expression support varies by database:
 - **MySQL/MariaDB**: Good support for most expressions, with some limitations
 - **SQLite**: Basic support for common expressions, with more limitations
 
-Python ActiveRecord will raise appropriate exceptions when unsupported features are used with a particular database backend.
+rhosocial ActiveRecord will raise appropriate exceptions when unsupported features are used with a particular database backend.
 
 ## Performance Considerations
 

@@ -13,7 +13,7 @@ Effective unit testing for ActiveRecord applications involves:
 
 ## Testing Framework
 
-Python ActiveRecord is designed to work seamlessly with standard Python testing frameworks like:
+rhosocial ActiveRecord is designed to work seamlessly with standard Python testing frameworks like:
 
 - `unittest` - Python's built-in testing framework
 - `pytest` - A more feature-rich testing framework with excellent fixtures support

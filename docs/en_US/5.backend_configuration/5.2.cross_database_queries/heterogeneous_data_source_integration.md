@@ -2,11 +2,11 @@
 
 > **⚠️ IMPORTANT NOTE:** The heterogeneous data source integration functionality described in this document is **not yet implemented** and may undergo significant changes in future releases. Cross-database operations described here cannot achieve true cross-database atomicity.
 
-This document explains how Python ActiveRecord can be used to integrate data from different types of database systems, allowing you to work with heterogeneous data sources in a unified way.
+This document explains how rhosocial ActiveRecord can be used to integrate data from different types of database systems, allowing you to work with heterogeneous data sources in a unified way.
 
 ## Overview
 
-Heterogeneous data source integration refers to the ability to work with multiple different types of databases or data storage systems within a single application. Python ActiveRecord provides tools and patterns to make this integration seamless, allowing you to:
+Heterogeneous data source integration refers to the ability to work with multiple different types of databases or data storage systems within a single application. rhosocial ActiveRecord provides tools and patterns to make this integration seamless, allowing you to:
 
 - Query data from different database systems using a consistent API
 - Join or combine data from different sources
@@ -17,7 +17,7 @@ Heterogeneous data source integration refers to the ability to work with multipl
 
 ### Model-Based Integration
 
-The most common approach to heterogeneous data source integration in Python ActiveRecord is through model-based integration, where different models connect to different data sources:
+The most common approach to heterogeneous data source integration in rhosocial ActiveRecord is through model-based integration, where different models connect to different data sources:
 
 ```python
 from rhosocial.activerecord import ActiveRecord, ConnectionManager
@@ -75,7 +75,7 @@ class CustomerAnalyticsService:
 
 ### Data Federation
 
-Python ActiveRecord also supports data federation patterns, where you can create virtual models that combine data from multiple sources:
+rhosocial ActiveRecord also supports data federation patterns, where you can create virtual models that combine data from multiple sources:
 
 ```python
 class CustomerWithEvents:
@@ -99,7 +99,7 @@ class CustomerWithEvents:
 
 ### Handling Type Differences
 
-Different database systems may have different data types and type conversion rules. Python ActiveRecord handles most common type conversions automatically, but you may need to be aware of some differences:
+Different database systems may have different data types and type conversion rules. rhosocial ActiveRecord handles most common type conversions automatically, but you may need to be aware of some differences:
 
 ```python
 # PostgreSQL-specific JSON operations
@@ -148,7 +148,7 @@ class UserActivity(ActiveRecord):
 
 ## Integration with Non-Relational Data Sources
 
-While Python ActiveRecord is primarily designed for relational databases, you can integrate with non-relational data sources through custom adapters or by using hybrid approaches:
+While rhosocial ActiveRecord is primarily designed for relational databases, you can integrate with non-relational data sources through custom adapters or by using hybrid approaches:
 
 ```python
 # Example of a service that integrates relational and document database data
@@ -206,4 +206,4 @@ Integration points between different data systems are common sources of errors a
 
 ## Conclusion
 
-Python ActiveRecord provides flexible tools for integrating heterogeneous data sources, allowing you to leverage the strengths of different database systems while maintaining a consistent programming model. By following the patterns and practices outlined in this document, you can build robust applications that seamlessly work with data across multiple database technologies.
+rhosocial ActiveRecord provides flexible tools for integrating heterogeneous data sources, allowing you to leverage the strengths of different database systems while maintaining a consistent programming model. By following the patterns and practices outlined in this document, you can build robust applications that seamlessly work with data across multiple database technologies.

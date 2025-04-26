@@ -1,6 +1,6 @@
 # 何时选择各种 ORM
 
-## 何时选择 Python ActiveRecord
+## 何时选择 rhosocial ActiveRecord
 - 当您需要强类型验证和数据转换时
 - 当您使用 FastAPI 或其他基于 Pydantic 的框架时
 - 当您想要直观的模型 API 和干净的代码结构时

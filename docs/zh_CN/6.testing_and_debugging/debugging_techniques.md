@@ -4,7 +4,7 @@
 
 ## 使用日志进行调试
 
-日志是调试ActiveRecord应用程序最强大的工具之一。Python ActiveRecord提供了全面的日志功能，帮助您了解底层发生的情况。
+日志是调试ActiveRecord应用程序最强大的工具之一。rhosocial ActiveRecord提供了全面的日志功能，帮助您了解底层发生的情况。
 
 ### 配置日志
 
@@ -21,7 +21,7 @@ configure_logging(level=logging.DEBUG, component="query")
 
 ### 日志级别
 
-Python ActiveRecord使用标准的Python日志级别：
+rhosocial ActiveRecord使用标准的Python日志级别：
 
 - `DEBUG`：详细信息，通常仅用于诊断问题
 - `INFO`：确认事情按预期工作

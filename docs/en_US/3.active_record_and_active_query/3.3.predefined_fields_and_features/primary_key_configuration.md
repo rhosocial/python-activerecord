@@ -1,6 +1,6 @@
 # Primary Key Configuration
 
-Primary keys are essential for uniquely identifying records in a database. Python ActiveRecord provides flexible options for configuring primary keys in your models.
+Primary keys are essential for uniquely identifying records in a database. rhosocial ActiveRecord provides flexible options for configuring primary keys in your models.
 
 ## Default Primary Key
 
@@ -35,7 +35,7 @@ class Product(ActiveRecord):
 
 ## Integer Primary Keys
 
-For tables with integer primary keys, Python ActiveRecord provides the `IntegerPKMixin` to simplify handling:
+For tables with integer primary keys, rhosocial ActiveRecord provides the `IntegerPKMixin` to simplify handling:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -52,7 +52,7 @@ The `IntegerPKMixin` automatically sets the primary key to `None` for new record
 
 ## UUID Primary Keys
 
-For applications that require globally unique identifiers, Python ActiveRecord provides the `UUIDMixin` for UUID-based primary keys:
+For applications that require globally unique identifiers, rhosocial ActiveRecord provides the `UUIDMixin` for UUID-based primary keys:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -109,7 +109,7 @@ Different database backends handle primary keys differently:
 - **MySQL/MariaDB**: Uses `AUTO_INCREMENT` for auto-incrementing primary keys
 - **PostgreSQL**: Typically uses `SERIAL` or `BIGSERIAL` types for auto-incrementing keys
 
-Python ActiveRecord handles these differences for you, but it's good to be aware of them when designing your schema.
+rhosocial ActiveRecord handles these differences for you, but it's good to be aware of them when designing your schema.
 
 ## Best Practices
 

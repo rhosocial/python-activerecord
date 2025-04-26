@@ -1,16 +1,16 @@
 # Savepoints
 
-Savepoints provide a way to set intermediate markers within a transaction, allowing for partial rollbacks without aborting the entire transaction. Python ActiveRecord offers comprehensive savepoint support, giving you fine-grained control over transaction operations.
+Savepoints provide a way to set intermediate markers within a transaction, allowing for partial rollbacks without aborting the entire transaction. rhosocial ActiveRecord offers comprehensive savepoint support, giving you fine-grained control over transaction operations.
 
 ## Understanding Savepoints
 
 A savepoint is a point within a transaction that you can roll back to without rolling back the entire transaction. This is particularly useful for complex operations where you might want to retry only a portion of a transaction if an error occurs.
 
-Savepoints are also the underlying mechanism that enables nested transactions in Python ActiveRecord.
+Savepoints are also the underlying mechanism that enables nested transactions in rhosocial ActiveRecord.
 
 ## Basic Savepoint Operations
 
-Python ActiveRecord provides three main operations for working with savepoints:
+rhosocial ActiveRecord provides three main operations for working with savepoints:
 
 1. **Creating a savepoint**: Marks a point in the transaction that you can later roll back to
 2. **Releasing a savepoint**: Removes a savepoint (but keeps all changes made since the savepoint)
@@ -61,7 +61,7 @@ except Exception:
 
 ## Automatic Savepoint Naming
 
-If you don't provide a name when creating a savepoint, Python ActiveRecord will generate one automatically:
+If you don't provide a name when creating a savepoint, rhosocial ActiveRecord will generate one automatically:
 
 ```python
 # Create a savepoint with auto-generated name
@@ -73,7 +73,7 @@ The auto-generated names follow the pattern `SP_n` where `n` is an incremental c
 
 ## Savepoints and Nested Transactions
 
-Nested transactions in Python ActiveRecord are implemented using savepoints. When you begin a nested transaction, a savepoint is created automatically:
+Nested transactions in rhosocial ActiveRecord are implemented using savepoints. When you begin a nested transaction, a savepoint is created automatically:
 
 ```python
 # Begin outer transaction
@@ -143,7 +143,7 @@ Savepoint support varies by database:
 - **MySQL/MariaDB**: Full support for savepoints
 - **SQLite**: Basic support for savepoints
 
-The Python ActiveRecord transaction manager automatically adapts to the capabilities of the underlying database.
+The rhosocial ActiveRecord transaction manager automatically adapts to the capabilities of the underlying database.
 
 ## Error Handling with Savepoints
 

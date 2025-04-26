@@ -1,14 +1,14 @@
-# Python ActiveRecord
+# rhosocial ActiveRecord
 
 ## Overview
 
-Python ActiveRecord is a robust object-relational mapping (ORM) library that provides an intuitive interface for database interactions in Python applications. Built on the ActiveRecord pattern popularized by Ruby on Rails, this library offers a clean, model-centric approach to database access that significantly reduces boilerplate code while maintaining flexibility and performance.
+rhosocial ActiveRecord is a robust object-relational mapping (ORM) library that provides an intuitive interface for database interactions in Python applications. Built on the ActiveRecord pattern popularized by Ruby on Rails, this library offers a clean, model-centric approach to database access that significantly reduces boilerplate code while maintaining flexibility and performance.
 
 The library allows developers to represent database tables as Python classes and rows as objects, creating a natural mapping between object-oriented domain models and relational database structures. This approach emphasizes convention over configuration, making database operations more intuitive and less error-prone.
 
 ## Features
 
-Python ActiveRecord offers a comprehensive set of features designed to streamline database interactions:
+rhosocial ActiveRecord offers a comprehensive set of features designed to streamline database interactions:
 
 - **Intuitive Model-Based API**: Define your database schema as Python classes with built-in validation
 - **Comprehensive CRUD Operations**: Easily create, read, update, and delete records
@@ -58,14 +58,26 @@ flowchart TD
     BA -->|"connects_to"| SQLITE
 
     %% Click Events
-    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base"
-    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field"
-    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query"
-    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend"
-    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite"
-    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface"
-    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation"
-    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests"
+    click AR "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/base" "View source code"
+    click FD "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/field" "View source code"
+    click QB "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/query" "View source code"
+    click BA "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend" "View source code"
+    click SI "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/backend/impl/sqlite" "View source code"
+    click IL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/interface" "View source code"
+    click RL "https://github.com/rhosocial/python-activerecord/tree/main/src/rhosocial/activerecord/relation" "View source code"
+    click TEST "https://github.com/rhosocial/python-activerecord/tree/main/tests" "View source code"
+    
+    %% Component Structure Documentation Links
+    click AR "component_structure.md#activerecord-base-structure" "View component structure"
+    click FD "component_structure.md#field-definitions-structure" "View component structure"
+    click QB "component_structure.md#query-builder-structure" "View component structure"
+    click IL "component_structure.md#interface-layer-structure" "View component structure"
+    click RL "component_structure.md#relation-layer-structure" "View component structure"
+    click AR "component_structure.md#activerecord-base-structure" "View component structure"
+    click FD "component_structure.md#field-definitions-structure" "View component structure"
+    click QB "component_structure.md#query-builder-structure" "View component structure"
+    click IL "component_structure.md#interface-layer-structure" "View component structure"
+    click RL "component_structure.md#relation-layer-structure" "View component structure"
 
     %% Styles
     classDef core fill:#F9E79F,stroke:#B9770E,stroke-width:2px;
@@ -80,7 +92,7 @@ flowchart TD
 
 ## Requirements
 
-To use Python ActiveRecord, you need:
+To use rhosocial ActiveRecord, you need:
 
 - **Python**: Version 3.8 or higher
 - **Pydantic**:
@@ -148,5 +160,5 @@ active_users = User.query().where('is_active = ?', (True,)).all()
 Python offers several established ORM solutions, each with their own philosophy and design approach. Understanding these
 differences can help you choose the right tool for your specific needs.
 
-For a detailed analysis of how Python ActiveRecord compares to these frameworks with specific code examples, performance
+For a detailed analysis of how rhosocial ActiveRecord compares to these frameworks with specific code examples, performance
 benchmarks, and use case recommendations, please see the [When to Choose Each ORM](docs/when-to-choose.md) guide.

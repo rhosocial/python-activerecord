@@ -1,6 +1,6 @@
 # Relationships in ActiveRecord
 
-This section covers the various relationship types supported by Python ActiveRecord and how to use them effectively in your applications.
+This section covers the various relationship types supported by rhosocial ActiveRecord and how to use them effectively in your applications.
 
 ## Contents
 
@@ -15,9 +15,9 @@ This section covers the various relationship types supported by Python ActiveRec
 
 ## Overview
 
-Relationships in ActiveRecord represent associations between database tables, allowing you to work with related data in an object-oriented way. Python ActiveRecord provides a rich set of relationship types and loading strategies to help you model complex data relationships efficiently.
+Relationships in ActiveRecord represent associations between database tables, allowing you to work with related data in an object-oriented way. rhosocial ActiveRecord provides a rich set of relationship types and loading strategies to help you model complex data relationships efficiently.
 
-The relationship system in Python ActiveRecord is designed to be:
+The relationship system in rhosocial ActiveRecord is designed to be:
 
 - **Type-safe**: Leveraging Python's type hints for better IDE support and runtime validation
 - **Intuitive**: Using descriptive class attributes to define relationships
@@ -28,7 +28,7 @@ The relationship system in Python ActiveRecord is designed to be:
 
 ### Relationship Types
 
-Python ActiveRecord supports several relationship types:
+rhosocial ActiveRecord supports several relationship types:
 
 - **BelongsTo**: Represents a many-to-one relationship where the current model contains a foreign key referencing another model
 - **HasOne**: Represents a one-to-one relationship where another model contains a foreign key referencing the current model
@@ -37,7 +37,7 @@ Python ActiveRecord supports several relationship types:
 
 ### Relationship Loading
 
-Python ActiveRecord supports different strategies for loading related data:
+rhosocial ActiveRecord supports different strategies for loading related data:
 
 - **Lazy Loading**: Related data is loaded only when explicitly accessed
 - **Eager Loading**: Related data is loaded upfront in a single query or a minimal number of queries

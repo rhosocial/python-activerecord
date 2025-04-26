@@ -1,10 +1,10 @@
 # 安装指南
 
-本指南介绍如何安装Python ActiveRecord及其依赖项。
+本指南介绍如何安装rhosocial ActiveRecord及其依赖项。
 
 ## 系统要求
 
-在安装Python ActiveRecord之前，请确保您的系统满足以下要求：
+在安装rhosocial ActiveRecord之前，请确保您的系统满足以下要求：
 
 - **Python**: 3.8或更高版本
 - **Pydantic**: 2.10+（适用于Python 3.8），2.11+（适用于Python 3.9+）
@@ -29,7 +29,7 @@ pip install rhosocial-activerecord
 
 ### 可选数据库后端
 
-Python ActiveRecord通过可选包支持多种数据库后端：
+rhosocial ActiveRecord通过可选包支持多种数据库后端：
 
 > **注意**：这些可选数据库后端目前正在开发中，可能尚未完全稳定，不建议在生产环境中使用。
 
@@ -71,11 +71,11 @@ pip install rhosocial-activerecord[all]
 - **Pydantic 2.10.x**: 兼容Python 3.8至3.12
 - **Pydantic 2.11.x**: 兼容Python 3.9至3.13（包括自由线程模式）
 
-> **注意**：根据Python官方开发计划（[PEP 703](https://peps.python.org/pep-0703/)），自由线程模式将在未来几年内保持实验性质，不建议在生产环境中使用，尽管Pydantic和Python ActiveRecord都支持它。
+> **注意**：根据Python官方开发计划（[PEP 703](https://peps.python.org/pep-0703/)），自由线程模式将在未来几年内保持实验性质，不建议在生产环境中使用，尽管Pydantic和rhosocial ActiveRecord都支持它。
 
 ## 验证安装
 
-安装完成后，您可以通过运行以下代码验证Python ActiveRecord是否正确安装：
+安装完成后，您可以通过运行以下代码验证rhosocial ActiveRecord是否正确安装：
 
 ```python
 import rhosocial.activerecord
@@ -86,4 +86,4 @@ print(rhosocial.activerecord.__version__)
 
 ## 下一步
 
-现在您已经安装了Python ActiveRecord，请继续阅读[基本配置](basic_configuration.md)以了解如何设置您的第一个数据库连接。
+现在您已经安装了rhosocial ActiveRecord，请继续阅读[基本配置](basic_configuration.md)以了解如何设置您的第一个数据库连接。

@@ -1,10 +1,10 @@
 # Basic Configuration
 
-This guide covers how to configure Python ActiveRecord with SQLite for your first project.
+This guide covers how to configure rhosocial ActiveRecord with SQLite for your first project.
 
 ## Setting Up a SQLite Connection
 
-Python ActiveRecord uses a connection configuration object to establish database connections. For SQLite, this is straightforward as it only requires a file path.
+rhosocial ActiveRecord uses a connection configuration object to establish database connections. For SQLite, this is straightforward as it only requires a file path.
 
 ### Basic SQLite Configuration
 

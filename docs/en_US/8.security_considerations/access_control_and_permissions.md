@@ -1,6 +1,6 @@
 # Access Control and Permissions
 
-Implementing proper access control and permission management is essential for securing your database applications. This document outlines strategies and best practices for implementing access control when using Python ActiveRecord.
+Implementing proper access control and permission management is essential for securing your database applications. This document outlines strategies and best practices for implementing access control when using rhosocial ActiveRecord.
 
 ## Levels of Access Control
 
@@ -8,7 +8,7 @@ Access control can be implemented at multiple levels:
 
 1. **Database Level**: Permissions enforced by the database system itself
 2. **Application Level**: Permissions enforced by your application code
-3. **ORM Level**: Permissions enforced through Python ActiveRecord
+3. **ORM Level**: Permissions enforced through rhosocial ActiveRecord
 
 ## Database-Level Access Control
 
@@ -25,7 +25,7 @@ CREATE USER app_readwrite WITH PASSWORD 'different_secure_password';
 GRANT SELECT, INSERT, UPDATE, DELETE ON ALL TABLES IN SCHEMA public TO app_readwrite;
 ```
 
-In your Python ActiveRecord configuration, you can use different connection settings based on the required access level:
+In your rhosocial ActiveRecord configuration, you can use different connection settings based on the required access level:
 
 ```python
 read_only_config = {
@@ -60,7 +60,7 @@ CREATE POLICY user_documents ON documents
     USING (user_id = current_user_id());
 ```
 
-To use RLS with Python ActiveRecord, you'll need to set the current user context in your database session:
+To use RLS with rhosocial ActiveRecord, you'll need to set the current user context in your database session:
 
 ```python
 class Document(ActiveRecord):
@@ -336,7 +336,7 @@ def update_document(user, document_id, new_content):
 
 ## Conclusion
 
-Implementing robust access control is crucial for securing your database applications. Python ActiveRecord provides the flexibility to implement various access control strategies at different levels.
+Implementing robust access control is crucial for securing your database applications. rhosocial ActiveRecord provides the flexibility to implement various access control strategies at different levels.
 
 By combining database-level permissions, application-level role-based access control, and ORM-level query filtering, you can create a comprehensive security model that protects your data while providing appropriate access to authorized users.
 

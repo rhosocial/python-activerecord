@@ -1,6 +1,6 @@
 # When to Choose Each ORM
 
-## When to Choose Python ActiveRecord
+## When to Choose rhosocial ActiveRecord
 - When you need strong type validation and data conversion
 - When you're using FastAPI or other Pydantic-based frameworks
 - When you want an intuitive model API and clean code structure

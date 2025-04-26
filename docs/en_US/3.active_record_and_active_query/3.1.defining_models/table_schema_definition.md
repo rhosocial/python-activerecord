@@ -4,7 +4,7 @@ This document explains how to define the table schema for your ActiveRecord mode
 
 ## Basic Schema Definition
 
-In Python ActiveRecord, the table schema is defined through the model class definition. Each attribute of the class represents a column in the database table.
+In rhosocial ActiveRecord, the table schema is defined through the model class definition. Each attribute of the class represents a column in the database table.
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -54,7 +54,7 @@ class Product(ActiveRecord):
 
 ## Field Types and Database Mapping
 
-Python ActiveRecord leverages Pydantic's type system and maps Python types to appropriate database column types. Here's how common Python types map to database types:
+rhosocial ActiveRecord leverages Pydantic's type system and maps Python types to appropriate database column types. Here's how common Python types map to database types:
 
 | Python Type | SQLite | MySQL | PostgreSQL |
 |-------------|--------|-------|------------|
@@ -193,4 +193,4 @@ class Product(ActiveRecord):
 
 ## Conclusion
 
-Defining your table schema through Python ActiveRecord models provides a clean, type-safe way to structure your database. The combination of Python type hints and Pydantic validation ensures your data maintains integrity throughout your application.
+Defining your table schema through rhosocial ActiveRecord models provides a clean, type-safe way to structure your database. The combination of Python type hints and Pydantic validation ensures your data maintains integrity throughout your application.

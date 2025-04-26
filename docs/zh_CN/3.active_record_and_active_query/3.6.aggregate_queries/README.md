@@ -1,10 +1,10 @@
 # 聚合查询
 
-聚合查询允许您对数据库中的行组执行计算。Python ActiveRecord提供了一套全面的工具，用于构建和执行从简单计数到复杂统计分析的聚合查询。
+聚合查询允许您对数据库中的行组执行计算。rhosocial ActiveRecord提供了一套全面的工具，用于构建和执行从简单计数到复杂统计分析的聚合查询。
 
 ## 概述
 
-聚合函数对多行进行操作并返回单个值。常见的例子包括COUNT、SUM、AVG、MIN和MAX。Python ActiveRecord通过`AggregateQueryMixin`类实现这些函数，该类扩展了基本查询功能，增加了聚合能力。
+聚合函数对多行进行操作并返回单个值。常见的例子包括COUNT、SUM、AVG、MIN和MAX。rhosocial ActiveRecord通过`AggregateQueryMixin`类实现这些函数，该类扩展了基本查询功能，增加了聚合能力。
 
 ## 目录
 
@@ -58,7 +58,7 @@
 
 ## 数据库兼容性
 
-并非所有数据库都支持相同的聚合功能。Python ActiveRecord在不同的数据库后端之间提供了一致的API，但某些高级功能可能并非在所有数据库上都可用：
+并非所有数据库都支持相同的聚合功能。rhosocial ActiveRecord在不同的数据库后端之间提供了一致的API，但某些高级功能可能并非在所有数据库上都可用：
 
 - **基本聚合**（COUNT、SUM、AVG、MIN、MAX）被所有数据库支持
 - **窗口函数**由PostgreSQL、MySQL 8.0+、MariaDB 10.2+和SQLite 3.25+支持

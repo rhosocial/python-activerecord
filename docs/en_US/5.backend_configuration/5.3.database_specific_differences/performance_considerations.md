@@ -1,6 +1,6 @@
 # Performance Considerations
 
-This document explores the performance characteristics of different database systems supported by Python ActiveRecord and provides guidance on optimizing performance for each system.
+This document explores the performance characteristics of different database systems supported by rhosocial ActiveRecord and provides guidance on optimizing performance for each system.
 
 ## Contents
 
@@ -114,7 +114,7 @@ Each database system has unique performance characteristics and optimization tec
 
 4. **Connection Pool**: Configure connection pool size appropriately
    ```python
-   # In Python ActiveRecord configuration
+   # In rhosocial ActiveRecord configuration
    config = ConnectionConfig(
        # ...
        pool_size=10,
@@ -162,7 +162,7 @@ Each database system has unique performance characteristics and optimization tec
 
 4. **Connection Pool**: Configure connection pool size appropriately
    ```python
-   # In Python ActiveRecord configuration
+   # In rhosocial ActiveRecord configuration
    config = ConnectionConfig(
        # ...
        pool_size=10,
@@ -299,7 +299,7 @@ Each database system has unique performance characteristics and optimization tec
 
 ### Using EXPLAIN/EXECUTION PLANS
 
-Python ActiveRecord provides a unified interface for obtaining query execution plans:
+rhosocial ActiveRecord provides a unified interface for obtaining query execution plans:
 
 ```python
 # Get execution plan for a query
@@ -361,7 +361,7 @@ Regular index maintenance is crucial for performance:
 
 ## Connection and Pool Management
 
-Connection pooling is essential for performance in multi-user applications. Python ActiveRecord provides connection pooling capabilities that should be configured based on your database system and workload:
+Connection pooling is essential for performance in multi-user applications. rhosocial ActiveRecord provides connection pooling capabilities that should be configured based on your database system and workload:
 
 ```python
 config = ConnectionConfig(
@@ -406,7 +406,7 @@ Higher isolation levels provide more consistency but may reduce concurrency:
 
 ## Caching Strategies
 
-Python ActiveRecord supports various caching strategies:
+rhosocial ActiveRecord supports various caching strategies:
 
 1. **Query Result Caching**: Cache the results of frequently executed queries
 2. **Model Caching**: Cache frequently accessed model instances
@@ -450,7 +450,7 @@ Bulk operation performance varies significantly:
 | Oracle        | Direct-path INSERT or multi-value INSERT            | MERGE statement                                  |
 | SQL Server    | BULK INSERT or table-valued parameters              | MERGE statement                                  |
 
-Python ActiveRecord provides batch operation methods that use the most efficient approach for each database system.
+rhosocial ActiveRecord provides batch operation methods that use the most efficient approach for each database system.
 
 ## Monitoring and Profiling
 
@@ -464,4 +464,4 @@ Each database system provides different tools for monitoring and profiling:
 | Oracle        | AWR reports, V$ views                              | Wait events, buffer cache hit ratio, SQL statistics |
 | SQL Server    | Dynamic Management Views, Query Store               | Query performance, wait statistics, buffer usage |
 
-Python ActiveRecord provides integration with these monitoring tools through its diagnostic interfaces.
+rhosocial ActiveRecord provides integration with these monitoring tools through its diagnostic interfaces.

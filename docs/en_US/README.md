@@ -1,18 +1,24 @@
-# Python ActiveRecord Documentation Outline (English Version)
+# rhosocial ActiveRecord Documentation Outline (English Version)
 
 > **⚠️ Development Stage Notice:** This project is currently in the development stage. Features may be added or removed at any time, and there may be defects or inconsistencies with the actual implementation. Therefore, the documentation content may be adjusted at any time and is currently for reference only.
 >
 > **📝 Documentation Notation:** Throughout the documentation, you may see labels such as "Not Yet Implemented", "Partially Implemented", or "Subject to Change". These labels indicate that the related features are not fully implemented or may differ from the actual implementation. Please refer to the actual code for the most accurate information.
 
 ## [1. Introduction](1.introduction/README.md)
-- Overview
-- Features
-- Requirements
-- [Comparison with Other Python ORM Frameworks](1.introduction/orm_comparison.md)
-  - Comparison with SQLAlchemy
-  - Comparison with Django ORM
-  - Comparison with Peewee
-  - Reasons to Choose ActiveRecord
+- [Overview](1.introduction/introduction.md)
+- [Features](1.introduction/features.md)
+- [Requirements](1.introduction/README.md#requirements)
+- [Philosophy](1.introduction/philosophy.md)
+- [Pydantic Integration](1.introduction/pydantic-integration.md)
+- [Asynchronous Support](1.introduction/async-support.md)
+- [Relationships](1.introduction/relationships.md)
+- [Aggregation](1.introduction/aggregation.md)
+- [Performance](1.introduction/performance.md)
+- [Learning Curve](1.introduction/learning-curve.md)
+- [Community](1.introduction/community.md)
+- [When to Choose](1.introduction/when-to-choose.md)
+- [Code Comparison](1.introduction/code-comparison.md)
+- [Conclusion](1.introduction/conclusion.md)
 
 ## [2. Quick Start (SQLite Example)](2.quick_start/README.md)
 - [Installation](2.quick_start/installation.md)
@@ -41,7 +47,7 @@
 - [Pessimistic Locking Strategies](3.active_record_and_active_query/3.3.predefined_fields_and_features/pessimistic_locking_strategies.md)
 - [Custom Fields](3.active_record_and_active_query/3.3.predefined_fields_and_features/custom_fields.md)
 
-### 3.4 Relationships
+### [3.4 Relationships](3.active_record_and_active_query/3.4.relationships/README.md)
 - [One-to-One Relationships](3.active_record_and_active_query/3.4.relationships/one_to_one_relationships.md)
 - [One-to-Many Relationships](3.active_record_and_active_query/3.4.relationships/one_to_many_relationships.md)
 - [Many-to-Many Relationships](3.active_record_and_active_query/3.4.relationships/many_to_many_relationships.md)
@@ -51,7 +57,7 @@
 - [Eager Loading and Lazy Loading](3.active_record_and_active_query/3.4.relationships/eager_and_lazy_loading.md)
 - [Cross-database Relationships](3.active_record_and_active_query/3.4.relationships/cross_database_relationships.md)
 
-### 3.5 Transactions & Isolation Levels
+### [3.5 Transactions & Isolation Levels](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/README.md)
 - [Transaction Management](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/transaction_management.md)
 - [Isolation Level Configuration](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/isolation_level_configuration.md)
 - [Nested Transactions](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/nested_transactions.md)
@@ -80,7 +86,7 @@
   - Subquery Expressions
   - Grouping Set Expressions (CUBE, ROLLUP, GROUPING SETS)
 
-### 3.7 Advanced Query Features
+### [3.7 Advanced Query Features](3.active_record_and_active_query/3.7.advanced_query_features/README.md)
 - [Custom ActiveQuery Classes](3.active_record_and_active_query/3.7.advanced_query_features/custom_activequery_classes.md)
 - [Query Scopes](3.active_record_and_active_query/3.7.advanced_query_features/query_scopes.md)
 - [Dynamic Query Building](3.active_record_and_active_query/3.7.advanced_query_features/dynamic_query_building.md)
@@ -157,7 +163,7 @@
 - [Data Processing Scripts](9.application_scenarios/9.4.command_line_tool_development/data_processing_scripts.md)
 - [ETL Process Implementation](9.application_scenarios/9.4.command_line_tool_development/etl_process_implementation.md)
 
-## 10. Complete Usage Examples
+## [10. Complete Usage Examples](10.complete_examples/README.md)
 - Web Application Example
 - Data Analysis Example
 - Microservice Example
@@ -170,5 +176,5 @@
 - [Documentation Contributions](11.contributing/documentation_contributions.md)
 - [Sponsorship](11.contributing/sponsorship.md)
 
-## 12. API Reference
+## [12. API Reference](12.api_reference/README.md)
 - Complete Class/Method Documentation

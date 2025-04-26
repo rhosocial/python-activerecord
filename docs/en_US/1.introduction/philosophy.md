@@ -1,8 +1,8 @@
 # Philosophy and Design Approach
 
-## Python ActiveRecord
+## rhosocial ActiveRecord
 
-Python ActiveRecord follows the Active Record pattern, where:
+rhosocial ActiveRecord follows the Active Record pattern, where:
 - Each model class corresponds to a database table
 - Each instance corresponds to a row in that table
 - Model objects directly manage database operations through their methods
@@ -11,7 +11,7 @@ The library embraces a "convention over configuration" approach, using Pydantic 
 prioritizes an intuitive, model-centric API that feels natural in Python code. This Pydantic integration is a core
 distinguishing feature enabling seamless interaction with other Pydantic-based systems.
 
-Python ActiveRecord also adopts a progressive approach to asynchronous programming, allowing developers to choose
+rhosocial ActiveRecord also adopts a progressive approach to asynchronous programming, allowing developers to choose
 between synchronous and asynchronous interfaces based on their application needs.
 
 ## SQLAlchemy
@@ -46,7 +46,7 @@ Peewee is designed as a lightweight alternative, focusing on:
 - Minimal dependencies
 - Easy-to-understand implementation
 
-It follows the Active Record pattern similar to Python ActiveRecord but with less focus on advanced features or
+It follows the Active Record pattern similar to rhosocial ActiveRecord but with less focus on advanced features or
 extensive type validation.
 
 Peewee's asynchronous support is provided through a separate extension, peewee-async, requiring different patterns

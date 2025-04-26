@@ -3,7 +3,7 @@
 Choosing the right ORM for your Python project depends on a variety of factors, including your specific requirements,
 team expertise, and preferred development patterns.
 
-Python ActiveRecord offers a compelling combination of features that make it particularly suitable for modern application development:
+rhosocial ActiveRecord offers a compelling combination of features that make it particularly suitable for modern application development:
 
 - The strong Pydantic integration provides robust validation and seamless ecosystem compatibility
 - The intuitive API with chainable query methods reduces boilerplate and improves readability
@@ -21,7 +21,7 @@ Peewee continues to serve as an excellent lightweight option for simpler applica
 are prioritized over advanced features.
 
 For developers building modern applications with Pydantic-based frameworks like FastAPI, or those seeking a balance of
-power and simplicity with excellent type safety, Python ActiveRecord provides a compelling alternative
+power and simplicity with excellent type safety, rhosocial ActiveRecord provides a compelling alternative
 that combines the best aspects of its predecessors with modern Python features.
 
 By understanding the strengths and limitations of each ORM, you can make an informed decision that aligns with

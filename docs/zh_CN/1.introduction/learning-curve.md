@@ -1,6 +1,6 @@
 # 学习曲线和文档
 
-## Python ActiveRecord
+## rhosocial ActiveRecord
 - **学习曲线**：中等，对于熟悉 Ruby on Rails 或 Yii2 的开发者明显较低
 - **文档**：全面，包含许多示例
 - **优势**：清晰的模型定义，直观的 API，Pydantic 知识可转移性

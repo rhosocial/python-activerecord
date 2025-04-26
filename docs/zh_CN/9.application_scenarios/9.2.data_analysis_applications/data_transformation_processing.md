@@ -1,6 +1,6 @@
-# 使用Python ActiveRecord进行数据转换处理
+# 使用rhosocial ActiveRecord进行数据转换处理
 
-数据转换是数据分析工作流程的关键组成部分。Python ActiveRecord提供了强大的功能，用于从数据库转换和处理数据。本文档探讨了使用ActiveRecord进行数据转换的各种方法。
+数据转换是数据分析工作流程的关键组成部分。rhosocial ActiveRecord提供了强大的功能，用于从数据库转换和处理数据。本文档探讨了使用ActiveRecord进行数据转换的各种方法。
 
 ## 基本数据转换
 
@@ -431,6 +431,6 @@ def transform_with_logging(source_data):
 
 ## 结论
 
-Python ActiveRecord为数据分析应用中的数据转换处理提供了强大的功能。通过利用其查询构建功能、表达式支持以及与Python数据科学生态系统的集成，您可以实现复杂的数据转换工作流，而无需编写复杂的SQL。
+rhosocial ActiveRecord为数据分析应用中的数据转换处理提供了强大的功能。通过利用其查询构建功能、表达式支持以及与Python数据科学生态系统的集成，您可以实现复杂的数据转换工作流，而无需编写复杂的SQL。
 
 无论您是执行简单的列转换、复杂的ETL流程，还是准备用于机器学习模型的数据，ActiveRecord直观的API和性能优化功能使其成为数据转换任务的绝佳选择。能够将转换推送到数据库级别，同时保持清晰的Python接口，提供了性能和开发人员生产力的双重优势。

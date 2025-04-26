@@ -1,6 +1,6 @@
 # 数据分析应用
 
-Python ActiveRecord为数据分析应用提供了强大的功能。本节探讨如何利用ActiveRecord的特性进行数据分析任务，包括报表生成和数据转换处理。
+rhosocial ActiveRecord为数据分析应用提供了强大的功能。本节探讨如何利用ActiveRecord的特性进行数据分析任务，包括报表生成和数据转换处理。
 
 ## 目录
 
@@ -9,7 +9,7 @@ Python ActiveRecord为数据分析应用提供了强大的功能。本节探讨�
 
 ## 概述
 
-数据分析是许多应用程序的关键组成部分，从商业智能仪表板到科学研究。Python ActiveRecord为数据分析应用提供了几个优势：
+数据分析是许多应用程序的关键组成部分，从商业智能仪表板到科学研究。rhosocial ActiveRecord为数据分析应用提供了几个优势：
 
 - **简化数据访问**：ActiveRecord直观的查询接口使得无需编写复杂的SQL就能轻松检索和操作数据。
 - **强大的聚合功能**：内置支持聚合函数（COUNT、SUM、AVG、MIN、MAX）和分组操作。

@@ -1,12 +1,12 @@
 # Relationship Management
 
-Python ActiveRecord offers a versatile and type-safe relationship management system that enables developers to define
+rhosocial ActiveRecord offers a versatile and type-safe relationship management system that enables developers to define
 and work with database relationships in an intuitive way. The relationship system is designed to handle common
 relationship types while providing flexible querying and eager loading capabilities.
 
 ## Core Relationship Types
 
-Python ActiveRecord supports three primary relationship types:
+rhosocial ActiveRecord supports three primary relationship types:
 
 ### 1. BelongsTo (Many-to-One)
 
@@ -79,7 +79,7 @@ class User(ActiveRecord):
 
 ## Bidirectional Relationships
 
-Python ActiveRecord supports bidirectional relationships through the `inverse_of` parameter, which helps maintain
+rhosocial ActiveRecord supports bidirectional relationships through the `inverse_of` parameter, which helps maintain
 consistency and enables validation:
 
 ```python
@@ -126,7 +126,7 @@ active_orders = user.orders_query().where('status = ?', ('active',)).order_by('c
 
 ## Relationship Caching
 
-Python ActiveRecord provides instance-level caching for relationships, ensuring proper isolation and memory management:
+rhosocial ActiveRecord provides instance-level caching for relationships, ensuring proper isolation and memory management:
 
 ```python
 # Cached on first access
@@ -230,7 +230,7 @@ for post in posts_with_comments:
 ## Comparison with Other ORMs
 
 ### vs SQLAlchemy
-SQLAlchemy offers a wider variety of relationship types, including many-to-many relationships and association objects. However, its relationship definition syntax is more complex and requires more boilerplate code. Python ActiveRecord's relationship system is more intuitive and requires less code while still providing the most common relationship types.
+SQLAlchemy offers a wider variety of relationship types, including many-to-many relationships and association objects. However, its relationship definition syntax is more complex and requires more boilerplate code. rhosocial ActiveRecord's relationship system is more intuitive and requires less code while still providing the most common relationship types.
 
 ```python
 # SQLAlchemy relationship example
@@ -249,7 +249,7 @@ class Post(Base):
 
 ### vs Django ORM
 Django ORM's relationship API uses field objects in model definitions, which is slightly different from
-Python ActiveRecord's descriptor-based approach. Django also supports many-to-many relationships out of the box,
+rhosocial ActiveRecord's descriptor-based approach. Django also supports many-to-many relationships out of the box,
 but its eager loading requires more verbose syntax with `prefetch_related` and `select_related`.
 
 ```python
@@ -264,7 +264,7 @@ class Post(models.Model):
 ```
 
 ### vs Peewee
-Peewee's relationship API is similar to Python ActiveRecord but uses field objects in model definitions
+Peewee's relationship API is similar to rhosocial ActiveRecord but uses field objects in model definitions
 rather than descriptors. It also supports eager loading but requires more manual setup for nested relationships.
 
 ```python
@@ -278,7 +278,7 @@ class Post(Model):
     # Post.select().join(User).switch(Post).join(Comment)
 ```
 
-## Key Advantages of Python ActiveRecord's Relationship System
+## Key Advantages of rhosocial ActiveRecord's Relationship System
 
 1. **Type Safety**: Full type hinting with generics for better IDE support and runtime type checking
 2. **Simplified Definition**: Clean descriptor-based syntax with minimal boilerplate

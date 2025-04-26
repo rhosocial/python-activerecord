@@ -1,10 +1,10 @@
 # 自定义后端
 
-本节介绍如何在Python ActiveRecord中实现自定义数据库后端和扩展现有后端。
+本节介绍如何在rhosocial ActiveRecord中实现自定义数据库后端和扩展现有后端。
 
 ## 概述
 
-Python ActiveRecord设计时考虑了可扩展性，允许开发者创建超出内置后端（SQLite、MySQL/MariaDB、PostgreSQL等）范围的自定义数据库后端。这一功能在以下情况下特别有用：
+rhosocial ActiveRecord设计时考虑了可扩展性，允许开发者创建超出内置后端（SQLite、MySQL/MariaDB、PostgreSQL等）范围的自定义数据库后端。这一功能在以下情况下特别有用：
 
 - 需要支持标准发行版中未包含的数据库系统
 - 想要为现有后端添加专门功能
@@ -17,7 +17,7 @@ Python ActiveRecord设计时考虑了可扩展性，允许开发者创建超出�
 
 ## 架构
 
-Python ActiveRecord中的后端系统遵循模块化架构，具有明确的关注点分离：
+rhosocial ActiveRecord中的后端系统遵循模块化架构，具有明确的关注点分离：
 
 1. **抽象基类**：`StorageBackend`抽象基类定义了所有后端必须实现的接口
 2. **方言系统**：SQL方言差异通过方言系统处理

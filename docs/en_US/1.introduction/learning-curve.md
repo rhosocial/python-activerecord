@@ -1,6 +1,6 @@
 # Learning Curve and Documentation
 
-## Python ActiveRecord
+## rhosocial ActiveRecord
 - **Learning Curve**: Moderate, significantly lower for developers familiar with Ruby on Rails or Yii2
 - **Documentation**: Comprehensive with many examples
 - **Strengths**: Clear model definitions, intuitive API, Pydantic knowledge transferability

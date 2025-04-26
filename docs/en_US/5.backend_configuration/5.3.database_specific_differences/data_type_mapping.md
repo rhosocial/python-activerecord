@@ -1,6 +1,6 @@
 # Data Type Mapping
 
-This document explains how Python ActiveRecord maps data types between Python, the unified ActiveRecord type system, and the native types of each supported database system.
+This document explains how rhosocial ActiveRecord maps data types between Python, the unified ActiveRecord type system, and the native types of each supported database system.
 
 ## Contents
 
@@ -19,7 +19,7 @@ This document explains how Python ActiveRecord maps data types between Python, t
 
 ## Type System Overview
 
-Python ActiveRecord uses a three-layer type system:
+rhosocial ActiveRecord uses a three-layer type system:
 
 1. **Python Types**: The native Python types used in your application code (str, int, float, datetime, etc.)
 2. **Unified ActiveRecord Types**: A standardized set of types defined in the `DatabaseType` enum that provides a consistent interface across all database backends
@@ -29,7 +29,7 @@ This layered approach allows you to write database-agnostic code while still lev
 
 ## Unified Type System
 
-Python ActiveRecord defines a unified type system through the `DatabaseType` enum in the `dialect` module. This enum includes common data types that are mapped to appropriate native types for each database backend:
+rhosocial ActiveRecord defines a unified type system through the `DatabaseType` enum in the `dialect` module. This enum includes common data types that are mapped to appropriate native types for each database backend:
 
 ```python
 class DatabaseType(Enum):
@@ -218,7 +218,7 @@ Each database backend implements a `TypeMapper` that maps the unified `DatabaseT
 
 ## Custom Type Handling
 
-For database-specific types not covered by the unified type system, Python ActiveRecord provides the `CUSTOM` type in the `DatabaseType` enum. When using this type, you can specify the exact native type as a string:
+For database-specific types not covered by the unified type system, rhosocial ActiveRecord provides the `CUSTOM` type in the `DatabaseType` enum. When using this type, you can specify the exact native type as a string:
 
 ```python
 class MyModel(ActiveRecord):

@@ -1,6 +1,6 @@
 # CRUD Operations
 
-This section covers the fundamental Create, Read, Update, and Delete (CRUD) operations in Python ActiveRecord, as well as batch operations and transaction basics.
+This section covers the fundamental Create, Read, Update, and Delete (CRUD) operations in rhosocial ActiveRecord, as well as batch operations and transaction basics.
 
 ## Contents
 
@@ -28,7 +28,7 @@ This section covers the fundamental Create, Read, Update, and Delete (CRUD) oper
 
 ## Overview
 
-CRUD operations form the foundation of database interactions in your applications. Python ActiveRecord provides an intuitive and powerful API for performing these operations, allowing you to focus on your application logic rather than writing complex SQL queries.
+CRUD operations form the foundation of database interactions in your applications. rhosocial ActiveRecord provides an intuitive and powerful API for performing these operations, allowing you to focus on your application logic rather than writing complex SQL queries.
 
 The batch operations section covers techniques for efficiently working with multiple records at once, which can significantly improve performance when dealing with large datasets.
 

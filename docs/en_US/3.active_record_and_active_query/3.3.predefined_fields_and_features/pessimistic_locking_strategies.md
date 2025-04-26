@@ -1,12 +1,12 @@
 # Pessimistic Locking Strategies
 
-Pessimistic locking is a concurrency control method that prevents conflicts by locking records at the database level before they are read or modified. Python ActiveRecord provides transaction-level support for implementing pessimistic locking strategies.
+Pessimistic locking is a concurrency control method that prevents conflicts by locking records at the database level before they are read or modified. rhosocial ActiveRecord provides transaction-level support for implementing pessimistic locking strategies.
 
 ## Overview
 
 Unlike optimistic locking, which checks for conflicts only at save time, pessimistic locking acquires locks on database rows to prevent other transactions from modifying them. This approach is called "pessimistic" because it assumes conflicts are likely and takes preventive measures.
 
-Python ActiveRecord supports pessimistic locking through its transaction API and database-specific locking capabilities.
+rhosocial ActiveRecord supports pessimistic locking through its transaction API and database-specific locking capabilities.
 
 ## Basic Usage
 
@@ -35,7 +35,7 @@ with Account.transaction():
 
 ## Lock Types
 
-Python ActiveRecord supports different types of locks depending on the database backend:
+rhosocial ActiveRecord supports different types of locks depending on the database backend:
 
 ### FOR UPDATE Lock
 
@@ -123,7 +123,7 @@ with Account.transaction():
 
 ## Transaction Isolation Levels
 
-The effectiveness of pessimistic locking depends on the transaction isolation level. Python ActiveRecord supports different isolation levels:
+The effectiveness of pessimistic locking depends on the transaction isolation level. rhosocial ActiveRecord supports different isolation levels:
 
 ```python
 from rhosocial.activerecord.backend import IsolationLevel

@@ -1,10 +1,10 @@
 # 关系管理
 
-Python ActiveRecord 提供了一个多功能且类型安全的关系管理系统，使开发者能够以直观的方式定义和使用数据库关系。关系系统设计用于处理常见的关系类型，同时提供灵活的查询和预加载功能。
+rhosocial ActiveRecord 提供了一个多功能且类型安全的关系管理系统，使开发者能够以直观的方式定义和使用数据库关系。关系系统设计用于处理常见的关系类型，同时提供灵活的查询和预加载功能。
 
 ## 核心关系类型
 
-Python ActiveRecord 支持三种主要关系类型：
+rhosocial ActiveRecord 支持三种主要关系类型：
 
 ### 1. BelongsTo（多对一）
 
@@ -76,7 +76,7 @@ class User(ActiveRecord):
 
 ## 双向关系
 
-Python ActiveRecord 通过 `inverse_of` 参数支持双向关系，这有助于维护一致性并启用验证：
+rhosocial ActiveRecord 通过 `inverse_of` 参数支持双向关系，这有助于维护一致性并启用验证：
 
 ```python
 class Post(ActiveRecord):
@@ -122,7 +122,7 @@ active_orders = user.orders_query().where('status = ?', ('active',)).order_by('c
 
 ## 关系缓存
 
-Python ActiveRecord 为关系提供实例级缓存，确保适当的隔离和内存管理：
+rhosocial ActiveRecord 为关系提供实例级缓存，确保适当的隔离和内存管理：
 
 ```python
 # 首次访问时缓存
@@ -226,7 +226,7 @@ for post in posts_with_comments:
 ## 与其他 ORM 的比较
 
 ### vs SQLAlchemy
-SQLAlchemy 提供更广泛的关系类型，包括多对多关系和关联对象。然而，其关系定义语法更复杂，需要更多样板代码。Python ActiveRecord 的关系系统更直观，需要更少的代码，同时仍提供最常见的关系类型。
+SQLAlchemy 提供更广泛的关系类型，包括多对多关系和关联对象。然而，其关系定义语法更复杂，需要更多样板代码。rhosocial ActiveRecord 的关系系统更直观，需要更少的代码，同时仍提供最常见的关系类型。
 
 ```python
 # SQLAlchemy 关系示例
@@ -244,7 +244,7 @@ class Post(Base):
 ```
 
 ### vs Django ORM
-Django ORM 的关系 API 在模型定义中使用字段对象，这与 Python ActiveRecord 基于描述符的方法略有不同。Django 也支持开箱即用的多对多关系，但其预加载需要更冗长的语法，使用 `prefetch_related` 和 `select_related`。
+Django ORM 的关系 API 在模型定义中使用字段对象，这与 rhosocial ActiveRecord 基于描述符的方法略有不同。Django 也支持开箱即用的多对多关系，但其预加载需要更冗长的语法，使用 `prefetch_related` 和 `select_related`。
 
 ```python
 # Django ORM 关系示例
@@ -258,7 +258,7 @@ class Post(models.Model):
 ```
 
 ### vs Peewee
-Peewee 的关系 API 类似于 Python ActiveRecord，但在模型定义中使用字段对象而非描述符。它也支持预加载，但对于嵌套关系需要更多手动设置。
+Peewee 的关系 API 类似于 rhosocial ActiveRecord，但在模型定义中使用字段对象而非描述符。它也支持预加载，但对于嵌套关系需要更多手动设置。
 
 ```python
 # Peewee 关系示例
@@ -271,7 +271,7 @@ class Post(Model):
     # Post.select().join(User).switch(Post).join(Comment)
 ```
 
-## Python ActiveRecord 关系系统的主要优势
+## rhosocial ActiveRecord 关系系统的主要优势
 
 1. **类型安全**：完全类型提示与泛型，提供更好的 IDE 支持和运行时类型检查
 2. **简化定义**：基于描述符的干净语法，最小样板代码

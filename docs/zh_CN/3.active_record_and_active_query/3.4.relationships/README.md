@@ -1,6 +1,6 @@
 # ActiveRecord中的关系
 
-本节介绍Python ActiveRecord支持的各种关系类型，以及如何在应用程序中有效地使用它们。
+本节介绍rhosocial ActiveRecord支持的各种关系类型，以及如何在应用程序中有效地使用它们。
 
 ## 目录
 
@@ -15,9 +15,9 @@
 
 ## 概述
 
-ActiveRecord中的关系表示数据库表之间的关联，允许您以面向对象的方式处理相关数据。Python ActiveRecord提供了丰富的关系类型和加载策略，帮助您高效地建模复杂的数据关系。
+ActiveRecord中的关系表示数据库表之间的关联，允许您以面向对象的方式处理相关数据。rhosocial ActiveRecord提供了丰富的关系类型和加载策略，帮助您高效地建模复杂的数据关系。
 
-Python ActiveRecord中的关系系统设计为：
+rhosocial ActiveRecord中的关系系统设计为：
 
 - **类型安全**：利用Python的类型提示提供更好的IDE支持和运行时验证
 - **直观**：使用描述性类属性定义关系
@@ -28,7 +28,7 @@ Python ActiveRecord中的关系系统设计为：
 
 ### 关系类型
 
-Python ActiveRecord支持几种关系类型：
+rhosocial ActiveRecord支持几种关系类型：
 
 - **BelongsTo**：表示多对一关系，当前模型包含引用另一个模型的外键
 - **HasOne**：表示一对一关系，另一个模型包含引用当前模型的外键
@@ -37,7 +37,7 @@ Python ActiveRecord支持几种关系类型：
 
 ### 关系加载
 
-Python ActiveRecord支持不同的相关数据加载策略：
+rhosocial ActiveRecord支持不同的相关数据加载策略：
 
 - **延迟加载**：仅在明确访问时才加载相关数据
 - **预加载**：在单个查询或最少数量的查询中预先加载相关数据

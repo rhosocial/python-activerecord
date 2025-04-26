@@ -13,7 +13,7 @@
 
 ## 测试框架
 
-Python ActiveRecord设计为与标准Python测试框架无缝协作，如：
+rhosocial ActiveRecord设计为与标准Python测试框架无缝协作，如：
 
 - `unittest` - Python的内置测试框架
 - `pytest` - 一个功能更丰富的测试框架，具有出色的fixture支持

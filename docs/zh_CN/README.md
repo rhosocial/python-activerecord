@@ -1,18 +1,24 @@
-# Python ActiveRecord 文档大纲（中文版）
+# rhosocial ActiveRecord 文档大纲（中文版）
 
 > **⚠️ 开发阶段声明：** 当前项目尚处于开发阶段，特性随时可能增减，且可能存在缺陷，甚至与实际实现不对应。因此文档内容存在随时调整的可能性，目前仅供参考。
 >
 > **📝 文档标注说明：** 在文档中，您可能会看到如"目前暂未实现"、"部分实现"、"存在调整可能"等标签。这些标签表示相关功能尚未完全实现或可能与实际实现不符，请以实际代码为准。
 
 ## [1. 介绍](1.introduction/README.md)
-- 概述
-- 特点
-- 系统需求
-- [与其他Python ORM框架的比较](1.introduction/orm_comparison.md)
-  - 与SQLAlchemy的对比
-  - 与Django ORM的对比
-  - 与Peewee的对比
-  - 选择ActiveRecord的理由
+- [概述](1.introduction/introduction.md)
+- [特点](1.introduction/features.md)
+- [系统需求](1.introduction/README.md#requirements)
+- [设计理念](1.introduction/philosophy.md)
+- [Pydantic集成](1.introduction/pydantic-integration.md)
+- [异步支持](1.introduction/async-support.md)
+- [关系管理](1.introduction/relationships.md)
+- [聚合功能](1.introduction/aggregation.md)
+- [性能表现](1.introduction/performance.md)
+- [学习曲线](1.introduction/learning-curve.md)
+- [社区生态](1.introduction/community.md)
+- [何时选择](1.introduction/when-to-choose.md)
+- [代码对比](1.introduction/code-comparison.md)
+- [总结](1.introduction/conclusion.md)
 
 ## [2. 快速入门（SQLite示例）](2.quick_start/README.md)
 - [安装指南](2.quick_start/installation.md)
@@ -41,7 +47,7 @@
 - [悲观锁策略](3.active_record_and_active_query/3.3.predefined_fields_and_features/pessimistic_locking_strategies.md)
 - [自定义字段](3.active_record_and_active_query/3.3.predefined_fields_and_features/custom_fields.md)
 
-### 3.4 关系管理
+### [3.4 关系管理](3.active_record_and_active_query/3.4.relationships/README.md)
 - [一对一关系](3.active_record_and_active_query/3.4.relationships/one_to_one_relationships.md)
 - [一对多关系](3.active_record_and_active_query/3.4.relationships/one_to_many_relationships.md)
 - [多对多关系](3.active_record_and_active_query/3.4.relationships/many_to_many_relationships.md)
@@ -51,14 +57,14 @@
 - [预加载与懒加载](3.active_record_and_active_query/3.4.relationships/eager_and_lazy_loading.md)
 - [跨数据库关系](3.active_record_and_active_query/3.4.relationships/cross_database_relationships.md)
 
-### 3.5 事务与隔离级别
+### [3.5 事务与隔离级别](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/README.md)
 - [事务管理](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/transaction_management.md)
 - [隔离级别配置](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/isolation_level_configuration.md)
 - [嵌套事务](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/nested_transactions.md)
 - [保存点](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/savepoints.md)
 - [事务中的错误处理](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/error_handling_in_transactions.md)
 
-### 3.6 聚合查询
+### [3.6 聚合查询](3.active_record_and_active_query/3.6.aggregate_queries/README.md)
 - [计数、求和、平均值、最小值、最大值](3.active_record_and_active_query/3.6.aggregate_queries/basic_aggregate_functions.md)
 - [分组操作](3.active_record_and_active_query/3.6.aggregate_queries/group_by_operations.md)
 - [Having子句](3.active_record_and_active_query/3.6.aggregate_queries/having_clauses.md)
@@ -80,7 +86,7 @@
   - 子查询表达式
   - 分组集合表达式（CUBE, ROLLUP, GROUPING SETS）
 
-### 3.7 高级查询特性
+### [3.7 高级查询特性](3.active_record_and_active_query/3.7.advanced_query_features/README.md)
 - [自定义ActiveQuery类](3.active_record_and_active_query/3.7.advanced_query_features/custom_activequery_classes.md)
 - [查询作用域](3.active_record_and_active_query/3.7.advanced_query_features/query_scopes.md)
 - [动态查询构建](3.active_record_and_active_query/3.7.advanced_query_features/dynamic_query_building.md)
@@ -99,7 +105,7 @@
 
 ## [5. 后端配置](5.backend_configuration/README.md)
 ### 5.1 支持的数据库
-> **注意：** 除SQLite外的其他数据库后端都是额外的代码包，正在开发中。
+> **注意：** SQLite是唯一内置的后端，其他数据库后端需要额外的依赖项。
 
 - [MySQL](5.backend_configuration/5.1.supported_databases/mysql.md)
 - [MariaDB](5.backend_configuration/5.1.supported_databases/mariadb.md)
@@ -159,7 +165,7 @@
 - [数据处理脚本](9.application_scenarios/9.4.command_line_tool_development/data_processing_scripts.md)
 - [ETL流程实现](9.application_scenarios/9.4.command_line_tool_development/etl_process_implementation.md)
 
-## 10. 完整使用示例
+## [10. 完整使用示例](10.complete_examples/README.md)
 - Web应用示例
 - 数据分析示例
 - 微服务示例
@@ -172,5 +178,5 @@
 - [文档贡献](11.contributing/documentation_contributions.md)
 - [赞助支持](11.contributing/sponsorship.md)
 
-## 12. API参考
+## [12. API参考](12.api_reference/README.md)
 - 完整类/方法文档

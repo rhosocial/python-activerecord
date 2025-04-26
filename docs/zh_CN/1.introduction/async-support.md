@@ -1,6 +1,6 @@
 # 异步支持
 
-Python ActiveRecord 提供了精心设计的异步接口，这使其与许多竞争对手的 ORM 有所不同。异步支持方法优先考虑可用性、灵活性和向后兼容性。
+rhosocial ActiveRecord 提供了精心设计的异步接口，这使其与许多竞争对手的 ORM 有所不同。异步支持方法优先考虑可用性、灵活性和向后兼容性。
 
 ## 双 API 架构
 
@@ -118,4 +118,4 @@ async def get_department_statistics():
 - **vs Django ORM**：与 Django 有限的异步功能相比，更全面的异步支持
 - **vs Peewee**：集成的异步支持，而不是 Peewee 的单独 peewee-async 扩展
 
-Python ActiveRecord 的异步功能使其特别适合需要高性能和可扩展性的现代 Python 应用程序，尤其是与 FastAPI 等异步 Web 框架结合使用时。
+rhosocial ActiveRecord 的异步功能使其特别适合需要高性能和可扩展性的现代 Python 应用程序，尤其是与 FastAPI 等异步 Web 框架结合使用时。

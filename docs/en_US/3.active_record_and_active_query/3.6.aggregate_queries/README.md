@@ -1,10 +1,10 @@
 # Aggregate Queries
 
-Aggregate queries allow you to perform calculations on groups of rows in your database. Python ActiveRecord provides a comprehensive set of tools for building and executing aggregate queries, from simple counts to complex statistical analysis.
+Aggregate queries allow you to perform calculations on groups of rows in your database. rhosocial ActiveRecord provides a comprehensive set of tools for building and executing aggregate queries, from simple counts to complex statistical analysis.
 
 ## Overview
 
-Aggregate functions operate on multiple rows and return a single value. Common examples include COUNT, SUM, AVG, MIN, and MAX. Python ActiveRecord implements these functions through the `AggregateQueryMixin` class, which extends the base query functionality with aggregate capabilities.
+Aggregate functions operate on multiple rows and return a single value. Common examples include COUNT, SUM, AVG, MIN, and MAX. rhosocial ActiveRecord implements these functions through the `AggregateQueryMixin` class, which extends the base query functionality with aggregate capabilities.
 
 ## Contents
 
@@ -58,7 +58,7 @@ Aggregate functions operate on multiple rows and return a single value. Common e
 
 ## Database Compatibility
 
-Not all databases support the same aggregate features. Python ActiveRecord provides a consistent API across different database backends, but some advanced features may not be available on all databases:
+Not all databases support the same aggregate features. rhosocial ActiveRecord provides a consistent API across different database backends, but some advanced features may not be available on all databases:
 
 - **Basic aggregates** (COUNT, SUM, AVG, MIN, MAX) are supported by all databases
 - **Window functions** are supported by PostgreSQL, MySQL 8.0+, MariaDB 10.2+, and SQLite 3.25+

@@ -1,11 +1,11 @@
 # 开发流程
 
-本文档概述了为Python ActiveRecord贡献代码的开发流程。
+本文档概述了为rhosocial ActiveRecord贡献代码的开发流程。
 
 ## 入门
 
 1. **Fork仓库**：
-   - 访问[Python ActiveRecord仓库](https://github.com/rhosocial/python-activerecord)
+   - 访问[rhosocial ActiveRecord仓库](https://github.com/rhosocial/python-activerecord)
    - 点击"Fork"按钮创建自己的副本
 
 2. **克隆你的Fork**：
@@ -29,7 +29,7 @@
 
 ## 编码标准
 
-为Python ActiveRecord贡献代码时，请遵循以下标准：
+为rhosocial ActiveRecord贡献代码时，请遵循以下标准：
 
 - **遵循PEP 8**：遵守[PEP 8](https://www.python.org/dev/peps/pep-0008/)风格指南
 - **有意义的命名**：使用描述性的变量、函数和类名
@@ -86,7 +86,7 @@
 
 ## 持续集成
 
-Python ActiveRecord使用GitHub Actions进行持续集成。当你提交pull request时，自动测试将运行以验证你的更改。
+rhosocial ActiveRecord使用GitHub Actions进行持续集成。当你提交pull request时，自动测试将运行以验证你的更改。
 
 ## 版本控制实践
 
@@ -126,4 +126,4 @@ Python ActiveRecord使用GitHub Actions进行持续集成。当你提交pull req
 - 在GitHub Discussions中开始讨论
 - 联系维护者
 
-感谢你为Python ActiveRecord做出贡献！
+感谢你为rhosocial ActiveRecord做出贡献！

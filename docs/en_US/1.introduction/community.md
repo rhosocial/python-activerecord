@@ -1,6 +1,6 @@
 # Community and Ecosystem
 
-## Python ActiveRecord
+## rhosocial ActiveRecord
 - **Community Size**: Growing
 - **Extensions**: Expanding set of plugins
 - **Support**: Active development

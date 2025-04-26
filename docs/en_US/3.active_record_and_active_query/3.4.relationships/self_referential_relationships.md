@@ -1,6 +1,6 @@
 # Self-referential Relationships
 
-Self-referential relationships are associations where a model is related to itself. In Python ActiveRecord, self-referential relationships allow you to model hierarchical structures, networks, and other complex relationships within a single model.
+Self-referential relationships are associations where a model is related to itself. In rhosocial ActiveRecord, self-referential relationships allow you to model hierarchical structures, networks, and other complex relationships within a single model.
 
 ## Overview
 
@@ -11,7 +11,7 @@ Self-referential relationships are useful for modeling various types of data str
 - Tree structures (e.g., organizational charts, file systems)
 - Recursive structures (e.g., bill of materials, nested comments)
 
-In Python ActiveRecord, self-referential relationships are implemented using the same relationship descriptors as other relationships (`HasOne`, `HasMany`, `BelongsTo`), but with the model referencing itself.
+In rhosocial ActiveRecord, self-referential relationships are implemented using the same relationship descriptors as other relationships (`HasOne`, `HasMany`, `BelongsTo`), but with the model referencing itself.
 
 ## Types of Self-referential Relationships
 
@@ -284,4 +284,4 @@ class Category(IntegerPKMixin, ActiveRecord):
 
 ## Conclusion
 
-Self-referential relationships in Python ActiveRecord provide a powerful way to model complex structures within a single model. By using the same relationship descriptors as other relationships but with the model referencing itself, you can create hierarchical structures, networks, and other complex relationships. With the addition of helper methods and validation logic, you can create intuitive and robust models for your application.
+Self-referential relationships in rhosocial ActiveRecord provide a powerful way to model complex structures within a single model. By using the same relationship descriptors as other relationships but with the model referencing itself, you can create hierarchical structures, networks, and other complex relationships. With the addition of helper methods and validation logic, you can create intuitive and robust models for your application.

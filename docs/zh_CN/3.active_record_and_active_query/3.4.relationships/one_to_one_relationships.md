@@ -1,10 +1,10 @@
 # 一对一关系
 
-一对一关系表示两个模型之间的连接，其中第一个模型中的每条记录恰好与第二个模型中的一条记录相关联，反之亦然。在Python ActiveRecord中，一对一关系可以使用`HasOne`或`BelongsTo`描述符实现，具体取决于哪个模型持有外键。
+一对一关系表示两个模型之间的连接，其中第一个模型中的每条记录恰好与第二个模型中的一条记录相关联，反之亦然。在rhosocial ActiveRecord中，一对一关系可以使用`HasOne`或`BelongsTo`描述符实现，具体取决于哪个模型持有外键。
 
 ## 一对一关系的类型
 
-在Python ActiveRecord中实现一对一关系有两种方式：
+在rhosocial ActiveRecord中实现一对一关系有两种方式：
 
 1. **HasOne**：当关联模型包含外键时使用
 2. **BelongsTo**：当当前模型包含外键时使用
@@ -108,7 +108,7 @@ profile = user.profile()
 
 ## 级联操作
 
-默认情况下，Python ActiveRecord不会自动将删除操作级联到关联记录。如果您希望在删除父记录时删除关联记录，需要手动实现此行为：
+默认情况下，rhosocial ActiveRecord不会自动将删除操作级联到关联记录。如果您希望在删除父记录时删除关联记录，需要手动实现此行为：
 
 ```python
 class User(IntegerPKMixin, ActiveRecord):
@@ -169,4 +169,4 @@ for user in users:
 
 ## 结论
 
-Python ActiveRecord中的一对一关系提供了一种强大的方式来模型化相关实体之间的连接。通过理解`HasOne`和`BelongsTo`关系之间的区别，并遵循关系定义和使用的最佳实践，您可以为应用程序构建高效且可维护的数据模型。
+rhosocial ActiveRecord中的一对一关系提供了一种强大的方式来模型化相关实体之间的连接。通过理解`HasOne`和`BelongsTo`关系之间的区别，并遵循关系定义和使用的最佳实践，您可以为应用程序构建高效且可维护的数据模型。

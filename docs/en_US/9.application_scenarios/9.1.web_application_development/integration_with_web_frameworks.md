@@ -1,6 +1,6 @@
 # Integration with Various Web Frameworks
 
-Python ActiveRecord is designed to integrate seamlessly with popular web frameworks. This document explores how to effectively combine ActiveRecord with various web frameworks, providing practical examples and best practices.
+rhosocial ActiveRecord is designed to integrate seamlessly with popular web frameworks. This document explores how to effectively combine ActiveRecord with various web frameworks, providing practical examples and best practices.
 
 ## Contents
 
@@ -16,7 +16,7 @@ Python ActiveRecord is designed to integrate seamlessly with popular web framewo
 
 ## Overview
 
-While Python ActiveRecord can be used as a standalone ORM, it truly shines when integrated with web frameworks. The ActiveRecord pattern complements the MVC (Model-View-Controller) or similar architectural patterns used by most web frameworks.
+While rhosocial ActiveRecord can be used as a standalone ORM, it truly shines when integrated with web frameworks. The ActiveRecord pattern complements the MVC (Model-View-Controller) or similar architectural patterns used by most web frameworks.
 
 Key benefits of integrating ActiveRecord with web frameworks include:
 
@@ -706,4 +706,4 @@ def get_profile():
     return jsonify(request.user.to_dict())
 ```
 
-By following these integration patterns and best practices, you can effectively combine Python ActiveRecord with your preferred web framework, creating maintainable and efficient web applications.
+By following these integration patterns and best practices, you can effectively combine rhosocial ActiveRecord with your preferred web framework, creating maintainable and efficient web applications.

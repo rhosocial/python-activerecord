@@ -1,10 +1,10 @@
 # 扩展现有后端
 
-本指南解释了如何在Python ActiveRecord中扩展或修改现有数据库后端的行为。
+本指南解释了如何在rhosocial ActiveRecord中扩展或修改现有数据库后端的行为。
 
 ## 引言
 
-有时您可能需要自定义现有数据库后端的行为，而无需创建全新的实现。Python ActiveRecord提供了几种扩展现有后端的方法，以添加功能或修改行为。
+有时您可能需要自定义现有数据库后端的行为，而无需创建全新的实现。rhosocial ActiveRecord提供了几种扩展现有后端的方法，以添加功能或修改行为。
 
 ## 何时扩展现有后端
 
@@ -250,7 +250,7 @@ configure(backend=CustomSQLiteBackend(database='your_database.db'))
 
 彻底测试您的扩展后端至关重要：
 
-1. **模仿现有后端测试**：查看Python ActiveRecord的测试套件，了解如何测试标准后端
+1. **模仿现有后端测试**：查看rhosocial ActiveRecord的测试套件，了解如何测试标准后端
 2. **确保分支覆盖完整**：测试所有重写方法的各种条件和边缘情况
 3. **模拟各种使用场景**：测试您的后端在不同查询类型、事务和错误条件下的行为
 
@@ -276,10 +276,10 @@ class TestExtendedSQLiteBackend(unittest.TestCase):
 
 ## 限制和注意事项
 
-1. **升级兼容性**：升级到较新版本的Python ActiveRecord时，您的扩展可能会中断
+1. **升级兼容性**：升级到较新版本的rhosocial ActiveRecord时，您的扩展可能会中断
 2. **性能影响**：复杂的扩展可能会影响性能
 3. **维护负担**：随着基础实现的发展，您需要维护您的扩展
 
 ## 结论
 
-扩展现有数据库后端提供了一种强大的方式，可以根据您的特定需求自定义Python ActiveRecord，而无需创建全新的实现。通过遵循本指南中概述的方法，您可以添加功能、修改行为或与其他服务集成，同时保持与ActiveRecord框架的兼容性。
+扩展现有数据库后端提供了一种强大的方式，可以根据您的特定需求自定义rhosocial ActiveRecord，而无需创建全新的实现。通过遵循本指南中概述的方法，您可以添加功能、修改行为或与其他服务集成，同时保持与ActiveRecord框架的兼容性。

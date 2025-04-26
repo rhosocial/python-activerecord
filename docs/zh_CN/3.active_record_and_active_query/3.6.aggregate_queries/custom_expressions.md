@@ -1,10 +1,10 @@
 # 自定义表达式
 
-Python ActiveRecord提供了一个强大的表达式系统，允许您为查询构建复杂的SQL表达式。这些表达式可以用于SELECT子句、WHERE条件、HAVING子句以及查询的其他部分。
+rhosocial ActiveRecord提供了一个强大的表达式系统，允许您为查询构建复杂的SQL表达式。这些表达式可以用于SELECT子句、WHERE条件、HAVING子句以及查询的其他部分。
 
 ## 表达式类型
 
-Python ActiveRecord中提供了以下表达式类型：
+rhosocial ActiveRecord中提供了以下表达式类型：
 
 | 表达式类型 | 描述 | 类 |
 |-----------------|-------------|-------|
@@ -357,13 +357,13 @@ category_stats = Product.query()\
 
 ## 数据库兼容性
 
-虽然Python ActiveRecord提供了一个统一的表达式API，但并非所有数据库都支持所有表达式类型：
+虽然rhosocial ActiveRecord提供了一个统一的表达式API，但并非所有数据库都支持所有表达式类型：
 
 - **基本表达式**（算术、函数、CASE、条件）在所有支持的数据库中都可用
 - **窗口表达式**在PostgreSQL、MySQL 8.0+、MariaDB 10.2+和SQLite 3.25+中可用
 - **高级分组集合**（CUBE、ROLLUP、GROUPING SETS）在PostgreSQL中完全支持，在MySQL/MariaDB中部分支持（仅ROLLUP），在SQLite中不支持
 
-Python ActiveRecord会尝试在可能的情况下模拟不支持的功能，但在某些情况下可能会引发异常。
+rhosocial ActiveRecord会尝试在可能的情况下模拟不支持的功能，但在某些情况下可能会引发异常。
 
 ## 最佳实践
 
@@ -381,4 +381,4 @@ Python ActiveRecord会尝试在可能的情况下模拟不支持的功能，但�
 
 ## 结论
 
-Python ActiveRecord的表达式系统提供了一种强大而灵活的方式来构建复杂的数据库查询。通过使用表达式而不是原始SQL字符串，您可以创建更安全、更可维护和更可移植的代码。
+rhosocial ActiveRecord的表达式系统提供了一种强大而灵活的方式来构建复杂的数据库查询。通过使用表达式而不是原始SQL字符串，您可以创建更安全、更可维护和更可移植的代码。

@@ -1,8 +1,8 @@
 # 哲学和设计方法
 
-## Python ActiveRecord
+## rhosocial ActiveRecord
 
-Python ActiveRecord 遵循活动记录模式，其中：
+rhosocial ActiveRecord 遵循活动记录模式，其中：
 - 每个模型类对应一个数据库表
 - 每个实例对应该表中的一行
 - 模型对象通过其方法直接管理数据库操作
@@ -10,7 +10,7 @@ Python ActiveRecord 遵循活动记录模式，其中：
 该库采用"约定优于配置"的方法，使用 Pydantic 进行强类型验证，并优先考虑在 Python 代码中感觉自然的直观、以模型为中心的 API。
 这种 Pydantic 集成是一个核心区别特性，使其能够与其他基于 Pydantic 的系统无缝交互。
 
-Python ActiveRecord 还采用了渐进式异步编程方法，允许开发者根据应用需求选择同步和异步接口。
+rhosocial ActiveRecord 还采用了渐进式异步编程方法，允许开发者根据应用需求选择同步和异步接口。
 
 ## SQLAlchemy
 
@@ -40,6 +40,6 @@ Peewee 被设计为一种轻量级替代方案，专注于：
 - 最小依赖
 - 易于理解的实现
 
-它遵循类似于 Python ActiveRecord 的活动记录模式，但较少关注高级功能或广泛的类型验证。
+它遵循类似于 rhosocial ActiveRecord 的活动记录模式，但较少关注高级功能或广泛的类型验证。
 
 Peewee 的异步支持通过单独的扩展 peewee-async 提供，在同步和异步模式之间切换时需要不同的模式。

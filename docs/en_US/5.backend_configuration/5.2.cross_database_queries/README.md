@@ -2,7 +2,7 @@
 
 > **⚠️ IMPORTANT NOTE:** The multiple database connection functionality (including master-slave configuration) described in this document is **not yet implemented** and may undergo significant changes in future releases. Cross-database transactions described here are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve cross-database atomicity**.
 
-This section covers how to work with multiple databases simultaneously in Python ActiveRecord, including connecting to different database systems, integrating heterogeneous data sources, synchronizing data between databases, and handling transactions across multiple databases.
+This section covers how to work with multiple databases simultaneously in rhosocial ActiveRecord, including connecting to different database systems, integrating heterogeneous data sources, synchronizing data between databases, and handling transactions across multiple databases.
 
 ## Contents
 
@@ -13,7 +13,7 @@ This section covers how to work with multiple databases simultaneously in Python
 
 ## Cross-database Connection Configuration
 
-Python ActiveRecord allows you to configure and connect to multiple databases simultaneously, even if they are of different types. This capability is essential for applications that need to access data from various sources or that use different databases for different parts of the application.
+rhosocial ActiveRecord allows you to configure and connect to multiple databases simultaneously, even if they are of different types. This capability is essential for applications that need to access data from various sources or that use different databases for different parts of the application.
 
 ### Configuring Multiple Database Connections
 
@@ -79,7 +79,7 @@ Integrating data from heterogeneous sources (different database systems) require
 
 ### Cross-database Queries
 
-Python ActiveRecord abstracts away many database-specific differences, allowing you to write queries that work across different database systems:
+rhosocial ActiveRecord abstracts away many database-specific differences, allowing you to write queries that work across different database systems:
 
 ```python
 # This query will work regardless of whether User is in SQLite, MySQL, or PostgreSQL
@@ -135,7 +135,7 @@ class UnifiedUserService:
 
 ## Data Synchronization Strategies
 
-When working with multiple databases, you may need to synchronize data between them. Python ActiveRecord provides several approaches for data synchronization.
+When working with multiple databases, you may need to synchronize data between them. rhosocial ActiveRecord provides several approaches for data synchronization.
 
 ### Batch Synchronization
 
@@ -250,7 +250,7 @@ def process_user_events():
 
 > **⚠️ IMPORTANT NOTE:** Cross-database transactions described here are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve true cross-database atomicity**. The strategies described below are workarounds for this limitation.
 
-Handling transactions across multiple databases is challenging because most database systems don't support distributed transactions natively. Python ActiveRecord provides several strategies to manage cross-database operations.
+Handling transactions across multiple databases is challenging because most database systems don't support distributed transactions natively. rhosocial ActiveRecord provides several strategies to manage cross-database operations.
 
 ### Two-Phase Commit Protocol
 

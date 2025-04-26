@@ -1,6 +1,6 @@
 # 批处理操作最佳实践
 
-在处理大量记录时，批处理操作可以显著提高应用程序的性能。本文档介绍了在Python ActiveRecord中实现高效批处理操作的最佳实践。
+在处理大量记录时，批处理操作可以显著提高应用程序的性能。本文档介绍了在rhosocial ActiveRecord中实现高效批处理操作的最佳实践。
 
 ## 批量插入策略
 
@@ -8,7 +8,7 @@
 
 ### 使用批量创建方法
 
-Python ActiveRecord提供了专门的批量创建方法：
+rhosocial ActiveRecord提供了专门的批量创建方法：
 
 ```python
 from rhosocial.activerecord.models import User
@@ -158,7 +158,7 @@ print(f"成功更新: {len(successful_updates)}, 失败: {len(failed_updates)}")
 - **MySQL**: 使用扩展的INSERT语法进行批量插入
 - **SQLite**: 在事务中执行多个INSERT语句
 
-Python ActiveRecord会自动为每个后端选择最佳策略，但了解这些差异有助于优化应用程序。
+rhosocial ActiveRecord会自动为每个后端选择最佳策略，但了解这些差异有助于优化应用程序。
 
 ### 监控批处理性能
 
@@ -184,4 +184,4 @@ print(f"批量更新耗时: {end_time - start_time:.2f} 秒")
 6. **避免触发器和复杂约束**: 这些可能会降低批处理操作的性能
 7. **考虑异步处理**: 对于非关键批处理操作，考虑使用异步处理
 
-通过遵循这些最佳实践，您可以显著提高Python ActiveRecord应用程序中批处理操作的性能和可靠性。
+通过遵循这些最佳实践，您可以显著提高rhosocial ActiveRecord应用程序中批处理操作的性能和可靠性。

@@ -1,6 +1,6 @@
 # Batch Operation Best Practices
 
-Batch operations allow you to perform actions on multiple records efficiently, significantly improving performance when working with large datasets. This document explores best practices and techniques for implementing batch operations in Python ActiveRecord applications.
+Batch operations allow you to perform actions on multiple records efficiently, significantly improving performance when working with large datasets. This document explores best practices and techniques for implementing batch operations in rhosocial ActiveRecord applications.
 
 ## Introduction
 
@@ -370,4 +370,4 @@ print(f"Average query time: {profiler.average_duration_ms:.2f} ms")
 
 10. **Balance Performance with Data Integrity** based on your application requirements
 
-By following these batch operation best practices, you can significantly improve the performance of your Python ActiveRecord applications when working with multiple records, resulting in faster processing times and reduced database load.
+By following these batch operation best practices, you can significantly improve the performance of your rhosocial ActiveRecord applications when working with multiple records, resulting in faster processing times and reduced database load.

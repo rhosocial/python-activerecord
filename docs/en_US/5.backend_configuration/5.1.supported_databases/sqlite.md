@@ -1,10 +1,10 @@
 # SQLite Support
 
-Python ActiveRecord provides excellent support for SQLite, a self-contained, serverless, zero-configuration, transactional SQL database engine. This document covers the specific features, configuration options, and considerations when using Python ActiveRecord with SQLite.
+rhosocial ActiveRecord provides excellent support for SQLite, a self-contained, serverless, zero-configuration, transactional SQL database engine. This document covers the specific features, configuration options, and considerations when using rhosocial ActiveRecord with SQLite.
 
 ## Overview
 
-SQLite is a C library that provides a lightweight disk-based database that doesn't require a separate server process. It's ideal for development, testing, and small to medium-sized applications. Python ActiveRecord's SQLite backend provides a consistent interface to SQLite databases while respecting SQLite's unique characteristics.
+SQLite is a C library that provides a lightweight disk-based database that doesn't require a separate server process. It's ideal for development, testing, and small to medium-sized applications. rhosocial ActiveRecord's SQLite backend provides a consistent interface to SQLite databases while respecting SQLite's unique characteristics.
 
 ## Features
 
@@ -18,7 +18,7 @@ SQLite is a C library that provides a lightweight disk-based database that doesn
 
 ## Configuration
 
-To use SQLite with Python ActiveRecord, you need to configure your model with the SQLite backend:
+To use SQLite with rhosocial ActiveRecord, you need to configure your model with the SQLite backend:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -56,7 +56,7 @@ User.configure(
 
 ## SQLite Pragmas
 
-SQLite uses PRAGMA statements to modify the operation of the SQLite library. Python ActiveRecord allows you to configure these pragmas through the `pragmas` parameter in the `ConnectionConfig`.
+SQLite uses PRAGMA statements to modify the operation of the SQLite library. rhosocial ActiveRecord allows you to configure these pragmas through the `pragmas` parameter in the `ConnectionConfig`.
 
 Common pragmas include:
 
@@ -69,7 +69,7 @@ Common pragmas include:
 
 ## Transactions
 
-Python ActiveRecord provides transaction support for SQLite, with some limitations due to SQLite's transaction model:
+rhosocial ActiveRecord provides transaction support for SQLite, with some limitations due to SQLite's transaction model:
 
 ```python
 # Start a transaction
@@ -108,7 +108,7 @@ Note that in-memory databases exist only for the duration of the connection. Whe
 
 ## Data Type Mapping
 
-SQLite uses a dynamic type system called "type affinity." Python ActiveRecord maps Python types to SQLite storage classes as follows:
+SQLite uses a dynamic type system called "type affinity." rhosocial ActiveRecord maps Python types to SQLite storage classes as follows:
 
 | Python Type | SQLite Storage Class |
 |-------------|---------------------|

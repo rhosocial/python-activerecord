@@ -2,13 +2,13 @@
 
 > **⚠️ IMPORTANT NOTE:** The data synchronization functionality described in this document is **not yet implemented** and may undergo significant changes in future releases. The synchronization strategies described here are theoretical and depend on multiple database connection features that are still under development.
 
-This document outlines various strategies for synchronizing data between multiple databases when using Python ActiveRecord in a cross-database environment.
+This document outlines various strategies for synchronizing data between multiple databases when using rhosocial ActiveRecord in a cross-database environment.
 
 ## Overview
 
 Data synchronization is the process of maintaining data consistency across multiple database systems. In applications that use multiple databases, synchronization becomes essential to ensure that data remains consistent, accurate, and up-to-date across all systems.
 
-Python ActiveRecord provides several approaches to handle data synchronization between different databases, each with its own advantages and trade-offs.
+rhosocial ActiveRecord provides several approaches to handle data synchronization between different databases, each with its own advantages and trade-offs.
 
 ## Common Synchronization Scenarios
 
@@ -432,4 +432,4 @@ Implement monitoring to track synchronization status, lag, and errors.
 
 ## Conclusion
 
-Data synchronization is a critical aspect of working with multiple databases in Python ActiveRecord. By choosing the appropriate synchronization strategy and implementing proper error handling and monitoring, you can maintain consistent data across your database systems while minimizing the impact on application performance and user experience.
+Data synchronization is a critical aspect of working with multiple databases in rhosocial ActiveRecord. By choosing the appropriate synchronization strategy and implementing proper error handling and monitoring, you can maintain consistent data across your database systems while minimizing the impact on application performance and user experience.

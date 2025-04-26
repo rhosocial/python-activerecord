@@ -1,6 +1,6 @@
 # 主键配置
 
-主键对于唯一标识数据库中的记录至关重要。Python ActiveRecord为您的模型提供了灵活的主键配置选项。
+主键对于唯一标识数据库中的记录至关重要。rhosocial ActiveRecord为您的模型提供了灵活的主键配置选项。
 
 ## 默认主键
 
@@ -35,7 +35,7 @@ class Product(ActiveRecord):
 
 ## 整数主键
 
-对于具有整数主键的表，Python ActiveRecord提供了`IntegerPKMixin`来简化处理：
+对于具有整数主键的表，rhosocial ActiveRecord提供了`IntegerPKMixin`来简化处理：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -52,7 +52,7 @@ class Product(IntegerPKMixin, ActiveRecord):
 
 ## UUID主键
 
-对于需要全局唯一标识符的应用程序，Python ActiveRecord提供了`UUIDMixin`用于基于UUID的主键：
+对于需要全局唯一标识符的应用程序，rhosocial ActiveRecord提供了`UUIDMixin`用于基于UUID的主键：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -109,7 +109,7 @@ products = Product.find_all([1, 2, 3])  # 返回id为1、2和3的产品
 - **MySQL/MariaDB**：使用`AUTO_INCREMENT`实现自增主键
 - **PostgreSQL**：通常使用`SERIAL`或`BIGSERIAL`类型实现自增键
 
-Python ActiveRecord为您处理这些差异，但在设计架构时了解这些差异是有好处的。
+rhosocial ActiveRecord为您处理这些差异，但在设计架构时了解这些差异是有好处的。
 
 ## 最佳实践
 

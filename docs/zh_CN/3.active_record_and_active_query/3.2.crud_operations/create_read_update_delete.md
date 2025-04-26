@@ -1,10 +1,10 @@
 # 创建、读取、更新、删除操作
 
-本文档涵盖了Python ActiveRecord中的基本CRUD（创建、读取、更新、删除）操作。这些操作构成了应用程序中数据库交互的基础。
+本文档涵盖了rhosocial ActiveRecord中的基本CRUD（创建、读取、更新、删除）操作。这些操作构成了应用程序中数据库交互的基础。
 
 ## 创建记录
 
-Python ActiveRecord提供了几种创建新记录的方法：
+rhosocial ActiveRecord提供了几种创建新记录的方法：
 
 ### 方法1：实例化并保存
 
@@ -57,7 +57,7 @@ except DBValidationError as e:
 
 ## 读取记录
 
-Python ActiveRecord提供了多种查询记录的方法：
+rhosocial ActiveRecord提供了多种查询记录的方法：
 
 ### 通过主键查找
 
@@ -261,4 +261,4 @@ if user.is_dirty:
 
 ## 总结
 
-Python ActiveRecord提供了直观且强大的API来执行CRUD操作。通过这些基本操作，您可以轻松地与数据库交互，同时利用生命周期事件和验证来确保数据的完整性和一致性。
+rhosocial ActiveRecord提供了直观且强大的API来执行CRUD操作。通过这些基本操作，您可以轻松地与数据库交互，同时利用生命周期事件和验证来确保数据的完整性和一致性。

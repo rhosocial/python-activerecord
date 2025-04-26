@@ -1,6 +1,6 @@
 # Query Optimization Techniques
 
-Efficient query construction is fundamental to database application performance. This document explores various techniques to optimize your queries in Python ActiveRecord applications.
+Efficient query construction is fundamental to database application performance. This document explores various techniques to optimize your queries in rhosocial ActiveRecord applications.
 
 ## Understanding Query Execution Plans
 
@@ -8,7 +8,7 @@ Query execution plans (or query plans) show how the database engine will execute
 
 ### Viewing Execution Plans
 
-Python ActiveRecord provides methods to view the execution plan for a query:
+rhosocial ActiveRecord provides methods to view the execution plan for a query:
 
 ```python
 from rhosocial.activerecord.models import User
@@ -270,4 +270,4 @@ for query in profiler.queries:
 9. **Batch process** large datasets
 10. **Optimize joins and subqueries** to minimize data processing
 
-By applying these query optimization techniques, you can significantly improve the performance of your Python ActiveRecord applications, resulting in better response times and resource utilization.
+By applying these query optimization techniques, you can significantly improve the performance of your rhosocial ActiveRecord applications, resulting in better response times and resource utilization.

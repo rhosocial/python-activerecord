@@ -1,10 +1,10 @@
 # 基本配置
 
-本指南介绍如何为您的第一个项目配置Python ActiveRecord与SQLite。
+本指南介绍如何为您的第一个项目配置rhosocial ActiveRecord与SQLite。
 
 ## 设置SQLite连接
 
-Python ActiveRecord使用连接配置对象来建立数据库连接。对于SQLite，这非常简单，因为它只需要一个文件路径。
+rhosocial ActiveRecord使用连接配置对象来建立数据库连接。对于SQLite，这非常简单，因为它只需要一个文件路径。
 
 ### 基本SQLite配置
 

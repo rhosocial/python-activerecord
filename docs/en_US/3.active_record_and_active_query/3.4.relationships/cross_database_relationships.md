@@ -1,6 +1,6 @@
 # Cross-database Relationships
 
-Cross-database relationships allow you to define associations between models that are stored in different databases. Python ActiveRecord provides support for working with related data across multiple database connections, enabling more flexible and scalable application architectures.
+Cross-database relationships allow you to define associations between models that are stored in different databases. rhosocial ActiveRecord provides support for working with related data across multiple database connections, enabling more flexible and scalable application architectures.
 
 ## Overview
 
@@ -11,7 +11,7 @@ Cross-database relationships are useful in various scenarios, including:
 - Sharding strategies where data is partitioned across multiple databases
 - Multi-tenant applications where each tenant has a separate database
 
-In Python ActiveRecord, cross-database relationships work similarly to regular relationships but require additional configuration to specify the database connection for each model.
+In rhosocial ActiveRecord, cross-database relationships work similarly to regular relationships but require additional configuration to specify the database connection for each model.
 
 ## Setting Up Multiple Database Connections
 
@@ -222,4 +222,4 @@ class User(IntegerPKMixin, ActiveRecord):
 
 ## Conclusion
 
-Cross-database relationships in Python ActiveRecord provide a powerful way to work with related data across multiple databases. While they come with certain limitations, particularly around transactions, they enable more flexible and scalable application architectures. By understanding these limitations and following best practices, you can effectively use cross-database relationships in your applications.
+Cross-database relationships in rhosocial ActiveRecord provide a powerful way to work with related data across multiple databases. While they come with certain limitations, particularly around transactions, they enable more flexible and scalable application architectures. By understanding these limitations and following best practices, you can effectively use cross-database relationships in your applications.

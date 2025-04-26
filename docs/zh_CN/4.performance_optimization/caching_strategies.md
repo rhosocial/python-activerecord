@@ -1,14 +1,14 @@
 # 缓存策略
 
-缓存是一种关键的性能优化技术，可以显著减少数据库负载并改善应用程序响应时间。本文档探讨了Python ActiveRecord中可用的各种缓存策略，并提供了有效实施这些策略的指导。
+缓存是一种关键的性能优化技术，可以显著减少数据库负载并改善应用程序响应时间。本文档探讨了rhosocial ActiveRecord中可用的各种缓存策略，并提供了有效实施这些策略的指导。
 
 ## 缓存简介
 
-数据库操作，特别是复杂查询，可能会消耗大量资源。缓存存储昂贵操作的结果，以便可以重用这些结果而无需重复操作。Python ActiveRecord在应用程序的不同层级提供了多种缓存机制。
+数据库操作，特别是复杂查询，可能会消耗大量资源。缓存存储昂贵操作的结果，以便可以重用这些结果而无需重复操作。rhosocial ActiveRecord在应用程序的不同层级提供了多种缓存机制。
 
 ## ActiveRecord中的缓存类型
 
-Python ActiveRecord支持几种类型的缓存：
+rhosocial ActiveRecord支持几种类型的缓存：
 
 1. **模型级缓存**：缓存整个模型实例
 2. **查询结果缓存**：缓存数据库查询的结果
@@ -40,7 +40,7 @@ if cached_user is None:
 
 ### 自动模型缓存
 
-Python ActiveRecord可以配置为自动缓存模型实例：
+rhosocial ActiveRecord可以配置为自动缓存模型实例：
 
 ```python
 from rhosocial.activerecord.models import User
@@ -136,7 +136,7 @@ QueryCache.invalidate_for_model(Article)  # 使与Article模型相关的所有�
 
 ### 配置关系缓存
 
-Python ActiveRecord为模型关系提供了内置缓存：
+rhosocial ActiveRecord为模型关系提供了内置缓存：
 
 ```python
 from rhosocial.activerecord.models import User, Order
@@ -241,6 +241,6 @@ clear_all_caches()
 
 ## 结论
 
-缓存是一种强大的优化技术，可以显著提高Python ActiveRecord应用程序的性能。通过在应用程序的不同层级实施适当的缓存策略，您可以减少数据库负载，改善响应时间，并增强整体应用程序可扩展性。
+缓存是一种强大的优化技术，可以显著提高rhosocial ActiveRecord应用程序的性能。通过在应用程序的不同层级实施适当的缓存策略，您可以减少数据库负载，改善响应时间，并增强整体应用程序可扩展性。
 
 请记住，缓存引入了复杂性，特别是在缓存失效方面。始终确保您的缓存策略在提供性能优势的同时保持数据一致性。

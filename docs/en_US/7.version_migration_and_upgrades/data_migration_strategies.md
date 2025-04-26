@@ -2,7 +2,7 @@
 
 ## Introduction
 
-Data migration is the process of transferring data between storage systems, formats, or applications. In the context of Python ActiveRecord, data migrations often accompany schema changes or occur when transitioning between different database systems. This document outlines strategies for effectively planning and executing data migrations.
+Data migration is the process of transferring data between storage systems, formats, or applications. In the context of rhosocial ActiveRecord, data migrations often accompany schema changes or occur when transitioning between different database systems. This document outlines strategies for effectively planning and executing data migrations.
 
 ## Types of Data Migrations
 
@@ -43,7 +43,7 @@ These migrations involve moving data between different systems:
 
 ### Using Migration Scripts
 
-Python ActiveRecord's migration framework can handle data migrations along with schema changes:
+rhosocial ActiveRecord's migration framework can handle data migrations along with schema changes:
 
 ```python
 from rhosocial.activerecord.migration import Migration

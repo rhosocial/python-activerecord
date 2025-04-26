@@ -1,10 +1,10 @@
 # Installation
 
-This guide covers how to install Python ActiveRecord and its dependencies.
+This guide covers how to install rhosocial ActiveRecord and its dependencies.
 
 ## Requirements
 
-Before installing Python ActiveRecord, ensure your system meets these requirements:
+Before installing rhosocial ActiveRecord, ensure your system meets these requirements:
 
 - **Python**: 3.8 or higher
 - **Pydantic**: 2.10+ (for Python 3.8), 2.11+ (for Python 3.9+)
@@ -29,7 +29,7 @@ This provides everything you need to get started with SQLite as your database ba
 
 ### Optional Database Backends
 
-Python ActiveRecord supports multiple database backends through optional packages:
+rhosocial ActiveRecord supports multiple database backends through optional packages:
 
 > **Note**: These optional database backends are currently under development and may not be fully stable for production use.
 
@@ -71,11 +71,11 @@ pip install rhosocial-activerecord[all]
 - **Pydantic 2.10.x**: Compatible with Python 3.8 through 3.12
 - **Pydantic 2.11.x**: Compatible with Python 3.9 through 3.13 (including free-threaded mode)
 
-> **Note**: According to Python's official development plan ([PEP 703](https://peps.python.org/pep-0703/)), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both Pydantic and Python ActiveRecord support it.
+> **Note**: According to Python's official development plan ([PEP 703](https://peps.python.org/pep-0703/)), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both Pydantic and rhosocial ActiveRecord support it.
 
 ## Verifying Installation
 
-After installation, you can verify that Python ActiveRecord is correctly installed by running:
+After installation, you can verify that rhosocial ActiveRecord is correctly installed by running:
 
 ```python
 import rhosocial.activerecord
@@ -86,4 +86,4 @@ This should print the version number of the installed package.
 
 ## Next Steps
 
-Now that you have installed Python ActiveRecord, proceed to [Basic Configuration](basic_configuration.md) to learn how to set up your first database connection.
+Now that you have installed rhosocial ActiveRecord, proceed to [Basic Configuration](basic_configuration.md) to learn how to set up your first database connection.

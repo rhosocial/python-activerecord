@@ -1,6 +1,6 @@
 # Query Result Caching
 
-Query result caching is an effective performance optimization technique that stores the results of database queries in a cache, allowing them to be reused without executing the same query multiple times. This document explores how to implement and manage query result caching in Python ActiveRecord applications.
+Query result caching is an effective performance optimization technique that stores the results of database queries in a cache, allowing them to be reused without executing the same query multiple times. This document explores how to implement and manage query result caching in rhosocial ActiveRecord applications.
 
 ## Introduction
 
@@ -8,7 +8,7 @@ Database queries, especially complex ones involving joins, aggregations, or larg
 
 ## Basic Implementation
 
-Python ActiveRecord provides a `QueryCache` class that handles query result caching:
+rhosocial ActiveRecord provides a `QueryCache` class that handles query result caching:
 
 ```python
 from rhosocial.activerecord.models import Article
@@ -33,7 +33,7 @@ if cached_results is None:
 
 ## Simplified Caching with get_or_set
 
-For convenience, Python ActiveRecord provides a `get_or_set` method that combines cache retrieval and query execution:
+For convenience, rhosocial ActiveRecord provides a `get_or_set` method that combines cache retrieval and query execution:
 
 ```python
 from rhosocial.activerecord.cache import QueryCache
@@ -78,7 +78,7 @@ The key format typically includes:
 
 ## Automatic Query Caching
 
-Python ActiveRecord can be configured to automatically cache query results:
+rhosocial ActiveRecord can be configured to automatically cache query results:
 
 ```python
 from rhosocial.activerecord.cache import enable_query_cache
@@ -270,6 +270,6 @@ print(f"Article query cache hit ratio: {model_stats.hit_ratio:.2f}")
 
 ## Conclusion
 
-Query result caching is a powerful technique for improving the performance of Python ActiveRecord applications. By caching the results of frequently executed or expensive queries, you can significantly reduce database load and improve response times.
+Query result caching is a powerful technique for improving the performance of rhosocial ActiveRecord applications. By caching the results of frequently executed or expensive queries, you can significantly reduce database load and improve response times.
 
 When implementing query result caching, carefully consider which queries to cache, how long to cache them, and how to handle cache invalidation to ensure data consistency while maximizing performance benefits.

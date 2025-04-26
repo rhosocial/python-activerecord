@@ -2,7 +2,7 @@
 
 ## 介绍
 
-数据迁移是在存储系统、格式或应用程序之间传输数据的过程。在Python ActiveRecord的上下文中，数据迁移通常伴随着模式变更，或在不同数据库系统之间过渡时发生。本文档概述了有效规划和执行数据迁移的策略。
+数据迁移是在存储系统、格式或应用程序之间传输数据的过程。在rhosocial ActiveRecord的上下文中，数据迁移通常伴随着模式变更，或在不同数据库系统之间过渡时发生。本文档概述了有效规划和执行数据迁移的策略。
 
 ## 数据迁移类型
 
@@ -43,7 +43,7 @@
 
 ### 使用迁移脚本
 
-Python ActiveRecord的迁移框架可以处理数据迁移和模式变更：
+rhosocial ActiveRecord的迁移框架可以处理数据迁移和模式变更：
 
 ```python
 from rhosocial.activerecord.migration import Migration

@@ -1,10 +1,10 @@
 # Oracle 支持
 
-Python ActiveRecord 为 Oracle 数据库系统提供了全面的支持。本文档涵盖了在使用 Python ActiveRecord 与 Oracle 时的特定功能、配置选项和注意事项。
+rhosocial ActiveRecord 为 Oracle 数据库系统提供了全面的支持。本文档涵盖了在使用 rhosocial ActiveRecord 与 Oracle 时的特定功能、配置选项和注意事项。
 
 ## 概述
 
-Oracle 数据库是一个企业级关系型数据库管理系统，以其可靠性、可扩展性和全面的功能集而闻名。Python ActiveRecord 的 Oracle 后端提供了一个一致的接口，同时尊重 Oracle 的独特特性和企业级功能。
+Oracle 数据库是一个企业级关系型数据库管理系统，以其可靠性、可扩展性和全面的功能集而闻名。rhosocial ActiveRecord 的 Oracle 后端提供了一个一致的接口，同时尊重 Oracle 的独特特性和企业级功能。
 
 ## 功能
 
@@ -20,7 +20,7 @@ Oracle 数据库是一个企业级关系型数据库管理系统，以其可靠�
 
 ## 配置
 
-要将 Oracle 与 Python ActiveRecord 一起使用，您需要使用 Oracle 后端配置您的模型：
+要将 Oracle 与 rhosocial ActiveRecord 一起使用，您需要使用 Oracle 后端配置您的模型：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -66,7 +66,7 @@ User.configure(
 
 ## 数据类型映射
 
-Python ActiveRecord 将 Python 数据类型映射到 Oracle 数据类型，以下是主要的映射关系：
+rhosocial ActiveRecord 将 Python 数据类型映射到 Oracle 数据类型，以下是主要的映射关系：
 
 | Python 类型 | Oracle 类型 |
 |------------|-------------|
@@ -84,7 +84,7 @@ Python ActiveRecord 将 Python 数据类型映射到 Oracle 数据类型，以�
 
 ## 模式（Schema）支持
 
-Oracle 使用模式（Schema）来组织数据库对象。在 Oracle 中，模式通常与用户名相同。Python ActiveRecord 允许您指定模式：
+Oracle 使用模式（Schema）来组织数据库对象。在 Oracle 中，模式通常与用户名相同。rhosocial ActiveRecord 允许您指定模式：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -100,7 +100,7 @@ class Product(ActiveRecord):
 
 ## 序列和自增主键
 
-Oracle 使用序列（Sequence）来实现自增主键。Python ActiveRecord 自动处理序列的创建和使用：
+Oracle 使用序列（Sequence）来实现自增主键。rhosocial ActiveRecord 自动处理序列的创建和使用：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -117,7 +117,7 @@ class Product(ActiveRecord):
 
 ## 事务支持
 
-Oracle 提供了强大的事务支持，Python ActiveRecord 提供了简单的事务管理接口：
+Oracle 提供了强大的事务支持，rhosocial ActiveRecord 提供了简单的事务管理接口：
 
 ```python
 from rhosocial.activerecord.backend import TransactionIsolationLevel
@@ -143,7 +143,7 @@ Oracle 支持的隔离级别包括：
 
 ## 锁定策略
 
-Python ActiveRecord 支持 Oracle 的锁定功能，用于处理并发访问：
+rhosocial ActiveRecord 支持 Oracle 的锁定功能，用于处理并发访问：
 
 ```python
 # 悲观锁 - 使用 FOR UPDATE 锁定行
@@ -188,7 +188,7 @@ User.delete_all(where={'status': 'inactive'})
 
 ## PL/SQL 支持
 
-Python ActiveRecord 允许您调用 Oracle 的 PL/SQL 存储过程和函数：
+rhosocial ActiveRecord 允许您调用 Oracle 的 PL/SQL 存储过程和函数：
 
 ```python
 # 调用存储过程
@@ -207,7 +207,7 @@ balance = User.connection.execute_function(
 
 ## JSON 支持
 
-Oracle 12c 及更高版本提供了 JSON 支持，Python ActiveRecord 允许您使用这些功能：
+Oracle 12c 及更高版本提供了 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -250,7 +250,7 @@ products = Product.find_all(
 
 ## Oracle RAC 支持
 
-Python ActiveRecord 支持 Oracle RAC（Real Application Clusters）配置：
+rhosocial ActiveRecord 支持 Oracle RAC（Real Application Clusters）配置：
 
 ```python
 User.configure(
@@ -275,7 +275,7 @@ User.configure(
 
 ## 版本兼容性
 
-Python ActiveRecord 的 Oracle 后端支持以下版本：
+rhosocial ActiveRecord 的 Oracle 后端支持以下版本：
 
 - Oracle Database 11g Release 2 及更高版本
 

@@ -4,7 +4,7 @@
 
 ## 设置日志记录
 
-Python ActiveRecord提供了一个灵活的日志系统，与Python的标准日志模块集成。
+rhosocial ActiveRecord提供了一个灵活的日志系统，与Python的标准日志模块集成。
 
 ### 基本日志配置
 
@@ -33,7 +33,7 @@ configure_logging(component="relation", level=logging.WARNING)
 
 ### 可用的日志组件
 
-Python ActiveRecord提供了几个日志组件：
+rhosocial ActiveRecord提供了几个日志组件：
 
 - `query`：记录SQL查询及其参数
 - `transaction`：记录事务操作（开始、提交、回滚）

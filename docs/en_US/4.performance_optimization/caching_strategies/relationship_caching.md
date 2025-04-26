@@ -1,6 +1,6 @@
 # Relationship Caching
 
-Relationship caching is a specialized form of caching that stores the results of relationship queries between models. This technique is particularly effective at preventing the N+1 query problem and improving application performance when working with related data. This document explores how to implement and manage relationship caching in Python ActiveRecord applications.
+Relationship caching is a specialized form of caching that stores the results of relationship queries between models. This technique is particularly effective at preventing the N+1 query problem and improving application performance when working with related data. This document explores how to implement and manage relationship caching in rhosocial ActiveRecord applications.
 
 ## Introduction
 
@@ -22,7 +22,7 @@ This pattern can lead to performance issues as the number of records increases.
 
 ## Basic Relationship Caching
 
-Python ActiveRecord provides built-in caching for model relationships:
+rhosocial ActiveRecord provides built-in caching for model relationships:
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -71,7 +71,7 @@ Individual relationship configurations will override the global configuration.
 
 ## Cache Management
 
-Python ActiveRecord provides methods to manage relationship caches:
+rhosocial ActiveRecord provides methods to manage relationship caches:
 
 ```python
 # Clear cache for a specific relationship
@@ -116,7 +116,7 @@ orders_again = user.orders  # Uses cached data, no database query
 
 ## Implementation Details
 
-Under the hood, Python ActiveRecord uses the `InstanceCache` system to store relationship data directly on model instances:
+Under the hood, rhosocial ActiveRecord uses the `InstanceCache` system to store relationship data directly on model instances:
 
 ```python
 from rhosocial.activerecord.relation.cache import InstanceCache
@@ -191,7 +191,7 @@ class User(ActiveRecord):
 
 ## Debugging Relationship Caching
 
-Python ActiveRecord provides tools to debug relationship caching:
+rhosocial ActiveRecord provides tools to debug relationship caching:
 
 ```python
 from rhosocial.activerecord.cache import CacheStats
@@ -210,6 +210,6 @@ print(f"Hit ratio: {stats.hit_ratio:.2f}")
 
 ## Conclusion
 
-Relationship caching is a powerful technique for improving the performance of Python ActiveRecord applications, especially when working with related data. By caching the results of relationship queries, you can eliminate the N+1 query problem and significantly reduce database load.
+Relationship caching is a powerful technique for improving the performance of rhosocial ActiveRecord applications, especially when working with related data. By caching the results of relationship queries, you can eliminate the N+1 query problem and significantly reduce database load.
 
 When implementing relationship caching, carefully consider which relationships to cache, how long to cache them, and how to handle cache invalidation to ensure data consistency while maximizing performance benefits.

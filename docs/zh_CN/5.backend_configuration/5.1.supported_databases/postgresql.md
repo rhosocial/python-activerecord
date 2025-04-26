@@ -1,10 +1,10 @@
 # PostgreSQL 支持
 
-Python ActiveRecord 为 PostgreSQL 数据库系统提供了全面的支持。本文档涵盖了在使用 Python ActiveRecord 与 PostgreSQL 时的特定功能、配置选项和注意事项。
+rhosocial ActiveRecord 为 PostgreSQL 数据库系统提供了全面的支持。本文档涵盖了在使用 rhosocial ActiveRecord 与 PostgreSQL 时的特定功能、配置选项和注意事项。
 
 ## 概述
 
-PostgreSQL 是一个功能强大的开源对象关系数据库系统，以其可靠性、功能稳健性和性能著称。Python ActiveRecord 的 PostgreSQL 后端提供了一个一致的接口，同时充分利用 PostgreSQL 的高级功能。
+PostgreSQL 是一个功能强大的开源对象关系数据库系统，以其可靠性、功能稳健性和性能著称。rhosocial ActiveRecord 的 PostgreSQL 后端提供了一个一致的接口，同时充分利用 PostgreSQL 的高级功能。
 
 ## 功能
 
@@ -21,7 +21,7 @@ PostgreSQL 是一个功能强大的开源对象关系数据库系统，以其可
 
 ## 配置
 
-要将 PostgreSQL 与 Python ActiveRecord 一起使用，您需要使用 PostgreSQL 后端配置您的模型：
+要将 PostgreSQL 与 rhosocial ActiveRecord 一起使用，您需要使用 PostgreSQL 后端配置您的模型：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -52,7 +52,7 @@ User.configure(
 
 ## 数据类型映射
 
-Python ActiveRecord 将 Python 数据类型映射到 PostgreSQL 数据类型，以下是主要的映射关系：
+rhosocial ActiveRecord 将 Python 数据类型映射到 PostgreSQL 数据类型，以下是主要的映射关系：
 
 | Python 类型 | PostgreSQL 类型 |
 |------------|----------------|
@@ -73,7 +73,7 @@ Python ActiveRecord 将 Python 数据类型映射到 PostgreSQL 数据类型，�
 
 ## 模式（Schema）支持
 
-PostgreSQL 支持模式（Schema）来组织数据库对象。Python ActiveRecord 允许您指定模式：
+PostgreSQL 支持模式（Schema）来组织数据库对象。rhosocial ActiveRecord 允许您指定模式：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -89,7 +89,7 @@ class Product(ActiveRecord):
 
 ## 事务支持
 
-PostgreSQL 提供了强大的事务支持，Python ActiveRecord 提供了简单的事务管理接口：
+PostgreSQL 提供了强大的事务支持，rhosocial ActiveRecord 提供了简单的事务管理接口：
 
 ```python
 from rhosocial.activerecord.backend import TransactionIsolationLevel
@@ -116,7 +116,7 @@ PostgreSQL 支持的隔离级别包括：
 
 ## 锁定策略
 
-Python ActiveRecord 支持 PostgreSQL 的锁定功能，用于处理并发访问：
+rhosocial ActiveRecord 支持 PostgreSQL 的锁定功能，用于处理并发访问：
 
 ```python
 # 悲观锁 - 使用 FOR UPDATE 锁定行
@@ -141,7 +141,7 @@ with User.transaction() as tx:
 
 ## JSON 和 JSONB 支持
 
-PostgreSQL 提供了强大的 JSON 和 JSONB 支持，Python ActiveRecord 允许您使用这些功能：
+PostgreSQL 提供了强大的 JSON 和 JSONB 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -181,7 +181,7 @@ products = Product.find_all(
 
 ## 数组支持
 
-PostgreSQL 支持数组类型，Python ActiveRecord 允许您使用这一特性：
+PostgreSQL 支持数组类型，rhosocial ActiveRecord 允许您使用这一特性：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -212,7 +212,7 @@ posts = Post.find_all(
 
 ## 全文搜索
 
-PostgreSQL 提供强大的全文搜索功能，Python ActiveRecord 支持这一特性：
+PostgreSQL 提供强大的全文搜索功能，rhosocial ActiveRecord 支持这一特性：
 
 ```python
 from rhosocial.activerecord import ActiveRecord
@@ -309,7 +309,7 @@ new_ids = User.bulk_insert(users, returning=['id'])
 
 ## 版本兼容性
 
-Python ActiveRecord 的 PostgreSQL 后端支持以下版本：
+rhosocial ActiveRecord 的 PostgreSQL 后端支持以下版本：
 
 - PostgreSQL 10 及更高版本
 

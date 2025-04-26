@@ -1,6 +1,6 @@
 # JSON操作
 
-Python ActiveRecord提供了一套全面的与数据库无关的JSON操作，允许您处理存储在数据库中的JSON数据。这些操作对于处理半结构化数据和灵活模式特别有用。
+rhosocial ActiveRecord提供了一套全面的与数据库无关的JSON操作，允许您处理存储在数据库中的JSON数据。这些操作对于处理半结构化数据和灵活模式特别有用。
 
 ## 数据库中的JSON支持
 
@@ -10,7 +10,7 @@ Python ActiveRecord提供了一套全面的与数据库无关的JSON操作，允
 - **MySQL/MariaDB**：良好的JSON支持（从MySQL 5.7+和MariaDB 10.2+开始）
 - **SQLite**：通过JSON1扩展提供基本JSON支持（从3.9+版本开始）
 
-Python ActiveRecord抽象了这些差异，在所有支持的数据库中提供一致的API。
+rhosocial ActiveRecord抽象了这些差异，在所有支持的数据库中提供一致的API。
 
 ## JSON操作方法
 
@@ -166,7 +166,7 @@ role_stats = User.query()\
 
 ## 数据库特定的考虑因素
 
-虽然Python ActiveRecord提供了一个统一的API，但在使用JSON操作时需要考虑一些数据库特定的因素：
+虽然rhosocial ActiveRecord提供了一个统一的API，但在使用JSON操作时需要考虑一些数据库特定的因素：
 
 ### PostgreSQL
 
@@ -202,4 +202,4 @@ role_stats = User.query()\
 
 ## 结论
 
-Python ActiveRecord的JSON操作提供了一种强大的方式来处理数据库中的半结构化数据。通过提供一个统一的API，它简化了跨不同数据库系统处理JSON数据的复杂性，同时保留了每个系统的强大功能。
+rhosocial ActiveRecord的JSON操作提供了一种强大的方式来处理数据库中的半结构化数据。通过提供一个统一的API，它简化了跨不同数据库系统处理JSON数据的复杂性，同时保留了每个系统的强大功能。

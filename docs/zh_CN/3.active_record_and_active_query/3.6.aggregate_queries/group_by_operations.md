@@ -1,6 +1,6 @@
 # 分组操作
 
-GROUP BY子句是聚合查询的基本组成部分，它允许您在应用聚合函数之前将数据组织成组。Python ActiveRecord为使用GROUP BY操作提供了一个简洁直观的API。
+GROUP BY子句是聚合查询的基本组成部分，它允许您在应用聚合函数之前将数据组织成组。rhosocial ActiveRecord为使用GROUP BY操作提供了一个简洁直观的API。
 
 ## 基本分组
 
@@ -41,7 +41,7 @@ product_stats = Product.query()\
 
 ## GROUP BY中的列别名
 
-需要注意的是，GROUP BY应该使用原始列表达式，而不是别名。Python ActiveRecord会自动从GROUP BY列中去除别名并发出警告：
+需要注意的是，GROUP BY应该使用原始列表达式，而不是别名。rhosocial ActiveRecord会自动从GROUP BY列中去除别名并发出警告：
 
 ```python
 # 这样可以工作但会生成警告
@@ -96,7 +96,7 @@ price_ranges = Product.query()\
 
 ## 分组中NULL值的处理
 
-在SQL中，使用GROUP BY时，NULL值会被分在一起。这种行为在Python ActiveRecord中得到保留：
+在SQL中，使用GROUP BY时，NULL值会被分在一起。这种行为在rhosocial ActiveRecord中得到保留：
 
 ```python
 # 按可选字段对用户分组
@@ -180,4 +180,4 @@ top_categories = Product.query()\
 - **MySQL/MariaDB**：支持带有扩展（如WITH ROLLUP）的GROUP BY
 - **PostgreSQL**：提供最全面的GROUP BY支持，包括CUBE和GROUPING SETS
 
-Python ActiveRecord尽可能地抽象这些差异，在不同的数据库后端之间提供一致的API。
+rhosocial ActiveRecord尽可能地抽象这些差异，在不同的数据库后端之间提供一致的API。
