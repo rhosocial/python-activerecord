@@ -43,13 +43,13 @@ class SQLiteBackend(StorageBackend):
         """Register SQLite-specific type converters"""
         # Register SQLite BLOB converter
         self.dialect.register_converter(SQLiteBlobConverter(),
-                                      names=["BLOB", "BYTEA"],
-                                      types=[DatabaseType.BLOB, DatabaseType.BYTEA])
+                                        names=["BLOB", "BYTEA"],
+                                        types=[DatabaseType.BLOB, DatabaseType.BYTEA])
 
         # Register SQLite JSON converter with higher priority
         self.dialect.register_converter(SQLiteJSONConverter(),
-                                      names=["JSON"],
-                                      types=[DatabaseType.JSON])
+                                        names=["JSON"],
+                                        types=[DatabaseType.JSON])
 
     @property
     def pragmas(self) -> Dict[str, str]:
@@ -100,8 +100,8 @@ class SQLiteBackend(StorageBackend):
         # Check for pragmas in options dictionary
         if "pragmas" in kwargs:
             custom_pragmas = kwargs["pragmas"]
-        elif hasattr(self.config, "pragmas") and self.config.pragmas:  # 添加这一行
-            custom_pragmas = self.config.pragmas  # 添加这一行
+        elif hasattr(self.config, "pragmas") and self.config.pragmas:
+            custom_pragmas = self.config.pragmas
         elif "options" in kwargs and "pragmas" in kwargs["options"]:
             custom_pragmas = kwargs["options"]["pragmas"]
         elif hasattr(self.config, "options") and "pragmas" in self.config.options:
@@ -152,13 +152,21 @@ class SQLiteBackend(StorageBackend):
             raise ConnectionError(f"Failed to connect: {str(e)}")
 
     def disconnect(self) -> None:
-        """Close the connection to the SQLite database."""
-        if self._connection:
-            try:
+        """Close the connection to the SQLite database.
+
+        This method is idempotent - it can be safely called multiple times
+        and will not raise an exception if the connection is already closed.
+        """
+        try:
+            if self._connection:
                 self.log(logging.INFO, "Disconnecting from SQLite database")
+
+                # Check for active transaction and roll it back if needed
                 if self.transaction_manager.is_active:
                     self.log(logging.WARNING, "Active transaction detected during disconnect, rolling back")
                     self.transaction_manager.rollback()
+
+                # Close the connection
                 self._connection.close()
                 self._connection = None
                 self._cursor = None
@@ -171,7 +179,7 @@ class SQLiteBackend(StorageBackend):
                         import os
                         import time
                         self.log(logging.INFO, f"Deleting database files: {self.config.database}")
-                        
+
                         # Define retry delete function
                         def retry_delete(file_path, max_retries=5, retry_delay=0.1):
                             for attempt in range(max_retries):
@@ -182,33 +190,39 @@ class SQLiteBackend(StorageBackend):
                                     return True  # File doesn't exist, consider deletion successful
                                 except OSError as e:
                                     if attempt < max_retries - 1:  # If not the last attempt
-                                        self.log(logging.DEBUG, f"Failed to delete file {file_path}, retrying: {str(e)}")
+                                        self.log(logging.DEBUG,
+                                                 f"Failed to delete file {file_path}, retrying: {str(e)}")
                                         time.sleep(retry_delay)  # Wait for a while before retrying
                                     else:
-                                        self.log(logging.WARNING, f"Failed to delete file {file_path}, maximum retry attempts reached: {str(e)}")
+                                        self.log(logging.WARNING,
+                                                 f"Failed to delete file {file_path}, maximum retry attempts reached: {str(e)}")
                                         return False
                             return False
-                        
+
                         # Delete main database file
                         main_db_deleted = retry_delete(self.config.database)
-                        
+
                         # Delete WAL and SHM files
                         wal_file = f"{self.config.database}-wal"
                         shm_file = f"{self.config.database}-shm"
                         wal_deleted = retry_delete(wal_file)
                         shm_deleted = retry_delete(shm_file)
-                        
+
                         # Record deletion results
                         if main_db_deleted and wal_deleted and shm_deleted:
                             self.log(logging.INFO, "Database files deleted successfully")
                         else:
-                            self.log(logging.WARNING, "Some database files could not be deleted after multiple attempts")
+                            self.log(logging.WARNING,
+                                     "Some database files could not be deleted after multiple attempts")
                     except Exception as e:
                         self.log(logging.ERROR, f"Failed to delete database files: {str(e)}")
                         raise ConnectionError(f"Failed to delete database files: {str(e)}")
-            except sqlite3.Error as e:
-                self.log(logging.ERROR, f"Error during disconnect: {str(e)}")
-                raise ConnectionError(f"Failed to disconnect: {str(e)}")
+            else:
+                # Connection is already closed or was never opened
+                self.log(logging.DEBUG, "Disconnect called on already closed connection")
+        except sqlite3.Error as e:
+            self.log(logging.ERROR, f"Error during disconnect: {str(e)}")
+            raise ConnectionError(f"Failed to disconnect: {str(e)}")
 
     def ping(self, reconnect: bool = True) -> bool:
         """Test the database connection and optionally reconnect.
@@ -222,9 +236,13 @@ class SQLiteBackend(StorageBackend):
         if not self._connection:
             self.log(logging.DEBUG, "No active connection during ping")
             if reconnect:
-                self.log(logging.INFO, "Reconnecting during ping")
-                self.connect()
-                return True
+                try:
+                    self.log(logging.INFO, "Reconnecting during ping")
+                    self.connect()
+                    return True
+                except ConnectionError as e:
+                    self.log(logging.WARNING, f"Reconnection failed during ping: {str(e)}")
+                    return False
             return False
 
         try:
@@ -234,9 +252,13 @@ class SQLiteBackend(StorageBackend):
         except sqlite3.Error as e:
             self.log(logging.WARNING, f"Ping failed: {str(e)}")
             if reconnect:
-                self.log(logging.INFO, "Reconnecting after failed ping")
-                self.connect()
-                return True
+                try:
+                    self.log(logging.INFO, "Reconnecting after failed ping")
+                    self.connect()
+                    return True
+                except ConnectionError as e:
+                    self.log(logging.WARNING, f"Reconnection failed after ping: {str(e)}")
+                    return False
             return False
 
     @property
@@ -249,6 +271,7 @@ class SQLiteBackend(StorageBackend):
         Parse the SQL statement type from the query.
 
         SQLite supports pragmas which start with 'PRAGMA'.
+        Also handles CTE queries that start with 'WITH'.
 
         Args:
             sql: SQL statement
@@ -259,9 +282,29 @@ class SQLiteBackend(StorageBackend):
         # Strip comments and whitespace for better detection
         clean_sql = re.sub(r'--.*$', '', sql, flags=re.MULTILINE).strip()
 
+        # Check if SQL is empty after cleaning
+        if not clean_sql:
+            return ""
+
+        upper_sql = clean_sql.upper()
+
         # Check for PRAGMA statements
-        if clean_sql.upper().startswith('PRAGMA'):
+        if upper_sql.startswith('PRAGMA'):
             return 'PRAGMA'
+
+        # Check for CTE queries (WITH ... SELECT)
+        if upper_sql.startswith('WITH'):
+            # Find the main statement type after WITH clause
+            # Look for SELECT, INSERT, UPDATE, DELETE after the closing parenthesis
+            # of the CTE definition
+            for main_type in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']:
+                if main_type in upper_sql:
+                    # Find the position of the main statement type
+                    # This is a simple approach that works for most cases
+                    # More complex cases might need a SQL parser
+                    return main_type
+            # If no main type found, default to SELECT (most common)
+            return 'SELECT'
 
         # Default to base implementation
         return super()._get_statement_type(clean_sql)
@@ -491,11 +534,19 @@ class SQLiteBackend(StorageBackend):
             sql: str,
             params_list: List[Tuple]
     ) -> Optional[QueryResult]:
-        """Execute batch operations
+        """Execute batch operations with the same SQL statement and multiple parameter sets.
+
+        This method executes the same SQL statement multiple times with different parameter sets.
+        It is more efficient than executing individual statements and is ideal for bulk inserts
+        or updates.
+
+        IMPORTANT: SQLite's executemany only supports a single SQL statement at a time.
+        Do NOT use statements with semicolons, as SQLite cannot execute multiple statements
+        in a single call.
 
         Args:
-            sql: SQL statement
-            params_list: List of parameter tuples
+            sql: SQL statement (must be a single statement without semicolons)
+            params_list: List of parameter tuples, one for each execution
 
         Returns:
             QueryResult: Execution results
@@ -532,6 +583,7 @@ class SQLiteBackend(StorageBackend):
         except Exception as e:
             self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
             self._handle_error(e)
+            return None
 
     def _handle_auto_commit(self) -> None:
         """Handle auto commit based on SQLite connection and transaction state.

@@ -1,10 +1,10 @@
 import sqlite3
+import sqlite3
 import sys
-from typing import Optional, List, Set, Union, Dict
-from typing import Tuple, Any
+from typing import Optional, List, Set, Union, Dict, Tuple, Any
 
 from ...dialect import SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
-    ExplainOptions, ExplainType, ExplainFormat, AggregateHandler, JsonOperationHandler
+    ExplainOptions, ExplainType, ExplainFormat, AggregateHandler, JsonOperationHandler, CTEHandler
 from ...errors import ReturningNotSupportedError, WindowFunctionNotSupportedError, \
     GroupingSetNotSupportedError, JsonOperationNotSupportedError
 from ...typing import ConnectionConfig
@@ -39,6 +39,7 @@ class SQLiteDialect(SQLDialectBase):
         self._returning_handler = SQLiteReturningHandler(version)
         self._aggregate_handler = SQLiteAggregateHandler(version)
         self._json_operation_handler = SQLiteJsonHandler(version)
+        self._cte_handler = SQLiteCTEHandler(version)
 
     def format_expression(self, expr: SQLExpressionBase) -> str:
         """Format SQLite expression"""
@@ -572,3 +573,112 @@ class SQLiteJsonHandler(JsonOperationHandler):
         # Cache result
         self._function_support[function_name] = is_supported
         return is_supported
+
+
+class SQLiteCTEHandler(CTEHandler):
+    """SQLite-specific CTE handler."""
+
+    def __init__(self, version: tuple):
+        self._version = version
+
+    @property
+    def is_supported(self) -> bool:
+        # CTEs are supported in SQLite 3.8.3+
+        return self._version >= (3, 8, 3)
+
+    @property
+    def supports_recursive(self) -> bool:
+        # Basic recursive CTEs supported since 3.8.3
+        return self.is_supported
+
+    @property
+    def supports_compound_recursive(self) -> bool:
+        # Compound queries in recursive CTEs supported in SQLite 3.34.0+
+        # (UNION, UNION ALL, EXCEPT, INTERSECT in recursive part)
+        return self._version >= (3, 34, 0)
+
+    @property
+    def supports_multiple_ctes(self) -> bool:
+        # Multiple CTEs supported since 3.8.3
+        return self.is_supported
+
+    @property
+    def supports_cte_in_dml(self) -> bool:
+        # SQLite supports CTEs in DML statements from version 3.8.3
+        return self.is_supported
+
+    @property
+    def supports_materialized_hint(self) -> bool:
+        # SQLite supports materialization hints from version 3.35.0
+        return self._version >= (3, 35, 0)
+
+    def format_cte(self,
+                   name: str,
+                   query: str,
+                   columns: Optional[List[str]] = None,
+                   recursive: bool = False,
+                   materialized: Optional[bool] = None) -> str:
+        """Format SQLite CTE syntax.
+
+        This method only formats the CTE syntax according to SQLite's rules
+        without checking if the feature is supported by the current SQLite version.
+        Users should check support properties before executing the formatted SQL.
+
+        Args:
+            name: CTE name
+            query: CTE query
+            columns: Optional column names for the CTE
+            recursive: Whether this is a recursive CTE (informational only)
+            materialized: Materialization hint (only affects output if SQLite version supports it)
+
+        Returns:
+            str: Formatted CTE definition
+        """
+        name = self.validate_cte_name(name)
+
+        # Add column definitions if provided
+        column_def = ""
+        if columns:
+            column_def = f"({', '.join(columns)})"
+
+        # Handle materialization hints if supported by SQLite version
+        if materialized is not None and self.supports_materialized_hint:
+            materialized_hint = "MATERIALIZED " if materialized else "NOT MATERIALIZED "
+            return f"{name}{column_def} AS {materialized_hint}({query})"
+
+        return f"{name}{column_def} AS ({query})"
+
+    def format_with_clause(self,
+                           ctes: List[Dict[str, Any]],
+                           recursive: bool = False) -> str:
+        """Format SQLite WITH clause syntax.
+
+        This method only formats the WITH clause syntax according to SQLite's rules
+        without checking if the feature is supported by the current SQLite version.
+        Users should check support properties before executing the formatted SQL.
+
+        Args:
+            ctes: List of CTE definitions, each a dict with name, query, columns, etc.
+            recursive: Whether to add the RECURSIVE keyword
+
+        Returns:
+            str: Formatted WITH clause
+        """
+        if not ctes:
+            return ""
+
+        # SQLite requires RECURSIVE keyword if any CTE is recursive
+        any_recursive = recursive or any(cte.get('recursive', False) for cte in ctes)
+        recursive_keyword = "RECURSIVE " if any_recursive else ""
+
+        formatted_ctes = []
+        for cte in ctes:
+            formatted_ctes.append(self.format_cte(
+                name=cte['name'],
+                query=cte['query'],
+                columns=cte.get('columns'),
+                recursive=cte.get('recursive', False),
+                materialized=cte.get('materialized')
+            ))
+
+        return f"WITH {recursive_keyword}{', '.join(formatted_ctes)}"
