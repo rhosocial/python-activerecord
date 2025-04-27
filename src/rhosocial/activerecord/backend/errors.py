@@ -61,3 +61,7 @@ class JsonOperationNotSupportedError(DatabaseError):
 class GroupingSetNotSupportedError(DatabaseError):
     """Raised when advanced grouping operations (CUBE, ROLLUP, GROUPING SETS) are not supported."""
     pass
+
+class CTENotSupportedError(Exception):
+    """Exception raised when CTE functionality is not supported."""
+    pass

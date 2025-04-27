@@ -306,6 +306,149 @@ class JsonOperationHandler:
         pass
 
 
+class CTEHandler(ABC):
+    """
+    Base class for Common Table Expression (CTE) handlers.
+
+    This abstract class defines the interface for handling CTE functionality
+    across different database systems, including support for recursive CTEs,
+    materialization hints, and other database-specific features.
+    """
+
+    @property
+    @abstractmethod
+    def is_supported(self) -> bool:
+        """
+        Check if CTEs are supported by this database.
+
+        Returns:
+            bool: True if supported, False otherwise
+        """
+        pass
+
+    @property
+    def supports_recursive(self) -> bool:
+        """
+        Check if recursive CTEs are supported.
+
+        Returns:
+            bool: True if recursive CTEs are supported
+        """
+        return False
+
+    @property
+    def supports_compound_recursive(self) -> bool:
+        """
+        Check if compound queries in recursive CTEs are supported.
+
+        A compound query is a combination of two or more SELECT statements
+        using operators like UNION, UNION ALL, EXCEPT, or INTERSECT.
+
+        Returns:
+            bool: True if compound queries in recursive CTEs are supported
+        """
+        return False
+
+    @property
+    def supports_materialized_hint(self) -> bool:
+        """
+        Check if MATERIALIZED/NOT MATERIALIZED hints are supported.
+
+        Returns:
+            bool: True if materialization hints are supported
+        """
+        return False
+
+    @property
+    def supports_multiple_ctes(self) -> bool:
+        """
+        Check if multiple CTEs can be defined in a single query.
+
+        Returns:
+            bool: True if multiple CTEs are supported
+        """
+        return self.is_supported
+
+    @property
+    def supports_cte_in_dml(self) -> bool:
+        """
+        Check if CTEs can be used in DML statements (INSERT/UPDATE/DELETE).
+
+        Returns:
+            bool: True if CTEs can be used in DML statements
+        """
+        return False
+
+    @abstractmethod
+    def format_cte(self,
+                   name: str,
+                   query: str,
+                   columns: Optional[List[str]] = None,
+                   recursive: bool = False,
+                   materialized: Optional[bool] = None) -> str:
+        """
+        Format a single CTE definition.
+
+        This method only formats the CTE syntax according to the database's rules
+        without checking if the feature is supported by the current database version.
+        Users should check support properties before executing the formatted SQL.
+
+        Args:
+            name: CTE name
+            query: CTE query
+            columns: Optional column names for the CTE
+            recursive: Whether this is a recursive CTE
+            materialized: Materialization hint (True=MATERIALIZED, False=NOT MATERIALIZED, None=no hint)
+
+        Returns:
+            str: Formatted CTE definition
+        """
+        pass
+
+    @abstractmethod
+    def format_with_clause(self,
+                           ctes: List[Dict[str, Any]],
+                           recursive: bool = False) -> str:
+        """
+        Format complete WITH clause with multiple CTEs.
+
+        This method only formats the WITH clause syntax according to the database's rules
+        without checking if the feature is supported by the current database version.
+        Users should check support properties before executing the formatted SQL.
+
+        Args:
+            ctes: List of CTE definitions, each a dict with name, query, columns, etc.
+            recursive: Whether to add the RECURSIVE keyword (for databases that need it)
+
+        Returns:
+            str: Formatted WITH clause
+        """
+        pass
+
+    def validate_cte_name(self, name: str) -> str:
+        """
+        Validate and format CTE name.
+
+        Args:
+            name: CTE name to validate
+
+        Returns:
+            str: Validated CTE name
+
+        Raises:
+            ValueError: If CTE name is invalid
+        """
+        # Basic validation/sanitization
+        if not name or not name.strip():
+            raise ValueError("CTE name cannot be empty")
+
+        # Check for SQL injection patterns
+        if any(char in name for char in [';', '--', '"', "'", '`']):
+            raise ValueError(f"Invalid CTE name: {name}")
+
+        return name.strip()
+
+
 class SQLExpressionBase(ABC):
     """Base class for SQL expressions
 
@@ -394,6 +537,7 @@ class SQLDialectBase(ABC):
     _json_operation_handler: JsonOperationHandler
     _version: tuple
     _type_registry: TypeRegistry
+    _cte_handler: CTEHandler
 
     def __init__(self, version: tuple, type_registry: Optional[TypeRegistry] = None) -> None:
         """Initialize SQL dialect
@@ -467,6 +611,11 @@ class SQLDialectBase(ABC):
     def json_operation_handler(self) -> JsonOperationHandler:
         """Get JSON operation handler"""
         return self._json_operation_handler
+
+    @property
+    def cte_handler(self) -> CTEHandler:
+        """Get CTE handler"""
+        return self._cte_handler
 
     def register_converter(self, converter: Any, names: Optional[List[str]] = None,
                            types: Optional[List[Any]] = None) -> None:

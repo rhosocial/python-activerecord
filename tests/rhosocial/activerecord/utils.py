@@ -206,10 +206,10 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
                 try:
                     # For MySQL, check information_schema
                     db_name = db_config.config.get('database')
-                    verify_query = f"SELECT COUNT(*) FROM information_schema.tables WHERE table_schema = '{db_name}' AND table_name = '{table_name}'"
+                    verify_query = f"SELECT COUNT(*) as result FROM information_schema.tables WHERE table_schema = '{db_name}' AND table_name = '{table_name}'"
                     verify_result = model_class.__backend__.execute(verify_query)
-                    rows = verify_result.fetch_all()
-                    if rows and rows[0][0] > 0:
+                    rows = verify_result.data['result']
+                    if rows > 0:
                         logger.error(f"CLEANUP FAILED: Table {table_name} still exists after DROP")
                     else:
                         logger.debug(f"CLEANUP VERIFIED: Table {table_name} successfully dropped")
@@ -221,7 +221,7 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
                     if db_config.config.get('database') != ":memory:":  # Skip for in-memory databases
                         verify_query = f"SELECT name FROM sqlite_master WHERE type='table' AND name='{table_name}'"
                         verify_result = model_class.__backend__.execute(verify_query)
-                        rows = verify_result.fetch_all()
+                        rows = verify_result.data
                         if rows and len(rows) > 0:
                             logger.error(f"CLEANUP FAILED: Table {table_name} still exists after DROP")
                         else:

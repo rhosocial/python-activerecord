@@ -9,7 +9,7 @@ This module provides a generic interface for database operations, with support f
 - Connection pooling
 """
 
-__version__ = "0.6.0"
+__version__ = "0.7.0"
 
 # Core interfaces and base classes
 from .base import StorageBackend

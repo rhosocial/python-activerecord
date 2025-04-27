@@ -3,7 +3,7 @@ import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from enum import Enum, auto
-from typing import Optional, Generator, List, Dict
+from typing import Optional, Generator
 
 from .errors import TransactionError, IsolationLevelError
 

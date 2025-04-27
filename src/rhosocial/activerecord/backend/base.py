@@ -256,7 +256,14 @@ class StorageBackend(ABC):
         Returns:
             str: Statement type in uppercase
         """
-        return sql.strip().split(None, 1)[0].upper()
+        # Handle empty SQL
+        sql_stripped = sql.strip()
+        if not sql_stripped:
+            return ""
+
+        # Extract first word as statement type
+        parts = sql_stripped.split(None, 1)
+        return parts[0].upper()
 
     def _is_select_statement(self, stmt_type: str) -> bool:
         """
@@ -588,6 +595,47 @@ class StorageBackend(ABC):
         """
         # Call the existing error handler
         self._handle_error(error)
+
+    def execute_many(
+            self,
+            sql: str,
+            params_list: List[Tuple]
+    ) -> Optional[QueryResult]:
+        """Execute batch operations for the same SQL statement with multiple parameter sets.
+
+        This method is designed for efficiently executing the same SQL statement multiple times
+        with different parameter sets. It is NOT meant for executing multiple different SQL statements
+        in a single call (no statements with semicolons).
+
+        For example, this is correct usage:
+            execute_many("INSERT INTO table VALUES (?, ?)", [(1, "a"), (2, "b"), (3, "c")])
+
+        This is incorrect usage:
+            execute_many("CREATE TABLE x; INSERT INTO x VALUES (?)", [(1,), (2,)])
+
+        Note: This method is optional and may not be implemented by all database backends.
+        The default implementation falls back to executing statements one by one.
+
+        Args:
+            sql: SQL statement to execute repeatedly (must be a single statement)
+            params_list: List of parameter tuples, one for each execution
+
+        Returns:
+            QueryResult: Execution results including affected rows and duration
+        """
+        self.log(logging.INFO,
+                 f"execute_many: Executing statements individually (backend doesn't support batch operations)")
+        import time
+        start_time = time.perf_counter()
+        affected_rows = 0
+
+        for params in params_list:
+            result = self.execute(sql, params)
+            if result:
+                affected_rows += result.affected_rows
+
+        duration = time.perf_counter() - start_time
+        return QueryResult(affected_rows=affected_rows, duration=duration)
 
     def fetch_one(self,
                   sql: str,
