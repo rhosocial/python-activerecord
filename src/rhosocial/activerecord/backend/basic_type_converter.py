@@ -331,6 +331,24 @@ class UUIDConverter(BaseTypeConverter):
             return True
         if target_type and target_type == DatabaseType.UUID:
             return True
+        if isinstance(value, str) and self._is_uuid_string(value):
+            return True
+        return False
+
+    def _is_uuid_string(self, value: str) -> bool:
+        """Check if a string looks like a UUID."""
+        if not isinstance(value, str):
+            return False
+
+        # Standard UUID format
+        import re
+        if re.match(r'^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$', value.lower()):
+            return True
+
+        # Compact UUID format without dashes
+        if re.match(r'^[0-9a-f]{32}$', value.lower()):
+            return True
+
         return False
 
     def to_database(self, value: Any, target_type: Any = None) -> Any:
@@ -352,7 +370,7 @@ class UUIDConverter(BaseTypeConverter):
             return str(value)
 
         # Try to convert string to UUID and then back to string
-        if isinstance(value, str):
+        if isinstance(value, str) and self._is_uuid_string(value):
             try:
                 return str(uuid.UUID(value))
             except ValueError:
@@ -532,12 +550,12 @@ class DecimalConverter(BaseTypeConverter):
 
         # Convert Decimal to string to preserve precision
         if isinstance(value, Decimal):
-            return str(value)
+            return float(value)
 
         # Try to convert string to Decimal
         if isinstance(value, str):
             try:
-                return str(Decimal(value))
+                return float(Decimal(value))
             except:
                 return value
 

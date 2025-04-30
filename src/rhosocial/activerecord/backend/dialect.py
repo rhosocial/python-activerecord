@@ -406,9 +406,7 @@ class CTEHandler(ABC):
         pass
 
     @abstractmethod
-    def format_with_clause(self,
-                           ctes: List[Dict[str, Any]],
-                           recursive: bool = False) -> str:
+    def format_with_clause(self, ctes: List[Dict[str, Any]]) -> str:
         """
         Format complete WITH clause with multiple CTEs.
 
@@ -878,29 +876,6 @@ class SQLBuilder:
         """
         if not params:
             return sql, ()
-
-        # Process parameters - convert different types to appropriate format
-        if isinstance(params, dict):
-            # Convert dictionary values to database format
-            processed_params = tuple(
-                self.dialect.to_database(value, None)
-                for value in params.values()
-            )
-        elif isinstance(params, list):
-            # Convert list values to database format
-            processed_params = tuple(
-                self.dialect.to_database(value, None)
-                for value in params
-            )
-        elif isinstance(params, tuple):
-            # Convert tuple values to database format
-            processed_params = tuple(
-                self.dialect.to_database(value, None)
-                for value in params
-            )
-        else:
-            # Handle unexpected parameter type
-            processed_params = (self.dialect.to_database(params, None),)
 
         # First pass: collect information about parameters
         final_params = []

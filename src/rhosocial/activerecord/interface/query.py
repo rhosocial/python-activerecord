@@ -530,6 +530,25 @@ class IQuery(Generic[ModelT], ABC):
         """
         pass
 
+    @abstractmethod
+    def to_sql(self) -> Tuple[str, Tuple[Any, ...]]:
+        """Get complete SQL query with parameters.
+
+        This method returns the full SQL statement with parameter values
+        ready for execution.
+
+        Returns:
+            Tuple of (sql_query, params) where:
+            - sql_query: Complete SQL string with placeholders
+            - params: Tuple of parameter values
+
+        Examples:
+            sql, params = User.query().where('status = ?', (1,)).to_sql()
+            print(f"SQL: {sql}")
+            print(f"Params: {params}")
+        """
+        pass
+
 
 class IDictQuery(Generic[ModelT], ABC):
     """Interface for queries that return dictionary results instead of model instances.

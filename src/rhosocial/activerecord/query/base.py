@@ -949,3 +949,91 @@ class BaseQueryMixin(IQuery[ModelT]):
         """
         from .dict_query import DictQuery
         return DictQuery(self, include, exclude, direct_dict)
+
+    def __copy__(self):
+        """Implement shallow copy protocol.
+
+        This method creates a new instance of the query with base properties
+        copied. Mutable collections are also copied to prevent shared references.
+
+        Returns:
+            A new instance of the query with basic properties copied.
+        """
+        # Create a new instance of the same class
+        cls = self.__class__
+        result = cls.__new__(cls)
+
+        # Initialize with the model class
+        result.__init__(self.model_class)
+
+        # Copy basic properties
+        result.condition_groups = [group.copy() for group in self.condition_groups]
+        result.current_group = self.current_group
+        result.order_clauses = self.order_clauses.copy()
+        result.join_clauses = self.join_clauses.copy()
+
+        # Copy select columns (if not None)
+        if self.select_columns is not None:
+            result.select_columns = self.select_columns.copy()
+        else:
+            result.select_columns = None
+
+        # Copy limit and offset values
+        result.limit_count = self.limit_count
+        result.offset_count = self.offset_count
+
+        # Copy explain settings if enabled
+        if hasattr(self, '_explain_enabled'):
+            result._explain_enabled = self._explain_enabled
+            if hasattr(self, '_explain_options'):
+                # Note: _explain_options might need deep copying,
+                # but we'll handle it in __deepcopy__
+                result._explain_options = self._explain_options
+
+        return result
+
+    def __deepcopy__(self, memo):
+        """Implement deep copy protocol.
+
+        This method creates a completely independent copy of the query,
+        ensuring all nested objects are also deeply copied.
+
+        Args:
+            memo: Dictionary of already copied objects to avoid infinite recursion
+
+        Returns:
+            A completely independent copy of the query
+        """
+        import copy
+
+        # Start with a shallow copy
+        result = self.__copy__()
+
+        # Track the copied object to avoid infinite recursion
+        memo[id(self)] = result
+
+        # Deep copy complex objects that might contain references
+        if hasattr(self, '_explain_options'):
+            result._explain_options = copy.deepcopy(self._explain_options, memo)
+
+        # Handle eager loading configuration with deep copy
+        if hasattr(self, '_eager_loads'):
+            result._eager_loads = copy.deepcopy(self._eager_loads, memo)
+
+        return result
+
+    def clone(self) -> 'IQuery[ModelT]':
+        """Create a deep copy of the current query object.
+
+        This method provides a convenient interface to create an independent
+        copy of the query for separate modifications.
+
+        Returns:
+            IQuery[ModelT]: A new independent query instance with same configuration
+
+        Note:
+            This is a wrapper around __deepcopy__ for backward compatibility
+            and convenient API use.
+        """
+        import copy
+        return copy.deepcopy(self)

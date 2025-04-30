@@ -8,11 +8,12 @@ import datetime
 import json
 import uuid
 from decimal import Decimal
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any
 
+from ...basic_type_converter import UUIDConverter
+from ...dialect import DatabaseType
 from ...errors import TypeConversionError
 from ...type_converters import BaseTypeConverter
-from ...dialect import DatabaseType
 
 
 class SQLiteBlobConverter(BaseTypeConverter):
@@ -199,6 +200,7 @@ class SQLiteJSONConverter(BaseTypeConverter):
             return list(obj)
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
 
+
 class SQLiteArrayConverter(BaseTypeConverter):
     """
     SQLite array converter.
@@ -314,7 +316,7 @@ class SQLiteNumericConverter(BaseTypeConverter):
 
     @property
     def priority(self) -> int:
-        return 35  # Between bool and UUID
+        return 50  # Between bool and UUID
 
     def can_handle(self, value: Any, target_type: Any = None) -> bool:
         """
@@ -349,12 +351,12 @@ class SQLiteNumericConverter(BaseTypeConverter):
 
         # Convert Decimal to string to preserve precision
         if isinstance(value, Decimal):
-            return str(value)
+            return float(value)
 
         # Try to convert numeric strings to Decimal and then to string
         if isinstance(value, str) and target_type in (DatabaseType.DECIMAL, DatabaseType.NUMERIC):
             try:
-                return str(Decimal(value))
+                return float(Decimal(value))
             except:
                 return value
 
@@ -379,6 +381,75 @@ class SQLiteNumericConverter(BaseTypeConverter):
             try:
                 return Decimal(value)
             except:
+                return value
+
+        return value  # Default: return unchanged
+
+
+class SQLiteUUIDConverter(UUIDConverter):
+    """
+    SQLite UUID converter.
+
+    Handles conversion between Python UUID objects and SQLite TEXT storage.
+    """
+
+    @property
+    def priority(self) -> int:
+        return 45  # Higher priority than base UUID converter
+
+    def to_database(self, value: Any, target_type: Any = None) -> Any:
+        """
+        Convert a Python UUID to SQLite TEXT format.
+
+        Args:
+            value: The Python value to convert
+            target_type: Optional target type hint
+
+        Returns:
+            str: The converted value ready for database storage
+        """
+        if value is None:
+            return None
+
+        # Convert UUID object to string
+        if isinstance(value, uuid.UUID):
+            return str(value)
+
+        # Normalize UUID string
+        if isinstance(value, str) and self._is_uuid_string(value):
+            try:
+                return str(uuid.UUID(value))
+            except ValueError:
+                return value
+
+        # Convert bytes to UUID string if appropriate
+        if isinstance(value, bytes) and len(value) == 16:
+            try:
+                return str(uuid.UUID(bytes=value))
+            except ValueError:
+                return value
+
+        return value  # Default: return unchanged
+
+    def from_database(self, value: Any, source_type: Any = None) -> Any:
+        """
+        Convert a SQLite TEXT UUID to Python UUID object.
+
+        Args:
+            value: The database value to convert
+            source_type: Optional source type hint
+
+        Returns:
+            uuid.UUID: The converted Python value
+        """
+        if value is None:
+            return None
+
+        # Convert string to UUID
+        if isinstance(value, str) and self._is_uuid_string(value):
+            try:
+                return uuid.UUID(value)
+            except ValueError:
                 return value
 
         return value  # Default: return unchanged

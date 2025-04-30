@@ -10,7 +10,6 @@ from .expression import (
     ConditionalExpression, SubqueryExpression,
     JsonExpression, GroupingSetExpression
 )
-from ..backend.errors import CTENotSupportedError
 from ..interface import ModelT
 
 
@@ -48,7 +47,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
     def __init__(self, model_class: Type[ModelT]):
         super().__init__(model_class)
-        self._ctes = None
         self._group_columns: List[str] = []
         self._having_conditions: List[Tuple[str, Tuple]] = []
         self._expressions: List[SQLExpression] = []
@@ -308,137 +306,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         subq_expr = SubqueryExpression(subquery, type, column, params, alias)
         self._log(logging.DEBUG, f"Added subquery expression: {subq_expr.as_sql()}")
         return self.select_expr(subq_expr)
-
-    def as_cte(self, cte_name: str = "cte", columns: Optional[List[str]] = None,
-               recursive: bool = False, materialized: Optional[bool] = None) -> 'AggregateQueryMixin':
-        """Wrap the current query as a Common Table Expression (CTE).
-
-        This method allows users to build a query in multiple logical steps,
-        particularly useful for:
-
-        1. Referring to computed column aliases in window functions (MySQL limitation)
-        2. Building recursive queries (when supported by the database)
-        3. Improving readability of complex queries
-
-        Args:
-            cte_name: Name for the CTE (default: "cte")
-            columns: Optional explicit column names for the CTE
-            recursive: Whether this is a recursive CTE
-            materialized: Materialization hint (True=MATERIALIZED, False=NOT MATERIALIZED, None=no hint)
-
-        Returns:
-            New query instance with the current query as a CTE
-
-        Raises:
-            CTENotSupportedError: If CTEs are not supported by the database
-
-        Example:
-            # Handle MySQL limitation of referencing aliases in window functions
-            query = (Order.query()
-                   .select("user_id", "status")
-                   .case([
-                       ("status = 'shipped'", "3"),
-                       ("status = 'paid'", "2"),
-                       ("status = 'pending'", "1")
-                   ], else_result="0", alias="priority")
-                   .as_cte("orders_with_priority")
-                   .window(
-                       AggregateExpression("MAX", "priority", alias=None),
-                       partition_by=["user_id"],
-                       alias="max_user_priority"
-                   )
-                   .order_by("user_id", "priority DESC"))
-
-            # Equivalent SQL:
-            # WITH orders_with_priority AS (
-            #   SELECT user_id, status,
-            #     CASE WHEN status = 'shipped' THEN '3'
-            #          WHEN status = 'paid' THEN '2'
-            #          WHEN status = 'pending' THEN '1'
-            #          ELSE '0' END as priority
-            #   FROM orders
-            # )
-            # SELECT *, MAX(priority) OVER (PARTITION BY user_id) as max_user_priority
-            # FROM orders_with_priority
-            # ORDER BY user_id, priority DESC
-        """
-        # Check if CTE is supported by this database
-        dialect = self.model_class.backend().dialect
-        cte_handler = dialect.cte_handler
-
-        if not cte_handler.is_supported:
-            raise CTENotSupportedError(
-                f"CTEs are not supported by {dialect.__class__.__name__}"
-            )
-
-        # Check for recursive CTE support if requested
-        if recursive and not cte_handler.supports_recursive:
-            raise CTENotSupportedError(
-                f"Recursive CTEs are not supported by {dialect.__class__.__name__}"
-            )
-
-        # Check for materialized hint support if specified
-        if materialized is not None and not cte_handler.supports_materialized_hint:
-            self._log(logging.WARNING,
-                      f"Materialization hints not supported by {dialect.__class__.__name__}, will be ignored")
-
-        # Build the inner query
-        inner_sql, inner_params = self.to_sql()
-
-        # Create a new query of the same model type
-        new_query = self.model_class.query()
-
-        # Initialize CTEs container if needed
-        if not hasattr(new_query, '_ctes'):
-            new_query._ctes = []
-
-        # Add this CTE to the list
-        new_query._ctes.append({
-            'name': cte_name,
-            'query': inner_sql,
-            'params': inner_params,
-            'columns': columns,
-            'recursive': recursive,
-            'materialized': materialized
-        })
-
-        # Mark as a CTE-based query
-        new_query._cte_source = cte_name
-
-        # Transfer relevant metadata (collect columns/aliases)
-        column_list = []
-
-        # Process explicitly selected columns
-        if hasattr(self, 'select_columns') and self.select_columns:
-            for col in self.select_columns:
-                # Handle column aliases
-                if ' as ' in col.lower():
-                    alias = col.split(' as ')[1].strip()
-                    column_list.append(alias)
-                elif ' AS ' in col:
-                    alias = col.split(' AS ')[1].strip()
-                    column_list.append(alias)
-                else:
-                    # Use column name as is (remove table qualifier if present)
-                    col_name = col.split('.')[-1] if '.' in col else col
-                    column_list.append(col_name)
-
-        # Add expression aliases
-        for expr in getattr(self, '_expressions', []):
-            if hasattr(expr, 'alias') and expr.alias:
-                column_list.append(expr.alias)
-
-        # If no columns were collected, use * to select everything
-        if not column_list:
-            column_list = ['*']
-
-        # Select all columns from the CTE
-        new_query.select(*[f"{cte_name}.{col}" if col != '*' else f"{cte_name}.*"
-                           for col in column_list])
-
-        self._log(logging.INFO, f"Created CTE query with name: {cte_name}")
-
-        return new_query
 
     def json_expr(self, column: Union[str, SQLExpression],
                   path: str,
@@ -767,14 +634,45 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         """
         return bool(self._expressions or self._group_columns or self._grouping_sets)
 
+    def _build_scalar_aggregate_query(self, func: str, column: str,
+                                      distinct: bool = False) -> Tuple[str, tuple]:
+        """Build a scalar aggregate query for execution.
+
+        This method creates an SQL query for scalar aggregate functions like COUNT, SUM, etc.
+        It's designed as a hook that derived classes can override to modify query generation.
+
+        Args:
+            func: Aggregate function name (COUNT, SUM, etc.)
+            column: Column to aggregate
+            distinct: Whether to use DISTINCT
+
+        Returns:
+            Tuple of (sql_query, params)
+        """
+        # Clear any existing expressions
+        self._expressions = []
+
+        # Add single aggregate expression
+        expr = AggregateExpression(func, column, distinct, "result")
+
+        # Save original state and set new selection
+        original_select = self.select_columns
+        self.select_columns = [expr.as_sql()]
+
+        # Build query
+        sql, params = super().build()
+
+        # Restore original state
+        self.select_columns = original_select
+
+        return sql, params
+
     def _execute_scalar_aggregate(self, func: str, column: str,
-                                distinct: bool = False) -> Optional[Any]:
+                                  distinct: bool = False) -> Optional[Any]:
         """Execute a scalar aggregate function without grouping.
 
         This internal method handles both normal execution and explain mode for
-        scalar aggregate functions (COUNT, SUM, AVG, etc.). It temporarily modifies
-        the query state to execute a single aggregate operation, then restores
-        the original state.
+        scalar aggregate functions (COUNT, SUM, AVG, etc.).
 
         Args:
             func: Aggregate function name (COUNT, SUM, etc.)
@@ -789,22 +687,23 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         original_select = self.select_columns
         original_exprs = self._expressions
 
-        self._log(logging.DEBUG, f"Executing scalar aggregate: {func}({column})", extra={"distinct": distinct}, offset=2)
+        self._log(logging.DEBUG, f"Executing scalar aggregate: {func}({column})", extra={"distinct": distinct},
+                  offset=2)
 
-        # Clear any existing expressions
-        self._expressions = []
+        # Build the query using the hook method
+        sql, params = self._build_scalar_aggregate_query(func, column, distinct)
 
-        # Add single aggregate expression
-        expr = AggregateExpression(func, column, distinct, "result")
-        self.select_columns = [expr.as_sql()]
-
-        # Execute query
-        sql, params = super().build()
         self._log(logging.INFO, f"Executing scalar aggregate: {sql}, parameters: {params}", offset=2)
 
         # Handle explain if enabled
         if self._explain_enabled:
-            return self._execute_with_explain(sql, params)
+            result = self._execute_with_explain(sql, params)
+
+            # Restore original state
+            self.select_columns = original_select
+            self._expressions = original_exprs
+
+            return result
 
         result = self.model_class.backend().fetch_one(sql, params)
 
@@ -931,54 +830,6 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         return None
 
-    def _build_ctes(self) -> Tuple[Optional[str], List[Any]]:
-        """Build WITH clause for Common Table Expressions.
-
-        Returns:
-            Tuple of (cte_sql, params) where:
-            - cte_sql: The formatted WITH clause or None if no CTEs
-            - params: List of query parameters for all CTEs
-        """
-        if not hasattr(self, '_ctes') or not self._ctes:
-            return None, []
-
-        # Get dialect and CTE handler
-        dialect = self.model_class.backend().dialect
-        cte_handler = dialect.cte_handler
-
-        # Check if any CTE is recursive
-        any_recursive = any(cte.get('recursive', False) for cte in self._ctes)
-
-        # Format individual CTE definitions
-        formatted_ctes = []
-        all_params = []
-
-        for cte in self._ctes:
-            # Extract CTE details
-            name = cte['name']
-            query = cte['query']
-            params = cte.get('params', [])
-
-            # Format CTE definition
-            cte_def = cte_handler.format_cte(
-                name=name,
-                query=query,
-                columns=cte.get('columns'),
-                recursive=cte.get('recursive', False),
-                materialized=cte.get('materialized')
-            )
-
-            formatted_ctes.append(cte_def)
-            all_params.extend(params)
-
-        # Format complete WITH clause
-        with_clause = cte_handler.format_with_clause(
-            formatted_ctes,
-            recursive=any_recursive
-        )
-
-        return with_clause, all_params
-
     def _build_aggregate_query(self) -> Tuple[str, Tuple]:
         """Build complete aggregate query SQL and parameters.
 
@@ -992,31 +843,8 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         if not self._is_aggregate_query():
             return super().build()
 
-        query_parts = []
+        query_parts = [self._build_select()]
         all_params = []
-
-        # Add CTEs if present
-        cte_sql, cte_params = self._build_ctes()
-        if cte_sql:
-            query_parts.append(cte_sql)
-            all_params.extend(cte_params)
-
-        # Build main query parts
-        select_sql = self._build_select()
-
-        # If this query is based on a CTE, adjust the FROM clause
-        if hasattr(self, '_cte_source'):
-            # Replace the table in FROM clause with the CTE name
-            table_name = self.model_class.table_name()
-            quoted_table = self.model_class.backend().dialect.format_identifier(table_name)
-            cte_name = self._cte_source
-
-            # Replace the FROM clause
-            original_from = f"FROM {quoted_table}"
-            cte_from = f"FROM {cte_name}"
-            select_sql = select_sql.replace(original_from, cte_from)
-
-        query_parts.append(select_sql)
 
         # Add JOIN clauses
         join_parts = self._build_joins()
@@ -1200,4 +1028,88 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         result = self.model_class.backend().fetch_all(sql, params)
 
         # Always return a list, even if empty
+        return result
+
+    def __copy__(self):
+        """Implement shallow copy protocol for aggregate queries.
+
+        Extends the BaseQueryMixin.__copy__ implementation to include
+        aggregate-specific properties.
+
+        Returns:
+            A new instance of the aggregate query with properties copied.
+        """
+        # Start with the base copy
+        result = super().__copy__()
+
+        # Copy aggregate-specific properties
+        if hasattr(self, '_group_columns'):
+            result._group_columns = self._group_columns.copy()
+        else:
+            result._group_columns = []
+
+        if hasattr(self, '_having_conditions'):
+            result._having_conditions = self._having_conditions.copy()
+        else:
+            result._having_conditions = []
+
+        if hasattr(self, '_expressions'):
+            # Note: Expressions might need deep copying,
+            # but we'll handle it in __deepcopy__
+            result._expressions = self._expressions.copy() if self._expressions else []
+        else:
+            result._expressions = []
+
+        if hasattr(self, '_window_definitions'):
+            # Shallow copy of the window definitions dict
+            result._window_definitions = self._window_definitions.copy() if self._window_definitions else {}
+        else:
+            result._window_definitions = {}
+
+        # For _grouping_sets, we'll just do a reference copy here
+        # and handle deep copying in __deepcopy__
+        if hasattr(self, '_grouping_sets'):
+            result._grouping_sets = self._grouping_sets
+        else:
+            result._grouping_sets = None
+
+        return result
+
+    def __deepcopy__(self, memo):
+        """Implement deep copy protocol for aggregate queries.
+
+        Extends the BaseQueryMixin.__deepcopy__ implementation to ensure
+        all aggregate-specific nested objects are also deeply copied.
+
+        Args:
+            memo: Dictionary of already copied objects to avoid infinite recursion
+
+        Returns:
+            A completely independent copy of the aggregate query
+        """
+        import copy
+
+        # If this object has already been copied, return the copy
+        if id(self) in memo:
+            return memo[id(self)]
+
+        # Start with a shallow copy
+        result = self.__copy__()
+
+        # Track the copied object to avoid infinite recursion
+        memo[id(self)] = result
+
+        # Call parent's __deepcopy__ to handle base properties
+        super().__deepcopy__(memo)
+
+        # Deep copy complex objects
+        if hasattr(self, '_expressions') and self._expressions:
+            result._expressions = copy.deepcopy(self._expressions, memo)
+
+        if hasattr(self, '_window_definitions') and self._window_definitions:
+            result._window_definitions = copy.deepcopy(self._window_definitions, memo)
+
+        if hasattr(self, '_grouping_sets') and self._grouping_sets:
+            result._grouping_sets = copy.deepcopy(self._grouping_sets, memo)
+
         return result

@@ -428,7 +428,11 @@ class StorageBackend(ABC):
         """
         # Convert parameters if needed
         if params:
-            cursor.execute(sql, params)
+            processed_params = tuple(
+                self.dialect.to_database(value, None)
+                for value in params
+            )
+            cursor.execute(sql, processed_params)
         else:
             cursor.execute(sql)
 
