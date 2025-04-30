@@ -8,13 +8,12 @@ from typing import Optional, Tuple, List, Any, Dict, Union
 
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
-from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter
-from ...dialect import ReturningOptions
-from ...typing import DatabaseType
+from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter, SQLiteUUIDConverter, SQLiteNumericConverter
 from ...base import StorageBackend, ColumnTypes
+from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
-from ...typing import QueryResult
+from ...typing import QueryResult, DatabaseType
 
 
 class SQLiteBackend(StorageBackend):
@@ -50,6 +49,17 @@ class SQLiteBackend(StorageBackend):
         self.dialect.register_converter(SQLiteJSONConverter(),
                                         names=["JSON"],
                                         types=[DatabaseType.JSON])
+
+        # Register SQLite UUID converter
+        self.dialect.register_converter(SQLiteUUIDConverter(),
+                                      names=["UUID", "TEXT"],
+                                      types=[DatabaseType.UUID])
+
+        # Register SQLite Numeric converter
+        self.dialect.register_converter(SQLiteNumericConverter(),
+                                        names=["NUMERIC", "DECIMAL"],
+                                        types=[DatabaseType.NUMERIC, DatabaseType.DECIMAL])
+
 
     @property
     def pragmas(self) -> Dict[str, str]:
@@ -368,31 +378,6 @@ class SQLiteBackend(StorageBackend):
 
         # Create cursor with SQLite Row factory for dict-like access
         cursor = self._connection.cursor()
-        return cursor
-
-    def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
-        """
-        Execute query in SQLite.
-
-        Args:
-            cursor: SQLite cursor
-            sql: SQL statement
-            params: Query parameters
-
-        Returns:
-            sqlite3.Cursor: Cursor with executed query
-        """
-        # Execute with parameters if provided
-        # Parameters are already processed by build_sql
-        if params:
-            processed_params = tuple(
-                self.dialect.to_database(value, None)
-                for value in params
-            )
-            cursor.execute(sql, processed_params)
-        else:
-            cursor.execute(sql)
-
         return cursor
 
     def _process_result_set(self, cursor, is_select: bool, need_returning: bool, column_types: Optional[ColumnTypes]) -> \

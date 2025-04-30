@@ -1,23 +1,37 @@
 """ActiveQuery implementation combining all query mixins."""
-from .aggregate import AggregateQueryMixin
+from .cte import CTEQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
 
 
 class ActiveQuery(
+    CTEQueryMixin,
     JoinQueryMixin,
     RelationalQueryMixin,
-    AggregateQueryMixin,
+    # AggregateQueryMixin,
     RangeQueryMixin,
 ):
     """Complete ActiveQuery implementation.
 
     Combines all functionality:
-    - Basic query operations (BaseQueryMixin)
-    - Aggregate queries (AggregateQueryMixin)
+    - Common Table Expressions (CTEQueryMixin)
+    - Basic query operations (BaseQueryMixin via inheritance chain)
+    - Aggregate queries (AggregateQueryMixin via CTEQueryMixin)
+    - Join operations (JoinQueryMixin)
     - Range-based queries (RangeQueryMixin)
     - Relational queries (RelationalQueryMixin)
+
+    Inheritance hierarchy:
+    - BaseQueryMixin
+      └── AggregateQueryMixin
+          └── CTEQueryMixin
+
+    Note on CTE operations:
+    - All CTE operations are handled by CTEQueryMixin
+    - Use with_cte() to define CTEs
+    - Use from_cte() to query from a CTE
+    - Both simple and recursive CTEs are supported
 
     Usage notes:
     - For simple queries on a single table, use .all() or .one() to retrieve model instances
@@ -41,5 +55,14 @@ class ActiveQuery(
             .group_by('status')\\
             .count('id', 'user_count')\\
             .aggregate()
+
+        # CTE example
+        query = User.query()\\
+            .with_cte(
+                "active_users",
+                "SELECT * FROM users WHERE status = 'active'"
+            )\\
+            .from_cte("active_users")\\
+            .order_by("created_at DESC")
     """
     pass

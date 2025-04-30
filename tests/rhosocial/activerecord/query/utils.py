@@ -1,4 +1,6 @@
 import logging
+import os
+import tempfile
 import time
 import uuid
 from typing import List, Optional, Type, Tuple, Any, Dict
@@ -9,6 +11,18 @@ from src.rhosocial.activerecord.backend.typing import ConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
 from tests.rhosocial.activerecord.query.fixtures.models import JsonUser
 from tests.rhosocial.activerecord.utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
+
+
+def get_test_db():
+    """Create a temporary database for testing."""
+    temp_db = tempfile.NamedTemporaryFile(delete=False, suffix='.db')
+    temp_db.close()
+    db_path = temp_db.name
+
+    # Register cleanup
+    pytest.add_cleanup(lambda: os.unlink(db_path) if os.path.exists(db_path) else None)
+
+    return db_path
 
 
 def generate_unique_test_id():
@@ -402,6 +416,7 @@ def create_json_test_fixtures():
 
     return create_table_fixture(model_classes, schema_map)
 
+
 def setup_order_fixtures():
     """Set up fixture factory for order-related tests.
 
@@ -467,3 +482,23 @@ def get_mysql_version(request):
         pass
 
     return None
+
+
+
+def create_tree_fixtures():
+    """Create test fixtures for tree structure (for recursive CTEs).
+
+    Returns:
+        pytest fixture that yields Node model
+    """
+    from .fixtures.cte_models import Node
+    model_classes = [Node]
+
+    # Define schema mapping
+    schema_map = {
+        Node.__table_name__: "nodes.sql"
+    }
+
+    # Use the pattern in create_table_fixture to create the fixture
+    # but make sure it yields the Node model directly, not a tuple
+    return create_table_fixture(model_classes, schema_map)
