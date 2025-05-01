@@ -122,6 +122,13 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
             TypeError: If query is not a string or IQuery instance
             Warning: If materialization hints are requested but not supported (logs warning and ignores)
 
+        Warning:
+            When using a string for the 'query' parameter, be aware of SQL injection risks.
+            Never use string concatenation with untrusted input to build your CTE query.
+            Instead, use ActiveQuery instances which properly parameterize values, or
+            use placeholders (?) in your string and provide parameters to the query methods
+            that use the CTE.
+
         Examples:
             # Using a SQL string
             User.query().with_cte(
@@ -129,7 +136,7 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
                 "SELECT * FROM users WHERE status = 'active'"
             ).from_cte("active_users").all()
 
-            # Using an ActiveQuery instance
+            # Using an ActiveQuery instance (RECOMMENDED for security)
             active_users_query = User.query().where("status = ?", ("active",))
             User.query().with_cte(
                 "active_users",
@@ -150,30 +157,27 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
         self._check_cte_support()
 
         # Check if recursive CTE is supported when requested
-        if recursive:
+        if recursive and not self.supports_recursive_cte():
             dialect = self.model_class.backend().dialect
-            if not dialect.cte_handler.supports_recursive:
-                raise CTENotSupportedError(
-                    f"Recursive CTEs are not supported by {dialect.__class__.__name__}"
-                )
+            raise CTENotSupportedError(
+                f"Recursive CTEs are not supported by {dialect.__class__.__name__}"
+            )
 
         # Check if materialization hint is supported when specified
-        if materialized is not None:
+        if materialized is not None and not self.supports_materialized_hint():
             dialect = self.model_class.backend().dialect
-            if not dialect.cte_handler.supports_materialized_hint:
-                self._log(logging.WARNING,
-                          f"Materialization hints are not supported by {dialect.__class__.__name__}. "
-                          f"The hint will be ignored.")
-                # Setting materialized to None will make it ignored later
-                materialized = None
+            self._log(logging.WARNING,
+                      f"Materialization hints are not supported by {dialect.__class__.__name__}. "
+                      f"The hint will be ignored.")
+            # Setting materialized to None will make it ignored later
+            materialized = None
 
         # Check if multiple CTEs are supported when adding more than one
-        if len(self._ctes) > 0:
+        if len(self._ctes) > 0 and not self.supports_multiple_ctes():
             dialect = self.model_class.backend().dialect
-            if not dialect.cte_handler.supports_multiple_ctes:
-                raise CTENotSupportedError(
-                    f"Multiple CTEs are not supported by {dialect.__class__.__name__}"
-                )
+            raise CTENotSupportedError(
+                f"Multiple CTEs are not supported by {dialect.__class__.__name__}"
+            )
 
         # Check if a CTE with this name already exists
         if name in self._ctes:
@@ -293,8 +297,8 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
         Raises:
             CTENotSupportedError: If CTEs are not supported
         """
-        dialect = self.model_class.backend().dialect
-        if not hasattr(dialect, 'cte_handler') or not dialect.cte_handler.is_supported:
+        if not self.supports_cte():
+            dialect = self.model_class.backend().dialect
             raise CTENotSupportedError(
                 f"CTEs are not supported by {dialect.__class__.__name__}"
             )
@@ -317,7 +321,7 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
 
         # Check recursive support for any recursive CTEs
         for cte in self._ctes.values():
-            if cte.get('recursive', False) and not cte_handler.supports_recursive:
+            if cte.get('recursive', False) and not self.supports_recursive_cte():
                 raise CTENotSupportedError(
                     f"Recursive CTEs are not supported by {dialect.__class__.__name__}"
                 )
@@ -534,6 +538,33 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
 
         # For non-CTE sources, use the parent implementation
         return super()._build_group_by()
+
+    def _build_window_defs(self) -> Optional[str]:
+        """Build WINDOW clause for named window definitions.
+
+        Returns:
+            Optional[str]: WINDOW clause or None if no definitions
+        """
+        if not self._window_definitions:
+            return None
+
+        window_parts = []
+
+        for name, definition in self._window_definitions.items():
+            window_spec = []
+
+            if definition.get('partition_by'):
+                window_spec.append(f"PARTITION BY {', '.join(definition['partition_by'])}")
+
+            if definition.get('order_by'):
+                window_spec.append(f"ORDER BY {', '.join(definition['order_by'])}")
+
+            window_parts.append(f"{name} AS ({' '.join(window_spec)})")
+
+        if window_parts:
+            return f"WINDOW {', '.join(window_parts)}"
+
+        return None
 
     def _build_sql_with_cte(self, include_cte: bool = True) -> Tuple[str, Tuple]:
         """Build complete SQL query with CTE support.
