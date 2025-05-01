@@ -502,3 +502,31 @@ def create_tree_fixtures():
     # Use the pattern in create_table_fixture to create the fixture
     # but make sure it yields the Node model directly, not a tuple
     return create_table_fixture(model_classes, schema_map)
+
+
+def create_combined_fixtures():
+    """Create combined test fixtures for both order and blog tests.
+
+    Creates tables in dependency order:
+    1. users (shared by orders, posts, and comments)
+    2. orders (referenced by order_items)
+    3. order_items
+    4. posts (depends on users)
+    5. comments (depends on users and posts)
+
+    Returns:
+        pytest fixture for (User, Order, OrderItem, Post, Comment)
+    """
+    from .fixtures.models import User, Order, OrderItem, Post, Comment
+    model_classes = [User, Order, OrderItem, Post, Comment]
+
+    # Define schema mapping
+    schema_map = {
+        User.__table_name__: "users.sql",
+        Order.__table_name__: "orders.sql",
+        OrderItem.__table_name__: "order_items.sql",
+        Post.__table_name__: "posts.sql",
+        Comment.__table_name__: "comments.sql"
+    }
+
+    return create_table_fixture(model_classes, schema_map)

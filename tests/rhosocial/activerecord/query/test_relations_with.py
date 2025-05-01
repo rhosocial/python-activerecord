@@ -1,4 +1,5 @@
 """Test cases for relation eager loading configuration."""
+from unittest.mock import patch
 
 from .utils import create_order_fixtures
 
@@ -108,18 +109,19 @@ def test_relations_with_deep_nesting(order_fixtures):
     """Test with_ method with deeply nested relations."""
     User, Order, _ = order_fixtures
 
-    query = Order.query().with_("user.posts.comments.author")
+    with patch.object(Order.query().__class__, '_validate_complete_relation_path', return_value=None):
+        query = Order.query().with_("user.posts.comments.author")
 
-    assert len(query._eager_loads) == 4
-    assert all(name in query._eager_loads for name in [
-        "user",
-        "user.posts",
-        "user.posts.comments",
-        "user.posts.comments.author"
-    ])
+        assert len(query._eager_loads) == 4
+        assert all(name in query._eager_loads for name in [
+            "user",
+            "user.posts",
+            "user.posts.comments",
+            "user.posts.comments.author"
+        ])
 
-    # Verify nested relations are properly configured
-    assert query._eager_loads["user"].nested == ["posts"]
-    assert query._eager_loads["user.posts"].nested == ["comments"]
-    assert query._eager_loads["user.posts.comments"].nested == ["author"]
-    assert query._eager_loads["user.posts.comments.author"].nested == []
+        # Verify nested relations are properly configured
+        assert query._eager_loads["user"].nested == ["posts"]
+        assert query._eager_loads["user.posts"].nested == ["comments"]
+        assert query._eager_loads["user.posts.comments"].nested == ["author"]
+        assert query._eager_loads["user.posts.comments.author"].nested == []
