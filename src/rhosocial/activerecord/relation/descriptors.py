@@ -8,7 +8,7 @@ from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import RelationValidation, RelationManagementInterface, RelationLoader
-from .. import QueryMixin
+from ..base import QueryMixin
 from ..interface import IActiveRecord
 
 T = TypeVar('T')
@@ -539,6 +539,10 @@ class DefaultRelationLoader(RelationLoader[R]):
 
             # Load all related records using base_query
             # Keep existing conditions from base_query, only add IN condition
+            # Create a clone of the query to avoid modifying the original
+            if hasattr(query, 'clone'):
+                query = query.clone()
+
             related_records = query.where(
                 f"{self.descriptor.foreign_key} IN ({','.join('?' * len(primary_keys))})",
                 list(primary_keys)
