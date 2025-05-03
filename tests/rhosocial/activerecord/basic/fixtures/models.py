@@ -38,19 +38,19 @@ class TypeCase(UUIDMixin, ActiveRecord):
 class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
     __table_name__ = "users"
 
-    id: Optional[int] = None  # 主键，新记录时为空
-    username: str            # 必需字段
-    email: EmailStr              # 必需字段
-    age: Optional[int] = Field(..., ge=0, le=100)  # 可选字段
-    balance: float = 0.0      # 有默认值的字段
-    is_active: bool = True    # 有默认值的字段
-    # created_at: Optional[str] = None  # 可选字段，通常由数据库自动设置
-    # updated_at: Optional[str] = None  # 可选字段，通常由数据库自动设置
+    id: Optional[int] = None  # Primary key, empty for new records
+    username: str            # Required field
+    email: EmailStr          # Required field
+    age: Optional[int] = Field(..., ge=0, le=100)  # Optional field
+    balance: float = 0.0      # Field with default value
+    is_active: bool = True    # Field with default value
+    # created_at: Optional[str] = None  # Optional field, typically set automatically by database
+    # updated_at: Optional[str] = None  # Optional field, typically set automatically by database
 
 class ValidatedFieldUser(IntegerPKMixin, ActiveRecord):
     __table_name__ = "validated_field_users"
 
-    id: Optional[int] = None  # 主键，新记录时为空
+    id: Optional[int] = None  # Primary key, empty for new records
     username: str
     email: EmailStr
     age: Optional[int] = None
@@ -72,10 +72,10 @@ class ValidatedFieldUser(IntegerPKMixin, ActiveRecord):
         return value
 
 class TypeTestModel(UUIDMixin, ActiveRecord):
-    """用于测试各种字段类型的模型类"""
+    """Model class for testing various field types"""
     __table_name__ = "type_tests"
 
-    # UUID主键由UUIDMixin提供
+    # UUID primary key provided by UUIDMixin
     string_field: str = Field(default="test string")
     int_field: int = Field(default=42)
     float_field: float = Field(default=3.14)
@@ -86,7 +86,7 @@ class TypeTestModel(UUIDMixin, ActiveRecord):
     nullable_field: Optional[str] = Field(default=None)
 
 class ValidatedUser(IntegerPKMixin, ActiveRecord):
-    """用于验证测试的用户模型"""
+    """User model for validation testing"""
     __table_name__ = "validated_users"
 
     id: Optional[int] = None
@@ -96,7 +96,7 @@ class ValidatedUser(IntegerPKMixin, ActiveRecord):
 
     @field_validator('username')
     def validate_username(cls, v: str) -> str:
-        # 自定义用户名验证规则
+        # Custom username validation rules
         if len(v.strip()) != len(v):
             raise ValidationError("Username cannot have leading or trailing spaces")
         if not v.isalnum():
@@ -105,22 +105,22 @@ class ValidatedUser(IntegerPKMixin, ActiveRecord):
 
     @classmethod
     def validate_record(cls, instance: 'ValidatedUser') -> None:
-        """业务规则验证"""
+        """Business rule validation"""
         if instance.age is not None and instance.age < 13:
             raise ValidationError("User must be at least 13 years old")
 
 @pytest.fixture(params=[Type[TypeCase], Type[User], Type[ValidatedFieldUser]])
 def active_record_class(request) -> Type[ActiveRecord]:
-    """提供 ActiveRecord 模型类"""
+    """Provide ActiveRecord model class"""
     return request.param
 
-# 为test_curd.py每个 ActiveRecord 类创建对应的夹具
+# Create fixtures for each ActiveRecord class for test_curd.py
 user_class = create_active_record_fixture(User)
 type_case_class = create_active_record_fixture(TypeCase)
 validated_user_class = create_active_record_fixture(ValidatedFieldUser)
 
-# test_fields.py每个 ActiveRecord 类创建对应的夹具
+# Create fixtures for each ActiveRecord class for test_fields.py
 type_test_model = create_active_record_fixture(TypeTestModel)
 
-# test_validation.py每个 ActiveRecord 类创建对应的夹具
+# Create fixtures for each ActiveRecord class for test_validation.py
 validated_user = create_active_record_fixture(ValidatedUser)

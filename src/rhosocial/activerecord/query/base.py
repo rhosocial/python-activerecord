@@ -610,16 +610,34 @@ class BaseQueryMixin(IQuery[ModelT]):
         formatted_clauses = []
 
         for clause in self.order_clauses:
-            # Handle "column ASC/DESC" format
-            parts = clause.split()
-            if len(parts) == 2 and parts[1].upper() in ('ASC', 'DESC'):
-                column = parts[0]
-                direction = parts[1]
-                formatted_column = self._format_identifier(column, dialect)
-                formatted_clauses.append(f"{formatted_column} {direction}")
+            # Handle cases that contain commas, e.g. "column1, column2"
+            if ',' in clause and not any(agg in clause.lower() for agg in ['(', ')']):
+                # Split and format each column name separately
+                columns = [col.strip() for col in clause.split(',')]
+                sub_formatted = []
+
+                for col in columns:
+                    # Process the "column ASC/DESC" format
+                    parts = col.split()
+                    if len(parts) == 2 and parts[1].upper() in ('ASC', 'DESC'):
+                        column = parts[0]
+                        direction = parts[1]
+                        sub_formatted.append(f"{self._format_identifier(column, dialect)} {direction}")
+                    else:
+                        # Simple columns or complex expressions
+                        sub_formatted.append(self._format_identifier(col, dialect))
+
+                formatted_clauses.append(", ".join(sub_formatted))
             else:
-                # Simple column or complex expression
-                formatted_clauses.append(self._format_identifier(clause, dialect))
+                # Process the "column ASC/DESC" format
+                parts = clause.split()
+                if len(parts) == 2 and parts[1].upper() in ('ASC', 'DESC'):
+                    column = parts[0]
+                    direction = parts[1]
+                    formatted_clauses.append(f"{self._format_identifier(column, dialect)} {direction}")
+                else:
+                    # Simple columns or complex expressions
+                    formatted_clauses.append(self._format_identifier(clause, dialect))
 
         return f"ORDER BY {', '.join(formatted_clauses)}"
 
