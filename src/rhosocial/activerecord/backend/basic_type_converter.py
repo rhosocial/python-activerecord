@@ -10,7 +10,7 @@ import json
 import uuid
 from decimal import Decimal
 from enum import Enum
-from typing import Any
+from typing import Any, Optional
 
 from .typing import DatabaseType
 from .type_converters import BaseTypeConverter
@@ -107,9 +107,10 @@ class BasicTypeConverter(BaseTypeConverter):
 
 class DateTimeConverter(BaseTypeConverter):
     """
-    Converter for date and time types.
+    Enhanced converter for date and time types with timezone support.
 
-    Handles conversion between Python datetime objects and database date/time representations.
+    Handles conversion between Python datetime objects and database date/time representations,
+    with proper timezone handling.
     """
 
     @property
@@ -130,18 +131,20 @@ class DateTimeConverter(BaseTypeConverter):
         if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
             return True
 
-        if target_type and target_type in (DatabaseType.DATE, DatabaseType.TIME, DatabaseType.DATETIME, DatabaseType.TIMESTAMP):
+        if target_type and target_type in (DatabaseType.DATE, DatabaseType.TIME, DatabaseType.DATETIME,
+                                           DatabaseType.TIMESTAMP):
             return True
 
         return False
 
-    def to_database(self, value: Any, target_type: Any = None) -> Any:
+    def to_database(self, value: Any, target_type: Any = None, timezone: Optional[str] = None) -> Any:
         """
-        Convert a Python date/time value to its database representation.
+        Convert a Python date/time value to its database representation with timezone handling.
 
         Args:
             value: The Python value to convert
             target_type: Optional target type hint
+            timezone: Optional timezone name (e.g., 'UTC', 'America/New_York')
 
         Returns:
             The converted value ready for database storage
@@ -153,13 +156,30 @@ class DateTimeConverter(BaseTypeConverter):
         if isinstance(value, str):
             return value
 
-        # Convert based on target type
+        # Handle timezone if provided and value is datetime with tzinfo
         if isinstance(value, datetime.datetime):
+            # Apply timezone if provided and datetime is naive (no timezone)
+            if timezone and value.tzinfo is None:
+                try:
+                    import pytz
+                    tz = pytz.timezone(timezone)
+                    value = tz.localize(value)
+                except (ImportError, pytz.exceptions.UnknownTimeZoneError):
+                    # If pytz not available or timezone invalid, continue with naive datetime
+                    pass
+
+            # Convert based on target type
             if target_type == DatabaseType.DATE:
                 return value.date().isoformat()  # YYYY-MM-DD
             elif target_type == DatabaseType.TIME:
+                # Include timezone info in time if present
+                if value.tzinfo:
+                    return value.time().isoformat() + value.strftime('%z')
                 return value.time().isoformat()  # HH:MM:SS.mmmmmm
             else:  # DATETIME, TIMESTAMP
+                # Format with timezone if present
+                if value.tzinfo:
+                    return value.isoformat()  # Include timezone
                 return value.isoformat(' ')  # YYYY-MM-DD HH:MM:SS.mmmmmm
 
         if isinstance(value, datetime.date):
@@ -170,13 +190,14 @@ class DateTimeConverter(BaseTypeConverter):
 
         return value  # Default: return unchanged
 
-    def from_database(self, value: Any, source_type: Any = None) -> Any:
+    def from_database(self, value: Any, source_type: Any = None, timezone: Optional[str] = None) -> Any:
         """
-        Convert a database date/time value to its Python representation.
+        Convert a database date/time value to its Python representation with timezone handling.
 
         Args:
             value: The database value to convert
             source_type: Optional source type hint
+            timezone: Optional timezone name to use for naive datetimes
 
         Returns:
             The converted Python value
@@ -184,8 +205,20 @@ class DateTimeConverter(BaseTypeConverter):
         if value is None:
             return None
 
-        # Already a datetime object, just return it
-        if isinstance(value, (datetime.datetime, datetime.date, datetime.time)):
+        # Already a datetime object, handle timezone if needed
+        if isinstance(value, datetime.datetime):
+            # Apply target timezone if requested and datetime has tzinfo
+            if timezone and value.tzinfo is not None:
+                try:
+                    import pytz
+                    tz = pytz.timezone(timezone)
+                    return value.astimezone(tz)
+                except (ImportError, pytz.exceptions.UnknownTimeZoneError):
+                    # If pytz not available or timezone invalid, return as is
+                    pass
+            return value
+
+        if isinstance(value, (datetime.date, datetime.time)):
             return value
 
         # Only convert string values
@@ -193,23 +226,63 @@ class DateTimeConverter(BaseTypeConverter):
             return value
 
         try:
-            # Convert based on source type
+            # Convert based on source type with timezone handling
             if source_type == DatabaseType.DATE:
                 return datetime.date.fromisoformat(value)
+
             elif source_type == DatabaseType.TIME:
-                return datetime.time.fromisoformat(value)
+                # Handle time strings with timezone info
+                try:
+                    return datetime.time.fromisoformat(value)
+                except ValueError:
+                    # If standard parsing fails, try alternative formats
+                    if '+' in value or '-' in value:
+                        # Attempt to parse time with timezone
+                        # This is simplified - real implementation would need more robust parsing
+                        time_part = value.split('+')[0].split('-')[0]
+                        return datetime.time.fromisoformat(time_part)
+                    return value
+
             elif source_type in (DatabaseType.DATETIME, DatabaseType.TIMESTAMP):
-                # Handle both space and T separators in ISO format
+                # Parse datetime with timezone awareness
+                dt = None
+
+                # Handle ISO format with space or T separator
                 if ' ' in value:
-                    return datetime.datetime.fromisoformat(value)
+                    dt = datetime.datetime.fromisoformat(value)
                 elif 'T' in value:
-                    return datetime.datetime.fromisoformat(value)
-                else:
-                    # Check if it's a date or time string
-                    if ':' in value:  # Contains time separator
-                        return datetime.time.fromisoformat(value)
-                    else:  # Probably a date
-                        return datetime.date.fromisoformat(value)
+                    dt = datetime.datetime.fromisoformat(value)
+
+                # Apply timezone if requested and datetime is naive
+                if dt and timezone and dt.tzinfo is None:
+                    try:
+                        import pytz
+                        tz = pytz.timezone(timezone)
+                        dt = tz.localize(dt)
+                    except (ImportError, pytz.exceptions.UnknownTimeZoneError):
+                        # If pytz not available or timezone invalid, return as is
+                        pass
+
+                return dt
+
+            # Fallback for unknown source_type - try to determine from string format
+            if 'T' in value or ' ' in value:
+                # Looks like a datetime
+                dt = datetime.datetime.fromisoformat(value)
+                # Apply timezone if provided and datetime is naive
+                if timezone and dt.tzinfo is None:
+                    try:
+                        import pytz
+                        tz = pytz.timezone(timezone)
+                        dt = tz.localize(dt)
+                    except (ImportError, pytz.exceptions.UnknownTimeZoneError):
+                        pass
+                return dt
+            elif ':' in value:  # Contains time separator
+                return datetime.time.fromisoformat(value)
+            else:  # Probably a date
+                return datetime.date.fromisoformat(value)
+
         except ValueError:
             # If parsing fails, return the original value
             return value

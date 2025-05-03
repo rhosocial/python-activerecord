@@ -1,7 +1,5 @@
 """Test recursive CTE functionality in ActiveQuery."""
-from decimal import Decimal
 
-import pytest
 from .utils import create_order_fixtures, create_tree_fixtures
 
 # Create multi-table test fixtures
@@ -109,7 +107,7 @@ def test_recursive_cte_with_depth_limit(tree_fixtures):
     assert results[2]['id'] == 3 and results[2]['level'] == 2  # Level 2
 
 
-def test_recursive_cte_find_path(tree_fixtures):
+def test_recursive_cte_find_path(tree_fixtures, request):
     """Test recursive CTE to find path between nodes"""
     Node = tree_fixtures[0]
 
@@ -133,20 +131,44 @@ def test_recursive_cte_find_path(tree_fixtures):
     for node in nodes:
         node.save()
 
+    # Detect the database type
+    is_mysql = False
+    if hasattr(request, 'node'):
+        backend_name = request.node.name.split('-')[0].lower()
+        is_mysql = 'mysql' in backend_name
+
+
     # Find path from root to node 5 (Root -> Child 1 -> Grandchild 2)
-    recursive_sql = """
-                    -- Anchor member: start with target node
-                    SELECT id, name, parent_id, CAST(id AS TEXT) as path
-                    FROM nodes \
-                    WHERE id = 5
+    if is_mysql:
+        # MySQL
+        recursive_sql = """
+                        -- Anchor member: start with target node
+                        SELECT id, name, parent_id, CAST(id AS CHAR) as path
+                        FROM nodes
+                        WHERE id = 5
 
-                    UNION ALL
+                        UNION ALL
 
-                    -- Recursive member: add parent nodes
-                    SELECT n.id, n.name, n.parent_id, CAST(n.id AS TEXT) || ',' || t.path
-                    FROM nodes n
-                             JOIN path_finder t ON n.id = t.parent_id \
-                    """
+                        -- Recursive member: add parent nodes
+                        SELECT n.id, n.name, n.parent_id, CONCAT(CAST(n.id AS CHAR), ',', t.path)
+                        FROM nodes n
+                                 JOIN path_finder t ON n.id = t.parent_id \
+                        """
+    else:
+        # Other
+        recursive_sql = """
+                        -- Anchor member: start with target node
+                        SELECT id, name, parent_id, CAST(id AS TEXT) as path
+                        FROM nodes
+                        WHERE id = 5
+
+                        UNION ALL
+
+                        -- Recursive member: add parent nodes
+                        SELECT n.id, n.name, n.parent_id, CAST(n.id AS TEXT) || ',' || t.path
+                        FROM nodes n
+                                 JOIN path_finder t ON n.id = t.parent_id \
+                        """
 
     query = Node.query().with_recursive_cte("path_finder", recursive_sql)
     query.from_cte("path_finder")
@@ -162,7 +184,7 @@ def test_recursive_cte_find_path(tree_fixtures):
     assert results[2]['id'] == 5  # Grandchild 2 (target)
 
 
-def test_recursive_cte_cycles(tree_fixtures):
+def test_recursive_cte_cycles(tree_fixtures, request):
     """Test recursive CTE with cycle detection"""
     Node = tree_fixtures[0]
 
@@ -179,21 +201,45 @@ def test_recursive_cte_cycles(tree_fixtures):
     nodes[0].parent_id = 3
     nodes[0].save()
 
-    # Recursive CTE with cycle detection
-    recursive_sql = """
-                    SELECT id, name, parent_id, 1 as level, CAST(id AS TEXT) as path
-                    FROM nodes \
-                    WHERE id = 1
+    # Detect the database type
+    is_mysql = False
+    if hasattr(request, 'node'):
+        backend_name = request.node.name.split('-')[0].lower()
+        is_mysql = 'mysql' in backend_name
 
-                    UNION ALL
+    # Select the SQL syntax based on the database type
+    if is_mysql:
+        # MySQL
+        recursive_sql = """
+                        SELECT id, name, parent_id, 1 as level, CAST(id AS CHAR) as path
+                        FROM nodes
+                        WHERE id = 1
 
-                    SELECT n.id, n.name, n.parent_id, t.level + 1, t.path || ',' || CAST(n.id AS TEXT)
-                    FROM nodes n
-                             JOIN tree t ON n.parent_id = t.id
-                    -- Prevent infinite recursion by detecting cycles
-                    WHERE t.path NOT LIKE '%,' || CAST(n.id AS TEXT) || '%'
-                      AND t.level < 10 \
-                    """ #  -- Safety limit
+                        UNION ALL
+
+                        SELECT n.id, n.name, n.parent_id, t.level + 1, CONCAT(t.path, ',', CAST(n.id AS CHAR))
+                        FROM nodes n
+                                 JOIN tree t ON n.parent_id = t.id
+                        -- Prevent infinite recursion by detecting cycles
+                        WHERE t.path NOT LIKE CONCAT('%,', CAST(n.id AS CHAR), '%')
+                          AND t.level < 10 \
+                        """
+    else:
+        # Other
+        recursive_sql = """
+                        SELECT id, name, parent_id, 1 as level, CAST(id AS TEXT) as path
+                        FROM nodes
+                        WHERE id = 1
+
+                        UNION ALL
+
+                        SELECT n.id, n.name, n.parent_id, t.level + 1, t.path || ',' || CAST(n.id AS TEXT)
+                        FROM nodes n
+                                 JOIN tree t ON n.parent_id = t.id
+                        -- Prevent infinite recursion by detecting cycles
+                        WHERE t.path NOT LIKE '%,' || CAST(n.id AS TEXT) || '%'
+                          AND t.level < 10 \
+                        """
 
     query = Node.query().with_recursive_cte("tree", recursive_sql)
     query.from_cte("tree")
