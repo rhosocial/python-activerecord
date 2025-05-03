@@ -508,7 +508,10 @@ class SQLiteJsonHandler(JsonOperationHandler):
 
         else:
             # Default to extract if operation not recognized
-            expr = f"json_extract({col}, '{path}')" if path else col
+            # expr = f"json_extract({col}, '{path}')" if path else col
+            raise JsonOperationNotSupportedError(
+                f"JSON operations are not supported in SQLite {'.'.join(map(str, self._version))}"
+            )
 
         if alias:
             return f"{expr} as {alias}"
