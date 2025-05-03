@@ -87,8 +87,7 @@ def test_recursive_cte_formatting():
             "name": "numbers",
             "query": "SELECT 1 as n UNION ALL SELECT n+1 FROM numbers WHERE n < 10",
             "recursive": True
-        }],
-        recursive=True
+        }]
     )
     assert result == "WITH RECURSIVE numbers AS (SELECT 1 as n UNION ALL SELECT n+1 FROM numbers WHERE n < 10)"
 
@@ -115,8 +114,7 @@ def test_compound_recursive_cte_formatting():
             "name": "rec_categories",
             "query": compound_query.strip(),
             "recursive": True
-        }],
-        recursive=True
+        }]
     )
 
     assert "WITH RECURSIVE rec_categories AS" in result
@@ -131,8 +129,7 @@ def test_compound_recursive_cte_formatting():
             "name": "rec_categories",
             "query": compound_query.strip(),
             "recursive": True
-        }],
-        recursive=True
+        }]
     )
 
     assert result == newer_result  # Format result should be identical

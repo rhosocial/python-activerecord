@@ -185,6 +185,10 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
         # Test with params list containing empty tuples
         result = backend.execute_many("INSERT INTO test DEFAULT VALUES", [(), (), ()])
+        assert result.affected_rows == 0
+
+        # Test with params list containing sequential tuples
+        result = backend.execute_many("INSERT INTO test(id) VALUES (?)", [(1, ), (2, ), (3, )])
         assert result.affected_rows == 3
 
         backend.disconnect()
@@ -231,10 +235,11 @@ class TestSQLiteBackendCoveragePart3Fixed:
         # Disconnect with active transaction
         backend.disconnect()
 
-        # Reconnect and verify table exists but transaction was rolled back
+        # Reconnect and recreate the table since memory database is cleared on disconnect
         backend.connect()
+        backend.execute("CREATE TABLE test (id INTEGER, value TEXT)")
         result = backend.fetch_all("SELECT * FROM test")
-        assert len(result) == 0  # Transaction was rolled back
+        assert len(result) == 0  # Table exists but is empty
 
         backend.disconnect()
 

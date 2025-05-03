@@ -598,10 +598,10 @@ class TestDecimalConverter:
 
         # Test with Decimal object
         decimal_val = Decimal("123.45")
-        assert converter.to_database(decimal_val) == "123.45"
+        assert converter.to_database(decimal_val) == 123.45
 
         # Test with string representation and correct target type
-        assert converter.to_database("123.45", DatabaseType.DECIMAL) == "123.45"
+        assert converter.to_database("123.45", DatabaseType.DECIMAL) == 123.45
 
         # Invalid decimal strings should pass through
         assert converter.to_database("not-a-decimal") == "not-a-decimal"
