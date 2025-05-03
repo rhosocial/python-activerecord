@@ -62,6 +62,7 @@ ActiveQuery is the query builder component that provides a fluent interface for 
   - [Query Scopes](3.7.advanced_query_features/query_scopes.md)
   - [Dynamic Query Building](3.7.advanced_query_features/dynamic_query_building.md)
   - [Raw SQL Integration](3.7.advanced_query_features/raw_sql_integration.md)
+  - [Common Table Expressions](3.7.advanced_query_features/common_table_expressions.md)
   - [Async Access](3.7.advanced_query_features/async_access.md)
 
 ## Key Concepts

@@ -62,6 +62,7 @@ ActiveQuery是查询构建器组件，它提供了一个流畅的接口来构建
   - [查询作用域](3.7.advanced_query_features/query_scopes.md)
   - [动态查询构建](3.7.advanced_query_features/dynamic_query_building.md)
   - [原始SQL集成](3.7.advanced_query_features/raw_sql_integration.md)
+  - [公共表表达式](3.7.advanced_query_features/common_table_expressions.md)
   - [异步访问](3.7.advanced_query_features/async_access.md)
 
 ## 关键概念
