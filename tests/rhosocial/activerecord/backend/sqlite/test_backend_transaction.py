@@ -7,8 +7,9 @@ from src.rhosocial.activerecord.backend.errors import (
     IntegrityError
 )
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from src.rhosocial.activerecord.backend.impl.sqlite.transaction import SQLiteTransactionManager
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.backend.config import ConnectionConfig
 
 
 class TestSQLiteBackendTransaction:
@@ -303,8 +304,8 @@ class TestSQLiteBackendTransaction:
     def test_delete_on_close(self, temp_db_path):
         """Test deleting database file on close"""
         # Create backend with delete_on_close
-        config = ConnectionConfig(database=temp_db_path)
-        backend = SQLiteBackend(connection_config=config, delete_on_close=True)
+        config = SQLiteConnectionConfig(database=temp_db_path, delete_on_close=True)
+        backend = SQLiteBackend(connection_config=config)
 
         # Connect and create table
         backend.connect()

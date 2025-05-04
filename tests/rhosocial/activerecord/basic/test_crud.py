@@ -404,7 +404,7 @@ def test_type_case_crud(type_case_class):
     assert found.text_val == 'long text content'
     assert isinstance(found.date_val, date)
     assert isinstance(found.time_val, dtime)
-    assert isinstance(found.timestamp_val, float)
+    assert isinstance(found.timestamp_val, datetime)
     assert found.blob_val == b'binary data'
     assert found.json_val == {'key': 'value'}
     assert found.array_val == [1, 2, 3]

@@ -9,7 +9,7 @@ import pytest
 
 from src.rhosocial.activerecord.backend.errors import ConnectionError
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 
 class TestSQLiteBackendCoveragePart1:
@@ -46,7 +46,9 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_set_pragma_exception_handling(self, temp_db_path):
         """Test set_pragma exception handling by using invalid pragma"""
-        backend = SQLiteBackend(database=temp_db_path)
+        # Use SQLiteConnectionConfig to create a configuration
+        config = SQLiteConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Use an invalid pragma value that will cause an error
@@ -59,11 +61,12 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_apply_pragmas_exception_handling(self, temp_db_path):
         """Test _apply_pragmas exception handling by adding invalid pragma"""
-        # Create backend with invalid pragma
-        backend = SQLiteBackend(
+        # Use SQLiteConnectionConfig to create a configuration, with invalid pragma
+        config = SQLiteConnectionConfig(
             database=temp_db_path,
             pragmas={"invalid_syntax_pragma": "INVALID SQL SYNTAX"}
         )
+        backend = SQLiteBackend(connection_config=config)
 
         # Connect, which will trigger _apply_pragmas
         backend.connect()
@@ -77,7 +80,8 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_disconnect_exception_during_close(self, temp_db_path):
         """Test disconnect() with exception during connection close"""
-        backend = SQLiteBackend(database=temp_db_path)
+        config = SQLiteConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Force an exception by setting the connection to None
@@ -96,7 +100,12 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_disconnect_delete_files_exception(self, temp_db_path):
         """Test disconnect() with exception during file deletion"""
-        backend = SQLiteBackend(database=temp_db_path, delete_on_close=True)
+        # Use SQLiteConnectionConfig to create a configuration，with delete_on_close=True
+        config = SQLiteConnectionConfig(
+            database=temp_db_path,
+            delete_on_close=True
+        )
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Mock exception during file deletion
@@ -112,7 +121,8 @@ class TestSQLiteBackendCoveragePart1:
     def test_ping_with_reconnect_failure(self, temp_db_path):
         """Test ping() method with reconnect by using invalid database"""
         # Create a backend with a file that can't be opened
-        backend = SQLiteBackend(database="/invalid/path/to/database.db")
+        config = SQLiteConnectionConfig(database="/invalid/path/to/database.db")
+        backend = SQLiteBackend(connection_config=config)
 
         # Should return False if reconnect fails
         result = backend.ping(reconnect=True)
@@ -122,7 +132,8 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_ping_with_connection_error(self, temp_db_path):
         """Test ping() with connection error"""
-        backend = SQLiteBackend(database=temp_db_path)
+        config = SQLiteConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Close the connection to simulate connection error
@@ -141,7 +152,8 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_pragmas_property(self, temp_db_path):
         """Test SQLiteBackend.pragmas() property"""
-        backend = SQLiteBackend(database=temp_db_path)
+        config = SQLiteConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
 
         # Test default pragmas
         pragmas = backend.pragmas
@@ -155,46 +167,37 @@ class TestSQLiteBackendCoveragePart1:
 
         backend.disconnect()
 
-    def test_get_pragma_settings_options_branch(self, temp_db_path):
-        """Test _get_pragma_settings() with different options configurations"""
-        # Test with pragmas in kwargs
-        kwargs = {
-            "pragmas": {"test_pragma": "test_value"}
-        }
-        backend1 = SQLiteBackend(database=temp_db_path, **kwargs)
-        pragmas1 = backend1._get_pragma_settings(kwargs)
-        assert pragmas1["test_pragma"] == "test_value"
-
-        # Test with pragmas in config
-        config = ConnectionConfig(
+    def test_get_pragma_settings_pragmas(self, temp_db_path):
+        """Test pragma settings are properly retrieved from SQLiteConnectionConfig"""
+        # Test with pragmas in SQLiteConnectionConfig
+        config1 = SQLiteConnectionConfig(
             database=temp_db_path,
-            pragmas={"config_pragma": "config_value"}
+            pragmas={"test_pragma": "test_value"}
         )
-        backend2 = SQLiteBackend(connection_config=config)
-        pragmas2 = backend2._get_pragma_settings({})
-        assert pragmas2["config_pragma"] == "config_value"
+        backend1 = SQLiteBackend(connection_config=config1)
+        pragmas1 = backend1.pragmas
+        assert pragmas1["test_pragma"] == "test_value", "Pragma from SQLiteConnectionConfig.pragmas should be available"
 
-        # Test with pragmas in options
-        kwargs_options = {
-            "options": {"pragmas": {"options_pragma": "options_value"}}
-        }
-        backend3 = SQLiteBackend(database=temp_db_path, **kwargs_options)
-        pragmas3 = backend3._get_pragma_settings(kwargs_options)
-        assert pragmas3["options_pragma"] == "options_value"
-
-        # Test with pragmas in config.options
-        config_options = ConnectionConfig(
-            database=temp_db_path,
-            options={"pragmas": {"config_options_pragma": "config_options_value"}}
+        # Test with default pragmas
+        config2 = SQLiteConnectionConfig(
+            database=temp_db_path
         )
-        backend4 = SQLiteBackend(connection_config=config_options)
-        pragmas4 = backend4._get_pragma_settings({})
-        assert pragmas4["config_options_pragma"] == "config_options_value"
+        backend2 = SQLiteBackend(connection_config=config2)
+        pragmas2 = backend2.pragmas
+        assert "foreign_keys" in pragmas2, "Default pragmas should be included"
+        assert pragmas2["foreign_keys"] == "ON", "Default pragmas should have expected values"
+
+        # Test that pragmas are applied when connecting
+        backend2.connect()
+        result = backend2.fetch_one("PRAGMA foreign_keys")
+        assert result["foreign_keys"] == 1, "Pragma should be applied to the database connection"
+        backend2.disconnect()
 
     def test_connect_exception_handling(self, temp_db_path):
         """Test connect() exception handling"""
         # Use an invalid database path to trigger an error
-        backend = SQLiteBackend(database="/invalid/path/database.db")
+        config = SQLiteConnectionConfig(database="/invalid/path/database.db")
+        backend = SQLiteBackend(connection_config=config)
 
         with pytest.raises(ConnectionError) as exc_info:
             backend.connect()
@@ -203,12 +206,14 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_is_sqlite_property(self, temp_db_path):
         """Test is_sqlite property"""
-        backend = SQLiteBackend(database=temp_db_path)
+        config = SQLiteConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
         assert backend.is_sqlite is True
 
     def test_ping_with_execute_error(self, temp_db_path):
         """Test ping() with execute error by corrupting the connection"""
-        backend = SQLiteBackend(database=temp_db_path)
+        config = SQLiteConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create a wrapper class to simulate an execute error
@@ -239,7 +244,8 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_disconnect_without_connection(self):
         """Test disconnect when connection is None"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
 
         # Should not raise exception
         backend.disconnect()
@@ -247,7 +253,11 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_disconnect_delete_on_close_errors(self, temp_db_path):
         """Test disconnect() with delete_on_close errors"""
-        backend = SQLiteBackend(database=temp_db_path, delete_on_close=True)
+        config = SQLiteConnectionConfig(
+            database=temp_db_path,
+            delete_on_close=True
+        )
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create a file that will simulate failure to delete
@@ -278,7 +288,8 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_disconnect_idempotent(self):
         """Test that disconnect() is idempotent and can be called multiple times safely"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
 
         # Should not raise when called without a connection
         backend.disconnect()

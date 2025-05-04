@@ -6,7 +6,7 @@ from unittest import mock
 import pytest
 
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.backend.config import ConnectionConfig
 
 
 class TestSQLiteVersion:

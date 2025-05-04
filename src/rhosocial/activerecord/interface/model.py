@@ -13,7 +13,8 @@ from pydantic.fields import FieldInfo
 from .base import ModelEvent
 from ..backend.base import StorageBackend, ColumnTypes
 from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.typing import ConnectionConfig, DatabaseType
+from ..backend.typing import DatabaseType
+from ..backend.config import ConnectionConfig
 
 
 class CustomModuleFormatter(logging.Formatter):

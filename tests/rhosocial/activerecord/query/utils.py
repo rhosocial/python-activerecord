@@ -7,7 +7,8 @@ from typing import List, Optional, Type, Tuple, Any, Dict
 
 import pytest
 
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.backend.config import ConnectionConfig
+from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
 from tests.rhosocial.activerecord.query.fixtures.models import JsonUser
 from tests.rhosocial.activerecord.utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
@@ -62,9 +63,7 @@ def modify_sqlite_config(config, config_name, test_id, case_id):
         # Use unique URI for in-memory database, including test case ID to ensure each test has its own connection
         config['database'] = f"file:memdb_{test_id}_{case_id}?mode=memory&cache=shared"
         # Add URI option to enable URI filename parsing
-        if 'options' not in config:
-            config['options'] = {}
-        config['options']['uri'] = True
+        config['uri'] = True  # Set the uri parameter directly in SQLiteConnectionConfig instead of putting it in options
     return config
 
 
@@ -225,13 +224,23 @@ def create_table_fixture(model_classes: List[Type[IActiveRecord]], schema_map: O
         if db_config.backend == 'sqlite':
             config = modify_sqlite_config(config, db_config.config_name, test_id, case_id)
 
-        # Create backend instance
-        backend = db_config.helper["class"](**config)
+        # Create configuration objects based on different backend types
+        if db_config.backend == 'sqlite':
+            # Use SQLiteConnectionConfig to create a configuration
+            connection_config = SQLiteConnectionConfig(**config)
+            # Create a backend instance and pass in a new connection_config
+            backend = db_config.helper["class"](connection_config=connection_config)
+        else:
+            # Other database backends use the generic ConnectionConfig
+            connection_config = ConnectionConfig(**config)
+            # Create a backend instance and pass in a generic connection_config
+            backend = db_config.helper["class"](connection_config=connection_config)
+
         logger.debug(f"db_config: {config}, case_id: {case_id}")
 
         # Configure all models to use the same backend instance
         for model_class in model_classes:
-            model_class.__connection_config__ = ConnectionConfig(**config)
+            model_class.__connection_config__ = connection_config
             model_class.__backend_class__ = db_config.helper["class"]
             model_class.__backend__ = backend
 
@@ -482,7 +491,6 @@ def get_mysql_version(request):
         pass
 
     return None
-
 
 
 def create_tree_fixtures():

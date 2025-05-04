@@ -7,13 +7,15 @@ from typing import Type, List, Optional, Dict
 import pytest
 
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig  # 添加SQLiteConnectionConfig导入
+from src.rhosocial.activerecord.backend.config import ConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
 
 # Database backend helper mapping
 DB_HELPERS = {
     'sqlite': {
         "class": SQLiteBackend,
+        "config_class": SQLiteConnectionConfig,  # 添加SQLite的配置类
     },
 }
 
@@ -128,9 +130,17 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
         db_config = request.param
         table_name = model_class.__table_name__
 
-        # Configure the model class
+        # 根据不同后端类型创建配置
+        if db_config.backend == 'sqlite':
+            # 使用SQLiteConnectionConfig创建配置
+            connection_config = db_config.helper["config_class"](**db_config.config)
+        else:
+            # 其他后端使用通用ConnectionConfig
+            connection_config = ConnectionConfig(**db_config.config)
+
+        # 配置模型类
         model_class.configure(
-            config=ConnectionConfig(**db_config.config),
+            config=connection_config,
             backend_class=db_config.helper["class"]
         )
         logger.debug(f"Test fixture setup for {model_class.__name__} with config: {db_config}")

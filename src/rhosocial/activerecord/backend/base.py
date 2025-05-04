@@ -9,7 +9,8 @@ from .dialect import SQLDialectBase, SQLExpressionBase, SQLBuilder, \
 from .errors import ReturningNotSupportedError
 from .transaction import TransactionManager
 from .type_converters import TypeRegistry
-from .typing import ConnectionConfig, QueryResult, DatabaseType
+from .typing import QueryResult, DatabaseType
+from .config import ConnectionConfig
 
 # Type hints
 ColumnTypes = Dict[str, Union[DatabaseType, str, Any]]

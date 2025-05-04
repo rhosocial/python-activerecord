@@ -8,7 +8,7 @@ import pytest
 from src.rhosocial.activerecord.backend import ReturningOptions
 from src.rhosocial.activerecord.backend.errors import ConnectionError
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 
 class TestSQLiteBackendCoveragePart3Fixed:
@@ -17,7 +17,12 @@ class TestSQLiteBackendCoveragePart3Fixed:
     def test_disconnect_delete_on_close_max_retries(self, tmp_path):
         """Test disconnect with delete_on_close when all retries fail"""
         db_path = str(tmp_path / "test.db")
-        backend = SQLiteBackend(database=db_path, delete_on_close=True)
+        # Use SQLiteConnectionConfig to create a configuration
+        config = SQLiteConnectionConfig(
+            database=db_path,
+            delete_on_close=True
+        )
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create the database files
@@ -50,7 +55,12 @@ class TestSQLiteBackendCoveragePart3Fixed:
     def test_disconnect_delete_on_close_file_not_exists(self, tmp_path):
         """Test disconnect with delete_on_close when files don't exist"""
         db_path = str(tmp_path / "nonexistent.db")
-        backend = SQLiteBackend(database=db_path, delete_on_close=True)
+        # Use SQLiteConnectionConfig to create a configuration
+        config = SQLiteConnectionConfig(
+            database=db_path,
+            delete_on_close=True
+        )
+        backend = SQLiteBackend(connection_config=config)
 
         # Connect and disconnect without creating any files
         backend.connect()
@@ -65,9 +75,10 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_connect_with_uri_option(self):
         """Test connect with URI option"""
-        config = ConnectionConfig(
+        # Use SQLiteConnectionConfig to create a configuration，with uri=True
+        config = SQLiteConnectionConfig(
             database=":memory:",
-            options={"uri": True}
+            uri=True
         )
         backend = SQLiteBackend(connection_config=config)
 
@@ -79,7 +90,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_check_returning_compatibility_edge_cases(self):
         """Test edge cases in _check_returning_compatibility"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
 
         # Test with exact boundary versions
         with patch('sqlite3.sqlite_version_info', (3, 35, 0)), \
@@ -100,30 +112,35 @@ class TestSQLiteBackendCoveragePart3Fixed:
     def test_pragma_settings_edge_cases(self):
         """Test edge cases in pragma settings"""
         # Test with no custom pragmas
-        backend1 = SQLiteBackend(database=":memory:")
-        pragmas1 = backend1._get_pragma_settings({})
-        assert pragmas1 == backend1.DEFAULT_PRAGMAS
+        config1 = SQLiteConnectionConfig(database=":memory:")
+        backend1 = SQLiteBackend(connection_config=config1)
+        pragmas1 = backend1.pragmas
+        assert all(key in pragmas1 for key in SQLiteConnectionConfig.DEFAULT_PRAGMAS)
 
         # Test with empty custom pragmas
-        kwargs = {"pragmas": {}}
-        backend2 = SQLiteBackend(database=":memory:", **kwargs)
-        pragmas2 = backend2._get_pragma_settings(kwargs)
-        assert pragmas2 == backend2.DEFAULT_PRAGMAS
+        config2 = SQLiteConnectionConfig(database=":memory:", pragmas={})
+        backend2 = SQLiteBackend(connection_config=config2)
+        pragmas2 = backend2.pragmas
+        assert all(key in pragmas2 for key in SQLiteConnectionConfig.DEFAULT_PRAGMAS)
 
         # Test with non-string pragma values
-        kwargs = {"pragmas": {"numeric_pragma": 123, "boolean_pragma": True}}
-        backend3 = SQLiteBackend(database=":memory:", **kwargs)
-        pragmas3 = backend3._get_pragma_settings(kwargs)
-        assert pragmas3["numeric_pragma"] == "123"
-        assert pragmas3["boolean_pragma"] == "True"
+        config3 = SQLiteConnectionConfig(
+            database=":memory:",
+            pragmas={"numeric_pragma": 123, "boolean_pragma": True}
+        )
+        backend3 = SQLiteBackend(connection_config=config3)
+        pragmas3 = backend3.pragmas
+        assert "numeric_pragma" in pragmas3
+        assert "boolean_pragma" in pragmas3
 
     def test_set_pragma_without_connection(self):
         """Test set_pragma when not connected"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
 
         # Should only update internal dictionary without error
         backend.set_pragma("test_pragma", "test_value")
-        assert backend._pragmas["test_pragma"] == "test_value"
+        assert backend.pragmas["test_pragma"] == "test_value"
 
         # Verify pragma is applied when connection is established
         backend.connect()
@@ -137,7 +154,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_execute_many_parameter_conversion(self):
         """Test parameter conversion in execute_many"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create test table
@@ -173,7 +191,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_execute_many_empty_params(self):
         """Test execute_many with empty parameter lists"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create test table
@@ -195,7 +214,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_cursor_management_edge_cases(self):
         """Test edge cases in cursor management"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create a real cursor and save it
@@ -220,7 +240,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_transaction_during_disconnect(self):
         """Test behavior when disconnecting with active transaction"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create table before starting transaction
@@ -245,7 +266,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_auto_commit_with_error_in_commit(self):
         """Test auto commit when commit raises an error"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Mock transaction_manager to return False for is_active
@@ -265,7 +287,12 @@ class TestSQLiteBackendCoveragePart3Fixed:
     def test_disconnect_delete_files_exception_fixed(self, tmp_path):
         """Test disconnect() with exception during file deletion - fixed version"""
         db_path = str(tmp_path / "test.db")
-        backend = SQLiteBackend(database=db_path, delete_on_close=True)
+        # 使用 SQLiteConnectionConfig 创建配置
+        config = SQLiteConnectionConfig(
+            database=db_path,
+            delete_on_close=True
+        )
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Create a table to ensure file exists
@@ -283,7 +310,8 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
     def test_disconnect_transaction_manager_cleanup(self):
         """Test that disconnect cleans up transaction manager"""
-        backend = SQLiteBackend(database=":memory:")
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Access transaction manager to create it

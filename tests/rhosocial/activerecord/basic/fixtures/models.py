@@ -1,5 +1,5 @@
 import re
-from datetime import date, time, datetime
+from datetime import date, time, datetime, timedelta
 from decimal import Decimal
 from typing import Optional, Type, Literal
 
@@ -29,7 +29,7 @@ class TypeCase(UUIDMixin, ActiveRecord):
     text_val: Optional[str]
     date_val: Optional[date]
     time_val: Optional[time]
-    timestamp_val: Optional[float]
+    timestamp_val: Optional[datetime]
     blob_val: Optional[bytes]
     json_val: Optional[dict]
     array_val: Optional[list]

@@ -9,6 +9,7 @@ from typing import Optional, Tuple, List, Any, Dict, Union
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter, SQLiteUUIDConverter, SQLiteNumericConverter
+from .config import SQLiteConnectionConfig
 from ...base import StorageBackend, ColumnTypes
 from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
@@ -29,12 +30,37 @@ class SQLiteBackend(StorageBackend):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._cursor = None
-        self._isolation_level = kwargs.get("isolation_level", None)
         self._dialect = SQLiteDialect(self.config)
-        self._delete_on_close = kwargs.get("delete_on_close", False)
 
-        # Extract custom pragmas from options
-        self._pragmas = self._get_pragma_settings(kwargs)
+        # Check if we need to convert a legacy config to the new SQLiteConnectionConfig
+        if "connection_config" in kwargs and kwargs["connection_config"] is not None:
+            if not isinstance(kwargs["connection_config"], SQLiteConnectionConfig):
+                # Create a new SQLiteConnectionConfig from the given config
+                old_config = kwargs["connection_config"]
+
+                # Extract SQLite specific parameters
+                pragmas = {}
+                if hasattr(old_config, 'pragmas'):
+                    pragmas = old_config.pragmas
+
+                # Create new config
+                self.config = SQLiteConnectionConfig(
+                    host=old_config.host,
+                    port=old_config.port,
+                    database=old_config.database,
+                    username=old_config.username,
+                    password=old_config.password,
+                    driver_type=old_config.driver_type,
+                    pragmas=pragmas,
+                    delete_on_close=getattr(old_config, 'delete_on_close', False),
+                    options=old_config.options,
+                )
+            else:
+                self.config = kwargs["connection_config"]
+        else:
+            # Use SQLiteConnectionConfig directly
+            self.config = SQLiteConnectionConfig(**kwargs)
+
         # Register SQLite-specific converters
         self._register_sqlite_converters()
 
@@ -52,14 +78,13 @@ class SQLiteBackend(StorageBackend):
 
         # Register SQLite UUID converter
         self.dialect.register_converter(SQLiteUUIDConverter(),
-                                      names=["UUID", "TEXT"],
-                                      types=[DatabaseType.UUID])
+                                        names=["UUID", "TEXT"],
+                                        types=[DatabaseType.UUID])
 
         # Register SQLite Numeric converter
         self.dialect.register_converter(SQLiteNumericConverter(),
                                         names=["NUMERIC", "DECIMAL"],
                                         types=[DatabaseType.NUMERIC, DatabaseType.DECIMAL])
-
 
     @property
     def pragmas(self) -> Dict[str, str]:
@@ -68,7 +93,8 @@ class SQLiteBackend(StorageBackend):
         Returns:
             Dict[str, str]: Current pragma settings
         """
-        return self._pragmas.copy()
+        # With the new config, pragmas are directly accessible
+        return self.config.pragmas.copy()
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
         """Set a pragma parameter at runtime
@@ -81,7 +107,7 @@ class SQLiteBackend(StorageBackend):
             ConnectionError: If pragma cannot be set
         """
         pragma_value_str = str(pragma_value)
-        self._pragmas[pragma_key] = pragma_value_str
+        self.config.pragmas[pragma_key] = pragma_value_str
 
         # If connected, apply the pragma immediately
         if self._connection:
@@ -95,38 +121,9 @@ class SQLiteBackend(StorageBackend):
                 self.log(logging.ERROR, error_msg)
                 raise ConnectionError(error_msg)
 
-    def _get_pragma_settings(self, kwargs: Dict[str, Any]) -> Dict[str, str]:
-        """Extract and merge pragma settings from options
-
-        Args:
-            kwargs: Configuration parameters
-
-        Returns:
-            Dict[str, str]: Merged pragma settings with defaults
-        """
-        pragmas = self.DEFAULT_PRAGMAS.copy()
-        custom_pragmas = {}
-
-        # Check for pragmas in options dictionary
-        if "pragmas" in kwargs:
-            custom_pragmas = kwargs["pragmas"]
-        elif hasattr(self.config, "pragmas") and self.config.pragmas:
-            custom_pragmas = self.config.pragmas
-        elif "options" in kwargs and "pragmas" in kwargs["options"]:
-            custom_pragmas = kwargs["options"]["pragmas"]
-        elif hasattr(self.config, "options") and "pragmas" in self.config.options:
-            custom_pragmas = self.config.options["pragmas"]
-
-        # Override defaults with custom settings
-        if custom_pragmas:
-            for pragma_key, pragma_value in custom_pragmas.items():
-                pragmas[pragma_key] = str(pragma_value)
-
-        return pragmas
-
     def _apply_pragmas(self) -> None:
         """Apply all pragma settings to the connection"""
-        for pragma_key, pragma_value in self._pragmas.items():
+        for pragma_key, pragma_value in self.config.pragmas.items():
             pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
             self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
 
@@ -146,9 +143,10 @@ class SQLiteBackend(StorageBackend):
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
             self._connection = sqlite3.connect(
                 self.config.database,
-                detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+                detect_types=self.config.detect_types,
                 isolation_level=None,  # Use manual transaction management
-                uri=self.config.options['uri'] if 'uri' in self.config.options else False
+                uri=self.config.uri,
+                timeout=self.config.timeout
             )
 
             # Apply pragma settings
@@ -184,7 +182,7 @@ class SQLiteBackend(StorageBackend):
                 self.log(logging.INFO, "Disconnected from SQLite database")
 
                 # Handle file deletion if enabled and not using in-memory database
-                if self._delete_on_close and self.config.database != ":memory:":
+                if self.config.delete_on_close and not self.config.is_memory_db():
                     try:
                         import os
                         import time
