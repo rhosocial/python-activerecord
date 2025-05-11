@@ -12,11 +12,20 @@ This module provides a generic interface for database operations, with support f
 __version__ = "0.8.0"
 
 # Core interfaces and base classes
-from .base import StorageBackend
+from .base import StorageBackend, ColumnTypes
 from .dialect import (
     TypeMapping,
     SQLDialectBase,
-    SQLExpressionBase, ReturningOptions,
+    SQLBuilder,
+    SQLExpressionBase,
+    ReturningOptions,
+    ReturningClauseHandler,
+    ExplainOptions,
+    ExplainType,
+    ExplainFormat,
+    AggregateHandler,
+    JsonOperationHandler,
+    CTEHandler,
 )
 from .config import ConnectionConfig
 
@@ -41,6 +50,12 @@ from .errors import (
     TypeConversionError,
     OperationalError,
     RecordNotFound,
+    ReturningNotSupportedError,
+    GroupingSetNotSupportedError,
+    JsonOperationNotSupportedError,
+    WindowFunctionNotSupportedError,
+    CTENotSupportedError,
+    IsolationLevelError,
 )
 
 # Helper functions
@@ -51,12 +66,32 @@ from .helpers import (
     safe_json_loads,
     array_converter,
     measure_time,
+    format_with_length,
+    format_decimal,
 )
 
 # Transaction
 from .transaction import (
     TransactionManager,
     IsolationLevel,
+    TransactionState,
+)
+
+# Type Converters
+from .basic_type_converter import (
+    BasicTypeConverter,
+    DateTimeConverter,
+    BooleanConverter,
+    UUIDConverter,
+    JSONConverter,
+    DecimalConverter,
+    ArrayConverter,
+    EnumConverter,
+)
+from .type_converters import (
+    TypeConverter,
+    BaseTypeConverter,
+    TypeRegistry,
 )
 
 __all__ = [
@@ -64,6 +99,17 @@ __all__ = [
     'StorageBackend',
     # Dialect related
     'TypeMapping',
+    'ColumnTypes',
+    'SQLBuilder',
+    'SQLExpressionBase',
+    'ReturningOptions',
+    'ReturningClauseHandler',
+    'ExplainOptions',
+    'ExplainType',
+    'ExplainFormat',
+    'AggregateHandler',
+    'JsonOperationHandler',
+    'CTEHandler',
 
     # Types and configs
     'ConnectionConfig',
@@ -84,6 +130,12 @@ __all__ = [
     'TypeConversionError',
     'OperationalError',
     'RecordNotFound',
+    'ReturningNotSupportedError',
+    'GroupingSetNotSupportedError',
+    'JsonOperationNotSupportedError',
+    'WindowFunctionNotSupportedError',
+    'CTENotSupportedError',
+    'IsolationLevelError',
 
     # Helper functions
     'convert_datetime',
@@ -92,6 +144,8 @@ __all__ = [
     'safe_json_loads',
     'array_converter',
     'measure_time',
+    'format_with_length',
+    'format_decimal',
 
     # Expression
     'SQLDialectBase',
@@ -100,4 +154,18 @@ __all__ = [
     # Transaction
     'TransactionManager',
     'IsolationLevel',
+    'TransactionState',
+
+    # Type Converters
+    'BasicTypeConverter',
+    'DateTimeConverter',
+    'BooleanConverter',
+    'UUIDConverter',
+    'JSONConverter',
+    'DecimalConverter',
+    'ArrayConverter',
+    'EnumConverter',
+    'TypeConverter',
+    'BaseTypeConverter',
+    'TypeRegistry',
 ]

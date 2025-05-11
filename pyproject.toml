@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rhosocial_activerecord"
-# Version is read from src/rhosocial/activerecord/__init__.py
+# Version is read from src/rhosocial/activerecord_test/__init__.py
 dynamic = ["version"]
 description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
@@ -119,9 +119,6 @@ include = [
   "README.md",
 ]
 exclude = [
-  "tests/**",
-  "docs/**",
-  "examples/**",
   "*.pyc",
   "**/__pycache__",
   "**/*.py[cod]",
@@ -138,6 +135,46 @@ exclude = [
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhosocial"]
+
+# New sections for development extras
+[tool.hatch.build.targets.sdist]
+include = [
+  "src/",
+  "tests/",
+  "docs/",
+  "examples/",
+  "LICENSE",
+  "README.md",
+  "CONTRIBUTING.md",
+  "SECURITY.md",
+  "requirements.txt",
+  "requirements-*.txt",
+  "pyproject.toml",
+  "setup.py",
+  "MANIFEST.in"
+]
+
+# Configure development extras
+[tool.hatch.build.targets.wheel.dev-mode]
+enable = true
+
+[tool.hatch.metadata]
+allow-direct-references = true
+
+[tool.hatch.envs.dev]
+features = ["dev", "test"]
+path = "tests"
+
+[tool.hatch.build.targets.editable]
+extras = ["test"]
+dependencies = []
+
+# Define the development extras
+[tool.hatch.extras]
+tests = ["tests/"]
+docs = ["docs/", "CONTRIBUTING.md", "SECURITY.md"]
+examples = ["examples/", "requirements.txt", "requirements-*.txt"]
+dev = ["tests/", "docs/", "examples/", "CONTRIBUTING.md", "SECURITY.md", "requirements.txt", "requirements-*.txt"]
 
 [tool.pytest.ini_options]
 minversion = "7.0"

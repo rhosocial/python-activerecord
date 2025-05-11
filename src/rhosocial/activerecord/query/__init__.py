@@ -4,6 +4,10 @@ from .dict_query import DictQuery
 from .active_query import ActiveQuery
 from .base import BaseQueryMixin
 from .cte import CTEQueryMixin
+from .expression import (
+    SQLExpression, Column, AggregateExpression, ArithmeticExpression, FunctionExpression, WindowExpression,
+    CaseExpression, ConditionalExpression, SubqueryExpression, JsonExpression, GroupingSetExpression,
+)
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .aggregate import AggregateQueryMixin
@@ -18,5 +22,17 @@ __all__ = [
     'AggregateQueryMixin',
     'JoinQueryMixin',
     'RelationalQueryMixin',
-    'RelationConfig'
+    'RelationConfig',
+
+    'SQLExpression',
+    'Column',
+    'AggregateExpression',
+    'ArithmeticExpression',
+    'FunctionExpression',
+    'WindowExpression',
+    'CaseExpression',
+    'ConditionalExpression',
+    'SubqueryExpression',
+    'JsonExpression',
+    'GroupingSetExpression',
 ]
