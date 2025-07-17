@@ -52,14 +52,21 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     type_str = ref if isinstance(ref, str) else ref.__forward_arg__
 
     if isinstance(ref, ForwardRef):
+        # Use official typing_extensions.evaluate_forward_ref if available
         try:
-            return ref._evaluate(context, None, recursive_guard=set())
-        except TypeError:
+            from typing_extensions import evaluate_forward_ref
+            return evaluate_forward_ref(ref, owner=owner, globals=context, locals=None)
+        except ImportError:
+            # Fallback: try using get_type_hints instead of direct _evaluate call
             try:
-                return ref._evaluate(context, None, set())
-            except TypeError:
+                # Create a temporary class with the forward ref to leverage get_type_hints
+                temp_annotations = {'temp': ref}
+                hints = get_type_hints(type('TempClass', (), {'__annotations__': temp_annotations}), globalns=context)
+                return hints.get('temp', ref)
+            except (NameError, AttributeError, TypeError):
                 pass
 
+    # Final fallback: direct evaluation for string references
     return eval(type_str, context, None)
 
 
