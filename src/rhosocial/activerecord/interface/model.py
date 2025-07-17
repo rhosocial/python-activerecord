@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/interface/model.py
 """
 Core ActiveRecord model interface definition.
 """

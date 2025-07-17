@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/config.py
 """
 SQLite-specific configuration classes.
 

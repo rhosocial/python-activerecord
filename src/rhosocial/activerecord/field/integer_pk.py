@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/field/integer_pk.py
 """Module providing integer primary key functionality."""
 from ..interface import IActiveRecord
 

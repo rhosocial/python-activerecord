@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/interface/query.py
 """
 Query building interfaces for ActiveRecord implementation.
 """
@@ -169,7 +170,9 @@ class ThreadSafeDict(Dict[K, V]):
         data = self.__ensure_data()
         return [data.get(key, default) for key in keys]
 
+
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
+
 
 class IQuery(Generic[ModelT], ABC):
     """Interface for building and executing database queries.
@@ -181,6 +184,7 @@ class IQuery(Generic[ModelT], ABC):
     - Joins
     - Pagination (LIMIT/OFFSET)
     """
+
     def __init__(self, model_class: Type[ModelT]):
         self.model_class = model_class
         self.conditions: List[Tuple[str, tuple]] = []
@@ -191,7 +195,8 @@ class IQuery(Generic[ModelT], ABC):
         self.select_columns: List[str] = ["*"]
         self._params: List[Any] = []  # Query parameters
         self._eager_loads: ThreadSafeDict[str, List[str]] = ThreadSafeDict  # Relations to be eager loaded
-        self._loaded_relations: ThreadSafeDict[str, ThreadSafeDict[int, Any]] = ThreadSafeDict  # Cache of loaded relation data
+        self._loaded_relations: ThreadSafeDict[
+            str, ThreadSafeDict[int, Any]] = ThreadSafeDict  # Cache of loaded relation data
         # Extended condition storage for OR logic support
         self.condition_groups: List[List[Tuple[str, tuple, str]]] = [[]]  # [[(condition, params, operator), ...], ...]
         self.current_group = 0
@@ -514,7 +519,7 @@ class IQuery(Generic[ModelT], ABC):
         """
         pass
 
-    @abstractmethod 
+    @abstractmethod
     def is_not_null(self, column: str) -> 'IQuery[ModelT]':
         """Add an IS NOT NULL condition to the query.
 
@@ -555,6 +560,7 @@ class IDictQuery(Generic[ModelT], ABC):
 
     Useful for operations that don't require full model instantiation.
     """
+
     @abstractmethod
     def all(self) -> List[Dict[str, Any]]:
         """Execute query and return all results as dictionaries.

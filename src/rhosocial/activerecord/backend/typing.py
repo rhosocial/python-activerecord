@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/typing.py
 from dataclasses import dataclass, field
 from datetime import datetime
 from decimal import Decimal

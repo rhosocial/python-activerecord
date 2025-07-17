@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/sqlite/__init__.py
 """
 SQLite backend implementation for the Python ORM.
 

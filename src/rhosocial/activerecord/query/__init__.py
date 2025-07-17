@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/__init__.py
 """Query builder implementation for constructing and executing database queries."""
 
 from .dict_query import DictQuery

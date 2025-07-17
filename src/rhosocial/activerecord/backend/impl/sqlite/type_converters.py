@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/type_converters.py
 """
 SQLite-specific type converters.
 

@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/config.py
 """
 Core configuration classes and protocols for database connections.
 

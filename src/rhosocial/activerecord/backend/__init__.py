@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/__init__.py
 """
 Database backend abstraction layer for Python ORMs.
 

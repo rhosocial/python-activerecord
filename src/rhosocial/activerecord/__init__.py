@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/__init__.py
 """Python ActiveRecord implementation using Pydantic"""
 
 """
@@ -11,7 +12,7 @@ Provides a unified ActiveRecord implementation that combines:
 - Field type support
 """
 
-__version__ = "1.0.0.dev10"
+__version__ = "1.0.0.dev11"
 
 # ### **Version Format**
 # The version string MUST follow the [PEP 440](https://packaging.python.org/en/latest/specifications/version-specifiers/) standard.

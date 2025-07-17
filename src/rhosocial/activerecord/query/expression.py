@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/expression.py
 """Enhanced SQL expression system for query building."""
 from typing import Any, List, Optional, Union, Tuple, Dict
 

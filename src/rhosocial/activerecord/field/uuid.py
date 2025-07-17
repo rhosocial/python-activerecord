@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/field/uuid.py
 """Module providing UUID functionality."""
 import uuid
 from typing import Dict, Any

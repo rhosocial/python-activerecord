@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/field/version.py
 """Module providing version control functionality."""
 from typing import Tuple, Any, Dict, List, Optional
 
@@ -113,7 +114,7 @@ class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
         return {}
 
     def _handle_version_after_save(self, instance: 'OptimisticLockMixin', *,
-                               is_new: bool = False, result: Any = None, **kwargs) -> None:
+                                   is_new: bool = False, result: Any = None, **kwargs) -> None:
         """Handle version management after save
 
         Args:

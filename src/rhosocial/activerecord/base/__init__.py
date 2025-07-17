@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/base/__init__.py
 """Base ActiveRecord implementation providing core functionality."""
 
 from .base import BaseActiveRecord

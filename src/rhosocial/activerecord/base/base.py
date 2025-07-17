@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/base/base.py
 """Core BaseActiveRecord implementation."""
 
 import logging

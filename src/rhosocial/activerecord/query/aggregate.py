@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/aggregate.py
 """Enhanced aggregate query implementation with SQL expression support."""
 import logging
 from typing import List, Optional, Union, Any, Dict, Type, Tuple
