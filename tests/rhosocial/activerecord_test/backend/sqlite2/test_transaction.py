@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/backend/sqlite2/test_transaction.py
 def test_transaction_commit(db, setup_test_table):
     """Test transaction commit"""
     with db.transaction():

@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/test_relation_path_processing.py
 """Unit tests for relation path processing logic in RelationalQueryMixin."""
 from typing import List, Optional, Any, Union, Tuple, Dict, Set
 from unittest.mock import MagicMock, patch

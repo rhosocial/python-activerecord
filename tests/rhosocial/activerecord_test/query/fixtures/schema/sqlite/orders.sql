@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/orders.sql
 CREATE TABLE orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

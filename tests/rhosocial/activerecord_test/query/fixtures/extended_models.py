@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/fixtures/extended_models.py
 from decimal import Decimal
 from typing import Optional, ClassVar
 
@@ -6,7 +7,7 @@ from pydantic import Field, EmailStr
 from src.rhosocial.activerecord import ActiveRecord
 from src.rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
 from src.rhosocial.activerecord.relation import HasMany, BelongsTo
-from tests.rhosocial.activerecord_test.utils import create_active_record_fixture
+from ...utils import create_active_record_fixture
 
 
 class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
@@ -80,7 +81,7 @@ def create_extended_order_fixtures():
     Returns:
         pytest fixture for the extended models
     """
-    from tests.rhosocial.activerecord_test.query.utils import create_table_fixture
+    from ..utils import create_table_fixture
 
     model_classes = [User, ExtendedOrder, ExtendedOrderItem]
 

@@ -1,7 +1,7 @@
+# tests/rhosocial/activerecord_test/query/test_function_expressions.py
 """Test function expression functionality in ActiveQuery."""
-from decimal import Decimal
-from datetime import datetime, date
 import re
+from decimal import Decimal
 
 import pytest
 

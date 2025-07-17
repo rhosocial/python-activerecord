@@ -1,3 +1,8 @@
+# tests/rhosocial/activerecord_test/basic/test_crud.py
+"""Basic CRUD Test Module
+
+This module tests the basic CRUD functionality of the ActiveRecord class.
+"""
 import time
 import uuid
 from decimal import Decimal

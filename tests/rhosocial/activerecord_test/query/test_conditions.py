@@ -1,12 +1,14 @@
+# tests/rhosocial/activerecord_test/query/test_conditions.py
+"""Test query conditions."""
 from decimal import Decimal
 from .utils import create_order_fixtures
 
-# 创建多表测试夹具
+# Create a multi-table test fixture
 order_fixtures = create_order_fixtures()
 
 
 def test_equal_condition(order_fixtures):
-    """测试等值条件查询"""
+    """Test the equivalence query"""
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -29,7 +31,7 @@ def test_equal_condition(order_fixtures):
 
 
 def test_multiple_conditions(order_fixtures):
-    """测试多个查询条件"""
+    """Test multiple query criteria"""
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -56,7 +58,7 @@ def test_multiple_conditions(order_fixtures):
 
 
 def test_in_condition(order_fixtures):
-    """测试IN条件查询"""
+    """Test the IN condition query"""
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -67,7 +69,7 @@ def test_in_condition(order_fixtures):
     result = user.save()
     assert result == 1
 
-    # 创建三个不同状态的订单
+    # Create three orders with different statuses
     statuses = ['pending', 'paid', 'shipped']
     for status in statuses:
         order = Order(
@@ -90,10 +92,10 @@ def test_in_condition(order_fixtures):
 
 
 def test_or_condition(order_fixtures):
-    """测试OR条件查询"""
+    """Test the OR conditional query"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建用户
+    # Create a user
     user = User(
         username='test_user',
         email='test@example.com',
@@ -101,7 +103,7 @@ def test_or_condition(order_fixtures):
     )
     user.save()
 
-    # 创建不同状态的订单
+    # Create orders with different statuses
     orders = [
         Order(user_id=user.id, order_number='ORD-001', status='pending', total_amount=Decimal('100.00')),
         Order(user_id=user.id, order_number='ORD-002', status='paid', total_amount=Decimal('200.00')),
@@ -110,7 +112,7 @@ def test_or_condition(order_fixtures):
     for order in orders:
         order.save()
 
-    # 测试基本的OR条件
+    # Test the basic OR conditions
     results = Order.query() \
         .where('status = ?', ('pending',)) \
         .or_where('status = ?', ('paid',)) \
@@ -118,7 +120,7 @@ def test_or_condition(order_fixtures):
     assert len(results) == 2
     assert set(r.status for r in results) == {'pending', 'paid'}
 
-    # 测试OR和AND的组合
+    # Test the combination of OR and AND
     results = Order.query() \
         .where('total_amount > ?', (Decimal('150.00'),)) \
         .start_or_group() \
@@ -132,10 +134,10 @@ def test_or_condition(order_fixtures):
 
 
 def test_complex_conditions(order_fixtures):
-    """测试复杂条件组合查询"""
+    """Test complex conditional combination queries"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建测试用户
+    # Create a test user
     users = [
         User(username=f'user{i}', email=f'user{i}@example.com', age=25 + i)
         for i in range(3)
@@ -143,7 +145,7 @@ def test_complex_conditions(order_fixtures):
     for user in users:
         user.save()
 
-    # 创建订单
+    # Create an order
     orders = []
     statuses = ['pending', 'paid', 'shipped']
     amounts = [Decimal('100.00'), Decimal('200.00'), Decimal('300.00')]
@@ -158,7 +160,7 @@ def test_complex_conditions(order_fixtures):
         order.save()
         orders.append(order)
 
-    # 测试条件 1：状态为pending或paid，且金额小于150或大于250
+    # Test Condition 1: The status is pending or paid, and the amount is less than 150 or greater than 250
     results = Order.query() \
         .in_list('status', ['pending', 'paid']) \
         .start_or_group() \
@@ -167,12 +169,12 @@ def test_complex_conditions(order_fixtures):
         .end_or_group() \
         .all()
 
-    # 应该返回：
+    # Should return:
     # - ORD-1 (pending, 100.00 < 150.00)
     assert len(results) == 1
     assert results[0].order_number == 'ORD-1'
 
-    # 修改查询条件以测试更多场景
+    # Modify the query criteria to test more scenarios
     results = Order.query() \
         .in_list('status', ['pending', 'paid']) \
         .start_or_group() \
@@ -181,7 +183,7 @@ def test_complex_conditions(order_fixtures):
         .end_or_group() \
         .all()
 
-    # 应该返回：
+    # Should return:
     # - ORD-1 (pending, 100.00 < 250.00)
     # - ORD-2 (paid, 200.00 < 250.00)
     assert len(results) == 2
@@ -189,7 +191,7 @@ def test_complex_conditions(order_fixtures):
 
 
 def test_empty_conditions(order_fixtures):
-    """测试空值条件处理"""
+    """Test null conditional handling"""
     User, Order, OrderItem = order_fixtures
 
     user = User(
@@ -199,7 +201,7 @@ def test_empty_conditions(order_fixtures):
     )
     user.save()
 
-    # 创建测试订单
+    # Create a test order
     order = Order(
         user_id=user.id,
         order_number='ORD-001',
@@ -207,19 +209,19 @@ def test_empty_conditions(order_fixtures):
     )
     order.save()
 
-    # 测试空 IN 列表
+    # Test an empty IN list
     results = Order.query().in_list('id', [], empty_result=True).all()
     assert len(results) == 0
 
     results = Order.query().in_list('id', [], empty_result=False).all()
-    assert len(results) == 1  # 返回所有记录
+    assert len(results) == 1  # Returns all records
 
-    # 测试空 NOT IN 列表
+    # Test an empty NOT IN list
     results = Order.query().not_in('id', [], empty_result=True).all()
     assert len(results) == 0
 
     results = Order.query().not_in('id', [], empty_result=False).all()
-    assert len(results) == 1  # 返回所有记录
+    assert len(results) == 1  # Returns all records
 
 
 def test_between_condition(order_fixtures):
@@ -239,7 +241,7 @@ def test_between_condition(order_fixtures):
     for i, amount in enumerate(amounts):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1}',
+            order_number=f'ORD-{i + 1}',
             total_amount=amount
         )
         order.save()
@@ -253,6 +255,7 @@ def test_between_condition(order_fixtures):
     results = Order.query().not_between('total_amount', Decimal('100.00'), Decimal('200.00')).all()
     assert len(results) == 2
     assert all(r.total_amount in [Decimal('50.00'), Decimal('250.00')] for r in results)
+
 
 def test_like_condition(order_fixtures):
     """Test LIKE condition queries"""
@@ -283,6 +286,7 @@ def test_like_condition(order_fixtures):
     results = Order.query().not_like('order_number', 'ABC%').all()
     assert len(results) == 2
     assert all(not r.order_number.startswith('ABC') for r in results)
+
 
 def test_null_condition(order_fixtures):
     """Test IS NULL and IS NOT NULL condition queries"""

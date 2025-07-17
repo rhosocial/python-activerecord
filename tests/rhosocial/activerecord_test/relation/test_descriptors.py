@@ -1,13 +1,13 @@
+# tests/rhosocial/activerecord_test/relation/test_descriptors.py
 """Tests for descriptors module."""
 
-from typing import ClassVar, Any, List, Optional
+from typing import ClassVar
 
 import pytest
 from pydantic import BaseModel
 
-from src.rhosocial.activerecord.relation.descriptors import BelongsTo, HasOne, HasMany
 from src.rhosocial.activerecord.relation.base import RelationManagementMixin
-from src.rhosocial.activerecord.relation.interfaces import  RelationLoader
+from src.rhosocial.activerecord.relation.descriptors import BelongsTo, HasOne, HasMany
 
 
 # Mock QuerySet for testing

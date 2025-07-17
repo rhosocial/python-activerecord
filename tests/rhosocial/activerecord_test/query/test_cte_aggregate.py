@@ -1,9 +1,8 @@
+# tests/rhosocial/activerecord_test/query/test_cte_aggregate.py
 """Test basic aggregate functions with CTE."""
 from decimal import Decimal
 
-import pytest
-
-from tests.rhosocial.activerecord_test.query.utils import create_order_fixtures
+from .utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()

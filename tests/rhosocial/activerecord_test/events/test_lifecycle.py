@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/events/test_lifecycle.py
 import pytest
 from src.rhosocial.activerecord.interface import ModelEvent
 

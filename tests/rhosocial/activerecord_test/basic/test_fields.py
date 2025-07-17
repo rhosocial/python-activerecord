@@ -1,3 +1,8 @@
+# tests/rhosocial/activerecord_test/basic/test_fields.py
+"""Basic Fields Test Module
+
+This module tests the basic field processing functionality of the ActiveRecord class.
+"""
 import json
 from datetime import datetime
 from decimal import Decimal

@@ -1,10 +1,11 @@
+# tests/rhosocial/activerecord_test/query/sqlite/test_explain_basic.py
 """Test basic explain functionality for SQLite."""
 from decimal import Decimal
 
 import pytest
 
 from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainFormat
-from tests.rhosocial.activerecord_test.query.utils import create_order_fixtures
+from ..utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()

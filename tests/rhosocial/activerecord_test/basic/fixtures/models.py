@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/basic/fixtures/models.py
+"""Basic Functionality Test Module"""
 import re
 from datetime import date, time, datetime, timedelta
 from decimal import Decimal
@@ -9,7 +11,7 @@ from pydantic import EmailStr, Field, field_validator
 from src.rhosocial.activerecord import ActiveRecord
 from src.rhosocial.activerecord.backend.errors import ValidationError
 from src.rhosocial.activerecord.field import TimestampMixin, UUIDMixin, IntegerPKMixin
-from tests.rhosocial.activerecord_test.utils import create_active_record_fixture
+from ...utils import create_active_record_fixture
 
 
 class TypeCase(UUIDMixin, ActiveRecord):

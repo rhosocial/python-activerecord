@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/mixins/test_optimistic_lock.py
+"""Test optimistic locking functionality"""
 import pytest
 
 from src.rhosocial.activerecord.backend.errors import DatabaseError

@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/backend/sqlite2/test_connection.py
 import pytest
 from src.rhosocial.activerecord.backend.errors import ConnectionError
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend

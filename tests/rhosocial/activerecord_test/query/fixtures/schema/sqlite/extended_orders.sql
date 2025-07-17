@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/extended_orders.sql
 CREATE TABLE extended_orders (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/sqlite/test_json_expressions.py
 """Test JSON expression functionality in ActiveQuery."""
 import json
 import sqlite3
@@ -6,7 +7,7 @@ import pytest
 
 from src.rhosocial.activerecord.backend import SQLDialectBase, OperationalError
 from src.rhosocial.activerecord.query.expression import JsonExpression, CaseExpression
-from tests.rhosocial.activerecord_test.query.utils import create_json_test_fixtures
+from ..utils import create_json_test_fixtures
 
 # Create multi-table test fixtures
 json_fixtures = create_json_test_fixtures()

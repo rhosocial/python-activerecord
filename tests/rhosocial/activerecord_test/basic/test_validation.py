@@ -1,3 +1,8 @@
+# tests/rhosocial/activerecord_test/basic/test_validation.py
+"""Basic Validation Test Module
+
+This module tests the validation functionality of the ActiveRecord class.
+"""
 import pytest
 from pydantic import ValidationError
 from src.rhosocial.activerecord.backend.errors import ValidationError as DBValidationError

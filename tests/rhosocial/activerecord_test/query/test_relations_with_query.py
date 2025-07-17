@@ -1,9 +1,10 @@
+# tests/rhosocial/activerecord_test/query/test_relations_with_query.py
 """Test cases for relation eager loading query execution."""
-import time
+
+from decimal import Decimal
+from typing import List, Tuple
 
 import pytest
-from decimal import Decimal
-from typing import List, Tuple, Type
 
 from src.rhosocial.activerecord.backend import RecordNotFound
 from .utils import create_order_fixtures, create_blog_fixtures

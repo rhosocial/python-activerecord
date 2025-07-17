@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/query/test_dict_query.py
+"""Test dict query functionality in ActiveQuery."""
 from decimal import Decimal
 import logging
 from .utils import create_order_fixtures, create_blog_fixtures

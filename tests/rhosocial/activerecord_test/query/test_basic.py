@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/query/test_basic.py
+"""Test basic query functionality."""
 from decimal import Decimal
 from .utils import create_order_fixtures
 

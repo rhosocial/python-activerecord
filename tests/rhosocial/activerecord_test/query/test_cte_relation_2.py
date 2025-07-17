@@ -1,9 +1,10 @@
+# tests/rhosocial/activerecord_test/query/test_cte_relation_2.py
 """Test complex relation queries with CTE."""
 from decimal import Decimal
 
 import pytest
 
-from tests.rhosocial.activerecord_test.query.utils import create_order_fixtures, create_blog_fixtures
+from .utils import create_order_fixtures, create_blog_fixtures
 
 # Create test fixtures
 order_fixtures = create_order_fixtures()

@@ -1,9 +1,10 @@
+# tests/rhosocial/activerecord_test/query/sqlite/test_explain_json.py
 """Test explain functionality with JSON expressions for SQLite."""
 import json
 
 import pytest
 
-from tests.rhosocial.activerecord_test.query.utils import create_json_test_fixtures
+from ..utils import create_json_test_fixtures
 
 # Create multi-table test fixtures
 json_fixtures = create_json_test_fixtures()

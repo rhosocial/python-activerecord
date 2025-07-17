@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/test_cte_basic.py
 """Test basic CTE functionality in ActiveQuery."""
 from decimal import Decimal
 from .utils import create_order_fixtures

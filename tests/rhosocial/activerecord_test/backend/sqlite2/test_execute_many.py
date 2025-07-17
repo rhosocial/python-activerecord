@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/backend/sqlite2/test_execute_many.py
 def test_execute_many(db, setup_test_table):
     """Test batch insertion"""
     data = [

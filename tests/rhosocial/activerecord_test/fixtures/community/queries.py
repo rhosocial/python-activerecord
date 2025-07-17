@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/fixtures/community/queries.py
 class UserQueries:
     """用户相关查询"""
     # ... 查询方法定义 ...

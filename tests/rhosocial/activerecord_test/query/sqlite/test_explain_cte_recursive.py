@@ -1,8 +1,9 @@
+# tests/rhosocial/activerecord_test/query/sqlite/test_explain_cte_recursive.py
 """Test explain functionality with recursive CTE for SQLite."""
 import pytest
 import sqlite3
 
-from tests.rhosocial.activerecord_test.query.utils import create_tree_fixtures
+from ..utils import create_tree_fixtures
 from src.rhosocial.activerecord.backend.dialect import ExplainType
 
 # Create tree fixtures for recursive CTE tests

@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/events/fixtures/schema/sqlite/event_tests.sql
 CREATE TABLE IF NOT EXISTS event_tests (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/backend/sqlite/test_explain.py
 from src.rhosocial.activerecord.backend.dialect import ExplainType, ExplainOptions
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from src.rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

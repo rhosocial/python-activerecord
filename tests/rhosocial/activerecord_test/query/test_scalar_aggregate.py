@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/test_scalar_aggregate.py
 """Test scalar aggregate calculations without grouping."""
 from decimal import Decimal
 from .utils import create_order_fixtures

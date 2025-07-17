@@ -1,10 +1,11 @@
+# tests/rhosocial/activerecord_test/mixins/fixtures/models.py
 from typing import Optional
 
 from pydantic import Field
 
 from src.rhosocial.activerecord import ActiveRecord
 from src.rhosocial.activerecord.field import OptimisticLockMixin, SoftDeleteMixin, TimestampMixin, IntegerPKMixin
-from tests.rhosocial.activerecord_test.utils import create_active_record_fixture
+from ...utils import create_active_record_fixture
 
 
 class TimestampedPost(IntegerPKMixin, TimestampMixin, ActiveRecord):

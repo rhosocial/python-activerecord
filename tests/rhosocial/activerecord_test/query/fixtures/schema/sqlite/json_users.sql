@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/json_users.sql
 CREATE TABLE json_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL,

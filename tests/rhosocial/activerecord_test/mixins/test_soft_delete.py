@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/mixins/test_soft_delete.py
+"""Test soft delete functionality"""
 from datetime import datetime
 
 import tzlocal

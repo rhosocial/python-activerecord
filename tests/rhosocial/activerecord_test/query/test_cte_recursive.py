@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/test_cte_recursive.py
 """Test recursive CTE functionality in ActiveQuery."""
 
 from .utils import create_order_fixtures, create_tree_fixtures

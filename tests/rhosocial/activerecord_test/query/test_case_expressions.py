@@ -1,10 +1,8 @@
+# tests/rhosocial/activerecord_test/query/test_case_expressions.py
 """Test CASE expression functionality in ActiveQuery."""
 import logging
 from decimal import Decimal
 
-import pytest
-
-from src.rhosocial.activerecord.query.expression import CaseExpression
 from .utils import create_order_fixtures
 
 # Create multi-table test fixtures

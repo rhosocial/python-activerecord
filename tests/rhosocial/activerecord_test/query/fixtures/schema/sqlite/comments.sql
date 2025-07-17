@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/comments.sql
 CREATE TABLE comments (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

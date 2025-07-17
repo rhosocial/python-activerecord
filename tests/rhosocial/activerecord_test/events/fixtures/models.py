@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/events/fixtures/models.py
 from typing import Optional, Dict, List, Tuple
 
 from pydantic import Field
@@ -5,7 +6,7 @@ from pydantic import Field
 from src.rhosocial.activerecord.interface import ModelEvent
 from src.rhosocial.activerecord import ActiveRecord
 from src.rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
-from tests.rhosocial.activerecord_test.utils import create_active_record_fixture
+from ...utils import create_active_record_fixture
 
 
 class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):

@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/mixins/test_combined_articles.py
+"""Test combined functionality"""
 import time
 
 import pytest

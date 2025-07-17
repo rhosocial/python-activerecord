@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/test_window_functions.py
 """Test window function functionality in ActiveQuery."""
 from decimal import Decimal
 

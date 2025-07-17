@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/backend/sqlite/test_cte.py
 from unittest.mock import patch
 
 import pytest

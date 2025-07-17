@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/query/test_joins.py
+"""Test cases for JOIN queries in ActiveQuery."""
 from decimal import Decimal
 from .utils import create_order_fixtures
 

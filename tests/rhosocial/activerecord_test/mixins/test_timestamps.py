@@ -1,3 +1,5 @@
+# tests/rhosocial/activerecord_test/mixins/test_timestamps.py
+"""Test timestamp functionality"""
 import time
 from datetime import datetime
 

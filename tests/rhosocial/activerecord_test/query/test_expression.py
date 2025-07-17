@@ -1,11 +1,9 @@
+# tests/rhosocial/activerecord_test/query/test_expression.py
 """Test basic SQL expression functionality in ActiveQuery."""
 from decimal import Decimal
 
-import pytest
-
 from src.rhosocial.activerecord.query.expression import (
-    ArithmeticExpression, FunctionExpression, ConditionalExpression,
-    SubqueryExpression, CaseExpression
+    SubqueryExpression
 )
 from .utils import create_order_fixtures
 

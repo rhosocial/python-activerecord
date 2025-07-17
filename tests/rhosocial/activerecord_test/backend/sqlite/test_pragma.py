@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/backend/sqlite/test_pragma.py
 import logging
 import os
 import tempfile

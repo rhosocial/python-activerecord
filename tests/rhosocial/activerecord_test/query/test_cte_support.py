@@ -1,6 +1,8 @@
+# tests/rhosocial/activerecord_test/query/test_cte_support.py
 """Test CTE support and version compatibility checks in ActiveQuery."""
+from unittest.mock import patch
+
 import pytest
-from unittest.mock import patch, MagicMock
 
 from src.rhosocial.activerecord.backend.errors import CTENotSupportedError
 from .utils import create_order_fixtures

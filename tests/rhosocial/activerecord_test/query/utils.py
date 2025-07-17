@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/utils.py
 import logging
 import os
 import tempfile
@@ -10,8 +11,8 @@ import pytest
 from src.rhosocial.activerecord.backend.config import ConnectionConfig
 from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from src.rhosocial.activerecord.interface import IActiveRecord
-from tests.rhosocial.activerecord_test.query.fixtures.models import JsonUser
-from tests.rhosocial.activerecord_test.utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
+from .fixtures.models import JsonUser
+from ..utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
 
 
 def get_test_db():

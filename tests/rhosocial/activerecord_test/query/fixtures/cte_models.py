@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/query/fixtures/cte_models.py
 from decimal import Decimal
 from typing import Optional, ClassVar
 
@@ -6,7 +7,7 @@ from pydantic import Field
 from src.rhosocial.activerecord import ActiveRecord
 from src.rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
 from src.rhosocial.activerecord.relation import HasMany, BelongsTo
-from tests.rhosocial.activerecord_test.utils import create_active_record_fixture
+from ...utils import create_active_record_fixture
 
 
 class Node(IntegerPKMixin, TimestampMixin, ActiveRecord):

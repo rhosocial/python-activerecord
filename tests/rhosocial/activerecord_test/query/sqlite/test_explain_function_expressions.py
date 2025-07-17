@@ -1,9 +1,10 @@
+# tests/rhosocial/activerecord_test/query/sqlite/test_explain_function_expressions.py
 """Test EXPLAIN with function expressions for SQLite."""
 from decimal import Decimal
 
 import pytest
 
-from tests.rhosocial.activerecord_test.query.utils import create_order_fixtures
+from ..utils import create_order_fixtures
 
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
