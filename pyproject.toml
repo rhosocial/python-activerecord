@@ -4,7 +4,7 @@ build-backend = "hatchling.build"
 
 [project]
 name = "rhosocial_activerecord"
-# Version is read from src/rhosocial/activerecord_test/__init__.py
+# Version is read from src/rhosocial/activerecord/__init__.py
 dynamic = ["version"]
 description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
@@ -89,12 +89,15 @@ all = [
 test = [
     "pytest>=7.0.0",
     "coverage>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
 ]
 dev = [
     "black>=23.0.0",
     "isort>=5.0.0",
     "mypy>=1.0.0",
     "ruff>=0.1.0",
+    "pre-commit>=3.0.0",
 ]
 docs = [
     "sphinx>=7.0.0",
@@ -112,6 +115,7 @@ path = "src/rhosocial/activerecord/__init__.py"
 pattern = '^__version__\s*=\s*"(?P<version>(?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
 
 [tool.hatch.build]
+# Default build: only source code and essential files
 include = [
   "src/rhosocial/**/*.py",
   "src/rhosocial/**/*.pyi",
@@ -126,55 +130,93 @@ exclude = [
   "**/.DS_Store",
   "**/.*.swp",
   ".git*",
+  # Exclude database backend implementations (provided by separate packages)
   "src/rhosocial/activerecord/backend/impl/mysql",
   "src/rhosocial/activerecord/backend/impl/pgsql",
   "src/rhosocial/activerecord/backend/impl/mariadb",
   "src/rhosocial/activerecord/backend/impl/mssql",
-  "src/rhosocial/activerecord/backend/impl/oracle"
+  "src/rhosocial/activerecord/backend/impl/oracle",
+  # Exclude test package from default build
+  "src/rhosocial/activerecord_test",
 ]
 
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhosocial"]
 
-# New sections for development extras
+# Define build targets for different packaging modes
 [tool.hatch.build.targets.sdist]
-include = [
-  "src/",
-  "tests/",
-  "docs/",
-  "examples/",
-  "LICENSE",
-  "README.md",
-  "CONTRIBUTING.md",
-  "SECURITY.md",
-  "requirements.txt",
-  "requirements-*.txt",
-  "pyproject.toml",
-  "setup.py",
-  "MANIFEST.in"
-]
+# Remove the default includes/excludes here to let the hook control everything
+# The hook will set appropriate includes based on build mode
 
-# Configure development extras
-[tool.hatch.build.targets.wheel.dev-mode]
-enable = true
+# Custom build hooks for different modes
+[tool.hatch.build.targets.sdist.hooks.custom]
+
+[tool.hatch.build.targets.wheel.hooks.custom]
 
 [tool.hatch.metadata]
 allow-direct-references = true
 
+# Test mode environment configuration
+[tool.hatch.envs.test]
+features = ["test"]
+dependencies = [
+  "pytest>=7.0.0",
+  "coverage>=7.0.0",
+  "pytest-asyncio>=0.21.0",
+  "pytest-cov>=4.0.0",
+]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = [
+  "- coverage combine",
+  "coverage report",
+]
+cov = [
+  "test-cov",
+  "cov-report",
+]
+
+# Documentation mode environment configuration
+[tool.hatch.envs.docs]
+features = ["docs"]
+dependencies = [
+  "sphinx>=7.0.0",
+  "sphinx-rtd-theme>=1.0.0",
+  "myst-parser>=2.0.0",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -b html docs docs/_build/html"
+serve = "python -m http.server 8000 --directory docs/_build/html"
+
+# Development mode environment configuration
 [tool.hatch.envs.dev]
-features = ["dev", "test"]
-path = "tests"
+features = ["dev", "test", "docs"]
+dependencies = [
+  "black>=23.0.0",
+  "isort>=5.0.0",
+  "mypy>=1.0.0",
+  "ruff>=0.1.0",
+  "pre-commit>=3.0.0",
+]
 
-[tool.hatch.build.targets.editable]
-extras = ["test"]
-dependencies = []
-
-# Define the development extras
-[tool.hatch.extras]
-tests = ["tests/"]
-docs = ["docs/", "CONTRIBUTING.md", "SECURITY.md"]
-examples = ["examples/", "requirements.txt", "requirements-*.txt"]
-dev = ["tests/", "docs/", "examples/", "CONTRIBUTING.md", "SECURITY.md", "requirements.txt", "requirements-*.txt"]
+[tool.hatch.envs.dev.scripts]
+format = [
+  "black src tests",
+  "isort src tests",
+]
+lint = [
+  "ruff check src tests",
+  "mypy src",
+]
+test = "pytest {args:tests}"
+all = [
+  "format",
+  "lint",
+  "test",
+]
 
 [tool.pytest.ini_options]
 minversion = "7.0"
