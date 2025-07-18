@@ -18,11 +18,13 @@ def test_convert_datetime_str():
     result = convert_datetime(value)
     assert result == "2022-07-25T14:30:00"
 
+
 def test_convert_datetime_datetime():
     # Test converting a datetime object to a string
     value = datetime(2022, 7, 25, 14, 30, 0)
     result = convert_datetime(value)
     assert result == "2022-07-25T14:30:00"
+
 
 def test_convert_datetime_date():
     # Test converting a date object to a string
@@ -30,11 +32,13 @@ def test_convert_datetime_date():
     result = convert_datetime(value)
     assert result == "2022-07-25"
 
+
 def test_convert_datetime_time():
     # Test converting a time object to a string
     value = time(14, 30, 0)
     result = convert_datetime(value)
     assert result == "14:30:00"
+
 
 def test_convert_datetime_invalid_str():
     # Test parsing an invalid string
@@ -42,11 +46,13 @@ def test_convert_datetime_invalid_str():
     with pytest.raises(ValueError):
         convert_datetime(value)
 
+
 def test_convert_datetime_no_format():
     # Test converting a datetime object to a string without a format
     value = datetime(2022, 7, 25, 14, 30, 0)
     result = convert_datetime(value)
     assert result == "2022-07-25T14:30:00"
+
 
 def test_convert_datetime_with_format():
     # Test converting a datetime object to a string with a format
@@ -54,11 +60,13 @@ def test_convert_datetime_with_format():
     result = convert_datetime(value, format="%Y-%m-%d %H:%M:%S")
     assert result == "2022-07-25 14:30:00"
 
+
 def test_convert_datetime_with_timezone():
     # Test converting a datetime object to a string with a timezone
     value = datetime(2022, 7, 25, 14, 30, 0, tzinfo=ZoneInfo("UTC"))
     result = convert_datetime(value, timezone="US/Eastern")
     assert result == "2022-07-25T10:30:00-04:00"
+
 
 def test_convert_datetime_with_invalid_timezone():
     # Test converting a datetime object to a string with an invalid timezone
@@ -66,11 +74,13 @@ def test_convert_datetime_with_invalid_timezone():
     with pytest.raises(pytz.exceptions.UnknownTimeZoneError):
         convert_datetime(value, timezone="invalid")
 
+
 def test_convert_datetime_with_empty_string():
     # Test converting an empty string to a datetime object
     value = ""
     with pytest.raises(ValueError):
         convert_datetime(value)
+
 
 def test_convert_datetime_with_none():
     # Test converting None to a datetime object
@@ -78,11 +88,13 @@ def test_convert_datetime_with_none():
     with pytest.raises(TypeError):
         convert_datetime(value)
 
+
 def test_convert_datetime_with_floating_point_seconds():
     # Test converting a datetime object with floating point seconds to a string
     value = datetime(2022, 7, 25, 14, 30, 0, 123456)
     result = convert_datetime(value)
     assert result == "2022-07-25T14:30:00.123456"
+
 
 def test_convert_datetime_with_microseconds():
     # Test converting a datetime object with microseconds to a string

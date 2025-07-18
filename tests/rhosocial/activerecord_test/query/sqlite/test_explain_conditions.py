@@ -10,6 +10,7 @@ from ..utils import create_order_fixtures
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
+
 def test_explain_simple_where(order_fixtures, request):
     """Test explain with simple WHERE conditions"""
     if 'sqlite' not in request.node.name:
@@ -51,6 +52,7 @@ def test_explain_simple_where(order_fixtures, request):
     # Non-indexed column should use SCAN
     assert "SCAN" in plan
 
+
 def test_explain_primary_key_condition(order_fixtures, request):
     """Test explain with primary key conditions"""
     if 'sqlite' not in request.node.name:
@@ -76,6 +78,7 @@ def test_explain_primary_key_condition(order_fixtures, request):
     assert isinstance(plan, str)
     assert "SEARCH" in plan  # Should use index search
     assert "PRIMARY KEY" in plan
+
 
 def test_explain_foreign_key_condition(order_fixtures, request):
     """Test explain with foreign key conditions"""
@@ -103,6 +106,7 @@ def test_explain_foreign_key_condition(order_fixtures, request):
     # you need to explicitly create an index on the foreign key column
     # CREATE INDEX idx_orders_user_id ON orders(user_id)
 
+
 def test_explain_complex_conditions(order_fixtures, request):
     """Test explain with complex condition combinations"""
     if 'sqlite' not in request.node.name:
@@ -129,6 +133,7 @@ def test_explain_complex_conditions(order_fixtures, request):
             .all())
     assert isinstance(plan, str)
     assert "SCAN" in plan  # Should use table scan for non-indexed columns
+
 
 def test_explain_or_conditions(order_fixtures, request):
     """Test explain with OR conditions"""
@@ -158,6 +163,7 @@ def test_explain_or_conditions(order_fixtures, request):
             .all())
     assert isinstance(plan, str)
     assert "SCAN" in plan  # OR typically causes full table scan
+
 
 def test_explain_range_conditions(order_fixtures, request):
     """Test explain with range conditions"""
@@ -194,6 +200,7 @@ def test_explain_range_conditions(order_fixtures, request):
             .all())
     assert isinstance(plan, str)
     assert "SCAN" in plan  # LIKE typically causes full table scan
+
 
 def test_explain_in_conditions(order_fixtures, request):
     """Test explain with IN conditions"""

@@ -12,6 +12,7 @@ from .utils import create_order_fixtures, create_blog_fixtures
 order_fixtures = create_order_fixtures()
 blog_fixtures = create_blog_fixtures()
 
+
 @pytest.fixture
 def setup_order_data(order_fixtures) -> Tuple[List[int], List[int]]:
     """Create sample order data for testing."""
@@ -65,6 +66,7 @@ def setup_order_data(order_fixtures) -> Tuple[List[int], List[int]]:
     item2.save()
 
     return [user1.id, user2.id], [order1.id, order2.id, order3.id]
+
 
 @pytest.fixture
 def setup_blog_data(blog_fixtures) -> Tuple[List[int], List[int], List[int]]:
@@ -274,6 +276,7 @@ def test_load_complex_blog_relations(blog_fixtures, setup_blog_data):
     # Second post has no comments
     assert len(user.posts()[1].comments()) == 0  # 修改为函数调用
 
+
 def test_relation_one_or_fail(order_fixtures, setup_order_data):
     """Test one_or_fail with relations."""
     User, Order, _ = order_fixtures
@@ -282,7 +285,7 @@ def test_relation_one_or_fail(order_fixtures, setup_order_data):
     # Test successful case
     order = Order.query() \
         .with_("user") \
-        .where("id = ?", (order_ids[0], )) \
+        .where("id = ?", (order_ids[0],)) \
         .one_or_fail()
 
     assert order is not None
@@ -292,8 +295,9 @@ def test_relation_one_or_fail(order_fixtures, setup_order_data):
     with pytest.raises(RecordNotFound):
         Order.query() \
             .with_("user") \
-            .where("id = ?", (99999, )) \
+            .where("id = ?", (99999,)) \
             .one_or_fail()
+
 
 def test_relation_query_with_no_results(order_fixtures, setup_order_data):
     """Test relation loading when main query returns no results."""
@@ -302,7 +306,7 @@ def test_relation_query_with_no_results(order_fixtures, setup_order_data):
     # Query with non-existent ID
     order = Order.query() \
         .with_("user", "items") \
-        .where("id = ?", (99999, )) \
+        .where("id = ?", (99999,)) \
         .one()
 
     assert order is None

@@ -10,6 +10,7 @@ from ..utils import create_order_fixtures
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
+
 def test_explain_count(order_fixtures, request):
     """Test explain with COUNT aggregate"""
     if 'sqlite' not in request.node.name:
@@ -25,7 +26,7 @@ def test_explain_count(order_fixtures, request):
     for i in range(3):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1}',
+            order_number=f'ORD-{i + 1}',
             total_amount=Decimal('100.00')
         )
         order.save()
@@ -48,6 +49,7 @@ def test_explain_count(order_fixtures, request):
             .count('id', distinct=True))
     assert isinstance(plan, str)
     assert "SCAN" in plan  # SQLite optimizes this to table scan
+
 
 def test_explain_sum(order_fixtures, request):
     """Test explain with SUM aggregate"""
@@ -82,6 +84,7 @@ def test_explain_sum(order_fixtures, request):
     assert isinstance(plan, str)
     assert "SCAN" in plan
 
+
 def test_explain_avg(order_fixtures, request):
     """Test explain with AVG aggregate"""
     if 'sqlite' not in request.node.name:
@@ -114,6 +117,7 @@ def test_explain_avg(order_fixtures, request):
     assert isinstance(plan, str)
     assert "SCAN" in plan
 
+
 def test_explain_min_max(order_fixtures, request):
     """Test explain with MIN and MAX aggregates"""
     if 'sqlite' not in request.node.name:
@@ -145,6 +149,7 @@ def test_explain_min_max(order_fixtures, request):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
+
 def test_explain_complex_aggregates(order_fixtures, request):
     """Test explain with aggregate functions and complex conditions"""
     if 'sqlite' not in request.node.name:
@@ -159,8 +164,8 @@ def test_explain_complex_aggregates(order_fixtures, request):
     for i in range(3):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1}',
-            total_amount=Decimal(f'{(i+1)*100}.00'),
+            order_number=f'ORD-{i + 1}',
+            total_amount=Decimal(f'{(i + 1) * 100}.00'),
             status='pending' if i % 2 == 0 else 'paid'
         )
         order.save()

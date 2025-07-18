@@ -37,17 +37,19 @@ class TypeCase(UUIDMixin, ActiveRecord):
     array_val: Optional[list]
     is_active: bool = True
 
+
 class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
     __table_name__ = "users"
 
     id: Optional[int] = None  # Primary key, empty for new records
-    username: str            # Required field
-    email: EmailStr          # Required field
+    username: str  # Required field
+    email: EmailStr  # Required field
     age: Optional[int] = Field(..., ge=0, le=100)  # Optional field
-    balance: float = 0.0      # Field with default value
-    is_active: bool = True    # Field with default value
+    balance: float = 0.0  # Field with default value
+    is_active: bool = True  # Field with default value
     # created_at: Optional[str] = None  # Optional field, typically set automatically by database
     # updated_at: Optional[str] = None  # Optional field, typically set automatically by database
+
 
 class ValidatedFieldUser(IntegerPKMixin, ActiveRecord):
     __table_name__ = "validated_field_users"
@@ -73,6 +75,7 @@ class ValidatedFieldUser(IntegerPKMixin, ActiveRecord):
             raise ValidationError("Credit score must be a float between 0 and 800.")
         return value
 
+
 class TypeTestModel(UUIDMixin, ActiveRecord):
     """Model class for testing various field types"""
     __table_name__ = "type_tests"
@@ -86,6 +89,7 @@ class TypeTestModel(UUIDMixin, ActiveRecord):
     datetime_field: datetime = Field(default_factory=datetime.now)
     json_field: Optional[dict] = None
     nullable_field: Optional[str] = Field(default=None)
+
 
 class ValidatedUser(IntegerPKMixin, ActiveRecord):
     """User model for validation testing"""
@@ -111,10 +115,12 @@ class ValidatedUser(IntegerPKMixin, ActiveRecord):
         if instance.age is not None and instance.age < 13:
             raise ValidationError("User must be at least 13 years old")
 
+
 @pytest.fixture(params=[Type[TypeCase], Type[User], Type[ValidatedFieldUser]])
 def active_record_class(request) -> Type[ActiveRecord]:
     """Provide ActiveRecord model class"""
     return request.param
+
 
 # Create fixtures for each ActiveRecord class for test_curd.py
 user_class = create_active_record_fixture(User)

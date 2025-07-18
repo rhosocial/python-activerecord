@@ -28,7 +28,7 @@ class TestSQLiteBackendTransaction:
             wal_path = path + ext
             if os.path.exists(wal_path):
                 self._retry_delete(wal_path)
-                
+
     def _retry_delete(self, file_path, max_retries=5, retry_delay=0.1):
         """Try to delete a file, retry if failed
         

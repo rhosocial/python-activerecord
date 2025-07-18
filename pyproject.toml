@@ -68,7 +68,7 @@ all = [
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
 ]
 
-# Development dependencies - 这些会在 pip install -e . 时自动安装
+# Development dependencies - These will be installed automatically during pip install -e .
 test = [
     "pytest>=7.0.0",
     "coverage>=7.0.0",
@@ -98,7 +98,7 @@ Issues = "https://github.com/rhosocial/python-activerecord/issues"
 path = "src/rhosocial/activerecord/__init__.py"
 pattern = '^__version__\s*=\s*"(?P<version>(?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
 
-# 构建配置
+# Build configuration
 [tool.hatch.build]
 include = [
     "src/rhosocial/**/*.py",
@@ -107,58 +107,58 @@ include = [
     "README.md",
 ]
 exclude = [
-    # Python 缓存和编译文件
+    # Python cache and compiled files
     "*.pyc",
     "**/__pycache__",
     "**/*.py[cod]",
     "**/*.so",
 
-    # 系统文件
+    # System files
     "**/.DS_Store",
     "**/.*.swp",
     ".git*",
 
-    # 测试数据库文件
+    # Test database files
     "**/*test_db.sqlite",
     "**/*test_*.sqlite",
     "**/*test_*.db",
 
-    # 构建产物
+    # Build artifacts
     "build/",
     "dist/",
     "*.egg-info/",
 
-    # IDE 和编辑器配置
+    # IDE and editor configuration
     ".idea/",
     ".vscode/",
     ".mypy_cache/",
     ".ruff_cache/",
     ".pytest_cache/",
 
-    # 覆盖率报告
+    # Coverage reports
     ".coverage",
     "htmlcov/",
 ]
 
-# 标准 wheel 构建配置（生产环境）
+# Standard wheel build configuration (production environment)
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhosocial"]
 
-# 生产环境排除开发文件
+# Production environment excludes development files
 exclude = [
     "tests/",
     "docs/",
     "examples/",
     "scripts/",
 
-    # 数据库后端实现（由独立包提供）
+    # Database backend implementations (provided by independent packages)
     "src/rhosocial/activerecord/backend/impl/mysql",
     "src/rhosocial/activerecord/backend/impl/pgsql",
     "src/rhosocial/activerecord/backend/impl/mariadb",
     "src/rhosocial/activerecord/backend/impl/mssql",
     "src/rhosocial/activerecord/backend/impl/oracle",
 
-    # 测试包（生产环境不需要）
+    # Test packages (not needed in production environment)
     "src/rhosocial/activerecord_test",
 ]
 
@@ -181,54 +181,54 @@ include = [
 path = "scripts/build_hooks.py"
 dependencies = []
 
-# 默认环境配置（用于 pip install -e .）
+# Default environment configuration (used for pip install -e .)
 [tool.hatch.envs.default]
 # Edit mode includes all development dependencies by default
 dependencies = [
-    # 测试依赖
+    # Test dependencies
     "pytest>=7.0.0",
     "coverage>=7.0.0",
     "pytest-asyncio>=0.21.0",
     "pytest-cov>=4.0.0",
 
-    # 开发工具
+    # Development tools
     "black>=23.0.0",
     "isort>=5.0.0",
     "mypy>=1.0.0",
     "ruff>=0.1.0",
     "pre-commit>=3.0.0",
 
-    # 文档工具
+    # Documentation tools
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=1.0.0",
     "myst-parser>=2.0.0",
 ]
 
-# 默认环境的脚本
+# Default environment scripts
 [tool.hatch.envs.default.scripts]
-# 开发环境设置
+# Development environment setup
 setup = "python scripts/build_hooks.py"
 
-# 代码格式化
+# Code formatting
 format = ["black src tests", "isort src tests"]
 
-# 代码检查
+# Code linting
 lint = ["ruff check src tests", "mypy src"]
 
-# 测试
+# Testing
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
 cov-report = ["coverage combine", "coverage report"]
 cov = ["test-cov", "cov-report"]
 
-# 文档
+# Documentation
 docs-build = "sphinx-build -b html docs docs/_build/html"
 docs-serve = "python -m http.server 8000 --directory docs/_build/html"
 
-# 完整检查
+# Complete check
 all = ["format", "lint", "test"]
 
-# 专门的测试环境
+# Dedicated test environment
 [tool.hatch.envs.test]
 dependencies = [
     "pytest>=7.0.0",
@@ -243,7 +243,7 @@ test-cov = "coverage run -m pytest {args:tests}"
 cov-report = ["coverage combine", "coverage report"]
 cov = ["test-cov", "cov-report"]
 
-# 专门的文档环境
+# Dedicated documentation environment
 [tool.hatch.envs.docs]
 dependencies = [
     "sphinx>=7.0.0",
@@ -255,7 +255,7 @@ dependencies = [
 build = "sphinx-build -b html docs docs/_build/html"
 serve = "python -m http.server 8000 --directory docs/_build/html"
 
-# 工具配置
+# Tool configurations
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q"

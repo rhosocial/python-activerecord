@@ -1,4 +1,4 @@
--- tests/rhosocial/activerecord_test/query/fixtures/order_models.py
+-- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/order_items.py
 CREATE TABLE order_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id INTEGER NOT NULL,

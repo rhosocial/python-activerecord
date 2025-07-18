@@ -20,6 +20,7 @@ class Employee(RelationManagementMixin, BaseModel):
         inverse_of="employees"
     )
 
+
 class Department(RelationManagementMixin, BaseModel):
     id: int
     name: str
@@ -28,17 +29,21 @@ class Department(RelationManagementMixin, BaseModel):
         inverse_of="department"
     )
 
+
 @pytest.fixture
 def employee():
     return Employee(id=1, name="John Doe", department_id=1)
+
 
 @pytest.fixture
 def department():
     return Department(id=1, name="Engineering")
 
+
 @pytest.fixture
 def employee_class():
     return Employee
+
 
 @pytest.fixture
 def department_class():
@@ -52,12 +57,14 @@ class CustomBookLoader(RelationLoader):
     def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
         pass
 
+
 class CustomAuthorLoader(RelationLoader):
     def load(self, instance: Any) -> Optional[Any]:
         return Author(id=instance.author_id, name="Test Author")
 
     def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
         pass
+
 
 class CustomProfileLoader(RelationLoader):
     def load(self, instance: Any) -> Optional[Any]:
@@ -66,6 +73,7 @@ class CustomProfileLoader(RelationLoader):
     def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
         pass
 
+
 class CustomChapterLoader(RelationLoader):
     def load(self, instance: Any) -> Optional[List[Any]]:
         return [Chapter(id=1, title="Test Chapter", book_id=instance.id)]
@@ -73,12 +81,14 @@ class CustomChapterLoader(RelationLoader):
     def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
         pass
 
+
 class CustomAuthorProfileLoader(RelationLoader):
     def load(self, instance: Any) -> Optional[Any]:
         return Author(id=instance.author_id, name="Test Author")
 
     def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
         pass
+
 
 class Author(RelationManagementMixin, BaseModel):
     id: int
@@ -95,6 +105,7 @@ class Author(RelationManagementMixin, BaseModel):
         loader=CustomProfileLoader()
     )
 
+
 class Book(RelationManagementMixin, BaseModel):
     id: int
     title: str
@@ -110,6 +121,7 @@ class Book(RelationManagementMixin, BaseModel):
         loader=CustomChapterLoader()  # Add the loader here
     )
 
+
 class Chapter(RelationManagementMixin, BaseModel):
     id: int
     title: str
@@ -118,6 +130,7 @@ class Chapter(RelationManagementMixin, BaseModel):
         foreign_key="book_id",
         inverse_of="chapters"
     )
+
 
 class Profile(RelationManagementMixin, BaseModel):
     id: int
@@ -129,17 +142,21 @@ class Profile(RelationManagementMixin, BaseModel):
         loader=CustomAuthorProfileLoader()  # Add loader
     )
 
+
 @pytest.fixture
 def author():
     return Author(id=1, name="Test Author")
+
 
 @pytest.fixture
 def book():
     return Book(id=1, title="Test Book", author_id=1)
 
+
 @pytest.fixture
 def chapter():
     return Chapter(id=1, title="Chapter 1", book_id=1)
+
 
 @pytest.fixture
 def profile():

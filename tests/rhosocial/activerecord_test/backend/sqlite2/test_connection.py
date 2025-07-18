@@ -11,17 +11,20 @@ def test_connect_success(db_path):
     assert backend._connection is not None
     backend.disconnect()
 
+
 def test_connect_invalid_path():
     """Test connection failure with invalid path"""
     backend = SQLiteBackend(database="/invalid/path/db.sqlite")
     with pytest.raises(ConnectionError):
         backend.connect()
 
+
 def test_disconnect(db):
     """Test disconnection"""
     db.disconnect()
     assert db._connection is None
     assert db._cursor is None
+
 
 def test_ping(db):
     """Test ping functionality"""

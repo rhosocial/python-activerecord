@@ -14,14 +14,14 @@ class User(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """User model with basic relations."""
     __table_name__ = "users"
 
-    id: Optional[int] = None  # 主键，新记录时为空
-    username: str            # 必需字段
-    email: EmailStr              # 必需字段
-    age: Optional[int] = Field(..., ge=0, le=100)  # 可选字段
-    balance: float = 0.0      # 有默认值的字段
-    is_active: bool = True    # 有默认值的字段
-    # created_at: Optional[str] = None  # 可选字段，通常由数据库自动设置
-    # updated_at: Optional[str] = None  # 可选字段，通常由数据库自动设置
+    id: Optional[int] = None  # Primary key, null for new records
+    username: str  # Required field
+    email: EmailStr  # Required field
+    age: Optional[int] = Field(..., ge=0, le=100)  # Optional field
+    balance: float = 0.0  # Field with default value
+    is_active: bool = True  # Field with default value
+    # created_at: Optional[str] = None  # Optional field, usually set automatically by database
+    # updated_at: Optional[str] = None  # Optional field, usually set automatically by database
 
     orders: ClassVar[HasMany['Order']] = HasMany(foreign_key='user_id', inverse_of='user')
     # Add relationships to User model
@@ -66,6 +66,7 @@ class Order(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     items: ClassVar[HasMany['OrderItem']] = HasMany(foreign_key='order_id', inverse_of='order')
     user: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id', inverse_of='orders')
+
 
 class OrderItem(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Order item model with basic relations."""
@@ -121,7 +122,8 @@ class OrderWithComplexCache(Order):
         # order_by=['created_at DESC']
     )
 
-# 创建测试夹具
+
+# Create test fixtures
 user_class = create_active_record_fixture(User)
 order_class = create_active_record_fixture(Order)
 order_item_class = create_active_record_fixture(OrderItem)
@@ -129,6 +131,7 @@ order_item_class = create_active_record_fixture(OrderItem)
 order_with_custom_cache_class = create_active_record_fixture(OrderWithCustomCache)
 order_with_limited_cache_class = create_active_record_fixture(OrderWithLimitedCache)
 order_with_complex_cache_class = create_active_record_fixture(OrderWithComplexCache)
+
 
 class Post(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Post model with user and comments relations."""
@@ -149,6 +152,7 @@ class Post(IntegerPKMixin, TimestampMixin, ActiveRecord):
         inverse_of='post'
     )
 
+
 class Comment(IntegerPKMixin, TimestampMixin, ActiveRecord):
     """Comment model with user and post relations."""
     __table_name__ = "comments"
@@ -167,6 +171,7 @@ class Comment(IntegerPKMixin, TimestampMixin, ActiveRecord):
         foreign_key='post_id',
         inverse_of='comments'
     )
+
 
 # # Add relationships to User model  # Note! Relations defined after instantiation have nothing to do with existing instances.
 # User.posts: ClassVar[HasMany['Post']] = HasMany(

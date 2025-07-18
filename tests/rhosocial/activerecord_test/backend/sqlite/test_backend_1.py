@@ -111,8 +111,7 @@ class TestSQLiteBackendCoveragePart1:
 
         # Mock exception during file deletion
         with patch('os.path.exists', return_value=True), \
-             patch('os.remove', side_effect=Exception("Unexpected error")):
-
+                patch('os.remove', side_effect=Exception("Unexpected error")):
             # Should raise ConnectionError
             with pytest.raises(ConnectionError) as exc_info:
                 backend.disconnect()

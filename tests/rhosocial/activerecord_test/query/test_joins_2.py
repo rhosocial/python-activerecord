@@ -611,7 +611,6 @@ def test_join_with_or_conditions(order_fixtures):
     assert all(r.total_amount > Decimal('50.00') for r in results)
 
 
-
 def test_join_with_in_conditions(order_fixtures):
     """Test joins with IN conditions"""
     User, Order, OrderItem = order_fixtures

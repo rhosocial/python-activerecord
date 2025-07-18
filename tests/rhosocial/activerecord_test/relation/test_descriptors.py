@@ -155,7 +155,8 @@ def test_inconsistent_inverse_relationship():
     assert author.wrong_book() is None
 
     # But accessing author from book should raise error due to inconsistent inverse
-    with pytest.raises(ValueError, match="Invalid relationship: Inverse relationship 'book' not found in InconsistentAuthor"):
+    with pytest.raises(ValueError,
+                       match="Invalid relationship: Inverse relationship 'book' not found in InconsistentAuthor"):
         _ = book.author()
 
 

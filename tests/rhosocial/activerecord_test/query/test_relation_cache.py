@@ -178,7 +178,9 @@ def setup_order_data(order_fixtures) -> TestData:
     # 返回带有所有测试数据的数据类
     return TestData(users=users, orders=orders, items=items)
 
+
 order_fixtures = create_order_fixtures()
+
 
 def test_basic_relation_caching(order_fixtures, setup_order_data):
     """Test basic relation caching behavior."""
@@ -286,7 +288,8 @@ def test_cache_isolation_between_records(order_fixtures, setup_order_data):
 
     # 第二个订单应该有预期的产品
     assert len(order2.items()) == 1
-    assert order2.items()[0].product_name == expected_product_name2, f"Expected {expected_product_name2}, got {order2.items()[0].product_name}"
+    assert order2.items()[
+               0].product_name == expected_product_name2, f"Expected {expected_product_name2}, got {order2.items()[0].product_name}"
 
     # 现在单独测试以确保缓存不相互干扰
     order1 = Order.query().with_("items").where("id = ?", (order_id1,)).one()
@@ -295,7 +298,8 @@ def test_cache_isolation_between_records(order_fixtures, setup_order_data):
 
     order2 = Order.query().with_("items").where("id = ?", (order_id2,)).one()
     assert len(order2.items()) == 1
-    assert order2.items()[0].product_name == expected_product_name2, f"Expected {expected_product_name2}, got {order2.items()[0].product_name}"
+    assert order2.items()[
+               0].product_name == expected_product_name2, f"Expected {expected_product_name2}, got {order2.items()[0].product_name}"
 
 
 def test_mixed_empty_and_populated_relations(order_fixtures, setup_order_data):
@@ -317,17 +321,22 @@ def test_mixed_empty_and_populated_relations(order_fixtures, setup_order_data):
     # 检查每个订单的订单项
     # 第一个订单有一个订单项
     order1 = orders_by_id[test_data.orders[0].id]
-    assert len(order1.items()) == 1, f"Expected order {test_data.orders[0].id} to have 1 item, got {len(order1.items())}"
-    assert order1.items()[0].product_name == expected_product_names[0], f"Expected product {expected_product_names[0]}, got {order1.items()[0].product_name}"
+    assert len(
+        order1.items()) == 1, f"Expected order {test_data.orders[0].id} to have 1 item, got {len(order1.items())}"
+    assert order1.items()[0].product_name == expected_product_names[
+        0], f"Expected product {expected_product_names[0]}, got {order1.items()[0].product_name}"
 
     # 第二个订单有一个订单项
     order2 = orders_by_id[test_data.orders[1].id]
-    assert len(order2.items()) == 1, f"Expected order {test_data.orders[1].id} to have 1 item, got {len(order2.items())}"
-    assert order2.items()[0].product_name == expected_product_names[1], f"Expected product {expected_product_names[1]}, got {order2.items()[0].product_name}"
+    assert len(
+        order2.items()) == 1, f"Expected order {test_data.orders[1].id} to have 1 item, got {len(order2.items())}"
+    assert order2.items()[0].product_name == expected_product_names[
+        1], f"Expected product {expected_product_names[1]}, got {order2.items()[0].product_name}"
 
     # 第三个订单没有订单项
     order3 = orders_by_id[test_data.orders[2].id]
-    assert len(order3.items()) == 0, f"Expected order {test_data.orders[2].id} to have 0 items, got {len(order3.items())}"
+    assert len(
+        order3.items()) == 0, f"Expected order {test_data.orders[2].id} to have 0 items, got {len(order3.items())}"
 
 
 def test_cache_consistency_across_queries(order_fixtures, setup_order_data):
@@ -357,8 +366,10 @@ def test_cache_consistency_across_queries(order_fixtures, setup_order_data):
     # 第二次查询 - 应该检测到变更
     order_updated = Order.query().with_("items").where("id = ?", (empty_order_id,)).one()
     assert order_updated is not None
-    assert len(order_updated.items()) == 1, f"Expected order {empty_order_id} to have 1 item after update, got {len(order_updated.items())}"
-    assert order_updated.items()[0].product_name == new_product_name, f"Expected product {new_product_name}, got {order_updated.items()[0].product_name}"
+    assert len(
+        order_updated.items()) == 1, f"Expected order {empty_order_id} to have 1 item after update, got {len(order_updated.items())}"
+    assert order_updated.items()[
+               0].product_name == new_product_name, f"Expected product {new_product_name}, got {order_updated.items()[0].product_name}"
 
 
 def test_repeated_empty_relation_queries(order_fixtures, setup_order_data):
@@ -373,7 +384,8 @@ def test_repeated_empty_relation_queries(order_fixtures, setup_order_data):
     for i in range(5):  # 测试5次以提高检测问题的几率
         order = Order.query().with_("items").where("id = ?", (empty_order_id,)).one()
         assert order is not None, f"Failed to get order {empty_order_id} on iteration {i}"
-        assert len(order.items()) == 0, f"Expected order {empty_order_id} to have 0 items on iteration {i}, got {len(order.items())}"
+        assert len(
+            order.items()) == 0, f"Expected order {empty_order_id} to have 0 items on iteration {i}, got {len(order.items())}"
 
 
 def test_cache_clearing_on_update(order_fixtures, setup_order_data):
@@ -388,7 +400,8 @@ def test_cache_clearing_on_update(order_fixtures, setup_order_data):
     # 第一次查询
     order = Order.query().with_("items").where("id = ?", (order_id,)).one()
     assert len(order.items()) == 1, f"Expected order {order_id} to have 1 item, got {len(order.items())}"
-    assert order.items()[0].product_name == original_product_name, f"Expected product {original_product_name}, got {order.items()[0].product_name}"
+    assert order.items()[
+               0].product_name == original_product_name, f"Expected product {original_product_name}, got {order.items()[0].product_name}"
 
     # 更新订单项
     item = order.items()[0]
@@ -398,8 +411,10 @@ def test_cache_clearing_on_update(order_fixtures, setup_order_data):
 
     # 再次查询 - 应该获取更新后的数据
     order_updated = Order.query().with_("items").where("id = ?", (order_id,)).one()
-    assert len(order_updated.items()) == 1, f"Expected order {order_id} to still have 1 item, got {len(order_updated.items())}"
-    assert order_updated.items()[0].product_name == updated_product_name, f"Expected updated product {updated_product_name}, got {order_updated.items()[0].product_name}"
+    assert len(
+        order_updated.items()) == 1, f"Expected order {order_id} to still have 1 item, got {len(order_updated.items())}"
+    assert order_updated.items()[
+               0].product_name == updated_product_name, f"Expected updated product {updated_product_name}, got {order_updated.items()[0].product_name}"
 
 
 def test_relation_query_with_different_modifiers(order_fixtures, setup_order_data):
@@ -424,14 +439,16 @@ def test_relation_query_with_different_modifiers(order_fixtures, setup_order_dat
         ("items", lambda q: q.where("quantity > ?", (low_threshold - 1,)))  # 确保条件满足
     ).where("id = ?", (order_id,)).one()
 
-    assert len(order_with_condition.items()) == 1, f"Expected order {order_id} to have 1 item with quantity > {low_threshold-1}, got {len(order_with_condition.items())}"
+    assert len(
+        order_with_condition.items()) == 1, f"Expected order {order_id} to have 1 item with quantity > {low_threshold - 1}, got {len(order_with_condition.items())}"
 
     # 第三次查询 - 带有不同条件
     order_with_different_condition = Order.query().with_(
         ("items", lambda q: q.where("quantity > ?", (high_threshold,)))  # 确保条件不满足
     ).where("id = ?", (order_id,)).one()
 
-    assert len(order_with_different_condition.items()) == 0, f"Expected order {order_id} to have 0 items with quantity > {high_threshold}, got {len(order_with_different_condition.items())}"
+    assert len(
+        order_with_different_condition.items()) == 0, f"Expected order {order_id} to have 0 items with quantity > {high_threshold}, got {len(order_with_different_condition.items())}"
 
 
 def test_relation_loading_on_empty_result_set(order_fixtures, setup_order_data):
@@ -448,7 +465,6 @@ def test_relation_loading_on_empty_result_set(order_fixtures, setup_order_data):
         .one()
 
     assert order is None, f"Expected no result for non-existent ID {non_existent_id}, but got a result"
-
 
 
 def test_basic_relation_loading(order_fixtures, setup_order_data):
@@ -483,6 +499,7 @@ def test_basic_relation_loading(order_fixtures, setup_order_data):
     assert len(order2_again.items()) == 1
     assert order2_again.items()[0].product_name == expected_product_name2
 
+
 def test_relation_loading_with_conditions(order_fixtures, setup_order_data):
     """Test relation loading with specific conditions."""
     User, Order, OrderItem = order_fixtures
@@ -498,6 +515,7 @@ def test_relation_loading_with_conditions(order_fixtures, setup_order_data):
 
     assert len(order.items()) == 1
     assert order.items()[0].unit_price == expected_price
+
 
 def test_relation_loading_with_ordering(order_fixtures, setup_order_data):
     """Test relation loading with specific ordering."""

@@ -23,6 +23,7 @@ def test_cache_config():
     assert custom_config.ttl == 60
     assert custom_config.max_size == 100
 
+
 def test_global_cache_config():
     """Test GlobalCacheConfig singleton and configuration."""
     config1 = GlobalCacheConfig()
@@ -34,6 +35,7 @@ def test_global_cache_config():
     assert config1.config.ttl == 60
     assert config2.config.enabled is False
     assert config2.config.ttl == 60
+
 
 def test_cache_entry():
     """Test CacheEntry creation and expiration."""
@@ -48,6 +50,7 @@ def test_cache_entry():
     # Test no TTL
     entry = CacheEntry("test", ttl=None)
     assert not entry.is_expired()
+
 
 def test_relation_cache():
     """Test RelationCache operations."""
@@ -73,6 +76,7 @@ def test_relation_cache():
     cache.clear()
     assert cache.get(instance) is None
 
+
 def test_relation_cache_max_size():
     """Test RelationCache max size handling."""
     cache = RelationCache(CacheConfig(max_size=2))
@@ -93,6 +97,7 @@ def test_relation_cache_max_size():
     assert cache.get(instance1) is None
     assert cache.get(instance2) is None
     assert cache.get(instance3) == "value3"
+
 
 def test_relation_cache_disabled():
     """Test RelationCache when disabled."""

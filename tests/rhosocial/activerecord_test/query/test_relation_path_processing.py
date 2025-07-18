@@ -77,7 +77,7 @@ class MockQueryBase(IQuery[Any]):
     def not_between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
         return self
 
-    def  start_or_group(self) -> 'IQuery[ModelT]':
+    def start_or_group(self) -> 'IQuery[ModelT]':
         return self
 
     def end_or_group(self) -> 'IQuery[ModelT]':
@@ -108,6 +108,7 @@ class MockQueryBase(IQuery[Any]):
 
     def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None) -> 'IDictQuery[ModelT]':
         return self
+
 
 class MockQuery(RelationalQueryMixin, MockQueryBase):
     """Mock query class for testing the RelationalQueryMixin in isolation."""
@@ -207,6 +208,7 @@ class TestRelationPathProcessing:
         - The modifier function is preserved exactly (by reference, not value)
         - The modifier function is correctly associated with the relation
         """
+
         # Create a test modifier function
         def test_modifier(q):
             return q.where("active = ?", True)
@@ -228,6 +230,7 @@ class TestRelationPathProcessing:
         - Intermediate relations (like "user") do not receive the modifier
         - The modifier is correctly associated with the leaf relation
         """
+
         # Create a test modifier
         def test_modifier(q):
             return q.where("published = ?", True)
@@ -330,6 +333,7 @@ class TestRelationPathProcessing:
         - The most recently applied modifier takes precedence
         - Earlier modifiers are completely replaced, not merged or combined
         """
+
         # Create test modifiers
         def first_modifier(q):
             return q.where("status = ?", "pending")
@@ -500,7 +504,7 @@ class TestRelationPathProcessing:
             ("user", (["user"], ["user"])),
             ("user.posts", (["user", "posts"], ["user", "user.posts"])),
             ("user.posts.comments", (["user", "posts", "comments"],
-                                   ["user", "user.posts", "user.posts.comments"]))
+                                     ["user", "user.posts", "user.posts.comments"]))
         ]
 
         for path, expected in tests:
@@ -517,6 +521,7 @@ class TestRelationPathProcessing:
         - Modifiers don't affect parent or child relations
         - Each modifier maintains its own state and behavior
         """
+
         # Create different modifiers for different levels
         def user_modifier(q):
             q.where_clause = "user_filter"
@@ -626,6 +631,7 @@ class TestRelationPathProcessing:
         - The state of each modifier is maintained independently
         - When executed, each modifier applies its specific state
         """
+
         # Create modifiers with state
         class ModifierWithState:
             def __init__(self, state):
@@ -671,6 +677,7 @@ class TestRelationPathProcessing:
             def modifier(q):
                 applied[name] = True
                 return q
+
             return modifier
 
         # Create modifiers for different paths
@@ -736,6 +743,7 @@ class TestRelationPathProcessing:
         - It correctly processes multiple relations in a single call
         - Modifiers are correctly applied only to their targeted relations
         """
+
         # Create a modifier function
         def test_modifier(q):
             return q.where("status = ?", "active")
@@ -765,9 +773,12 @@ class TestRelationPathProcessing:
         - Different relation formats can be mixed in the chain
         - Modifiers are correctly associated with their targeted relations
         """
+
         # Test modifiers
         def mod1(q): q.flag1 = True; return q
+
         def mod2(q): q.flag2 = True; return q
+
         def mod3(q): q.flag3 = True; return q
 
         # Chain multiple with_() calls
@@ -911,9 +922,12 @@ class TestRelationPathProcessing:
         - Modifiers are isolated to their specific relation level
         - When executed, each modifier behaves as expected
         """
+
         # Create modifiers
         def m1(q): q.mod = "m1"; return q
+
         def m2(q): q.mod = "m2"; return q
+
         def m3(q): q.mod = "m3"; return q
 
         # Process deeply nested path with modifiers at each level
@@ -969,6 +983,7 @@ class TestRelationPathProcessing:
         - When executed, they behave according to their implementation
         - Different custom modifiers are preserved as distinct objects
         """
+
         # Define a custom object with __call__
         class CustomModifier:
             def __init__(self, name):
@@ -1009,9 +1024,9 @@ class TestRelationPathProcessing:
         # Test with empty parts (e.g., "user..posts" or "user.")
         paths_with_empty = [
             "user..posts",  # Double dot
-            "user.",        # Trailing dot
-            ".user",        # Leading dot
-            "..user"        # Multiple leading dots
+            "user.",  # Trailing dot
+            ".user",  # Leading dot
+            "..user"  # Multiple leading dots
         ]
 
         # Process each path
@@ -1055,12 +1070,12 @@ class TestRelationPathProcessing:
 
         # Verify sorting works correctly
         expected_sorted = [
-            "m",            # Depth 1
-            "a", "p",       # Depth 1
+            "m",  # Depth 1
+            "a", "p",  # Depth 1
             "a.b", "a.x", "p.q",  # Depth 2
-            "a.b.c", "a.x.y",     # Depth 3
-            "a.b.c.d", "a.x.y.z", # Depth 4
-            "a.b.c.d.e"           # Depth 5
+            "a.b.c", "a.x.y",  # Depth 3
+            "a.b.c.d", "a.x.y.z",  # Depth 4
+            "a.b.c.d.e"  # Depth 5
         ]
 
         # Remove duplicates while preserving order (in case sorting isn't stable)
@@ -1074,7 +1089,7 @@ class TestRelationPathProcessing:
         # Check if all paths at each depth appear before any paths at greater depth
         for i, path in enumerate(unique_sorted):
             depth = len(path.split('.'))
-            for later_path in unique_sorted[i+1:]:
+            for later_path in unique_sorted[i + 1:]:
                 later_depth = len(later_path.split('.'))
                 assert depth <= later_depth, f"{path} (depth {depth}) should come before {later_path} (depth {later_depth})"
 

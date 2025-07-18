@@ -10,6 +10,7 @@ from ..utils import create_order_fixtures
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
+
 def test_basic_explain(order_fixtures, request):
     """Test basic EXPLAIN output"""
     if 'sqlite' not in request.node.name:
@@ -36,6 +37,7 @@ def test_basic_explain(order_fixtures, request):
     assert isinstance(plan, str)
     assert any(op in plan for op in ['Trace', 'Goto', 'OpenRead'])
 
+
 def test_query_plan_explain(order_fixtures, request):
     """Test EXPLAIN QUERY PLAN output"""
     if 'sqlite' not in request.node.name:
@@ -50,6 +52,7 @@ def test_query_plan_explain(order_fixtures, request):
     plan = Order.query().explain(type=ExplainType.QUERYPLAN).all()
     assert isinstance(plan, str)
     assert any(op in plan for op in ['SCAN', 'SEARCH'])
+
 
 def test_explain_with_options(order_fixtures, request):
     """Test explain with different options"""
@@ -77,6 +80,7 @@ def test_explain_with_options(order_fixtures, request):
         timing=True  # Should be ignored
     ).all()
     assert isinstance(plan, str)
+
 
 def test_explain_query_building(order_fixtures, request):
     """Test explain with query building methods"""

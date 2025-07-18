@@ -265,11 +265,11 @@ def test_cte_with_nested_relations(blog_fixtures):
 def test_cte_relation_cache_mechanisms(blog_fixtures):
     """Test relation caching when using CTE queries"""
     User, Post, Comment = blog_fixtures
-    
+
     # Create a test user
     user = User(username='cache_test_user', email='cache@example.com', age=30)
     user.save()
-    
+
     # Create test posts
     post = Post(
         user_id=user.id,
@@ -277,7 +277,7 @@ def test_cte_relation_cache_mechanisms(blog_fixtures):
         content='Testing relation caching with CTEs'
     )
     post.save()
-    
+
     # Create a CTE query for this post
     query = Post.query().with_cte(
         'test_post',
@@ -286,23 +286,23 @@ def test_cte_relation_cache_mechanisms(blog_fixtures):
         WHERE id = {post.id}
         """
     ).from_cte('test_post')
-    
+
     # Execute the query and get the post
     cte_post = query.one()
     assert cte_post is not None
-    
+
     # Access the user relation to cache it
     user_from_relation = cte_post.user()
     assert user_from_relation is not None
     assert user_from_relation.id == user.id
-    
+
     # The cached relation should be used on second access
     # Instead of testing the cache implementation directly,
     # verify the relation still returns the correct data
     second_access = cte_post.user()
     assert second_access is not None
     assert second_access.id == user.id
-    
+
     # Clear the cache and verify it gets reloaded properly
     cte_post.clear_relation_cache('user')
     reloaded_user = cte_post.user()

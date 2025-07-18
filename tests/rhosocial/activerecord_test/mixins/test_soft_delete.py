@@ -6,6 +6,7 @@ import tzlocal
 
 from .fixtures.models import task
 
+
 def test_soft_delete_basic(task):
     """Test basic soft delete functionality"""
     # Create new record

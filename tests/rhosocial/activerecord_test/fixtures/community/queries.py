@@ -1,8 +1,9 @@
 # tests/rhosocial/activerecord_test/fixtures/community/queries.py
 class UserQueries:
-    """用户相关查询"""
-    # ... 查询方法定义 ...
+    """User-related queries"""
+    # ... Query method definitions ...
+
 
 class ArticleQueries:
-    """文章相关查询"""
-    # ... 查询方法定义 ...
+    """Article related queries"""
+    # ... Query method definitions ...

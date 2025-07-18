@@ -12,12 +12,13 @@ from .fixtures.models import validated_user  # needed as fixture, do not remove.
 
 @pytest.fixture
 def validated_user_data():
-    """提供有效的用户测试数据"""
+    """Provide valid user testing data"""
     return {
         'username': 'testuser',
         'email': 'test@example.com',
         'age': 25
     }
+
 
 def test_field_validation(validated_user):
     """Test Pydantic field validation"""

@@ -3,15 +3,15 @@
 from decimal import Decimal
 from .utils import create_order_fixtures
 
-# 创建多表测试夹具
+# Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
 
 def test_inner_join(order_fixtures):
-    """测试内连接查询"""
+    """Test inner join queries"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建用户
+    # Create user
     user = User(
         username='test_user',
         email='test@example.com',
@@ -20,7 +20,7 @@ def test_inner_join(order_fixtures):
     )
     user.save()
 
-    # 创建订单
+    # Create order
     order = Order(
         user_id=user.id,
         order_number='ORD-001',
@@ -28,7 +28,7 @@ def test_inner_join(order_fixtures):
     )
     order.save()
 
-    # 创建订单项
+    # Create order item
     item = OrderItem(
         order_id=order.id,
         product_name='Test Product',
@@ -38,7 +38,7 @@ def test_inner_join(order_fixtures):
     )
     item.save()
 
-    # 测试三表INNER JOIN
+    # Test three-table INNER JOIN
     results = Order.query() \
         .join(f"""
             INNER JOIN {OrderItem.__table_name__} 
@@ -56,10 +56,10 @@ def test_inner_join(order_fixtures):
 
 
 def test_left_join(order_fixtures):
-    """测试左连接查询"""
+    """Test left join queries"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建用户
+    # Create user
     user = User(
         username='test_user',
         email='test@example.com',
@@ -67,14 +67,14 @@ def test_left_join(order_fixtures):
     )
     user.save()
 
-    # 创建两个订单：一个有订单项，一个没有
+    # Create two orders: one with order items, one without
     order1 = Order(user_id=user.id, order_number='ORD-001')
     order1.save()
 
     order2 = Order(user_id=user.id, order_number='ORD-002')
     order2.save()
 
-    # 只给order1创建订单项
+    # Create order item only for order1
     item = OrderItem(
         order_id=order1.id,
         product_name='Test Product',
@@ -84,7 +84,7 @@ def test_left_join(order_fixtures):
     )
     item.save()
 
-    # 测试LEFT JOIN
+    # Test LEFT JOIN
     results = Order.query().select('orders.*') \
         .join(f"""
             LEFT JOIN {OrderItem.__table_name__} 
@@ -94,14 +94,14 @@ def test_left_join(order_fixtures):
         .order_by(f'{Order.__table_name__}.order_number') \
         .all()
 
-    assert len(results) == 2  # 应该返回两个订单
+    assert len(results) == 2  # Should return both orders
 
 
 def test_join_with_conditions(order_fixtures):
-    """测试带条件的连接查询"""
+    """Test join queries with conditions"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建用户
+    # Create user
     user = User(
         username='test_user',
         email='test@example.com',
@@ -109,11 +109,11 @@ def test_join_with_conditions(order_fixtures):
     )
     user.save()
 
-    # 创建订单
+    # Create order
     order = Order(user_id=user.id, order_number='ORD-001')
     order.save()
 
-    # 创建两个订单项，数量不同
+    # Create two order items with different quantities
     items = [
         OrderItem(
             order_id=order.id,
@@ -127,7 +127,7 @@ def test_join_with_conditions(order_fixtures):
     for item in items:
         item.save()
 
-    # 测试带条件的JOIN
+    # Test JOIN with conditions
     results = Order.query() \
         .join(f"""
             INNER JOIN {User.__table_name__}
@@ -141,14 +141,14 @@ def test_join_with_conditions(order_fixtures):
         .where(f'{User.__table_name__}.username = ?', ('test_user',)) \
         .all()
 
-    assert len(results) == 1  # 只有一个订单项的quantity > 1
+    assert len(results) == 1  # Only one order item has quantity > 1
 
 
 def test_join_with_or_conditions(order_fixtures):
-    """测试带OR条件的连接查询"""
+    """Test join queries with OR conditions"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建两个用户
+    # Create two users
     users = [
         User(username=f'user{i}', email=f'user{i}@example.com', age=25 + i)
         for i in range(2)
@@ -156,7 +156,7 @@ def test_join_with_or_conditions(order_fixtures):
     for user in users:
         user.save()
 
-    # 为每个用户创建订单
+    # Create orders for each user
     orders = []
     for i, user in enumerate(users):
         order = Order(
@@ -168,7 +168,7 @@ def test_join_with_or_conditions(order_fixtures):
         order.save()
         orders.append(order)
 
-        # 创建订单项
+        # Create order item
         item = OrderItem(
             order_id=order.id,
             product_name=f'Product {i + 1}',
@@ -178,7 +178,7 @@ def test_join_with_or_conditions(order_fixtures):
         )
         item.save()
 
-    # 测试JOIN和OR条件组合
+    # Test JOIN with OR condition combination
     results = Order.query() \
         .join(f"""
             INNER JOIN {User.__table_name__}
@@ -196,10 +196,10 @@ def test_join_with_or_conditions(order_fixtures):
 
 
 def test_join_with_in_conditions(order_fixtures):
-    """测试带IN条件的连接查询"""
+    """Test join queries with IN conditions"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建测试用户
+    # Create test users
     users = [
         User(username=f'user{i}', email=f'user{i}@example.com', age=25 + i)
         for i in range(3)
@@ -207,7 +207,7 @@ def test_join_with_in_conditions(order_fixtures):
     for user in users:
         user.save()
 
-    # 创建订单和订单项
+    # Create orders and order items
     orders = []
     for i, user in enumerate(users):
         order = Order(
@@ -228,7 +228,7 @@ def test_join_with_in_conditions(order_fixtures):
         )
         item.save()
 
-    # 测试JOIN和IN条件组合
+    # Test JOIN with IN condition combination
     results = Order.query() \
         .join(f"""
             INNER JOIN {OrderItem.__table_name__}
@@ -241,7 +241,7 @@ def test_join_with_in_conditions(order_fixtures):
     assert len(results) == 1
     assert results[0].status in ['pending', 'paid']
 
-    # 测试JOIN和NOT IN条件组合
+    # Test JOIN with NOT IN condition combination
     results = Order.query() \
         .join(f"""
             INNER JOIN {User.__table_name__}
@@ -256,10 +256,10 @@ def test_join_with_in_conditions(order_fixtures):
 
 
 def test_complex_join_conditions(order_fixtures):
-    """测试复杂JOIN条件组合"""
+    """Test complex JOIN condition combinations"""
     User, Order, OrderItem = order_fixtures
 
-    # 创建测试用户
+    # Create test users
     users = [
         User(username=f'user{i}', email=f'user{i}@example.com', age=25 + i)
         for i in range(3)
@@ -267,7 +267,7 @@ def test_complex_join_conditions(order_fixtures):
     for user in users:
         user.save()
 
-    # 创建订单和订单项
+    # Create orders and order items
     orders = []
     statuses = ['pending', 'paid', 'shipped']
     for i, user in enumerate(users):
@@ -280,7 +280,7 @@ def test_complex_join_conditions(order_fixtures):
         order.save()
         orders.append(order)
 
-        # 每个订单创建两个订单项
+        # Create two order items for each order
         for j in range(2):
             item = OrderItem(
                 order_id=order.id,
@@ -291,32 +291,32 @@ def test_complex_join_conditions(order_fixtures):
             )
             item.save()
 
-    # 测试复杂条件组合
-    results = Order.query()\
-        .select(f'{Order.__table_name__}.*', f'{User.__table_name__}.age')\
+    # Test complex condition combination
+    results = Order.query() \
+        .select(f'{Order.__table_name__}.*', f'{User.__table_name__}.age') \
         .join(f"""
             INNER JOIN {User.__table_name__}
             ON {Order.__table_name__}.user_id = {User.__table_name__}.id
-        """)\
+        """) \
         .join(f"""
             INNER JOIN {OrderItem.__table_name__}
             ON {Order.__table_name__}.id = {OrderItem.__table_name__}.order_id
-        """)\
-        .start_or_group()\
-        .in_list(f'{Order.__table_name__}.status', ['pending', 'paid'])\
-        .where(f'{OrderItem.__table_name__}.quantity >= ?', (3,))\
-        .end_or_group()\
-        .where(f'{User.__table_name__}.age < ?', (30,))\
-        .order_by(f'{Order.__table_name__}.total_amount')\
+        """) \
+        .start_or_group() \
+        .in_list(f'{Order.__table_name__}.status', ['pending', 'paid']) \
+        .where(f'{OrderItem.__table_name__}.quantity >= ?', (3,)) \
+        .end_or_group() \
+        .where(f'{User.__table_name__}.age < ?', (30,)) \
+        .order_by(f'{Order.__table_name__}.total_amount') \
         .all()
 
-    # 验证结果：用户年龄小于30，且（订单状态为pending或paid，或者订单项数量大于等于3）
+    # Verify results: user age < 30, and (order status is pending or paid, or order item quantity >= 3)
     for result in results:
-        user = User.find_one(result.user_id)  # 获取关联的用户
-        assert user.age < 30  # 使用关联用户的age
+        user = User.find_one(result.user_id)  # Get related user
+        assert user.age < 30  # Use related user's age
         assert (
-            result.status in ['pending', 'paid'] or
-            any(item.quantity >= 3 for item in result.items.all())
+                result.status in ['pending', 'paid'] or
+                any(item.quantity >= 3 for item in result.items.all())
         )
 
 

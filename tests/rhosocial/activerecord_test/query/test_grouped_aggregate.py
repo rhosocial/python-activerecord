@@ -45,7 +45,8 @@ def test_single_group_aggregates(order_fixtures):
     results = (Order.query()
                .group_by('status')
                .count('*', 'order_count')
-               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               .sum('total_amount',
+                    'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
                # but if columns with the same name continue to appear, the query results may be different from other databases.
                .avg('total_amount', 'avg_amount')
                .aggregate())
@@ -90,7 +91,8 @@ def test_group_with_conditions(order_fixtures):
                .where('total_amount > ?', (Decimal('150.00'),))
                .group_by('status')
                .count('*', 'order_count')
-               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               .sum('total_amount',
+                    'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
                # but if columns with the same name continue to appear, the query results may be different from other databases.
                .aggregate())
 
@@ -143,7 +145,8 @@ def test_multiple_group_by(order_fixtures):
     results = (Order.query()
                .group_by('user_id', 'status')
                .count('*', 'order_count')
-               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               .sum('total_amount',
+                    'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
                # but if columns with the same name continue to appear, the query results may be different from other databases.
                .aggregate())
 
@@ -178,7 +181,8 @@ def test_aggregate_ordering(order_fixtures):
     results = (Order.query()
                .group_by('status')
                .count('*', 'order_count')
-               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               .sum('total_amount',
+                    'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
                # but if columns with the same name continue to appear, the query results may be different from other databases.
                .order_by('sum_amount DESC')
                .aggregate())
@@ -226,7 +230,8 @@ def test_complex_aggregates(order_fixtures):
                .group_by('user_id', 'status')
                .having('COUNT(*) > ?', (1,))
                .count('*', 'order_count')
-               .sum('total_amount', 'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
+               .sum('total_amount',
+                    'sum_amount')  # SQLite allows the alias and original name of an expression to be the same,
                # but if columns with the same name continue to appear, the query results may be different from other databases.
                .avg('total_amount', 'avg_amount')
                .min('total_amount', 'min_amount')

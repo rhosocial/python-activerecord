@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/community/__init__.py
 """Community Example Test Module
 
 Provides test cases for community-style applications including

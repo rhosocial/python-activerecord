@@ -6,6 +6,7 @@ def test_transaction_commit(db, setup_test_table):
     row = db.fetch_one("SELECT * FROM test_table WHERE name = ?", ("test",))
     assert row is not None
 
+
 def test_transaction_rollback(db, setup_test_table):
     """Test transaction rollback"""
     try:
@@ -16,6 +17,7 @@ def test_transaction_rollback(db, setup_test_table):
         pass
     row = db.fetch_one("SELECT * FROM test_table WHERE name = ?", ("test",))
     assert row is None
+
 
 def test_nested_transaction(db, setup_test_table):
     """Test nested transactions"""

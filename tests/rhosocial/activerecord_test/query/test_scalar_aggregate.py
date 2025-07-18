@@ -6,6 +6,7 @@ from .utils import create_order_fixtures
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
+
 def test_scalar_count(order_fixtures):
     """Test basic COUNT aggregation"""
     User, Order, OrderItem = order_fixtures
@@ -22,7 +23,7 @@ def test_scalar_count(order_fixtures):
     for i in range(5):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1:03d}',
+            order_number=f'ORD-{i + 1:03d}',
             total_amount=Decimal('100.00')
         )
         order.save()
@@ -43,6 +44,7 @@ def test_scalar_count(order_fixtures):
     count = Order.query().count('user_id', distinct=True)
     assert count == 1
 
+
 def test_scalar_sum(order_fixtures):
     """Test basic SUM aggregation"""
     User, Order, OrderItem = order_fixtures
@@ -55,7 +57,7 @@ def test_scalar_sum(order_fixtures):
     for i, amount in enumerate(amounts):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1:03d}',
+            order_number=f'ORD-{i + 1:03d}',
             total_amount=amount
         )
         order.save()
@@ -68,6 +70,7 @@ def test_scalar_sum(order_fixtures):
     total = Order.query().where('total_amount > ?', (Decimal('150.00'),)).sum('total_amount')
     assert total == Decimal('500.00')
 
+
 def test_scalar_avg(order_fixtures):
     """Test basic AVG aggregation"""
     User, Order, OrderItem = order_fixtures
@@ -76,8 +79,8 @@ def test_scalar_avg(order_fixtures):
     ages = [25, 30, 35]
     for i, age in enumerate(ages):
         user = User(
-            username=f'user{i+1}',
-            email=f'user{i+1}@example.com',
+            username=f'user{i + 1}',
+            email=f'user{i + 1}@example.com',
             age=age
         )
         user.save()
@@ -89,6 +92,7 @@ def test_scalar_avg(order_fixtures):
     # Test average with condition
     avg_age = User.query().where('age > ?', (27,)).avg('age')
     assert avg_age == 32.5
+
 
 def test_scalar_min_max(order_fixtures):
     """Test basic MIN and MAX aggregations"""
@@ -102,7 +106,7 @@ def test_scalar_min_max(order_fixtures):
     for i, amount in enumerate(amounts):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1:03d}',
+            order_number=f'ORD-{i + 1:03d}',
             total_amount=amount
         )
         order.save()
@@ -119,6 +123,7 @@ def test_scalar_min_max(order_fixtures):
     assert min_amount == Decimal('200.00')
     assert max_amount == Decimal('200.00')
 
+
 def test_aggregate_with_complex_conditions(order_fixtures):
     """Test aggregations with complex query conditions"""
     User, Order, OrderItem = order_fixtures
@@ -126,8 +131,8 @@ def test_aggregate_with_complex_conditions(order_fixtures):
     # Create users and orders
     for i in range(3):
         user = User(
-            username=f'user{i+1}',
-            email=f'user{i+1}@example.com',
+            username=f'user{i + 1}',
+            email=f'user{i + 1}@example.com',
             age=25 + i * 5
         )
         user.save()
@@ -136,19 +141,19 @@ def test_aggregate_with_complex_conditions(order_fixtures):
         for j in range(2):
             order = Order(
                 user_id=user.id,
-                order_number=f'ORD-{i+1}-{j+1}',
-                total_amount=Decimal(f'{(i+1)*100}.00'),
+                order_number=f'ORD-{i + 1}-{j + 1}',
+                total_amount=Decimal(f'{(i + 1) * 100}.00'),
                 status='paid' if j % 2 == 0 else 'pending'
             )
             order.save()
 
     # Test count with OR conditions
     count = (Order.query()
-            .start_or_group()
-            .where('total_amount > ?', (Decimal('150.00'),))
-            .or_where('status = ?', ('pending',))
-            .end_or_group()
-            .count())
+             .start_or_group()
+             .where('total_amount > ?', (Decimal('150.00'),))
+             .or_where('status = ?', ('pending',))
+             .end_or_group()
+             .count())
     assert count == 5  # Orders with amount > 150 OR status = pending
 
     # Test sum with complex conditions
@@ -160,9 +165,10 @@ def test_aggregate_with_complex_conditions(order_fixtures):
 
     # Test average with BETWEEN
     avg_amount = (Order.query()
-                 .between('total_amount', Decimal('150.00'), Decimal('250.00'))
-                 .avg('total_amount'))
+                  .between('total_amount', Decimal('150.00'), Decimal('250.00'))
+                  .avg('total_amount'))
     assert avg_amount == Decimal('200.00')
+
 
 def test_aggregate_with_ordering_and_limit(order_fixtures, request):
     """Test aggregations with ORDER BY and LIMIT clauses (which should be ignored)"""
@@ -175,21 +181,21 @@ def test_aggregate_with_ordering_and_limit(order_fixtures, request):
     for i in range(5):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1:03d}',
-            total_amount=Decimal(f'{(i+1)*100}.00')
+            order_number=f'ORD-{i + 1:03d}',
+            total_amount=Decimal(f'{(i + 1) * 100}.00')
         )
         order.save()
 
     # These clauses should not affect the aggregate results
     # Skip tests with ORDER BY and LIMIT for PostgreSQL
     is_postgresql = 'pg' in request.node.name
-    
+
     if not is_postgresql:
         # For non-PostgreSQL databases, test with ORDER BY and LIMIT
         total = (Order.query()
-                .order_by('total_amount DESC')
-                .limit(2)
-                .sum('total_amount'))
+                 .order_by('total_amount DESC')
+                 .limit(2)
+                 .sum('total_amount'))
         assert total == Decimal('1500.00')  # Should sum all records
 
     # Basic aggregation, should always return the correct result

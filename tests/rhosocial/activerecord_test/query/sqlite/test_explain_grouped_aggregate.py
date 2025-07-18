@@ -10,6 +10,7 @@ from ..utils import create_order_fixtures
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
+
 def test_explain_basic_group_by(order_fixtures, request):
     """Test explain with basic GROUP BY"""
     if 'sqlite' not in request.node.name:
@@ -91,6 +92,7 @@ def test_explain_aggregate_with_having(order_fixtures, request):
     # Note: HAVING might be optimized into the GROUP BY B-TREE operation
     assert "TEMP B-TREE" in plan.upper()
 
+
 def test_explain_multiple_aggregates(order_fixtures, request):
     """Test explain with multiple aggregate functions"""
     if 'sqlite' not in request.node.name:
@@ -106,7 +108,7 @@ def test_explain_multiple_aggregates(order_fixtures, request):
         order = Order(
             user_id=user.id,
             order_number=f'ORD-{i}',
-            total_amount=Decimal(f'{(i+1)*100}.00')
+            total_amount=Decimal(f'{(i + 1) * 100}.00')
         )
         order.save()
 
@@ -122,6 +124,7 @@ def test_explain_multiple_aggregates(order_fixtures, request):
     # Should see multiple aggregate function operations
     assert any(op in plan for op in ['Aggregate', 'Function', 'Column'])
 
+
 def test_explain_multiple_group_by(order_fixtures, request):
     """Test explain with multiple GROUP BY columns"""
     if 'sqlite' not in request.node.name:
@@ -134,7 +137,7 @@ def test_explain_multiple_group_by(order_fixtures, request):
         user = User(
             username=f'user{i}',
             email=f'user{i}@example.com',
-            age=30+i
+            age=30 + i
         )
         user.save()
 
@@ -158,6 +161,7 @@ def test_explain_multiple_group_by(order_fixtures, request):
     assert "GROUP BY" in plan.upper()
     # Multiple columns in GROUP BY create more complex sort operations
     assert "COMPOUND" in plan.upper() or "TEMP" in plan.upper()
+
 
 def test_explain_aggregate_with_joins(order_fixtures, request):
     """Test explain with aggregates and joins"""
@@ -190,8 +194,9 @@ def test_explain_aggregate_with_joins(order_fixtures, request):
     assert isinstance(plan, str)
     assert "SCAN" in plan
     assert any(table.lower() in plan.lower()
-              for table in [Order.__table_name__, User.__table_name__])
+               for table in [Order.__table_name__, User.__table_name__])
     assert "GROUP BY" in plan.upper()
+
 
 def test_explain_aggregate_with_subqueries(order_fixtures, request):
     """Test explain with aggregates containing subqueries"""
@@ -209,7 +214,7 @@ def test_explain_aggregate_with_subqueries(order_fixtures, request):
             user_id=user.id,
             order_number=f'ORD-{i}',
             status='pending',
-            total_amount=Decimal(f'{(i+1)*100}.00')
+            total_amount=Decimal(f'{(i + 1) * 100}.00')
         )
         order.save()
 

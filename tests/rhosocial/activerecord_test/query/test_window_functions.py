@@ -329,6 +329,7 @@ def test_named_window_definitions(order_fixtures, skip_if_unsupported):
             pytest.skip("SQLite installation doesn't properly support named windows")
         raise
 
+
 def test_window_frame_specifications(order_fixtures, skip_if_unsupported):
     """Test window function frame specifications."""
     User, Order, OrderItem = order_fixtures

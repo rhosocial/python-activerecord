@@ -4,11 +4,12 @@ from src.rhosocial.activerecord.interface import ModelEvent
 
 from .fixtures.models import event_test_model
 
+
 def test_save_lifecycle_events(event_test_model):
-    """测试保存生命周期事件"""
+    """Test save lifecycle events"""
     instance = event_test_model(name="test")
 
-    # 记录事件触发顺序
+    # Record event trigger sequence
     event_sequence = []
 
     def on_before_validate(instance, **kwargs):
@@ -24,16 +25,16 @@ def test_save_lifecycle_events(event_test_model):
     def on_after_save(instance, **kwargs):
         event_sequence.append(("AFTER_SAVE", instance.revision))
 
-    # 注册所有事件处理器
+    # Register all event handlers
     instance.on(ModelEvent.BEFORE_VALIDATE, on_before_validate)
     instance.on(ModelEvent.AFTER_VALIDATE, on_after_validate)
     instance.on(ModelEvent.BEFORE_SAVE, on_before_save)
     instance.on(ModelEvent.AFTER_SAVE, on_after_save)
 
-    # 保存记录
+    # Save record
     instance.save()
 
-    # 验证事件顺序
+    # Verify event sequence
     expected_sequence = [
         ("BEFORE_VALIDATE", 1),
         ("AFTER_VALIDATE", 1),
@@ -44,7 +45,7 @@ def test_save_lifecycle_events(event_test_model):
 
 
 def test_delete_lifecycle_events(event_test_model):
-    """测试删除生命周期事件"""
+    """Test delete lifecycle events"""
     instance = event_test_model(name="test")
     instance.save()
 
@@ -57,20 +58,20 @@ def test_delete_lifecycle_events(event_test_model):
     def on_after_delete(instance, **kwargs):
         event_sequence.append("AFTER_DELETE")
 
-    # 注册删除事件处理器
+    # Register delete event handlers
     instance.on(ModelEvent.BEFORE_DELETE, on_before_delete)
     instance.on(ModelEvent.AFTER_DELETE, on_after_delete)
 
-    # 删除记录
+    # Delete record
     instance.delete()
 
-    # 验证事件顺序和状态变化
+    # Verify event sequence and status change
     assert event_sequence == ["BEFORE_DELETE", "AFTER_DELETE"]
     assert instance.status == "deleting"
 
 
 def test_validation_lifecycle_events(event_test_model):
-    """测试验证生命周期事件"""
+    """Test validation lifecycle events"""
     instance = event_test_model(name="test")
 
     validation_data = {}
@@ -82,22 +83,22 @@ def test_validation_lifecycle_events(event_test_model):
     def on_after_validate(instance, **kwargs):
         validation_data["after"] = instance.name
 
-    # 注册验证事件处理器
+    # Register validation event handlers
     instance.on(ModelEvent.BEFORE_VALIDATE, on_before_validate)
     instance.on(ModelEvent.AFTER_VALIDATE, on_after_validate)
 
-    # 使用带空格的名称创建实例并保存
+    # Create instance with name containing spaces and save
     instance.name = " test_name "
     instance.save()
 
-    # 验证名称在验证前后的变化
+    # Verify name changes before and after validation
     assert validation_data["before"] == " test_name "
     assert validation_data["after"] == "test_name"
     assert instance.name == "test_name"
 
 
 def test_nested_event_handling(event_test_model):
-    """测试嵌套事件处理"""
+    """Test nested event handling"""
     parent = event_test_model(name="parent")
     child = event_test_model(name="child")
 
@@ -105,41 +106,41 @@ def test_nested_event_handling(event_test_model):
 
     def parent_save_handler(instance, **kwargs):
         event_sequence.append("parent_before_save")
-        # 在父对象保存时保存子对象
+        # Save child object when parent object is saved
         child.save()
 
     def child_save_handler(instance, **kwargs):
         event_sequence.append("child_before_save")
 
-    # 注册事件处理器
+    # Register event handlers
     parent.on(ModelEvent.BEFORE_SAVE, parent_save_handler)
     child.on(ModelEvent.BEFORE_SAVE, child_save_handler)
 
-    # 保存父对象
+    # Save parent object
     parent.save()
 
-    # 验证嵌套事件的执行顺序
+    # Verify execution order of nested events
     assert event_sequence == ["parent_before_save", "child_before_save"]
 
 
 def test_event_error_handling(event_test_model):
-    """测试事件错误处理"""
+    """Test event error handling"""
     instance = event_test_model(name="test")
 
     def error_handler(instance, **kwargs):
         raise ValueError("Test error in event handler")
 
-    # 注册可能抛出错误的处理器
+    # Register handler that may raise errors
     instance.on(ModelEvent.BEFORE_SAVE, error_handler)
 
-    # 验证错误正确传播
+    # Verify error propagates correctly
     with pytest.raises(ValueError) as exc_info:
         instance.save()
     assert "Test error in event handler" in str(exc_info.value)
 
 
 def test_conditional_event_handling(event_test_model):
-    """测试条件性事件处理"""
+    """Test conditional event handling"""
     instance = event_test_model(name="test", status="draft")
     handled_events = []
 
@@ -151,19 +152,19 @@ def test_conditional_event_handling(event_test_model):
         if instance.is_dirty and "content" in instance.dirty_fields:
             handled_events.append(("content_change", instance.content))
 
-    # 注册条件处理器
+    # Register conditional handlers
     instance.on(ModelEvent.BEFORE_SAVE, status_change_handler)
     instance.on(ModelEvent.BEFORE_SAVE, content_change_handler)
 
-    # 测试状态变更
+    # Test status change
     instance.status = "published"
     instance.save()
 
-    # 测试内容变更
+    # Test content change
     instance.content = "new content"
     instance.save()
 
-    # 验证只有相关的处理器被触发
+    # Verify only relevant handlers were triggered
     assert handled_events == [
         ("status_change", "published"),
         ("content_change", "new content")

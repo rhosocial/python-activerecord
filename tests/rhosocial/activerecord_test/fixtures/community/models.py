@@ -6,12 +6,13 @@ import pytest
 from src.activerecord.base import ActiveRecord
 from src.activerecord.fields import TimestampMixin, SoftDeleteMixin
 
+
 @pytest.fixture
 def community_models(storage_backend):
-    """用户社区相关模型夹具"""
+    """Community-related model fixtures"""
 
     class User(TimestampMixin, ActiveRecord):
-        """用户模型"""
+        """User model"""
         id: Optional[int]
         username: str
         email: str
@@ -23,7 +24,7 @@ def community_models(storage_backend):
         __table_name__ = 'users'
 
     class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
-        """文章模型"""
+        """Article model"""
         id: Optional[int]
         user_id: int
         title: str
@@ -34,7 +35,7 @@ def community_models(storage_backend):
         __table_name__ = 'articles'
 
     class Comment(TimestampMixin, ActiveRecord):
-        """评论模型"""
+        """Comment model"""
         id: Optional[int]
         article_id: int
         user_id: int
@@ -44,7 +45,7 @@ def community_models(storage_backend):
         __table_name__ = 'comments'
 
     class Friendship(TimestampMixin, ActiveRecord):
-        """好友关系模型"""
+        """Friendship relation model"""
         id: Optional[int]
         user_id: int
         friend_id: int
@@ -52,11 +53,11 @@ def community_models(storage_backend):
 
         __table_name__ = 'friendships'
 
-    # 设置后端
+    # Set backend
     for model in [User, Article, Comment, Friendship]:
         model.set_backend(storage_backend)
 
-    # 创建表结构
+    # Create table structure
     storage_backend.execute("""
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
@@ -121,6 +122,6 @@ def community_models(storage_backend):
         'Friendship': Friendship
     }
 
-    # 清理表
+    # Clean up tables
     for table in ['friendships', 'comments', 'articles', 'users']:
         storage_backend.execute(f"DROP TABLE {table}")

@@ -111,6 +111,7 @@ def test_relation_registration_validation():
     relation = TestModel.get_relation("test")
     assert isinstance(relation, HasMany)  # 验证后定义的关系生效
 
+
 def test_relation_inheritance():
     """Test that derived classes can override relations"""
 
@@ -140,6 +141,7 @@ def test_relation_inheritance():
 
     # Verify relations are different objects
     assert parent_relation is not child_relation
+
 
 def test_forward_reference_resolution():
     """Test resolution of forward references in relationship declarations."""

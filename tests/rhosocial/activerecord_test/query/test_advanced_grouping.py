@@ -88,7 +88,7 @@ def test_cube_basic(extended_order_fixtures, skip_if_unsupported):
     for i, (status, priority, amount) in enumerate(data):
         order = ExtendedOrder(
             user_id=user.id,
-            order_number=f'CUBE-{i+1}',
+            order_number=f'CUBE-{i + 1}',
             status=status,
             priority=priority,
             total_amount=amount
@@ -187,7 +187,7 @@ def test_rollup_basic(extended_order_fixtures, skip_if_unsupported):
     for i, (region, category, amount) in enumerate(data):
         order = ExtendedOrder(
             user_id=user.id,
-            order_number=f'ROLLUP-{i+1}',
+            order_number=f'ROLLUP-{i + 1}',
             region=region,
             category=category,
             total_amount=amount
@@ -243,8 +243,8 @@ def test_rollup_basic(extended_order_fixtures, skip_if_unsupported):
         subtotals = [
             (('North', None), Decimal('800.00')),  # North region subtotal
             (('South', None), Decimal('600.00')),  # South region subtotal
-            (('East', None), Decimal('700.00')),   # East region subtotal
-            ((None, None), Decimal('2100.00'))     # Grand total
+            (('East', None), Decimal('700.00')),  # East region subtotal
+            ((None, None), Decimal('2100.00'))  # Grand total
         ]
 
         for (region, category), expected_total in subtotals:
@@ -281,7 +281,7 @@ def test_grouping_sets_basic(extended_order_fixtures, skip_if_unsupported):
     for i, (department, product, amount) in enumerate(data):
         order = ExtendedOrder(
             user_id=user.id,
-            order_number=f'GROUPSETS-{i+1}',
+            order_number=f'GROUPSETS-{i + 1}',
             department=department,
             product=product,
             total_amount=amount
@@ -297,8 +297,8 @@ def test_grouping_sets_basic(extended_order_fixtures, skip_if_unsupported):
         # Use GROUPING SETS - each inner list is a grouping combination
         query.grouping_sets(
             ["department"],  # Group by department only
-            ["product"],     # Group by product only
-            [],              # Empty group for grand total
+            ["product"],  # Group by product only
+            [],  # Empty group for grand total
         )
 
         query.sum("total_amount", "total")
@@ -390,7 +390,7 @@ def test_rollup_with_having(extended_order_fixtures, skip_if_unsupported):
     for i, (year, quarter, amount) in enumerate(data):
         order = ExtendedOrder(
             user_id=user.id,
-            order_number=f'ROLLUP-HAV-{i+1}',
+            order_number=f'ROLLUP-HAV-{i + 1}',
             year=year,
             quarter=quarter,
             total_amount=amount
@@ -427,7 +427,7 @@ def test_rollup_with_having(extended_order_fixtures, skip_if_unsupported):
         expected_rows = [
             (('2023', None), Decimal('900.00')),  # 2023 total
             (('2024', None), Decimal('750.00')),  # 2024 total
-            ((None, None), Decimal('1650.00'))    # Grand total
+            ((None, None), Decimal('1650.00'))  # Grand total
         ]
 
         # Check all expected rows are present
@@ -462,7 +462,7 @@ def test_cube_with_order_by(extended_order_fixtures, skip_if_unsupported):
     for i, (region, product, amount) in enumerate(data):
         order = ExtendedOrder(
             user_id=user.id,
-            order_number=f'CUBE-ORD-{i+1}',
+            order_number=f'CUBE-ORD-{i + 1}',
             region=region,
             product=product,
             total_amount=amount

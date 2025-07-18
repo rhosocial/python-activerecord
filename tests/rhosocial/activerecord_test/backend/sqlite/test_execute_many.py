@@ -156,7 +156,7 @@ class TestSQLiteExecuteMany:
     def test_unsupported_operation_select(self, backend):
         """Test execute_many with SELECT statement (behavior varies by Python version)"""
         from src.rhosocial.activerecord.backend.errors import DatabaseError
-        
+
         # In all Python versions, try to execute the SELECT statement
         try:
             result = backend.execute_many(
@@ -170,24 +170,24 @@ class TestSQLiteExecuteMany:
             # If an error is reported, verify the error message
             error_msg = str(e).lower()
             assert any(msg in error_msg for msg in [
-                "error", 
-                "dml", 
-                "executemany", 
-                "select", 
+                "error",
+                "dml",
+                "executemany",
+                "select",
                 "statement"
             ])
 
     def test_multiple_statements(self, backend):
         """Test execute_many with multiple statements (behavior varies by Python version)"""
         import sys
-        
+
         # The error message and behavior varies by Python version
         with pytest.raises(Exception) as exc_info:
             backend.execute_many(
                 "INSERT INTO users (id, name) VALUES (?, ?); SELECT * FROM users",
                 [(1, "User 1")]
             )
-            
+
         # Different Python versions may have different error messages
         if sys.version_info >= (3, 11):
             # In newer Python versions, check for any error

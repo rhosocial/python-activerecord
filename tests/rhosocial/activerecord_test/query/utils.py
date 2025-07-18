@@ -64,7 +64,8 @@ def modify_sqlite_config(config, config_name, test_id, case_id):
         # Use unique URI for in-memory database, including test case ID to ensure each test has its own connection
         config['database'] = f"file:memdb_{test_id}_{case_id}?mode=memory&cache=shared"
         # Add URI option to enable URI filename parsing
-        config['uri'] = True  # Set the uri parameter directly in SQLiteConnectionConfig instead of putting it in options
+        config[
+            'uri'] = True  # Set the uri parameter directly in SQLiteConnectionConfig instead of putting it in options
     return config
 
 

@@ -5,11 +5,12 @@ import pytest
 from typing import Generator
 from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
+
 @pytest.fixture(params=["memory", "file"])
 def db_path(request) -> str:
-    """返回测试数据库路径"""
+    """Returns the test database path"""
     if request.param == "memory":
-        return ":memory:"  # 使用内存数据库便于测试
+        return ":memory:"  # Use an in-memory database for easy testing
     elif request.param == "file":
         return "tests.activerecord_test.implementations.sqlite.sqlite"
     return None
@@ -17,19 +18,20 @@ def db_path(request) -> str:
 
 @pytest.fixture
 def db(db_path) -> Generator[SQLiteBackend, None, None]:
-    """提供数据库连接"""
+    """Provides database connectivity"""
     backend = SQLiteBackend(database=db_path)
     backend.connect()
     yield backend
     backend.disconnect()
 
-    # 测试结束后清理文件
+    # Clean up the files after the test is over
     if db_path != ":memory:" and os.path.exists(db_path):
         os.remove(db_path)
 
+
 @pytest.fixture
 def setup_test_table(db):
-    """创建测试表"""
+    """Create a test table"""
     db.execute("""
         CREATE TABLE test_table (
             id INTEGER PRIMARY KEY AUTOINCREMENT,

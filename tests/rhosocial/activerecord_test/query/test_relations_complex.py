@@ -11,6 +11,7 @@ from .utils import create_combined_fixtures
 # Use the combined fixture directly from utils.py
 combined_fixtures = create_combined_fixtures()
 
+
 @pytest.fixture
 def setup_complex_data(combined_fixtures):
     """Create complex data structure for testing relation loading.
@@ -24,8 +25,8 @@ def setup_complex_data(combined_fixtures):
     users = []
     for i in range(3):
         user = User(
-            username=f"user{i+1}",
-            email=f"user{i+1}@example.com",
+            username=f"user{i + 1}",
+            email=f"user{i + 1}@example.com",
             age=25 + i * 5,
             is_active=True
         )
@@ -38,8 +39,8 @@ def setup_complex_data(combined_fixtures):
         user_index = i % len(users)
         order = Order(
             user_id=users[user_index].id,
-            order_number=f"ORD00{i+1}",
-            total_amount=Decimal(f"{(i+1) * 100}.00"),
+            order_number=f"ORD00{i + 1}",
+            total_amount=Decimal(f"{(i + 1) * 100}.00"),
             status="pending" if i % 2 == 0 else "completed"
         )
         order.save()
@@ -52,10 +53,10 @@ def setup_complex_data(combined_fixtures):
         for j in range(1, i % 3 + 2):
             item = OrderItem(
                 order_id=order.id,
-                product_name=f"Product {i+1}-{j}",
+                product_name=f"Product {i + 1}-{j}",
                 quantity=j,
-                unit_price=Decimal(f"{(i+1) * 50}.00"),
-                subtotal=Decimal(f"{(i+1) * 50 * j}.00")
+                unit_price=Decimal(f"{(i + 1) * 50}.00"),
+                subtotal=Decimal(f"{(i + 1) * 50 * j}.00")
             )
             item.save()
             items.append(item)
@@ -67,8 +68,8 @@ def setup_complex_data(combined_fixtures):
         for j in range(2):
             post = Post(
                 user_id=user.id,
-                title=f"Post {i+1}-{j+1}",
-                content=f"Content for post {i+1}-{j+1}",
+                title=f"Post {i + 1}-{j + 1}",
+                content=f"Content for post {i + 1}-{j + 1}",
                 status="published" if j % 2 == 0 else "draft"
             )
             post.save()
@@ -83,7 +84,7 @@ def setup_complex_data(combined_fixtures):
                 comment = Comment(
                     user_id=user.id,
                     post_id=post.id,
-                    content=f"Comment from user{j+1} on post {i+1}",
+                    content=f"Comment from user{j + 1} on post {i + 1}",
                     is_hidden=False
                 )
                 comment.save()
@@ -244,7 +245,7 @@ def test_with_deeply_nested_relations_and_modifiers(combined_fixtures, setup_com
     # Execute query
     users = query.all()
     user_with_data = next(u for u in users if u.posts() and
-                         any(p.comments() for p in u.posts()))
+                          any(p.comments() for p in u.posts()))
 
     # Verify results - deep relations should be loaded
     for post in user_with_data.posts():
@@ -276,7 +277,7 @@ def test_with_out_of_order_relations(combined_fixtures, setup_complex_data):
     # Execute query
     users = query.all()
     user_with_data = next(u for u in users if u.posts() and
-                         any(p.comments() for p in u.posts()))
+                          any(p.comments() for p in u.posts()))
 
     # Verify results
     for post in user_with_data.posts():
@@ -877,6 +878,7 @@ def test_with_complex_multibranch_relationships(combined_fixtures, setup_complex
 
         if any(order.items() for order in user.orders()):
             assert 'orders.items' in executed_paths, "orders.items modifier should have executed"
+
 
 def test_with_missing_intermediate_relations(combined_fixtures, setup_complex_data):
     """Test with_() handling of missing intermediate relations in deep paths.

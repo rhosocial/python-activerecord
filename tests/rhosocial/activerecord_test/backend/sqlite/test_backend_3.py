@@ -42,8 +42,7 @@ class TestSQLiteBackendCoveragePart3Fixed:
             return original_remove(path)
 
         with patch('os.remove', mock_remove), \
-             patch('os.path.exists', return_value=True):
-
+                patch('os.path.exists', return_value=True):
             # Should attempt multiple times and log warning
             backend.disconnect()
 
@@ -96,16 +95,14 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
         # Test with exact boundary versions
         with patch('sqlite3.sqlite_version_info', (3, 35, 0)), \
-             patch('sys.version_info', (3, 10, 0)):
-
+                patch('sys.version_info', (3, 10, 0)):
             options = ReturningOptions(enabled=True, force=False)
             # Should not raise exception for exact boundary versions
             backend._check_returning_compatibility(options)
 
         # Test with force=True bypassing all checks
         with patch('sqlite3.sqlite_version_info', (3, 0, 0)), \
-             patch('sys.version_info', (3, 0, 0)):
-
+                patch('sys.version_info', (3, 0, 0)):
             options = ReturningOptions(enabled=True, force=True)
             # Should not raise exception even with very old versions
             backend._check_returning_compatibility(options)

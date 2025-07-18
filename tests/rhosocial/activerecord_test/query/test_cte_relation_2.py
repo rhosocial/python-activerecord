@@ -152,6 +152,7 @@ def test_cte_relation_filtered_eager_loading(blog_fixtures):
     visible_comment = filtered_comments_query.one()
     assert not visible_comment.is_hidden
 
+
 def test_cte_relation_cross_model_aggregation(order_fixtures):
     """Test CTE with cross-model aggregation"""
     User, Order, OrderItem = order_fixtures

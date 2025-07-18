@@ -2,11 +2,12 @@
 from src.rhosocial.activerecord.interface import ModelEvent
 from .fixtures.models import event_test_model
 
+
 def test_event_handler_registration(event_test_model):
-    """测试事件处理器注册"""
+    """Test event handler registration"""
     instance = event_test_model(name="test")
 
-    # 注册事件处理器
+    # Register event handlers
     def handler1(instance, **kwargs):
         instance.log_event(ModelEvent.BEFORE_SAVE, handler="handler1", **kwargs)
 
@@ -16,20 +17,21 @@ def test_event_handler_registration(event_test_model):
     instance.on(ModelEvent.BEFORE_SAVE, handler1)
     instance.on(ModelEvent.BEFORE_SAVE, handler2)
 
-    # 验证处理器已注册
-    assert len(instance._event_handlers[ModelEvent.BEFORE_SAVE]) == 3  # 因为 TimestampMixin 也会注册一个 BEFORE_SAVE 事件。
+    # Verify handlers are registered
+    assert len(instance._event_handlers[
+                   ModelEvent.BEFORE_SAVE]) == 3  # Because TimestampMixin also registers a BEFORE_SAVE event.
     assert handler1 in instance._event_handlers[ModelEvent.BEFORE_SAVE]
     assert handler2 in instance._event_handlers[ModelEvent.BEFORE_SAVE]
 
 
 def test_event_handler_removal(event_test_model):
-    """测试事件处理器移除"""
+    """Test event handler removal"""
     instance = event_test_model(name="test")
 
     def handler(instance, **kwargs):
         instance.log_event(ModelEvent.BEFORE_SAVE, handler="handler", **kwargs)
 
-    # 注册然后移除处理器
+    # Register then remove handler
     instance.on(ModelEvent.BEFORE_SAVE, handler)
     assert handler in instance._event_handlers[ModelEvent.BEFORE_SAVE]
 
@@ -38,7 +40,7 @@ def test_event_handler_removal(event_test_model):
 
 
 def test_event_handler_execution(event_test_model):
-    """测试事件处理器执行"""
+    """Test event handler execution"""
     instance = event_test_model(name="test")
     execution_order = []
 
@@ -53,13 +55,13 @@ def test_event_handler_execution(event_test_model):
     instance.on(ModelEvent.BEFORE_SAVE, handler1)
     instance.on(ModelEvent.BEFORE_SAVE, handler2)
 
-    # 触发事件
+    # Trigger event
     instance.save()
 
-    # 验证执行顺序
+    # Verify execution order
     assert execution_order == ["handler1", "handler2"]
 
-    # 验证事件日志
+    # Verify event logs
     logs = instance.get_event_logs()
     assert len(logs) == 2
     assert logs[0][0] == ModelEvent.BEFORE_SAVE
@@ -69,7 +71,7 @@ def test_event_handler_execution(event_test_model):
 
 
 def test_multiple_event_types(event_test_model):
-    """测试多种事件类型"""
+    """Test multiple event types"""
     instance = event_test_model(name="test")
 
     def save_handler(instance, **kwargs):
@@ -81,22 +83,22 @@ def test_multiple_event_types(event_test_model):
     def validate_handler(instance, **kwargs):
         instance.log_event(ModelEvent.BEFORE_VALIDATE, type="validate", **kwargs)
 
-    # 注册不同类型的事件处理器
+    # Register different types of event handlers
     instance.on(ModelEvent.BEFORE_SAVE, save_handler)
     instance.on(ModelEvent.BEFORE_DELETE, delete_handler)
     instance.on(ModelEvent.BEFORE_VALIDATE, validate_handler)
 
-    # 保存记录触发事件
+    # Save record to trigger events
     instance.save()
 
-    # 验证事件记录
+    # Verify event records
     logs = instance.get_event_logs()
     save_events = [log for log in logs if log[1]["type"] == "save"]
     assert len(save_events) == 1
 
 
 def test_event_data_passing(event_test_model):
-    """测试事件数据传递"""
+    """Test event data passing"""
     instance = event_test_model(name="test")
     received_data = {}
 
@@ -106,14 +108,14 @@ def test_event_data_passing(event_test_model):
 
     instance.on(ModelEvent.BEFORE_SAVE, handler)
 
-    # 触发带数据的事件
+    # Trigger event with data
     instance._trigger_event(ModelEvent.BEFORE_SAVE, custom_data="test", is_new=True)
 
-    # 验证数据传递
+    # Verify data passing
     assert received_data["custom_data"] == "test"
     assert received_data["is_new"] is True
 
-    # 验证事件日志
+    # Verify event logs
     logs = instance.get_event_logs()
     assert logs[0][1]["custom_data"] == "test"
     assert logs[0][1]["is_new"] is True

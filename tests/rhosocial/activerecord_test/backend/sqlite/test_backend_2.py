@@ -42,8 +42,7 @@ class TestSQLiteBackendCoveragePart2:
 
         # Test with SQLite version < 3.35.0 and force=False
         with patch('sqlite3.sqlite_version_info', (3, 34, 0)), \
-             patch('sqlite3.sqlite_version', "3.34.0"):
-
+                patch('sqlite3.sqlite_version', "3.34.0"):
             options = ReturningOptions(enabled=True, force=False)
             with pytest.raises(ReturningNotSupportedError) as exc_info:
                 backend._check_returning_compatibility(options)
@@ -60,8 +59,7 @@ class TestSQLiteBackendCoveragePart2:
 
         # Test with force=True bypasses checks
         with patch('sqlite3.sqlite_version_info', (3, 34, 0)), \
-             patch('sys.version_info', (3, 9, 0)):
-
+                patch('sys.version_info', (3, 9, 0)):
             options = ReturningOptions(enabled=True, force=True)
             # Should not raise exception
             backend._check_returning_compatibility(options)

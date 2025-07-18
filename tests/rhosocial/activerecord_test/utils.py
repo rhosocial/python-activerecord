@@ -16,7 +16,7 @@ from src.rhosocial.activerecord.interface import IActiveRecord
 DB_HELPERS = {
     'sqlite': {
         "class": SQLiteBackend,
-        "config_class": SQLiteConnectionConfig,  # 添加SQLite的配置类
+        "config_class": SQLiteConnectionConfig,  # Add a configuration class for SQLite
     },
 }
 
@@ -122,7 +122,7 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
         db_config = request.param
         table_name = model_class.__table_name__
 
-        # 根据不同后端类型创建配置
+        # Create configurations based on different backend types
         if db_config.backend == 'sqlite':
             # 使用SQLiteConnectionConfig创建配置
             connection_config = db_config.helper["config_class"](**db_config.config)
@@ -130,7 +130,7 @@ def create_active_record_fixture(model_class: Type[IActiveRecord],
             # 其他后端使用通用ConnectionConfig
             connection_config = ConnectionConfig(**db_config.config)
 
-        # 配置模型类
+        # Configure the model class
         model_class.configure(
             config=connection_config,
             backend_class=db_config.helper["class"]

@@ -10,6 +10,7 @@ from ..utils import create_order_fixtures
 # Create multi-table test fixtures
 order_fixtures = create_order_fixtures()
 
+
 def test_explain_inner_join(order_fixtures, request):
     """Test explain with INNER JOIN"""
     if 'sqlite' not in request.node.name:
@@ -51,6 +52,7 @@ def test_explain_inner_join(order_fixtures, request):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
+
 def test_explain_left_join(order_fixtures, request):
     """Test explain with LEFT JOIN"""
     if 'sqlite' not in request.node.name:
@@ -90,6 +92,7 @@ def test_explain_left_join(order_fixtures, request):
             .all())
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
+
 
 def test_explain_multiple_joins(order_fixtures, request):
     """Test explain with multiple JOINs"""
@@ -148,6 +151,7 @@ def test_explain_multiple_joins(order_fixtures, request):
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
 
+
 def test_explain_join_with_conditions(order_fixtures, request):
     """Test explain with JOINs and WHERE conditions"""
     if 'sqlite' not in request.node.name:
@@ -190,6 +194,7 @@ def test_explain_join_with_conditions(order_fixtures, request):
             .all())
     assert isinstance(plan, str)
     assert any(op in plan.upper() for op in ['SCAN', 'SEARCH'])
+
 
 def test_explain_join_with_aggregates(order_fixtures, request):
     """Test explain with JOINs and aggregate functions"""

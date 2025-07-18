@@ -26,7 +26,7 @@ def test_explain_basic_cte(order_fixtures, request):
     for i in range(3):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1}',
+            order_number=f'ORD-{i + 1}',
             total_amount=Decimal('100.00')
         )
         order.save()
@@ -64,8 +64,8 @@ def test_explain_cte_with_parameters(order_fixtures, request):
     for i in range(3):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1}',
-            total_amount=Decimal(f'{(i+1)*100}.00')
+            order_number=f'ORD-{i + 1}',
+            total_amount=Decimal(f'{(i + 1) * 100}.00')
         )
         order.save()
 
@@ -138,9 +138,9 @@ def test_explain_cte_with_conditions(order_fixtures, request):
     for i in range(3):
         order = Order(
             user_id=user.id,
-            order_number=f'ORD-{i+1}',
+            order_number=f'ORD-{i + 1}',
             status='pending' if i % 2 == 0 else 'paid',
-            total_amount=Decimal(f'{(i+1)*100}.00')
+            total_amount=Decimal(f'{(i + 1) * 100}.00')
         )
         order.save()
 
