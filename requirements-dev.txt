@@ -1,7 +1,34 @@
+# Testing framework for unit and integration tests
+# Core framework for running test suites and fixtures
+# Version ~=8.3.5 provides stable testing capabilities
 pytest~=8.3.5
+
+# Parallel test execution plugin for pytest
+# Enables faster test execution through parallel processing
+# Version ~=3.6.1 provides stable parallel test execution
 pytest-xdist~=3.6.1
+
+# Pytest plugin for re-running failed tests
+# Helps handle flaky tests by automatically retrying failures
+# Version ~=15.0 provides reliable test retry functionality
 pytest-rerunfailures~=15.0
+
+# Code coverage measurement tool
+# Measures test coverage and generates coverage reports
+# Version ~=7.8.0 provides comprehensive coverage analysis
 coverage~=7.8.0
+
+# Pydantic with email validation support
+# Adds email field validation capabilities to the core framework
+# Required for testing email field validation in user models
 pydantic[email]
+
+# YAML file processing library
+# Used for configuration file handling and test data
+# Version ~=6.0.2 provides safe YAML parsing and generation
 pyyaml~=6.0.2
+
+# MySQL database connector
+# Required for MySQL database integration testing
+# Version ~=9.3.0 provides stable MySQL connectivity
 mysql-connector-python~=9.3.0

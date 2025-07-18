@@ -1,12 +1,12 @@
 # Core data validation and serialization framework
 # Pydantic provides model validation, serialization, and type conversion
-# Version ~=2.10.6 is the latest compatible with Python 3.8
-pydantic~=2.10.6
+# Version ~=2.12.0 required for Python 3.14 compatibility
+pydantic~=2.12.0
 
 # Pydantic's core validation library written in Rust
 # Provides high-performance validation and serialization
-# Version ~=2.27.2 matches pydantic 2.10.6 requirements
-pydantic-core~=2.27.2
+# Version ~=2.35.0 minimum required for Python 3.14 support
+pydantic-core~=2.35.0
 
 # World timezone definitions for Python
 # Required for timezone-aware datetime handling in database operations
@@ -20,20 +20,10 @@ python-dateutil~=2.9.0.post0
 
 # System timezone detection
 # Automatically detects local timezone for timestamp fields
-# Version ~=5.2 is compatible with Python 3.8
-tzlocal~=5.2
-
-# Testing framework for unit and integration tests
-# Required for running the test suite
-# Version ~=8.3.5 provides stable testing capabilities
-pytest~=8.3.5
+# Version ~=5.3.1 supports modern timezone detection
+tzlocal~=5.3.1
 
 # Python packaging utilities
 # Required for package building and distribution
-# Version ~=75.3.2 is stable for Python 3.8
-setuptools~=75.3.2
-
-# Timezone info backport for Python 3.8
-# Python 3.8 lacks native zoneinfo support, this provides compatibility
-# Version ~=0.2.1 backports Python 3.9+ timezone functionality
-backports.zoneinfo~=0.2.1
+# Version ~=78.1.0 provides stable packaging tools
+setuptools~=78.1.0

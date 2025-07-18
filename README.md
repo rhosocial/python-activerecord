@@ -1,6 +1,6 @@
 # rhosocial ActiveRecord
 
-> **⚠️ 开发阶段声明：** 当前项目尚处于开发阶段，特性随时可能增减，且可能存在缺陷，甚至与实际实现不对应。因此文档内容存在随时调整的可能性，目前仅供参考。
+> **⚠️ Development Stage Notice:** This project is currently in the development stage. Features may be added or removed at any time, and there may be defects or inconsistencies with the actual implementation. Therefore, the documentation content may be subject to change at any time and is currently for reference only.
 
 [![PyPI version](https://badge.fury.io/py/rhosocial-activerecord.svg)](https://badge.fury.io/py/rhosocial-activerecord)
 [![Python](https://img.shields.io/pypi/pyversions/rhosocial-activerecord.svg)](https://pypi.org/project/rhosocial-activerecord/)
@@ -42,13 +42,17 @@ You can run the following command to check the sqlite3 version:
 python3 -c "import sqlite3; print(sqlite3.sqlite_version);"
 ```
 
-As of the release of this software, the latest version of pydantic is 2.11.x. This version supports Python3.13 free-threaded mode (PEP 703).
+### Python Version Support
 
-Note that pydantic 2.11 has dropped support for Python3.8. If you need to use Python3.8, please stick with pydantic 2.10.
+**Python 3.8 Support**: Although Python 3.8 has reached end-of-life, we continue to support it in the current major version due to its widespread user base. However, the next major version will be the last to support Python 3.8, and future versions will not guarantee compatibility.
 
-Also note that according to Python's official development plan (https://peps.python.org/pep-0703/),
-the free-threaded mode will remain experimental for several years and is not recommended for production environments,
-even though both pydantic and this project support it.
+**Python 3.14 Compatibility**: Python 3.14 introduces significant changes that impact core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.14 in our requirements specifications.
+
+As of the release of this software, the latest version of pydantic is 2.11.x. This version supports Python 3.13 free-threaded mode (PEP 703).
+
+Note that pydantic 2.11 has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.
+
+Also note that according to Python's official development plan (https://peps.python.org/pep-0703/), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both pydantic and this project support it.
 
 ## Installation
 
@@ -147,3 +151,4 @@ Your logo will appear here with a link to your website:
 [![license](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
 
 Copyright © 2025 [vistart](https://github.com/vistart)
+```
