@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/basic/fixtures/schema/sqlite/validated_field_users.sql
 CREATE TABLE validated_field_users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL,

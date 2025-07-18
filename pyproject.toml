@@ -1,10 +1,10 @@
+# pyproject.toml
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "rhosocial_activerecord"
-# Version is read from src/rhosocial/activerecord/__init__.py
 dynamic = ["version"]
 description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
@@ -34,10 +34,8 @@ classifiers = [
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
 dependencies = [
-    # Pydantic dropped Python 3.8 support since v2.11, but we still support it in this version,
     "pydantic>=2.10.6; python_version == '3.8'",
     "pydantic-core>=2.27.2; python_version == '3.8'",
-    # For Python 3.9+, we use newer Pydantic versions with latest features,
     "pydantic>=2.11.1; python_version >= '3.9'",
     "pydantic-core>=2.33.0; python_version >= '3.9'",
     "typing-extensions>=4.12.0",
@@ -47,23 +45,12 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
-# Database backend dependencies
-mysql = [
-    "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
-]
-mariadb = [
-    "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
-]
-pgsql = [
-    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
-]
-oracle = [
-    "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
-]
-mssql = [
-    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
-]
-# All databases together
+# Database backend dependencies (provided by separate packages)
+mysql = ["rhosocial-activerecord-mysql>=1.0.0,<2.0.0"]
+mariadb = ["rhosocial-activerecord-mariadb>=1.0.0,<2.0.0"]
+pgsql = ["rhosocial-activerecord-pgsql>=1.0.0,<2.0.0"]
+oracle = ["rhosocial-activerecord-oracle>=1.0.0,<2.0.0"]
+mssql = ["rhosocial-activerecord-mssql>=1.0.0,<2.0.0"]
 databases = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
@@ -71,11 +58,7 @@ databases = [
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
 ]
-# Additional features
-migration = [
-    "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
-]
-# All features combined
+migration = ["rhosocial-activerecord-migration>=1.0.0,<2.0.0"]
 all = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
@@ -85,7 +68,7 @@ all = [
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
 ]
 
-# Development dependencies
+# Development dependencies - 这些会在 pip install -e . 时自动安装
 test = [
     "pytest>=7.0.0",
     "coverage>=7.0.0",
@@ -102,6 +85,7 @@ dev = [
 docs = [
     "sphinx>=7.0.0",
     "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=2.0.0",
 ]
 
 [project.urls]
@@ -114,116 +98,168 @@ Issues = "https://github.com/rhosocial/python-activerecord/issues"
 path = "src/rhosocial/activerecord/__init__.py"
 pattern = '^__version__\s*=\s*"(?P<version>(?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
 
+# 构建配置
 [tool.hatch.build]
-# Default build: only source code and essential files
 include = [
-  "src/rhosocial/**/*.py",
-  "src/rhosocial/**/*.pyi",
-  "LICENSE",
-  "README.md",
+    "src/rhosocial/**/*.py",
+    "src/rhosocial/**/*.pyi",
+    "LICENSE",
+    "README.md",
 ]
 exclude = [
-  "*.pyc",
-  "**/__pycache__",
-  "**/*.py[cod]",
-  "**/*.so",
-  "**/.DS_Store",
-  "**/.*.swp",
-  ".git*",
-  # Exclude database backend implementations (provided by separate packages)
-  "src/rhosocial/activerecord/backend/impl/mysql",
-  "src/rhosocial/activerecord/backend/impl/pgsql",
-  "src/rhosocial/activerecord/backend/impl/mariadb",
-  "src/rhosocial/activerecord/backend/impl/mssql",
-  "src/rhosocial/activerecord/backend/impl/oracle",
-  # Exclude test package from default build
-  "src/rhosocial/activerecord_test",
+    # Python 缓存和编译文件
+    "*.pyc",
+    "**/__pycache__",
+    "**/*.py[cod]",
+    "**/*.so",
+
+    # 系统文件
+    "**/.DS_Store",
+    "**/.*.swp",
+    ".git*",
+
+    # 测试数据库文件
+    "**/*test_db.sqlite",
+    "**/*test_*.sqlite",
+    "**/*test_*.db",
+
+    # 构建产物
+    "build/",
+    "dist/",
+    "*.egg-info/",
+
+    # IDE 和编辑器配置
+    ".idea/",
+    ".vscode/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    ".pytest_cache/",
+
+    # 覆盖率报告
+    ".coverage",
+    "htmlcov/",
 ]
 
+# 标准 wheel 构建配置（生产环境）
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhosocial"]
 
-# Define build targets for different packaging modes
+# 生产环境排除开发文件
+exclude = [
+    "tests/",
+    "docs/",
+    "examples/",
+    "scripts/",
+
+    # 数据库后端实现（由独立包提供）
+    "src/rhosocial/activerecord/backend/impl/mysql",
+    "src/rhosocial/activerecord/backend/impl/pgsql",
+    "src/rhosocial/activerecord/backend/impl/mariadb",
+    "src/rhosocial/activerecord/backend/impl/mssql",
+    "src/rhosocial/activerecord/backend/impl/oracle",
+
+    # 测试包（生产环境不需要）
+    "src/rhosocial/activerecord_test",
+]
+
+# Source code distribution package configuration
 [tool.hatch.build.targets.sdist]
-# Remove the default includes/excludes here to let the hook control everything
-# The hook will set appropriate includes based on build mode
+include = [
+    "src/rhosocial/**/*.py",
+    "src/rhosocial/**/*.pyi",
+    "tests/",
+    "docs/",
+    "examples/",
+    "scripts/",
+    "LICENSE",
+    "README.md",
+    "pyproject.toml",
+]
 
-# Custom build hooks for different modes
-[tool.hatch.build.targets.sdist.hooks.custom]
+# Editable build hooks for the installation
+[tool.hatch.build.hooks.custom]
+path = "scripts/build_hooks.py"
+dependencies = []
 
-[tool.hatch.build.targets.wheel.hooks.custom]
-
-[tool.hatch.metadata]
-allow-direct-references = true
-
-# Test mode environment configuration
-[tool.hatch.envs.test]
-features = ["test"]
+# 默认环境配置（用于 pip install -e .）
+[tool.hatch.envs.default]
+# Edit mode includes all development dependencies by default
 dependencies = [
-  "pytest>=7.0.0",
-  "coverage>=7.0.0",
-  "pytest-asyncio>=0.21.0",
-  "pytest-cov>=4.0.0",
+    # 测试依赖
+    "pytest>=7.0.0",
+    "coverage>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+
+    # 开发工具
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.0.0",
+
+    # 文档工具
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=2.0.0",
+]
+
+# 默认环境的脚本
+[tool.hatch.envs.default.scripts]
+# 开发环境设置
+setup = "python scripts/build_hooks.py"
+
+# 代码格式化
+format = ["black src tests", "isort src tests"]
+
+# 代码检查
+lint = ["ruff check src tests", "mypy src"]
+
+# 测试
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = ["coverage combine", "coverage report"]
+cov = ["test-cov", "cov-report"]
+
+# 文档
+docs-build = "sphinx-build -b html docs docs/_build/html"
+docs-serve = "python -m http.server 8000 --directory docs/_build/html"
+
+# 完整检查
+all = ["format", "lint", "test"]
+
+# 专门的测试环境
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest>=7.0.0",
+    "coverage>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
 ]
 
 [tool.hatch.envs.test.scripts]
 test = "pytest {args:tests}"
 test-cov = "coverage run -m pytest {args:tests}"
-cov-report = [
-  "- coverage combine",
-  "coverage report",
-]
-cov = [
-  "test-cov",
-  "cov-report",
-]
+cov-report = ["coverage combine", "coverage report"]
+cov = ["test-cov", "cov-report"]
 
-# Documentation mode environment configuration
+# 专门的文档环境
 [tool.hatch.envs.docs]
-features = ["docs"]
 dependencies = [
-  "sphinx>=7.0.0",
-  "sphinx-rtd-theme>=1.0.0",
-  "myst-parser>=2.0.0",
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=2.0.0",
 ]
 
 [tool.hatch.envs.docs.scripts]
 build = "sphinx-build -b html docs docs/_build/html"
 serve = "python -m http.server 8000 --directory docs/_build/html"
 
-# Development mode environment configuration
-[tool.hatch.envs.dev]
-features = ["dev", "test", "docs"]
-dependencies = [
-  "black>=23.0.0",
-  "isort>=5.0.0",
-  "mypy>=1.0.0",
-  "ruff>=0.1.0",
-  "pre-commit>=3.0.0",
-]
-
-[tool.hatch.envs.dev.scripts]
-format = [
-  "black src tests",
-  "isort src tests",
-]
-lint = [
-  "ruff check src tests",
-  "mypy src",
-]
-test = "pytest {args:tests}"
-all = [
-  "format",
-  "lint",
-  "test",
-]
-
+# 工具配置
 [tool.pytest.ini_options]
 minversion = "7.0"
 addopts = "-ra -q"
-testpaths = [
-    "tests",
-]
+testpaths = ["tests"]
 
 [tool.coverage.run]
 source = ["rhosocial"]
@@ -235,7 +271,7 @@ exclude_lines = [
     "def __repr__",
     "if self.debug:",
     "raise NotImplementedError",
-    "if __name__ == .__main__.:",
+    "if __name__ == .__main__:",
     "pass",
     "raise ImportError",
 ]

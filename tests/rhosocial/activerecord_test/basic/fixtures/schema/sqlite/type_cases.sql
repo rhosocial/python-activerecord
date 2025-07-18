@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/basic/fixtures/schema/sqlite/type_cases.sql
 CREATE TABLE type_cases (
     id TEXT PRIMARY KEY,
     username TEXT NOT NULL,

@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/basic/fixtures/schema/sqlite/type_tests.sql
 CREATE TABLE type_tests (
     id TEXT PRIMARY KEY,  -- UUID类型存储为TEXT
     string_field TEXT NOT NULL,
