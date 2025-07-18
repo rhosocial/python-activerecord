@@ -7,13 +7,13 @@ from enum import Enum
 
 import pytest
 
-from src.rhosocial.activerecord.backend.basic_type_converter import (
+from rhosocial.activerecord.backend.basic_type_converter import (
     BasicTypeConverter, DateTimeConverter, BooleanConverter, UUIDConverter,
     JSONConverter, DecimalConverter, ArrayConverter, EnumConverter
 )
-from src.rhosocial.activerecord.backend.errors import TypeConversionError
-from src.rhosocial.activerecord.backend.type_converters import TypeRegistry, BaseTypeConverter
-from src.rhosocial.activerecord.backend.typing import DatabaseType
+from rhosocial.activerecord.backend.errors import TypeConversionError
+from rhosocial.activerecord.backend.type_converters import TypeRegistry, BaseTypeConverter
+from rhosocial.activerecord.backend.typing import DatabaseType
 
 
 class TestTypeRegistry:

@@ -8,9 +8,9 @@ from typing import List, Optional, Type, Tuple, Any, Dict
 
 import pytest
 
-from src.rhosocial.activerecord.backend.config import ConnectionConfig
-from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from src.rhosocial.activerecord.interface import IActiveRecord
+from rhosocial.activerecord.backend.config import ConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.interface import IActiveRecord
 from .fixtures.models import JsonUser
 from ..utils import load_schema_file, DB_HELPERS, DB_CONFIGS, DBTestConfig
 

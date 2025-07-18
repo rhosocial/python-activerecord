@@ -373,19 +373,9 @@ serve = "python -m http.server 8000 --directory docs/_build/html"
 # Tool configurations
 [tool.pytest.ini_options]
 minversion = "7.0"
-addopts = [
-    "-ra",
-    "-q",
-    "--strict-markers",
-    "--strict-config",
-    "--verbose",
-    "--tb=short",
-    "--cov=rhosocial.activerecord",
-    "--cov-report=term-missing",
-    "--cov-report=html",
-    "--cov-report=xml",
-]
 testpaths = ["tests"]
+python_paths = ["src", "tests"]
+addopts = "-ra -q"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]

@@ -11,7 +11,7 @@ from datetime import date, time as dtime
 import pydantic
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import ValidationError, RecordNotFound, DatabaseError
+from rhosocial.activerecord.backend.errors import ValidationError, RecordNotFound, DatabaseError
 
 from .fixtures.models import user_class, type_case_class, validated_user_class  # needed as fixture, do not remove.
 
@@ -148,7 +148,7 @@ from datetime import date, time as dtime
 import pydantic
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import ValidationError, RecordNotFound, DatabaseError
+from rhosocial.activerecord.backend.errors import ValidationError, RecordNotFound, DatabaseError
 
 from .fixtures.models import user_class, type_case_class, validated_user_class  # needed as fixture, do not remove.
 

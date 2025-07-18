@@ -8,9 +8,9 @@ from unittest.mock import patch
 
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import ConnectionError
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
 
 class TestSQLiteBackendCoveragePart1:

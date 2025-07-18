@@ -6,7 +6,7 @@ import time
 import random
 from concurrent.futures import ThreadPoolExecutor, as_completed
 
-from src.rhosocial.activerecord.interface.query import ThreadSafeDict
+from rhosocial.activerecord.interface.query import ThreadSafeDict
 
 
 def test_basic_operations():

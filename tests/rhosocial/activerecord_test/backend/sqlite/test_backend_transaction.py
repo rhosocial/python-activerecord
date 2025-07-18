@@ -4,13 +4,13 @@ import tempfile
 
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import (
+from rhosocial.activerecord.backend.errors import (
     IntegrityError
 )
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from src.rhosocial.activerecord.backend.impl.sqlite.transaction import SQLiteTransactionManager
-from src.rhosocial.activerecord.backend.config import ConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.transaction import SQLiteTransactionManager
+from rhosocial.activerecord.backend.config import ConnectionConfig
 
 
 class TestSQLiteBackendTransaction:

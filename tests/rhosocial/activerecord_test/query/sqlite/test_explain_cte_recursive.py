@@ -4,7 +4,7 @@ import pytest
 import sqlite3
 
 from ..utils import create_tree_fixtures
-from src.rhosocial.activerecord.backend.dialect import ExplainType
+from rhosocial.activerecord.backend.dialect import ExplainType
 
 # Create tree fixtures for recursive CTE tests
 tree_fixtures = create_tree_fixtures()

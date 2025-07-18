@@ -9,7 +9,7 @@ except ImportError:
 import pytest
 import pytz.exceptions
 
-from src.rhosocial.activerecord.backend.helpers import convert_datetime
+from rhosocial.activerecord.backend.helpers import convert_datetime
 
 
 def test_convert_datetime_str():

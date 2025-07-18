@@ -6,8 +6,8 @@ from typing import ClassVar, Optional
 import pytest
 from pydantic import EmailStr
 
-from src.rhosocial.activerecord import ActiveRecord
-from src.rhosocial.activerecord.relation import BelongsTo, CacheConfig, HasMany, HasOne
+from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.relation import BelongsTo, CacheConfig, HasMany, HasOne
 from .utils import create_order_fixtures, create_blog_fixtures
 
 order_fixtures = create_order_fixtures()

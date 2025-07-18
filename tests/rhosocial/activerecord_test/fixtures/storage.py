@@ -4,9 +4,8 @@ import pytest
 from pathlib import Path
 from typing import Generator
 
-from src.rhosocial.activerecord.backend.base import StorageBackend
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import ConnectionConfig
+from rhosocial.activerecord.backend.base import StorageBackend, ConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 @pytest.fixture(params=['memory', 'file'])

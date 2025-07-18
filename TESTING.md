@@ -7,6 +7,7 @@ This document explains how to test the RhoSocial ActiveRecord package and how to
 - [Quick Start](#quick-start)
 - [Test Directory Structure](#test-directory-structure)
 - [Running Tests](#running-tests)
+- [IDE Configuration](#ide-configuration)
 - [Backend Development](#backend-development)
 - [Test Organization for Backend Packages](#test-organization-for-backend-packages)
 - [Test Reuse Mechanism](#test-reuse-mechanism)
@@ -78,40 +79,152 @@ tests/rhosocial/activerecord_test/
 
 ## 🧪 Running Tests
 
+### Command Line Testing
+
+Due to the project using **src-layout** structure, you need to manually set the Python path:
+
+```bash
+# Linux/macOS
+PYTHONPATH=src:tests:$PYTHONPATH pytest
+
+# Windows (Command Prompt)
+set PYTHONPATH=src;tests;%PYTHONPATH% && pytest
+
+# Windows (PowerShell)
+$env:PYTHONPATH="src;tests;$env:PYTHONPATH"; pytest
+```
+
+### Why Set PYTHONPATH?
+
+The project uses **src-layout** directory structure:
+
+```
+project-root/
+├── src/
+│   └── rhosocial/
+│       └── activerecord/     # Main package code
+├── tests/
+│   └── rhosocial/
+│       └── activerecord_test/ # Test package code
+└── pyproject.toml
+```
+
+Test files contain import statements like:
+```python
+from rhosocial.activerecord.interface import IActiveRecord
+from rhosocial.activerecord_test.utils import DBTestConfig
+```
+
+By default, Python cannot find the `src/rhosocial` and `tests/rhosocial` packages, so these directories need to be added to `PYTHONPATH`.
+
 ### Run Specific Test Groups
 
 ```bash
 # Run basic functionality tests
-pytest tests/rhosocial/activerecord_test/basic/
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/basic/
 
 # Run backend tests
-pytest tests/rhosocial/activerecord_test/backend/
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/backend/
 
 # Run query tests
-pytest tests/rhosocial/activerecord_test/query/
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/query/
 
 # Run relationship tests
-pytest tests/rhosocial/activerecord_test/relation/
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/relation/
 ```
 
 ### Test Options
 
 ```bash
 # Verbose output
-pytest tests/ -v
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/ -v
 
 # Show test coverage
-pytest tests/ --cov=rhosocial.activerecord
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/ --cov=rhosocial.activerecord
 
 # Parallel test execution (requires pytest-xdist)
 pip install pytest-xdist
-pytest tests/ -n auto
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/ -n auto
 
 # Run only failed tests
-pytest tests/ --lf
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/ --lf
 
 # Stop at first failure
-pytest tests/ -x
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/ -x
+```
+
+### Simplifying Commands
+
+**Method 1: Set Environment Variable**
+```bash
+# Linux/macOS - Add to ~/.bashrc or ~/.zshrc
+export PYTHONPATH="$(pwd)/src:$(pwd)/tests:$PYTHONPATH"
+
+# Then run directly
+pytest
+```
+
+**Method 2: Use Alias**
+```bash
+# Linux/macOS - Add to ~/.bashrc or ~/.zshrc
+alias pytest-dev='PYTHONPATH=src:tests:$PYTHONPATH pytest'
+
+# Use alias
+pytest-dev
+```
+
+**Method 3: Create Simple Script**
+```bash
+# Create run_tests.sh
+#!/bin/bash
+PYTHONPATH=src:tests:$PYTHONPATH pytest "$@"
+
+# Use script
+chmod +x run_tests.sh
+./run_tests.sh
+```
+
+## 🔧 IDE Configuration
+
+### PyCharm Configuration
+
+To properly use test functionality in PyCharm, follow these configuration steps:
+
+1. **Configure Project Structure**:
+   - Open **File → Settings → Project → Project Structure**
+   - Right-click `src` folder → Select **Mark as Sources** (marked in blue)
+   - Right-click `tests` folder → Select **Mark as Test Sources** (marked in green)
+
+2. **Configure Test Runner**:
+   - Go to **File → Settings → Tools → Python Integrated Tools**
+   - Set **Default test runner** to **pytest**
+   - Set **Working directory** to project root directory
+
+3. **Run Tests**:
+   - Right-click test file or test function → Select **Run 'pytest in ...'**
+   - Or use PyCharm's test window to manage tests
+
+After configuration, PyCharm will be able to:
+- Correctly recognize import statements
+- Provide code completion and navigation
+- Display test structure in the test window
+- Support debugging test code
+
+### VSCode Configuration
+
+If using VSCode, it's recommended to configure in `.vscode/settings.json`:
+
+```json
+{
+    "python.analysis.extraPaths": [
+        "./src",
+        "./tests"
+    ],
+    "python.testing.pytestEnabled": true,
+    "python.testing.pytestArgs": [
+        "tests"
+    ]
+}
 ```
 
 ## 🔧 Backend Development
@@ -628,20 +741,41 @@ pip install -e ".[test]"
 pip install pytest pytest-asyncio pytest-cov coverage
 ```
 
+#### 4. Command Line Import Errors
+
+```
+ModuleNotFoundError: No module named 'rhosocial'
+```
+
+**Solution:**
+Ensure you're using the PYTHONPATH prefix:
+```bash
+PYTHONPATH=src:tests:$PYTHONPATH pytest
+```
+
+#### 5. PyCharm Test Runner Issues
+
+**Symptoms**: Right-click test file shows no run options
+
+**Solution:**
+1. Ensure `src` and `tests` directories are properly marked
+2. Check Python interpreter configuration  
+3. Verify pytest is installed in current interpreter
+
 ### Debugging Tips
 
 ```bash
 # Verbose test execution
-pytest -v -s
+PYTHONPATH=src:tests:$PYTHONPATH pytest -v -s
 
 # Run only failed tests
-pytest --lf --tb=short
+PYTHONPATH=src:tests:$PYTHONPATH pytest --lf --tb=short
 
 # Enter debug mode
-pytest --pdb
+PYTHONPATH=src:tests:$PYTHONPATH pytest --pdb
 
 # Generate HTML coverage report
-pytest --cov=rhosocial.activerecord --cov-report=html
+PYTHONPATH=src:tests:$PYTHONPATH pytest --cov=rhosocial.activerecord --cov-report=html
 open htmlcov/index.html
 ```
 

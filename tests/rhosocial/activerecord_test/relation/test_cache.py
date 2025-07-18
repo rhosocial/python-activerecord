@@ -3,7 +3,7 @@
 
 import time
 
-from src.rhosocial.activerecord.relation.cache import (
+from rhosocial.activerecord.relation.cache import (
     CacheConfig,
     GlobalCacheConfig,
     CacheEntry,

@@ -4,8 +4,8 @@ from datetime import datetime
 
 import pytest
 
-from src.rhosocial.activerecord.backend import DatabaseType
-from src.rhosocial.activerecord.backend.errors import TypeConversionError
+from rhosocial.activerecord.backend import DatabaseType
+from rhosocial.activerecord.backend.errors import TypeConversionError
 
 
 def test_boolean_conversion(db):

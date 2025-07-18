@@ -3,8 +3,8 @@ from typing import Optional
 
 from pydantic import Field
 
-from src.rhosocial.activerecord import ActiveRecord
-from src.rhosocial.activerecord.field import OptimisticLockMixin, SoftDeleteMixin, TimestampMixin, IntegerPKMixin
+from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.field import OptimisticLockMixin, SoftDeleteMixin, TimestampMixin, IntegerPKMixin
 from ...utils import create_active_record_fixture
 
 

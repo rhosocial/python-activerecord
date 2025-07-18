@@ -8,9 +8,9 @@ from typing import Optional, Type, Literal
 import pytest
 from pydantic import EmailStr, Field, field_validator
 
-from src.rhosocial.activerecord import ActiveRecord
-from src.rhosocial.activerecord.backend.errors import ValidationError
-from src.rhosocial.activerecord.field import TimestampMixin, UUIDMixin, IntegerPKMixin
+from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.backend.errors import ValidationError
+from rhosocial.activerecord.field import TimestampMixin, UUIDMixin, IntegerPKMixin
 from ...utils import create_active_record_fixture
 
 

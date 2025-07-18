@@ -10,13 +10,13 @@ except ImportError:
 
 from unittest.mock import patch
 
-from src.rhosocial.activerecord.backend.helpers import (
+from rhosocial.activerecord.backend.helpers import (
     format_with_length,
     format_decimal,
     convert_datetime,
     parse_datetime
 )
-from src.rhosocial.activerecord.backend.errors import TypeConversionError
+from rhosocial.activerecord.backend.errors import TypeConversionError
 
 
 class TestFormatFunctions:
@@ -54,7 +54,7 @@ class TestFormatFunctions:
 class TestConvertDateTime:
     def test_convert_datetime_str_parse_exception(self):
         # Test the parse exception handling in convert_datetime
-        with patch('src.rhosocial.activerecord.backend.helpers.parse', side_effect=ValueError("Parse error")):
+        with patch('rhosocial.activerecord.backend.helpers.parse', side_effect=ValueError("Parse error")):
             # Test with a date string
             result = convert_datetime("2022-07-25")
             assert result == "2022-07-25T00:00:00"

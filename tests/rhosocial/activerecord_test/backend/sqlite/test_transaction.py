@@ -5,9 +5,9 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import TransactionError
-from src.rhosocial.activerecord.backend.impl.sqlite.transaction import SQLiteTransactionManager
-from src.rhosocial.activerecord.backend.transaction import IsolationLevel
+from rhosocial.activerecord.backend.errors import TransactionError
+from rhosocial.activerecord.backend.impl.sqlite.transaction import SQLiteTransactionManager
+from rhosocial.activerecord.backend.transaction import IsolationLevel
 
 
 class TestSQLiteTransactionManager:

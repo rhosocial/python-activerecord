@@ -5,8 +5,8 @@ from decimal import Decimal
 import pytest
 import sqlite3
 
-from src.rhosocial.activerecord.backend.dialect import ExplainType
-from src.rhosocial.activerecord.query.expression import FunctionExpression, WindowExpression
+from rhosocial.activerecord.backend.dialect import ExplainType
+from rhosocial.activerecord.query.expression import FunctionExpression, WindowExpression
 from ..utils import create_order_fixtures
 
 # Create multi-table test fixtures

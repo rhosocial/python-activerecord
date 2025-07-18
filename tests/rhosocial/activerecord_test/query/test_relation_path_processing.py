@@ -5,8 +5,8 @@ from unittest.mock import MagicMock, patch
 
 import pytest
 
-from src.rhosocial.activerecord.interface import IQuery
-from src.rhosocial.activerecord.query.relational import RelationalQueryMixin, InvalidRelationPathError
+from rhosocial.activerecord.interface import IQuery
+from rhosocial.activerecord.query.relational import RelationalQueryMixin, InvalidRelationPathError
 
 
 class MockQueryBase(IQuery[Any]):

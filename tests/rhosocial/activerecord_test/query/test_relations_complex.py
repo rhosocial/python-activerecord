@@ -5,7 +5,7 @@ from unittest.mock import patch
 
 import pytest
 
-from src.rhosocial.activerecord.query.relational import RelationNotFoundError
+from rhosocial.activerecord.query.relational import RelationNotFoundError
 from .utils import create_combined_fixtures
 
 # Use the combined fixture directly from utils.py

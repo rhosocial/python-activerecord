@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/backend/test_typing.py
-from src.rhosocial.activerecord.backend.typing import QueryResult
+from rhosocial.activerecord.backend.typing import QueryResult
 
 
 class TestQueryResult:

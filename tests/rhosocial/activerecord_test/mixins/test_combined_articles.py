@@ -4,7 +4,7 @@ import time
 
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import DatabaseError
+from rhosocial.activerecord.backend.errors import DatabaseError
 from .fixtures.models import combined_article
 
 

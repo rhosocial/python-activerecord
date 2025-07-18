@@ -3,8 +3,8 @@ from typing import Optional
 
 import pytest
 
-from src.activerecord.base import ActiveRecord
-from src.activerecord.fields import TimestampMixin, SoftDeleteMixin
+from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin
 
 
 @pytest.fixture

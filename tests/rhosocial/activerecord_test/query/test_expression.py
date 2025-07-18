@@ -2,7 +2,7 @@
 """Test basic SQL expression functionality in ActiveQuery."""
 from decimal import Decimal
 
-from src.rhosocial.activerecord.query.expression import (
+from rhosocial.activerecord.query.expression import (
     SubqueryExpression
 )
 from .utils import create_order_fixtures

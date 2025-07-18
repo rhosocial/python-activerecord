@@ -4,10 +4,10 @@ from typing import ClassVar, Any, Dict, List
 
 from pydantic import BaseModel
 
-from src.rhosocial.activerecord.relation.base import RelationManagementMixin
-from src.rhosocial.activerecord.relation.cache import CacheConfig
-from src.rhosocial.activerecord.relation.descriptors import HasOne, HasMany, BelongsTo, RelationDescriptor
-from src.rhosocial.activerecord.relation.interfaces import RelationLoader
+from rhosocial.activerecord.relation.base import RelationManagementMixin
+from rhosocial.activerecord.relation.cache import CacheConfig
+from rhosocial.activerecord.relation.descriptors import HasOne, HasMany, BelongsTo, RelationDescriptor
+from rhosocial.activerecord.relation.interfaces import RelationLoader
 
 
 class CustomLoader(RelationLoader):

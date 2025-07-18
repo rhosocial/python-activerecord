@@ -3,7 +3,7 @@ import os
 
 import pytest
 from typing import Generator
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 @pytest.fixture(params=["memory", "file"])

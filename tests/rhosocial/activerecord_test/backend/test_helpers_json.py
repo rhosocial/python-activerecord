@@ -5,12 +5,12 @@ from datetime import datetime, date
 from decimal import Decimal
 from unittest.mock import patch
 
-from src.rhosocial.activerecord.backend.helpers import (
+from rhosocial.activerecord.backend.helpers import (
     safe_json_dumps,
     safe_json_loads,
     array_converter
 )
-from src.rhosocial.activerecord.backend.errors import TypeConversionError
+from rhosocial.activerecord.backend.errors import TypeConversionError
 
 
 class TestSafeJsonDumps:

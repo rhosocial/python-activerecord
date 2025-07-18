@@ -7,10 +7,10 @@ from typing import Type, List, Optional, Dict
 
 import pytest
 
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig  # 添加SQLiteConnectionConfig导入
-from src.rhosocial.activerecord.backend.config import ConnectionConfig
-from src.rhosocial.activerecord.interface import IActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig  # 添加SQLiteConnectionConfig导入
+from rhosocial.activerecord.backend.config import ConnectionConfig
+from rhosocial.activerecord.interface import IActiveRecord
 
 # Database backend helper mapping
 DB_HELPERS = {

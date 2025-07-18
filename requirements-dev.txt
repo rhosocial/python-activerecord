@@ -1,17 +1,17 @@
 # Testing framework for unit and integration tests
 # Core framework for running test suites and fixtures
-# Version ~=8.3.5 provides stable testing capabilities
-pytest~=8.3.5
+# Version ~=8.4.1 provides stable testing capabilities
+pytest~=8.4.1
 
 # Parallel test execution plugin for pytest
 # Enables faster test execution through parallel processing
-# Version ~=3.6.1 provides stable parallel test execution
-pytest-xdist~=3.6.1
+# Version ~=3.8.0 provides stable parallel test execution
+pytest-xdist~=3.8.0
 
 # Pytest plugin for re-running failed tests
 # Helps handle flaky tests by automatically retrying failures
-# Version ~=15.0 provides reliable test retry functionality
-pytest-rerunfailures~=15.0
+# Version ~=15.1 provides reliable test retry functionality
+pytest-rerunfailures~=15.1
 
 # Code coverage measurement tool
 # Measures test coverage and generates coverage reports

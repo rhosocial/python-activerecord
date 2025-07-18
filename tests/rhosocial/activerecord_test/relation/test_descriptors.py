@@ -6,8 +6,8 @@ from typing import ClassVar
 import pytest
 from pydantic import BaseModel
 
-from src.rhosocial.activerecord.relation.base import RelationManagementMixin
-from src.rhosocial.activerecord.relation.descriptors import BelongsTo, HasOne, HasMany
+from rhosocial.activerecord.relation.base import RelationManagementMixin
+from rhosocial.activerecord.relation.descriptors import BelongsTo, HasOne, HasMany
 
 
 # Mock QuerySet for testing

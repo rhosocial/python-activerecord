@@ -6,7 +6,7 @@ from typing import List, Tuple
 
 import pytest
 
-from src.rhosocial.activerecord.backend import RecordNotFound
+from rhosocial.activerecord.backend import RecordNotFound
 from .utils import create_order_fixtures, create_blog_fixtures
 
 order_fixtures = create_order_fixtures()

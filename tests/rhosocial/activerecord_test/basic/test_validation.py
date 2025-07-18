@@ -5,7 +5,7 @@ This module tests the validation functionality of the ActiveRecord class.
 """
 import pytest
 from pydantic import ValidationError
-from src.rhosocial.activerecord.backend.errors import ValidationError as DBValidationError
+from rhosocial.activerecord.backend.errors import ValidationError as DBValidationError
 
 from .fixtures.models import validated_user  # needed as fixture, do not remove.
 

@@ -1,7 +1,7 @@
 # tests/rhosocial/activerecord_test/backend/sqlite2/test_expression.py
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import DatabaseError, OperationalError
+from rhosocial.activerecord.backend.errors import DatabaseError, OperationalError
 
 
 def test_update_with_expression(db, setup_test_table):

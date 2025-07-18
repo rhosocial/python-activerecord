@@ -3,8 +3,8 @@ from unittest.mock import patch
 
 import pytest
 
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteCTEHandler
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteCTEHandler
 
 
 def test_cte_support_detection():

@@ -4,9 +4,9 @@ from typing import Optional, ClassVar
 
 from pydantic import Field, EmailStr
 
-from src.rhosocial.activerecord import ActiveRecord
-from src.rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
-from src.rhosocial.activerecord.relation import HasMany, BelongsTo, CacheConfig
+from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
+from rhosocial.activerecord.relation import HasMany, BelongsTo, CacheConfig
 from ...utils import create_active_record_fixture
 
 

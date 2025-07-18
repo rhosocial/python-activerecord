@@ -5,9 +5,9 @@ from unittest.mock import patch
 
 import pytest
 
-from src.rhosocial.activerecord.backend.errors import DatabaseError, QueryError
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import QueryResult
+from rhosocial.activerecord.backend.errors import DatabaseError, QueryError
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.typing import QueryResult
 
 
 class TestSQLiteExecuteMany:
@@ -155,7 +155,7 @@ class TestSQLiteExecuteMany:
 
     def test_unsupported_operation_select(self, backend):
         """Test execute_many with SELECT statement (behavior varies by Python version)"""
-        from src.rhosocial.activerecord.backend.errors import DatabaseError
+        from rhosocial.activerecord.backend.errors import DatabaseError
 
         # In all Python versions, try to execute the SELECT statement
         try:

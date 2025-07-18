@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/events/test_handlers.py
-from src.rhosocial.activerecord.interface import ModelEvent
+from rhosocial.activerecord.interface import ModelEvent
 from .fixtures.models import event_test_model
 
 

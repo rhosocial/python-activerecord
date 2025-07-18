@@ -5,7 +5,7 @@ from decimal import Decimal
 import pytest
 import sqlite3
 
-from src.rhosocial.activerecord.query.expression import WindowExpression, FunctionExpression
+from rhosocial.activerecord.query.expression import WindowExpression, FunctionExpression
 from .utils import create_order_fixtures
 
 # Create multi-table test fixtures

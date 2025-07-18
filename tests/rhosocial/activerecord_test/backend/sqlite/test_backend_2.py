@@ -7,13 +7,13 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from src.rhosocial.activerecord.backend.dialect import ReturningOptions
-from src.rhosocial.activerecord.backend.errors import (
+from rhosocial.activerecord.backend.dialect import ReturningOptions
+from rhosocial.activerecord.backend.errors import (
     ReturningNotSupportedError,
     JsonOperationNotSupportedError
 )
-from src.rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from src.rhosocial.activerecord.backend.typing import DatabaseType
+from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+from rhosocial.activerecord.backend.typing import DatabaseType
 
 
 class TestSQLiteBackendCoveragePart2:

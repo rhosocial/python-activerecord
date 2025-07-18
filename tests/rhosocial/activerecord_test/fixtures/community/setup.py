@@ -1,5 +1,5 @@
 # tests/rhosocial/activerecord_test/fixtures/community/setup.py
-from src.rhosocial.activerecord.backend.base import StorageBackend
+from rhosocial.activerecord.backend.base import StorageBackend
 
 
 def create_community_tables(backend: StorageBackend) -> None:

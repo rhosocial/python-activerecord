@@ -3,8 +3,8 @@ import pytest
 from unittest.mock import Mock, patch
 import time
 
-from src.rhosocial.activerecord.backend.helpers import measure_time
-from src.rhosocial.activerecord.backend.typing import QueryResult
+from rhosocial.activerecord.backend.helpers import measure_time
+from rhosocial.activerecord.backend.typing import QueryResult
 
 
 class TestMeasureTime:

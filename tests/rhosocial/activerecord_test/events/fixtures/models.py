@@ -3,14 +3,14 @@ from typing import Optional, Dict, List, Tuple
 
 from pydantic import Field
 
-from src.rhosocial.activerecord.interface import ModelEvent
-from src.rhosocial.activerecord import ActiveRecord
-from src.rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
+from rhosocial.activerecord.interface import ModelEvent
+from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
 from ...utils import create_active_record_fixture
 
 
 class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):
-    """用于测试事件机制的模型类"""
+    """A model class for testing event mechanisms"""
     __table_name__ = "event_tests"
 
     id: Optional[int] = None
@@ -21,20 +21,20 @@ class EventTestModel(IntegerPKMixin, TimestampMixin, ActiveRecord):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self._event_logs = []  # 用于记录事件触发历史
+        self._event_logs = []  # Used to record event triggering history
 
     def log_event(self, event: ModelEvent, **kwargs):
-        """记录事件触发历史"""
+        """Record the trigger history of events"""
         self._event_logs.append((event, kwargs))
 
     def get_event_logs(self) -> List[Tuple[ModelEvent, Dict]]:
-        """获取事件历史"""
+        """Get the event history"""
         return self._event_logs.copy()
 
     def clear_event_logs(self):
-        """清空事件历史"""
+        """Empty the history of events"""
         self._event_logs.clear()
 
 
-# 创建测试夹具
+# Create a test fixture
 event_test_model = create_active_record_fixture(EventTestModel)
