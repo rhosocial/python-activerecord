@@ -1,17 +1,17 @@
 # scripts/build_hooks.py
-"""Build hooks for development environment setup - 修正版本"""
+"""Build hooks for development environment setup"""
 import os
 import sys
 import logging
 from pathlib import Path
 
-# 设置详细的调试日志
+# Set up detailed debug logs
 logging.basicConfig(
     level=logging.DEBUG,
     format='[BUILD_HOOK] %(asctime)s - %(levelname)s - %(message)s',
     handlers=[
         logging.StreamHandler(sys.stdout),
-        logging.FileHandler('build_hook_debug.log', mode='a')  # 追加模式
+        logging.FileHandler('build_hook_debug.log', mode='a')  # Append mode to keep logs across runs
     ]
 )
 logger = logging.getLogger(__name__)
@@ -25,10 +25,10 @@ logger.info("=" * 60)
 
 
 def create_test_symlink():
-    """在可编辑安装时创建测试模块的软链接"""
+    """Create a softlink to the test module at editable installation"""
     logger.info("create_test_symlink() called")
 
-    # 打印调试信息到控制台
+    # Print the debug information to the console
     print("\n" + "=" * 60)
     print("🔧 BUILD HOOK: Test Symlink Setup")
     print("=" * 60)
@@ -45,7 +45,7 @@ def create_test_symlink():
         print(f"🔍 Source exists: {test_src.exists()}")
         print(f"🔍 Target exists: {symlink_target.exists()}")
 
-        # 详细记录到日志
+        # Detailed logs to the log
         logger.info(f"Project paths:")
         logger.info(f"  project_root: {project_root}")
         logger.info(f"  test_src: {test_src}")
@@ -53,13 +53,13 @@ def create_test_symlink():
         logger.info(f"  test_src.exists(): {test_src.exists()}")
         logger.info(f"  symlink_target.exists(): {symlink_target.exists()}")
 
-        # 检查源目录
+        # Check the source directory
         if not test_src.exists():
             print(f"❌ Test directory not found: {test_src}")
             logger.error(f"Test directory not found: {test_src}")
             return False
 
-        # 如果目标已存在，检查状态
+        # If the target already exists, check the status
         if symlink_target.exists():
             if symlink_target.is_symlink():
                 try:
@@ -83,7 +83,7 @@ def create_test_symlink():
                 logger.warning(f"Target exists but is not a symlink: {symlink_target}")
                 return False
 
-        # 确保目标目录存在
+        # Ensure that the target directory exists
         try:
             src_dir.mkdir(parents=True, exist_ok=True)
             logger.info(f"Ensured src_dir exists: {src_dir}")
@@ -92,12 +92,12 @@ def create_test_symlink():
             logger.error(f"Failed to create src directory: {e}")
             return False
 
-        # 尝试创建软链接
+        # Try creating soft links
         print("🔗 Attempting to create symlink...")
         logger.info("Attempting to create symlink")
 
         try:
-            # 使用相对路径
+            # Use relative paths
             relative_path = os.path.relpath(test_src.resolve(), src_dir.resolve())
 
             logger.info(f"Creating symlink with relative path: {relative_path}")
@@ -105,7 +105,7 @@ def create_test_symlink():
 
             symlink_target.symlink_to(relative_path, target_is_directory=True)
 
-            # 验证软链接
+            # Verify the soft link
             if symlink_target.exists() and symlink_target.is_dir():
                 print(f"✅ Created test symlink: {symlink_target} -> {test_src}")
                 print("✅ Symlink verification successful")
@@ -120,7 +120,7 @@ def create_test_symlink():
             print(f"❌ Failed to create symlink: {e}")
             logger.error(f"Failed to create symlink: {e}")
 
-            # 提供解决方案
+            # Provide solutions
             print("\n🛠️ Manual solution:")
             manual_cmd = f"ln -sf {test_src} {symlink_target}"
             print(f"   {manual_cmd}")
@@ -135,7 +135,7 @@ def create_test_symlink():
         print("=" * 60 + "\n")
 
 
-# 导入hatch接口
+# Import the hatch interface
 try:
     from hatchling.builders.hooks.plugin.interface import BuildHookInterface
 
@@ -146,7 +146,7 @@ except ImportError as e:
 
 
 class CustomBuildHook(BuildHookInterface):
-    """自定义构建钩子 - 修正版本"""
+    """Custom build hooks"""
 
     def __init__(self, *args, **kwargs):
         logger.info(f"CustomBuildHook.__init__ called with args={args}, kwargs={kwargs}")
@@ -154,20 +154,20 @@ class CustomBuildHook(BuildHookInterface):
         logger.info(f"CustomBuildHook initialized, target_name: {getattr(self, 'target_name', 'UNKNOWN')}")
 
     def initialize(self, version, build_data):
-        """初始化构建钩子 - 修正版本检查逻辑"""
+        """Initialize the build hook"""
         logger.info("=" * 50)
         logger.info("🚀 CustomBuildHook.initialize() called!")
         logger.info(f"  version: {repr(version)}")
         logger.info(f"  build_data: {build_data}")
         logger.info(f"  target_name: {getattr(self, 'target_name', 'UNKNOWN')}")
 
-        # 打印到控制台以便观察
+        # Print to the console for easy observation
         print(f"\n🔧 BUILD HOOK TRIGGERED!")
         print(f"   Version: {repr(version)}")
         print(f"   Target: {getattr(self, 'target_name', 'UNKNOWN')}")
         print(f"   Build Data Keys: {list(build_data.keys()) if build_data else 'None'}")
 
-        # 🔥 关键修复：检查version参数而不是target_name
+        # 🔥 Check version parameter instead of target_name
         if version == "editable":
             print("✅ Detected editable installation - proceeding with symlink creation")
             logger.info("Detected editable installation via version parameter")
@@ -186,7 +186,7 @@ class CustomBuildHook(BuildHookInterface):
         logger.info("=" * 50)
 
 
-# 如果直接运行脚本，也执行软链接创建
+# If you run the script directly, also perform soft link creation
 if __name__ == "__main__":
     logger.info("Running build_hooks.py directly")
     print("🚀 Running build hook directly...")
