@@ -273,7 +273,7 @@ If your database backend has limitations, clearly document them:
 
 ## 📂 Test Organization for Backend Packages
 
-When developing a new database backend package (e.g., `rhosocial-activerecord-mysql`), we recommend organizing your tests following the same pattern as the main package to enable test reuse through symlinks:
+When developing a new database backend package (e.g., `rhosocial-activerecord-mysql`), we recommend organizing your tests following the same pattern as the main package to enable test reuse:
 
 ### Recommended Directory Structure
 
@@ -292,38 +292,32 @@ rhosocial-activerecord-mysql/
 │   │       ├── utils.py                # MySQL-specific test utilities
 │   │       ├── fixtures/               # MySQL-specific test fixtures
 │   │       │   ├── __init__.py
-│   │       │   ├── storage.py
-│   │       │   └── models.py
+│   │       │   ├── models.py           # Model definitions (reuse main package)
+│   │       │   └── schema/
+│   │       │       └── mysql/
+│   │       │           ├── users.sql
+│   │       │           ├── type_cases.sql
+│   │       │           ├── type_tests.sql
+│   │       │           └── validated_users.sql
 │   │       ├── compatibility/          # Main package compatibility tests
 │   │       │   ├── __init__.py
 │   │       │   ├── test_basic_compat.py      # Reuse main package basic tests
-│   │       │   ├── test_query_compat.py      # Reuse main package query tests
-│   │       │   ├── test_relation_compat.py   # Reuse main package relation tests
-│   │       │   ├── test_events_compat.py     # Reuse main package events tests
-│   │       │   └── test_mixins_compat.py     # Reuse main package mixins tests
+│   │       │   ├── test_fields_compat.py     # Reuse main package field tests
+│   │       │   └── test_validation_compat.py # Reuse main package validation tests
 │   │       ├── mysql_backend/          # MySQL backend core tests
 │   │       │   ├── __init__.py
 │   │       │   ├── test_connection.py
 │   │       │   ├── test_type_mapping.py
-│   │       │   ├── test_query_builder.py
-│   │       │   └── test_executor.py
+│   │       │   └── test_query_builder.py
 │   │       ├── mysql_features/         # MySQL-specific feature tests
 │   │       │   ├── __init__.py
 │   │       │   ├── test_mysql_types.py
-│   │       │   ├── test_full_text_search.py
 │   │       │   ├── test_json_columns.py
-│   │       │   ├── test_spatial_data.py
-│   │       │   └── test_generated_columns.py
-│   │       ├── mysql_versions/         # MySQL version-specific tests
-│   │       │   ├── __init__.py
-│   │       │   ├── test_mysql57.py
-│   │       │   ├── test_mysql80.py
-│   │       │   └── test_version_detection.py
+│   │       │   └── test_full_text_search.py
 │   │       └── integration/            # MySQL integration tests
 │   │           ├── __init__.py
 │   │           ├── test_real_world.py
-│   │           ├── test_performance.py
-│   │           └── test_migration.py
+│   │           └── test_performance.py
 │   └── conftest.py                     # Global test configuration
 ├── pyproject.toml
 └── README.md
@@ -337,12 +331,9 @@ These tests verify that your backend works correctly with the standard ActiveRec
 
 ```python
 # tests/rhosocial/activerecord_mysql_test/compatibility/test_basic_compat.py
-import pytest
-from rhosocial.activerecord_test.utils import (
-    generate_test_configs, 
-    create_active_record_fixture,
-    DBTestConfig
-)
+"""MySQL backend compatibility tests for basic functionality"""
+
+# Import test functions from main package
 from rhosocial.activerecord_test.basic.test_crud import (
     test_create_user,
     test_find_user,
@@ -350,236 +341,189 @@ from rhosocial.activerecord_test.basic.test_crud import (
     test_delete_user
 )
 
-# Define your database configuration
-MYSQL_CONFIGS = {
-    "local": {
-        "host": "localhost",
-        "port": 3306,
-        "database": "test_db",
-        "username": "test_user", 
-        "password": "test_pass"
-    },
-    "docker": {
-        "host": "mysql",
-        "port": 3306,
-        "database": "test_db",
-        "username": "test_user",
-        "password": "test_password"
-    }
-}
+# Import MySQL-specific fixtures
+from ..fixtures.models import mysql_user_class
 
-def mysql_test_configs():
-    for config_name, config in MYSQL_CONFIGS.items():
-        yield DBTestConfig("mysql", config_name, config)
 
 class TestMySQLBasicCompatibility:
     """Test MySQL backend compatibility with basic operations"""
     
-    @pytest.fixture(params=list(mysql_test_configs()))
-    def mysql_model(self, request):
-        return create_mysql_model_with_config(request.param)
+    def test_mysql_create_user(self, mysql_user_class):
+        """Test user creation with MySQL backend"""
+        test_create_user(mysql_user_class)
     
-    def test_create_operation(self, mysql_model):
-        test_create_user(mysql_model)
+    def test_mysql_find_user(self, mysql_user_class):
+        """Test user finding with MySQL backend"""
+        test_find_user(mysql_user_class)
     
-    def test_read_operation(self, mysql_model):
-        test_find_user(mysql_model)
+    def test_mysql_update_user(self, mysql_user_class):
+        """Test user updating with MySQL backend"""
+        test_update_user(mysql_user_class)
     
-    def test_update_operation(self, mysql_model):
-        test_update_user(mysql_model)
-    
-    def test_delete_operation(self, mysql_model):
-        test_delete_user(mysql_model)
+    def test_mysql_delete_user(self, mysql_user_class):
+        """Test user deletion with MySQL backend"""
+        test_delete_user(mysql_user_class)
 ```
 
-#### 2. Backend Core Tests (`mysql_backend/`)
+#### 2. Model Definition and Fixture Creation (`fixtures/models.py`)
 
-These tests cover MySQL backend core implementation:
+The key to test reuse is defining models and fixtures correctly:
 
 ```python
-# tests/rhosocial/activerecord_mysql_test/mysql_backend/test_connection.py
-class TestMySQLConnection:
-    """Test MySQL connection management"""
-    
-    def test_connection_pool(self, mysql_config):
-        """Test connection pooling functionality"""
-        pass
-    
-    def test_reconnection_logic(self, mysql_config):
-        """Test automatic reconnection handling"""
-        pass
-```
+# tests/rhosocial/activerecord_mysql_test/fixtures/models.py
+"""MySQL backend test models - reusing main package model definitions"""
 
-#### 3. MySQL-Specific Features (`mysql_features/`)
-
-These tests cover MySQL-specific functionality:
-
-```python
-# tests/rhosocial/activerecord_mysql_test/mysql_features/test_mysql_types.py
-import pytest
-from decimal import Decimal
-from datetime import datetime
-
-class TestMySQLDataTypes:
-    """Test MySQL-specific data type handling"""
-    
-    def test_mysql_decimal_precision(self, mysql_model):
-        """Test MySQL DECIMAL precision handling"""
-        # MySQL DECIMAL(10,2) specific test
-        model = mysql_model(price=Decimal('99999999.99'))
-        model.save()
-        
-        retrieved = mysql_model.find_one(model.id)
-        assert retrieved.price == Decimal('99999999.99')
-    
-    def test_mysql_json_column(self, mysql_model):
-        """Test MySQL JSON column type (MySQL 5.7+)"""
-        # Test JSON column functionality
-        pass
-```
-
-#### 4. Version Compatibility (`mysql_versions/`)
-
-Tests for different MySQL versions:
-
-```python
-# tests/rhosocial/activerecord_mysql_test/mysql_versions/test_mysql80.py
-class TestMySQL80Features:
-    """Test MySQL 8.0 specific features"""
-    
-    def test_cte_support(self, mysql_model):
-        """Test Common Table Expressions support in MySQL 8.0+"""
-        pass
-    
-    def test_window_functions(self, mysql_model):
-        """Test window functions support"""
-        pass
-```
-
-#### 5. Integration Tests (`integration/`)
-
-These tests cover real-world scenarios and integration aspects:
-
-```python
-# tests/rhosocial/activerecord_mysql_test/integration/test_real_world.py
-class TestRealWorldScenarios:
-    """Test real-world usage patterns"""
-    
-    def test_high_concurrency_scenario(self, mysql_model):
-        """Test behavior under high concurrency"""
-        pass
-    
-    def test_large_dataset_operations(self, mysql_model):
-        """Test operations on large datasets"""
-        pass
-```
-
-### Test Reuse Through Symlinks
-
-#### MySQL Package Symlink Setup
-
-When you install the MySQL package in editable mode:
-
-```bash
-# In rhosocial-activerecord-mysql package
-pip install -e .
-```
-
-It creates a symlink:
-```
-src/rhosocial/activerecord_mysql_test -> tests/rhosocial/activerecord_mysql_test/
-```
-
-#### Other Packages Reusing MySQL Tests
-
-For example, `rhosocial-activerecord-aurora` (Amazon Aurora) package can reuse MySQL tests:
-
-```python
-# In Aurora package tests
-from rhosocial.activerecord_test import (           # Reuse main package tests
-    generate_test_configs, 
-    create_active_record_fixture
-)
-from rhosocial.activerecord_mysql_test import (     # Reuse MySQL package tests
-    mysql_test_configs,
-    MYSQL_HELPERS
-)
-from rhosocial.activerecord_mysql_test.mysql_features.test_mysql_types import (
-    test_mysql_decimal_precision,
-    test_mysql_json_column
+# Import model classes from main package
+from rhosocial.activerecord_test.basic.fixtures.models import (
+    User, TypeCase, ValidatedFieldUser, TypeTestModel
 )
 
-class TestAuroraMySQL:
-    """Aurora MySQL compatibility tests"""
-    
-    def test_basic_crud_compatibility(self, aurora_model):
-        # Reuse main package basic CRUD tests
-        from rhosocial.activerecord_test.basic.test_crud import test_create_user
-        test_create_user(aurora_model)
-    
-    def test_mysql_json_compatibility(self, aurora_model):
-        # Reuse MySQL package JSON functionality tests
-        test_mysql_json_column(aurora_model)
+# Import fixture creation utility from main package
+from rhosocial.activerecord_test.utils import create_active_record_fixture
+
+# Import MySQL test utilities to register MySQL backend
+from ..utils import logger
+
+# Configure models to use only MySQL backend for this test package
+User.__supported_backends__ = ["mysql"]
+TypeCase.__supported_backends__ = ["mysql"]
+ValidatedFieldUser.__supported_backends__ = ["mysql"]
+TypeTestModel.__supported_backends__ = ["mysql"]
+
+# Create MySQL-specific fixtures using the main package's fixture creation utility
+# These will automatically use MySQL backend due to __supported_backends__ restriction
+mysql_user_class = create_active_record_fixture(User)
+mysql_type_case_class = create_active_record_fixture(TypeCase)
+mysql_validated_user_class = create_active_record_fixture(ValidatedFieldUser)
+mysql_type_test_model = create_active_record_fixture(TypeTestModel)
+
+logger.info("MySQL-specific fixtures created successfully")
 ```
 
-### Test Package Naming Convention
+#### 3. Backend Registration (`utils.py`)
 
-| Package Type | Test Package Name | Symlink Location |
-|-------------|-------------------|------------------|
-| Main Package | `activerecord_test` | `src/rhosocial/activerecord_test` |
-| MySQL Package | `activerecord_mysql_test` | `src/rhosocial/activerecord_mysql_test` |
-| PostgreSQL Package | `activerecord_pgsql_test` | `src/rhosocial/activerecord_pgsql_test` |
-| MariaDB Package | `activerecord_mariadb_test` | `src/rhosocial/activerecord_mariadb_test` |
-
-### Benefits of This Organization
-
-1. **Consistent Structure**: Follows the same pattern as the main package
-2. **Test Reusability**: Other packages can easily reuse MySQL package tests
-3. **Clear Naming**: Each package has a distinct test namespace
-4. **Easy Extension**: New database backends can reuse existing test patterns
-5. **Symlink Support**: Enables test sharing through simple symlink mechanism
-
-### Test Configuration Examples
+Register your backend in the global test configuration:
 
 ```python
-# tests/conftest.py (Global configuration)
-import pytest
-from rhosocial.activerecord_test.utils import DB_CONFIGS, DB_HELPERS
+# tests/rhosocial/activerecord_mysql_test/utils.py
+"""MySQL backend test utilities"""
+from rhosocial.activerecord.backend.impl.mysql.backend import MySQLBackend
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
+from rhosocial.activerecord_test.utils import DB_HELPERS, DB_CONFIGS
 
-# Register your database configuration globally
-DB_CONFIGS["mysql"] = {
+# MySQL specific configurations
+MYSQL_CONFIGS = {
     "local": {
         "host": "localhost",
         "port": 3306,
         "database": "activerecord_test",
         "username": "root",
         "password": "",
-        "charset": "utf8mb4"
+        "charset": "utf8mb4",
+    },
+    "docker": {
+        "host": "mysql",
+        "port": 3306,
+        "database": "activerecord_test",
+        "username": "test_user",
+        "password": "test_password",
+        "charset": "utf8mb4",
     }
 }
 
-# Register database helper
-from your_backend.mysql_helper import MySQLTestHelper
-DB_HELPERS["mysql"] = MySQLTestHelper
+# MySQL specific helper
+MYSQL_HELPER = {
+    "class": MySQLBackend,
+    "config_class": MySQLConnectionConfig,
+}
 
-# tests/compatibility/conftest.py (Compatibility-specific configuration)
-import pytest
-
-@pytest.fixture(scope="session")
-def compatibility_database():
-    """Set up database for compatibility testing"""
-    # Database setup specific to compatibility tests
-    pass
-
-# tests/mysql_specific/conftest.py (MySQL-specific configuration)
-import pytest
-
-@pytest.fixture(scope="session") 
-def mysql_engine():
-    """Set up MySQL engine for specific tests"""
-    # MySQL-specific setup
-    pass
+# Register MySQL configurations globally
+DB_CONFIGS["mysql"] = MYSQL_CONFIGS
+DB_HELPERS["mysql"] = MYSQL_HELPER
 ```
+
+#### 4. Database Schema Files
+
+Create corresponding schema files for your database:
+
+```sql
+-- tests/rhosocial/activerecord_mysql_test/fixtures/schema/mysql/users.sql
+CREATE TABLE users (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    email VARCHAR(255) NOT NULL,
+    age INT UNSIGNED,
+    balance DECIMAL(10,2) NOT NULL DEFAULT 0.00,
+    is_active TINYINT(1) NOT NULL DEFAULT 1,
+    created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+    updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP,
+    
+    INDEX idx_username (username),
+    INDEX idx_email (email)
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+```
+
+#### 5. MySQL-Specific Features (`mysql_features/`)
+
+Tests for database-specific functionality:
+
+```python
+# tests/rhosocial/activerecord_mysql_test/mysql_features/test_mysql_types.py
+"""MySQL-specific data type functionality tests"""
+import pytest
+from decimal import Decimal
+
+from ..fixtures.models import mysql_type_case_class
+
+
+class TestMySQLDataTypes:
+    """Test MySQL-specific data type handling"""
+    
+    def test_mysql_json_column(self, mysql_type_case_class):
+        """Test MySQL native JSON column type"""
+        test_json = {"name": "John", "scores": [85, 92, 78]}
+        
+        model = mysql_type_case_class(
+            username='json_test',
+            email='json@test.com',
+            json_val=test_json
+        )
+        model.save()
+        
+        retrieved = mysql_type_case_class.find_one(model.id)
+        assert retrieved.json_val == test_json
+        assert isinstance(retrieved.json_val, dict)
+    
+    def test_mysql_decimal_precision(self, mysql_type_case_class):
+        """Test MySQL DECIMAL precision handling"""
+        model = mysql_type_case_class(
+            username='decimal_test',
+            email='decimal@test.com',
+            decimal_val=Decimal('999999.9999')
+        )
+        model.save()
+        
+        retrieved = mysql_type_case_class.find_one(model.id)
+        assert retrieved.decimal_val == Decimal('999999.9999')
+```
+
+### Test Reuse Through Backend Configuration
+
+The core mechanism for test reuse is the `__supported_backends__` attribute and the `create_active_record_fixture` function:
+
+1. **Model Restriction**: Set `__supported_backends__ = ["mysql"]` on imported model classes
+2. **Fixture Creation**: Use `create_active_record_fixture(Model)` to create MySQL-specific fixtures
+3. **Automatic Backend Selection**: The fixture will automatically use MySQL backend due to the restriction
+4. **Test Function Reuse**: Import and call test functions from the main package directly
+
+### Test Package Naming Convention
+
+| Package Type | Test Package Name | Purpose |
+|-------------|-------------------|---------|
+| Main Package | `activerecord_test` | Core test suite and utilities |
+| MySQL Package | `activerecord_mysql_test` | MySQL-specific tests and compatibility |
+| PostgreSQL Package | `activerecord_pgsql_test` | PostgreSQL-specific tests and compatibility |
+| MariaDB Package | `activerecord_mariadb_test` | MariaDB-specific tests and compatibility |
 
 ## 🔗 Test Reuse Mechanism
 
@@ -625,6 +569,29 @@ ln -sf tests/rhosocial/activerecord_test src/rhosocial/activerecord_test
 
 # Verify
 ls -la src/rhosocial/activerecord_test
+```
+
+### Cross-Package Test Reuse
+
+For example, `rhosocial-activerecord-aurora` (Amazon Aurora) package can reuse MySQL tests:
+
+```python
+# In Aurora package tests
+from rhosocial.activerecord_test.basic.test_crud import test_create_user  # Main package test
+from rhosocial.activerecord_mysql_test.mysql_features.test_mysql_types import (  # MySQL package test
+    test_mysql_json_column
+)
+
+class TestAuroraMySQL:
+    """Aurora MySQL compatibility tests"""
+    
+    def test_basic_crud_compatibility(self, aurora_model):
+        # Reuse main package basic CRUD tests
+        test_create_user(aurora_model)
+    
+    def test_mysql_json_compatibility(self, aurora_model):
+        # Reuse MySQL package JSON functionality tests
+        test_mysql_json_column(aurora_model)
 ```
 
 ## 🌍 Environment Management
@@ -761,6 +728,19 @@ PYTHONPATH=src:tests:$PYTHONPATH pytest
 1. Ensure `src` and `tests` directories are properly marked
 2. Check Python interpreter configuration  
 3. Verify pytest is installed in current interpreter
+
+#### 6. Backend Configuration Not Found
+
+```
+KeyError: 'mysql'
+```
+
+**Solution:**
+Ensure your backend's `utils.py` is imported before running tests:
+```python
+# In test file or conftest.py
+from rhosocial.activerecord_mysql_test.utils import MYSQL_CONFIGS  # This registers MySQL backend
+```
 
 ### Debugging Tips
 
