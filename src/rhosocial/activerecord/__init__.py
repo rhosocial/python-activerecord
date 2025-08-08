@@ -10,6 +10,22 @@ Provides a unified ActiveRecord implementation that combines:
 - Query building
 - Aggregate queries
 - Field type support
+
+This file serves dual purposes in the namespace package architecture:
+
+1. **Namespace Path Extension**: Uses pkgutil.extend_path to enable this package
+   to be extended by additional backend implementations distributed as separate packages.
+   This allows rhosocial-activerecord-mysql, rhosocial-activerecord-pgsql, etc. to
+   seamlessly add their implementations to the rhosocial.activerecord.backend.impl
+   namespace without conflicts.
+
+2. **Module Structure**: Only imports direct child modules (not their contents) to
+   maintain clean separation of concerns. Each child module is responsible for its
+   own exports. This approach prevents circular imports and makes the package 
+   structure more maintainable.
+
+The namespace extension ensures that when multiple rhosocial-activerecord-* packages
+are installed, their backend implementations can coexist and be discovered properly.
 """
 
 __version__ = "1.0.0.dev11"
@@ -70,10 +86,21 @@ __version__ = "1.0.0.dev11"
 # This format ensures compatibility with Python packaging tools (e.g., `pip`, `setuptools`)
 # while maintaining backward compatibility with your original semantic versioning rules.
 
+# Extend the namespace path to support backend implementations from separate packages
+# This is crucial for the distributed backend architecture where each database backend
+# (mysql, postgresql, etc.) can be installed independently
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
+# Import child modules (not their contents) to maintain proper module structure
+# Each child module manages its own exports independently
+from . import base
+from . import relation
+from . import backend
+
+# Define the main ActiveRecord class by combining mixins
+# This approach keeps the class definition clean and modular
 from .base import BaseActiveRecord, QueryMixin
 from .relation import RelationManagementMixin
-
 
 class ActiveRecord(
     RelationManagementMixin,
@@ -90,7 +117,6 @@ class ActiveRecord(
     - QueryMixin: Query builder
     """
     ...
-
 
 __all__ = [
     'ActiveRecord',

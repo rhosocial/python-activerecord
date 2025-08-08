@@ -1,3 +1,4 @@
+# requirements-dev.txt
 # Testing framework for unit and integration tests
 # Core framework for running test suites and fixtures
 # Version ~=8.4.1 provides stable testing capabilities

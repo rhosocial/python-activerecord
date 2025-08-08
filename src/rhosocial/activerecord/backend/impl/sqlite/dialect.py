@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/sqlite/dialect.py
+# src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
 import sqlite3
 import sys
 from typing import Optional, List, Set, Union, Dict, Tuple, Any

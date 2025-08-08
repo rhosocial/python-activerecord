@@ -1,3 +1,4 @@
+# requirements-3.8.txt
 # Core data validation and serialization framework
 # Pydantic provides model validation, serialization, and type conversion
 # Version ~=2.10.6 is the latest compatible with Python 3.8

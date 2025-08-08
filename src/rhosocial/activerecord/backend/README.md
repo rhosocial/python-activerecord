@@ -1,3 +1,4 @@
+<!-- src/rhosocial/activerecord/backend/README.md -->
 # Design Principles
 
 To maintain the Open-Closed Principle and decouple the backend module from specific storage backend implementations, the following adjustments are needed:

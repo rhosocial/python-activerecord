@@ -1,3 +1,4 @@
+# setup.py
 import codecs
 import os
 import re

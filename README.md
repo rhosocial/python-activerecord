@@ -1,3 +1,4 @@
+<!-- README.md -->
 # rhosocial ActiveRecord
 
 > **⚠️ Development Stage Notice:** This project is currently in the development stage. Features may be added or removed at any time, and there may be defects or inconsistencies with the actual implementation. Therefore, the documentation content may be subject to change at any time and is currently for reference only.

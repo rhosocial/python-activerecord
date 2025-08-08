@@ -1,3 +1,4 @@
+# requirements.txt
 # Core data validation and serialization framework
 # Pydantic provides model validation, serialization, and type conversion
 # Version ~=2.11.1 ensures compatibility with Python 3.9-3.13

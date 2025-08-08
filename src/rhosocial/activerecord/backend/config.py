@@ -138,7 +138,7 @@ class ConnectionPoolProtocol(Protocol):
     pool_name: Optional[str]
     pool_recycle: Optional[int]
     pool_pre_ping: bool
-
+    pool_reset_session: bool  # Added for MySQL compatibility
 
 @runtime_checkable
 class SSLProtocol(Protocol):
@@ -147,7 +147,9 @@ class SSLProtocol(Protocol):
     ssl_cert: Optional[str]
     ssl_key: Optional[str]
     ssl_mode: Optional[str]
-    ssl_verify: bool
+    ssl_verify: bool  # Keep for backward compatibility
+    ssl_verify_cert: bool  # Add for MySQL-specific cert verification
+    ssl_verify_identity: bool  # Add for MySQL-specific identity verification
     ssl_ciphers: Optional[str]
 
 
@@ -155,14 +157,16 @@ class SSLProtocol(Protocol):
 class CharsetProtocol(Protocol):
     """Protocol defining character set and encoding options."""
     charset: str
-    client_encoding: Optional[str]
+    client_encoding: Optional[str]  # Keep for PostgreSQL compatibility
+    collation: Optional[str]  # Add for MySQL-specific collation
 
 
 @runtime_checkable
 class TimezoneProtocol(Protocol):
     """Protocol defining timezone options."""
     timezone: Optional[str]
-    server_timezone: Optional[str]
+    server_timezone: Optional[str]  # Keep for PostgreSQL compatibility
+    use_timezone: bool  # Add for MySQL-specific timezone handling
 
 
 @runtime_checkable
@@ -174,8 +178,9 @@ class VersionProtocol(Protocol):
 @runtime_checkable
 class LoggingProtocol(Protocol):
     """Protocol defining logging-related options."""
-    raise_on_warnings: bool
-    log_level: Optional[str]
+    raise_on_warnings: bool  # Keep for backward compatibility
+    log_queries: bool  # Add for MySQL-specific query logging
+    log_level: Optional[Any]  # Support both str and int
 
 
 # ==== Mixins ====
@@ -200,6 +205,7 @@ class ConnectionPoolMixin:
     pool_name: Optional[str] = None
     pool_recycle: Optional[int] = None
     pool_pre_ping: bool = False
+    pool_reset_session: bool = True  # Added for MySQL compatibility
 
 
 @dataclass
@@ -209,22 +215,26 @@ class SSLMixin:
     ssl_cert: Optional[str] = None
     ssl_key: Optional[str] = None
     ssl_mode: Optional[str] = None
-    ssl_verify: bool = True
+    # ssl_verify: bool = True  # Keep for backward compatibility
+    ssl_verify_cert: bool = False  # Add for MySQL-specific cert verification
+    ssl_verify_identity: bool = False  # Add for MySQL-specific identity verification
     ssl_ciphers: Optional[str] = None
 
 
 @dataclass
 class CharsetMixin:
-    """Mixin implementing character set options."""
+    """Mixin implementing character set and encoding options."""
     charset: str = 'utf8mb4'
-    client_encoding: Optional[str] = None
+    client_encoding: Optional[str] = None  # Keep for PostgreSQL compatibility
+    collation: Optional[str] = None  # Add for MySQL-specific collation
 
 
 @dataclass
 class TimezoneMixin:
     """Mixin implementing timezone options."""
     timezone: Optional[str] = None
-    server_timezone: Optional[str] = None
+    server_timezone: Optional[str] = None  # Keep for PostgreSQL compatibility
+    use_timezone: bool = True  # Add for MySQL-specific timezone handling
 
 
 @dataclass
@@ -236,8 +246,9 @@ class VersionMixin:
 @dataclass
 class LoggingMixin:
     """Mixin implementing logging options."""
-    raise_on_warnings: bool = False
-    log_level: Optional[str] = None
+    raise_on_warnings: bool = False  # Keep for backward compatibility
+    log_queries: bool = False  # Add for MySQL-specific query logging
+    log_level: Optional[Any] = None  # Support both str and int
 
 
 # ==== Base Connection Config ====

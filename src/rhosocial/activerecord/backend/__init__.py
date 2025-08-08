@@ -9,8 +9,22 @@ This module provides a generic interface for database operations, with support f
 - SQL dialect handling
 - Connection pooling
 """
+# Extend the namespace path to support backend implementations from separate packages
+# This is crucial for the distributed backend architecture where each database backend
+# (mysql, postgresql, etc.) can be installed independently
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
 __version__ = "0.8.0"
+
+from . import base
+from . import dialect
+from . import config
+from . import typing
+from . import errors
+from . import helpers
+from . import transaction
+from . import basic_type_converter
+from . import type_converters
 
 # Core interfaces and base classes
 from .base import StorageBackend, ColumnTypes

@@ -1,44 +1,7 @@
-# src/rhosocial/activerecord/backend/sqlite/__init__.py
-"""
-SQLite backend implementation for the Python ORM.
-
-This module provides a SQLite-specific implementation including:
-- SQLite backend with connection management and query execution
-- Type mapping and value conversion
-- Transaction management with savepoint support
-- SQLite dialect and expression handling
-- SQLite-specific type definitions and mappings
-"""
-
-from .backend import SQLiteBackend
-from .dialect import (
-    SQLiteDialect,
-    SQLiteExpression,
-    SQLiteReturningHandler, SQLiteAggregateHandler, SQLiteJsonHandler,
-)
-from .transaction import SQLiteTransactionManager
-from .types import (
-    SQLiteTypes,
-    SQLiteColumnType,
-    SQLITE_TYPE_MAPPINGS,
-)
-
-__all__ = [
-    # Backend
-    'SQLiteBackend',
-
-    # Dialect related
-    'SQLiteDialect',
-    'SQLiteExpression',
-    'SQLiteReturningHandler',
-    'SQLiteAggregateHandler',  # Add SQLiteAggregateHandler
-    'SQLiteJsonHandler',  # Add SQLiteJsonHandler
-
-    # Transaction
-    'SQLiteTransactionManager',
-
-    # Types
-    'SQLiteTypes',
-    'SQLiteColumnType',
-    'SQLITE_TYPE_MAPPINGS',
-]
+# src/rhosocial/activerecord/backend/impl/sqlite/__init__.py
+from . import backend
+from . import dialect
+from . import transaction
+from . import types
+from . import config
+from . import type_converters
