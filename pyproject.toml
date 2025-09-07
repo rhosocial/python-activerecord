@@ -374,7 +374,7 @@ serve = "python -m http.server 8000 --directory docs/_build/html"
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
-python_paths = ["src", "tests"]
+
 addopts = "-ra -q"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
