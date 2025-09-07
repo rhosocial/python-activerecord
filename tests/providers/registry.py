@@ -1,6 +1,7 @@
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
 from .basic import BasicProvider
 from .events import EventsProvider
+from .mixins import MixinsProvider
 
 # Create a single, global instance of the ProviderRegistry.
 provider_registry = ProviderRegistry()
@@ -14,6 +15,10 @@ provider_registry.register("feature.basic.IBasicProvider", BasicProvider)
 # Register the concrete `EventsProvider` as the implementation for the
 # `feature.events.IEventsProvider` interface defined in the testsuite.
 provider_registry.register("feature.events.IEventsProvider", EventsProvider)
+
+# Register the concrete `MixinsProvider` as the implementation for the
+# `feature.mixins.IMixinsProvider` interface defined in the testsuite.
+provider_registry.register("feature.mixins.IMixinsProvider", MixinsProvider)
 
 # As we migrate more test groups (e.g., relations, query), we will add
 # their provider registrations here.
