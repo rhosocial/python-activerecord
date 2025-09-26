@@ -109,6 +109,25 @@ from .type_converters import (
     TypeRegistry,
 )
 
+# Capabilities
+from .capabilities import (
+    DatabaseCapabilities,
+    CapabilityCategory,
+    SetOperationCapability,
+    WindowFunctionCapability,
+    AdvancedGroupingCapability,
+    CTECapability,
+    JSONCapability,
+    ReturningCapability,
+    TransactionCapability,
+    BulkOperationCapability,
+    ALL_SET_OPERATIONS,
+    ALL_WINDOW_FUNCTIONS,
+    ALL_CTE_FEATURES,
+    ALL_JSON_OPERATIONS,
+    ALL_RETURNING_FEATURES,
+)
+
 __all__ = [
     # Base classes
     'StorageBackend',
@@ -183,4 +202,21 @@ __all__ = [
     'TypeConverter',
     'BaseTypeConverter',
     'TypeRegistry',
+    
+    # Capabilities
+    'DatabaseCapabilities',
+    'CapabilityCategory',
+    'SetOperationCapability',
+    'WindowFunctionCapability',
+    'AdvancedGroupingCapability',
+    'CTECapability',
+    'JSONCapability',
+    'ReturningCapability',
+    'TransactionCapability',
+    'BulkOperationCapability',
+    'ALL_SET_OPERATIONS',
+    'ALL_WINDOW_FUNCTIONS',
+    'ALL_CTE_FEATURES',
+    'ALL_JSON_OPERATIONS',
+    'ALL_RETURNING_FEATURES',
 ]

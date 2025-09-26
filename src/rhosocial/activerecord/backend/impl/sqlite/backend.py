@@ -7,10 +7,26 @@ import time
 from sqlite3 import ProgrammingError
 from typing import Optional, Tuple, List, Any, Dict, Union
 
+from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter, SQLiteUUIDConverter, SQLiteNumericConverter
-from .config import SQLiteConnectionConfig
+from ...capabilities import (
+    DatabaseCapabilities, 
+    CapabilityCategory,
+    SetOperationCapability,
+    WindowFunctionCapability,
+    CTECapability,
+    JSONCapability,
+    ReturningCapability,
+    TransactionCapability,
+    BulkOperationCapability,
+    ALL_SET_OPERATIONS,
+    ALL_WINDOW_FUNCTIONS,
+    ALL_CTE_FEATURES,
+    ALL_JSON_OPERATIONS,
+    ALL_RETURNING_FEATURES
+)
 from ...base import StorageBackend, ColumnTypes
 from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
@@ -64,6 +80,59 @@ class SQLiteBackend(StorageBackend):
 
         # Register SQLite-specific converters
         self._register_sqlite_converters()
+
+    def _initialize_capabilities(self) -> DatabaseCapabilities:
+        """Initialize SQLite capabilities based on version.
+        
+        This method declares the capabilities that SQLite supports, taking into
+        account version-specific feature availability. The capability system
+        allows tests and application code to check for feature support before
+        using features, preventing runtime errors on SQLite versions that
+        don't support certain features.
+        
+        SQLite Capabilities Implementation:
+        - SET_OPERATIONS: All basic set operations (UNION, INTERSECT, etc.) are supported
+        - WINDOW_FUNCTIONS: Supported from SQLite 3.25.0+
+        - RETURNING_CLAUSE: Supported from SQLite 3.35.0+
+        - CTE: Supported from SQLite 3.8.3+
+        - JSON_OPERATIONS: Supported from SQLite 3.9.0+ (via JSON1 extension)
+        - TRANSACTION_FEATURES: SAVEPOINT is supported
+        - BULK_OPERATIONS: BATCH_OPERATIONS are supported via executemany
+        
+        Version-specific capabilities are checked using the SQLite version,
+        allowing the backend to accurately report what features are available.
+        """
+        capabilities = DatabaseCapabilities()
+        
+        # Get SQLite version
+        version = self.get_server_version()
+        
+        # Set operations - SQLite supports all basic set operations
+        capabilities.add_set_operation(ALL_SET_OPERATIONS)
+        
+        # Window functions supported from 3.25.0+
+        if version >= (3, 25, 0):
+            capabilities.add_window_function(ALL_WINDOW_FUNCTIONS)
+        
+        # RETURNING clause supported from 3.35.0+
+        if version >= (3, 35, 0):
+            capabilities.add_returning(ALL_RETURNING_FEATURES)
+        
+        # CTEs supported from 3.8.3+
+        if version >= (3, 8, 3):
+            capabilities.add_cte(ALL_CTE_FEATURES)
+        
+        # JSON operations supported from 3.9.0+
+        if version >= (3, 9, 0):
+            capabilities.add_json(ALL_JSON_OPERATIONS)
+        
+        # Transaction features - SAVEPOINT is supported in SQLite
+        capabilities.add_transaction(TransactionCapability.SAVEPOINT)
+        
+        # Bulk operations - BATCH_OPERATIONS are supported via executemany
+        capabilities.add_bulk_operation(BulkOperationCapability.BATCH_OPERATIONS)
+        
+        return capabilities
 
     def _register_sqlite_converters(self):
         """Register SQLite-specific type converters"""
