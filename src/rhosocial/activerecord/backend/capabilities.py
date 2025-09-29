@@ -55,11 +55,22 @@ class CapabilityCategory(Flag):
     FULL_TEXT_SEARCH = auto()
     SPATIAL_OPERATIONS = auto()
     SECURITY_FEATURES = auto()
+    JOIN_OPERATIONS = auto()
+    AGGREGATE_FUNCTIONS = auto()
+    DATETIME_FUNCTIONS = auto()
+    STRING_FUNCTIONS = auto()
+    MATHEMATICAL_FUNCTIONS = auto()
+
 
 class SetOperationCapability(Flag):
-    """Set operation capabilities.
-    
-    Represents different SQL set operations like UNION, INTERSECT, etc.
+    """Represents different SQL set operations.
+
+    This category distinguishes between operations that implicitly remove
+    duplicates (e.g., `UNION`, `INTERSECT`) and those that do not
+    (e.g., `UNION ALL`, `INTERSECT ALL`). Not all database engines
+    support the `ALL` variant for every set operation (e.g., older
+    SQLite versions support `UNION ALL` but not `INTERSECT ALL` or
+    `EXCEPT ALL`), making fine-grained checks necessary.
     """
     NONE = 0
     UNION = auto()
@@ -69,10 +80,16 @@ class SetOperationCapability(Flag):
     EXCEPT = auto()
     EXCEPT_ALL = auto()
 
+
 class WindowFunctionCapability(Flag):
-    """Window function capabilities.
-    
-    Represents different window functions that may be supported by a database.
+    """Represents support for various SQL window functions.
+
+    Window functions are a significant feature for analytical queries, but they
+    were introduced at different times in different databases. For example,
+    SQLite added support in version 3.25.0, while older versions of MySQL
+    (before 8.0) lacked them entirely. Furthermore, even among databases
+    that support window functions, the specific set of available functions
+    (e.g., `NTH_VALUE`, `CUME_DIST`) can vary.
     """
     NONE = 0
     ROW_NUMBER = auto()
@@ -87,20 +104,33 @@ class WindowFunctionCapability(Flag):
     PERCENT_RANK = auto()
     NTILE = auto()
 
+
 class AdvancedGroupingCapability(Flag):
-    """Advanced grouping capabilities.
-    
-    Represents advanced SQL grouping operations like CUBE, ROLLUP, etc.
+    """Represents advanced SQL grouping operations, often used in OLAP.
+
+    These features extend the standard `GROUP BY` clause to allow for more
+    complex aggregations. Support is highly database-dependent. For instance,
+    PostgreSQL and Oracle have robust support, whereas MySQL introduced `ROLLUP`
+    in version 5.7 and `CUBE` only in 8.0. SQLite, being a more lightweight
+    database, does not support these at all. This makes checking essential
+    before attempting to generate such queries.
     """
     NONE = 0
     CUBE = auto()
     ROLLUP = auto()
     GROUPING_SETS = auto()
 
+
 class CTECapability(Flag):
-    """Common Table Expression capabilities.
-    
-    Represents different CTE features that may be supported.
+    """Represents different features related to Common Table Expressions (CTEs).
+
+    CTEs (defined with the `WITH` clause) are a powerful tool for structuring
+    complex queries. While basic CTEs are now common, support for advanced
+    features varies. `RECURSIVE` CTEs are not universally available.
+    Furthermore, the ability to use CTEs within DML statements (e.g.,
+    `WITH ... UPDATE`) or to provide optimizer hints (`MATERIALIZED` vs.
+    `NOT MATERIALIZED`) is often specific to particular databases like
+    PostgreSQL.
     """
     NONE = 0
     BASIC_CTE = auto()
@@ -109,10 +139,15 @@ class CTECapability(Flag):
     CTE_IN_DML = auto()
     MATERIALIZED_CTE = auto()
 
+
 class JSONCapability(Flag):
-    """JSON operation capabilities.
-    
-    Represents different JSON operations that may be supported by a database.
+    """Represents different JSON operations that may be supported by a database.
+
+    JSON support is highly variable across databases. This includes not
+    only the availability of specific functions for querying and manipulating
+    JSON data, but also support for optimized binary JSON formats (like
+    `JSONB` in PostgreSQL or as introduced in SQLite 3.45.0), which can
+    significantly impact performance.
     """
     NONE = 0
     JSON_EXTRACT = auto()
@@ -125,35 +160,156 @@ class JSONCapability(Flag):
     JSON_KEYS = auto()
     JSON_ARRAY = auto()
     JSON_OBJECT = auto()
+    JSONB_SUPPORT = auto()
+
 
 class ReturningCapability(Flag):
-    """RETURNING clause capabilities.
-    
-    Represents different RETURNING clause features that may be supported.
+    """Represents features of the `RETURNING` clause in DML statements.
+
+    The `RETURNING` clause is highly efficient for obtaining data from rows
+    affected by an `INSERT`, `UPDATE`, or `DELETE` statement in a single
+    round trip. However, support is inconsistent across databases. PostgreSQL
+    has excellent support, while SQLite introduced it in version 3.35.0.
+    MySQL notably lacks this feature entirely. This capability allows for
+    checking not just for basic support, but also for advanced features like
+    returning complex expressions.
     """
     NONE = 0
     BASIC_RETURNING = auto()
     RETURNING_EXPRESSIONS = auto()
     RETURNING_ALIASES = auto()
 
+
 class TransactionCapability(Flag):
-    """Transaction feature capabilities.
-    
-    Represents different transaction features that may be supported.
+    """Represents different features related to database transactions.
+
+    While all transactional databases support basic `BEGIN`, `COMMIT`, and
+    `ROLLBACK` operations, the availability of more advanced transaction
+    control features can vary. This includes support for named `SAVEPOINT`s
+    for partial rollbacks, the ability to programmatically set transaction
+    `ISOLATION_LEVELS` (e.g., `SERIALIZABLE`), and the option to declare
+    a transaction as `READ ONLY` for optimization.
     """
     NONE = 0
     SAVEPOINT = auto()
     ISOLATION_LEVELS = auto()
     READ_ONLY_TRANSACTIONS = auto()
 
+
 class BulkOperationCapability(Flag):
-    """Bulk operation capabilities.
-    
-    Represents different bulk operation features that may be supported.
+    """Represents features for performing efficient bulk data modifications.
+
+    This category covers different methods for handling large volumes of
+    data insertion or modification. `MULTI_ROW_INSERT` refers to the standard
+    `INSERT ... VALUES (...), (...)` syntax. `UPSERT` logic is highly
+    database-specific (e.g., `ON CONFLICT` in SQLite/PostgreSQL vs.
+    `ON DUPLICATE KEY UPDATE` in MySQL). `BATCH_OPERATIONS` refers to the
+    backend driver's ability to efficiently process multiple statements,
+    such as through `executemany`.
     """
     NONE = 0
     MULTI_ROW_INSERT = auto()
     BATCH_OPERATIONS = auto()
+    UPSERT = auto()
+
+
+class JoinCapability(Flag):
+    """Represents different SQL JOIN operations.
+
+    While INNER and LEFT JOINs are almost universally supported, capabilities
+    for RIGHT and FULL OUTER JOINs vary significantly across different
+    database systems and versions. For example, SQLite only added support
+    for RIGHT and FULL OUTER JOIN in version 3.39.0. This capability
+    allows for precise testing of join-related logic.
+    """
+    NONE = 0
+    INNER_JOIN = auto()
+    LEFT_OUTER_JOIN = auto()
+    RIGHT_OUTER_JOIN = auto()
+    FULL_OUTER_JOIN = auto()
+    CROSS_JOIN = auto()
+
+
+class ConstraintCapability(Flag):
+    """Represents support for various SQL constraints.
+
+    While basic constraints like PRIMARY KEY and NOT NULL are fundamental,
+    support for others can differ. For instance, the enforcement of CHECK
+    constraints can vary. More notably, some databases introduce unique
+    constraint-related features, such as SQLite's `STRICT` tables (added
+    in version 3.37.0), which enforce data types more rigorously. This
+    category allows for testing these specific behaviors.
+    """
+    NONE = 0
+    PRIMARY_KEY = auto()
+    FOREIGN_KEY = auto()
+    UNIQUE = auto()
+    NOT_NULL = auto()
+    CHECK = auto()
+    DEFAULT = auto()
+    STRICT_TABLES = auto()
+
+
+class AggregateFunctionCapability(Flag):
+    """Represents support for specific aggregate functions.
+
+    While basic aggregates like `SUM` and `COUNT` are universal, more advanced
+    or specialized ones are not. A key example is string aggregation, which
+    is `STRING_AGG` in PostgreSQL and standard SQL, but `GROUP_CONCAT` in
+    SQLite and MySQL, with different syntax and options.
+    """
+    NONE = 0
+    STRING_AGG = auto()
+    GROUP_CONCAT = auto()
+    JSON_AGG = auto()
+
+
+class DateTimeFunctionCapability(Flag):
+    """Represents support for date and time manipulation functions.
+
+    Date and time handling is notoriously inconsistent across databases.
+    This checks for support for standard functions like `EXTRACT` or common,
+    de-facto standard functions for formatting (`STRFTIME`) and date
+    arithmetic.
+    """
+    NONE = 0
+    EXTRACT = auto()
+    STRFTIME = auto()
+    DATE_ADD = auto()
+    DATE_SUB = auto()
+
+
+class StringFunctionCapability(Flag):
+    """Represents support for common string manipulation functions.
+
+    While basic string operations are common, the exact function names and
+    behaviors can vary. This category checks for widely accepted standard
+    or de-facto standard functions.
+    """
+    NONE = 0
+    CONCAT = auto()
+    CONCAT_WS = auto()
+    LOWER = auto()
+    UPPER = auto()
+    SUBSTRING = auto()
+    TRIM = auto()
+
+
+class MathematicalFunctionCapability(Flag):
+    """Represents support for common mathematical and numeric functions.
+
+    Checks for the availability of mathematical functions beyond basic
+    arithmetic operators. Support for these can be inconsistent, especially
+    in more lightweight databases.
+    """
+    NONE = 0
+    ABS = auto()
+    ROUND = auto()
+    CEIL = auto()
+    FLOOR = auto()
+    POWER = auto()
+    SQRT = auto()
+
 
 # Main capability structure that combines all capabilities
 class DatabaseCapabilities:
@@ -178,7 +334,12 @@ class DatabaseCapabilities:
         self.returning: ReturningCapability = ReturningCapability.NONE
         self.transactions: TransactionCapability = TransactionCapability.NONE
         self.bulk_operations: BulkOperationCapability = BulkOperationCapability.NONE
-        # Additional capability categories would be added here
+        self.join_operations: JoinCapability = JoinCapability.NONE
+        self.constraints: ConstraintCapability = ConstraintCapability.NONE
+        self.aggregate_functions: AggregateFunctionCapability = AggregateFunctionCapability.NONE
+        self.datetime_functions: DateTimeFunctionCapability = DateTimeFunctionCapability.NONE
+        self.string_functions: StringFunctionCapability = StringFunctionCapability.NONE
+        self.mathematical_functions: MathematicalFunctionCapability = MathematicalFunctionCapability.NONE
     
     def supports_category(self, category: CapabilityCategory) -> bool:
         """Check if a capability category is supported.
@@ -278,6 +439,30 @@ class DatabaseCapabilities:
             bool: True if the operation is supported, False otherwise
         """
         return bool(self.bulk_operations & bulk_op)
+    
+    def supports_join_operation(self, join_op: JoinCapability) -> bool:
+        """Check if a join operation is supported."""
+        return bool(self.join_operations & join_op)
+    
+    def supports_constraint(self, constraint: ConstraintCapability) -> bool:
+        """Check if a constraint is supported."""
+        return bool(self.constraints & constraint)
+    
+    def supports_aggregate_function(self, func: AggregateFunctionCapability) -> bool:
+        """Check if an aggregate function is supported."""
+        return bool(self.aggregate_functions & func)
+
+    def supports_datetime_function(self, func: DateTimeFunctionCapability) -> bool:
+        """Check if a date/time function is supported."""
+        return bool(self.datetime_functions & func)
+
+    def supports_string_function(self, func: StringFunctionCapability) -> bool:
+        """Check if a string function is supported."""
+        return bool(self.string_functions & func)
+
+    def supports_mathematical_function(self, func: MathematicalFunctionCapability) -> bool:
+        """Check if a mathematical function is supported."""
+        return bool(self.mathematical_functions & func)
     
     def add_category(self, category: CapabilityCategory) -> 'DatabaseCapabilities':
         """Add a capability category.
@@ -421,6 +606,66 @@ class DatabaseCapabilities:
         else:
             self.bulk_operations |= bulk_op
         self.categories |= CapabilityCategory.BULK_OPERATIONS
+        return self
+    
+    def add_join_operation(self, join_op: Union[JoinCapability, List[JoinCapability]]) -> 'DatabaseCapabilities':
+        """Add a join operation capability."""
+        if isinstance(join_op, list):
+            for j in join_op:
+                self.join_operations |= j
+        else:
+            self.join_operations |= join_op
+        self.categories |= CapabilityCategory.JOIN_OPERATIONS
+        return self
+    
+    def add_constraint(self, constraint: Union[ConstraintCapability, List[ConstraintCapability]]) -> 'DatabaseCapabilities':
+        """Add a constraint capability."""
+        if isinstance(constraint, list):
+            for c in constraint:
+                self.constraints |= c
+        else:
+            self.constraints |= constraint
+        self.categories |= CapabilityCategory.CONSTRAINTS
+        return self
+    
+    def add_aggregate_function(self, func: Union[AggregateFunctionCapability, List[AggregateFunctionCapability]]) -> 'DatabaseCapabilities':
+        """Add an aggregate function capability."""
+        if isinstance(func, list):
+            for f in func:
+                self.aggregate_functions |= f
+        else:
+            self.aggregate_functions |= func
+        self.categories |= CapabilityCategory.AGGREGATE_FUNCTIONS
+        return self
+
+    def add_datetime_function(self, func: Union[DateTimeFunctionCapability, List[DateTimeFunctionCapability]]) -> 'DatabaseCapabilities':
+        """Add a date/time function capability."""
+        if isinstance(func, list):
+            for f in func:
+                self.datetime_functions |= f
+        else:
+            self.datetime_functions |= func
+        self.categories |= CapabilityCategory.DATETIME_FUNCTIONS
+        return self
+
+    def add_string_function(self, func: Union[StringFunctionCapability, List[StringFunctionCapability]]) -> 'DatabaseCapabilities':
+        """Add a string function capability."""
+        if isinstance(func, list):
+            for f in func:
+                self.string_functions |= f
+        else:
+            self.string_functions |= func
+        self.categories |= CapabilityCategory.STRING_FUNCTIONS
+        return self
+
+    def add_mathematical_function(self, func: Union[MathematicalFunctionCapability, List[MathematicalFunctionCapability]]) -> 'DatabaseCapabilities':
+        """Add a mathematical function capability."""
+        if isinstance(func, list):
+            for f in func:
+                self.mathematical_functions |= f
+        else:
+            self.mathematical_functions |= func
+        self.categories |= CapabilityCategory.MATHEMATICAL_FUNCTIONS
         return self
 
 # Capability constants for common use cases
