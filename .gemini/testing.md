@@ -4,19 +4,152 @@
 
 The rhosocial-activerecord ecosystem employs a sophisticated testing strategy based on **separation of test definitions from backend implementations**. This will be achieved through the `rhosocial-activerecord-testsuite` package, which defines standardized test contracts that all backends must implement.
 
+The following diagram illustrates the relationship between the testsuite and backend packages:
+
+```mermaid
+graph TB
+    subgraph "Backend Packages" 
+        direction TB
+        MYSQL[rhosocial-activerecord-mysql<br/>- Backend implementation<br/>- Schema definitions<br/>- Backend-specific tests]
+        DEFAULT[rhosocial-activerecord<br/>- Default backend<br/>- Core functionality<br/>- Backend-specific tests]
+    end
+
+    subgraph "Testsuite Package" 
+        direction TB
+        TS[rhosocial-activerecord-testsuite<br/>- Standardized test contracts<br/>- Feature tests<br/>- Real-world scenarios<br/>- Performance benchmarks]
+    end
+
+    subgraph "Backend Developer Responsibilities" 
+        direction TB
+        PROVIDER[Implement test providers<br/>- Set up database schemas<br/>- Configure test models<br/>- Provide fixtures]
+        SCHEMA[SQL Schema Creation<br/>- Create backend-specific<br/>  schema files<br/>- Match testsuite structure]
+        REPORT[Generate compatibility reports<br/>- Run standardized tests<br/>- Track compatibility scores]
+    end
+
+    subgraph "Testsuite Author Responsibilities" 
+        direction TB
+        TESTDEF[Test Definition<br/>- Write backend-agnostic<br/>  test functions<br/>- Define test contracts<br/>- Provide test utilities]
+        MARKER[Test Marking<br/>- Standard pytest markers<br/>- Categorization system<br/>- Feature identification]
+        UTIL[Test Utilities<br/>- Schema generators<br/>- Helper functions<br/>- Provider interfaces]
+    end
+
+    %% Relationship arrows
+    MYSQL -.->|uses| TS
+    DEFAULT -.->|uses| TS
+    PROVIDER -->|fulfills| TS
+    SCHEMA -->|supports| TS
+    REPORT -->|verifies| TS
+    TESTDEF -->|provides| TS
+    MARKER -->|organizes| TS
+    UTIL -->|facilitates| TS
+
+    style TS fill:#e1f5fe,stroke:#01579b,stroke-width:2px
+    style MYSQL fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style DEFAULT fill:#f3e5f5,stroke:#4a148c,stroke-width:2px
+    style PROVIDER fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style SCHEMA fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style REPORT fill:#e8f5e8,stroke:#1b5e20,stroke-width:2px
+    style TESTDEF fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style MARKER fill:#fff3e0,stroke:#e65100,stroke-width:2px
+    style UTIL fill:#fff3e0,stroke:#e65100,stroke-width:2px
+```
+
 > **Important Note**: The testsuite separation is currently in the planning phase. Tests currently exist within the main codebase and will be gradually migrated to the separate testsuite package. The testsuite package content described here is under active development and its directory structure should be considered as reference architecture rather than current implementation.
 
 ## Current State vs. Future Architecture
 
 ### Current State
-- Tests are located in `tests/` directory of the main repository
-- Backend-specific tests are mixed with general tests
-- Test organization follows traditional pytest structure
+- Tests are located in both `tests/` and `tests_original/` directories of the main repository
+- `tests_original/` contains the original, comprehensive test suite organized by functionality
+- `tests/` contains a subset of tests following the new standardized structure that mirrors the testsuite package
+- Backend-specific tests are still mixed with general tests in the main repository
+
+### Current Migration Status
+- **Phase 1** (Completed): Architecture planning and design
+- **Phase 2** (Completed): Feature tests migration - basic, events, and mixins tests have been moved to the new structure in `tests/`
+- **Phase 2** (Completed): Query tests migration - query tests have been moved to `python-activerecord-testsuite`
+- **Phase 3** (In Progress): Relation tests migration to `python-activerecord-testsuite`
+- **Phase 4** (Pending): Real-world scenarios and performance benchmarks
+- **Phase 5** (Pending): Full deprecation of tests in main repository
+
+### Mapping of Tests During Migration
+
+As tests are migrated from `tests_original` to the new structure:
+
+| Original Location (`tests_original`) | New Location (`tests`) | Migration Status |
+|--------------------------------------|------------------------|------------------|
+| `tests_original/rhosocial/activerecord_test/basic/` | `tests/rhosocial/activerecord_test/feature/basic/` | ✅ Completed |
+| `tests_original/rhosocial/activerecord_test/events/` | `tests/rhosocial/activerecord_test/feature/events/` | ✅ Completed |
+| `tests_original/rhosocial/activerecord_test/mixins/` | `tests/rhosocial/activerecord_test/feature/mixins/` | ✅ Completed |
+| `tests_original/rhosocial/activerecord_test/query/` | `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/query/` | ✅ Completed |
+| `tests_original/rhosocial/activerecord_test/relation/` | `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/relation/` | 🔄 In Progress |
+| `tests_original/rhosocial/activerecord_test/realworld/` | `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/realworld/` | 🔄 Planned |
+
+### Relationship Between Local Tests and Testsuite Package
+- The `tests/` directory in the main repository serves as the **local implementation** of the testsuite architecture
+- The `python-activerecord-testsuite` package contains the **standardized test contracts** that all backends must implement
+- When fully migrated, the `tests/` directory will primarily contain backend-specific configuration and local validation tests
+- The `python-activerecord-testsuite` package will contain the standardized, backend-agnostic test implementations
+
+### Testing Organization Convention
+
+To clearly distinguish between tests for the testsuite and backend-specific tests, we establish the following naming conventions:
+
+#### Testsuite Tests Convention
+
+When referring to tests in the testsuite package, we use a simplified notation that omits the full path. Specifically:
+
+- `feature/basic` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/basic/`
+- `feature/query` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/query/`
+- `feature/relation` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/relation/`
+- `feature/events` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/events/`
+- `feature/mixins` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/mixins/`
+- `realworld/ecommerce` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/realworld/ecommerce/`
+- `benchmark/bulk_operations` refers to: `python-activerecord-testsuite/src/rhosocial/activerecord/testsuite/benchmark/bulk_operations/`
+
+This convention applies to all three main test categories:
+
+1. **feature**: Core functionality tests
+2. **realworld**: Real-world scenario tests
+3. **benchmark**: Performance benchmark tests
+
+The hierarchical structure within each category follows a consistent pattern (e.g., `feature/query/advanced` would be at `.../testsuite/feature/query/advanced/`), but the main categories (feature, realworld, benchmark) remain fixed and will not expand with additional top-level categories.
+
+#### Backend-Specific Tests Convention
+
+For backend-specific tests in backend implementations (such as `rhosocial-activerecord-mysql`, `rhosocial-activerecord-pgsql`, etc.), the following organization is required to clearly distinguish them from testsuite tests:
+
+1. **Prefixed Test Files**: Backend-specific tests should use prefixes to indicate their backend:
+   - `test_sqlite_*.py` for SQLite-specific tests
+   - `test_mysql_*.py` for MySQL-specific tests
+   - `test_pgsql_*.py` for PostgreSQL-specific tests
+   - etc.
+
+2. **Backend Subdirectories**: When there are many backend-specific tests, organize them in dedicated subdirectories:
+   - `tests/rhosocial/activerecord_test/feature/sqlite/`
+   - `tests/rhosocial/activerecord_test/feature/mysql/`
+   - `tests/rhosocial/activerecord_test/realworld/sqlite/`
+   - etc.
+
+3. **Separation from Testsuite Tests**: Backend-specific directories should be clearly separated from the standardized testsuite structure to avoid confusion between universal tests and backend-specific implementations.
+
+This convention helps teams and AI models distinguish between:
+- Universal tests that apply to all backends (in testsuites)
+- Backend-specific implementations and tests (with prefixes or dedicated directories)
+
+### Current Migration Status
+- **Phase 1** (Completed): Architecture planning and design
+- **Phase 2** (Completed): Feature tests migration - basic, events, and mixins tests have been moved to the new structure
+- **Phase 2** (Completed): Query tests migration - all query tests have been moved to `python-activerecord-testsuite`
+- **Phase 3** (In Progress): Relation tests migration
+- **Phase 4** (Pending): Real-world scenarios and performance benchmarks
+- **Phase 5** (Pending): Full deprecation of tests in main repository
 
 ### Future Architecture (In Development)
-- Standardized tests will move to `rhosocial-activerecord-testsuite` package
+- Standardized tests will be fully separated into `rhosocial-activerecord-testsuite` package
 - Backend packages will only contain backend-specific tests and schema fixtures
 - Clear separation between test contracts and implementations
+- Local `tests/` directory will be significantly reduced or removed
 
 ## Core Testing Philosophy
 
@@ -33,6 +166,45 @@ Our testing strategy is built on three core pillars, each serving different vali
 - **Testsuite Package**: Defines test logic and business models (the "what")
 - **Backend Packages**: Provide database schemas and environment setup (the "how")
 
+### Component Breakdown
+
+#### Testsuite Package (`rhosocial-activerecord-testsuite`)
+
+| Component | Function | Responsibility |
+|-----------|----------|----------------|
+| **`feature/`** | Core functionality tests | Define standardized tests for CRUD, validation, queries, relations |
+| **`realworld/`** | Business scenario tests | Complex multi-model interactions, real-world workflows |
+| **`benchmark/`** | Performance tests | Performance comparison across backends |
+| **`utils/`** | Testing utilities | Schema generators, helper functions, provider interfaces |
+| **`feature/basic/`** | Basic CRUD tests | User model creation, reading, updating, deletion |
+| **`feature/query/`** | Query functionality | Conditions, expressions, joins, CTEs, window functions |
+| **`feature/relation/`** | Relationship tests | HasOne, HasMany, BelongsTo, ManyToMany relationships |
+| **`feature/fixtures/`** | Test models | Abstract model definitions for test reuse |
+
+#### Backend Package (`rhosocial-activerecord`, `rhosocial-activerecord-mysql`, etc.)
+
+| Component | Function | Responsibility |
+|-----------|----------|----------------|
+| **`tests/conftest.py`** | Test configuration | Backend registration, option parsing |
+| **`tests/schemas/`** | SQL schemas | Backend-specific schema definitions |
+| **`tests/fixtures/`** | Schema setup | Database connection, table creation |
+| **`tests/{category}/`** | Backend-specific tests | Extensions to standard tests |
+
+#### Testsuite Author Responsibilities
+
+- **Write Backend-Agnostic Tests**: Create tests that work with any backend implementing the interface
+- **Define Clear Interfaces**: Specify expected model behavior without assuming implementation details
+- **Provide Test Utilities**: Create helpers for schema generation and fixture setup
+- **Maintain Compatibility**: Ensure tests are compatible with all backend versions
+
+#### Backend Developer Responsibilities
+
+- **Implement Test Providers**: Create classes that set up models and schemas for tests
+- **Provide Schema Files**: Create backend-specific schema definitions
+- **Handle Backend-Specific Features**: Implement and test database-specific functionality
+- **Generate Compatibility Reports**: Run testsuite and document compatibility
+- **Maintain Feature Parity**: Ensure backend supports all required features
+
 ## Current Test Structure
 
 As of now, tests remain in the main repository structure:
@@ -43,15 +215,16 @@ tests/
 │   └── activerecord_test/
 │       ├── backend/           # Backend-specific tests
 │       │   └── sqlite/
-│       ├── basic/            # Core functionality tests
-│       │   ├── test_crud.py
-│       │   ├── test_fields.py
-│       │   └── test_validation.py
-│       ├── query/            # Query builder tests
-│       │   ├── test_active_query.py
-│       │   └── test_cte_query.py
-│       ├── relation/         # Relationship tests
-│       └── field/           # Field type tests
+│       ├── feature/           # New organized structure (migration target)
+│       │   ├── basic/
+│       │   │   ├── test_crud.py
+│       │   │   ├── test_fields.py
+│       │   │   └── test_validation.py
+│       │   ├── events/
+│       │   ├── mixins/
+│       │   └── query/         # Query functionality tests (migration in progress)
+│       ├── realworld/         # Real-world scenarios
+│       └── fixtures/          # Common fixtures
 ```
 
 These tests will be gradually migrated to the testsuite package following the planned architecture below.
@@ -76,9 +249,22 @@ rhosocial-activerecord-testsuite/
                 │   │   └── fixtures/
                 │   │       └── models.py
                 │   ├── query/
-                │   │   ├── test_where.py
+                │   │   ├── test_basic.py
+                │   │   ├── test_conditions.py
                 │   │   ├── test_joins.py
-                │   │   └── test_cte.py
+                │   │   ├── test_joins_2.py
+                │   │   ├── test_cte_basic.py
+                │   │   ├── test_cte_integration.py
+                │   │   ├── test_cte_recursive.py
+                │   │   ├── test_cte_aggregate.py
+                │   │   ├── test_relations_with.py
+                │   │   ├── test_relations_with_query.py
+                │   │   ├── test_expression.py
+                │   │   ├── test_case_expressions.py
+                │   │   ├── test_window_functions.py
+                │   │   ├── test_advanced_grouping.py
+                │   │   └── fixtures/
+                │   │       └── models.py
                 │   ├── relation/
                 │   │   ├── test_has_one.py
                 │   │   ├── test_has_many.py
@@ -108,6 +294,8 @@ rhosocial-activerecord-testsuite/
                     ├── schema_generator.py
                     └── helpers.py
 ```
+
+> **Note**: The above structure represents the current implementation in the testsuite package. As the migration is ongoing, this structure may evolve based on implementation needs and may differ slightly from the original planned architecture.
 
 ### Version Management (Planned)
 
@@ -170,6 +358,49 @@ pytest -m "benchmark"
 
 ## Backend Integration
 
+### Using the Testsuite in Backend Packages
+
+Backend packages should integrate the testsuite via the provider pattern. The following example demonstrates how `rhosocial-activerecord-mysql` would use the testsuite:
+
+```python
+# rhosocial-activerecord-mysql/tests/providers/mysql_provider.py
+from rhosocial.activerecord.testsuite.core.provider import IProvider
+from rhosocial.activerecord.backend.mysql import MySQLBackend
+from rhosocial.activerecord import User, TypeCase
+
+class MySQLProvider(IProvider):
+    """MySQL-specific implementation of testsuite provider interface."""
+    
+    def get_test_scenarios(self):
+        """Return list of test scenarios available for this backend."""
+        return ["local_mysql", "docker_mysql", "remote_mysql"]
+    
+    def setup_user_model(self, scenario):
+        """Configure and return User model for specified scenario."""
+        # Configure model to use MySQL backend
+        User.set_backend(MySQLBackend(config=self.get_config(scenario)))
+        return User
+    
+    def setup_type_case_model(self, scenario):
+        """Configure and return TypeCase model for specified scenario."""
+        TypeCase.set_backend(MySQLBackend(config=self.get_config(scenario)))
+        return TypeCase
+    
+    def cleanup_after_test(self, scenario):
+        """Clean up test data after each test."""
+        # Drop all test tables for this scenario
+        pass
+    
+    def get_config(self, scenario):
+        """Get backend config for the specified scenario."""
+        configs = {
+            "local_mysql": {"host": "localhost", "port": 3306, ...},
+            "docker_mysql": {"host": "mysql-test-container", "port": 3306, ...},
+            "remote_mysql": {"host": "remote-mysql.example.com", "port": 3306, ...}
+        }
+        return configs[scenario]
+```
+
 ### Backend Responsibilities
 
 Each backend package must:
@@ -177,6 +408,7 @@ Each backend package must:
 1. **Provide Schema Fixtures**: Implement fixtures that create/destroy database schemas
 2. **Match Testsuite Structure**: Organize schemas to mirror testsuite organization
 3. **Declare Compatibility**: Specify compatible testsuite version in dependencies
+4. **Implement Provider Interface**: Create classes that implement testsuite provider interfaces
 
 ### Schema Management
 
@@ -275,6 +507,58 @@ To prepare for testsuite integration:
 3. **Document compatibility**: Track which core features your backend supports
 4. **Monitor updates**: Watch for testsuite package release announcements
 
+### Implementation Guidelines for Backend Developers
+
+1. **Create Provider Implementation**:
+   - Implement the required provider interface
+   - Define available test scenarios
+   - Set up models with correct backend configuration
+
+2. **Create Backend-Specific Schema Files**:
+   - Generate schema templates using testsuite utilities
+   - Adjust for backend-specific syntax and features
+   - Organize in `tests/schemas/{category}/` structure
+
+3. **Configure Test Execution**:
+   - Set up pytest hooks for testsuite execution
+   - Implement command-line options for testsuite inclusion
+   - Configure reporting options
+
+4. **Run Compatibility Tests**:
+   - Execute full testsuite against your backend
+   - Generate compatibility reports
+   - Document feature limitations
+
+Example backend implementation checklist:
+
+```
+rhosocial-activerecord-mysql/
+├── tests/
+│   ├── providers/                 # [ ] Provider implementations
+│   │   └── mysql_provider.py     # [ ] Implement IProvider interface
+│   ├── schemas/                   # [ ] Schema files
+│   │   ├── feature/              # [ ] Feature test schemas
+│   │   │   ├── basic.sql         # [ ] Basic CRUD schema
+│   │   │   ├── query.sql         # [ ] Query functionality schema
+│   │   │   └── relation.sql      # [ ] Relationship schema
+│   │   ├── realworld/            # [ ] Real-world scenario schemas
+│   │   └── benchmark/            # [ ] Performance test schemas
+│   ├── conftest.py              # [ ] Pytest configuration
+│   └── test_mysql_specific.py   # [ ] MySQL-specific tests
+├── src/                         # Backend implementation
+└── pyproject.toml               # [ ] Declare testsuite dependency
+```
+
+### For Testsuite Authors
+
+When developing the testsuite package:
+
+1. **Design Backend-Agnostic Tests**: Avoid assumptions about backend implementation
+2. **Provide Clear Interfaces**: Create well-defined provider interfaces
+3. **Develop Schema Tools**: Create utilities for backend-specific schema generation
+4. **Create Documentation**: Provide clear guidance for backend developers
+5. **Implement Fallbacks**: Handle cases where backends don't support certain features
+
 ### Migration Timeline
 
 - **Phase 1** (Current): Planning and architecture design
@@ -283,7 +567,55 @@ To prepare for testsuite integration:
 - **Phase 4**: Addition of performance benchmarks
 - **Phase 5**: Full deprecation of tests in main repository
 
-## Running Testsuite (Future)
+## Using the Testsuite Package
+
+### Integration with Backend Packages
+
+The `python-activerecord-testsuite` package is designed to be used as a dependency in backend packages. Here's how to integrate it:
+
+#### 1. Add Dependency
+
+```toml
+# pyproject.toml
+[project.optional-dependencies]
+test = [
+    "rhosocial-activerecord-testsuite>=1.0.0,<2.0.0",
+    # other test dependencies
+]
+```
+
+#### 2. Implement Provider Interface
+
+Backend packages must implement the provider interface to connect with the testsuite:
+
+```python
+# tests/providers/my_backend_provider.py
+from rhosocial.activerecord.testsuite.core.provider import IProvider
+
+class MyBackendProvider(IProvider):
+    def get_test_scenarios(self):
+        # Return list of scenarios supported by this backend
+        return ["scenario1", "scenario2"]
+    
+    def setup_user_model(self, scenario):
+        # Configure User model for this backend with the specified scenario
+        pass
+    
+    # Implement other required methods...
+```
+
+#### 3. Register Provider
+
+Register your provider implementation so the testsuite can find it:
+
+```python
+# tests/conftest.py
+from rhosocial.activerecord.testsuite.core.registry import register_provider
+from .providers.my_backend_provider import MyBackendProvider
+
+# Register your provider at module import time
+register_provider("feature.basic.IBasicProvider", MyBackendProvider)
+```
 
 ### Enabling Testsuite Execution
 
@@ -365,6 +697,7 @@ Test Suite Version: 1.2.5
 - Real-world: v1.1.0
 - Benchmark: v1.0.2
 ==================================================================
+```
 
 | Category | Test Area | Status/Score | Notes |
 |----------|-----------|--------------|--------|
@@ -379,19 +712,149 @@ Test Suite Version: 1.2.5
 | | **Social** | ✅ | |
 | **Benchmarks (v1.0.2)** | **Bulk Insert (10k)** | 1.23s | mean execution time |
 | | **Complex Join (1k)** | 5.67s | mean execution time |
+
+
+## Tests Reuse Mechanism
+
+### The Provider Pattern for Backend Testing
+
+The core mechanism that allows test reuse across different backends is the **Provider Pattern**. Each backend implements provider interfaces that tell the testsuite how to set up the necessary models and schemas.
+
+#### How the Provider Pattern Works
+
+1. **Testsuite Defines Contracts**: Testsuite defines abstract interfaces and standard tests
+2. **Backend Implements Providers**: Each backend implements provider classes that handle backend-specific setup
+3. **Runtime Configuration**: During test execution, the provider configures models with the appropriate backend
+4. **Test Execution**: Same test functions execute with different backend implementations
+
+#### Example Implementation
+
+```python
+# rhosocial-activerecord-testsuite/src/rhosocial/activerecord/testsuite/core/provider.py
+class IProvider(ABC):
+    """Abstract base class defining the provider interface."""
+    
+    @abstractmethod
+    def get_test_scenarios(self) -> List[str]:
+        """Return list of available test scenarios."""
+        pass
+    
+    @abstractmethod
+    def setup_user_model(self, scenario: str) -> Type['ActiveRecord']:
+        """Configure and return User model for specified scenario."""
+        pass
+
+    @abstractmethod
+    def cleanup_after_test(self, scenario: str) -> None:
+        """Clean up test data after each test."""
+        pass
 ```
 
-## Backend Certification Standards
+```python
+# rhosocial-activerecord-mysql/tests/providers/mysql_provider.py
+from rhosocial.activerecord.testsuite.core.provider import IProvider
 
-### Mandatory Requirements
+class MySQLProvider(IProvider):
+    def get_test_scenarios(self):
+        return ["local_mysql", "docker_mysql"]
+    
+    def setup_user_model(self, scenario):
+        # Configure model to use MySQL backend
+        User.set_backend(MySQLBackend(config=self.get_config(scenario)))
+        return User
+    
+    def cleanup_after_test(self, scenario):
+        # Clean up MySQL-specific test data
+        pass
+```
+
+#### Implementation in Tests
+
+```python
+# rhosocial-activerecord-testsuite/src/rhosocial/activerecord/testsuite/feature/basic/test_crud.py
+@pytest.mark.feature
+@pytest.mark.feature_crud
+def test_create_user(user_class):
+    """This test runs with different backends based on provider implementation."""
+    instance = user_class(username="Alice", email="alice@example.com")
+    rows = instance.save()
+    assert rows == 1
+    assert instance.id is not None
+```
+
+### Running Tests in Current Environment
+
+#### Using tests_original
+
+The `tests_original` directory contains the original test structure with complete test coverage. To run these tests:
+
+```bash
+# Run all tests in tests_original
+PYTHONPATH=src:tests_original:$PYTHONPATH pytest tests_original/
+
+# Run specific category from tests_original
+PYTHONPATH=src:tests_original:$PYTHONPATH pytest tests_original/rhosocial/activerecord_test/basic/
+
+# Run specific test file from tests_original
+PYTHONPATH=src:tests_original:$PYTHONPATH pytest tests_original/rhosocial/activerecord_test/basic/test_crud.py
+
+# Run with verbose output
+PYTHONPATH=src:tests_original:$PYTHONPATH pytest tests_original/rhosocial/activerecord_test/basic/ -v
+
+# Run with specific markers
+PYTHONPATH=src:tests_original:$PYTHONPATH pytest tests_original/ -m "feature_crud"
+```
+
+**Example results from tests_original**:
+- `basic/` tests: 54 tests, all passing
+- `query/` tests: 666 tests, 638 passing, 28 skipped due to SQLite limitations
+
+#### Using tests
+
+The `tests` directory contains the new test structure that aligns with the standardized testsuite. To run these tests:
+
+```bash
+# Run all tests in tests
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/
+
+# Run specific category from tests (note the different directory structure)
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/feature/basic/
+
+# Run events tests
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/feature/events/
+
+# Run mixins tests
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/feature/mixins/
+
+# Run all feature tests
+PYTHONPATH=src:tests:$PYTHONPATH pytest tests/rhosocial/activerecord_test/feature/
+```
+
+**Example results from tests**:
+- `feature/basic/` tests: 27 tests, all passing
+- `feature/events/` tests: 11 tests, all passing
+- `feature/mixins/` tests: 10 tests, all passing
+
+#### Key Differences Between Test Directories
+
+| Aspect | tests_original | tests |
+|--------|----------------|-------|
+| **Structure** | Traditional: `basic/`, `query/`, `relation/`, etc. | New: `feature/`, `realworld/` |
+| **Purpose** | Complete historical test suite | New standardized structure |
+| **Scope** | Comprehensive coverage of all functionality | Subset aligned with testsuite |
+| **Migration Status** | Original tests to be migrated | Tests following new architecture |
+
+### Backend Certification Standards
+
+#### Mandatory Requirements
 - **Pass all Feature Tests**: Minimum requirement for "compatible" certification
 - **Compatibility Score**: `passed_features / total_features`
 
-### Recommended Requirements
+#### Recommended Requirements
 - **Pass all Real-world Scenarios**: Demonstrates production readiness
 - **Indicates high-quality implementation**
 
-### Optional Requirements
+#### Optional Requirements
 - **Complete Performance Benchmarks**: For performance comparison
 - **Does not affect compatibility certification**
 
