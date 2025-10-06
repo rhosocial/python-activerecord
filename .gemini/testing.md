@@ -348,11 +348,43 @@ sequenceDiagram
 - Faster - checks capabilities before test execution
 - Requires access to backend during collection phase
 - May need workaround if backend initialization is expensive
+- Can cause issues if trying to access fixtures during setup
 
 **Runtime checking** (in test or decorator):
 - Slower - capabilities checked during test execution
 - Always accurate - uses actual configured backend
 - Recommended for dynamic capability scenarios
+- Use `pytest_runtest_call` hook to access `item.funcargs` which contains already resolved fixtures
+
+**Common Issue & Solution:**
+If capability checks are performed in `pytest_runtest_setup` and attempt to access fixtures, it can cause issues like:
+`AssertionError: (<Function test_func[memory]>, {})` - This happens when trying to access fixtures during test setup.
+Move capability checks to `pytest_runtest_call` and access fixtures via `item.funcargs` instead of `request.getfixturevalue()`.
+
+### Fixtures vs Raw Objects Access Patterns
+
+**Composite Fixtures Return Pattern:**
+When fixtures return tuples of models (like `order_fixtures` returns `(User, Order, OrderItem)`) but test expects a tuple:
+- Test code may use: `Node = tree_fixtures[0]`
+- But fixture returns raw object: `yield Node` instead of `yield (Node,)`
+- This causes error: `TypeError: cannot be parametrized because it does not inherit from typing.Generic`
+- Solution: Ensure fixture returns tuple if test code expects tuple indexing
+
+**Correct Fixture Implementation:**
+```python
+# If test uses tree_fixtures[0], return a tuple
+@pytest.fixture
+def tree_fixtures(request):
+    # Get Node model for the test via fixture group
+    result = provider.setup_tree_fixtures(scenario)
+    
+    # Ensure we return a tuple for consistency with test expectation
+    if isinstance(result, tuple):
+        yield result
+    else:
+        # If only a single model is returned, wrap it in a tuple
+        yield (result,)
+```
 
 ## Provider Pattern Implementation
 
@@ -715,6 +747,55 @@ return Model     # Wrong
 @requires_capabilities(CTECapability.BASIC_CTE)  # Wrong - no category
 ```
 
+**Issue: Plugin registration conflicts**
+```bash
+# Error: RuntimeError: Plugin already registered under a different name
+# Cause: Same plugin registered in multiple places (e.g., pytest_plugins and entry points)
+# Fix: Remove duplicate registrations - choose one method (preferably entry points in pyproject.toml)
+```
+
+**Issue: Backend access method confusion**
+```bash
+# Old approach: model.get_backend() - does not exist
+# Correct approach: model.backend() or model.__backend__
+# In capability checking plugins, ensure using the IActiveRecord interface methods
+```
+
+**Issue: Fixtures accessed incorrectly in pytest hooks**
+```bash
+# Problem: Accessing fixtures in pytest_runtest_setup can cause:
+# AssertionError: (<Function test_func[memory]>, {})
+# Solution: Access fixtures in pytest_runtest_call via item.funcargs
+# Or access them in auto-use fixtures using request.getfixturevalue()
+```
+
+**Issue: Tuple vs Object fixture mismatches**
+```python
+# Problem: Tests expect tuple indexing (fixture[0]) but fixture yields raw object
+# Error: TypeError: cannot be parametrized because it does not inherit from typing.Generic
+# Solution: Ensure fixture returns tuple if test code uses indexing
+@pytest.fixture
+def tree_fixtures(request):
+    result = provider.setup_tree_fixtures(scenario)
+    # Ensure we return a tuple for consistency 
+    if isinstance(result, tuple):
+        yield result
+    else:
+        yield (result,)  # Wrap single object in tuple
+```
+
+**Issue: Environment variable not set**
+```bash
+# Error: RuntimeError: The TESTSUITE_PROVIDER_REGISTRY environment variable is not set
+# Cause: Missing environment variable that points to provider registry
+# Fix: Set the environment variable, typically in testsuite conftest.py:
+import os
+os.environ.setdefault(
+    'TESTSUITE_PROVIDER_REGISTRY',
+    'providers.registry:provider_registry'
+)
+```
+
 ## Best Practices
 
 ### For AI Code Assistants
@@ -745,6 +826,26 @@ When implementing backends:
 3. **Return tuples consistently**: Even single models should be in tuples
 4. **Schema versioning**: Match schema structure to testsuite organization
 5. **Cleanup thoroughly**: Don't leave test data between runs
+
+### For Plugin Developers
+
+When developing pytest plugins for capability checking:
+1. **Use appropriate pytest hooks**: Use `pytest_runtest_call` to access resolved fixtures via `item.funcargs`, not `pytest_runtest_setup`
+2. **Avoid multiple plugin registration**: Register plugins either via `pytest_plugins` or entry points, never both
+3. **Proper backend access**: Access backend via `model.backend()` or `model.__backend__` following the IActiveRecord interface
+4. **Error handling**: Add detailed logging to help debug capability check failures
+5. **Environment setup**: Ensure necessary environment variables (like `TESTSUITE_PROVIDER_REGISTRY`) are set in conftest.py
+
+### For Plugin Developers
+
+When creating pytest plugins for capability checking:
+1. **Use `pytest_runtest_call` hook** to access `item.funcargs` which contains resolved fixtures
+2. **Avoid `pytest_runtest_setup`** when accessing fixtures that might cause initialization issues
+3. **Handle exceptions gracefully** in plugin code to prevent test failures
+4. **Use entry points registration** instead of pytest_plugins to avoid conflicts
+5. **Access backend correctly** using IActiveRecord interface: `model.backend()` or `model.__backend__`
+6. **Set required environment variables** in the testsuite conftest.py to ensure provider registry access
+7. **Test plugin behavior** with different fixture types (single objects, tuples, etc.)
 
 ## Quick Command Reference
 
@@ -783,6 +884,9 @@ pytest --collect-only tests/               # Show what would be collected
 - ✅ MUST use (category, capability) format for requirements
 - ✅ NEVER run pytest without PYTHONPATH
 - ✅ NEVER assume test discovery will work
+- ✅ Ensure plugin registration is not duplicated across multiple mechanisms
+- ✅ Access fixtures in the right pytest hook (use `pytest_runtest_call` for `item.funcargs`)
+- ✅ Use correct backend access methods (`model.backend()` or `model.__backend__`)
 
 **Key concepts:**
 - Two-layer architecture (testsuite + backend)
@@ -793,3 +897,11 @@ pytest --collect-only tests/               # Show what would be collected
 - Backend-agnostic test logic
 - Backend-specific implementation details
 - PYTHONPATH requirement for execution
+
+**Key lessons learned during this session:**
+1. Pytest plugins accessing fixtures during `pytest_runtest_setup` can cause assertion errors; use `pytest_runtest_call` and access fixtures via `item.funcargs`
+2. Plugin registration conflicts occur when registering the same plugin via multiple methods (pytest_plugins and entry points)
+3. Backend access methods must follow the IActiveRecord interface (`model.backend()` not `model.get_backend()`)
+4. Fixture return values need to match test expectations (tuples vs raw objects)
+5. Environment variables like `TESTSUITE_PROVIDER_REGISTRY` must be set for provider registry access
+6. Detailed error logging in plugin code helps identify and resolve fixture access issues quickly
