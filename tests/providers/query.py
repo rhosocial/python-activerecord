@@ -11,6 +11,7 @@ Its main responsibilities are:
 3.  Cleaning up any resources (like temporary database files) after a test runs.
 """
 import os
+import time
 from typing import Type, List, Tuple
 from rhosocial.activerecord import ActiveRecord
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
@@ -46,7 +47,20 @@ class QueryProvider(IQueryProvider):
             model_class.__connection_config__ = config
             model_class.__backend_class__ = backend_class
             model_class.__backend__ = shared_backend
-        
+
+        # On Windows, add a small delay after each save operation to ensure
+        # proper timestamp ordering since multiple rapid operations may have
+        # nearly identical timestamps, causing flaky tests
+        original_save = model_class.save
+
+        def delayed_save(self, *args, **kwargs):
+            result = original_save(self, *args, **kwargs)
+            # Add small delay to ensure timestamp differences on Windows
+            time.sleep(0.001)  # 1ms delay
+            return result
+
+        model_class.save = delayed_save
+
         # 3. Prepare the database schema. To ensure tests are isolated, we drop
         #    the table if it exists and recreate it from the schema file.
         try:
