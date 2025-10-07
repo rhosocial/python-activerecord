@@ -796,6 +796,17 @@ os.environ.setdefault(
 )
 ```
 
+**Issue: Understanding skip messages**
+```bash
+# In the test output, you'll see skip messages like this:
+# SKIPPED [1] ..\python-activerecord-testsuite\src\rhosocial\activerecord\testsuite\plugin\pytest_activerecord_capabilities.py:196: 
+# Unsupported capabilities: AdvancedGroupingCapability.CUBE (tests/rhosocial/activerecord_test/feature/query/test_advanced_grouping.py::test_cube_basic[memory])
+
+# The format is now: "Unsupported capabilities: [list of capabilities] (test_file_path::test_function_name[scenario])"
+# This tells you exactly which test was skipped and why, making it easier to debug capability issues.
+# Previously, it showed generic plugin information that was less helpful for identifying specific tests.
+```
+
 ## Best Practices
 
 ### For AI Code Assistants
