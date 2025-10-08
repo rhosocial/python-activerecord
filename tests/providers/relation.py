@@ -11,7 +11,9 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from .scenarios import get_scenario
 
 
-class RelationProvider:
+from rhosocial.activerecord.testsuite.feature.relation.interfaces import IRelationProvider
+
+class RelationProvider(IRelationProvider):
     """
     Concrete implementation of the IRelationProvider interface for SQLite.
     """
@@ -19,6 +21,8 @@ class RelationProvider:
     def __init__(self):
         # Initialize with default SQLite backend - will be configured based on scenario
         self.backend = None
+        # Track the actual database file used for each scenario in the current test
+        self._scenario_db_files = {}
     
     def get_test_scenarios(self) -> List[str]:
         """
@@ -31,10 +35,36 @@ class RelationProvider:
         """
         Set up employee and department models with relations for testing.
         """
-        # Get the backend class and config for the requested scenario
-        backend_class, config = get_scenario(scenario_name)
+        # Get the original config for the requested scenario
+        backend_class, original_config = get_scenario(scenario_name)
         
-        # Create a backend instance with the scenario configuration
+        # Check if this is a file-based scenario, and if so, generate a unique filename
+        import os
+        import tempfile
+        import uuid
+        
+        if original_config.database != ":memory:":
+            # For file-based scenarios, create a unique temporary file
+            unique_filename = os.path.join(
+                tempfile.gettempdir(),
+                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+            )
+            
+            # Store the actual database file used for this scenario in this test
+            self._scenario_db_files[scenario_name] = unique_filename
+            
+            # Create a new config with the unique database path
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas
+            )
+        else:
+            # For in-memory scenarios, use original config
+            config = original_config
+        
+        # Create a backend instance with the (potentially modified) scenario configuration
         self.backend = backend_class(**config.__dict__)
         
         # Import models from the testsuite
@@ -55,10 +85,38 @@ class RelationProvider:
         """
         Set up author, book, chapter, and profile models with relations for testing.
         """
-        # Get the backend class and config for the requested scenario
-        backend_class, config = get_scenario(scenario_name)
+        # Get the original config for the requested scenario
+        backend_class, original_config = get_scenario(scenario_name)
         
-        # Create a backend instance with the scenario configuration
+        # Check if this is a file-based scenario, and if so, generate a unique filename
+        import os
+        import tempfile
+        import uuid
+        
+        if original_config.database != ":memory:":
+            # For file-based scenarios, create a unique temporary file
+            unique_filename = os.path.join(
+                tempfile.gettempdir(),
+                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+            )
+            
+            # Note: Since this method might be called multiple times in one test,
+            # we don't want to overwrite the scenario file if it's already set
+            if scenario_name not in self._scenario_db_files:
+                self._scenario_db_files[scenario_name] = unique_filename
+            
+            # Create a new config with the unique database path
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas
+            )
+        else:
+            # For in-memory scenarios, use original config
+            config = original_config
+        
+        # Create a backend instance with the (potentially modified) scenario configuration
         self.backend = backend_class(**config.__dict__)
         
         # Import models from the testsuite
@@ -83,6 +141,20 @@ class RelationProvider:
         """
         Perform cleanup after relation tests.
         """
+        # Use the dynamically generated database file if available, otherwise use the original config
+        if scenario_name in self._scenario_db_files:
+            import os
+            db_file = self._scenario_db_files[scenario_name]
+            if os.path.exists(db_file):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(db_file)
+                    # Remove from tracking dict
+                    del self._scenario_db_files[scenario_name]
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass
+        
         # For in-memory database, cleanup is minimal
         # In a file-based scenario, we might need to delete the file
         if self.backend and hasattr(self.backend, '_connection'):

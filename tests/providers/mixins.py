@@ -26,6 +26,10 @@ class MixinsProvider(IMixinsProvider):
     This is the SQLite backend's implementation for the mixins features test group.
     It connects the generic tests in the testsuite with the actual SQLite database.
     """
+    
+    def __init__(self):
+        # Track the actual database file used for each scenario in the current test
+        self._scenario_db_files = {}
 
     def get_test_scenarios(self) -> List[str]:
         """Returns a list of names for all enabled scenarios for this backend."""
@@ -34,8 +38,32 @@ class MixinsProvider(IMixinsProvider):
     def _setup_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given model."""
         # 1. Get the backend class (SQLiteBackend) and connection config for the requested scenario.
-        backend_class, config = get_scenario(scenario_name)
+        backend_class, original_config = get_scenario(scenario_name)
         
+        # Check if this is a file-based scenario, and if so, generate a unique filename
+        import os
+        import tempfile
+        import uuid
+        config = original_config  # default to the original config
+        
+        if original_config.database != ":memory:":
+            # For file-based scenarios, create a unique temporary file
+            unique_filename = os.path.join(
+                tempfile.gettempdir(),
+                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+            )
+            
+            # Store the actual database file used for this scenario in this test
+            self._scenario_db_files[scenario_name] = unique_filename
+            
+            # Create a new config with the unique database path
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas
+            )
+
         # 2. Configure the generic model class with our specific backend and config.
         #    This is the key step that links the testsuite's model to our database.
         model_class.configure(config, backend_class)
@@ -85,11 +113,25 @@ class MixinsProvider(IMixinsProvider):
         Performs cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
         """
-        _, config = get_scenario(scenario_name)
-        if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
-            try:
-                # Attempt to remove the temp db file.
-                os.remove(config.database)
-            except OSError:
-                # Ignore errors if the file is already gone or locked, etc.
-                pass
+        # Use the dynamically generated database file if available, otherwise use the original config
+        if scenario_name in self._scenario_db_files:
+            db_file = self._scenario_db_files[scenario_name]
+            if os.path.exists(db_file):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(db_file)
+                    # Remove from tracking dict
+                    del self._scenario_db_files[scenario_name]
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass
+        else:
+            # Fallback to original behavior for in-memory databases
+            _, config = get_scenario(scenario_name)
+            if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
+                try:
+                    # Attempt to remove the temp db file.
+                    os.remove(config.database)
+                except OSError:
+                    # Ignore errors if the file is already gone or locked, etc.
+                    pass

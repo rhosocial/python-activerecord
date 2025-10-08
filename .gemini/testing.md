@@ -916,3 +916,36 @@ pytest --collect-only tests/               # Show what would be collected
 4. Fixture return values need to match test expectations (tuples vs raw objects)
 5. Environment variables like `TESTSUITE_PROVIDER_REGISTRY` must be set for provider registry access
 6. Detailed error logging in plugin code helps identify and resolve fixture access issues quickly
+7. When tests are unexpectedly interrupted, check for leftover temporary database files in system temp directory with names like `test_activerecord_*_*.sqlite` that need manual cleanup
+
+## Temporary Database Files and Cleanup
+
+### Temporary File Naming Convention
+
+The testing framework generates temporary SQLite database files with the following naming convention when using file-based scenarios (e.g., "tempfile") to ensure test isolation:
+
+```
+test_activerecord_{scenario_name}_{uuid_hex}.sqlite
+```
+
+**Example:**
+- `test_activerecord_tempfile_a1b2c3d4e5f678901234567890123456.sqlite`
+
+### Handling Unexpected Test Interruption
+
+If tests are unexpectedly interrupted (crashes, manual termination, etc.), temporary database files may be left in the system temporary directory. These files need to be manually cleaned up to free disk space and avoid confusion with future test runs.
+
+**Manual Cleanup Command:**
+```bash
+# Linux/macOS (bash/zsh)
+find $(mktemp -d) -name "test_activerecord_*.sqlite" -delete
+
+# Alternative for Linux/macOS to find in standard temp directory
+find /tmp -name "test_activerecord_*.sqlite" -delete
+
+# Windows (PowerShell)
+Get-ChildItem -Path $env:TEMP -Name "test_activerecord_*.sqlite" | Remove-Item
+
+# Windows (CMD)
+del /q %TEMP%\test_activerecord_*.sqlite
+```
