@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/feature/basic/schema/users.sql
 CREATE TABLE users (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     username TEXT NOT NULL,

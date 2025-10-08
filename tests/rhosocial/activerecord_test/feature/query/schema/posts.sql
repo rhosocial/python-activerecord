@@ -1,4 +1,4 @@
--- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/posts.sql
+-- tests/rhosocial/activerecord_test/feature/query/schema/posts.sql
 CREATE TABLE posts (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     user_id INTEGER NOT NULL,

@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/feature/events/schema/event_test_models.sql
 CREATE TABLE event_test_models (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

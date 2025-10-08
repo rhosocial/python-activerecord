@@ -1,4 +1,4 @@
--- tests/fixtures/schemas/sqlite/versioned_products.sql
+-- tests/rhosocial/activerecord_test/feature/mixins/schema/versioned_products.sql
 CREATE TABLE IF NOT EXISTS versioned_products (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     name TEXT NOT NULL,

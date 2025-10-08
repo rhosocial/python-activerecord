@@ -1,4 +1,4 @@
--- tests/rhosocial/activerecord_test/query/fixtures/schema/sqlite/extended_order_items.sql
+-- tests/rhosocial/activerecord_test/feature/query/schema/extended_order_items.sql
 CREATE TABLE extended_order_items (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     order_id INTEGER NOT NULL,

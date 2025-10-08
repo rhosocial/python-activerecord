@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/feature/basic/schema/type_tests.sql
 CREATE TABLE type_tests (
     id TEXT PRIMARY KEY,
     string_field TEXT,

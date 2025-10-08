@@ -1,3 +1,4 @@
+-- tests/rhosocial/activerecord_test/feature/basic/schema/type_cases.sql
 CREATE TABLE type_cases (
     id TEXT PRIMARY KEY,
     username TEXT,

@@ -73,8 +73,8 @@ class MixinsProvider(IMixinsProvider):
 
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
-        # Schemas are stored locally within this backend's test directory.
-        schema_dir = os.path.join(os.path.dirname(__file__), "..", "fixtures", "schemas", "sqlite")
+        # Schemas are stored in the centralized location for mixins feature.
+        schema_dir = os.path.join(os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "mixins", "schema")
         schema_path = os.path.join(schema_dir, filename)
         
         with open(schema_path, 'r', encoding='utf-8') as f:

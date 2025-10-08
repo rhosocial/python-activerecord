@@ -1,4 +1,4 @@
--- tests/fixtures/schemas/sqlite/combined_articles.sql
+-- tests/rhosocial/activerecord_test/feature/mixins/schema/combined_articles.sql
 CREATE TABLE IF NOT EXISTS combined_articles (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     title TEXT NOT NULL,

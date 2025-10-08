@@ -65,8 +65,8 @@ class EventsProvider(IEventsProvider):
 
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
-        # Schemas are stored locally within this backend's test directory.
-        schema_dir = os.path.join(os.path.dirname(__file__), "..", "fixtures", "schemas", "sqlite")
+        # Schemas are stored in the centralized location for events feature.
+        schema_dir = os.path.join(os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "events", "schema")
         schema_path = os.path.join(schema_dir, filename)
         
         # If the specific schema file doesn't exist, fall back to a generic one
