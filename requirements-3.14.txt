@@ -6,8 +6,8 @@ pydantic~=2.12.0
 
 # Pydantic's core validation library written in Rust
 # Provides high-performance validation and serialization
-# Version ~=2.35.0 minimum required for Python 3.14 support
-pydantic-core~=2.35.0
+# Version ~=2.41.1 minimum required for Python 3.14 support
+pydantic-core~=2.41.1
 
 # World timezone definitions for Python
 # Required for timezone-aware datetime handling in database operations
