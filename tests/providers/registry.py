@@ -29,7 +29,6 @@ from .basic import BasicProvider
 from .events import EventsProvider
 from .mixins import MixinsProvider
 from .query import QueryProvider
-from .relation import RelationProvider
 
 # Create a single, global instance of the ProviderRegistry.
 provider_registry = ProviderRegistry()
@@ -51,14 +50,3 @@ provider_registry.register("feature.mixins.IMixinsProvider", MixinsProvider)
 # Register the concrete `QueryProvider` as the implementation for the
 # `feature.query.IQueryProvider` interface defined in the testsuite.
 provider_registry.register("feature.query.IQueryProvider", QueryProvider)
-
-# Register the concrete `RelationProvider` as the implementation for the
-# `feature.relation.IRelationProvider` interface defined in the testsuite.
-provider_registry.register("feature.relation.IRelationProvider", RelationProvider)
-
-# As we migrate more test groups (e.g., relations, query), we will add
-# their provider registrations here.
-#
-# Example:
-# from .relations import RelationsProvider
-# provider_registry.register("feature.relations.IRelationsProvider", RelationsProvider)
