@@ -32,4 +32,4 @@ pyyaml
 # MySQL database connector
 # Required for MySQL database integration testing
 # No version constraint for Python 3.8 compatibility
-mysql-connector-python
+# mysql-connector-python

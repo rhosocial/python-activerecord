@@ -828,6 +828,7 @@ When writing tests:
 4. **Declare capabilities correctly**: Always use (category, capability) format
 5. **Return tuples**: Providers must return tuples for consistency
 6. **Document requirements**: Comment on capability needs
+7. **Minimize redundant markers**: If tests can be distinguished by directory structure, avoid adding equivalent markers in conftest.py files
 
 ### For Backend Implementers
 
