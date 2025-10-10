@@ -94,15 +94,14 @@ graph LR
 
 ## CRITICAL: PYTHONPATH Configuration
 
-**MUST configure PYTHONPATH before running tests.** The test directories (`tests/`, `tests_original/`) are **NOT** on the Python path by default.
+**MUST configure PYTHONPATH before running tests.** The test directory (`tests/`) is **NOT** on the Python path by default.
 
 ### Why PYTHONPATH is Required
 
 ```
 project-root/
 ├── src/rhosocial/activerecord/    # ← Python can import this
-├── tests/                          # ← NOT importable by default
-└── tests_original/                 # ← NOT importable by default
+└── tests/                          # ← NOT importable by default
 ```
 
 Tests import from `rhosocial.activerecord`, but the test files themselves are not in the package structure. Without PYTHONPATH, pytest cannot find the source code.
@@ -597,14 +596,14 @@ rhosocial-activerecord-{backend}/
     │   └── activerecord_test/
     │       ├── feature/
     │       │   ├── basic/             # Basic CRUD tests
-    │       │   ├── query/             # Query functionality tests
+    │       │   ├── query:             # Query functionality tests
     │       │   ├── relation/          # Relationship tests
     │       │   ├── events/            # Event hook tests
     │       │   ├── mixins/            # Mixin functionality tests
-    │       │   └── backend/           # Backend-specific tests
+    │       │   └── backend/           # Backend-specific tests (Note: The structure below is an example from the current repository. Other backend implementations may use different directory names based on their specific needs and conventions)
     │       │       ├── common/        # Common backend interface tests
-    │       │       ├── sqlite/       # SQLite backend tests
-    │       │       └── sqlite2/       # SQLite2 backend tests
+    │       │       ├── sqlite/       # SQLite backend tests (example from current repository)
+    │       │       └── sqlite2/       # SQLite2 backend tests (example from current repository)
     │       └── realworld/             # Real-world scenario tests
     ├── providers/                     # Provider implementations
     │   └── {backend}_query_provider.py
@@ -644,32 +643,43 @@ pytest tests/
 # Run testsuite validation tests
 pytest tests/ --run-testsuite
 
-# Run specific feature tests
-pytest tests/ --run-testsuite -m "feature_crud"
-
-# Run original comprehensive tests
-pytest tests_original/
+# Run specific feature tests by directory
+pytest tests/rhosocial/activerecord_test/feature/basic/  # Run basic CRUD tests
+pytest tests/rhosocial/activerecord_test/feature/query/  # Run query tests
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # Run SQLite backend tests
 
 # Run with capability report
 pytest tests/ --run-testsuite --show-skipped-capabilities
 ```
 
-### Test Selection by Markers
+### Test Organization and Execution
+
+Tests are now primarily organized by directory structure rather than pytest markers. The following directory-based execution patterns are recommended:
 
 ```bash
-# Feature tests
-pytest -m "feature"
-pytest -m "feature_crud"
-pytest -m "feature_query"
+# Feature tests by category
+pytest tests/rhosocial/activerecord_test/feature/basic/     # Basic CRUD tests
+pytest tests/rhosocial/activerecord_test/feature/query/     # Query functionality tests
+pytest tests/rhosocial/activerecord_test/feature/relation/  # Relationship tests
+pytest tests/rhosocial/activerecord_test/feature/events/    # Event hook tests
+pytest tests/rhosocial/activerecord_test/feature/mixins/    # Mixin functionality tests
+
+# Backend-specific tests
+pytest tests/rhosocial/activerecord_test/feature/backend/common/   # Common backend interface tests
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # SQLite backend tests
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite2/  # SQLite2 backend tests
 
 # Real-world scenarios
-pytest -m "realworld"
-pytest -m "scenario_ecommerce"
+pytest tests/rhosocial/activerecord_test/realworld/ecommerce/  # E-commerce scenarios
+pytest tests/rhosocial/activerecord_test/realworld/finance/   # Financial scenarios
 
 # Benchmarks
-pytest -m "benchmark"
-pytest -m "benchmark_bulk"
+pytest tests/benchmark/                                     # Benchmark tests
 ```
+
+While pytest markers still exist for backward compatibility and certain global classifications, the preferred method for test selection is through the directory structure, which provides clearer organization and eliminates the need for extensive marker definitions in conftest.py files.
+
+Some commonly used markers for global classification:
 
 ## Writing Tests
 
@@ -951,12 +961,11 @@ $env:PYTHONPATH="src"  # Windows PowerShell
 # Basic execution
 pytest tests/                              # Local tests only
 pytest tests/ --run-testsuite              # Include testsuite
-pytest tests_original/                     # Original comprehensive
 
-# Filtered execution
-pytest -m "feature"                        # All feature tests
-pytest -m "feature_crud"                   # Specific feature
-pytest -m "realworld and scenario_ecommerce"  # Specific scenario
+# Directory-based execution (preferred method)
+pytest tests/rhosocial/activerecord_test/feature/basic/     # Basic CRUD tests
+pytest tests/rhosocial/activerecord_test/feature/query/     # Query tests
+pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # SQLite backend tests
 
 # With capability reporting
 pytest tests/ --run-testsuite --show-skipped-capabilities
