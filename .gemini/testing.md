@@ -593,15 +593,28 @@ python-activerecord-testsuite/
 ```
 rhosocial-activerecord-{backend}/
 └── tests/
-    ├── providers/              # Provider implementations
+    ├── rhosocial/
+    │   └── activerecord_test/
+    │       ├── feature/
+    │       │   ├── basic/             # Basic CRUD tests
+    │       │   ├── query/             # Query functionality tests
+    │       │   ├── relation/          # Relationship tests
+    │       │   ├── events/            # Event hook tests
+    │       │   ├── mixins/            # Mixin functionality tests
+    │       │   └── backend/           # Backend-specific tests
+    │       │       ├── common/        # Common backend interface tests
+    │       │       ├── sqlite/       # SQLite backend tests
+    │       │       └── sqlite2/       # SQLite2 backend tests
+    │       └── realworld/             # Real-world scenario tests
+    ├── providers/                     # Provider implementations
     │   └── {backend}_query_provider.py
-    ├── schemas/                # SQL schema files
+    ├── schemas/                       # SQL schema files
     │   └── feature/
     │       └── query/
     │           ├── order_models.sql
     │           └── tree_model.sql
-    ├── conftest.py            # pytest configuration
-    └── test_{backend}_*.py    # Backend-specific tests
+    ├── conftest.py                   # pytest configuration
+    └── test_{backend}_*.py           # Backend-specific tests
 ```
 
 ### Naming Conventions
@@ -858,6 +871,75 @@ When creating pytest plugins for capability checking:
 5. **Access backend correctly** using IActiveRecord interface: `model.backend()` or `model.__backend__`
 6. **Set required environment variables** in the testsuite conftest.py to ensure provider registry access
 7. **Test plugin behavior** with different fixture types (single objects, tuples, etc.)
+
+## Backend Test Organization
+
+### Current Implementation Structure
+
+The backend tests are organized in a hierarchical structure that reflects both feature-based organization and backend-specific implementations:
+
+```
+tests/rhosocial/activerecord_test/
+├── feature/                    # Feature-based test organization
+│   ├── basic/                 # Basic CRUD operations
+│   │   ├── test_crud.py      # Basic CRUD tests
+│   │   ├── test_fields.py    # Field operations tests
+│   │   └── test_validation.py # Validation tests
+│   ├── query/                 # Query functionality
+│   │   ├── test_basic.py             # Basic query tests
+│   │   ├── test_cte_basic.py         # Basic CTE tests
+│   │   ├── test_cte_recursive.py     # Recursive CTE tests
+│   │   ├── test_joins.py            # Join operation tests
+│   │   ├── sqlite/                  # SQLite-specific query tests
+│   │   │   ├── test_explain_basic.py      # SQLite EXPLAIN tests
+│   │   │   └── test_explain_cte_basic.py  # SQLite CTE EXPLAIN tests
+│   │   └── schema/                  # SQL schema files
+│   │       ├── users.sql
+│   │       ├── orders.sql
+│   │       └── order_items.sql
+│   ├── relation/              # Relationship operations
+│   ├── events/               # Event hooks
+│   ├── mixins/               # Mixin functionality
+│   └── backend/              # Backend-specific functionality
+│       ├── common/           # Common backend interface tests
+│       ├── sqlite/          # SQLite backend tests
+│       └── sqlite2/         # SQLite2 backend tests
+└── realworld/                # Real-world scenario tests
+```
+
+### Test Categories
+
+**1. Feature Tests**
+- Located in `tests/rhosocial/activerecord_test/feature/*/`
+- Contain actual test implementations for specific ActiveRecord features
+- May include backend-specific subdirectories (e.g., `query/sqlite/`) for backend-specific test cases
+- Use standard pytest test discovery with descriptive test function names
+
+**2. Backend Common Tests**
+- Located in `tests/rhosocial/activerecord_test/feature/backend/common/`
+- Tests that validate common backend interface behaviors
+- Ensure all backends follow the same interface contract
+- Use provider pattern for backend adaptation
+
+**3. Backend-Specific Tests**
+- Located in `tests/rhosocial/activerecord_test/feature/backend/{backend_name}/`
+- Tests for backend-specific functionality and optimizations
+- Validate dialect-specific features and behaviors
+- Include performance and capability-specific tests
+- May include SQLite-specific tests like EXPLAIN functionality tests
+
+### Implementation Strategy
+
+The current implementation follows these principles:
+
+1. **Feature-first organization**: Tests are grouped by ActiveRecord features rather than by backend types
+2. **Direct test implementation**: Tests are implemented directly rather than separated into interface/scenario patterns
+3. **Backend-specific subdirectories**: When backend-specific test cases are needed, they are placed in subdirectories (e.g., `query/sqlite/`)
+4. **Provider pattern**: Backend-specific adaptations for feature tests are handled through the provider mechanism
+5. **Capability declaration**: Backends declare their supported capabilities to enable selective test execution
+6. **Schema organization**: SQL schema files are organized by feature to support different test scenarios
+
+This structure ensures clear test organization while allowing for both generic feature testing and backend-specific validation.
 
 ## Quick Command Reference
 
