@@ -1,6 +1,49 @@
 # Model Testing
 
-Testing ActiveRecord models is a fundamental part of ensuring your application's data layer works correctly. This guide covers strategies and best practices for testing model validation, persistence, and query functionality.
+Model testing in rhosocial ActiveRecord currently focuses on basic model functionality and simple validation checks.
+
+## Basic Model Testing
+
+Current testing capabilities include:
+
+- Testing model attribute assignment and retrieval
+- Basic validation through Pydantic's validation system
+- Simple CRUD operation verification
+
+## Setting Up Model Tests
+
+Basic approach for testing models:
+
+1. Create model instances with test data
+2. Verify attribute values
+3. Test save and delete operations
+4. Verify basic validation rules
+
+## Example Model Test
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+    email: str
+
+class TestUserModel(unittest.TestCase):
+    def test_attribute_assignment(self):
+        user = User(name="John", email="john@example.com")
+        self.assertEqual(user.name, "John")
+        self.assertEqual(user.email, "john@example.com")
+    
+    def test_model_persistence(self):
+        user = User(name="Jane", email="jane@example.com")
+        result = user.save()
+        self.assertIsNotNone(user.id)  # Assuming successful save assigns an ID
+```
+
+## Current Limitations
+
+The current model testing approach is limited to basic functionality. Advanced testing features such as relationship validation, complex query testing, and transaction verification are not currently available in the testing framework.
 
 ## Setting Up Test Environment
 

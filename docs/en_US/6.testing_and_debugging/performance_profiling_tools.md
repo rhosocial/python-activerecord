@@ -1,6 +1,78 @@
-# Performance Profiling Tools
+# Performance Analysis
 
-Performance profiling is a critical step in optimizing ActiveRecord applications. This guide covers tools and techniques for analyzing and optimizing the performance of your ActiveRecord code.
+Currently, rhosocial ActiveRecord does not include built-in performance profiling tools. Performance analysis relies on general Python profiling tools and manual techniques.
+
+## Using Standard Python Profilers
+
+For performance analysis of ActiveRecord applications, use standard Python profiling tools:
+
+### cProfile
+```python
+import cProfile
+import pstats
+from rhosocial.activerecord import ActiveRecord
+
+def performance_test():
+    # Your ActiveRecord operations here
+    users = User.find_all().limit(100).all()
+    for user in users:
+        user.email = f"updated_{user.email}"
+        user.save()
+
+# Profile the function
+profiler = cProfile.Profile()
+profiler.enable()
+performance_test()
+profiler.disable()
+
+# Print stats
+stats = pstats.Stats(profiler)
+stats.sort_stats('cumulative')
+stats.print_stats()
+```
+
+### Using line_profiler (if installed)
+```python
+# Add @profile decorator to functions you want to analyze
+@profile
+def slow_function():
+    # ActiveRecord operations
+    pass
+```
+
+## Basic Performance Measurement
+
+For simple timing measurements:
+
+```python
+import time
+from rhosocial.activerecord import ActiveRecord
+
+def time_operation():
+    start_time = time.time()
+    
+    # ActiveRecord operation
+    users = User.find_all().limit(1000).all()
+    
+    end_time = time.time()
+    print(f"Operation took {end_time - start_time:.2f} seconds")
+```
+
+## Query Performance
+
+Currently, query performance analysis relies on:
+- Examining SQL queries manually
+- Using database-specific tools to analyze query plans
+- Timing query execution with standard Python timing functions
+
+## Current Limitations
+
+- No built-in query timing
+- No automatic performance metrics
+- No query plan analysis tools
+- No ActiveRecord-specific profiling tools
+
+Performance profiling features will be added as the framework matures.
 
 ## Query Profiling
 

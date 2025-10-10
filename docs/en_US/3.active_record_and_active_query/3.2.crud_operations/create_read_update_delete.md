@@ -153,7 +153,7 @@ if user:
 
 ### Batch Updates
 
-> **Note**: Batch update functionality is not yet implemented.
+> **❌ NOT IMPLEMENTED**: Batch update functionality is not implemented. This is planned functionality and is provided for future reference only. Current users should update records individually. This feature may be developed in future releases with no guaranteed timeline.
 
 Theoretically, batch updates would allow you to update multiple records at once using the query builder:
 

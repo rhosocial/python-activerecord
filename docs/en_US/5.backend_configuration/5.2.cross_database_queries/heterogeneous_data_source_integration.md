@@ -1,6 +1,6 @@
 # Heterogeneous Data Source Integration
 
-> **⚠️ IMPORTANT NOTE:** The heterogeneous data source integration functionality described in this document is **not yet implemented** and may undergo significant changes in future releases. Cross-database operations described here cannot achieve true cross-database atomicity.
+> **❌ NOT IMPLEMENTED**: The heterogeneous data source integration functionality described in this document is **not implemented**. This documentation describes planned functionality and is provided for future reference only. Current users should handle integration at the application level. This feature may be developed in future releases with no guaranteed timeline. Cross-database operations described here cannot achieve true cross-database atomicity.
 
 This document explains how rhosocial ActiveRecord can be used to integrate data from different types of database systems, allowing you to work with heterogeneous data sources in a unified way.
 

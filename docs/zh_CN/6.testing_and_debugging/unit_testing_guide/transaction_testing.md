@@ -1,6 +1,58 @@
-# 事务测试
+# 数据库操作测试
 
-测试数据库事务对于确保ActiveRecord应用程序中的数据完整性至关重要。本指南涵盖了测试事务行为、隔离级别和错误处理的策略。
+事务测试当前在 rhosocial ActiveRecord 的测试框架中不可用。当前实现提供基本数据库操作测试功能。
+
+## 当前数据库测试
+
+测试当前专注于：
+
+- 单个CRUD操作的成功/失败
+- 基本数据库连接验证
+- 简单查询执行检查
+
+## 基本数据库操作测试
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+    email: str
+
+class TestDatabaseOperations(unittest.TestCase):
+    def test_create_operation(self):
+        user = User(name="测试用户", email="test@example.com")
+        result = user.save()
+        self.assertTrue(result)  # 或检查user.id不为None
+        
+    def test_retrieve_operation(self):
+        user = User.find(1)  # 假设存在id=1的用户
+        self.assertIsNotNone(user)
+        
+    def test_update_operation(self):
+        user = User.find(1)
+        if user:
+            original_name = user.name
+            user.name = "更新名称"
+            result = user.save()
+            self.assertTrue(result)
+    
+    def test_delete_operation(self):
+        user = User.find(1)
+        if user:
+            result = user.delete()
+            self.assertTrue(result)
+```
+
+## 限制
+
+- 无事务隔离测试
+- 无多操作原子性验证
+- 无回滚测试
+- 无并发访问测试
+
+这些高级数据库测试功能将在事务支持实现后添加。
 
 ## 设置事务测试
 

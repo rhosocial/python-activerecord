@@ -4,6 +4,8 @@
 >
 > **📝 Documentation Notation:** Throughout the documentation, you may see labels such as "Not Yet Implemented", "Partially Implemented", or "Subject to Change". These labels indicate that the related features are not fully implemented or may differ from the actual implementation. Please refer to the actual code for the most accurate information.
 
+> **🔄 Implementation Status:** As of the latest review, the core ActiveRecord functionality is stable with basic CRUD operations, relationship management, and query building implemented. Advanced features like asynchronous operations, cross-database queries, and batch operations are in various stages of development. Please see individual documentation sections for specific implementation status.
+
 ## [1. Introduction](1.introduction/README.md)
 - [Overview](1.introduction/introduction.md)
 - [Features](1.introduction/features.md)

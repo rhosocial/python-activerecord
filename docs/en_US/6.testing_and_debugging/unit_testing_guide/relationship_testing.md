@@ -1,6 +1,50 @@
-# Relationship Testing
+# Query and Association Testing
 
-Testing relationships between ActiveRecord models is crucial for ensuring your data associations work correctly. This guide covers strategies for testing different types of relationships, including one-to-one, one-to-many, and many-to-many associations.
+Currently, rhosocial ActiveRecord has limited relationship testing capabilities. The system supports basic model associations but comprehensive relationship testing is not yet available in the testing framework.
+
+## Current State
+
+- Basic foreign key relationship support
+- Simple lookup operations
+- No advanced relationship querying capabilities
+
+## Testing Simple Associations
+
+For the limited relationship functionality that exists:
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+
+class Post(ActiveRecord):
+    title: str
+    user_id: int  # Simple foreign key approach
+
+class TestBasicAssociation(unittest.TestCase):
+    def test_foreign_key_assignment(self):
+        user = User(name="Test User")
+        user.save()
+        
+        post = Post(title="Test Post", user_id=user.id)
+        post.save()
+        
+        # Verify the foreign key was set correctly
+        self.assertEqual(post.user_id, user.id)
+```
+
+## Limitations
+
+The current implementation does not include:
+- Relationship method testing (like has_many, belongs_to methods)
+- Complex association queries
+- Eager loading verification
+- Nested relationship testing
+- Many-to-many relationship testing
+
+Relationship testing capabilities will be expanded when relationship functionality is fully implemented.
 
 ## Setting Up Relationship Tests
 

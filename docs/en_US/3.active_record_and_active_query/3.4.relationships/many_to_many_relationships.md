@@ -17,7 +17,7 @@ In database design, many-to-many relationships are implemented using a join tabl
 In rhosocial ActiveRecord, there are two main approaches to implementing many-to-many relationships:
 
 1. **Using an explicit join model**: Define a separate model for the join table and use two one-to-many relationships
-2. **Using a through relationship**: Use a more direct approach with a special configuration (not yet implemented in the current version)
+2. **Using a through relationship**: Use a more direct approach with a special configuration (❌ NOT IMPLEMENTED in the current version)
 
 ### Using an Explicit Join Model
 

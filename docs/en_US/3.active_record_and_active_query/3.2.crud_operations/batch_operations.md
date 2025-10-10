@@ -1,6 +1,8 @@
 # Batch Operations
 
-This document covers batch operations in rhosocial ActiveRecord, which allow you to efficiently perform operations on multiple records at once.
+> **⚠️ PARTIALLY IMPLEMENTED/PLANNED**: Batch operations functionality is either not implemented or only partially implemented. The API described in this document may not reflect actual implemented functionality. Current users should rely on individual record operations only. This feature may be developed in future releases with no guaranteed timeline.
+
+> **⚠️ ASPIRATIONAL DOCUMENTATION**: This document describes planned batch operations in rhosocial ActiveRecord, which would allow you to efficiently perform operations on multiple records at once. **This functionality is not currently available.**
 
 ## Batch Creation
 

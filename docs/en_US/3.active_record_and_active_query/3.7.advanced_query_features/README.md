@@ -13,7 +13,7 @@ The advanced features covered in this chapter include:
 - [Dynamic Query Building](dynamic_query_building.md) - Constructing queries programmatically at runtime
 - [Raw SQL Integration](raw_sql_integration.md) - Incorporating custom SQL when needed
 - [Common Table Expressions](common_table_expressions.md) - Using CTEs for complex and recursive queries
-- [Async Access](async_access.md) - (**not yet implemented**) Using asynchronous database operations
+- [Async Access](async_access.md) - (❌ **NOT IMPLEMENTED**) Using asynchronous database operations
 
 ## When to Use Advanced Query Features
 

@@ -1,6 +1,6 @@
 # Cross-database Connection Configuration
 
-> **⚠️ IMPORTANT NOTE:** The multiple database connection functionality (including master-slave configuration) described in this document is **not yet implemented** and may undergo significant changes in future releases.
+> **❌ NOT IMPLEMENTED**: The multiple database connection functionality (including master-slave configuration) described in this document is **not implemented**. This documentation describes planned functionality and is provided for future reference only. Current users should work with single database connections only. This feature may be developed in future releases with no guaranteed timeline. The API described in this document is subject to significant changes when implementation begins.
 
 This document provides detailed information about configuring and managing connections to multiple databases in rhosocial ActiveRecord, including how to set up connections to different database systems, manage connection pools, and switch between connections at runtime.
 

@@ -1,6 +1,6 @@
 # Data Synchronization Strategies
 
-> **⚠️ IMPORTANT NOTE:** The data synchronization functionality described in this document is **not yet implemented** and may undergo significant changes in future releases. The synchronization strategies described here are theoretical and depend on multiple database connection features that are still under development.
+> **❌ NOT IMPLEMENTED**: The data synchronization functionality described in this document is **not implemented**. This documentation describes planned functionality and is provided for future reference only. Current users should implement data synchronization at the application level. This feature may be developed in future releases with no guaranteed timeline. The API described in this document is subject to significant changes when implementation begins.
 
 This document outlines various strategies for synchronizing data between multiple databases when using rhosocial ActiveRecord in a cross-database environment.
 

@@ -154,7 +154,7 @@ class User(ActiveRecord):
 
 When you create or update a model instance, Pydantic automatically validates the data against your schema definition. If validation fails, a `ValidationError` is raised with details about the validation issues.
 
-## Advanced Schema Features (Not Yet Implemented)
+## Advanced Schema Features (❌ NOT IMPLEMENTED)
 
 ### Indexes
 

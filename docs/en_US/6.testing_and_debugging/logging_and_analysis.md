@@ -1,6 +1,56 @@
-# Logging and Analysis
+# Logging Configuration
 
-Effective logging is crucial for monitoring, debugging, and analyzing ActiveRecord applications. This guide covers how to configure logging, analyze log data, and use logs to identify performance bottlenecks and issues.
+Logging in rhosocial ActiveRecord is currently basic and relies on Python's standard logging module. The framework does not yet provide advanced logging capabilities.
+
+## Setting Up Basic Logging
+
+To enable logging in your ActiveRecord application:
+
+```python
+import logging
+
+# Configure basic logging
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# For more detailed logging (including SQL queries if available)
+logging.getLogger('rhosocial.activerecord').setLevel(logging.DEBUG)
+```
+
+## Current Logging Capabilities
+
+The current implementation provides:
+
+- Basic SQL query logging (if implemented in the backend)
+- Connection status logging
+- Error logging
+
+## Example Usage
+
+```python
+import logging
+from rhosocial.activerecord import ActiveRecord
+
+logger = logging.getLogger('rhosocial.activerecord')
+
+# Enable debug logging to see queries
+logger.setLevel(logging.DEBUG)
+
+# Any database operations will now be logged at DEBUG level
+user = User(name="Log Test", email="log@example.com")
+user.save()
+```
+
+## Limitations
+
+- No structured logging
+- No automatic performance metrics
+- No query execution time logging
+- Limited insight into framework operations
+
+Advanced logging and analysis features will be added in future releases.
 
 ## Setting Up Logging
 
