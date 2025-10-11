@@ -49,11 +49,34 @@ python3 -c "import sqlite3; print(sqlite3.sqlite_version);"
 
 **Python 3.14 Compatibility**: Python 3.14 introduces significant changes that impact core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.14 in our requirements specifications.
 
-As of the release of this software, the latest version of pydantic is 2.11.x. This version supports Python 3.13 free-threaded mode (PEP 703).
+As of the release of this software, the latest version of pydantic is 2.12.x. This version supports Python 3.14 free-threaded mode (PEP 703).
 
-Note that pydantic 2.11 has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.
+Note that pydantic 2.11+ has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.
 
 Also note that according to Python's official development plan (https://peps.python.org/pep-0703/), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both pydantic and this project support it.
+
+## Free-Threading Python Support
+
+This library provides compatibility with Free-Threading Python (available from Python 3.14+). Free-Threading Python removes the Global Interpreter Lock (GIL), allowing true parallel execution. The library uses `threading.local` and `threading.Lock` for thread-safe operations, which are compatible with Free-Threading Python.
+
+### Installing Free-Threading Python on Windows
+
+To install Free-Threading Python 3.14t on Windows (recommended: use PowerShell 7 instead of CMD):
+
+1. Install the Python Installation Manager:
+   ```
+   winget install 9NQ7512CXL7T
+   ```
+
+2. Install Python 3.14t:
+   ```
+   py install 3.14t
+   ```
+
+3. Verify the installation:
+   ```
+   py -3.14t --version
+   ```
 
 ## Installation
 

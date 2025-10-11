@@ -2,6 +2,18 @@
 
 > **AI Assistant Note**: This document is optimized for AI code assistants (Claude Code, Gemini CLI, etc.). It uses imperative language and front-loads critical execution requirements.
 
+## Python Version Support
+
+**Python 3.8 Support**: Although Python 3.8 has reached end-of-life, we continue to support it in the current major version due to its widespread user base. However, the next major version will be the last to support Python 3.8, and future versions will not guarantee compatibility.
+
+**Python 3.14 Compatibility**: Python 3.14 introduces significant changes that impact core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.14 in our requirements specifications.
+
+As of the release of this software, the latest version of pydantic is 2.12.x. This version supports Python 3.14 free-threaded mode (PEP 703).
+
+Note that pydantic 2.11+ has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.
+
+Also note that according to Python's official development plan (https://peps.python.org/pep-0703/), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both pydantic and this project support it.
+
 ## Architecture Overview
 
 ### Testsuite and Backend Relationship
@@ -118,7 +130,7 @@ export PYTHONPATH=src
 pytest tests/
 ```
 
-**Windows (PowerShell):**
+**Windows (PowerShell 7 - Recommended):**
 ```powershell
 # Single command execution
 $env:PYTHONPATH="src"; pytest tests/
@@ -128,7 +140,7 @@ $env:PYTHONPATH="src"
 pytest tests/
 ```
 
-**Windows (CMD):**
+**Windows (Legacy CMD - Not Recommended):**
 ```cmd
 REM Single command execution
 set PYTHONPATH=src && pytest tests/
@@ -1009,6 +1021,112 @@ pytest --collect-only tests/               # Show what would be collected
 5. Environment variables like `TESTSUITE_PROVIDER_REGISTRY` must be set for provider registry access
 6. Detailed error logging in plugin code helps identify and resolve fixture access issues quickly
 7. When tests are unexpectedly interrupted, check for leftover temporary database files in system temp directory with names like `test_activerecord_*_*.sqlite` that need manual cleanup
+
+## Free-Threading (Free-threaded Python) Testing
+
+### Overview
+
+Python's free-threading builds (indicated by the 't' suffix in version numbers, e.g., 3.13t, 3.14t) enable true parallelism by removing the Global Interpreter Lock (GIL). Testing with free-threaded Python is critical to ensure thread safety and concurrency compatibility.
+
+### Testing with Free-Threading Builds
+
+Free-threaded Python versions (3.13t and 3.14t) have been tested with the python-activerecord library and all tests pass successfully. This confirms compatibility with the new free-threading model.
+
+#### Installation and Setup
+
+**Linux/macOS:**
+```bash
+# Install free-threaded Python (example with pyenv)
+pyenv install 3.13t
+pyenv install 3.14t
+
+# Set as local version
+pyenv local 3.13t  # or 3.14t
+```
+
+**Windows:**
+```powershell
+# Free-Threading Python 3.14t installation on Windows
+# Using the Python Installation Manager (recommended method):
+# Recommended: Use PowerShell 7 (available from Microsoft Store or GitHub)
+
+# 1. Install the Python Installation Manager from Microsoft Store
+#    or use WinGet command (in PowerShell 7):
+winget install 9NQ7512CXL7T
+
+# 2. Run the configuration checker:
+py install --configure
+
+# 3. Install Python 3.14t using the py command:
+py install 3.14t
+
+# 4. Verify the installation:
+py -3.14t --version
+
+# Alternative command to list all available Python versions, including experimental free-threaded builds:
+py list --online
+
+# You can now use this version to run tests:
+py -3.14t -m pip install -e .
+py -3.14t -m pytest tests/
+```
+
+**Legacy Windows CMD support (not recommended):**
+```cmd
+REM Free-Threading Python 3.14t installation on Windows
+REM Using the Python Installation Manager (recommended method):
+
+REM 1. Install the Python Installation Manager from Microsoft Store
+REM    or use WinGet command:
+winget install 9NQ7512CXL7T
+
+REM 2. Run the configuration checker:
+py install --configure
+
+REM 3. Install Python 3.14t using the py command:
+py install 3.14t
+
+REM 4. Verify the installation:
+py -3.14t --version
+
+REM Alternative command to list all available Python versions, including experimental free-threaded builds:
+py list --online
+
+REM You can now use this version to run tests:
+py -3.14t -m pip install -e .
+py -3.14t -m pytest tests/
+```
+
+#### Testing Commands for Free-Threading
+
+```bash
+# Set up environment with PYTHONPATH (same as regular tests)
+export PYTHONPATH=src  # Linux/macOS
+$env:PYTHONPATH="src"  # Windows PowerShell
+
+# Run tests with free-threaded Python
+python -m pytest tests/                              # Local tests only
+python -m pytest tests/ --run-testsuite              # Include testsuite
+
+# Verify thread safety with concurrency-focused tests
+python -m pytest tests/ -k "thread" --run-testsuite  # Run thread-related tests if any exist
+```
+
+#### Current Test Results
+
+- **Python 3.13t**: All tests pass
+- **Python 3.14t**: All tests pass
+- **Test Suite Compatibility**: Full compatibility confirmed
+- **Thread Safety**: No race conditions detected during testing
+
+### Free-Threading Considerations
+
+When testing with free-threaded Python:
+
+1. **Race Condition Detection**: Free-threaded builds can expose race conditions that are hidden by the GIL in regular Python builds
+2. **Thread Safety**: Ensure all shared resources are properly synchronized
+3. **Database Connections**: Multiple threads may access the database simultaneously; connection pooling and transactions must be thread-safe
+4. **Backend Compatibility**: All backends (SQLite, MySQL, PostgreSQL) must handle concurrent access properly
 
 ## Temporary Database Files and Cleanup
 
