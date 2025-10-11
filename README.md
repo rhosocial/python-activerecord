@@ -47,11 +47,19 @@ python3 -c "import sqlite3; print(sqlite3.sqlite_version);"
 
 **Python 3.8 Support**: Although Python 3.8 has reached end-of-life, we continue to support it in the current major version due to its widespread user base. However, the next major version will be the last to support Python 3.8, and future versions will not guarantee compatibility.
 
+Specifically for Python 3.8:
+- `pydantic==2.10.6` (latest compatible version)
+- `pydantic-core==2.27.2` (matching pydantic requirements)
+
+For Python 3.9+:
+- `pydantic>=2.12.0` (minimum required version, no upper limit on minor versions as long as major version remains 2.x)
+- `pydantic-core>=2.41.0` (minimum required version, no upper limit on minor versions as long as major version remains 2.x)
+
 **Python 3.14 Compatibility**: Python 3.14 introduces significant changes that impact core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.14 in our requirements specifications.
 
 As of the release of this software, the latest version of pydantic is 2.12.x. This version supports Python 3.14 free-threaded mode (PEP 703).
 
-Note that pydantic 2.11+ has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.
+Note that pydantic 2.11+ has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.6.
 
 Also note that according to Python's official development plan (https://peps.python.org/pep-0703/), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both pydantic and this project support it.
 

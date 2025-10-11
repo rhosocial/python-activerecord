@@ -1,13 +1,17 @@
 # requirements.txt
 # Core data validation and serialization framework
 # Pydantic provides model validation, serialization, and type conversion
-# Version ~=2.11.1 ensures compatibility with Python 3.9-3.13
-pydantic~=2.11.1
+# Version >=2.12.0 ensures compatibility with Python 3.9+ (with 2.10.6 for Python 3.8)
+# No upper limit on minor versions as long as major version remains 2.x
+# This includes Python 3.14 and any future Python versions
+pydantic>=2.12.0
 
 # Pydantic's core validation library written in Rust
 # Provides high-performance validation and serialization
-# Version ~=2.33.0 is required for pydantic 2.11.1 compatibility
-pydantic-core~=2.33.0
+# Version >=2.41.0 is required for pydantic 2.12.0+ compatibility
+# No upper limit on minor versions as long as major version remains 2.x
+# This includes Python 3.14 and any future Python versions
+pydantic-core>=2.41.0
 
 # World timezone definitions for Python
 # Required for timezone-aware datetime handling in database operations
