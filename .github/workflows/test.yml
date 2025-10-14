@@ -1,4 +1,4 @@
-# .github/workflows/test.yml
+﻿# .github/workflows/test.yml
 name: Python Test and Coverage with TestSuite
 
 on:
@@ -31,9 +31,9 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-    - name: Install testsuite package from git
+    - name: Install testsuite package from PyPI
       run: |
-        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git
+        pip install rhosocial-activerecord-testsuite
 
     - name: Run tests with coverage
       run: |
@@ -77,9 +77,9 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-    - name: Install testsuite package from git
+    - name: Install testsuite package from PyPI
       run: |
-        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git
+        pip install rhosocial-activerecord-testsuite
 
     - name: Run tests
       run: |
@@ -112,11 +112,12 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-    - name: Install testsuite package from git
+    - name: Install testsuite package from PyPI
       run: |
-        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git
+        pip install rhosocial-activerecord-testsuite
 
     - name: Run tests
       run: |
         export PYTHONPATH=src
         python -m pytest tests/ --reruns 3 --reruns-delay 1
+
