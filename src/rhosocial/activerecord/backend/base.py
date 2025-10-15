@@ -91,7 +91,6 @@ class StorageBackend(ABC):
         Returns:
             DatabaseCapabilities: Backend capabilities
         """
-        pass
         self._capabilities = None
 
     @property

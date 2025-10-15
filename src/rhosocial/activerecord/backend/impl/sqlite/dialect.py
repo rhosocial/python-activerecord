@@ -54,7 +54,6 @@ class SQLiteDialect(SQLDialectBase):
                     delete_on_close=delete_on_close,
                     options=config.options
                 )
-                config = sqlite_config
 
         version = tuple(map(int, sqlite3.sqlite_version.split('.')))
         super().__init__(version)

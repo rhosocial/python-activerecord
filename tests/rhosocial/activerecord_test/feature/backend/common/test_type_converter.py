@@ -132,7 +132,6 @@ class TestTypeRegistry:
 
     def test_find_converter_logic(self):
         """Test the detailed logic of how TypeRegistry finds converters"""
-        registry = TypeRegistry()
 
         # Create our test converters
         basic_converter = BasicTypeConverter()

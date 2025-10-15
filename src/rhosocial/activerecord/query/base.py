@@ -339,7 +339,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             query.where('status = ?', (1,))
         """
         if params is None:
-            params = tuple()
+            params = ()
         elif not isinstance(params, tuple):
             try:
                 params = tuple(params)
@@ -376,7 +376,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             # Equivalent to: WHERE (status = 1 OR type = 'admin') AND deleted_at IS NULL
         """
         if params is None:
-            params = tuple()
+            params = ()
         elif not isinstance(params, tuple):
             try:
                 params = tuple(params)
