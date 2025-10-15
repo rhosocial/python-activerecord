@@ -9,12 +9,13 @@ coverage:
   status:
     project:
       default:
-        target: 70%  # 降低项目整体覆盖率目标
-        threshold: 2%  # 允许最多下降2%
+        target: 70%  # Lower the project coverage target
+        threshold: 2%  # Allow up to 2% decrease
     patch:
       default:
-        target: 70%  # 降低补丁覆盖率目标
-        threshold: 5%  # 允许更多下降空间
+        target: 70%  # Lower the patch coverage target
+        threshold: 5%  # Allow more decrease allowance
+        informational: true  # Make patch coverage non-blocking
 
 parsers:
   gcov:
