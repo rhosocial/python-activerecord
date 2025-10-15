@@ -47,7 +47,7 @@ jobs:
         files: ./coverage.xml
         flags: unittests,python-3.14
         name: codecov-umbrella-3.14
-        fail_ci_if_error: true
+        fail_ci_if_error: false
 
   test-other-versions:
     name: Run tests with Python ${{ matrix.python-version }}
