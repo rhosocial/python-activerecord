@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/relation/base.py
 """
 Base classes for relation management.
 Provides core descriptor and mixin implementations.

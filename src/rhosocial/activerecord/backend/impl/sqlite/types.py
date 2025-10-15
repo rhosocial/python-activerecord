@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/types.py
 from typing import Dict
 
 from ...dialect import TypeMapping
@@ -99,7 +100,7 @@ class SQLiteColumnType:
             sql_type = mapping.format_func(sql_type, params)
 
         constraints = {k: v for k, v in params.items()
-                     if k in ['primary_key', 'autoincrement', 'unique',
-                             'not_null', 'default']}
+                       if k in ['primary_key', 'autoincrement', 'unique',
+                                'not_null', 'default']}
 
         return cls(sql_type, **constraints)

@@ -1,6 +1,59 @@
 # Debugging Techniques
 
-Effective debugging is essential for developing and maintaining ActiveRecord applications. This guide covers common debugging strategies, tools, and techniques to help you identify and resolve issues in your ActiveRecord code.
+Debugging rhosocial ActiveRecord applications currently relies on standard Python debugging techniques combined with basic logging capabilities.
+
+## Using Python Debuggers
+
+The most effective way to debug ActiveRecord applications is using standard Python debugging tools:
+
+- `pdb` - Python's built-in debugger
+- `breakpoint()` - Built-in function to set breakpoints (Python 3.7+)
+- IDE debuggers (PyCharm, VS Code, etc.)
+
+## Basic Logging for Debugging
+
+Basic logging support is available through Python's standard logging module:
+
+```python
+import logging
+from rhosocial.activerecord import ActiveRecord
+
+# Enable logging to see SQL queries
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('rhosocial.activerecord')
+
+# Example debugging approach
+def debug_model_operations():
+    user = User(name="Debug User", email="debug@example.com")
+    print(f"User created: {user.name}, {user.email}")
+    
+    result = user.save()
+    print(f"Save result: {result}")
+    print(f"User ID after save: {user.id}")
+```
+
+## Query Debugging
+
+Currently, query debugging is done by:
+
+- Examining generated SQL strings (if available)
+- Using print statements to inspect values
+- Using Python debuggers to step through the code
+
+## Common Debugging Approaches
+
+1. **Model Validation Issues**: Print model values before and after validation
+2. **Database Connection Issues**: Check connection parameters and database availability
+3. **Query Issues**: Inspect query parameters and expected vs. actual results
+
+## Limitations
+
+- No built-in query profiling
+- No advanced debugging tools specifically for ActiveRecord
+- Limited query inspection capabilities
+- No automatic debugging helpers
+
+Debugging tools will be enhanced in future releases with more ActiveRecord-specific functionality.
 
 ## Using Logging for Debugging
 

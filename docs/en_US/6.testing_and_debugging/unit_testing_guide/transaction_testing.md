@@ -1,6 +1,58 @@
-# Transaction Testing
+# Database Operation Testing
 
-Testing database transactions is crucial for ensuring data integrity in your ActiveRecord applications. This guide covers strategies for testing transaction behavior, isolation levels, and error handling.
+Transaction testing is not currently available in rhosocial ActiveRecord's testing framework. The current implementation provides basic database operation testing capabilities.
+
+## Current Database Testing
+
+Testing currently focuses on:
+
+- Individual CRUD operation success/failure
+- Basic database connection verification
+- Simple query execution checks
+
+## Basic Database Operation Test
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+    email: str
+
+class TestDatabaseOperations(unittest.TestCase):
+    def test_create_operation(self):
+        user = User(name="Test User", email="test@example.com")
+        result = user.save()
+        self.assertTrue(result)  # Or check that user.id is not None
+        
+    def test_retrieve_operation(self):
+        user = User.find(1)  # Assuming a user with id=1 exists
+        self.assertIsNotNone(user)
+        
+    def test_update_operation(self):
+        user = User.find(1)
+        if user:
+            original_name = user.name
+            user.name = "Updated Name"
+            result = user.save()
+            self.assertTrue(result)
+    
+    def test_delete_operation(self):
+        user = User.find(1)
+        if user:
+            result = user.delete()
+            self.assertTrue(result)
+```
+
+## Limitations
+
+- No transaction isolation testing
+- No multi-operation atomicity verification
+- No rollback testing
+- No concurrent access testing
+
+These advanced database testing features will be added as transaction support is implemented.
 
 ## Setting Up Transaction Tests
 

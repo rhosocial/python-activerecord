@@ -1,6 +1,59 @@
 # 调试技术
 
-有效的调试对于开发和维护ActiveRecord应用程序至关重要。本指南涵盖了常见的调试策略、工具和技术，帮助您识别和解决ActiveRecord代码中的问题。
+rhosocial ActiveRecord 应用程序的调试当前依赖于标准Python调试技术结合基本日志功能。
+
+## 使用Python调试器
+
+调试ActiveRecord应用程序的最有效方法是使用标准Python调试工具：
+
+- `pdb` - Python的内置调试器
+- `breakpoint()` - 设置断点的内置函数（Python 3.7+）
+- IDE调试器（PyCharm、VS Code等）
+
+## 调试的基本日志
+
+基本日志支持通过Python的标准日志模块提供：
+
+```python
+import logging
+from rhosocial.activerecord import ActiveRecord
+
+# 启用日志以查看SQL查询
+logging.basicConfig(level=logging.DEBUG)
+logger = logging.getLogger('rhosocial.activerecord')
+
+# 示例调试方法
+def debug_model_operations():
+    user = User(name="调试用户", email="debug@example.com")
+    print(f"创建用户: {user.name}, {user.email}")
+    
+    result = user.save()
+    print(f"保存结果: {result}")
+    print(f"保存后的用户ID: {user.id}")
+```
+
+## 查询调试
+
+当前，查询调试通过以下方式完成：
+
+- 检查生成的SQL字符串（如果可用）
+- 使用打印语句检查值
+- 使用Python调试器逐步执行代码
+
+## 常见调试方法
+
+1. **模型验证问题**：在验证前后打印模型值
+2. **数据库连接问题**：检查连接参数和数据库可用性
+3. **查询问题**：检查查询参数和预期与实际结果
+
+## 限制
+
+- 无内置查询分析
+- 无ActiveRecord特定的高级调试工具
+- 有限的查询检查功能
+- 无自动调试辅助工具
+
+调试工具将在未来版本中增强，提供更多ActiveRecord特定的功能。
 
 ## 使用日志进行调试
 

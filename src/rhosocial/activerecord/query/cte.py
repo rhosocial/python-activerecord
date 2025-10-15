@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/cte.py
 """Common Table Expression (CTE) query mixin implementation."""
 import logging
 from typing import Dict, List, Optional, Union, Any, Tuple, Type, Set

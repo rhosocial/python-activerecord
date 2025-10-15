@@ -1,3 +1,4 @@
+# .github/workflows/sync-docs-to-main.yml
 name: Sync docs to main branch
 
 # This workflow automatically syncs changes from docs branch to main branch

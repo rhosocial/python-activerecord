@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/transaction.py
 """Base transaction manager implementation."""
 import logging
 from abc import ABC, abstractmethod
@@ -21,6 +22,7 @@ class IsolationLevel(Enum):
     READ_COMMITTED = auto()
     REPEATABLE_READ = auto()
     SERIALIZABLE = auto()
+
 
 class TransactionState(Enum):
     """Transaction states"""

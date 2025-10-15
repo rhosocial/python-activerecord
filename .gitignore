@@ -50,6 +50,9 @@ coverage.xml
 .hypothesis/
 .pytest_cache/
 cover/
+.allure/
+allure-results/
+benchmark*
 
 # Translations
 *.mo
@@ -61,6 +64,9 @@ local_settings.py
 db.sqlite3
 db.sqlite3-journal
 **/test_db.sqlite
+
+# Test temporary database files
+**/test_activerecord_*.sqlite
 
 # Flask stuff:
 instance/

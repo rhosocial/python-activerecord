@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/dict_query.py
 """Dictionary query wrapper implementation."""
 import logging
 from typing import Generic, Any, List, Optional, Set, Dict, Tuple

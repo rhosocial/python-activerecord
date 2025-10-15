@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/field/timestamp.py
 """Module providing timestamp functionality."""
 from datetime import datetime
 import tzlocal
@@ -14,8 +15,10 @@ class TimestampMixin(IActiveRecord):
 
     __timezone__ = tzlocal.get_localzone()
 
-    created_at: datetime = Field(default_factory=lambda: datetime.now(tzlocal.get_localzone() if TimestampMixin.__timezone__ is None else TimestampMixin.__timezone__))
-    updated_at: datetime = Field(default_factory=lambda: datetime.now(tzlocal.get_localzone() if TimestampMixin.__timezone__ is None else TimestampMixin.__timezone__))
+    created_at: datetime = Field(default_factory=lambda: datetime.now(
+        tzlocal.get_localzone() if TimestampMixin.__timezone__ is None else TimestampMixin.__timezone__))
+    updated_at: datetime = Field(default_factory=lambda: datetime.now(
+        tzlocal.get_localzone() if TimestampMixin.__timezone__ is None else TimestampMixin.__timezone__))
 
     def __init__(self, **data):
         super().__init__(**data)
@@ -27,7 +30,8 @@ class TimestampMixin(IActiveRecord):
         Sets created_at for new records.
         Updates updated_at for all saves.
         """
-        now = datetime.now(tzlocal.get_localzone() if TimestampMixin.__timezone__ is None else TimestampMixin.__timezone__)
+        now = datetime.now(
+            tzlocal.get_localzone() if TimestampMixin.__timezone__ is None else TimestampMixin.__timezone__)
         if is_new:
             instance.created_at = now
         instance.updated_at = now

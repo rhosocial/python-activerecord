@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/base/query_mixin.py
 """QueryMixin class providing query functionality for ActiveRecord."""
 
 from ..interface import IActiveRecord

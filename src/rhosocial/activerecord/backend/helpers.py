@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/helpers.py
 import json
 from decimal import Decimal
 from typing import Any, Dict, Optional, Union
@@ -120,7 +121,8 @@ def parse_datetime(
                 dt = datetime.fromisoformat(value)
             elif '.' in value:
                 if ':' in value:  # Check for time with microseconds
-                    dt = datetime.strptime(value, '%H:%M:%S.%f') if ' ' not in value else datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
+                    dt = datetime.strptime(value, '%H:%M:%S.%f') if ' ' not in value else datetime.strptime(value,
+                                                                                                            '%Y-%m-%d %H:%M:%S.%f')
                 else:
                     dt = datetime.strptime(value, '%Y-%m-%d %H:%M:%S.%f')
             elif ' ' in value:
@@ -160,6 +162,7 @@ def safe_json_dumps(value: Any) -> str:
     Raises:
         TypeConversionError: If serialization fails
     """
+
     def default(obj):
         if isinstance(obj, Decimal):
             return str(obj)
@@ -220,6 +223,7 @@ def measure_time(func):
     Returns:
         wrapper: Decorated function that tracks execution time
     """
+
     def wrapper(*args, **kwargs):
         start = time.perf_counter()
         result = func(*args, **kwargs)
@@ -227,4 +231,5 @@ def measure_time(func):
         if isinstance(result, QueryResult):
             result.duration = duration
         return result
+
     return wrapper

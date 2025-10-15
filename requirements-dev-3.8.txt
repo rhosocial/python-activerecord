@@ -1,7 +1,35 @@
+# requirements-dev-3.8.txt
+# Testing framework for unit and integration tests
+# Core framework for running test suites and fixtures
+# Version ~=8.3.5 provides stable testing capabilities
 pytest~=8.3.5
+
+# Parallel test execution plugin for pytest
+# Enables faster test execution through parallel processing
+# No version constraint for Python 3.8 compatibility
 pytest-xdist
+
+# Pytest plugin for re-running failed tests
+# Helps handle flaky tests by automatically retrying failures
+# No version constraint for Python 3.8 compatibility
 pytest-rerunfailures
+
+# Code coverage measurement tool
+# Measures test coverage and generates coverage reports
+# No version constraint for Python 3.8 compatibility
 coverage
+
+# Pydantic with email validation support
+# Adds email field validation capabilities to the core framework
+# Required for testing email field validation in user models
 pydantic[email]
+
+# YAML file processing library
+# Used for configuration file handling and test data
+# No version constraint for Python 3.8 compatibility
 pyyaml
-mysql-connector-python
+
+# MySQL database connector
+# Required for MySQL database integration testing
+# No version constraint for Python 3.8 compatibility
+# mysql-connector-python

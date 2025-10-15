@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/__init__.py
 """
 Database backend abstraction layer for Python ORMs.
 
@@ -8,20 +9,43 @@ This module provides a generic interface for database operations, with support f
 - SQL dialect handling
 - Connection pooling
 """
+# Extend the namespace path to support backend implementations from separate packages
+# This is crucial for the distributed backend architecture where each database backend
+# (mysql, postgresql, etc.) can be installed independently
+__path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
-__version__ = "0.7.0"
+__version__ = "0.8.0"
+
+from . import base
+from . import dialect
+from . import config
+from . import typing
+from . import errors
+from . import helpers
+from . import transaction
+from . import basic_type_converter
+from . import type_converters
 
 # Core interfaces and base classes
-from .base import StorageBackend
+from .base import StorageBackend, ColumnTypes
 from .dialect import (
     TypeMapping,
     SQLDialectBase,
-    SQLExpressionBase, ReturningOptions,
+    SQLBuilder,
+    SQLExpressionBase,
+    ReturningOptions,
+    ReturningClauseHandler,
+    ExplainOptions,
+    ExplainType,
+    ExplainFormat,
+    AggregateHandler,
+    JsonOperationHandler,
+    CTEHandler,
 )
+from .config import ConnectionConfig
 
 # Type definitions and configuration
 from .typing import (
-    ConnectionConfig,
     QueryResult,
     DatabaseValue,
     PythonValue,
@@ -41,6 +65,12 @@ from .errors import (
     TypeConversionError,
     OperationalError,
     RecordNotFound,
+    ReturningNotSupportedError,
+    GroupingSetNotSupportedError,
+    JsonOperationNotSupportedError,
+    WindowFunctionNotSupportedError,
+    CTENotSupportedError,
+    IsolationLevelError,
 )
 
 # Helper functions
@@ -51,12 +81,51 @@ from .helpers import (
     safe_json_loads,
     array_converter,
     measure_time,
+    format_with_length,
+    format_decimal,
 )
 
 # Transaction
 from .transaction import (
     TransactionManager,
     IsolationLevel,
+    TransactionState,
+)
+
+# Type Converters
+from .basic_type_converter import (
+    BasicTypeConverter,
+    DateTimeConverter,
+    BooleanConverter,
+    UUIDConverter,
+    JSONConverter,
+    DecimalConverter,
+    ArrayConverter,
+    EnumConverter,
+)
+from .type_converters import (
+    TypeConverter,
+    BaseTypeConverter,
+    TypeRegistry,
+)
+
+# Capabilities
+from .capabilities import (
+    DatabaseCapabilities,
+    CapabilityCategory,
+    SetOperationCapability,
+    WindowFunctionCapability,
+    AdvancedGroupingCapability,
+    CTECapability,
+    JSONCapability,
+    ReturningCapability,
+    TransactionCapability,
+    BulkOperationCapability,
+    ALL_SET_OPERATIONS,
+    ALL_WINDOW_FUNCTIONS,
+    ALL_CTE_FEATURES,
+    ALL_JSON_OPERATIONS,
+    ALL_RETURNING_FEATURES,
 )
 
 __all__ = [
@@ -64,6 +133,17 @@ __all__ = [
     'StorageBackend',
     # Dialect related
     'TypeMapping',
+    'ColumnTypes',
+    'SQLBuilder',
+    'SQLExpressionBase',
+    'ReturningOptions',
+    'ReturningClauseHandler',
+    'ExplainOptions',
+    'ExplainType',
+    'ExplainFormat',
+    'AggregateHandler',
+    'JsonOperationHandler',
+    'CTEHandler',
 
     # Types and configs
     'ConnectionConfig',
@@ -84,6 +164,12 @@ __all__ = [
     'TypeConversionError',
     'OperationalError',
     'RecordNotFound',
+    'ReturningNotSupportedError',
+    'GroupingSetNotSupportedError',
+    'JsonOperationNotSupportedError',
+    'WindowFunctionNotSupportedError',
+    'CTENotSupportedError',
+    'IsolationLevelError',
 
     # Helper functions
     'convert_datetime',
@@ -92,6 +178,8 @@ __all__ = [
     'safe_json_loads',
     'array_converter',
     'measure_time',
+    'format_with_length',
+    'format_decimal',
 
     # Expression
     'SQLDialectBase',
@@ -100,4 +188,35 @@ __all__ = [
     # Transaction
     'TransactionManager',
     'IsolationLevel',
+    'TransactionState',
+
+    # Type Converters
+    'BasicTypeConverter',
+    'DateTimeConverter',
+    'BooleanConverter',
+    'UUIDConverter',
+    'JSONConverter',
+    'DecimalConverter',
+    'ArrayConverter',
+    'EnumConverter',
+    'TypeConverter',
+    'BaseTypeConverter',
+    'TypeRegistry',
+    
+    # Capabilities
+    'DatabaseCapabilities',
+    'CapabilityCategory',
+    'SetOperationCapability',
+    'WindowFunctionCapability',
+    'AdvancedGroupingCapability',
+    'CTECapability',
+    'JSONCapability',
+    'ReturningCapability',
+    'TransactionCapability',
+    'BulkOperationCapability',
+    'ALL_SET_OPERATIONS',
+    'ALL_WINDOW_FUNCTIONS',
+    'ALL_CTE_FEATURES',
+    'ALL_JSON_OPERATIONS',
+    'ALL_RETURNING_FEATURES',
 ]

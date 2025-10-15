@@ -1,3 +1,4 @@
+# setup.py
 import codecs
 import os
 import re
@@ -19,16 +20,16 @@ def find_version(rel_path):
     raise RuntimeError("Unable to find version string.")
 
 exclude = [
-    'rhosocial.activerecord.backend.impl.mysql',
-    'rhosocial.activerecord.backend.impl.pgsql',
-    'rhosocial.activerecord.backend.impl.mariadb',
-    'rhosocial.activerecord.backend.impl.mssql',
-    'rhosocial.activerecord.backend.impl.oracle',
-    'rhosocial.activerecord.backend.impl.mysql.*',
-    'rhosocial.activerecord.backend.impl.pgsql.*',
-    'rhosocial.activerecord.backend.impl.mariadb.*',
-    'rhosocial.activerecord.backend.impl.mssql.*',
-    'rhosocial.activerecord.backend.impl.oracle.*',
+    'rhosocial.activerecord_test.backend.impl.mysql',
+    'rhosocial.activerecord_test.backend.impl.pgsql',
+    'rhosocial.activerecord_test.backend.impl.mariadb',
+    'rhosocial.activerecord_test.backend.impl.mssql',
+    'rhosocial.activerecord_test.backend.impl.oracle',
+    'rhosocial.activerecord_test.backend.impl.mysql.*',
+    'rhosocial.activerecord_test.backend.impl.pgsql.*',
+    'rhosocial.activerecord_test.backend.impl.mariadb.*',
+    'rhosocial.activerecord_test.backend.impl.mssql.*',
+    'rhosocial.activerecord_test.backend.impl.oracle.*',
 ]
 
 setup(

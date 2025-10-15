@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/base.py
 """Base query mixin implementation."""
 import logging
 from typing import List, Any, Optional, Union, Set, Tuple, Dict
@@ -338,7 +339,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             query.where('status = ?', (1,))
         """
         if params is None:
-            params = tuple()
+            params = ()
         elif not isinstance(params, tuple):
             try:
                 params = tuple(params)
@@ -375,7 +376,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             # Equivalent to: WHERE (status = 1 OR type = 'admin') AND deleted_at IS NULL
         """
         if params is None:
-            params = tuple()
+            params = ()
         elif not isinstance(params, tuple):
             try:
                 params = tuple(params)
@@ -441,7 +442,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             raise QueryError("Offset count must be non-negative")
         if self.limit_count is None:
             self._log(logging.WARNING,
-                     "Using OFFSET without LIMIT may be unsupported by some databases")
+                      "Using OFFSET without LIMIT may be unsupported by some databases")
         self.offset_count = count
         self._log(logging.DEBUG, f"Set OFFSET to {count}")
         return self

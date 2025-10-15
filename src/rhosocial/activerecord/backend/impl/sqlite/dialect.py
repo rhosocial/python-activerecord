@@ -1,13 +1,13 @@
-import sqlite3
+# src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
 import sqlite3
 import sys
 from typing import Optional, List, Set, Union, Dict, Tuple, Any
 
+from .config import SQLiteConnectionConfig
 from ...dialect import SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, \
     ExplainOptions, ExplainType, ExplainFormat, AggregateHandler, JsonOperationHandler, CTEHandler
 from ...errors import ReturningNotSupportedError, WindowFunctionNotSupportedError, \
     GroupingSetNotSupportedError, JsonOperationNotSupportedError
-from ...typing import ConnectionConfig
 
 if sys.version_info >= (3, 9):
     TupleType = tuple
@@ -26,12 +26,35 @@ class SQLiteExpression(SQLExpressionBase):
 class SQLiteDialect(SQLDialectBase):
     """SQLite dialect implementation"""
 
-    def __init__(self, config: ConnectionConfig):
+    def __init__(self, config):
         """Initialize SQLite dialect
 
         Args:
-            config: Database connection configuration
+            config: SQLite database connection configuration
         """
+        # Ensure we're working with a SQLiteConnectionConfig
+        if not isinstance(config, SQLiteConnectionConfig):
+            from ...config import ConnectionConfig
+            # If it's a generic ConnectionConfig, convert it
+            if isinstance(config, ConnectionConfig):
+                # Extract any SQLite-specific options from the generic config
+                pragmas = getattr(config, 'pragmas', {}) if hasattr(config, 'pragmas') else {}
+                delete_on_close = getattr(config, 'delete_on_close', False) if hasattr(config,
+                                                                                       'delete_on_close') else False
+
+                # Create new SQLite config
+                sqlite_config = SQLiteConnectionConfig(
+                    host=config.host,
+                    port=config.port,
+                    database=config.database,
+                    username=config.username,
+                    password=config.password,
+                    driver_type=config.driver_type,
+                    pragmas=pragmas,
+                    delete_on_close=delete_on_close,
+                    options=config.options
+                )
+
         version = tuple(map(int, sqlite3.sqlite_version.split('.')))
         super().__init__(version)
 
@@ -480,7 +503,7 @@ class SQLiteJsonHandler(JsonOperationHandler):
             else:
                 # For checking in entire JSON document
                 # Note: This is simplified and may not work for complex contains logic
-                expr = f"json_extract({col}, '$') LIKE '%{value}%'"
+                expr = f"json_extract({col}, ') LIKE '%{value}%'"
 
         elif operation == "exists":
             # SQLite doesn't have json_exists, use IS NOT NULL with json_extract instead
@@ -508,9 +531,8 @@ class SQLiteJsonHandler(JsonOperationHandler):
 
         else:
             # Default to extract if operation not recognized
-            # expr = f"json_extract({col}, '{path}')" if path else col
             raise JsonOperationNotSupportedError(
-                f"JSON operations are not supported in SQLite {'.'.join(map(str, self._version))}"
+                f"JSON operation '{operation}' is not supported in SQLite {'.'.join(map(str, self._version))}"
             )
 
         if alias:

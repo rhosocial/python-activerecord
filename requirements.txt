@@ -1,6 +1,34 @@
-pydantic-core~=2.33.0
-pydantic~=2.11.1
+# requirements.txt
+# Core data validation and serialization framework
+# Pydantic provides model validation, serialization, and type conversion
+# Version >=2.12.0 ensures compatibility with Python 3.9+ (with 2.10.6 for Python 3.8)
+# No upper limit on minor versions as long as major version remains 2.x
+# This includes Python 3.14 and any future Python versions
+pydantic>=2.12.0
+
+# Pydantic's core validation library written in Rust
+# Provides high-performance validation and serialization
+# Version >=2.41.0 is required for pydantic 2.12.0+ compatibility
+# No upper limit on minor versions as long as major version remains 2.x
+# This includes Python 3.14 and any future Python versions
+pydantic-core>=2.41.0
+
+# World timezone definitions for Python
+# Required for timezone-aware datetime handling in database operations
+# Version ~=2025.2 includes the latest timezone data
 pytz~=2025.2
+
+# Extensions to the standard datetime module
+# Used for robust datetime parsing and manipulation
+# Version ~=2.9.0.post0 provides stable datetime utilities
 python-dateutil~=2.9.0.post0
+
+# System timezone detection
+# Automatically detects local timezone for timestamp fields
+# Version ~=5.3.1 supports modern timezone detection
 tzlocal~=5.3.1
-setuptools~=78.1.0
+
+# Python packaging utilities
+# Required for package building and distribution
+# Version ~=80.9.0 provides stable packaging tools
+setuptools~=80.9.0

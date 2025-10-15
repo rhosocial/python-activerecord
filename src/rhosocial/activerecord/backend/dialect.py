@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/dialect.py
 """
 Abstract SQL dialect implementation for handling database differences.
 This module provides base classes for SQL dialect handling, including:
@@ -844,6 +845,7 @@ class SQLDialectBase(ABC):
             return DatabaseType.BLOB
 
         return DatabaseType.TEXT
+
 
 class SQLBuilder:
     """SQL Builder

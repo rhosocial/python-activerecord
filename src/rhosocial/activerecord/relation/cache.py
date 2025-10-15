@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/relation/cache.py
 """
 Caching implementation for relation data.
 Provides configurable caching with TTL and size limits.
@@ -22,6 +23,7 @@ class CacheConfig:
     ttl: Optional[int] = 300
     max_size: Optional[int] = 1000
 
+
 class GlobalCacheConfig:
     """Thread-safe singleton for global cache configuration."""
     _instance = None
@@ -42,6 +44,7 @@ class GlobalCacheConfig:
                 if hasattr(cls._instance.config, key):
                     setattr(cls._instance.config, key, value)
 
+
 class CacheEntry:
     """Single cache entry with expiration tracking.
 
@@ -49,6 +52,7 @@ class CacheEntry:
         value: Cached value
         ttl: Time-to-live in seconds
     """
+
     def __init__(self, value: Any, ttl: Optional[int] = None):
         self.value = value
         self.created_at = datetime.now()
@@ -60,12 +64,14 @@ class CacheEntry:
             return False
         return datetime.now() > self.created_at + timedelta(seconds=self.ttl)
 
+
 class RelationCache:
     """Thread-safe cache manager for relation data.
 
     Args:
         config: Cache configuration, uses global if None
     """
+
     def __init__(self, config: Optional[CacheConfig] = None):
         self.relation_name = None
         self._cache: Dict[tuple, CacheEntry] = {}
@@ -111,7 +117,9 @@ class RelationCache:
         with self._lock:
             self._cache.clear()
 
+
 T = TypeVar('T')
+
 
 class InstanceCache(Generic[T]):
     """

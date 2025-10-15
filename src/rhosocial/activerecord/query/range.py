@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/range.py
 """Range-based query methods implementation."""
 import logging
 from typing import Union, List, Any, Tuple
@@ -45,8 +46,8 @@ class RangeQueryMixin(IQuery[ModelT]):
         """
         if not values:
             self._log(logging.DEBUG,
-                     f"Empty IN list for column {column}",
-                     extra={'empty_result': empty_result})
+                      f"Empty IN list for column {column}",
+                      extra={'empty_result': empty_result})
             if empty_result:
                 return self.where('1 = 0')
             return self

@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/active_query.py
 """ActiveQuery implementation combining all query mixins."""
 from .cte import CTEQueryMixin
 from .join import JoinQueryMixin

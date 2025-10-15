@@ -1,6 +1,62 @@
-# 单元测试指南
+# 基本测试指南
 
-单元测试是开发可靠的ActiveRecord应用程序的关键部分。本指南涵盖了测试ActiveRecord模型、关系和事务的最佳实践和策略。
+使用 rhosocial ActiveRecord 进行单元测试目前专注于基本模型功能和简单操作。
+
+## 概述
+
+当前单元测试包括：
+
+- 测试基本模型创建和验证
+- 验证简单CRUD操作
+- 基本查询执行验证
+
+## 测试框架
+
+rhosocial ActiveRecord 与标准Python测试框架配合使用：
+
+- `unittest` - Python的内置测试框架
+- `pytest` - 功能更丰富的测试框架
+
+## 基本测试设置
+
+使用ActiveRecord模型进行测试：
+
+1. 配置测试数据库（通常使用内存中的SQLite）
+2. 创建必要的数据库表
+3. 测试基本模型操作
+
+## 当前限制
+
+- 无内置测试夹具或工厂
+- 有限的关系测试支持
+- 无事务测试框架
+- 仅限基本错误处理验证
+
+## 简单测试示例
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+    email: str
+
+class TestUser(unittest.TestCase):
+    def setUp(self):
+        # 设置测试数据库
+        pass
+
+    def test_model_creation(self):
+        user = User(name="测试用户", email="test@example.com")
+        self.assertEqual(user.name, "测试用户")
+        
+    def test_save_operation(self):
+        user = User(name="测试用户", email="test@example.com")
+        result = user.save()
+        # 验证保存操作完成
+        self.assertTrue(result)
+```
 
 ## 概述
 

@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/relation/descriptors.py
 """
 Concrete relation descriptor implementations.
 Provides BelongsTo, HasOne, and HasMany relationship types.
@@ -12,6 +13,7 @@ from ..base import QueryMixin
 from ..interface import IActiveRecord
 
 T = TypeVar('T')
+
 
 def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type[T]:
     """
@@ -50,15 +52,23 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     type_str = ref if isinstance(ref, str) else ref.__forward_arg__
 
     if isinstance(ref, ForwardRef):
+        # Use official typing_extensions.evaluate_forward_ref if available
         try:
-            return ref._evaluate(context, None, recursive_guard=set())
-        except TypeError:
+            from typing_extensions import evaluate_forward_ref
+            return evaluate_forward_ref(ref, owner=owner, globals=context, locals=None)
+        except ImportError:
+            # Fallback: try using get_type_hints instead of direct _evaluate call
             try:
-                return ref._evaluate(context, None, set())
-            except TypeError:
+                # Create a temporary class with the forward ref to leverage get_type_hints
+                temp_annotations = {'temp': ref}
+                hints = get_type_hints(type('TempClass', (), {'__annotations__': temp_annotations}), globalns=context)
+                return hints.get('temp', ref)
+            except (NameError, AttributeError, TypeError):
                 pass
 
+    # Final fallback: direct evaluation for string references
     return eval(type_str, context, None)
+
 
 class RelationDescriptor(Generic[T]):
     """
@@ -271,6 +281,7 @@ class RelationDescriptor(Generic[T]):
                     )
 
             return query
+
         return query_method
 
     def _load_relation(self, instance: Any) -> Optional[T]:
@@ -348,6 +359,7 @@ class RelationDescriptor(Generic[T]):
 
         return result
 
+
 class RelationshipValidator(RelationValidation):
     """Default relationship validator implementation."""
 
@@ -359,7 +371,6 @@ class RelationshipValidator(RelationValidation):
             descriptor: The RelationDescriptor instance being validated
         """
         self.descriptor = descriptor
-
 
     def validate(self, owner: Type[Any], related_model: Type[Any]) -> None:
         """
@@ -395,7 +406,7 @@ class RelationshipValidator(RelationValidation):
         ]
 
         if not any(isinstance(self.descriptor, t1) and isinstance(inverse_rel, t2)
-                  for t1, t2 in valid_pairs):
+                   for t1, t2 in valid_pairs):
             raise ValueError(
                 f"Invalid relationship pair between {owner_name} and {related_name}: "
                 f"{type(self.descriptor).__name__} and {type(inverse_rel).__name__}"
@@ -410,31 +421,39 @@ class RelationshipValidator(RelationValidation):
         elif not any(value is self.descriptor for value in owner.__dict__.values()):
             raise ValueError(f"Inconsistent inverse relationship between {owner_name} and {related_name}")
 
+
 class BelongsTo(RelationDescriptor[T], Generic[T]):
     """
     One-to-one or many-to-one relationship.
     Instance belongs to a single instance of related model.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
+
 
 class HasOne(RelationDescriptor[T], Generic[T]):
     """
     One-to-one relationship.
     Instance has one related instance.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
+
 
 class HasMany(RelationDescriptor[T], Generic[T]):
     """
     One-to-many relationship.
     Instance has multiple related instances.
     """
+
     def __init__(self, *args, **kwargs):
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
 
+
 R = TypeVar('R', bound=Union[IActiveRecord, QueryMixin])
+
 
 class DefaultRelationLoader(RelationLoader[R]):
     """Default implementation of relation loading logic."""
@@ -459,7 +478,8 @@ class DefaultRelationLoader(RelationLoader[R]):
         """
         # Use descriptor's log method if available
         if hasattr(self.descriptor, 'log'):
-            self.descriptor.log(logging.DEBUG, f"Loading relation `{self.descriptor.name}` for instance `{type(instance).__name__}`")
+            self.descriptor.log(logging.DEBUG,
+                                f"Loading relation `{self.descriptor.name}` for instance `{type(instance).__name__}`")
 
         # Delegate to batch_load for consistency
         result = self.batch_load([instance], None)

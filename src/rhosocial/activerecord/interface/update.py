@@ -1,8 +1,10 @@
+# src/rhosocial/activerecord/interface/update.py
 """
 Interface for model update behavior customization.
 """
 from abc import ABC, abstractmethod
 from typing import Dict, List, Optional, Tuple, Any
+
 
 class IUpdateBehavior(ABC):
     """Interface for defining model update behavior.
@@ -10,6 +12,7 @@ class IUpdateBehavior(ABC):
     Allows models to add custom conditions and expressions during updates.
     Useful for implementing features like optimistic locking.
     """
+
     @abstractmethod
     def get_update_conditions(self) -> List[Tuple[str, Optional[tuple]]]:
         """Get additional update conditions.

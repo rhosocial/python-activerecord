@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/interface/__init__.py
 """
 Package interface provides core interfaces for ActiveRecord implementation.
 """

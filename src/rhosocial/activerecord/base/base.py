@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/base/base.py
 """Core BaseActiveRecord implementation."""
 
 import logging
@@ -6,7 +7,7 @@ from typing import Any, Dict, List, Optional, ClassVar, Type
 from ..interface import IActiveRecord, ModelEvent
 from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
-from ..backend.typing import ConnectionConfig
+from ..backend.config import ConnectionConfig
 from .typing import ConditionType, MultiConditionType, ModelT
 
 

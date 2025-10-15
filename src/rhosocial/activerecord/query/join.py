@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/join.py
 """Enhanced join methods implementation for ActiveQuery with SQL standard compliance."""
 import logging
 

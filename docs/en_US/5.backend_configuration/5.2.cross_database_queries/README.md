@@ -1,8 +1,8 @@
 # Cross-database Queries
 
-> **⚠️ IMPORTANT NOTE:** The multiple database connection functionality (including master-slave configuration) described in this document is **not yet implemented** and may undergo significant changes in future releases. Cross-database transactions described here are essentially nested transactions initiated by two separate ActiveRecord classes and **cannot achieve cross-database atomicity**.
+> **❌ NOT IMPLEMENTED**: The multiple database connection functionality (including master-slave configuration) described in this document is **not implemented**. This documentation describes planned functionality and is provided for future reference only. Current users should work with single database connections only. This feature may be developed in future releases with no guaranteed timeline. Cross-database transactions described here are theoretical concepts and **cannot achieve cross-database atomicity**.
 
-This section covers how to work with multiple databases simultaneously in rhosocial ActiveRecord, including connecting to different database systems, integrating heterogeneous data sources, synchronizing data between databases, and handling transactions across multiple databases.
+> **⚠️ ASPIRATIONAL DOCUMENTATION**: This section covers planned functionality for working with multiple databases simultaneously in rhosocial ActiveRecord, including connecting to different database systems, integrating heterogeneous data sources, synchronizing data between databases, and handling transactions across multiple databases. **None of these features are currently available.**
 
 ## Contents
 

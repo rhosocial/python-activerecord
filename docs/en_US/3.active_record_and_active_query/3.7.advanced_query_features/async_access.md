@@ -1,8 +1,8 @@
 # Async Access
 
-> **Note**: The async access feature described in this document is currently **not yet  implemented** and the design may be subject to change in future releases. This documentation outlines the planned functionality.
+> **❌ NOT IMPLEMENTED**: The async access feature described in this document is currently **not implemented**. This documentation describes the planned functionality and is provided for future reference only. Current users should rely on synchronous operations only. This feature may be developed in future releases with no guaranteed timeline. The API described in this document is subject to significant changes when implementation begins.
 
-This document explains how to use asynchronous database operations with ActiveRecord to improve performance in I/O-bound applications.
+This document explains how to use asynchronous database operations with ActiveRecord to improve performance in I/O-bound applications. **Note: This is currently aspirational documentation and does not reflect implemented functionality.**
 
 ## Introduction
 

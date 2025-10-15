@@ -1,6 +1,78 @@
-# 性能分析工具
+# 性能分析
 
-性能分析是优化ActiveRecord应用程序的关键步骤。本指南介绍了分析和优化ActiveRecord性能的工具和技术。
+当前，rhosocial ActiveRecord 不包含内置性能分析工具。性能分析依赖于通用Python分析工具和手动技术。
+
+## 使用标准Python分析器
+
+对于ActiveRecord应用程序的性能分析，请使用标准Python分析工具：
+
+### cProfile
+```python
+import cProfile
+import pstats
+from rhosocial.activerecord import ActiveRecord
+
+def performance_test():
+    # 您的ActiveRecord操作
+    users = User.find_all().limit(100).all()
+    for user in users:
+        user.email = f"updated_{user.email}"
+        user.save()
+
+# 分析函数
+profiler = cProfile.Profile()
+profiler.enable()
+performance_test()
+profiler.disable()
+
+# 打印统计信息
+stats = pstats.Stats(profiler)
+stats.sort_stats('cumulative')
+stats.print_stats()
+```
+
+### 使用 line_profiler（如已安装）
+```python
+# 为要分析的函数添加@profile装饰器
+@profile
+def slow_function():
+    # ActiveRecord操作
+    pass
+```
+
+## 基本性能测量
+
+用于简单计时测量：
+
+```python
+import time
+from rhosocial.activerecord import ActiveRecord
+
+def time_operation():
+    start_time = time.time()
+    
+    # ActiveRecord操作
+    users = User.find_all().limit(1000).all()
+    
+    end_time = time.time()
+    print(f"操作耗时 {end_time - start_time:.2f} 秒")
+```
+
+## 查询性能
+
+当前，查询性能分析依赖于：
+- 手动检查SQL查询
+- 使用数据库特定工具分析查询计划
+- 使用标准Python计时函数对查询执行计时
+
+## 当前限制
+
+- 无内置查询计时
+- 无自动性能指标
+- 无查询计划分析工具
+- 无ActiveRecord特定分析工具
+
+分析功能将在框架成熟后添加。
 
 ## 查询分析
 

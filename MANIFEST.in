@@ -1,9 +1,22 @@
+# Exclude all Python cache files
 global-exclude *.pyc
 global-exclude __pycache__
 recursive-exclude * *.pyc
-recursive-include src *
+
+# Default mode: only src/, README.md, and LICENSE are included
+include LICENSE
+include README.md
+recursive-include src/rhosocial/activerecord *.py *.pyi
+
+# Exclude specific backend implementation directories
 prune src/rhosocial/activerecord/backend/impl/mysql
 prune src/rhosocial/activerecord/backend/impl/pgsql
 prune src/rhosocial/activerecord/backend/impl/mariadb
 prune src/rhosocial/activerecord/backend/impl/mssql
 prune src/rhosocial/activerecord/backend/impl/oracle
+
+# Exclude files such as git, system cache, etc
+prune .git*
+prune **/.DS_Store
+prune **/.*.swp
+prune **/*.so

@@ -1,6 +1,56 @@
-# 日志记录和分析
+# 日志配置
 
-有效的日志记录对于监控、调试和分析ActiveRecord应用程序至关重要。本指南涵盖了如何配置日志、分析日志数据以及使用日志识别性能瓶颈和问题。
+rhosocial ActiveRecord 中的日志当前基本，依赖于Python的标准日志模块。框架尚未提供高级日志功能。
+
+## 设置基本日志
+
+在ActiveRecord应用程序中启用日志：
+
+```python
+import logging
+
+# 配置基本日志
+logging.basicConfig(
+    level=logging.INFO,
+    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+)
+
+# 用于更详细的日志（包括SQL查询，如可用）
+logging.getLogger('rhosocial.activerecord').setLevel(logging.DEBUG)
+```
+
+## 当前日志功能
+
+当前实现提供：
+
+- 基本SQL查询日志（如在后端实现）
+- 连接状态日志
+- 错误日志
+
+## 示例用法
+
+```python
+import logging
+from rhosocial.activerecord import ActiveRecord
+
+logger = logging.getLogger('rhosocial.activerecord')
+
+# 启用调试日志以查看查询
+logger.setLevel(logging.DEBUG)
+
+# 任何数据库操作现在都将在DEBUG级别记录
+user = User(name="日志测试", email="log@example.com")
+user.save()
+```
+
+## 限制
+
+- 无结构化日志
+- 无自动性能指标
+- 无查询执行时间日志
+- 框架操作的有限洞察
+
+高级日志和分析功能将在未来版本中添加。
 
 ## 设置日志记录
 

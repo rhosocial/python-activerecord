@@ -1,6 +1,50 @@
-# 关系测试
+# 查询和关联测试
 
-测试ActiveRecord模型之间的关系对于确保数据关联正确工作至关重要。本指南涵盖了测试不同类型关系的策略，包括一对一、一对多和多对多关联。
+当前，rhosocial ActiveRecord 在关系测试方面功能有限。系统支持基本模型关联，但测试框架中尚未提供全面的关系测试功能。
+
+## 当前状态
+
+- 基本外键关系支持
+- 简单查找操作
+- 无高级关系查询功能
+
+## 测试简单关联
+
+对于现有的有限关系功能：
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+
+class Post(ActiveRecord):
+    title: str
+    user_id: int  # 简单外键方法
+
+class TestBasicAssociation(unittest.TestCase):
+    def test_foreign_key_assignment(self):
+        user = User(name="测试用户")
+        user.save()
+        
+        post = Post(title="测试帖子", user_id=user.id)
+        post.save()
+        
+        # 验证外键正确设置
+        self.assertEqual(post.user_id, user.id)
+```
+
+## 限制
+
+当前实现不包括：
+- 关系方法测试（如has_many, belongs_to方法）
+- 复杂关联查询
+- 预加载验证
+- 嵌套关系测试
+- 多对多关系测试
+
+关系测试功能将在关系功能完全实现后扩展。
 
 ## 设置关系测试
 

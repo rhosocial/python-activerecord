@@ -1,15 +1,23 @@
+# pyproject.toml
 [build-system]
 requires = ["hatchling"]
 build-backend = "hatchling.build"
 
 [project]
 name = "rhosocial_activerecord"
-# Version is read from src/rhosocial/activerecord/__init__.py
 dynamic = ["version"]
 description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
 license = { file = "LICENSE" }
+
+# Python version compatibility
+# Python 3.8 support: Due to the widespread user base of Python 3.8, we continue to provide support.
+# However, since official support for Python 3.8 has ended, the next major version of this project
+# will be the last to support Python 3.8, and future versions will not guarantee compatibility.
+# Free-Threading support: This project is compatible with Free-Threading Python (3.14t+), 
+# but some threading-specific features may behave differently. See documentation for details.
 requires-python = ">=3.8"
+
 authors = [
     { name = "vistart", email = "i@vistart.me" }
 ]
@@ -25,6 +33,7 @@ classifiers = [
     "Programming Language :: Python :: 3.11",
     "Programming Language :: Python :: 3.12",
     "Programming Language :: Python :: 3.13",
+    "Programming Language :: Python :: 3.14",
     "Programming Language :: Python :: 3 :: Only",
     "Framework :: Pydantic",
     "Framework :: Pydantic :: 2",
@@ -33,37 +42,60 @@ classifiers = [
     "Topic :: Software Development :: Libraries",
     "Topic :: Software Development :: Libraries :: Python Modules",
 ]
+
+# Core dependencies with Python version-specific requirements
 dependencies = [
-    # Pydantic dropped Python 3.8 support since v2.11, but we still support it in this version,
-    "pydantic>=2.10.6; python_version == '3.8'",
-    "pydantic-core>=2.27.2; python_version == '3.8'",
-    # For Python 3.9+, we use newer Pydantic versions with latest features,
-    "pydantic>=2.11.1; python_version >= '3.9'",
-    "pydantic-core>=2.33.0; python_version >= '3.9'",
+    # Core data validation and serialization framework
+    # Pydantic provides model validation, serialization, and type conversion
+    # Python 3.8: Limited to pydantic 2.10.6 due to compatibility constraints
+    "pydantic==2.10.6; python_version == '3.8'",
+
+    # Pydantic's core validation library written in Rust
+    # Provides high-performance validation and serialization
+    # Python 3.8: Uses pydantic-core 2.27.2 for compatibility
+    "pydantic-core==2.27.2; python_version == '3.8'",
+
+    # Python 3.9+: Requires pydantic 2.12+ and pydantic-core 2.41+ for full feature support
+    # No upper limit on minor versions as long as major version remains 2.x
+    # This includes Python 3.14 and any future Python versions
+    "pydantic>=2.12.0; python_version >= '3.9'",
+    "pydantic-core>=2.41.0; python_version >= '3.9'",
+
+    # Type extension utilities
+    # Provides additional typing features for older Python versions
     "typing-extensions>=4.12.0",
+
+    # World timezone definitions for Python
+    # Required for timezone-aware datetime handling in database operations
+    # Version 2025.2+ includes the latest timezone data
     "pytz>=2025.2",
+
+    # Extensions to the standard datetime module
+    # Used for robust datetime parsing and manipulation
+    # Version 2.9.0+ provides stable datetime utilities
     "python-dateutil>=2.9.0",
+
+    # System timezone detection
+    # Automatically detects local timezone for timestamp fields
+    # Version 5.2+ supports modern timezone detection
     "tzlocal>=5.2",
+
+    # Timezone info backport for Python 3.8
+    # Python 3.8 lacks native zoneinfo support, this provides compatibility
+    # Only required for Python 3.8 as later versions have native zoneinfo
+    "backports.zoneinfo>=0.2.1; python_version < '3.9'",
 ]
 
 [project.optional-dependencies]
-# Database backend dependencies
-mysql = [
-    "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
-]
-mariadb = [
-    "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
-]
-pgsql = [
-    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
-]
-oracle = [
-    "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
-]
-mssql = [
-    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
-]
-# All databases together
+# Database backend dependencies (provided by separate packages)
+# These are distributed as independent packages to maintain modularity
+mysql = ["rhosocial-activerecord-mysql>=1.0.0,<2.0.0"]
+mariadb = ["rhosocial-activerecord-mariadb>=1.0.0,<2.0.0"]
+pgsql = ["rhosocial-activerecord-pgsql>=1.0.0,<2.0.0"]
+oracle = ["rhosocial-activerecord-oracle>=1.0.0,<2.0.0"]
+mssql = ["rhosocial-activerecord-mssql>=1.0.0,<2.0.0"]
+
+# Convenience extra for all database backends
 databases = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
@@ -71,11 +103,11 @@ databases = [
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
 ]
-# Additional features
-migration = [
-    "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
-]
-# All features combined
+
+# Database migration support
+migration = ["rhosocial-activerecord-migration>=1.0.0,<2.0.0"]
+
+# Complete package with all optional dependencies
 all = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
@@ -85,20 +117,79 @@ all = [
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
 ]
 
-# Development dependencies
+# Development dependencies - These will be installed automatically during pip install -e .
 test = [
+    # Testing framework for unit and integration tests
+    # Core framework for running test suites and fixtures
     "pytest>=7.0.0",
+
+    # Code coverage measurement tool
+    # Measures test coverage and generates coverage reports
     "coverage>=7.0.0",
+
+    # Asyncio support for pytest
+    # Enables testing of asynchronous code
+    "pytest-asyncio>=0.21.0",
+
+    # Coverage integration with pytest
+    # Combines pytest and coverage for seamless test coverage reporting
+    "pytest-cov>=4.0.0",
+
+    # Parallel test execution plugin for pytest
+    # Enables faster test execution through parallel processing
+    "pytest-xdist>=3.6.1",
+
+    # Pytest plugin for re-running failed tests
+    # Helps handle flaky tests by automatically retrying failures
+    "pytest-rerunfailures>=15.0",
+
+    # Pydantic with email validation support
+    # Adds email field validation capabilities for testing
+    "pydantic[email]",
+
+    # YAML file processing library
+    # Used for configuration file handling and test data
+    "pyyaml>=6.0.2",
+
+    # MySQL database connector
+    # Required for MySQL database integration testing
+    "mysql-connector-python>=9.3.0",
 ]
+
 dev = [
+    # Code formatter
+    # Maintains consistent code style across the project
     "black>=23.0.0",
+
+    # Import sorter
+    # Organizes imports in a consistent manner
     "isort>=5.0.0",
+
+    # Static type checker
+    # Provides static type analysis for Python code
     "mypy>=1.0.0",
+
+    # Fast Python linter
+    # Provides fast linting and code quality checks
     "ruff>=0.1.0",
+
+    # Git pre-commit hooks
+    # Ensures code quality checks run before commits
+    "pre-commit>=3.0.0",
 ]
+
 docs = [
+    # Documentation generator
+    # Generates HTML documentation from source code
     "sphinx>=7.0.0",
+
+    # Sphinx theme
+    # Provides Read the Docs theme for documentation
     "sphinx-rtd-theme>=1.0.0",
+
+    # Markdown parser for Sphinx
+    # Enables Markdown support in Sphinx documentation
+    "myst-parser>=2.0.0",
 ]
 
 [project.urls]
@@ -111,52 +202,225 @@ Issues = "https://github.com/rhosocial/python-activerecord/issues"
 path = "src/rhosocial/activerecord/__init__.py"
 pattern = '^__version__\s*=\s*"(?P<version>(?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
 
+# Build configuration
 [tool.hatch.build]
 include = [
-  "src/rhosocial/**/*.py",
-  "src/rhosocial/**/*.pyi",
-  "LICENSE",
-  "README.md",
+    "src/rhosocial/**/*.py",
+    "src/rhosocial/**/*.pyi",
+    "LICENSE",
+    "README.md",
 ]
 exclude = [
-  "tests/**",
-  "docs/**",
-  "examples/**",
-  "*.pyc",
-  "**/__pycache__",
-  "**/*.py[cod]",
-  "**/*.so",
-  "**/.DS_Store",
-  "**/.*.swp",
-  ".git*",
-  "src/rhosocial/activerecord/backend/impl/mysql",
-  "src/rhosocial/activerecord/backend/impl/pgsql",
-  "src/rhosocial/activerecord/backend/impl/mariadb",
-  "src/rhosocial/activerecord/backend/impl/mssql",
-  "src/rhosocial/activerecord/backend/impl/oracle"
+    # Python cache and compiled files
+    "*.pyc",
+    "**/__pycache__",
+    "**/*.py[cod]",
+    "**/*.so",
+
+    # System files
+    "**/.DS_Store",
+    "**/.*.swp",
+    ".git*",
+
+    # Test database files
+    "**/*test_db.sqlite",
+    "**/*test_*.sqlite",
+    "**/*test_*.db",
+
+    # Build artifacts
+    "build/",
+    "dist/",
+    "*.egg-info/",
+
+    # IDE and editor configuration
+    ".idea/",
+    ".vscode/",
+    ".mypy_cache/",
+    ".ruff_cache/",
+    ".pytest_cache/",
+
+    # Coverage reports
+    ".coverage",
+    "htmlcov/",
 ]
 
+# Standard wheel build configuration (production environment)
 [tool.hatch.build.targets.wheel]
 packages = ["src/rhosocial"]
 
+# Production environment excludes development files
+exclude = [
+    "tests/",
+    "docs/",
+    "examples/",
+    "scripts/",
+
+    # Database backend implementations (provided by independent packages)
+    "src/rhosocial/activerecord/backend/impl/mysql/**/*",
+    "src/rhosocial/activerecord/backend/impl/pgsql/**/*",
+    "src/rhosocial/activerecord/backend/impl/mariadb/**/*",
+    "src/rhosocial/activerecord/backend/impl/mssql/**/*",
+    "src/rhosocial/activerecord/backend/impl/oracle/**/*",
+
+    # Test packages (not needed in production environment)
+    "src/rhosocial/activerecord_test",
+]
+
+# Source code distribution package configuration
+[tool.hatch.build.targets.sdist]
+include = [
+    "src/rhosocial/**/*.py",
+    "src/rhosocial/**/*.pyi",
+    "tests/",
+    "docs/",
+    "examples/",
+    "scripts/",
+    "LICENSE",
+    "README.md",
+    "pyproject.toml",
+]
+
+# Default environment configuration (used for pip install -e .)
+[tool.hatch.envs.default]
+# Edit mode includes all development dependencies by default
+dependencies = [
+    # Test dependencies
+    "pytest>=7.0.0",
+    "coverage>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.6.1",
+    "pytest-rerunfailures>=15.0",
+    "pydantic[email]",
+    "pyyaml>=6.0.2",
+    "mysql-connector-python>=9.3.0",
+
+    # Development tools
+    "black>=23.0.0",
+    "isort>=5.0.0",
+    "mypy>=1.0.0",
+    "ruff>=0.1.0",
+    "pre-commit>=3.0.0",
+
+    # Documentation tools
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=2.0.0",
+]
+
+# Default environment scripts
+[tool.hatch.envs.default.scripts]
+# Code formatting
+format = ["black src tests", "isort src tests"]
+
+# Code linting
+lint = ["ruff check src tests", "mypy src"]
+
+# Testing
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = ["coverage combine", "coverage report"]
+cov = ["test-cov", "cov-report"]
+
+# Documentation
+docs-build = "sphinx-build -b html docs docs/_build/html"
+docs-serve = "python -m http.server 8000 --directory docs/_build/html"
+
+# Complete check
+all = ["format", "lint", "test"]
+
+# Dedicated test environment
+[tool.hatch.envs.test]
+dependencies = [
+    "pytest>=7.0.0",
+    "coverage>=7.0.0",
+    "pytest-asyncio>=0.21.0",
+    "pytest-cov>=4.0.0",
+    "pytest-xdist>=3.6.1",
+    "pytest-rerunfailures>=15.0",
+    "pydantic[email]",
+    "pyyaml>=6.0.2",
+    "mysql-connector-python>=9.3.0",
+]
+
+[tool.hatch.envs.test.scripts]
+test = "pytest {args:tests}"
+test-cov = "coverage run -m pytest {args:tests}"
+cov-report = ["coverage combine", "coverage report"]
+cov = ["test-cov", "cov-report"]
+
+# Dedicated documentation environment
+[tool.hatch.envs.docs]
+dependencies = [
+    "sphinx>=7.0.0",
+    "sphinx-rtd-theme>=1.0.0",
+    "myst-parser>=2.0.0",
+]
+
+[tool.hatch.envs.docs.scripts]
+build = "sphinx-build -b html docs docs/_build/html"
+serve = "python -m http.server 8000 --directory docs/_build/html"
+
+# Tool configurations
 [tool.pytest.ini_options]
 minversion = "7.0"
+testpaths = ["tests"]
+
 addopts = "-ra -q"
-testpaths = [
-    "tests",
+python_files = ["test_*.py", "*_test.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+markers = [
+    "python38: marks tests specific to Python 3.8",
+    "python39plus: marks tests requiring Python 3.9+",
+    "python314: marks tests specific to Python 3.14",
+
+    # Feature-specific markers
+    "backend: marks tests as backend-specific tests",
+    "basic: marks tests for basic CRUD operations",
+    "query: marks tests for query functionality",
+    "relation: marks tests for relation management",
+    "field: marks tests for field type handling",
+    "validation: marks tests for data validation",
+    "transaction: marks tests for transaction handling",
+    "mixin: marks tests for mixin functionality",
+    "events: marks tests for event system",
+    "interface: marks tests for interface contracts",
+    "cte: marks tests for CTE query functionality",
+    "aggregate: marks tests for aggregate queries",
+    "cache: marks tests for caching mechanisms",
+
+    # Database backend-specific markers
+    "sqlite: marks tests specific to SQLite backend",
+    "mysql: marks tests specific to MySQL backend",
+    "pgsql: marks tests specific to PostgreSQL backend",
+    "mssql: marks tests specific to SQL Server backend",
+    "oracle: marks tests specific to Oracle backend",
+    "mariadb: marks tests specific to MariaDB backend",
 ]
 
 [tool.coverage.run]
 source = ["rhosocial"]
 branch = true
+omit = [
+    "*/tests/*",
+    "*/test_*",
+    "*/__pycache__/*",
+    "*/migrations/*",
+]
 
 [tool.coverage.report]
 exclude_lines = [
     "pragma: no cover",
     "def __repr__",
     "if self.debug:",
+    "if settings.DEBUG",
+    "raise AssertionError",
     "raise NotImplementedError",
-    "if __name__ == .__main__.:",
+    "if 0:",
+    "if __name__ == .__main__:",
+    "class .*\\bProtocol\\):",
+    "@(abc\\.)?abstractmethod",
     "pass",
     "raise ImportError",
 ]

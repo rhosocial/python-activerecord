@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/field/soft_delete.py
 """Module providing soft delete functionality."""
 from datetime import datetime
 from typing import Dict, Any, Optional

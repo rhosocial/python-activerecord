@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/relation/interfaces.py
 """
 Core interfaces for the relations package.
 Defines abstract base classes for relationship loading and querying.
@@ -6,6 +7,7 @@ from abc import ABC, abstractmethod
 from typing import Any, TypeVar, Generic, Optional, List, ClassVar, Dict
 
 T = TypeVar('T')
+
 
 class RelationLoader(Generic[T], ABC):
     """
@@ -45,6 +47,7 @@ class RelationLoader(Generic[T], ABC):
         """
         pass
 
+
 class RelationValidation(ABC):
     """
     Abstract interface for relationship validation.
@@ -64,6 +67,7 @@ class RelationValidation(ABC):
             ValueError: If relationship validation fails
         """
         pass
+
 
 class RelationManagementInterface(ABC):
     """Interface defining required relation management capabilities."""

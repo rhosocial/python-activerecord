@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/transaction.py
 import logging
 from typing import Dict, Optional
 from ...transaction import TransactionManager, IsolationLevel
@@ -139,4 +140,4 @@ class SQLiteTransactionManager(TransactionManager):
 
     def supports_savepoint(self) -> bool:
         """Check if savepoints are supported by SQLite"""
-        return True  # SQLite always supports savepoints
+        return True  # SQLite always supports savepoint

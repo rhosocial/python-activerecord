@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/interface/model.py
 """
 Core ActiveRecord model interface definition.
 """
@@ -13,7 +14,8 @@ from pydantic.fields import FieldInfo
 from .base import ModelEvent
 from ..backend.base import StorageBackend, ColumnTypes
 from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.typing import ConnectionConfig, DatabaseType
+from ..backend.typing import DatabaseType
+from ..backend.config import ConnectionConfig
 
 
 class CustomModuleFormatter(logging.Formatter):
@@ -116,7 +118,7 @@ class IActiveRecord(BaseModel, ABC):
 
         When a field is modified, stores the original value and marks the field as dirty.
         """
-        if (name in self.model_fields and
+        if (name in self.__class__.model_fields and
                 hasattr(self, '_original_values') and
                 name not in self.__class__.__no_track_fields__):
             if name not in self._original_values:
@@ -252,7 +254,7 @@ class IActiveRecord(BaseModel, ABC):
             return self.__class__.__column_types_cache__
 
         types: Dict[str, DatabaseType] = {}
-        model_fields: Dict[str, FieldInfo] = dict(self.model_fields)
+        model_fields: Dict[str, FieldInfo] = dict(self.__class__.model_fields)
 
         for field_name, field_info in model_fields.items():
             db_type = self.backend().dialect.get_pydantic_model_field_type(field_info)
@@ -277,11 +279,11 @@ class IActiveRecord(BaseModel, ABC):
         # Handle auto-increment primary key if needed
         pk_field = self.primary_key()
         if (result is not None and result.affected_rows > 0 and
-                pk_field in self.model_fields and
+                pk_field in self.__class__.model_fields and
                 pk_field not in data and
                 getattr(self, pk_field, None) is None):
 
-            field_type = self.model_fields[pk_field].annotation
+            field_type = self.__class__.model_fields[pk_field].annotation
             if get_origin(field_type) in (Union, Optional):
                 types = [t for t in field_type.__args__ if t is not type(None)]
                 if types:

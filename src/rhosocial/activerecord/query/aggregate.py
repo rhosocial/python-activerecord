@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/aggregate.py
 """Enhanced aggregate query implementation with SQL expression support."""
 import logging
 from typing import List, Optional, Union, Any, Dict, Type, Tuple
@@ -98,7 +99,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             - Table qualified columns (table.column) are supported
         """
         if params is None:
-            params = tuple()
+            params = ()
 
         # Check for potential alias usage in common patterns
         if " AS " in condition.upper() or " as " in condition:

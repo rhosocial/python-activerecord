@@ -1,3 +1,4 @@
+<!-- src/rhosocial/activerecord/backend/impl/README.md -->
 # Backend Implementation Directory
 
 This directory contains the specific storage backend implementations for ActiveRecord. Each implementation is organized in its own subdirectory with a lowercase name (e.g., `sqlite`).

@@ -1,15 +1,18 @@
+# src/rhosocial/activerecord/backend/base.py
 import inspect
 import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager
 from typing import Any, Dict, Generator, Optional, Tuple, List, Union
 
+from .capabilities import DatabaseCapabilities
+from .config import ConnectionConfig
 from .dialect import SQLDialectBase, SQLExpressionBase, SQLBuilder, \
     ReturningOptions
 from .errors import ReturningNotSupportedError
 from .transaction import TransactionManager
 from .type_converters import TypeRegistry
-from .typing import ConnectionConfig, QueryResult, DatabaseType
+from .typing import QueryResult, DatabaseType
 
 # Type hints
 ColumnTypes = Dict[str, Union[DatabaseType, str, Any]]
@@ -45,6 +48,50 @@ class StorageBackend(ABC):
         self._transaction_manager = None
         self._cursor = None
         self._server_version_cache = None
+        self._capabilities = None
+
+    @property
+    def capabilities(self) -> DatabaseCapabilities:
+        """Get database capabilities.
+        
+        This property provides access to the database's capability descriptor,
+        which declares what features this backend supports. The capabilities
+        are used by tests and application code to determine what features
+        can be safely used with this backend.
+        
+        The capability system enables:
+        1. Fine-grained feature detection based on database version
+        2. Test skipping for unsupported features
+        3. Adaptive behavior in application code based on available features
+        
+        Returns:
+            DatabaseCapabilities: Capabilities of this backend
+        """
+        if self._capabilities is None:
+            self._capabilities = self._initialize_capabilities()
+        return self._capabilities
+    
+    @abstractmethod
+    def _initialize_capabilities(self) -> DatabaseCapabilities:
+        """Initialize database capabilities.
+        
+        This abstract method must be implemented by each backend to declare
+        its specific capabilities based on database version and other factors.
+        
+        Each backend should:
+        1. Create a DatabaseCapabilities instance
+        2. Check database version and other factors
+        3. Add supported capabilities to the instance
+        4. Return the fully populated capabilities object
+        
+        The capabilities system allows tests and application code to check
+        for feature support before using features, preventing runtime errors
+        on databases that don't support certain features.
+        
+        Returns:
+            DatabaseCapabilities: Backend capabilities
+        """
+        self._capabilities = None
 
     @property
     def logger(self) -> logging.Logger:

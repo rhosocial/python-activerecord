@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/relational.py
 """Improved relational query methods implementation."""
 import logging
 from dataclasses import dataclass
@@ -135,7 +136,7 @@ class RelationalQueryMixin(IQuery[ModelT]):
         # Check if the relation exists on the model
         if not hasattr(model_class, relation_name) or not hasattr(model_class,
                                                                   'get_relation') or not model_class.get_relation(
-                relation_name):
+            relation_name):
             raise RelationNotFoundError(f"Relation '{relation_name}' not found on {model_class.__name__}")
 
     def _validate_complete_relation_path(self, relation_path: str) -> None:
@@ -159,7 +160,7 @@ class RelationalQueryMixin(IQuery[ModelT]):
             # Validate that this relation exists on the current model
             if not hasattr(current_model_class, part) or not hasattr(current_model_class,
                                                                      'get_relation') or not current_model_class.get_relation(
-                    part):
+                part):
                 raise RelationNotFoundError(f"Relation '{part}' not found on {current_model_class.__name__}")
 
             # If not the last part, update the model class for the next iteration

@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/field/__init__.py
 """Field mixins providing common model attributes and behaviors."""
 
 from .integer_pk import IntegerPKMixin

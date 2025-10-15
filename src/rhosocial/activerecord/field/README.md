@@ -1,3 +1,4 @@
+<!-- src/rhosocial/activerecord/field/README.md -->
 # Field Mixins
 
 A collection of model field mixins that provide common attributes and behaviors for ActiveRecord models.

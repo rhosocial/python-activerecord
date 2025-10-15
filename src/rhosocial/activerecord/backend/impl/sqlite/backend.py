@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/backend.py
 import logging
 import re
 import sqlite3
@@ -6,9 +7,32 @@ import time
 from sqlite3 import ProgrammingError
 from typing import Optional, Tuple, List, Any, Dict, Union
 
+from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter, SQLiteUUIDConverter, SQLiteNumericConverter
+from ...capabilities import (
+    DatabaseCapabilities, 
+    CapabilityCategory,
+    SetOperationCapability,
+    WindowFunctionCapability,
+    CTECapability,
+    JSONCapability,
+    ReturningCapability,
+    TransactionCapability,
+    BulkOperationCapability,
+    JoinCapability,
+    ConstraintCapability,
+    AggregateFunctionCapability,
+    DateTimeFunctionCapability,
+    StringFunctionCapability,
+    MathematicalFunctionCapability,
+    ALL_SET_OPERATIONS,
+    ALL_WINDOW_FUNCTIONS,
+    ALL_CTE_FEATURES,
+    ALL_JSON_OPERATIONS,
+    ALL_RETURNING_FEATURES
+)
 from ...base import StorageBackend, ColumnTypes
 from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
@@ -29,14 +53,142 @@ class SQLiteBackend(StorageBackend):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._cursor = None
-        self._isolation_level = kwargs.get("isolation_level", None)
         self._dialect = SQLiteDialect(self.config)
-        self._delete_on_close = kwargs.get("delete_on_close", False)
 
-        # Extract custom pragmas from options
-        self._pragmas = self._get_pragma_settings(kwargs)
+        # Check if we need to convert a legacy config to the new SQLiteConnectionConfig
+        if "connection_config" in kwargs and kwargs["connection_config"] is not None:
+            if not isinstance(kwargs["connection_config"], SQLiteConnectionConfig):
+                # Create a new SQLiteConnectionConfig from the given config
+                old_config = kwargs["connection_config"]
+
+                # Extract SQLite specific parameters
+                pragmas = {}
+                if hasattr(old_config, 'pragmas'):
+                    pragmas = old_config.pragmas
+
+                # Create new config
+                self.config = SQLiteConnectionConfig(
+                    host=old_config.host,
+                    port=old_config.port,
+                    database=old_config.database,
+                    username=old_config.username,
+                    password=old_config.password,
+                    driver_type=old_config.driver_type,
+                    pragmas=pragmas,
+                    delete_on_close=getattr(old_config, 'delete_on_close', False),
+                    options=old_config.options,
+                )
+            else:
+                self.config = kwargs["connection_config"]
+        else:
+            # Use SQLiteConnectionConfig directly
+            self.config = SQLiteConnectionConfig(**kwargs)
+
         # Register SQLite-specific converters
         self._register_sqlite_converters()
+
+    def _initialize_capabilities(self) -> DatabaseCapabilities:
+        """Initialize SQLite capabilities based on version.
+        
+        This method declares the capabilities that SQLite supports, taking into
+        account version-specific feature availability. The capability system
+        allows tests and application code to check for feature support before
+        using features, preventing runtime errors on SQLite versions that
+        don't support certain features.
+        """
+        capabilities = DatabaseCapabilities()
+        version = self.get_server_version()
+
+        # Basic capabilities supported by most versions
+        capabilities.add_set_operation(ALL_SET_OPERATIONS)
+        capabilities.add_join_operation([
+            JoinCapability.INNER_JOIN,
+            JoinCapability.LEFT_OUTER_JOIN,
+            JoinCapability.CROSS_JOIN
+        ])
+        capabilities.add_transaction(TransactionCapability.SAVEPOINT)
+        capabilities.add_bulk_operation(BulkOperationCapability.BATCH_OPERATIONS)
+        capabilities.add_constraint([
+            ConstraintCapability.PRIMARY_KEY,
+            ConstraintCapability.FOREIGN_KEY,
+            ConstraintCapability.UNIQUE,
+            ConstraintCapability.NOT_NULL,
+            ConstraintCapability.CHECK,
+            ConstraintCapability.DEFAULT
+        ])
+        capabilities.add_datetime_function(DateTimeFunctionCapability.STRFTIME)
+        capabilities.add_aggregate_function(AggregateFunctionCapability.GROUP_CONCAT)
+
+        # CTEs supported from 3.8.3+
+        if version >= (3, 8, 3):
+            capabilities.add_cte([
+                CTECapability.BASIC_CTE,
+                CTECapability.RECURSIVE_CTE
+            ])
+
+        # JSON operations supported from 3.9.0+
+        if version >= (3, 9, 0):
+            capabilities.add_json([
+                JSONCapability.JSON_EXTRACT,
+                JSONCapability.JSON_CONTAINS,
+                JSONCapability.JSON_EXISTS,
+                JSONCapability.JSON_KEYS,
+                JSONCapability.JSON_ARRAY,
+                JSONCapability.JSON_OBJECT
+            ])
+            
+        # UPSERT (ON CONFLICT) supported from 3.24.0+
+        if version >= (3, 24, 0):
+            capabilities.add_bulk_operation(BulkOperationCapability.UPSERT)
+
+        # Window functions supported from 3.25.0+
+        if version >= (3, 25, 0):
+            capabilities.add_window_function(ALL_WINDOW_FUNCTIONS)
+
+        # RETURNING clause and built-in math functions supported from 3.35.0+
+        if version >= (3, 35, 0):
+            capabilities.add_returning(ALL_RETURNING_FEATURES)
+            capabilities.add_mathematical_function([
+                MathematicalFunctionCapability.ABS,
+                MathematicalFunctionCapability.ROUND,
+                MathematicalFunctionCapability.CEIL,
+                MathematicalFunctionCapability.FLOOR,
+                MathematicalFunctionCapability.POWER,
+                MathematicalFunctionCapability.SQRT
+            ])
+
+        # STRICT tables supported from 3.37.0+
+        if version >= (3, 37, 0):
+            capabilities.add_constraint(ConstraintCapability.STRICT_TABLES)
+
+        # Additional JSON functions from 3.38.0+
+        if version >= (3, 38, 0):
+            capabilities.add_json([
+                JSONCapability.JSON_SET,
+                JSONCapability.JSON_INSERT,
+                JSONCapability.JSON_REPLACE,
+                JSONCapability.JSON_REMOVE
+            ])
+
+        # RIGHT and FULL OUTER JOIN supported from 3.39.0+
+        if version >= (3, 39, 0):
+            capabilities.add_join_operation([
+                JoinCapability.RIGHT_OUTER_JOIN,
+                JoinCapability.FULL_OUTER_JOIN
+            ])
+            
+        # CONCAT functions supported from 3.44.0+
+        if version >= (3, 44, 0):
+            capabilities.add_string_function([
+                StringFunctionCapability.CONCAT,
+                StringFunctionCapability.CONCAT_WS
+            ])
+            
+        # JSONB support from 3.45.0+
+        if version >= (3, 45, 0):
+            capabilities.add_json(JSONCapability.JSONB_SUPPORT)
+
+        return capabilities
 
     def _register_sqlite_converters(self):
         """Register SQLite-specific type converters"""
@@ -52,14 +204,13 @@ class SQLiteBackend(StorageBackend):
 
         # Register SQLite UUID converter
         self.dialect.register_converter(SQLiteUUIDConverter(),
-                                      names=["UUID", "TEXT"],
-                                      types=[DatabaseType.UUID])
+                                        names=["UUID", "TEXT"],
+                                        types=[DatabaseType.UUID])
 
         # Register SQLite Numeric converter
         self.dialect.register_converter(SQLiteNumericConverter(),
                                         names=["NUMERIC", "DECIMAL"],
                                         types=[DatabaseType.NUMERIC, DatabaseType.DECIMAL])
-
 
     @property
     def pragmas(self) -> Dict[str, str]:
@@ -68,7 +219,8 @@ class SQLiteBackend(StorageBackend):
         Returns:
             Dict[str, str]: Current pragma settings
         """
-        return self._pragmas.copy()
+        # With the new config, pragmas are directly accessible
+        return self.config.pragmas.copy()
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
         """Set a pragma parameter at runtime
@@ -81,7 +233,7 @@ class SQLiteBackend(StorageBackend):
             ConnectionError: If pragma cannot be set
         """
         pragma_value_str = str(pragma_value)
-        self._pragmas[pragma_key] = pragma_value_str
+        self.config.pragmas[pragma_key] = pragma_value_str
 
         # If connected, apply the pragma immediately
         if self._connection:
@@ -95,38 +247,9 @@ class SQLiteBackend(StorageBackend):
                 self.log(logging.ERROR, error_msg)
                 raise ConnectionError(error_msg)
 
-    def _get_pragma_settings(self, kwargs: Dict[str, Any]) -> Dict[str, str]:
-        """Extract and merge pragma settings from options
-
-        Args:
-            kwargs: Configuration parameters
-
-        Returns:
-            Dict[str, str]: Merged pragma settings with defaults
-        """
-        pragmas = self.DEFAULT_PRAGMAS.copy()
-        custom_pragmas = {}
-
-        # Check for pragmas in options dictionary
-        if "pragmas" in kwargs:
-            custom_pragmas = kwargs["pragmas"]
-        elif hasattr(self.config, "pragmas") and self.config.pragmas:
-            custom_pragmas = self.config.pragmas
-        elif "options" in kwargs and "pragmas" in kwargs["options"]:
-            custom_pragmas = kwargs["options"]["pragmas"]
-        elif hasattr(self.config, "options") and "pragmas" in self.config.options:
-            custom_pragmas = self.config.options["pragmas"]
-
-        # Override defaults with custom settings
-        if custom_pragmas:
-            for pragma_key, pragma_value in custom_pragmas.items():
-                pragmas[pragma_key] = str(pragma_value)
-
-        return pragmas
-
     def _apply_pragmas(self) -> None:
         """Apply all pragma settings to the connection"""
-        for pragma_key, pragma_value in self._pragmas.items():
+        for pragma_key, pragma_value in self.config.pragmas.items():
             pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
             self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
 
@@ -146,9 +269,10 @@ class SQLiteBackend(StorageBackend):
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
             self._connection = sqlite3.connect(
                 self.config.database,
-                detect_types=sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES,
+                detect_types=self.config.detect_types,
                 isolation_level=None,  # Use manual transaction management
-                uri=self.config.options['uri'] if 'uri' in self.config.options else False
+                uri=self.config.uri,
+                timeout=self.config.timeout
             )
 
             # Apply pragma settings
@@ -184,7 +308,7 @@ class SQLiteBackend(StorageBackend):
                 self.log(logging.INFO, "Disconnected from SQLite database")
 
                 # Handle file deletion if enabled and not using in-memory database
-                if self._delete_on_close and self.config.database != ":memory:":
+                if self.config.delete_on_close and not self.config.is_memory_db():
                     try:
                         import os
                         import time

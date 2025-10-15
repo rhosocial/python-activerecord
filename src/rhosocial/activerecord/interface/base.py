@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/interface/base.py
 """
 Core definitions for ActiveRecord interfaces.
 
@@ -10,6 +11,7 @@ from typing import TypeVar, Any, Dict
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 QueryT = TypeVar('QueryT', bound='IQuery')
 DictT = TypeVar('DictT', bound=Dict[str, Any])
+
 
 class ModelEvent(Enum):
     """Model lifecycle events that can be subscribed to.

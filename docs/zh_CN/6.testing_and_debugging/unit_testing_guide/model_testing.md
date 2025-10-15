@@ -1,6 +1,49 @@
 # 模型测试
 
-测试ActiveRecord模型是确保应用程序数据层正常工作的基础部分。本指南涵盖了测试模型验证、持久化和查询功能的策略和最佳实践。
+rhosocial ActiveRecord 中的模型测试当前专注于基本模型功能和简单验证检查。
+
+## 基本模型测试
+
+当前测试功能包括：
+
+- 测试模型属性分配和检索
+- 通过Pydantic验证系统进行基本验证
+- 简单CRUD操作验证
+
+## 设置模型测试
+
+测试模型的基本方法：
+
+1. 使用测试数据创建模型实例
+2. 验证属性值
+3. 测试保存和删除操作
+4. 验证基本验证规则
+
+## 示例模型测试
+
+```python
+import unittest
+from rhosocial.activerecord import ActiveRecord
+
+class User(ActiveRecord):
+    name: str
+    email: str
+
+class TestUserModel(unittest.TestCase):
+    def test_attribute_assignment(self):
+        user = User(name="张三", email="zhangsan@example.com")
+        self.assertEqual(user.name, "张三")
+        self.assertEqual(user.email, "zhangsan@example.com")
+    
+    def test_model_persistence(self):
+        user = User(name="李四", email="lisi@example.com")
+        result = user.save()
+        self.assertIsNotNone(user.id)  # 假设成功保存会分配ID
+```
+
+## 当前限制
+
+当前模型测试方法仅限于基本功能。测试框架中暂不包含高级测试功能，如关系验证、复杂查询测试和事务验证。
 
 ## 设置测试环境
 

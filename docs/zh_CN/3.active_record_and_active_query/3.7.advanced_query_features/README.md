@@ -13,7 +13,7 @@ ActiveRecord通过`ActiveQuery`类提供了强大的查询构建器接口。虽�
 - [动态查询构建](dynamic_query_building.md) - 在运行时以编程方式构建查询
 - [原生SQL集成](raw_sql_integration.md) - 在需要时集成自定义SQL
 - [公共表表达式](common_table_expressions.md) - 使用CTEs进行复杂和递归查询
-- [异步访问](async_access.md) - (**尚未实现**) 使用异步数据库操作
+- [异步访问](async_access.md) - （❌ 未实现）使用异步数据库操作
 
 ## 何时使用高级查询功能
 

@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/expression.py
 """Enhanced SQL expression system for query building."""
 from typing import Any, List, Optional, Union, Tuple, Dict
 
@@ -277,7 +278,7 @@ class SubqueryExpression(SQLExpression):
         super().__init__(alias)
         self.subquery = subquery
         self.type = type
-        self.params = params or tuple()
+        self.params = params or ()
         self.column = column if isinstance(column, SQLExpression) else Column(column) if column else None
 
     def as_sql(self) -> str:
