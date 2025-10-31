@@ -13,7 +13,7 @@ Its main responsibilities are:
 """
 import os
 from typing import Type, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # The models are defined generically in the testsuite...
 from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser
