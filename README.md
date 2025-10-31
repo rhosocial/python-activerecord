@@ -112,7 +112,7 @@ pip install rhosocial-activerecord[all]
 ## Quick Start
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from datetime import datetime

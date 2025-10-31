@@ -13,7 +13,7 @@ Its main responsibilities are:
 import os
 import time
 from typing import Type, List, Tuple
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
 # The models are defined generically in the testsuite...
 
