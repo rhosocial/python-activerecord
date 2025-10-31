@@ -1,11 +1,11 @@
 # pyproject.toml
 [build-system]
-requires = ["hatchling"]
-build-backend = "hatchling.build"
+requires = ["setuptools>=64"]
+build-backend = "setuptools.build_meta"
 
 [project]
 name = "rhosocial_activerecord"
-dynamic = ["version"]
+version = "1.0.0.dev12"
 description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
 license = { file = "LICENSE" }
@@ -198,168 +198,21 @@ Documentation = "https://docs.python-activerecord.dev.rho.social/"
 Repository = "https://github.com/rhosocial/python-activerecord.git"
 Issues = "https://github.com/rhosocial/python-activerecord/issues"
 
-[tool.hatch.version]
-path = "src/rhosocial/activerecord/__init__.py"
-pattern = '^__version__\s*=\s*"(?P<version>(?:[1-9]\d*!)?\d+(?:\.\d+)*(?:[-._]?(?:a|alpha|b|beta|rc|pre|preview)(?:[-._]?\d+)?)?(?:\.post(?:0|[1-9]\d*))?(?:\.dev(?:0|[1-9]\d*))?(?:\+[a-z0-9]+(?:[._-][a-z0-9]+)*)?)"$'
+[tool.setuptools.packages.find]
+where = ["src"]
+namespaces = true
+
+
 
 # Build configuration
-[tool.hatch.build]
-include = [
-    "src/rhosocial/**/*.py",
-    "src/rhosocial/**/*.pyi",
-    "LICENSE",
-    "README.md",
-]
-exclude = [
-    # Python cache and compiled files
-    "*.pyc",
-    "**/__pycache__",
-    "**/*.py[cod]",
-    "**/*.so",
 
-    # System files
-    "**/.DS_Store",
-    "**/.*.swp",
-    ".git*",
-
-    # Test database files
-    "**/*test_db.sqlite",
-    "**/*test_*.sqlite",
-    "**/*test_*.db",
-
-    # Build artifacts
-    "build/",
-    "dist/",
-    "*.egg-info/",
-
-    # IDE and editor configuration
-    ".idea/",
-    ".vscode/",
-    ".mypy_cache/",
-    ".ruff_cache/",
-    ".pytest_cache/",
-
-    # Coverage reports
-    ".coverage",
-    "htmlcov/",
-]
-
-# Standard wheel build configuration (production environment)
-[tool.hatch.build.targets.wheel]
-packages = ["src/rhosocial"]
-
-# Production environment excludes development files
-exclude = [
-    "tests/",
-    "docs/",
-    "examples/",
-    "scripts/",
-
-    # Database backend implementations (provided by independent packages)
-    "src/rhosocial/activerecord/backend/impl/mysql/**/*",
-    "src/rhosocial/activerecord/backend/impl/pgsql/**/*",
-    "src/rhosocial/activerecord/backend/impl/mariadb/**/*",
-    "src/rhosocial/activerecord/backend/impl/mssql/**/*",
-    "src/rhosocial/activerecord/backend/impl/oracle/**/*",
-
-    # Test packages (not needed in production environment)
-    "src/rhosocial/activerecord_test",
-]
-
-# Source code distribution package configuration
-[tool.hatch.build.targets.sdist]
-include = [
-    "src/rhosocial/**/*.py",
-    "src/rhosocial/**/*.pyi",
-    "tests/",
-    "docs/",
-    "examples/",
-    "scripts/",
-    "LICENSE",
-    "README.md",
-    "pyproject.toml",
-]
 
 # Default environment configuration (used for pip install -e .)
-[tool.hatch.envs.default]
-# Edit mode includes all development dependencies by default
-dependencies = [
-    # Test dependencies
-    "pytest>=7.0.0",
-    "coverage>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.0.0",
-    "pytest-xdist>=3.6.1",
-    "pytest-rerunfailures>=15.0",
-    "pydantic[email]",
-    "pyyaml>=6.0.2",
-    "mysql-connector-python>=9.3.0",
 
-    # Development tools
-    "black>=23.0.0",
-    "isort>=5.0.0",
-    "mypy>=1.0.0",
-    "ruff>=0.1.0",
-    "pre-commit>=3.0.0",
 
-    # Documentation tools
-    "sphinx>=7.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-    "myst-parser>=2.0.0",
-]
 
-# Default environment scripts
-[tool.hatch.envs.default.scripts]
-# Code formatting
-format = ["black src tests", "isort src tests"]
 
-# Code linting
-lint = ["ruff check src tests", "mypy src"]
 
-# Testing
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = ["coverage combine", "coverage report"]
-cov = ["test-cov", "cov-report"]
-
-# Documentation
-docs-build = "sphinx-build -b html docs docs/_build/html"
-docs-serve = "python -m http.server 8000 --directory docs/_build/html"
-
-# Complete check
-all = ["format", "lint", "test"]
-
-# Dedicated test environment
-[tool.hatch.envs.test]
-dependencies = [
-    "pytest>=7.0.0",
-    "coverage>=7.0.0",
-    "pytest-asyncio>=0.21.0",
-    "pytest-cov>=4.0.0",
-    "pytest-xdist>=3.6.1",
-    "pytest-rerunfailures>=15.0",
-    "pydantic[email]",
-    "pyyaml>=6.0.2",
-    "mysql-connector-python>=9.3.0",
-]
-
-[tool.hatch.envs.test.scripts]
-test = "pytest {args:tests}"
-test-cov = "coverage run -m pytest {args:tests}"
-cov-report = ["coverage combine", "coverage report"]
-cov = ["test-cov", "cov-report"]
-
-# Dedicated documentation environment
-[tool.hatch.envs.docs]
-dependencies = [
-    "sphinx>=7.0.0",
-    "sphinx-rtd-theme>=1.0.0",
-    "myst-parser>=2.0.0",
-]
-
-[tool.hatch.envs.docs.scripts]
-build = "sphinx-build -b html docs docs/_build/html"
-serve = "python -m http.server 8000 --directory docs/_build/html"
 
 # Tool configurations
 [tool.pytest.ini_options]
