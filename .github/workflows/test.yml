@@ -5,9 +5,13 @@ on:
   push:
     branches:
       - main
+      - 'release/v**'
+      - 'maint/**'
   pull_request:
     branches:
       - main
+      - 'release/v**'
+      - 'maint/**'
 
 jobs:
   test-with-coverage:
@@ -118,4 +122,3 @@ jobs:
       run: |
         export PYTHONPATH=src
         python -m pytest tests/ --reruns 3 --reruns-delay 1
-

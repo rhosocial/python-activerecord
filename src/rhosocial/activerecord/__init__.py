@@ -28,7 +28,7 @@ The namespace extension ensures that when multiple rhosocial-activerecord-* pack
 are installed, their backend implementations can coexist and be discovered properly.
 """
 
-__version__ = "1.0.0.dev11"
+__version__ = "1.0.0.dev12"
 
 # ### **Version Format**
 # The version string MUST follow the [PEP 440](https://packaging.python.org/en/latest/specifications/version-specifiers/) standard.

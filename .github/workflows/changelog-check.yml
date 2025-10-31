@@ -1,0 +1,55 @@
+# .github/workflows/changelog-check.yml
+name: Changelog Fragment Check
+
+on:
+  pull_request:
+    branches:
+      - main
+      - 'release/v**'
+      - 'maint/**'
+
+jobs:
+  check-fragment:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v3
+        with:
+          fetch-depth: 0
+
+      - name: Check for changelog fragment
+        run: |
+          # Get changed files
+          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...${{ github.head_ref }})
+          
+          # Check if any changelog fragment was added
+          if echo "$CHANGED_FILES" | grep -q "^changelog.d/[0-9].*\.md$"; then
+            echo "✓ Changelog fragment found"
+            exit 0
+          fi
+          
+          # Check if this is an internal change (exempt from fragment requirement)
+          if echo "$CHANGED_FILES" | grep -qE "^(tests/|docs/|\.github/)"; then
+            echo "✓ Internal change, fragment not required"
+            exit 0
+          fi
+          
+          # Check if PR is marked as trivial
+          if [[ "${{ github.event.pull_request.title }}" =~ \[trivial\] ]]; then
+            echo "✓ PR marked as trivial, fragment not required"
+            exit 0
+          fi
+          
+          echo "✗ Missing changelog fragment"
+          echo "Please add a changelog fragment in changelog.d/"
+          echo "Example: changelog.d/${{ github.event.number }}.fixed.md"
+          echo ""
+          echo "Fragment types:"
+          echo "  - added.md      - New features"
+          echo "  - fixed.md      - Bug fixes"
+          echo "  - changed.md    - Behavior changes"
+          echo "  - deprecated.md - Deprecations"
+          echo "  - removed.md    - Removed features"
+          echo "  - security.md   - Security fixes"
+          echo ""
+          echo "If this PR does not need a changelog entry, add [trivial] to the title."
+          exit 1
