@@ -13,7 +13,7 @@ Its main responsibilities are:
 """
 import os
 from typing import Type, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsProvider
 # The models are defined generically in the testsuite...
 from rhosocial.activerecord.testsuite.feature.events.fixtures.models import EventTestModel, EventTrackingModel
