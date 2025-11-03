@@ -89,6 +89,11 @@ class TypeConversionMixin:
         """Register a type converter with this backend's dialect."""
         self.dialect.register_converter(converter, names, types)
 
+    def _convert_params(self, params: Union[Tuple, Dict]) -> Tuple:
+        """Convert parameter values to database-compatible types."""
+        param_values = params.values() if isinstance(params, dict) else params
+        return tuple(self.dialect.to_database(value, None) for value in param_values)
+
 
 class SQLBuildingMixin:
     """Mixin for SQL building operations."""
@@ -122,7 +127,7 @@ class QueryAnalysisMixin:
 
     def _is_select_statement(self, stmt_type: str) -> bool:
         """Check if statement is a SELECT query or similar read-only operation."""
-        return stmt_type in ("SELECT", "EXPLAIN", "SHOW", "DESCRIBE", "DESC")
+        return stmt_type in ("SELECT", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "PRAGMA")
 
     def _is_dml_statement(self, stmt_type: str) -> bool:
         """Check if statement is a DML operation (INSERT, UPDATE, DELETE)."""
@@ -278,6 +283,85 @@ class SQLOperationsMixin:
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
+
+        return result
+
+
+class AsyncSQLOperationsMixin:
+    """Mixin for high-level asynchronous SQL operations."""
+
+    async def insert(self,
+                     table: str,
+                     data: Dict,
+                     returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
+                     column_types: Optional[ColumnTypes] = None,
+                     auto_commit: Optional[bool] = True,
+                     primary_key: Optional[str] = None) -> QueryResult:
+        """Insert record asynchronously."""
+        cleaned_data = {
+            k.strip('"').strip('`'): v
+            for k, v in data.items()
+        }
+
+        fields = [self.dialect.format_identifier(field) for field in cleaned_data.keys()]
+        values = list(cleaned_data.values())
+        placeholders = [self.dialect.get_placeholder() for _ in fields]
+
+        sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
+
+        result = await self.execute(sql, tuple(values), returning, column_types)
+
+        if auto_commit:
+            await self._handle_auto_commit_if_needed()
+
+        if returning and result.data:
+            cleaned_data = []
+            for row in result.data:
+                cleaned_row = {
+                    k.strip('"').strip('`'): v
+                    for k, v in row.items()
+                }
+                cleaned_data.append(cleaned_row)
+            result.data = cleaned_data
+
+        return result
+
+    async def update(self,
+                     table: str,
+                     data: Dict,
+                     where: str,
+                     params: Tuple,
+                     returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
+                     column_types: Optional[ColumnTypes] = None,
+                     auto_commit: bool = True) -> QueryResult:
+        """Update record asynchronously."""
+        set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
+                     for k in data.keys()]
+        values = list(data.values())
+
+        sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
+
+        result = await self.execute(sql, tuple(values) + params, returning, column_types)
+
+        if auto_commit:
+            await self._handle_auto_commit_if_needed()
+
+        return result
+
+    async def delete(self,
+                     table: str,
+                     where: str,
+                     params: Tuple,
+                     returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
+                     column_types: Optional[ColumnTypes] = None,
+                     auto_commit: bool = True) -> QueryResult:
+        """Delete record asynchronously."""
+        sql = f"DELETE FROM {table} WHERE {where}"
+
+        result = await self.execute(sql, params, returning, column_types)
+
+        if auto_commit:
+            await self._handle_auto_commit_if_needed()
 
         return result
 
@@ -670,7 +754,7 @@ class AsyncStorageBackend(
     QueryAnalysisMixin,
     ReturningClauseMixin,
     ResultProcessingMixin,
-    SQLOperationsMixin,
+    AsyncSQLOperationsMixin,
     ABC
 ):
     """
@@ -780,31 +864,136 @@ class AsyncStorageBackend(
     # Hook Methods - Async versions
     # ========================================================================
 
-    @abstractmethod
     async def _get_cursor(self):
         """Get or create a cursor asynchronously."""
-        pass
+        return self._cursor or await self._connection.cursor()
 
-    @abstractmethod
     async def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
         """Execute query asynchronously."""
-        pass
+        if params:
+            processed_params = tuple(
+                self.dialect.to_database(value, None)
+                for value in params
+            )
+            await cursor.execute(sql, processed_params)
+        else:
+            await cursor.execute(sql)
+        return cursor
 
-    @abstractmethod
     async def _process_result_set(self, cursor, is_select: bool, need_returning: bool,
                                   column_types: Optional[ColumnTypes]) -> Optional[List[Dict]]:
-        """Process result set asynchronously."""
-        pass
+        """Process query result set with type conversion asynchronously."""
+        if not (is_select or need_returning):
+            return None
 
-    @abstractmethod
+        try:
+            rows = await cursor.fetchall()
+            self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
+
+            if not rows:
+                return []
+
+            # Apply type conversions if specified
+            if column_types:
+                self.log(logging.DEBUG, "Applying type conversions")
+                result = []
+
+                if hasattr(rows[0], 'items'):  # Dict-like rows
+                    for row in rows:
+                        converted_row = self._convert_row_dict(row, column_types)
+                        result.append(converted_row)
+                else:  # Tuple-like rows
+                    column_names = [desc[0] for desc in cursor.description]
+                    for row in rows:
+                        converted_row = self._convert_row_tuple(row, column_names, column_types)
+                        result.append(converted_row)
+
+                return result
+            else:
+                # No type conversion needed
+                if hasattr(rows[0], 'items'):
+                    return [dict(row) for row in rows]
+                else:
+                    column_names = [desc[0] for desc in cursor.description]
+                    return [dict(zip(column_names, row)) for row in rows]
+        except Exception as e:
+            self.log(logging.ERROR, f"Error processing result set: {str(e)}")
+            raise
+
+    def _convert_row_dict(self, row: Dict, column_types: ColumnTypes) -> Dict:
+        """Convert a dict-like row with type specifications."""
+        converted_row = {}
+        for key, value in row.items():
+            converted_row[key] = self._convert_value(value, column_types.get(key))
+        return converted_row
+
+    def _convert_row_tuple(self, row: Tuple, column_names: List[str],
+                           column_types: ColumnTypes) -> Dict:
+        """Convert a tuple-like row with type specifications."""
+        converted_row = {}
+        for i, value in enumerate(row):
+            key = column_names[i]
+            converted_row[key] = self._convert_value(value, column_types.get(key))
+        return converted_row
+
+    def _convert_value(self, value: Any, type_spec: Any) -> Any:
+        """Convert a single value based on type specification."""
+        if type_spec is None:
+            return value
+        elif isinstance(type_spec, DatabaseType):
+            return self.dialect.from_database(value, type_spec)
+        elif isinstance(type_spec, str):
+            converter = self.dialect.type_registry.find_converter_by_name(type_spec)
+            if converter:
+                return converter.from_database(value, type_spec)
+            return value
+        else:
+            try:
+                return type_spec.from_database(value, None)
+            except (AttributeError, TypeError):
+                return self.dialect.from_database(value, type_spec)
+
     async def _handle_auto_commit_if_needed(self) -> None:
         """Handle auto-commit asynchronously."""
-        pass
+        if not self.in_transaction:
+            await self._handle_auto_commit()
 
     @abstractmethod
-    async def _handle_execution_error(self, error: Exception):
-        """Handle execution errors asynchronously."""
+    async def _handle_auto_commit(self) -> None:
+        """Handle auto commit asynchronously (to be overridden by concrete backends)."""
         pass
+
+    async def _handle_execution_error(self, error: Exception):
+        """Handle database-specific errors during query execution."""
+        await self._handle_error(error)
+
+    # ========================================================================
+    # Batch Operations
+    # ========================================================================
+
+    async def execute_many(self, sql: str, params_list: List[Union[Tuple, Dict]]) -> Optional[QueryResult]:
+        """Execute batch operations asynchronously."""
+        self.log(logging.DEBUG, f"Executing many SQL: {sql}")
+        start_time = time.perf_counter()
+
+        try:
+            if not self._connection:
+                await self.connect()
+
+            converted_params = [self._convert_params(p) for p in params_list]
+
+            cursor = await self._get_cursor()
+            await cursor.executemany(sql, converted_params)
+            await self._handle_auto_commit_if_needed()
+
+            duration = time.perf_counter() - start_time
+            return QueryResult(
+                affected_rows=cursor.rowcount,
+                duration=duration
+            )
+        except Exception as e:
+            self.log(logging.ERROR, f"Error executing many: {str(e)}")
+            return await self._handle_execution_error(e)
 
     # ========================================================================
     # Fetch Operations
@@ -832,11 +1021,39 @@ class AsyncStorageBackend(
         """Get the async transaction manager (to be implemented by concrete backends)."""
         pass
 
+    async def begin_transaction(self) -> None:
+        """Begin transaction asynchronously."""
+        self.log(logging.INFO, "Beginning transaction")
+        await self.transaction_manager.begin()
+
+    async def commit_transaction(self) -> None:
+        """Commit transaction asynchronously."""
+        self.log(logging.INFO, "Committing transaction")
+        await self.transaction_manager.commit()
+
+    async def rollback_transaction(self) -> None:
+        """Rollback transaction asynchronously."""
+        self.log(logging.INFO, "Rolling back transaction")
+        await self.transaction_manager.rollback()
+
+    @property
+    def in_transaction(self) -> bool:
+        """Check if in transaction."""
+        is_active = self.transaction_manager.is_active if self._transaction_manager else False
+        self.log(logging.DEBUG, f"Checking transaction status: {is_active}")
+        return is_active
+
     @asynccontextmanager
     async def transaction(self) -> AsyncGenerator[None, None]:
         """Async transaction context manager."""
-        async with self.transaction_manager.transaction() as t:
-            yield t
+        await self.begin_transaction()
+        try:
+            yield
+        except Exception:
+            await self.rollback_transaction()
+            raise
+        else:
+            await self.commit_transaction()
 
     # ========================================================================
     # Async Context Manager Support
