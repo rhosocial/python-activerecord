@@ -21,7 +21,7 @@ SQLite is a C library that provides a lightweight disk-based database that doesn
 To use SQLite with rhosocial ActiveRecord, you need to configure your model with the SQLite backend:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
@@ -157,7 +157,7 @@ SQLite uses a dynamic type system called "type affinity." rhosocial ActiveRecord
 ## Example: Complete Configuration
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 

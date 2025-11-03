@@ -27,7 +27,7 @@ This approach involves creating three models: the two main models and a join mod
 
 ```python
 from typing import ClassVar, Optional, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany
 

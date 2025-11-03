@@ -18,7 +18,7 @@ rhosocial ActiveRecord provides support for multiple database systems, allowing 
 All database backends in rhosocial ActiveRecord are configured using the `ConnectionConfig` class, which provides a consistent interface for specifying connection parameters. While each database system has its own specific parameters, the basic configuration pattern remains the same:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 

@@ -20,7 +20,7 @@ In rhosocial ActiveRecord, models are defined as classes that inherit from the `
 Here's a simple example of a model definition:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from datetime import datetime
 from typing import Optional
 

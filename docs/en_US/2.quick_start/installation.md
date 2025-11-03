@@ -75,14 +75,13 @@ pip install rhosocial-activerecord[all]
 
 ## Verifying Installation
 
-After installation, you can verify that rhosocial ActiveRecord is correctly installed by running:
+After installation, you can verify that rhosocial ActiveRecord is correctly installed by running the following command in your terminal. This is the most reliable method as it queries the package metadata directly, just like `pip`.
 
-```python
-import rhosocial.activerecord
-print(rhosocial.activerecord.__version__)
+```bash
+python -c "import importlib.metadata; print(importlib.metadata.version('rhosocial_activerecord'))"
 ```
 
-This should print the version number of the installed package.
+This command should print the installed version number of the package (e.g., `1.0.0.dev12`). If it runs without error, the installation was successful.
 
 ## Next Steps
 

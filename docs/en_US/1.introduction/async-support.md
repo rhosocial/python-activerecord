@@ -59,11 +59,10 @@ class User(BaseActiveRecord, AsyncBaseActiveRecord):
 
 ## Database Backend Compatibility
 
-The async implementation works across different database types:
+The library's architecture for asynchronous operations is designed to use native asynchronous database drivers to achieve true non-blocking I/O.
 
-- **Native Async Drivers**: For databases with proper async support (PostgreSQL, MySQL)
-- **Thread Pool Implementation**: For databases without native async support (SQLite)
-- **Consistent API**: Same interface regardless of the underlying implementation
+- **Native Async Drivers**: For databases that operate over a network (like PostgreSQL and MySQL), the asynchronous backend is built to leverage native async drivers. This approach is ideal for high-concurrency applications. The currently supported synchronous drivers are `psycopg` for PostgreSQL and `mysql-connector-python` for MySQL.
+- **A Note on SQLite**: An asynchronous backend for SQLite is intentionally not provided. The standard `sqlite3` library in Python does not offer a native asynchronous API. While it is possible to simulate async behavior (e.g., using a thread pool), this approach was avoided. SQLite, as an embedded, in-process database, has I/O operations that are typically file-system-bound and extremely fast. Simulating async would introduce overhead and complexity without the true non-blocking network I/O benefits that `asyncio` is designed for, and could even degrade performance.
 
 ## Async Usage Examples
 

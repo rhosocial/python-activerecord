@@ -21,7 +21,7 @@ When you define a relationship in your model, rhosocial ActiveRecord creates a m
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

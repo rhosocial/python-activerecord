@@ -21,7 +21,7 @@ rhosocial ActiveRecord offers a comprehensive set of features designed to stream
 - **Event System**: Hook into model lifecycle events for custom behavior
 - **Extensibility**: Easily extend with custom behaviors through mixins
 - **Advanced Aggregation**: Powerful aggregation capabilities including window functions, CUBE, ROLLUP, and more
-- **Asynchronous Support**: Dual synchronous and asynchronous APIs for flexible application design
+- **Asynchronous Support**: Provides parallel synchronous and asynchronous backends, enabling use in both traditional (WSGI) and modern async (ASGI) applications.
 
 ## Structure
 
@@ -94,20 +94,21 @@ flowchart TD
 
 To use rhosocial ActiveRecord, you need:
 
-- **Python**: Version 3.8 or higher
-- **Pydantic**:
-  - For Python 3.8: Pydantic 2.10 or higher
-  - For Python 3.9+: Pydantic 2.11 or higher
-  
-  Note: These dependencies are automatically managed during installation based on your Python version.
+- **Python**: Version 3.8 or higher.
+  - **Note on Python 3.8**: Support for Python 3.8 is maintained for backward compatibility. However, as official support for Python 3.8 has ended, it will be deprecated in a future major release of this library.
+  - **Free-Threading Python**: The library is compatible with experimental Free-Threading builds of Python (3.14+).
+
+- **Pydantic**: The required version of Pydantic depends on your Python version. These dependencies are managed automatically during installation.
+  - For **Python 3.8**: `pydantic==2.10.6`
+  - For **Python 3.9+**: `pydantic>=2.12.0`
 
 - **Database-specific drivers**:
-  - **SQLite**: Built into Python standard library
-  - **PostgreSQL**: psycopg (other drivers currently not supported)
-  - **MySQL**: mysql-connector-python (other drivers currently not supported)
-  - **MariaDB**: mariadb (other drivers currently not supported)
-  - **Oracle**: cx_Oracle or oracledb
-  - **SQL Server**: pyodbc or pymssql
+  - **SQLite**: Built into Python standard library (sync only).
+  - **PostgreSQL**: `psycopg` (for sync); native async drivers are also supported.
+  - **MySQL**: `mysql-connector-python` (for sync); native async drivers are also supported.
+  - **MariaDB**: `mariadb` (sync).
+  - **Oracle**: `cx_Oracle` or `oracledb` (sync).
+  - **SQL Server**: `pyodbc` or `pymssql` (sync).
 
 Additionally, for optimal development experience:
 
@@ -133,7 +134,7 @@ Additionally, for optimal development experience:
 ## Quick Start
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 from datetime import datetime
 from pydantic import EmailStr

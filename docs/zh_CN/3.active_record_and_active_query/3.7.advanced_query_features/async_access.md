@@ -24,7 +24,7 @@
 要使用异步数据库访问，您需要使用异步兼容的数据库驱动程序配置ActiveRecord：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 # 使用异步驱动程序配置ActiveRecord
 ActiveRecord.configure({
@@ -46,7 +46,7 @@ ActiveRecord.configure({
 
 ```python
 import asyncio
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __table_name__ = 'users'

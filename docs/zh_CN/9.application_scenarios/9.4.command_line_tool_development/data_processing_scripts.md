@@ -14,7 +14,7 @@ ActiveRecord模型可用于实现数据清洗和规范化流程：
 
 ```python
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend
 
 # 定义模型
@@ -52,7 +52,7 @@ if __name__ == '__main__':
 ```python
 import csv
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend
 
 class Product(ActiveRecord):
@@ -110,7 +110,7 @@ if __name__ == '__main__':
 import csv
 import json
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend
 
 class SalesRecord(ActiveRecord):
@@ -181,7 +181,7 @@ if __name__ == '__main__':
 
 ```python
 import argparse
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 def setup_argument_parser():
     parser = argparse.ArgumentParser(description='使用ActiveRecord处理数据')
@@ -219,7 +219,7 @@ if __name__ == '__main__':
 ```python
 import logging
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 # 配置日志
 logging.basicConfig(
@@ -255,7 +255,7 @@ if __name__ == '__main__':
 ```python
 import sys
 import time
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 class LargeDataset(ActiveRecord):
     # 模型定义
@@ -290,7 +290,7 @@ if __name__ == '__main__':
 
 ```python
 import multiprocessing
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 class DataItem(ActiveRecord):
     # 模型定义
@@ -335,7 +335,7 @@ if __name__ == '__main__':
 ```python
 import schedule
 import time
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 def daily_data_cleanup():
     # 每日清理的ActiveRecord操作

@@ -18,7 +18,7 @@ ActiveRecord提供了几种将原生SQL集成到应用程序中的方法，同�
 使用原生SQL的最简单方法是在标准查询方法中：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __table_name__ = 'products'

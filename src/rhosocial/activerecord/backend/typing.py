@@ -1,5 +1,16 @@
 # src/rhosocial/activerecord/backend/typing.py
-from dataclasses import dataclass, field
+"""
+Defines common data structures and type hints used across the backend.
+
+This file serves as a central place for backend-related types. The goal is to:
+1.  Avoid circular imports between other backend modules.
+2.  Provide a single source of truth for common data structures like `ConnectionConfig`,
+    `QueryResult`, and the extensive `DatabaseType` enum.
+
+This centralization is particularly important in the refactored sync/async architecture,
+as it provides a stable set of types that both implementations can rely on.
+"""
+from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
 from enum import Enum, auto
@@ -11,12 +22,24 @@ PythonValue = TypeVar('PythonValue')
 T = TypeVar('T')
 
 @dataclass
+class ConnectionConfig:
+    """Configuration for database connection."""
+    database: str = ""
+    host: str = "localhost"
+    port: int = 5432
+    user: str = ""
+    password: str = ""
+    pool_size: int = 10
+
+@dataclass
 class QueryResult(Generic[T]):
     """Query result wrapper"""
     data: Optional[T] = None
     affected_rows: int = 0
     last_insert_id: Optional[int] = None
     duration: float = 0.0  # Query execution time (seconds)
+
+ColumnTypes = Dict[str, Union["DatabaseType", str, Any]]
 
 
 class DatabaseType(Enum):

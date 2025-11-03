@@ -16,7 +16,7 @@ rhosocial ActiveRecord 应用程序的调试当前依赖于标准Python调试技
 
 ```python
 import logging
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 # 启用日志以查看SQL查询
 logging.basicConfig(level=logging.DEBUG)

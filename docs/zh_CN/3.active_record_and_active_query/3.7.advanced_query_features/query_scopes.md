@@ -18,7 +18,7 @@
 定义查询作用域的最简单方法是向模型类添加返回查询对象的方法：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Article(ActiveRecord):
     __table_name__ = 'articles'
@@ -212,7 +212,7 @@ all_posts = Post.query().__class__(Post).all()  # 创建新的查询实例
 除了使用查询作用域，您还可以通过自定义查询类来扩展查询功能。通过设置模型的`__query_class__`属性，您可以替换默认的查询实例：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from .queries import CustomArticleQuery
 
 class Article(ActiveRecord):

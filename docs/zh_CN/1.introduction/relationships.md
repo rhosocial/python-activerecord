@@ -11,7 +11,7 @@ rhosocial ActiveRecord 支持三种主要关系类型：
 `BelongsTo` 关系表示当前模型包含引用另一个模型的外键：
 
 ```python
-from activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from activerecord.relations import BelongsTo
 from typing import Optional, ClassVar
 
@@ -140,7 +140,7 @@ user.clear_relation_cache()  # 清除所有关系
 以下是一个完整示例，演示如何设置和使用关系：
 
 ```python
-from activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from activerecord.relations import BelongsTo, HasMany, HasOne
 from typing import Optional, List, ClassVar
 

@@ -22,7 +22,7 @@ Microsoft SQL Server is a relational database management system developed by Mic
 To use SQL Server with rhosocial ActiveRecord, you need to configure your model with the SQL Server backend:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlserver import SQLServerBackend
 

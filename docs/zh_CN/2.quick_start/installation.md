@@ -75,14 +75,13 @@ pip install rhosocial-activerecord[all]
 
 ## 验证安装
 
-安装完成后，您可以通过运行以下代码验证rhosocial ActiveRecord是否正确安装：
+安装后，您可以在终端中运行以下命令来验证 rhosocial ActiveRecord 是否已正确安装。这是最可靠的方法，因为它会像 `pip` 一样直接查询包的元数据。
 
-```python
-import rhosocial.activerecord
-print(rhosocial.activerecord.__version__)
+```bash
+python -c "import importlib.metadata; print(importlib.metadata.version('rhosocial_activerecord'))"
 ```
 
-这应该会打印已安装包的版本号。
+此命令应打印出已安装包的版本号（例如 `1.0.0.dev12`）。如果运行没有错误，则表示安装成功。
 
 ## 下一步
 

@@ -6,7 +6,7 @@ Let's compare how common database operations look across these ORMs:
 
 **rhosocial ActiveRecord**:
 ```python
-from activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 from datetime import datetime
 from pydantic import EmailStr, field_validator

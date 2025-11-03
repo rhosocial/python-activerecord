@@ -36,7 +36,7 @@ class UserQuery(ActiveQuery):
 要将自定义查询类与特定模型一起使用，请在模型类中设置`__query_class__`属性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from .queries import UserQuery
 
 class User(ActiveRecord):

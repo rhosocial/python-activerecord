@@ -1,10 +1,29 @@
 # src/rhosocial/activerecord/backend/transaction.py
-"""Base transaction manager implementation."""
+"""
+Transaction management for both synchronous and asynchronous backends.
+
+To support async operations and maximize code reuse, this file was refactored to use
+a base class for shared logic:
+
+1.  **TransactionManagerBase**: Contains all the non-I/O logic for managing
+    transaction state, nesting levels, and savepoints. This logic is identical
+    for both sync and async operations.
+
+2.  **TransactionManager**: The synchronous transaction manager, which inherits from
+    `TransactionManagerBase` and implements the synchronous, I/O-bound `_do_*` methods.
+
+3.  **AsyncTransactionManager**: The asynchronous transaction manager, which also
+    inherits from `TransactionManagerBase` and implements the asynchronous `_do_*`
+    methods using `async def`.
+
+This structure ensures that the complex state management of nested transactions is
+written only once and shared, reducing duplication and potential for bugs.
+"""
 import logging
 from abc import ABC, abstractmethod
-from contextlib import contextmanager
+from contextlib import contextmanager, asynccontextmanager
 from enum import Enum, auto
-from typing import Optional, Generator
+from typing import Optional, Generator, AsyncGenerator
 
 from .errors import TransactionError, IsolationLevelError
 
@@ -32,15 +51,8 @@ class TransactionState(Enum):
     ROLLED_BACK = auto()
 
 
-class TransactionManager(ABC):
-    """Base transaction manager implementing nested transactions.
-
-    Features:
-    - Nested transaction support using save-points
-    - Isolation level management
-    - Context manager interface for 'with' statement
-    - Automatic rollback on exceptions
-    """
+class TransactionManagerBase(ABC):
+    """Base class for transaction managers, containing shared non-I/O logic."""
 
     def __init__(self, connection, logger=None):
         self._connection = connection
@@ -134,6 +146,20 @@ class TransactionManager(ABC):
             str: The generated savepoint name
         """
         return f"{self._savepoint_prefix}_{level}"
+
+
+class TransactionManager(TransactionManagerBase):
+    """Base transaction manager implementing nested transactions.
+
+    Features:
+    - Nested transaction support using save-points
+    - Isolation level management
+    - Context manager interface for 'with' statement
+    - Automatic rollback on exceptions
+    """
+
+    def __init__(self, connection, logger=None):
+        super().__init__(connection, logger)
 
     @abstractmethod
     def _do_begin(self) -> None:
@@ -445,4 +471,224 @@ class TransactionManager(ABC):
         except:
             if self.is_active:
                 self.rollback()
+            raise
+
+
+class AsyncTransactionManager(TransactionManagerBase):
+    def __init__(self, connection, logger=None):
+        super().__init__(connection, logger)
+
+    @abstractmethod
+    async def _do_begin(self) -> None:
+        """Begin a new transaction"""
+        pass
+
+    @abstractmethod
+    async def _do_commit(self) -> None:
+        """Commit the current transaction"""
+        pass
+
+    @abstractmethod
+    async def _do_rollback(self) -> None:
+        """Rollback the current transaction"""
+        pass
+
+    @abstractmethod
+    async def _do_create_savepoint(self, name: str) -> None:
+        """Create a savepoint"""
+        pass
+
+    @abstractmethod
+    async def _do_release_savepoint(self, name: str) -> None:
+        """Release a savepoint"""
+        pass
+
+    @abstractmethod
+    async def _do_rollback_savepoint(self, name: str) -> None:
+        """Rollback to a specified savepoint"""
+        pass
+
+    @abstractmethod
+    async def supports_savepoint(self) -> bool:
+        """Check if savepoints are supported"""
+        pass
+
+    async def begin(self) -> None:
+        """Begin a transaction or create a savepoint"""
+        self.log(logging.DEBUG, f"Beginning transaction (level {self._transaction_level})")
+
+        try:
+            if self._transaction_level == 0:
+                self.log(logging.INFO, f"Starting new transaction with isolation level {self._isolation_level}")
+                await self._do_begin()
+                self._state = TransactionState.ACTIVE
+            else:
+                savepoint_name = self._get_savepoint_name(self._transaction_level)
+                self.log(logging.INFO, f"Creating savepoint {savepoint_name} for nested transaction")
+                await self._do_create_savepoint(savepoint_name)
+                self._active_savepoints.append(savepoint_name)
+
+            self._transaction_level += 1
+            self.log(logging.DEBUG, f"Transaction begun at level {self._transaction_level}")
+        except Exception as e:
+            error_msg = f"Failed to begin transaction: {str(e)}"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg) from e
+
+    async def commit(self) -> None:
+        """Commit the current transaction or release the current savepoint"""
+        self.log(logging.DEBUG, f"Committing transaction (level {self._transaction_level})")
+
+        if not self.is_active:
+            error_msg = "No active transaction to commit"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        try:
+            current_level = self._transaction_level
+            self._transaction_level -= 1
+
+            if current_level <= 1:
+                self.log(logging.INFO, "Committing outermost transaction")
+                await self._do_commit()
+                self._state = TransactionState.COMMITTED
+                self._savepoint_count = 0
+                self._active_savepoints = []
+            else:
+                if self._active_savepoints:
+                    savepoint_name = self._active_savepoints.pop()
+                    self.log(logging.INFO, f"Releasing savepoint {savepoint_name} for nested transaction")
+                    await self._do_release_savepoint(savepoint_name)
+                else:
+                    self.log(logging.WARNING, "No savepoint found for commit, continuing")
+
+            if self._transaction_level == 0:
+                self._state = TransactionState.INACTIVE
+
+            self.log(logging.DEBUG, f"Transaction committed, new level: {self._transaction_level}")
+        except Exception as e:
+            error_msg = f"Failed to commit transaction: {str(e)}"
+            self.log(logging.ERROR, error_msg)
+            self._transaction_level += 1
+            raise TransactionError(error_msg) from e
+
+    async def rollback(self) -> None:
+        """Rollback the current transaction or to the current savepoint"""
+        self.log(logging.DEBUG, f"Rolling back transaction (level {self._transaction_level})")
+
+        if not self.is_active:
+            error_msg = "No active transaction to rollback"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        try:
+            current_level = self._transaction_level
+            self._transaction_level -= 1
+
+            if current_level <= 1:
+                self.log(logging.INFO, "Rolling back outermost transaction")
+                await self._do_rollback()
+                self._state = TransactionState.ROLLED_BACK
+                self._savepoint_count = 0
+                self._active_savepoints = []
+            else:
+                if self._active_savepoints:
+                    savepoint_name = self._active_savepoints.pop()
+                    self.log(logging.INFO, f"Rolling back to savepoint {savepoint_name} for nested transaction")
+                    await self._do_rollback_savepoint(savepoint_name)
+                else:
+                    self.log(logging.WARNING, "No savepoint found for rollback, continuing")
+
+            if self._transaction_level == 0:
+                self._state = TransactionState.INACTIVE
+
+            self.log(logging.DEBUG, f"Transaction rolled back, new level: {self._transaction_level}")
+        except Exception as e:
+            error_msg = f"Failed to rollback transaction: {str(e)}"
+            self.log(logging.ERROR, error_msg)
+            self._transaction_level += 1
+            raise TransactionError(error_msg) from e
+
+    async def savepoint(self, name: Optional[str] = None) -> str:
+        """Create a savepoint with an optional name or auto-generated name"""
+        self.log(logging.DEBUG, f"Creating savepoint (name: {name})")
+
+        if not self.is_active:
+            error_msg = "Cannot create savepoint: no active transaction"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        try:
+            if name is None:
+                self._savepoint_count += 1
+                name = f"{self._savepoint_prefix}_{self._savepoint_count}"
+
+            self.log(logging.INFO, f"Creating savepoint: {name}")
+            await self._do_create_savepoint(name)
+            self._active_savepoints.append(name)
+            return name
+        except Exception as e:
+            error_msg = f"Failed to create savepoint: {str(e)}"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg) from e
+
+    async def release(self, name: str) -> None:
+        """Release a savepoint"""
+        self.log(logging.DEBUG, f"Releasing savepoint: {name}")
+
+        if not self.is_active:
+            error_msg = "Cannot release savepoint: no active transaction"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        if name not in self._active_savepoints:
+            error_msg = f"Invalid savepoint name: {name}"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        try:
+            self.log(logging.INFO, f"Releasing savepoint: {name}")
+            await self._do_release_savepoint(name)
+            self._active_savepoints.remove(name)
+        except Exception as e:
+            error_msg = f"Failed to release savepoint {name}: {str(e)}"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg) from e
+
+    async def rollback_to(self, name: str) -> None:
+        """Rollback to a savepoint"""
+        self.log(logging.DEBUG, f"Rolling back to savepoint: {name}")
+
+        if not self.is_active:
+            error_msg = "Cannot rollback to savepoint: no active transaction"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        if name not in self._active_savepoints:
+            error_msg = f"Invalid savepoint name: {name}"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg)
+
+        try:
+            self.log(logging.INFO, f"Rolling back to savepoint: {name}")
+            await self._do_rollback_savepoint(name)
+
+            index = self._active_savepoints.index(name)
+            self._active_savepoints = self._active_savepoints[:index + 1]
+            self.log(logging.DEBUG, f"Active savepoints after rollback: {self._active_savepoints}")
+        except Exception as e:
+            error_msg = f"Failed to rollback to savepoint {name}: {str(e)}"
+            self.log(logging.ERROR, error_msg)
+            raise TransactionError(error_msg) from e
+
+    @asynccontextmanager
+    async def transaction(self) -> AsyncGenerator[None, None]:
+        """Context manager for async transaction blocks."""
+        try:
+            await self.begin()
+            yield
+            await self.commit()
+        except:
+            if self.is_active:
+                await self.rollback()
             raise

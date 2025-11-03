@@ -83,7 +83,7 @@ class Post(Base):
 **等效的rhosocial ActiveRecord模型：**
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 from datetime import datetime
 
@@ -219,7 +219,7 @@ class Product(models.Model):
 **等效的rhosocial ActiveRecord模型：**
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 from datetime import datetime
 from decimal import Decimal
@@ -381,7 +381,7 @@ class Pet(BaseModel):
 **等效的rhosocial ActiveRecord模型：**
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 from datetime import date
 

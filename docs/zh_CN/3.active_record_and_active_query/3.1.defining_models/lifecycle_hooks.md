@@ -36,7 +36,7 @@ ActiveRecord模型中提供以下生命周期事件：
 注册事件处理程序最常见的方式是使用`on()`方法：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 
 class User(ActiveRecord):
@@ -68,7 +68,7 @@ class User(ActiveRecord):
 您还可以注册适用于所有实例的类级别事件处理程序：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 
 class AuditableMixin(ActiveRecord):
@@ -134,7 +134,7 @@ def handler_function(instance, event):
 ### 自动生成别名
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 import re
 
@@ -159,7 +159,7 @@ class Article(ActiveRecord):
 ### 级联删除
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 
 class Post(ActiveRecord):
@@ -180,7 +180,7 @@ class Post(ActiveRecord):
 ### 数据加密
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 import base64
 import os

@@ -33,7 +33,7 @@ Flask is a lightweight WSGI web application framework that pairs well with Activ
 
 ```python
 from flask import Flask
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import SQLiteBackend
 
 app = Flask(__name__)
@@ -82,7 +82,7 @@ if __name__ == '__main__':
 ```python
 # app/__init__.py
 from flask import Flask
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import SQLiteBackend
 
 def create_app(config=None):
@@ -107,7 +107,7 @@ def create_app(config=None):
     return app
 
 # app/models/user.py
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __tablename__ = 'users'
@@ -130,7 +130,7 @@ def list_users():
 ```python
 from flask import Flask
 from flask_restful import Api, Resource
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import SQLiteBackend
 
 app = Flask(__name__)
@@ -181,7 +181,7 @@ FastAPI is a modern, high-performance web framework that works well with ActiveR
 from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 from typing import List, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import PostgreSQLBackend
 
 app = FastAPI()
@@ -244,7 +244,7 @@ async def create_user(user: UserCreate):
 
 ```python
 from fastapi import Depends, FastAPI, HTTPException
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 app = FastAPI()
 
@@ -284,7 +284,7 @@ ACTIVERECORD_CONFIG = {
 }
 
 # apps/users/models.py
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from django.conf import settings
 
 # Configure ActiveRecord
@@ -364,7 +364,7 @@ Pyramid is a flexible web framework that can be easily integrated with ActiveRec
 from pyramid.config import Configurator
 from pyramid.response import Response
 from pyramid.view import view_config
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import SQLiteBackend
 
 # Configure ActiveRecord
@@ -406,7 +406,7 @@ Tornado is an asynchronous web framework that can be integrated with ActiveRecor
 import tornado.ioloop
 import tornado.web
 import json
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import MySQLBackend
 
 # Configure ActiveRecord
@@ -457,7 +457,7 @@ from starlette.applications import Starlette
 from starlette.responses import JSONResponse
 from starlette.routing import Route
 import uvicorn
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import PostgreSQLBackend
 
 # Configure ActiveRecord
@@ -503,7 +503,7 @@ Maintain a clear separation between your web framework code and ActiveRecord mod
 
 ```python
 # models/user.py - ActiveRecord models
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __tablename__ = 'users'

@@ -11,7 +11,7 @@ Dynamic query building allows you to construct database queries programmatically
 ActiveRecord's query builder is designed to support dynamic construction through method chaining. You can start with a base query and conditionally add clauses:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __table_name__ = 'products'

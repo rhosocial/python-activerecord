@@ -52,7 +52,7 @@ user.save()  # 更新数据库并刷新缓存
 您可以在类级别配置模型缓存：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.cache import ModelCacheConfig
 
 class User(ActiveRecord):

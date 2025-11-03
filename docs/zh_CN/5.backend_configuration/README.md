@@ -50,7 +50,7 @@ rhosocial ActiveRecord设计为通过统一接口与多个数据库系统协同�
 您可以在配置模型时选择适合您的数据库系统的后端：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 

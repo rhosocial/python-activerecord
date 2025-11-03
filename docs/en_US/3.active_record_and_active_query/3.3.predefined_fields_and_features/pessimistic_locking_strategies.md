@@ -13,7 +13,7 @@ rhosocial ActiveRecord supports pessimistic locking through its transaction API 
 To use pessimistic locking, you typically work within a transaction and specify the lock type when querying records:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Account(ActiveRecord):
     __tablename__ = 'accounts'
@@ -158,7 +158,7 @@ Common isolation levels include:
 In some cases, you might want to combine pessimistic and optimistic locking:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import OptimisticLockMixin
 from rhosocial.activerecord.backend import DatabaseError
 

@@ -7,7 +7,7 @@ This document explains how to define the table schema for your ActiveRecord mode
 In rhosocial ActiveRecord, the table schema is defined through the model class definition. Each attribute of the class represents a column in the database table.
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from datetime import datetime
 from typing import Optional
 

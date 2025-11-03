@@ -36,7 +36,7 @@ The following lifecycle events are available in ActiveRecord models:
 The most common way to register event handlers is using the `on()` method:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 
 class User(ActiveRecord):
@@ -68,7 +68,7 @@ class User(ActiveRecord):
 You can also register class-level event handlers that apply to all instances:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 
 class AuditableMixin(ActiveRecord):
@@ -134,7 +134,7 @@ def handler_function(instance, event):
 ### Automatic Slug Generation
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 import re
 
@@ -159,7 +159,7 @@ class Article(ActiveRecord):
 ### Cascading Deletes
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 
 class Post(ActiveRecord):
@@ -180,7 +180,7 @@ class Post(ActiveRecord):
 ### Data Encryption
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 import base64
 import os
