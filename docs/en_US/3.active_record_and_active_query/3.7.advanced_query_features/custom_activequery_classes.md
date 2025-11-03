@@ -36,7 +36,7 @@ class UserQuery(ActiveQuery):
 To use your custom query class with a specific model, set the `__query_class__` attribute in your model class:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from .queries import UserQuery
 
 class User(ActiveRecord):

@@ -48,7 +48,7 @@ ConnectionManager.configure('secondary', secondary_config)
 一旦您配置了多个连接，您可以指定每个模型应该使用哪个连接：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __connection__ = 'primary'  # 使用主数据库

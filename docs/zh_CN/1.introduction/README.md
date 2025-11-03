@@ -23,7 +23,7 @@ rhosocial ActiveRecord 提供了一系列全面的功能，旨在简化数据库
 - **事件系统**：挂钩到模型生命周期事件以实现自定义行为
 - **可扩展性**：通过混合类轻松扩展自定义行为
 - **高级聚合**：强大的聚合功能，包括窗口函数、CUBE、ROLLUP 等
-- **异步支持**：双同步和异步 API，实现灵活的应用程序设计
+- **异步支持**: 提供并行的同步和异步后端，使其能用于传统的 (WSGI) 和现代的异步 (ASGI) 应用。
 
 ## 结构
 
@@ -87,24 +87,25 @@ flowchart TD
     classDef external fill:#FAD7A0,stroke:#E67E22,stroke-width:2px;
 ```
 
-## 要求
+## 环境要求
 
-要使用 rhosocial ActiveRecord，您需要：
+要使用 rhosocial ActiveRecord，您需要:
 
-- **Python**：版本 3.8 或更高
-- **Pydantic**：
-  - 对于 Python 3.8：Pydantic 2.10 或更高
-  - 对于 Python 3.9+：Pydantic 2.11 或更高
-  
-  注意：这些依赖项在安装过程中会根据您的 Python 版本自动管理。
+- **Python**: 3.8 或更高版本。
+  - **关于 Python 3.8 的说明**: 为了向后兼容，我们继续支持 Python 3.8。但由于官方已停止支持，本库的未来主要版本将不再保证对其的兼容性。
+  - **Free-Threading Python**: 本库与实验性的 Free-Threading Python (3.14+) 版本兼容。
 
-- **特定数据库驱动**：
-  - **SQLite**：内置于 Python 标准库
-  - **PostgreSQL**：psycopg（当前不支持其他驱动）
-  - **MySQL**：mysql-connector-python（当前不支持其他驱动）
-  - **MariaDB**：mariadb（当前不支持其他驱动）
-  - **Oracle**：cx_Oracle 或 oracledb
-  - **SQL Server**：pyodbc 或 pymssql
+- **Pydantic**: 所需的 Pydantic 版本取决于您的 Python 版本。这些依赖在安装时会自动管理。
+  - 对于 **Python 3.8**: `pydantic==2.10.6`
+  - 对于 **Python 3.9+**: `pydantic>=2.12.0`
+
+- **特定数据库驱动**:
+  - **SQLite**: 内置于 Python 标准库 (仅同步)。
+  - **PostgreSQL**: `psycopg` (用于同步); 同时支持原生异步驱动。
+  - **MySQL**: `mysql-connector-python` (用于同步); 同时支持原生异步驱动。
+  - **MariaDB**: `mariadb` (同步)。
+  - **Oracle**: `cx_Oracle` 或 `oracledb` (同步)。
+  - **SQL Server**: `pyodbc` 或 `pymssql` (同步)。
 
 此外，为获得最佳开发体验：
 
@@ -130,7 +131,7 @@ flowchart TD
 ## 快速开始
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 from datetime import datetime
 from pydantic import EmailStr

@@ -16,7 +16,7 @@
 要向模型添加时间戳功能，只需在类定义中包含`TimestampMixin`：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
@@ -77,7 +77,7 @@ class TimestampMixin(IActiveRecord):
 
 ```python
 import pytz
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
@@ -93,7 +93,7 @@ class Article(TimestampMixin, ActiveRecord):
 您可以通过扩展`TimestampMixin`并重写`_update_timestamps`方法来自定义时间戳行为：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class CustomTimestampMixin(TimestampMixin):

@@ -11,7 +11,7 @@
 ActiveRecord的查询构建器设计为通过方法链支持动态构建。您可以从基本查询开始，有条件地添加子句：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __table_name__ = 'products'

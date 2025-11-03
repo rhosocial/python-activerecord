@@ -36,7 +36,7 @@ rhosocial ActiveRecord 与标准Python测试框架配合使用：
 
 ```python
 import unittest
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     name: str

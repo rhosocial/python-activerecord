@@ -22,7 +22,7 @@ Asynchronous database access is particularly beneficial in these scenarios:
 To use async database access, you need to configure ActiveRecord with an async-compatible database driver:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 # Configure ActiveRecord with an async driver
 ActiveRecord.configure({
@@ -44,7 +44,7 @@ Once configured, you can use async versions of standard ActiveRecord methods:
 
 ```python
 import asyncio
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __table_name__ = 'users'

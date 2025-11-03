@@ -77,7 +77,7 @@ class User(ActiveRecord):
 是的，rhosocial ActiveRecord通过`UUIDField`混入支持UUID主键：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field.uuid import UUIDField
 from uuid import UUID
 

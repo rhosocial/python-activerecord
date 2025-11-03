@@ -18,7 +18,7 @@ Single Table Inheritance (STI) is a pattern where multiple model classes share a
 ### Basic Implementation
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Vehicle(ActiveRecord):
@@ -84,7 +84,7 @@ Class Table Inheritance (CTI) uses separate tables for each class in the inherit
 ### Basic Implementation
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Person(ActiveRecord):
@@ -146,7 +146,7 @@ Polymorphic associations allow a model to belong to multiple types of models thr
 ### Basic Implementation
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Comment(ActiveRecord):
     __table_name__ = 'comments'
@@ -245,7 +245,7 @@ Abstract base classes provide common functionality without being directly instan
 
 ```python
 from abc import ABC
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Auditable(ActiveRecord, ABC):
     """Abstract base class for auditable models."""

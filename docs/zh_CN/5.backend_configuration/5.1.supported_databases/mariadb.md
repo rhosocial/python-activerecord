@@ -24,7 +24,7 @@ MariaDB 是 MySQL 的一个社区开发的分支，由 MySQL 的原始开发者�
 要将 MariaDB 与 rhosocial ActiveRecord 一起使用，您需要使用 MariaDB 后端配置您的模型：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mariadb import MariaDBBackend
 
@@ -74,7 +74,7 @@ rhosocial ActiveRecord 将 Python 数据类型映射到 MariaDB 数据类型，�
 MariaDB 支持多种存储引擎，包括一些 MySQL 中不可用的引擎。rhosocial ActiveRecord 允许您在表级别指定存储引擎：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk
 
 class Product(ActiveRecord):
@@ -170,7 +170,7 @@ User.delete_all(where={'status': 'inactive'})
 MariaDB 10.2+ 提供了原生 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):
@@ -200,7 +200,7 @@ products = Product.find_all(
 MariaDB 提供全文搜索功能，rhosocial ActiveRecord 支持这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Article(ActiveRecord):

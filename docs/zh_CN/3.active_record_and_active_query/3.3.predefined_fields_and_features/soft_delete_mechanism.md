@@ -16,7 +16,7 @@
 要向模型添加软删除功能，请在类定义中包含`SoftDeleteMixin`：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import SoftDeleteMixin
 
 class Article(SoftDeleteMixin, ActiveRecord):
@@ -119,7 +119,7 @@ class SoftDeleteMixin(IActiveRecord):
 `SoftDeleteMixin`与其他混入（如`TimestampMixin`）配合良好：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin
 
 class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):

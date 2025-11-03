@@ -22,7 +22,7 @@ rhosocial ActiveRecord带有几个预定义的混入，提供常见功能：
 添加对created_at和updated_at字段的自动时间戳管理：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
@@ -37,7 +37,7 @@ class Article(TimestampMixin, ActiveRecord):
 实现软删除功能，允许将记录标记为已删除而不实际从数据库中删除它们：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import SoftDeleteMixin
 
 class Document(SoftDeleteMixin, ActiveRecord):
@@ -61,7 +61,7 @@ Document.query_only_deleted()  # 仅返回已删除的记录
 使用版本号实现乐观锁定，防止并发更新：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import OptimisticLockMixin
 
 class Account(OptimisticLockMixin, ActiveRecord):
@@ -75,7 +75,7 @@ class Account(OptimisticLockMixin, ActiveRecord):
 添加UUID主键支持，为新记录自动生成UUID：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import UUIDMixin
 
 class Order(UUIDMixin, ActiveRecord):
@@ -89,7 +89,7 @@ class Order(UUIDMixin, ActiveRecord):
 提供整数主键支持，自动处理新记录的空值：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 
 class Product(IntegerPKMixin, ActiveRecord):
@@ -105,7 +105,7 @@ class Product(IntegerPKMixin, ActiveRecord):
 ### 基本混入结构
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 from typing import ClassVar, Optional
 

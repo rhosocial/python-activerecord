@@ -29,7 +29,7 @@ These features are designed to be composable, allowing you to mix and match them
 To use these predefined features, simply include the appropriate mixin in your model class definition:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin, IntegerPKMixin
 
 class User(IntegerPKMixin, TimestampMixin, SoftDeleteMixin, ActiveRecord):

@@ -23,7 +23,7 @@ MariaDB is a community-developed fork of MySQL, designed to remain free and open
 To configure a model to use the MariaDB backend, you'll need to provide the appropriate connection parameters:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mariadb import MariaDBBackend
 
@@ -88,7 +88,7 @@ The MariaDB backend supports the following data types:
 For MariaDB 10.2 and above, rhosocial ActiveRecord provides support for JSON data type and operations:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields
+from rhosocial.activerecord.model import ActiveRecord, fields
 
 class Product(ActiveRecord):
     attributes = {
@@ -110,7 +110,7 @@ products = Product.where("JSON_EXTRACT(properties, '$.color') = ?", ['silver'])
 MariaDB's dynamic columns feature provides a flexible way to store schema-less data:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields
+from rhosocial.activerecord.model import ActiveRecord, fields
 from rhosocial.activerecord.backend.impl.mariadb import dynamic_columns
 
 class Product(ActiveRecord):
@@ -136,7 +136,7 @@ class Product(ActiveRecord):
 MariaDB's full-text search capabilities are accessible through rhosocial ActiveRecord:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields
+from rhosocial.activerecord.model import ActiveRecord, fields
 
 class Article(ActiveRecord):
     attributes = {
@@ -159,7 +159,7 @@ class Article(ActiveRecord):
 Proper indexing is crucial for MariaDB performance. rhosocial ActiveRecord provides methods to define indexes in your models:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields, indexes
+from rhosocial.activerecord.model import ActiveRecord, fields, indexes
 
 class User(ActiveRecord):
     attributes = {

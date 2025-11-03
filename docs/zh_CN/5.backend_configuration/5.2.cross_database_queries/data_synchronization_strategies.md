@@ -100,7 +100,7 @@ class DualWriteModel(ActiveRecord):
 这种方法使用事件或消息队列异步地将更改从一个数据库传播到另一个数据库。
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 import json
 import redis
 

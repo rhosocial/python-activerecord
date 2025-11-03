@@ -7,7 +7,7 @@ Primary keys are essential for uniquely identifying records in a database. rhoso
 By default, ActiveRecord assumes that your model has a primary key field named `id`. This is automatically handled for you, and you don't need to explicitly define it unless you want to customize its behavior.
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __tablename__ = 'products'
@@ -22,7 +22,7 @@ class Product(ActiveRecord):
 If your table uses a different column name for the primary key, you can specify it using the `__primary_key__` class attribute:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __tablename__ = 'products'
@@ -38,7 +38,7 @@ class Product(ActiveRecord):
 For tables with integer primary keys, rhosocial ActiveRecord provides the `IntegerPKMixin` to simplify handling:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 
 class Product(IntegerPKMixin, ActiveRecord):
@@ -55,7 +55,7 @@ The `IntegerPKMixin` automatically sets the primary key to `None` for new record
 For applications that require globally unique identifiers, rhosocial ActiveRecord provides the `UUIDMixin` for UUID-based primary keys:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import UUIDMixin
 
 class Product(UUIDMixin, ActiveRecord):
@@ -72,7 +72,7 @@ The `UUIDMixin` automatically generates a new UUID for the primary key when crea
 While not directly supported through a mixin, you can implement composite primary keys by overriding the `primary_key()` method and customizing the query conditions in your model:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class OrderItem(ActiveRecord):
     __tablename__ = 'order_items'

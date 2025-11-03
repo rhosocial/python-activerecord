@@ -20,7 +20,7 @@
 
 ```python
 from typing import ClassVar, Optional, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
@@ -236,7 +236,7 @@ class User(IntegerPKMixin, ActiveRecord):
 ```python
 from typing import ClassVar, Optional, List
 from datetime import datetime
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

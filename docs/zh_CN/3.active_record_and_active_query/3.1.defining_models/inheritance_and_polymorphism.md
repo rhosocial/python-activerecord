@@ -18,7 +18,7 @@ rhosocial ActiveRecord支持模型继承，允许您创建相关模型的层次�
 ### 基本实现
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Vehicle(ActiveRecord):
@@ -84,7 +84,7 @@ ActiveRecord框架在从子类查询时自动添加适当的类型条件。
 ### 基本实现
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Person(ActiveRecord):
@@ -146,7 +146,7 @@ employees = Employee.query()\
 ### 基本实现
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from datetime import datetime
 
 class Comment(ActiveRecord):
@@ -246,7 +246,7 @@ commentable = comment.commentable()  # 返回Post或Photo实例
 
 ```python
 from abc import ABC
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Auditable(ActiveRecord, ABC):
     """可审计模型的抽象基类。"""

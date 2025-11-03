@@ -7,7 +7,7 @@
 在rhosocial ActiveRecord中，表结构通过模型类定义来定义。类的每个属性代表数据库表中的一列。
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from datetime import datetime
 from typing import Optional
 

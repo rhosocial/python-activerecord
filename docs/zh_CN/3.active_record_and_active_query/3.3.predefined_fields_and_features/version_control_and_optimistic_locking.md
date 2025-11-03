@@ -13,7 +13,7 @@
 要向模型添加乐观锁，请在类定义中包含`OptimisticLockMixin`：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import OptimisticLockMixin
 
 class Account(OptimisticLockMixin, ActiveRecord):
@@ -129,7 +129,7 @@ CREATE TABLE accounts (
 `OptimisticLockMixin`与其他混入（如`TimestampMixin`和`SoftDeleteMixin`）配合良好：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, OptimisticLockMixin, SoftDeleteMixin
 
 class Account(TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, ActiveRecord):

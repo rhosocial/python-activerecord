@@ -18,7 +18,7 @@ A BelongsTo relationship indicates that the current model contains a foreign key
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import BelongsTo
 
@@ -42,7 +42,7 @@ A HasMany relationship indicates that multiple records in another model contain 
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany
 
@@ -167,7 +167,7 @@ Here's a complete example demonstrating how to set up and use relationships:
 ```python
 from typing import ClassVar, Optional, List
 from pydantic import Field, EmailStr
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

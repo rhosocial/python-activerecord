@@ -100,7 +100,7 @@ class DualWriteModel(ActiveRecord):
 This approach uses events or message queues to propagate changes from one database to another asynchronously.
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 import json
 import redis
 

@@ -18,7 +18,7 @@ ActiveRecord provides several ways to incorporate raw SQL into your application 
 The simplest way to use raw SQL is within standard query methods:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __table__ = 'products'

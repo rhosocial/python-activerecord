@@ -29,7 +29,7 @@ rhosocial ActiveRecord中的预定义字段和特性包括：
 要使用这些预定义特性，只需在模型类定义中包含适当的混入：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin, IntegerPKMixin
 
 class User(IntegerPKMixin, TimestampMixin, SoftDeleteMixin, ActiveRecord):

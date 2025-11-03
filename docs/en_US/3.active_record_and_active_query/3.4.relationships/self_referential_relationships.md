@@ -23,7 +23,7 @@ A one-to-many self-referential relationship is common for hierarchical structure
 
 ```python
 from typing import ClassVar, Optional, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 
@@ -72,7 +72,7 @@ A many-to-many self-referential relationship is useful for modeling networks whe
 
 ```python
 from typing import ClassVar, Optional, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

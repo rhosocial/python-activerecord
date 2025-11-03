@@ -77,7 +77,7 @@ For SQLite, integer primary keys are automatically auto-incrementing. For other 
 Yes, rhosocial ActiveRecord supports UUID primary keys through the `UUIDField` mixin:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field.uuid import UUIDField
 from uuid import UUID
 

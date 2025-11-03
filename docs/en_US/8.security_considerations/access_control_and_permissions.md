@@ -230,7 +230,7 @@ class SecureModel(ActiveRecord):
 Here's a more complete example combining multiple approaches:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, ActiveQuery
+from rhosocial.activerecord.model import ActiveRecord, ActiveQuery
 from rhosocial.activerecord.backend import Connection
 import os
 

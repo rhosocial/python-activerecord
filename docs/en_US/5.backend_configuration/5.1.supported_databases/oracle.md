@@ -22,7 +22,7 @@ Oracle Database is a multi-model database management system produced and markete
 To use Oracle with rhosocial ActiveRecord, you need to configure your model with the Oracle backend:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.oracle import OracleBackend
 

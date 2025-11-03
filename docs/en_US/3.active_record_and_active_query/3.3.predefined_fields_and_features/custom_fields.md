@@ -17,7 +17,7 @@ The simplest way to create custom fields is to use Pydantic's `Field` function w
 
 ```python
 from pydantic import Field, validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Product(ActiveRecord):
@@ -74,7 +74,7 @@ For more complex field behavior, you can create mixins that add fields and relat
 ```python
 from datetime import datetime
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class AuditableMixin:
     """Adds auditing fields to track who created and updated records."""
@@ -115,7 +115,7 @@ You can also create computed fields that derive their values from other fields:
 
 ```python
 from pydantic import computed_field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Rectangle(ActiveRecord):
     __tablename__ = 'rectangles'
@@ -141,7 +141,7 @@ Many databases support JSON data types. You can use them in your models:
 ```python
 from typing import Dict, Any, List
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class UserProfile(ActiveRecord):
     __tablename__ = 'user_profiles'
@@ -165,7 +165,7 @@ class UserProfile(ActiveRecord):
 ActiveRecord tracks changes to fields to optimize updates. Sometimes you may want to exclude certain fields from this tracking:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class CachedContent(ActiveRecord):
     __tablename__ = 'cached_contents'
@@ -189,7 +189,7 @@ You can specify database-specific column types for your fields:
 
 ```python
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Document(ActiveRecord):
     __tablename__ = 'documents'

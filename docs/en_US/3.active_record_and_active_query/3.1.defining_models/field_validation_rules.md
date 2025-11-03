@@ -11,7 +11,7 @@ rhosocial ActiveRecord leverages Pydantic's powerful validation system to provid
 The most basic form of validation comes from Python's type system. By specifying types for your model fields, you automatically get type validation:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     id: int
@@ -34,7 +34,7 @@ For more advanced validation, you can use Pydantic's `Field` function to add con
 
 ```python
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Product(ActiveRecord):
@@ -112,7 +112,7 @@ For more complex validation logic, you can define custom validators using Pydant
 
 ```python
 from pydantic import validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     id: int
@@ -139,7 +139,7 @@ You can implement conditional validation using custom validators:
 
 ```python
 from pydantic import validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Subscription(ActiveRecord):
@@ -160,7 +160,7 @@ For validation that involves multiple fields, you can use root validators:
 
 ```python
 from pydantic import root_validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Order(ActiveRecord):
     id: int

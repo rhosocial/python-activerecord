@@ -31,7 +31,7 @@ The current implementation provides:
 
 ```python
 import logging
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 logger = logging.getLogger('rhosocial.activerecord')
 

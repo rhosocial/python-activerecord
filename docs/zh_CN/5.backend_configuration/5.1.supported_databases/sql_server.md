@@ -23,7 +23,7 @@ Microsoft SQL Server 是一个企业级关系型数据库管理系统，提供�
 要将 SQL Server 与 rhosocial ActiveRecord 一起使用，您需要使用 SQL Server 后端配置您的模型：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlserver import SQLServerBackend
 
@@ -83,7 +83,7 @@ rhosocial ActiveRecord 将 Python 数据类型映射到 SQL Server 数据类型�
 SQL Server 使用模式（Schema）来组织数据库对象。rhosocial ActiveRecord 允许您指定模式：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk
 
 class Product(ActiveRecord):
@@ -189,7 +189,7 @@ results = User.connection.execute_procedure(
 SQL Server 2016 及更高版本提供了 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):
@@ -219,7 +219,7 @@ products = Product.find_all(
 SQL Server 提供全文搜索功能，rhosocial ActiveRecord 支持这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Article(ActiveRecord):
@@ -242,7 +242,7 @@ articles = Article.find_all(
 SQL Server 支持临时表，rhosocial ActiveRecord 允许您使用这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 # 本地临时表（仅在当前连接中可见）

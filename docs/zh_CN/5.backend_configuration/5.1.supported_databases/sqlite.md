@@ -22,7 +22,7 @@ SQLite 是一个自包含、无服务器、零配置、事务性 SQL 数据库�
 要将 SQLite 与 rhosocial ActiveRecord 一起使用，您需要使用 SQLite 后端配置您的模型：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
@@ -127,7 +127,7 @@ User.delete_all(where={'status': 'inactive'})
 SQLite 3.9+ 版本提供了 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):
@@ -157,7 +157,7 @@ products = Product.find_all(
 SQLite 提供了 FTS5（全文搜索）扩展，rhosocial ActiveRecord 支持这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Article(ActiveRecord):

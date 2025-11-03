@@ -7,7 +7,7 @@
 在rhosocial ActiveRecord中，模型是继承自`ActiveRecord`的Python类，它们定义了数据库表的结构。
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from datetime import datetime
@@ -166,7 +166,7 @@ with User.transaction():
 这是一个演示模型完整生命周期的示例：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from datetime import datetime

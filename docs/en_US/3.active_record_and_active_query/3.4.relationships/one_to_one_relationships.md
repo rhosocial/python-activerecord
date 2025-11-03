@@ -15,7 +15,7 @@ A `HasOne` relationship indicates that another model contains a foreign key refe
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasOne
 
@@ -39,7 +39,7 @@ A `BelongsTo` relationship indicates that the current model contains a foreign k
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import BelongsTo
 

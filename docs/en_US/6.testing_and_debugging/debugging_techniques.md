@@ -16,7 +16,7 @@ Basic logging support is available through Python's standard logging module:
 
 ```python
 import logging
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 # Enable logging to see SQL queries
 logging.basicConfig(level=logging.DEBUG)

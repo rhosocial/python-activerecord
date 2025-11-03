@@ -11,7 +11,7 @@ rhosocial ActiveRecord uses a connection configuration object to establish datab
 ```python
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 # Configure with a file-based SQLite database
 config = ConnectionConfig(database='database.sqlite3')

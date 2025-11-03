@@ -14,7 +14,7 @@ Testing currently focuses on:
 
 ```python
 import unittest
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     name: str

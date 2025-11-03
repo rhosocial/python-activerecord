@@ -23,7 +23,7 @@
 
 ```python
 from typing import ClassVar, Optional, Union, Type
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import BelongsTo, HasMany
 
@@ -157,7 +157,7 @@ if commentable:
 
 ```python
 from typing import ClassVar, Optional, Union
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

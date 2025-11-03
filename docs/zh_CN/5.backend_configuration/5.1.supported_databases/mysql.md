@@ -23,7 +23,7 @@ MySQL 是世界上最流行的开源关系型数据库管理系统之一。rhoso
 要将 MySQL 与 rhosocial ActiveRecord 一起使用，您需要使用 MySQL 后端配置您的模型：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 
@@ -73,7 +73,7 @@ rhosocial ActiveRecord 将 Python 数据类型映射到 MySQL 数据类型，以
 MySQL 支持多种存储引擎，每种都有其特点和用例。rhosocial ActiveRecord 允许您在表级别指定存储引擎：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk
 
 class Product(ActiveRecord):
@@ -162,7 +162,7 @@ User.delete_all(where={'status': 'inactive'})
 MySQL 5.7+ 提供了原生 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):
@@ -192,7 +192,7 @@ products = Product.find_all(
 MySQL 提供全文搜索功能，rhosocial ActiveRecord 支持这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Article(ActiveRecord):
