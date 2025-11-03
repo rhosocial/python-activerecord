@@ -102,6 +102,12 @@ class SQLBuildingMixin:
         builder = SQLBuilder(self.dialect)
         return builder.build(sql, params)
 
+    def _prepare_sql_and_params(self, sql: str, params: Optional[Tuple]) -> Tuple[str, Optional[Tuple]]:
+        """Process SQL and parameters for execution."""
+        if params:
+            return self.build_sql(sql, params)
+        return sql, params
+
 
 class QueryAnalysisMixin:
     """Mixin for SQL query analysis."""
@@ -453,12 +459,6 @@ class StorageBackend(
     def _get_cursor(self):
         """Get or create a cursor for query execution."""
         return self._cursor or self._connection.cursor()
-
-    def _prepare_sql_and_params(self, sql: str, params: Optional[Tuple]) -> Tuple[str, Optional[Tuple]]:
-        """Process SQL and parameters for execution."""
-        if params:
-            return self.build_sql(sql, params)
-        return sql, params
 
     def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
         """Execute the query with prepared SQL and parameters."""
