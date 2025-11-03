@@ -16,7 +16,7 @@ The `SoftDeleteMixin` adds a `deleted_at` timestamp field to your model. When a 
 To add soft delete functionality to your model, include the `SoftDeleteMixin` in your class definition:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import SoftDeleteMixin
 
 class Article(SoftDeleteMixin, ActiveRecord):
@@ -119,7 +119,7 @@ class SoftDeleteMixin(IActiveRecord):
 The `SoftDeleteMixin` works well with other mixins like `TimestampMixin`:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, SoftDeleteMixin
 
 class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):

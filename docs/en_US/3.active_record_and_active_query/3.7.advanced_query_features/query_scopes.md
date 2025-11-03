@@ -18,7 +18,7 @@ There are two main approaches to defining query scopes in ActiveRecord:
 The simplest way to define query scopes is to add methods to your model class that return query objects:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Article(ActiveRecord):
     __table_name__ = 'articles'
@@ -212,7 +212,7 @@ all_posts = Post.query().__class__(Post).all()  # Creates a new query instance
 In addition to query scopes, you can extend query functionality through custom query classes. By setting the `__query_class__` attribute on your model, you can replace the default query instance:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from .queries import CustomArticleQuery
 
 class Article(ActiveRecord):

@@ -10,7 +10,7 @@
 ```python
 import cProfile
 import pstats
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 def performance_test():
     # 您的ActiveRecord操作
@@ -46,7 +46,7 @@ def slow_function():
 
 ```python
 import time
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 def time_operation():
     start_time = time.time()

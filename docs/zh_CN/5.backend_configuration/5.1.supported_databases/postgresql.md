@@ -24,7 +24,7 @@ PostgreSQL 是一个功能强大的开源对象关系数据库系统，以其可
 要将 PostgreSQL 与 rhosocial ActiveRecord 一起使用，您需要使用 PostgreSQL 后端配置您的模型：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.postgresql import PostgreSQLBackend
 
@@ -76,7 +76,7 @@ rhosocial ActiveRecord 将 Python 数据类型映射到 PostgreSQL 数据类型�
 PostgreSQL 支持模式（Schema）来组织数据库对象。rhosocial ActiveRecord 允许您指定模式：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk
 
 class Product(ActiveRecord):
@@ -144,7 +144,7 @@ with User.transaction() as tx:
 PostgreSQL 提供了强大的 JSON 和 JSONB 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):
@@ -184,7 +184,7 @@ products = Product.find_all(
 PostgreSQL 支持数组类型，rhosocial ActiveRecord 允许您使用这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Post(ActiveRecord):
@@ -215,7 +215,7 @@ posts = Post.find_all(
 PostgreSQL 提供强大的全文搜索功能，rhosocial ActiveRecord 支持这一特性：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Article(ActiveRecord):
@@ -241,7 +241,7 @@ articles = Article.find_all(
 结合 PostGIS 扩展，PostgreSQL 提供了强大的地理空间数据支持：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Location(ActiveRecord):

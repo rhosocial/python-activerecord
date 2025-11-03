@@ -25,7 +25,7 @@ for user in users:  # N个额外查询，每个用户一个
 rhosocial ActiveRecord为模型关系提供了内置缓存：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany, CacheConfig
 
 class User(ActiveRecord):

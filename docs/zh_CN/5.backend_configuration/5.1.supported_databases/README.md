@@ -18,7 +18,7 @@ rhosocial ActiveRecord提供对多种数据库系统的支持，使您能够使�
 rhosocial ActiveRecord中的所有数据库后端都使用`ConnectionConfig`类进行配置，该类为指定连接参数提供了一致的接口。虽然每个数据库系统都有其自己的特定参数，但基本配置模式保持不变：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 

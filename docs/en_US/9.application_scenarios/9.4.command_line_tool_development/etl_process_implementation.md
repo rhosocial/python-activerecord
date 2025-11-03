@@ -24,7 +24,7 @@ Here's a simple example of an ETL process using ActiveRecord:
 
 ```python
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend, MySQLBackend
 
 # Source model (Extract)
@@ -125,7 +125,7 @@ In many cases, you'll want to implement incremental ETL to process only new or c
 import datetime
 import json
 import os
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import PostgreSQLBackend, MySQLBackend
 
 # Source model
@@ -244,7 +244,7 @@ if __name__ == '__main__':
 Implementing data validation and cleansing as part of the transformation phase:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 class DataValidator:
     @staticmethod
@@ -307,7 +307,7 @@ For large datasets, implement parallel processing to improve performance:
 ```python
 import multiprocessing
 import time
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 # Setup models and connections as before
 
@@ -395,7 +395,7 @@ Implement comprehensive logging and monitoring for ETL processes:
 import logging
 import time
 from datetime import datetime
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 # Configure logging
 logging.basicConfig(
@@ -490,7 +490,7 @@ For complex ETL pipelines with multiple stages, implement workflow orchestration
 ```python
 import time
 import logging
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 logger = logging.getLogger("etl_workflow")
 

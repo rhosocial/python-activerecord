@@ -16,7 +16,7 @@ These fields are automatically maintained by the mixin, which hooks into the mod
 To add timestamp functionality to your model, simply include the `TimestampMixin` in your class definition:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
@@ -77,7 +77,7 @@ By default, the `TimestampMixin` uses the local timezone for timestamp values. Y
 
 ```python
 import pytz
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
@@ -93,7 +93,7 @@ class Article(TimestampMixin, ActiveRecord):
 You can customize the timestamp behavior by extending the `TimestampMixin` and overriding the `_update_timestamps` method:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class CustomTimestampMixin(TimestampMixin):

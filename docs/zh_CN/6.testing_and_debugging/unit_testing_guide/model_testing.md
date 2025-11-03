@@ -23,7 +23,7 @@ rhosocial ActiveRecord 中的模型测试当前专注于基本模型功能和简
 
 ```python
 import unittest
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     name: str

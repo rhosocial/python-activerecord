@@ -18,7 +18,7 @@ BelongsTo关系表示当前模型包含引用另一个模型的外键。例如�
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import BelongsTo
 
@@ -42,7 +42,7 @@ HasMany关系表示另一个模型中的多条记录包含引用当前模型的�
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany
 
@@ -170,7 +170,7 @@ user.clear_relation_cache()
 ```python
 from typing import ClassVar, Optional, List
 from pydantic import Field, EmailStr
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin, TimestampMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

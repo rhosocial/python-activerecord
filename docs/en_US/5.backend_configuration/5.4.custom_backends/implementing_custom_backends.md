@@ -346,7 +346,7 @@ def create_backend(backend_type, **config):
 Once implemented, your backend can be used like any other ActiveRecord backend:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, configure
+from rhosocial.activerecord.model import ActiveRecord, configure
 
 # Configure ActiveRecord to use your backend
 configure(backend='your_backend_name', host='localhost', database='your_db')

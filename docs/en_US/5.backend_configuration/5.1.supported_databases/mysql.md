@@ -23,7 +23,7 @@ MySQL is one of the world's most popular open-source relational database managem
 To configure a model to use the MySQL backend, you'll need to provide the appropriate connection parameters:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 
@@ -88,7 +88,7 @@ The MySQL backend supports the following data types:
 For MySQL 5.7 and above, rhosocial ActiveRecord provides support for JSON data type and operations:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields
+from rhosocial.activerecord.model import ActiveRecord, fields
 
 class Product(ActiveRecord):
     attributes = {
@@ -110,7 +110,7 @@ products = Product.where("JSON_EXTRACT(properties, '$.color') = ?", ['silver'])
 MySQL's full-text search capabilities are accessible through rhosocial ActiveRecord:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields
+from rhosocial.activerecord.model import ActiveRecord, fields
 
 class Article(ActiveRecord):
     attributes = {
@@ -133,7 +133,7 @@ class Article(ActiveRecord):
 Proper indexing is crucial for MySQL performance. rhosocial ActiveRecord provides methods to define indexes in your models:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, fields, indexes
+from rhosocial.activerecord.model import ActiveRecord, fields, indexes
 
 class User(ActiveRecord):
     attributes = {

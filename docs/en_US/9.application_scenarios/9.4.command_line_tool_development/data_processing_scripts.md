@@ -14,7 +14,7 @@ ActiveRecord models can be used to implement data cleaning and normalization pro
 
 ```python
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend
 
 # Define your model
@@ -52,7 +52,7 @@ Importing data from CSV, JSON, or other formats into your database:
 ```python
 import csv
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend
 
 class Product(ActiveRecord):
@@ -110,7 +110,7 @@ Generating reports or exporting data to various formats:
 import csv
 import json
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend
 
 class SalesRecord(ActiveRecord):
@@ -181,7 +181,7 @@ For robust command-line scripts, use proper argument parsing:
 
 ```python
 import argparse
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 def setup_argument_parser():
     parser = argparse.ArgumentParser(description='Process data with ActiveRecord')
@@ -219,7 +219,7 @@ Implement proper error handling and logging for production scripts:
 ```python
 import logging
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 # Configure logging
 logging.basicConfig(
@@ -255,7 +255,7 @@ For scripts that process large datasets, implement progress reporting:
 ```python
 import sys
 import time
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 class LargeDataset(ActiveRecord):
     # Model definition
@@ -290,7 +290,7 @@ For CPU-bound tasks, leverage parallel processing:
 
 ```python
 import multiprocessing
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 class DataItem(ActiveRecord):
     # Model definition
@@ -335,7 +335,7 @@ For scripts that need to run on a schedule, consider using tools like `cron` (Li
 ```python
 import schedule
 import time
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 def daily_data_cleanup():
     # ActiveRecord operations for daily cleanup

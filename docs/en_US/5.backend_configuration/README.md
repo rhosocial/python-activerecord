@@ -49,7 +49,7 @@ Connection configuration is managed through the `ConnectionConfig` class, which 
 You can select the appropriate backend for your database system when configuring your models:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 

@@ -10,7 +10,7 @@ For performance analysis of ActiveRecord applications, use standard Python profi
 ```python
 import cProfile
 import pstats
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 def performance_test():
     # Your ActiveRecord operations here
@@ -46,7 +46,7 @@ For simple timing measurements:
 
 ```python
 import time
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 def time_operation():
     start_time = time.time()

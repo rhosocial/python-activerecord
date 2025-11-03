@@ -11,7 +11,7 @@ rhosocial ActiveRecord利用Pydantic强大的验证系统提供全面的字段�
 最基本的验证形式来自Python的类型系统。通过为模型字段指定类型，您自动获得类型验证：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     id: int
@@ -34,7 +34,7 @@ class Product(ActiveRecord):
 
 ```python
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Product(ActiveRecord):
@@ -112,7 +112,7 @@ class Order(ActiveRecord):
 
 ```python
 from pydantic import validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     id: int
@@ -139,7 +139,7 @@ class User(ActiveRecord):
 
 ```python
 from pydantic import validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import Optional
 
 class Subscription(ActiveRecord):
@@ -160,7 +160,7 @@ class Subscription(ActiveRecord):
 
 ```python
 from pydantic import root_validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Order(ActiveRecord):
     id: int

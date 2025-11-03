@@ -48,7 +48,7 @@ ConnectionManager.configure('secondary', secondary_config)
 Once you have configured multiple connections, you can specify which connection each model should use:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __connection__ = 'primary'  # Use the primary database

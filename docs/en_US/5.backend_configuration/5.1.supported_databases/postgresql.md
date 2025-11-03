@@ -22,7 +22,7 @@ PostgreSQL is an advanced, enterprise-class open-source relational database that
 To use PostgreSQL with rhosocial ActiveRecord, you need to configure your model with the PostgreSQL backend:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLBackend
 

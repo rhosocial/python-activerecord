@@ -20,7 +20,7 @@ The model that represents the "one" side of the relationship uses the `HasMany` 
 
 ```python
 from typing import ClassVar, Optional, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import HasMany
 
@@ -65,7 +65,7 @@ The model that represents the "many" side of the relationship uses the `BelongsT
 
 ```python
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 from rhosocial.activerecord.relation import BelongsTo
 

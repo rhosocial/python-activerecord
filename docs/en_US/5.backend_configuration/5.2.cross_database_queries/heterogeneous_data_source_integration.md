@@ -20,7 +20,7 @@ Heterogeneous data source integration refers to the ability to work with multipl
 The most common approach to heterogeneous data source integration in rhosocial ActiveRecord is through model-based integration, where different models connect to different data sources:
 
 ```python
-from rhosocial.activerecord import ActiveRecord, ConnectionManager
+from rhosocial.activerecord.model import ActiveRecord, ConnectionManager
 
 # Configure connections to different database systems
 ConnectionManager.configure('mysql_conn', {

@@ -23,7 +23,7 @@ Oracle 数据库是一个企业级关系型数据库管理系统，以其可靠�
 要将 Oracle 与 rhosocial ActiveRecord 一起使用，您需要使用 Oracle 后端配置您的模型：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
 from rhosocial.activerecord.backend.impl.oracle import OracleBackend
 
@@ -87,7 +87,7 @@ rhosocial ActiveRecord 将 Python 数据类型映射到 Oracle 数据类型，�
 Oracle 使用模式（Schema）来组织数据库对象。在 Oracle 中，模式通常与用户名相同。rhosocial ActiveRecord 允许您指定模式：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk
 
 class Product(ActiveRecord):
@@ -103,7 +103,7 @@ class Product(ActiveRecord):
 Oracle 使用序列（Sequence）来实现自增主键。rhosocial ActiveRecord 自动处理序列的创建和使用：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):
@@ -210,7 +210,7 @@ balance = User.connection.execute_function(
 Oracle 12c 及更高版本提供了 JSON 支持，rhosocial ActiveRecord 允许您使用这些功能：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPk, Field
 
 class Product(ActiveRecord):

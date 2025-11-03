@@ -22,7 +22,7 @@ rhosocial ActiveRecord comes with several predefined mixins that provide common 
 Adds automatic timestamp management for created_at and updated_at fields:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin
 
 class Article(TimestampMixin, ActiveRecord):
@@ -37,7 +37,7 @@ class Article(TimestampMixin, ActiveRecord):
 Implements soft delete functionality, allowing records to be marked as deleted without actually removing them from the database:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import SoftDeleteMixin
 
 class Document(SoftDeleteMixin, ActiveRecord):
@@ -61,7 +61,7 @@ Document.query_only_deleted()  # Returns only deleted records
 Implements optimistic locking using version numbers to prevent concurrent updates:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import OptimisticLockMixin
 
 class Account(OptimisticLockMixin, ActiveRecord):
@@ -75,7 +75,7 @@ class Account(OptimisticLockMixin, ActiveRecord):
 Adds UUID primary key support with automatic UUID generation for new records:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import UUIDMixin
 
 class Order(UUIDMixin, ActiveRecord):
@@ -89,7 +89,7 @@ class Order(UUIDMixin, ActiveRecord):
 Provides integer primary key support with automatic handling of null values for new records:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 
 class Product(IntegerPKMixin, ActiveRecord):
@@ -105,7 +105,7 @@ You can create your own mixins to encapsulate reusable functionality:
 ### Basic Mixin Structure
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface import ModelEvent
 from typing import ClassVar, Optional
 

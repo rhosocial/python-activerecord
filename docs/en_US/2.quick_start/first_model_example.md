@@ -7,7 +7,7 @@ This guide walks you through creating your first ActiveRecord model and performi
 In rhosocial ActiveRecord, models are Python classes that inherit from `ActiveRecord` and define the structure of your database tables.
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from datetime import datetime
@@ -166,7 +166,7 @@ with User.transaction():
 Here's a complete example that demonstrates the full lifecycle of a model:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from datetime import datetime

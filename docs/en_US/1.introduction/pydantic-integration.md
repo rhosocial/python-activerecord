@@ -42,7 +42,7 @@ Here's how rhosocial ActiveRecord models integrate seamlessly with a FastAPI app
 
 ```python
 from fastapi import FastAPI
-from activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import List, Optional
 from pydantic import EmailStr
 

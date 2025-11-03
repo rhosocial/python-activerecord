@@ -42,7 +42,7 @@ rhosocial ActiveRecord 继承了 Pydantic 的强大验证能力：
 
 ```python
 from fastapi import FastAPI
-from activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from typing import List, Optional
 from pydantic import EmailStr
 

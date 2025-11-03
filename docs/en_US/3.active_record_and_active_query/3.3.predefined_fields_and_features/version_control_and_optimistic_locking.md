@@ -13,7 +13,7 @@ This approach is called "optimistic" because it assumes conflicts are rare and o
 To add optimistic locking to your model, include the `OptimisticLockMixin` in your class definition:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import OptimisticLockMixin
 
 class Account(OptimisticLockMixin, ActiveRecord):
@@ -129,7 +129,7 @@ CREATE TABLE accounts (
 The `OptimisticLockMixin` works well with other mixins like `TimestampMixin` and `SoftDeleteMixin`:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import TimestampMixin, OptimisticLockMixin, SoftDeleteMixin
 
 class Account(TimestampMixin, OptimisticLockMixin, SoftDeleteMixin, ActiveRecord):

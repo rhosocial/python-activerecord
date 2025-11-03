@@ -20,7 +20,7 @@
 rhosocial ActiveRecord中最常见的异构数据源集成方法是通过基于模型的集成，其中不同的模型连接到不同的数据源：
 
 ```python
-from rhosocial.activerecord import ActiveRecord, ConnectionManager
+from rhosocial.activerecord.model import ActiveRecord, ConnectionManager
 
 # 配置连接到不同的数据库系统
 ConnectionManager.configure('mysql_conn', {

@@ -24,7 +24,7 @@ rhosocial ActiveRecord可以在所有三个阶段有效使用，特别是当数�
 
 ```python
 import sys
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import SQLiteBackend, MySQLBackend
 
 # 源模型（提取）
@@ -125,7 +125,7 @@ if __name__ == '__main__':
 import datetime
 import json
 import os
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 from rhosocial.activerecord.backend import PostgreSQLBackend, MySQLBackend
 
 # 源模型
@@ -244,7 +244,7 @@ if __name__ == '__main__':
 作为转换阶段的一部分实现数据验证和清洗：
 
 ```python
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 class DataValidator:
     @staticmethod
@@ -307,7 +307,7 @@ def log_validation_error(customer_id, error_message):
 ```python
 import multiprocessing
 import time
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 # 如前所述设置模型和连接
 
@@ -395,7 +395,7 @@ if __name__ == '__main__':
 import logging
 import time
 from datetime import datetime
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 # 配置日志
 logging.basicConfig(
@@ -490,7 +490,7 @@ if __name__ == '__main__':
 ```python
 import time
 import logging
-from rhosocial.activerecord import ActiveRecord, Field
+from rhosocial.activerecord.model import ActiveRecord, Field
 
 logger = logging.getLogger("etl_workflow")
 

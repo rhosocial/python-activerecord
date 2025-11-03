@@ -25,7 +25,7 @@ This pattern can lead to performance issues as the number of records increases.
 rhosocial ActiveRecord provides built-in caching for model relationships:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany, CacheConfig
 
 class User(ActiveRecord):

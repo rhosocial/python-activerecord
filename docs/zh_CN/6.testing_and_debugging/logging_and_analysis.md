@@ -31,7 +31,7 @@ logging.getLogger('rhosocial.activerecord').setLevel(logging.DEBUG)
 
 ```python
 import logging
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 logger = logging.getLogger('rhosocial.activerecord')
 

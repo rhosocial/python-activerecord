@@ -52,7 +52,7 @@ user.save()  # Updates database and refreshes cache
 You can configure model caching at the class level:
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.cache import ModelCacheConfig
 
 class User(ActiveRecord):

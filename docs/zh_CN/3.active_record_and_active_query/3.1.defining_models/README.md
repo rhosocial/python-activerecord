@@ -20,7 +20,7 @@
 以下是一个简单的模型定义示例：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from datetime import datetime
 from typing import Optional
 

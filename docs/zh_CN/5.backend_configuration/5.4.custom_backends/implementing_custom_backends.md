@@ -378,7 +378,7 @@ class TestYourBackend(unittest.TestCase):
 一旦实现，您的后端可以像任何其他ActiveRecord后端一样使用：
 
 ```python
-from rhosocial.activerecord import ActiveRecord, configure
+from rhosocial.activerecord.model import ActiveRecord, configure
 
 # 配置ActiveRecord使用您的后端
 configure(backend='your_backend_name', host='localhost', database='your_db')

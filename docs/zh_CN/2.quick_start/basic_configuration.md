@@ -11,7 +11,7 @@ rhosocial ActiveRecord使用连接配置对象来建立数据库连接。对于S
 ```python
 from rhosocial.activerecord.backend.typing import ConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 # 配置基于文件的SQLite数据库
 config = ConnectionConfig(database='database.sqlite3')

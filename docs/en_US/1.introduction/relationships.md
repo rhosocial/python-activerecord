@@ -13,9 +13,7 @@ rhosocial ActiveRecord supports three primary relationship types:
 The `BelongsTo` relationship indicates that the current model contains a foreign key referencing another model:
 
 ```python
-from activerecord import ActiveRecord
-from activerecord.relations import BelongsTo
-from typing import Optional, ClassVar
+from rhosocial.activerecord.model import ActiveRecord
 
 class Comment(ActiveRecord):
     __table_name__ = 'comments'

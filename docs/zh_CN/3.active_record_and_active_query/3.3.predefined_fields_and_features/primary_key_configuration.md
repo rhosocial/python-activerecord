@@ -7,7 +7,7 @@
 默认情况下，ActiveRecord假定您的模型有一个名为`id`的主键字段。这会自动为您处理，除非您想自定义其行为，否则不需要显式定义它。
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __tablename__ = 'products'
@@ -22,7 +22,7 @@ class Product(ActiveRecord):
 如果您的表为主键使用不同的列名，您可以使用`__primary_key__`类属性指定它：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class Product(ActiveRecord):
     __tablename__ = 'products'
@@ -38,7 +38,7 @@ class Product(ActiveRecord):
 对于具有整数主键的表，rhosocial ActiveRecord提供了`IntegerPKMixin`来简化处理：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import IntegerPKMixin
 
 class Product(IntegerPKMixin, ActiveRecord):
@@ -55,7 +55,7 @@ class Product(IntegerPKMixin, ActiveRecord):
 对于需要全局唯一标识符的应用程序，rhosocial ActiveRecord提供了`UUIDMixin`用于基于UUID的主键：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.field import UUIDMixin
 
 class Product(UUIDMixin, ActiveRecord):
@@ -72,7 +72,7 @@ class Product(UUIDMixin, ActiveRecord):
 虽然不直接通过混入支持，但您可以通过重写`primary_key()`方法并在模型中自定义查询条件来实现复合主键：
 
 ```python
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class OrderItem(ActiveRecord):
     __tablename__ = 'order_items'

@@ -229,7 +229,7 @@ class SecureModel(ActiveRecord):
 这是一个结合多种方法的更完整示例：
 
 ```python
-from rhosocial.activerecord import ActiveRecord, ActiveQuery
+from rhosocial.activerecord.model import ActiveRecord, ActiveQuery
 from rhosocial.activerecord.backend import Connection
 import os
 
