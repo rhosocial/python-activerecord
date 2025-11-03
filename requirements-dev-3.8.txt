@@ -3,11 +3,17 @@
 # Core framework for running test suites and fixtures
 # Version ~=8.3.5 provides stable testing capabilities
 pytest~=8.3.5
+pytest-asyncio
+
+# Async support for tests
+aiosqlite>=0.19.0
+aiofiles>=23.0.0
 
 # Parallel test execution plugin for pytest
 # Enables faster test execution through parallel processing
 # No version constraint for Python 3.8 compatibility
 pytest-xdist
+pytest-timeout
 
 # Pytest plugin for re-running failed tests
 # Helps handle flaky tests by automatically retrying failures

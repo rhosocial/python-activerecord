@@ -1,24 +1,22 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/backend.py
+from sqlite3 import ProgrammingError
+
 import logging
 import re
 import sqlite3
 import sys
 import time
-from sqlite3 import ProgrammingError
 from typing import Optional, Tuple, List, Any, Dict, Union
 
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter, SQLiteUUIDConverter, SQLiteNumericConverter
+from ...base import StorageBackend, ColumnTypes
 from ...capabilities import (
-    DatabaseCapabilities, 
-    CapabilityCategory,
-    SetOperationCapability,
-    WindowFunctionCapability,
+    DatabaseCapabilities,
     CTECapability,
     JSONCapability,
-    ReturningCapability,
     TransactionCapability,
     BulkOperationCapability,
     JoinCapability,
@@ -29,11 +27,8 @@ from ...capabilities import (
     MathematicalFunctionCapability,
     ALL_SET_OPERATIONS,
     ALL_WINDOW_FUNCTIONS,
-    ALL_CTE_FEATURES,
-    ALL_JSON_OPERATIONS,
     ALL_RETURNING_FEATURES
 )
-from ...base import StorageBackend, ColumnTypes
 from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
