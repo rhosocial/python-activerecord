@@ -75,8 +75,8 @@ for i in range(0, len(large_dataset), chunk_size):
 ```python
 # 将所有状态为'inactive'的用户更新为'archived'
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
-    .update({"status": "archived"})
+.where("status = ?", ('inactive',)) \
+.batch_update(active=False)
 
 print(f"已更新{affected_rows}条记录")
 ```
@@ -104,7 +104,7 @@ affected_rows = User.query()\
 from rhosocial.activerecord.query.expression import Expression
 
 User.query()\
-    .where({"status": "active"})\
+    .where("status = ?", ('active',))
     .update({"login_count": Expression("login_count + 1")})
 ```
 
@@ -117,7 +117,7 @@ User.query()\
 ```python
 # 删除所有状态为'temporary'的用户
 affected_rows = User.query()\
-    .where({"status": "temporary"})\
+    .where("status = ?", ('temporary',))
     .delete()
 
 print(f"已删除{affected_rows}条记录")
@@ -132,7 +132,7 @@ print(f"已删除{affected_rows}条记录")
 old_date = datetime.now() - timedelta(days=365)
 
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',))\
     .where("created_at < ?", old_date)\
     .delete()
 ```
@@ -144,12 +144,12 @@ affected_rows = User.query()\
 ```python
 # 将所有不活跃用户标记为已删除
 User.query()\
-    .where({"status": "inactive"})\
-    .delete()  # 记录被软删除
+.where("status = ?", ('inactive',)) \
+.batch_update(is_archived=True)  # 记录被软删除
 
 # 即使使用SoftDeleteMixin也强制实际删除
 User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',)) \
     .hard_delete()  # 记录被永久移除
 ```
 
@@ -168,7 +168,7 @@ with Transaction():
     User.query().where("created_at < ?", old_date).delete()
     
     # 更新现有记录
-    User.query().where({"status": "trial"}).update({"status": "active"})
+    User.query().where("status = ?", ('trial',)).update({"status": "active"})
     
     # 插入新记录
     User.batch_insert(new_users)

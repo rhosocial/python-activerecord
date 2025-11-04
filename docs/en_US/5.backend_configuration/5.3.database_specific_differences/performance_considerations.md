@@ -303,7 +303,7 @@ rhosocial ActiveRecord provides a unified interface for obtaining query executio
 
 ```python
 # Get execution plan for a query
-query = User.where(status='active').order_by('created_at')
+query = User.where("status = ?", ('active',)).order_by('created_at')
 plan = query.explain()
 print(plan)
 ```

@@ -197,7 +197,7 @@ if user:
 ```python
 # 删除所有不活跃用户
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',))
     .delete()
 
 print(f"已删除{affected_rows}条记录")

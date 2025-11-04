@@ -133,13 +133,13 @@ Each relationship provides direct access to a pre-configured query builder:
 
 ```python
 # Get active orders for a user
-active_orders = user.orders.where(status='active').all()
+active_orders = user.orders.where("status = ?", ('active',)).all()
 
 # Get the count of user's orders
 order_count = user.orders.count()
 
 # Using the automatically generated query method
-active_orders = user.orders_query().where(status='active').all()
+active_orders = user.orders_query().where("status = ?", ('active',)).all()
 ```
 
 ### Relationship Cache Management
@@ -277,7 +277,7 @@ users = User.with_relation('posts').all()
 users = User.with_relation(['posts', 'posts.comments']).all()
 
 # Apply conditions to eager loaded relationships
-users = User.with_relation('posts', lambda q: q.where(status='published')).all()
+users = User.with_relation('posts', lambda q: q.where("status = ?", ('published',))).all()
 ```
 
 ## Summary

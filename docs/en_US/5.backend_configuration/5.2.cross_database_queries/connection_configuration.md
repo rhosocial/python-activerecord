@@ -288,7 +288,7 @@ class User(ActiveRecord):
     def find_active(cls):
         # Use read connection for this query
         with cls.using_connection('primary_read'):
-            return cls.where(status='active').all()
+            return cls.where("status = ?", ('active',)).all()
 ```
 
 ## Troubleshooting Connection Issues

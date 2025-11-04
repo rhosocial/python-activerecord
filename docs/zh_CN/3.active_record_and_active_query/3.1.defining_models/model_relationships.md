@@ -284,7 +284,7 @@ users = User.with_relation('posts').all()
 users = User.with_relation(['posts', 'posts.comments']).all()
 
 # 对预加载的关系应用条件
-users = User.with_relation('posts', lambda q: q.where(status='published')).all()
+users = User.with_relation('posts', lambda q: q.where("status = ?", ('published',))).all()
 ```
 
 ## 总结

@@ -174,7 +174,7 @@ class Post(ActiveRecord):
     def delete_comments(self, event):
         """删除与此帖子关联的所有评论。"""
         from .comment import Comment  # 在这里导入以避免循环导入
-        Comment.query().where(post_id=self.id).delete_all()
+        Comment.query().where("post_id = ?", (self.id,)).delete_all()
 ```
 
 ### 数据加密

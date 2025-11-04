@@ -55,7 +55,7 @@ from pydantic import BaseModel, Field
 # This project is a standalone implementation
 
 # Local application imports
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import StorageBackend
 
 # Relative imports (within same package)
@@ -100,9 +100,10 @@ result = (
 T = TypeVar('T')
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
-# Query-related names (use __ for operators)
-User.where(age__gte=18)  # age >= 18
-User.where(name__contains="john")  # name LIKE '%john%'
+# Query-related names
+# Use placeholder expressions for where clauses
+User.where("age >= ?", (18,)) # age >= 18
+User.where("name LIKE ?", ('%john%',))  # name LIKE '%john%'
 
 # Class attributes
 class User(ActiveRecord):

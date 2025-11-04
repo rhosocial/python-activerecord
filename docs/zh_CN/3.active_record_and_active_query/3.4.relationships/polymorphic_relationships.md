@@ -175,15 +175,15 @@ class Tag(IntegerPKMixin, ActiveRecord):
     
     # 获取特定类型的所有可标记对象的辅助方法
     def taggables(self, taggable_type):
-        taggings = self.taggings().where(taggable_type=taggable_type).all()
+        taggings = self.taggings().where("taggable_type = ?", (taggable_type,)).all()
         taggable_ids = [tagging.taggable_id for tagging in taggings]
         
         if taggable_type == 'Product':
             from .product import Product
-            return Product.find_all().where(id__in=taggable_ids).all()
+            return Product.find_all().where("id IN ({})".format(",".join(["?"] * len(taggable_ids))), tuple(taggable_ids)).all()
         elif taggable_type == 'Article':
             from .article import Article
-            return Article.find_all().where(id__in=taggable_ids).all()
+            return Article.find_all().where("id IN ({})".format(",".join(["?"] * len(taggable_ids))), tuple(taggable_ids)).all()
         
         return []
 
@@ -226,12 +226,7 @@ class Product(IntegerPKMixin, ActiveRecord):
         inverse_of='taggable'
     )
     
-    # 获取此产品的所有标签的辅助方法
-    def tags(self):
-        from .tag import Tag
-        taggings = self.taggings()
-        tag_ids = [tagging.tag_id for tagging in taggings]
-        return Tag.find_all().where(id__in=tag_ids).all()
+return Tag.find_all().where("id IN ({})".format(",".join(["?"] * len(tag_ids))), tuple(tag_ids)).all()
 
 class Article(IntegerPKMixin, ActiveRecord):
     __table_name__ = "articles"
@@ -253,7 +248,7 @@ class Article(IntegerPKMixin, ActiveRecord):
         from .tag import Tag
         taggings = self.taggings()
         tag_ids = [tagging.tag_id for tagging in taggings]
-        return Tag.find_all().where(id__in=tag_ids).all()
+        return Tag.find_all().where("id IN ({})".format(",".join(["?"] * len(tag_ids))), tuple(tag_ids)).all()
 ```
 
 ## 最佳实践

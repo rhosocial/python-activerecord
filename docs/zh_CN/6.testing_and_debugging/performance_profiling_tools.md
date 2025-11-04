@@ -121,7 +121,7 @@ stats.reset()
 from rhosocial.activerecord import raw_sql
 
 # 获取查询的执行计划
-query = User.where(status='active').order_by('created_at').limit(10).to_sql()
+query = User.where("status = ?", ('active',)).order_by('created_at').limit(10).to_sql()
 explain_result = raw_sql(f"EXPLAIN {query}")
 
 # 分析结果
@@ -206,10 +206,10 @@ from line_profiler import profile
 
 @profile
 def complex_query_function():
-    users = User.where(status='active')
+    users = User.where("status = ?", ('active',))
     result = []
     for user in users:
-        posts = user.posts.where(published=True).order_by('-created_at')
+        posts = user.posts.where("published = ?", (True,)).order_by('-created_at')
         result.append((user, posts[:5]))
     return result
 

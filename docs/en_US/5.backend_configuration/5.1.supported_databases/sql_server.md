@@ -161,7 +161,7 @@ SQL Server 2016 and later versions support JSON functions. rhosocial ActiveRecor
 
 ```python
 # Query with JSON conditions (SQL Server 2016+)
-users = User.where(User.profile.json_value('$.preferences.theme').eq('dark')).all()
+users = User.where("JSON_VALUE(profile, '$.preferences.theme') = ?", ('dark',)).all()
 
 # Update JSON field
 user = User.find(1)

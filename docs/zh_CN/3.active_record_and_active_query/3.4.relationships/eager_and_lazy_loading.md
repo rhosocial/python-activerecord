@@ -158,7 +158,7 @@ for author in authors:
 
 ```python
 # 只预加载已出版的书籍
-authors = Author.find_all().with_("books", lambda q: q.where(published=True)).all()
+authors = Author.find_all().with_("books", lambda q: q.where("published = ?", (True,))).all()
 
 # 现在您可以访问只有已出版的书籍而无需额外查询
 for author in authors:
@@ -222,7 +222,7 @@ authors = Author.find_all().all()
 author_ids = [author.id for author in authors]
 
 # 在单个查询中预加载这些作者的所有书籍
-all_books = Book.find_all().where(author_id__in=author_ids).all()
+all_books = Book.find_all().where("author_id IN ({})".format(",".join(["?"] * len(author_ids))), tuple(author_ids)).all()
 
 # 按作者ID分组书籍
 books_by_author = {}
@@ -352,7 +352,7 @@ class Book(IntegerPKMixin, ActiveRecord):
     @classmethod
     def recent(cls, query=None):
         query = query or cls.find_all()
-        return query.where(published_at__gte=datetime.now() - timedelta(days=30))
+        return query.where("published_at >= ?", (datetime.now() - timedelta(days=30),))
 
 # 将范围与预加载一起使用
 authors = Author.find_all().with_("books", Book.recent).all()

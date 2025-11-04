@@ -327,7 +327,7 @@ class ShoppingCart(ActiveRecord):
     def items(self):
         """Get cart items."""
         from .cart_item import CartItem
-        return CartItem.query().where(cart_id=self.id).all()
+        return CartItem.query().where("cart_id = ?", (self.id,)).all()
     
     @property
     def total(self) -> float:
@@ -340,9 +340,7 @@ class ShoppingCart(ActiveRecord):
         from .product import Product
         
         # Check if product already in cart
-        existing_item = CartItem.query().where(
-            cart_id=self.id, product_id=product_id
-        ).first()
+        existing_item = CartItem.query().where("cart_id = ? AND product_id = ?", (self.id, product_id,)).first()
         
         if existing_item:
             # Update quantity

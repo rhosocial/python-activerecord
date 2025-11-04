@@ -1,4 +1,10 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite_async/async_backend.py
+#
+# IMPORTANT:
+# This async backend implementation is for validating the feasibility of the async backend abstraction.
+# It is strongly recommended NOT to use this async backend implementation in a production environment.
+#
+
 """
 Async SQLite Backend Implementation for Testing
 
