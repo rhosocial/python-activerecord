@@ -83,7 +83,7 @@ rhosocial ActiveRecord抽象了许多特定于数据库的差异，允许您编�
 
 ```python
 # 无论User是在SQLite、MySQL还是PostgreSQL中，此查询都将有效
-active_users = User.where(status='active').order_by('created_at').limit(10).all()
+active_users = User.where("status = ?", ('active',)).order_by('created_at').limit(10).all()
 ```
 
 然而，当使用特定于数据库的功能时，您可能需要检查数据库类型：
@@ -97,7 +97,7 @@ if conn.dialect.name == 'postgresql':
     result = User.raw_query("SELECT * FROM users WHERE data @> '{"premium": true}'")
 else:
     # 为其他数据库使用更通用的方法
-    result = User.where(premium=True).all()
+    result = User.where("premium = ?", (True,)).all()
 ```
 
 ### 处理不同的模式结构
@@ -117,12 +117,12 @@ class ModernUser(ActiveRecord):
 class UnifiedUserService:
     def get_user_by_email(self, email):
         # 首先尝试现代数据库
-        user = ModernUser.where(email=email).first()
+        user = ModernUser.where("email = ?", (email,)).first()
         if user:
             return self._convert_to_unified_format(user, 'modern')
         
         # 回退到旧版数据库
-        legacy_user = LegacyUser.where(email_address=email).first()
+        legacy_user = LegacyUser.where("email_address = ?", (email,)).first()
         if legacy_user:
             return self._convert_to_unified_format(legacy_user, 'legacy')
         
@@ -186,7 +186,7 @@ class User(ActiveRecord):
     def after_destroy(self):
         # 删除时从分析数据库中移除
         with AnalyticsUserData.using_connection('analytics'):
-            AnalyticsUserData.where(user_id=self.id).delete()
+            AnalyticsUserData.where("user_id = ?", (self.id,)).delete()
     
     def _sync_to_analytics(self):
         with AnalyticsUserData.using_connection('analytics'):
@@ -243,7 +243,7 @@ def process_user_events():
         
         elif event_data['event'] == 'user_deleted':
             with AnalyticsUserData.using_connection('analytics'):
-                AnalyticsUserData.where(user_id=event_data['user_id']).delete()
+                AnalyticsUserData.where("user_id = ?", (event_data['user_id'],)).delete()
 ```
 
 ## 跨数据库事务处理
@@ -269,7 +269,7 @@ def transfer_user_data(user_id, from_db='legacy', to_db='modern'):
         
         # 从源数据库获取用户数据
         with from_tx:
-            user_data = LegacyUser.where(id=user_id).first()
+            user_data = LegacyUser.where("id = ?", (user_id,)).first()
             if not user_data:
                 raise ValueError(f"在{from_db}数据库中未找到用户{user_id}")
             
@@ -357,7 +357,7 @@ def create_user_with_analytics(user_data):
         logger.error(f"为用户{user_id}创建分析失败：{str(e)}")
         try:
             with Transaction(get_connection('primary')):
-                User.where(id=user_id).delete()
+                User.where("id = ?", (user_id,)).delete()
             logger.info(f"补偿事务：已删除用户{user_id}")
         except Exception as comp_error:
             logger.critical(f"补偿事务失败：{str(comp_error)}")
@@ -395,7 +395,7 @@ def register_user(user_data):
 # 在后台进程/工作者中
 def process_pending_analytics_tasks():
     with Transaction(get_connection('primary')):
-        tasks = PendingTask.where(task_type='create_user_analytics', status='pending').limit(100).all()
+        tasks = PendingTask.where("task_type = ? AND status = ?", ('create_user_analytics', 'pending',)).limit(100).all()
     
     for task in tasks:
         try:

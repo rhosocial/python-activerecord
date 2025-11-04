@@ -73,7 +73,7 @@ Batch updates allow you to update multiple records with a single query.
 ```python
 # Update all users with status 'inactive' to 'archived'
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',))\
     .update({"status": "archived"})
 
 print(f"Updated {affected_rows} records")
@@ -102,7 +102,7 @@ You can use expressions to update values based on existing values:
 from rhosocial.activerecord.query.expression import Expression
 
 User.query()\
-    .where({"status": "active"})\
+    .where("status = ?", ('active',))\
     .update({"login_count": Expression("login_count + 1")})
 ```
 
@@ -115,7 +115,7 @@ Batch deletes allow you to remove multiple records with a single query.
 ```python
 # Delete all users with status 'temporary'
 affected_rows = User.query()\
-    .where({"status": "temporary"})\
+    .where("status = ?", ('temporary',))\
     .delete()
 
 print(f"Deleted {affected_rows} records")
@@ -130,7 +130,7 @@ You can use complex conditions for batch deletes:
 old_date = datetime.now() - timedelta(days=365)
 
 affected_rows = User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',))\
     .where("created_at < ?", old_date)\
     .delete()
 ```
@@ -142,12 +142,12 @@ If your model uses `SoftDeleteMixin`, batch deletes will mark records as deleted
 ```python
 # Mark all inactive users as deleted
 User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',))\
     .delete()  # Records are soft-deleted
 
 # Force actual deletion even with SoftDeleteMixin
 User.query()\
-    .where({"status": "inactive"})\
+    .where("status = ?", ('inactive',))\
     .hard_delete()  # Records are permanently removed
 ```
 
@@ -166,7 +166,7 @@ with Transaction():
     User.query().where("created_at < ?", old_date).delete()
     
     # Update existing records
-    User.query().where({"status": "trial"}).update({"status": "active"})
+    User.query().where("status = ?", ('trial',)).update({"status": "active"})
     
     # Insert new records
     User.batch_insert(new_users)

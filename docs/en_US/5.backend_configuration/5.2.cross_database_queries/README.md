@@ -83,7 +83,7 @@ rhosocial ActiveRecord abstracts away many database-specific differences, allowi
 
 ```python
 # This query will work regardless of whether User is in SQLite, MySQL, or PostgreSQL
-active_users = User.where(status='active').order_by('created_at').limit(10).all()
+active_users = User.where("status = ?", ('active',)).order_by('created_at').limit(10).all()
 ```
 
 However, when using database-specific features, you may need to check the database type:
@@ -97,7 +97,7 @@ if conn.dialect.name == 'postgresql':
     result = User.raw_query("SELECT * FROM users WHERE data @> '{"premium": true}'")
 else:
     # Use a more generic approach for other databases
-    result = User.where(premium=True).all()
+    result = User.where("premium = ?", (True,)).all()
 ```
 
 ### Working with Different Schema Structures
@@ -117,12 +117,12 @@ class ModernUser(ActiveRecord):
 class UnifiedUserService:
     def get_user_by_email(self, email):
         # Try modern database first
-        user = ModernUser.where(email=email).first()
+        user = ModernUser.where("email = ?", (email,)).first()
         if user:
             return self._convert_to_unified_format(user, 'modern')
         
         # Fall back to legacy database
-        legacy_user = LegacyUser.where(email_address=email).first()
+        legacy_user = LegacyUser.where("email_address = ?", (email,)).first()
         if legacy_user:
             return self._convert_to_unified_format(legacy_user, 'legacy')
         
@@ -186,7 +186,7 @@ class User(ActiveRecord):
     def after_destroy(self):
         # Remove from analytics database when deleted
         with AnalyticsUserData.using_connection('analytics'):
-            AnalyticsUserData.where(user_id=self.id).delete()
+            AnalyticsUserData.where("user_id = ?", (self.id,)).delete()
     
     def _sync_to_analytics(self):
         with AnalyticsUserData.using_connection('analytics'):
@@ -243,7 +243,7 @@ def process_user_events():
         
         elif event_data['event'] == 'user_deleted':
             with AnalyticsUserData.using_connection('analytics'):
-                AnalyticsUserData.where(user_id=event_data['user_id']).delete()
+                AnalyticsUserData.where("user_id = ?", (event_data['user_id'],)).delete()
 ```
 
 ## Cross-database Transaction Handling
@@ -271,7 +271,7 @@ def transfer_user_data(user_id, from_db='legacy', to_db='modern'):
         
         # Get user data from source database
         with from_tx:
-            user_data = LegacyUser.where(id=user_id).first()
+            user_data = LegacyUser.where("id = ?", (user_id,)).first()
             if not user_data:
                 raise ValueError(f"User {user_id} not found in {from_db} database")
             
@@ -359,7 +359,7 @@ def create_user_with_analytics(user_data):
         logger.error(f"Failed to create analytics for user {user_id}: {str(e)}")
         try:
             with Transaction(get_connection('primary')):
-                User.where(id=user_id).delete()
+                User.where("id = ?", (user_id,)).delete()
             logger.info(f"Compensating transaction: deleted user {user_id}")
         except Exception as comp_error:
             logger.critical(f"Compensating transaction failed: {str(comp_error)}")
@@ -397,7 +397,7 @@ def register_user(user_data):
 # In a background process/worker
 def process_pending_analytics_tasks():
     with Transaction(get_connection('primary')):
-        tasks = PendingTask.where(task_type='create_user_analytics', status='pending').limit(100).all()
+        tasks = PendingTask.where("task_type = ? AND status = ?", ('create_user_analytics', 'pending',)).limit(100).all()
     
     for task in tasks:
         try:

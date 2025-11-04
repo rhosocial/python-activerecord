@@ -227,7 +227,7 @@ class QueryBuilder:
         pass
 
 # Usage
-users = User.where(age__gte=18).order_by("-created_at").limit(10)
+users = User.where("age >= ?", (18,)).order_by("-created_at").limit(10)
 ```
 
 ### 5. Registry Pattern
@@ -353,7 +353,7 @@ User.configure(config, SQLiteBackend)
 ### Query Execution Flow
 
 ```
-User.where(name="John")
+User.where("name = ?", ("John",))
     ↓
 QueryBuilder.where()
     ↓
@@ -458,7 +458,7 @@ class User(ActiveRecord):
 class UserQueryMixin:
     @classmethod
     def find_by_email(cls, email: str):
-        return cls.where(email=email).first()
+        return cls.where("email = ?", (email,)).first()
     
     @classmethod
     def active_users(cls):

@@ -339,7 +339,7 @@ def up(self):
     self.add_index("posts", "user_id")  # 加速User.posts关系
     
     # 为多个条件创建复合索引
-    self.add_index("posts", ["user_id", "published"])  # 加速User.posts.where(published=True)
+    self.add_index("posts", ["user_id", "published"]) # 加速User.posts.where("published = ?", (True,))
 ```
 
 调试关系性能问题时：

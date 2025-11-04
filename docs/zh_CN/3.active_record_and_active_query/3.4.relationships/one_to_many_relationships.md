@@ -146,13 +146,13 @@ new_post.save()
 user = User.query().where('username = ?', ("example_user",)).one()
 
 # 查询用户的特定帖子
-recent_posts = user.posts().where(created_at__gt=datetime.now() - timedelta(days=7)).all()
+recent_posts = user.posts().where("created_at > ?", (datetime.now() - timedelta(days=7),)).all()
 
 # 计算用户的帖子数量
 post_count = user.posts().count()
 
 # 查找包含特定关键字的帖子
-keyword_posts = user.posts().where(content__contains="Python").all()
+keyword_posts = user.posts().where("content LIKE ?", ('%Python%',)).all()
 ```
 
 ### 预加载关联记录

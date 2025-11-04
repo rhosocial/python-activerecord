@@ -288,7 +288,7 @@ class User(ActiveRecord):
     def find_active(cls):
         # 为此查询使用读连接
         with cls.using_connection('primary_read'):
-            return cls.where(status='active').all()
+            return cls.where("status = ?", ('active',)).all()
 ```
 
 ## 连接问题故障排除

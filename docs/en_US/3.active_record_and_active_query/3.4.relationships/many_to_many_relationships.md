@@ -49,7 +49,7 @@ class Student(IntegerPKMixin, ActiveRecord):
         from .course import Course  # Import here to avoid circular imports
         enrollments = self.enrollments()
         course_ids = [enrollment.course_id for enrollment in enrollments]
-        return Course.find_all().where(id__in=course_ids).all()
+        return Course.find_all().where("id IN ({})".format(",".join(["?"] * len(course_ids))), tuple(course_ids)).all()
 
 class Course(IntegerPKMixin, ActiveRecord):
     __table_name__ = "courses"
@@ -69,7 +69,7 @@ class Course(IntegerPKMixin, ActiveRecord):
         from .student import Student  # Import here to avoid circular imports
         enrollments = self.enrollments()
         student_ids = [enrollment.student_id for enrollment in enrollments]
-        return Student.find_all().where(id__in=student_ids).all()
+        return Student.find_all().where("id IN ({})".format(",".join(["?"] * len(student_ids))), tuple(student_ids)).all()
 
 class Enrollment(IntegerPKMixin, ActiveRecord):
     __table_name__ = "enrollments"
@@ -161,7 +161,7 @@ students = Student.find_all().with_("enrollments").all()
 for student in students:
     enrollments = student.enrollments()
     course_ids = [enrollment.course_id for enrollment in enrollments]
-    courses = Course.find_all().where(id__in=course_ids).all()
+    courses = Course.find_all().where("id IN ({})".format(",".join(["?"] * len(course_ids))), tuple(course_ids)).all()
     print(f"Student: {student.name}")
     for course in courses:
         print(f"  Course: {course.title}")
@@ -183,9 +183,7 @@ enrollment = Enrollment(
 enrollment.save()
 
 # Query based on the additional data
-honor_students = Enrollment.find_all().where(
-    grade__in=["A", "A+"]
-).all()
+honor_students = Enrollment.find_all().where("grade >= ?", (90,)).all()
 
 for enrollment in honor_students:
     student = enrollment.student()

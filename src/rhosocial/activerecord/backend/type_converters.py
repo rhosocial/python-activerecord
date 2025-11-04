@@ -176,31 +176,25 @@ class TypeRegistry:
         self._cache.clear()
 
     def find_converter(self, value: Any, target_type: Any = None) -> Optional[TypeConverter]:
-        print(f"DEBUG: TypeRegistry.find_converter - value: {value} (type: {type(value)}), target_type: {target_type}")
         # Check cache first
         cache_key = (type(value), target_type)
         if cache_key in self._cache:
-            print(f"DEBUG:   -> Found in cache: {self._cache[cache_key].__class__.__name__ if self._cache[cache_key] else 'None'}")
             return self._cache[cache_key]
 
         # Check type-specific converter first
         if target_type is not None and target_type in self._type_to_converter:
             converter = self._type_to_converter[target_type]
-            print(f"DEBUG:   -> Checking type-specific converter: {converter.__class__.__name__}")
             if converter.can_handle(value, target_type):
                 self._cache[cache_key] = converter
                 return converter
 
         # Check all registered converters
         for converter in self._converters:
-            print(f"DEBUG:   -> Checking registered converter: {converter.__class__.__name__}")
             if converter.can_handle(value, target_type):
                 self._cache[cache_key] = converter
-                print(f"DEBUG:   -> Found suitable converter: {converter.__class__.__name__}")
                 return converter
 
         # No suitable converter found
-        print(f"DEBUG:   -> No suitable converter found for {type(value)}")
         self._cache[cache_key] = None
         return None
 

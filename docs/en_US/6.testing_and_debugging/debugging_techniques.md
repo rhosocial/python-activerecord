@@ -339,7 +339,7 @@ def up(self):
     self.add_index("posts", "user_id")  # Speeds up User.posts relationship
     
     # Create composite indexes for multiple conditions
-    self.add_index("posts", ["user_id", "published"])  # Speeds up User.posts.where(published=True)
+    self.add_index("posts", ["user_id", "published"]) # Speeds up User.posts.where("published = ?", (True,))
 ```
 
 When debugging relationship performance issues:

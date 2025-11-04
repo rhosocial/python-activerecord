@@ -174,7 +174,7 @@ class Post(ActiveRecord):
     def delete_comments(self, event):
         """Delete all comments associated with this post."""
         from .comment import Comment  # Import here to avoid circular imports
-        Comment.query().where(post_id=self.id).delete_all()
+        Comment.query().where("post_id = ?", (self.id,)).delete_all()
 ```
 
 ### Data Encryption

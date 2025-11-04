@@ -144,7 +144,7 @@ PostgreSQL offers robust support for JSON data through its JSON and JSONB data t
 
 ```python
 # Query with JSON conditions
-users = User.where(User.profile['preferences']['theme'].eq('dark')).all()
+users = User.where("profile->>'preferences.theme' = ?", ('dark',)).all()
 
 # Update JSON field
 user = User.find(1)

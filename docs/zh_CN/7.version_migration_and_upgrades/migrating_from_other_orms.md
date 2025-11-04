@@ -159,13 +159,13 @@ user.save()
 user = User.find_one(1)
 
 # 按条件查找用户
-user = User.find().where(User.username == 'johndoe').one()
+user = User.find().where("username = ?", ('johndoe',)).one()
 
 # 查找用户的所有帖子
-posts = Post.find().where(Post.user_id == user.id).all()
+posts = Post.find().where("user_id = ?", (user.id,)).all()
 
 # 预加载关系
-user_with_posts = User.find().with_('posts').where(User.id == 1).one()
+user_with_posts = User.find().with_('posts').where("id = ?", (1,)).one()
 
 # 更新用户
 user.email = 'newemail@example.com'
@@ -313,14 +313,14 @@ product.save()
 all_products = Product.find().all()
 
 # 过滤产品
-active_products = Product.find().where(Product.is_active == True).all()
+active_products = Product.find().where("is_active = ?", (True,)).all()
 
 # 复杂过滤
 expensive_electronics = Product.find()\
     .join(Category, Product.category_id == Category.id)\
-    .where(Category.name == 'Electronics')\
-    .where(Product.price > 500)\
-    .where(Product.is_active == True)\
+    .where("name = ?", ('Electronics',))\
+    .where("price > ?", (500,))\
+    .where("is_active = ?", (True,))\
     .all()
 
 # 排序
@@ -420,13 +420,13 @@ person = Person.create(name='John', birthday=date(1990, 1, 1), is_relative=True)
 pet = Pet.create(owner=person, name='Fido', animal_type='dog')
 
 # 获取属于某人的所有宠物
-pets = Pet.select().where(Pet.owner == person)
+pets = Pet.select().where("owner = ?", (person,))
 
 # 连接查询
 query = (Pet
          .select(Pet, Person)
          .join(Person)
-         .where(Person.name == 'John'))
+         .where("name = ?", ('John',)))
 
 # 排序
 pets_by_name = Pet.select().order_by(Pet.name)
@@ -454,12 +454,12 @@ pet = Pet(owner_id=person.id, name='Fido', animal_type='dog')
 pet.save()
 
 # 获取属于某人的所有宠物
-pets = Pet.find().where(Pet.owner_id == person.id).all()
+pets = Pet.find().where("owner_id = ?", (person.id,)).all()
 
 # 连接查询
 pets = Pet.find()\
     .join(Person, Pet.owner_id == Person.id)\
-    .where(Person.name == 'John')\
+    .where("name = ?", ('John',))\
     .all()
 
 # 排序
@@ -566,7 +566,7 @@ class MigrationTest(unittest.TestCase):
         old_user = OldUser.objects.get(username='testuser')
         
         # 使用新ORM测试
-        new_user = User.find().where(User.username == 'testuser').one()
+        new_user = User.find().where("username = ?", ('testuser',)).one()
         
         # 验证结果匹配
         self.assertEqual(old_user.email, new_user.email)
@@ -588,7 +588,7 @@ def benchmark_query():
     
     # 对新ORM进行基准测试
     start = time.time()
-    new_result = User.find().where(User.status == 'active').count()
+    new_result = User.find().where("status = ?", ('active',)).count()
     new_time = time.time() - start
     
     print(f"旧ORM: {old_time:.4f}秒, 新ORM: {new_time:.4f}秒")

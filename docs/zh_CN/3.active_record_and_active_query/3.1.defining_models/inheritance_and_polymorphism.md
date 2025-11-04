@@ -178,7 +178,7 @@ class Post(ActiveRecord):
     def comments(self):
         """获取与此帖子关联的评论"""
         return Comment.query()\
-            .where(commentable_id=self.id, commentable_type='Post')\
+            .where("commentable_id = ? AND commentable_type = ?", (self.id, 'Post',))\
             .all()
     
     def add_comment(self, content: str):
@@ -202,7 +202,7 @@ class Photo(ActiveRecord):
     def comments(self):
         """获取与此照片关联的评论"""
         return Comment.query()\
-            .where(commentable_id=self.id, commentable_type='Photo')\
+            .where("commentable_id = ? AND commentable_type = ?", (self.id, 'Photo',))\
             .all()
     
     def add_comment(self, content: str):

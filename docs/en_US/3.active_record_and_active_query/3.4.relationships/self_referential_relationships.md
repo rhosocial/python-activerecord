@@ -109,7 +109,7 @@ class User(IntegerPKMixin, ActiveRecord):
         all_friend_ids = friend_ids_initiated + friend_ids_received
         
         # Return all friends
-        return User.find_all().where(id__in=all_friend_ids).all()
+        return User.find_all().where("id IN ({})".format(",".join(["?"] * len(all_friend_ids))), tuple(all_friend_ids)).all()
 
 class Friendship(IntegerPKMixin, ActiveRecord):
     __table_name__ = "friendships"

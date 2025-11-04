@@ -158,7 +158,7 @@ You can combine eager loading with query conditions to limit the related records
 
 ```python
 # Eager load only published books
-authors = Author.find_all().with_("books", lambda q: q.where(published=True)).all()
+authors = Author.find_all().with_("books", lambda q: q.where("published = ?", (True,))).all()
 
 # Now you can access only published books without additional queries
 for author in authors:
@@ -222,7 +222,7 @@ authors = Author.find_all().all()
 author_ids = [author.id for author in authors]
 
 # Preload all books for these authors in a single query
-all_books = Book.find_all().where(author_id__in=author_ids).all()
+all_books = Book.find_all().where("id IN ({})".format(",".join(["?"] * len(author_ids))), tuple(author_ids)).all()
 
 # Group books by author ID
 books_by_author = {}
@@ -352,7 +352,7 @@ class Book(IntegerPKMixin, ActiveRecord):
     @classmethod
     def recent(cls, query=None):
         query = query or cls.find_all()
-        return query.where(published_at__gte=datetime.now() - timedelta(days=30))
+        return query.where("published_at >= ?", (datetime.now() - timedelta(days=30),))
 
 # Use the scope with eager loading
 authors = Author.find_all().with_("books", Book.recent).all()

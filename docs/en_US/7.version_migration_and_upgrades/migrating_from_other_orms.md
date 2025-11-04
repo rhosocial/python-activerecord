@@ -159,13 +159,13 @@ user.save()
 user = User.find_one(1)
 
 # Find a user by criteria
-user = User.find().where(User.username == 'johndoe').one()
+user = User.find().where("username = ?", ('johndoe',)).one()
 
 # Find all posts by a user
-posts = Post.find().where(Post.user_id == user.id).all()
+posts = Post.find().where("user_id = ?", (user.id,)).all()
 
 # Eager loading relationships
-user_with_posts = User.find().with_('posts').where(User.id == 1).one()
+user_with_posts = User.find().with_('posts').where("id = ?", (1,)).one()
 
 # Update a user
 user.email = 'newemail@example.com'
@@ -313,14 +313,14 @@ product.save()
 all_products = Product.find().all()
 
 # Filter products
-active_products = Product.find().where(Product.is_active == True).all()
+active_products = Product.find().where("is_active = ?", (True,)).all()
 
 # Complex filtering
 expensive_electronics = Product.find()\
     .join(Category, Product.category_id == Category.id)\
-    .where(Category.name == 'Electronics')\
-    .where(Product.price > 500)\
-    .where(Product.is_active == True)\
+    .where("name = ?", ('Electronics',))\
+    .where("price > ?", (500,))\
+    .where("is_active = ?", (True,))\
     .all()
 
 # Ordering
@@ -420,13 +420,13 @@ person = Person.create(name='John', birthday=date(1990, 1, 1), is_relative=True)
 pet = Pet.create(owner=person, name='Fido', animal_type='dog')
 
 # Get all pets belonging to a person
-pets = Pet.select().where(Pet.owner == person)
+pets = Pet.select().where("owner = ?", (person,))
 
 # Join query
 query = (Pet
          .select(Pet, Person)
          .join(Person)
-         .where(Person.name == 'John'))
+         .where("name = ?", ('John',)))
 
 # Ordering
 pets_by_name = Pet.select().order_by(Pet.name)
@@ -454,12 +454,12 @@ pet = Pet(owner_id=person.id, name='Fido', animal_type='dog')
 pet.save()
 
 # Get all pets belonging to a person
-pets = Pet.find().where(Pet.owner_id == person.id).all()
+pets = Pet.find().where("owner_id = ?", (person.id,)).all()
 
 # Join query
 pets = Pet.find()\
     .join(Person, Pet.owner_id == Person.id)\
-    .where(Person.name == 'John')\
+    .where("name = ?", ('John',))\
     .all()
 
 # Ordering
@@ -566,7 +566,7 @@ class MigrationTest(unittest.TestCase):
         old_user = OldUser.objects.get(username='testuser')
         
         # Test with new ORM
-        new_user = User.find().where(User.username == 'testuser').one()
+        new_user = User.find().where("username = ?", ('testuser',)).one()
         
         # Verify results match
         self.assertEqual(old_user.email, new_user.email)
@@ -588,7 +588,7 @@ def benchmark_query():
     
     # Benchmark new ORM
     start = time.time()
-    new_result = User.find().where(User.status == 'active').count()
+    new_result = User.find().where("status = ?", ('active',)).count()
     new_time = time.time() - start
     
     print(f"Old ORM: {old_time:.4f}s, New ORM: {new_time:.4f}s")
