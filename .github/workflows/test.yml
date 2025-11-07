@@ -1,4 +1,4 @@
-﻿# .github/workflows/test.yml
+# .github/workflows/test.yml
 name: Python Test and Coverage with TestSuite
 
 on:
@@ -35,7 +35,7 @@ jobs:
 
     - name: Install testsuite package from PyPI
       run: |
-        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev2#egg=rhosocial-activerecord-testsuite
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev2
 
     - name: Run tests with coverage
       run: |
@@ -81,7 +81,7 @@ jobs:
 
     - name: Install testsuite package from PyPI
       run: |
-        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev2#egg=rhosocial-activerecord-testsuite
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev2
 
     - name: Run tests
       run: |
@@ -116,7 +116,7 @@ jobs:
 
     - name: Install testsuite package from PyPI
       run: |
-        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev2#egg=rhosocial-activerecord-testsuite
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev2
 
     - name: Run tests
       run: |
