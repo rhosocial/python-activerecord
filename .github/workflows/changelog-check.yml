@@ -18,8 +18,16 @@ jobs:
 
       - name: Check for changelog fragment
         run: |
-          # Get changed files
-          CHANGED_FILES=$(git diff --name-only origin/${{ github.base_ref }}...${{ github.head_ref }})
+          # Fetch the base branch explicitly to ensure it's available for comparison
+          git fetch origin ${{ github.base_ref }}
+          
+          # Compare the head of the PR (current HEAD) with the base branch's remote tracking ref
+          # This compares the changes introduced by the PR branch relative to its base.
+          CHANGED_FILES=$(git diff --name-name-only origin/${{ github.base_ref }}...HEAD)
+          
+          # Debugging: Print the diff command and its output
+          echo "Executing: git diff --name-only origin/${{ github.base_ref }}...HEAD"
+          echo "Changed files: $CHANGED_FILES"
           
           # Check if any changelog fragment was added
           if echo "$CHANGED_FILES" | grep -q "^changelog.d/[0-9].*\.md$"; then
