@@ -17,6 +17,8 @@ jobs:
           fetch-depth: 0
 
       - name: Check for changelog fragment
+        env:
+          PR_TITLE: ${{ github.event.pull_request.title }}
         run: |
           # Fetch the base branch explicitly to ensure it's available for comparison
           git fetch origin ${{ github.base_ref }}
@@ -33,7 +35,7 @@ jobs:
           # --- NEW EXEMPTION FOR CHANGELOG BUILD PRS ---
           # Check if PR title indicates a changelog update (e.g., "docs: update CHANGELOG")
           # This exempts PRs that are specifically for building the changelog (which remove fragments)
-          if [[ "${{ github.event.pull_request.title }}" =~ ^docs:\ update\ CHANGELOG ]]; then
+          if [[ "$PR_TITLE" =~ ^docs:\ update\ CHANGELOG ]]; then
             echo "✓ PR title indicates changelog update, fragment check skipped"
             exit 0
           fi
@@ -52,7 +54,7 @@ jobs:
           fi
           
           # Check if PR is marked as trivial
-          if [[ "${{ github.event.pull_request.title }}" =~ \[trivial\] ]]; then
+          if [[ "$PR_TITLE" =~ \[trivial\] ]]; then
             echo "✓ PR marked as trivial, fragment not required"
             exit 0
           fi
