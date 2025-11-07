@@ -24,6 +24,7 @@ on:
 
 permissions:
   contents: write
+  packages: write
 
 jobs:
   # 检查测试工作流是否成功完成
