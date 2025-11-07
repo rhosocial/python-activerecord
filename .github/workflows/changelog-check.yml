@@ -23,11 +23,21 @@ jobs:
           
           # Compare the head of the PR (current HEAD) with the base branch's remote tracking ref
           # This compares the changes introduced by the PR branch relative to its base.
-          CHANGED_FILES=$(git diff --name-name-only origin/${{ github.base_ref }}...HEAD)
+          # Use --diff-filter=A to only consider added files for fragment check
+          CHANGED_FILES=$(git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD)
           
           # Debugging: Print the diff command and its output
-          echo "Executing: git diff --name-only origin/${{ github.base_ref }}...HEAD"
-          echo "Changed files: $CHANGED_FILES"
+          echo "Executing: git diff --name-only --diff-filter=A origin/${{ github.base_ref }}...HEAD"
+          echo "Changed files (added only): $CHANGED_FILES"
+          
+          # --- NEW EXEMPTION FOR CHANGELOG BUILD PRS ---
+          # Check if PR title indicates a changelog update (e.g., "docs: update CHANGELOG")
+          # This exempts PRs that are specifically for building the changelog (which remove fragments)
+          if [[ "${{ github.event.pull_request.title }}" =~ ^docs:\ update\ CHANGELOG ]]; then
+            echo "✓ PR title indicates changelog update, fragment check skipped"
+            exit 0
+          fi
+          # --- END NEW EXEMPTION ---
           
           # Check if any changelog fragment was added
           if echo "$CHANGED_FILES" | grep -q "^changelog.d/[0-9].*\.md$"; then
