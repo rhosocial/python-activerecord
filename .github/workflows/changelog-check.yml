@@ -8,6 +8,10 @@ on:
       - 'release/v**'
       - 'maint/**'
 
+permissions:
+  contents: read
+  pull-requests: write
+
 jobs:
   check-fragment:
     runs-on: ubuntu-latest
