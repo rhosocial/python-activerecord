@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.config import ConnectionConfig
 
 def test_format_explain_basic():
     """Test basic EXPLAIN SQL formatting"""
-    dialect = SQLiteDialect(ConnectionConfig())
+    dialect = SQLiteDialect()
 
     # Test basic EXPLAIN
     sql = "SELECT * FROM users"
@@ -22,7 +22,7 @@ def test_format_explain_basic():
 
 def test_format_explain_query_plan():
     """Test EXPLAIN QUERY PLAN SQL formatting"""
-    dialect = SQLiteDialect(ConnectionConfig())
+    dialect = SQLiteDialect()
 
     sql = "SELECT * FROM users WHERE id = 1"
     options = ExplainOptions(type=ExplainType.QUERYPLAN)
@@ -32,7 +32,7 @@ def test_format_explain_query_plan():
 
 def test_format_explain_with_complex_sql():
     """Test EXPLAIN formatting with complex SQL statements"""
-    dialect = SQLiteDialect(ConnectionConfig())
+    dialect = SQLiteDialect()
 
     # Test with JOIN
     sql = "SELECT u.*, o.total FROM users u LEFT JOIN orders o ON u.id = o.user_id WHERE o.total > 100"
@@ -50,7 +50,7 @@ def test_format_explain_with_complex_sql():
 
 def test_format_explain_with_options():
     """Test EXPLAIN formatting with different options"""
-    dialect = SQLiteDialect(ConnectionConfig())
+    dialect = SQLiteDialect()
     sql = "SELECT * FROM users"
 
     # Test different formats

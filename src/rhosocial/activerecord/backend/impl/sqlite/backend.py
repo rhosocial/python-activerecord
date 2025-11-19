@@ -80,8 +80,8 @@ class SQLiteBackend(StorageBackend):
             # Use SQLiteConnectionConfig directly
             self.config = SQLiteConnectionConfig(**kwargs)
 
-        # Register SQLite-specific converters
-        self._register_sqlite_converters()
+        # Register SQLite-specific adapters
+        self._register_sqlite_adapters()
 
     def _initialize_capabilities(self) -> DatabaseCapabilities:
         """Initialize SQLite capabilities based on version.
@@ -185,7 +185,7 @@ class SQLiteBackend(StorageBackend):
 
         return capabilities
 
-    def _register_sqlite_converters(self):
+    def _register_sqlite_adapters(self):
         """Register SQLite-specific type adapters to the adapter_registry."""
         sqlite_adapters = [
             SQLiteBlobAdapter(),
@@ -577,7 +577,8 @@ class SQLiteBackend(StorageBackend):
             sql: str,
             params_list: List[Tuple]
     ) -> Optional[QueryResult]:
-        """Execute batch operations with the same SQL statement and multiple parameter sets.
+        """
+        Execute batch operations with the same SQL statement and multiple parameter sets.
 
         This method executes the same SQL statement multiple times with different parameter sets.
         It is more efficient than executing individual statements and is ideal for bulk inserts
@@ -586,6 +587,16 @@ class SQLiteBackend(StorageBackend):
         IMPORTANT: SQLite's executemany only supports a single SQL statement at a time.
         Do NOT use statements with semicolons, as SQLite cannot execute multiple statements
         in a single call.
+
+        The `params_list` contains sequences of parameters. Each parameter sequence
+        is expected to contain values that are already database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing the `params_list` to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin` for each parameter set.
+
+        Parameters are passed directly to the database driver's `executemany`
+        method without any further type adaptation. It is the caller's
+        responsibility to ensure `params_list` contains database-compatible types.
 
         Args:
             sql: SQL statement (must be a single statement without semicolons)

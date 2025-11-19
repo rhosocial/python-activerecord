@@ -402,7 +402,7 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         self._connection: Optional[aiosqlite.Connection] = None
         self._cursor: Optional[aiosqlite.Cursor] = None
         self._transaction_manager: Optional[AsyncTransactionManager] = None
-        self._dialect = SQLiteDialect(connection_config)
+        self._dialect = SQLiteDialect()
 
     @property
     def dialect(self) -> SQLiteDialect:

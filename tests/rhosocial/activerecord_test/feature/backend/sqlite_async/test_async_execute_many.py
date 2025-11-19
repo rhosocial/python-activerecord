@@ -331,9 +331,24 @@ class TestAsyncExecuteMany:
             {"id": 2, "name": "User 2"}
         ]
 
+        # Since int and str are native types for the driver, no adapters are needed.
+        # The caller is only responsible for structural conversion (dict to tuple).
+        param_adapters_spec = {} # Correctly empty, as no *value* adaptation is needed.
+        
+        processed_params_list = []
+        for params_dict in params_list:
+            # Call prepare_parameters. With an empty spec, it returns the dict as-is.
+            adapted_params = backend.prepare_parameters(params_dict, param_adapters_spec)
+            
+            # The caller is responsible for converting the dict to a tuple in the correct
+            # order for positional placeholders.
+            processed_params_list.append(
+                (adapted_params['id'], adapted_params['name'])
+            )
+
         result = await backend.execute_many(
             "INSERT INTO users (id, name) VALUES (?, ?)",
-            params_list
+            processed_params_list
         )
 
         assert result.affected_rows == 2
