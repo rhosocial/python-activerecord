@@ -10,6 +10,8 @@ from rhosocial.activerecord.backend import ReturningOptions
 from rhosocial.activerecord.backend.errors import ConnectionError
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.type_adapter import DateTimeAdapter, JSONAdapter # Added import
+from typing import Type # Added import
 
 
 class TestSQLiteBackendCoveragePart3Fixed:
@@ -150,8 +152,20 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
         backend.disconnect()
 
-    def test_execute_many_parameter_conversion(self):
-        """Test parameter conversion in execute_many"""
+    def test_execute_many_parameter_adaption(self):
+        """
+        Test that `execute_many` properly handles pre-adapted parameters.
+
+        This test adheres to the "decoupled type adaptation" principle:
+        1.  `execute_many` is designed to receive parameters that are already
+            database-compatible. It does *not* perform any internal type
+            adaptation.
+        2.  Therefore, this test explicitly prepares its `params_list` by
+            using `backend.prepare_parameters` (which leverages `TypeAdaptionMixin`)
+            before passing the `processed_params_list` to `execute_many`.
+        3.  The `param_adapters_spec` defines which adapters to use for which
+            positional parameter within each tuple of the `raw_params_list`.
+        """
         config = SQLiteConnectionConfig(database=":memory:")
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
@@ -167,21 +181,44 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
         # Test with datetime objects that need conversion
         from datetime import datetime
-        params_list = [
+        
+        # Get adapters from the backend's registry
+        # These are the standard adapters registered by StorageBackendBase.
+        datetime_adapter = backend.adapter_registry.get_adapter(datetime, str)
+        json_adapter = backend.adapter_registry.get_adapter(dict, str)
+
+        # raw_params_list contains Python native types that require adaptation
+        raw_params_list = [
             (1, {"key": "value1"}, datetime(2024, 1, 1)),
             (2, {"key": "value2"}, datetime(2024, 1, 2))
         ]
 
+        # param_adapters_spec defines the adapter and target DB type for each positional parameter.
+        # `None` means the parameter is already database-compatible or handled by the driver.
+        param_adapters_spec = [
+            None, # id (int) is handled directly
+            (json_adapter, str), # data (dict) converted to str (JSON string)
+            (datetime_adapter, str) # created_at (datetime) converted to str (ISO format)
+        ]
+
+        # Explicitly prepare parameters for execute_many.
+        # This step demonstrates the caller's responsibility to adapt types
+        # before passing them to the low-level execution method.
+        processed_params_list = []
+        for params in raw_params_list:
+            processed_params_list.append(backend.prepare_parameters(params, param_adapters_spec))
+
         result = backend.execute_many(
             "INSERT INTO test (id, data, created_at) VALUES (?, ?, ?)",
-            params_list
+            processed_params_list # Pass the already processed list
         )
 
         assert result.affected_rows == 2
 
-        # Verify data was properly converted
+        # Verify data was properly converted and stored
         rows = backend.fetch_all("SELECT * FROM test ORDER BY id")
         assert len(rows) == 2
+        # Data is retrieved as raw strings because `fetch_all` typically doesn't have `column_adapters` here.
         assert isinstance(rows[0]["data"], str)  # JSON converted to string
         assert isinstance(rows[0]["created_at"], str)  # Datetime converted to string
 
@@ -202,7 +239,7 @@ class TestSQLiteBackendCoveragePart3Fixed:
 
         # Test with params list containing empty tuples
         result = backend.execute_many("INSERT INTO test DEFAULT VALUES", [(), (), ()])
-        assert result.affected_rows == 0
+        assert result.affected_rows == 3 # Corrected assertion based on SQLite behavior
 
         # Test with params list containing sequential tuples
         result = backend.execute_many("INSERT INTO test(id) VALUES (?)", [(1, ), (2, ), (3, )])

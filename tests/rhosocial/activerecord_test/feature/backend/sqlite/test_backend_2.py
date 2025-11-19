@@ -4,6 +4,7 @@
 import sqlite3
 from datetime import datetime
 from unittest.mock import patch, MagicMock
+import uuid # Added import
 
 import pytest
 
@@ -91,67 +92,78 @@ class TestSQLiteBackendCoveragePart2:
                 name TEXT,
                 created_at TEXT,
                 is_active INTEGER,
-                data TEXT
+                data TEXT,
+                uuid_col TEXT
             )
         """)
 
-        backend.execute("""
-            INSERT INTO test VALUES 
-            (1, 'test', '2024-01-01 10:00:00', 1, '{"key": "value"}')
+        test_uuid = uuid.uuid4()
+        backend.execute(f"""
+            INSERT INTO test VALUES
+            (1, 'test', '2024-01-01 10:00:00', 1, '{{\"key\": \"value\"}}', '{test_uuid}')
         """)
 
-        # Define column types for conversion
-        column_types = {
-            "id": DatabaseType.INTEGER,
-            "name": DatabaseType.TEXT,
-            "created_at": DatabaseType.DATETIME,
-            "is_active": DatabaseType.BOOLEAN,
-            "data": DatabaseType.JSON
+        # Get adapters from the backend's registry.
+        # These are the standard adapters registered by StorageBackendBase.
+        datetime_adapter = backend.adapter_registry.get_adapter(datetime, str)
+        bool_adapter = backend.adapter_registry.get_adapter(bool, int)
+        json_adapter = backend.adapter_registry.get_adapter(dict, str)
+        uuid_adapter = backend.adapter_registry.get_adapter(uuid.UUID, str) # Standard UUID adapter
+
+        # Explicitly define column adapters with (adapter_instance, target_py_type) tuples
+        column_adapters_for_test = {
+            "created_at": (datetime_adapter, datetime),
+            "is_active": (bool_adapter, bool),
+            "data": (json_adapter, dict),
+            "uuid_col": (uuid_adapter, uuid.UUID)
         }
 
-        # Test with DatabaseType enum
-        result = backend.fetch_one("SELECT * FROM test", column_types=column_types)
+        # Test with explicit adapters
+        result = backend.fetch_one("SELECT * FROM test", column_adapters=column_adapters_for_test)
         assert result["id"] == 1
         assert result["name"] == "test"
         assert isinstance(result["created_at"], datetime)  # Datetime conversion
-        assert result["is_active"] == True  # Boolean conversion
+        assert result["is_active"] is True  # Boolean conversion
         assert isinstance(result["data"], dict)  # JSON conversion
+        assert result["data"] == {"key": "value"}
+        assert isinstance(result["uuid_col"], uuid.UUID) # UUID conversion
+        assert result["uuid_col"] == test_uuid
 
-        # Test with type name strings
-        column_types_str = {
-            "id": DatabaseType.INTEGER,
-            "is_active": DatabaseType.BOOLEAN,
-            "data": DatabaseType.JSON
+        # Test that `MockConverter` still works with the new system, as long as it's a valid adapter.
+        # The test originally used `column_types_converter` which implied `DatabaseType` to converter.
+        # The new system expects `(adapter_instance, target_py_type)`.
+        # For a mock, we just need `from_database` method.
+        class MockAdapter:
+            def from_database(self, value, target_type=None):
+                return f"adapted:{value}"
+            # Add supported_types property to make it a valid SQLTypeAdapter
+            @property
+            def supported_types(self):
+                return {} # Not relevant for this mock
+
+        mock_adapter_instance = MockAdapter()
+        column_adapters_mock = {
+            "name": (mock_adapter_instance, str)
         }
+        result = backend.fetch_one("SELECT * FROM test", column_adapters=column_adapters_mock)
+        assert result["name"] == "adapted:test"
 
-        result = backend.fetch_one("SELECT * FROM test", column_types=column_types_str)
-        assert result["id"] == 1
-        assert result["is_active"] == True
-        assert isinstance(result["data"], dict)
 
-        # Test with converter instance
-        class MockConverter:
-            def from_database(self, value, source_type=None):
-                return f"converted:{value}"
-
-        column_types_converter = {
-            "name": MockConverter()
-        }
-
-        result = backend.fetch_one("SELECT * FROM test", column_types=column_types_converter)
-        assert result["name"] == "converted:test"
-
-        # Test with invalid converter (no from_database method)
-        class InvalidConverter:
+        # Test with invalid adapter (no from_database method or not SQLTypeAdapter protocol)
+        class InvalidAdapter:
+            # Missing from_database
             pass
-
-        column_types_invalid = {
-            "name": InvalidConverter()
+        
+        column_adapters_invalid = {
+            "name": (InvalidAdapter(), str) # This will cause an error in TypeAdaptionMixin
         }
-
-        # Should fallback to using as type hint
-        result = backend.fetch_one("SELECT * FROM test", column_types=column_types_invalid)
-        assert result["name"] == "test"
+        
+        # The TypeAdaptionMixin expects adapter to conform to SQLTypeAdapter protocol
+        # which has `from_database`. If not, `getattr(adapter, "from_database")` will fail.
+        # So we should expect a TypeError if an invalid adapter is provided.
+        # The original test expected a fallback, but the new system is stricter.
+        with pytest.raises(AttributeError): # Or TypeError depending on where it fails
+            backend.fetch_one("SELECT * FROM test", column_adapters=column_adapters_invalid)
 
         backend.disconnect()
 
@@ -162,29 +174,30 @@ class TestSQLiteBackendCoveragePart2:
 
         # Create a mock cursor that returns tuples instead of sqlite3.Row objects
         mock_cursor = MagicMock()
-        mock_cursor.fetchall.return_value = [{"id": 1, "name": "test", "is_active": True}]
+        mock_cursor.fetchall.return_value = [(1, "test", True)]
         mock_cursor.description = [
             ("id",), ("name",), ("is_active",)
         ]
 
-        # Test with column types
-        column_types = {
-            "id": DatabaseType.INTEGER,
-            "name": DatabaseType.TEXT,
-            "is_active": DatabaseType.BOOLEAN
+        # Get adapters from the backend's registry for consistency
+        bool_adapter = backend.adapter_registry.get_adapter(bool, int)
+
+        # Explicitly define column adapters with (adapter_instance, target_py_type) tuples
+        column_adapters_for_test = {
+            "is_active": (bool_adapter, bool)
         }
 
         result = backend._process_result_set(
             mock_cursor,
             is_select=True,
             need_returning=False,
-            column_types=column_types
+            column_adapters=column_adapters_for_test
         )
 
         assert len(result) == 1
         assert result[0]["id"] == 1
         assert result[0]["name"] == "test"
-        assert result[0]["is_active"] == True
+        assert result[0]["is_active"] is True
 
         backend.disconnect()
 
@@ -370,7 +383,7 @@ class TestSQLiteBackendCoveragePart2:
                 cursor,
                 is_select=True,
                 need_returning=False,
-                column_types=None
+                column_adapters=None
             )
 
         backend.disconnect()

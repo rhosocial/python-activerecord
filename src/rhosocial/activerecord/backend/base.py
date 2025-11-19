@@ -108,11 +108,8 @@ class TypeAdaptionMixin:
        them from the `adapter_registry` itself, ensuring a clear and independent execution path
        without runtime schema lookups.
     """
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        self.adapter_registry = TypeRegistry()
-        self._register_default_adapters()
-        self.logger.info("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")
+    # Mixins do NOT define __init__ to avoid MRO issues.
+    # Initialization is handled in StorageBackendBase.
 
     def _register_default_adapters(self) -> None:
         adapters = [
@@ -219,6 +216,53 @@ class TypeAdaptionMixin:
         except Exception as e:
             self.logger.error(f"Error processing result set: {str(e)}", exc_info=True)
             raise
+
+
+class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
+    """
+    Provides asynchronous type adaptation for DML operations.
+
+    This mixin overrides `_process_result_set` to make it an async method,
+    handling asynchronous cursor operations like `fetchall()`.
+    `prepare_parameters` remains synchronous as it's a CPU-bound operation
+    and is inherited directly from `TypeAdaptionMixin`.
+    """
+    async def _process_result_set(
+        self,
+        cursor,
+        is_select: bool,
+        need_returning: bool,
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
+    ) -> Optional[List[Dict]]:
+        if not (is_select or need_returning): return None
+        try:
+            rows = await cursor.fetchall() # Make fetchall awaitable
+            if not rows: return []
+            column_names = [desc[0] for desc in cursor.description]
+            column_adapters = column_adapters or {}
+            converted_results = []
+            for row in rows:
+                converted_row = {}
+                # aiosqlite.Row objects behave like sqlite3.Row, allowing dict-like access
+                # and iterable behavior for zip.
+                row_dict = dict(zip(column_names, row))
+                for key, value in row_dict.items():
+                    if value is None:
+                        converted_row[key] = None
+                        continue
+
+                    adapter_info = column_adapters.get(key)
+                    if adapter_info:
+                        adapter, py_type = adapter_info
+                        converted_row[key] = adapter.from_database(value, py_type)
+                    else:
+                        converted_row[key] = value
+                converted_results.append(converted_row)
+            return converted_results
+        except Exception as e:
+            self.logger.error(f"Error processing async result set: {str(e)}", exc_info=True)
+            raise
+
 
 
 class SQLBuildingMixin:
@@ -344,7 +388,15 @@ class SQLOperationsMixin:
                column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                auto_commit: Optional[bool] = True,
                primary_key: Optional[str] = None) -> QueryResult:
-        """Insert record."""
+        """
+        Insert record.
+
+        The `data` dictionary is expected to contain values that are already
+        database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing the `data` to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         cleaned_data = {
             k.strip('"').strip('`'): v
             for k, v in data.items()
@@ -381,7 +433,15 @@ class SQLOperationsMixin:
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                auto_commit: bool = True) -> QueryResult:
-        """Update record."""
+        """
+        Update record.
+
+        The `data` dictionary and `params` tuple are expected to contain values
+        that are already database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing these to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
                      for k in data.keys()]
         values = list(data.values())
@@ -402,7 +462,15 @@ class SQLOperationsMixin:
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                auto_commit: bool = True) -> QueryResult:
-        """Delete record."""
+        """
+        Delete record.
+
+        The `params` tuple is expected to contain values that are already
+        database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing these to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         sql = f"DELETE FROM {table} WHERE {where}"
 
         result = self.execute(sql, params, returning, column_adapters)
@@ -423,7 +491,15 @@ class AsyncSQLOperationsMixin:
                      column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                      auto_commit: Optional[bool] = True,
                      primary_key: Optional[str] = None) -> QueryResult:
-        """Insert record asynchronously."""
+        """
+        Insert record asynchronously.
+
+        The `data` dictionary is expected to contain values that are already
+        database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing the `data` to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         cleaned_data = {
             k.strip('"').strip('`'): v
             for k, v in data.items()
@@ -460,7 +536,15 @@ class AsyncSQLOperationsMixin:
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                      column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                      auto_commit: bool = True) -> QueryResult:
-        """Update record asynchronously."""
+        """
+        Update record asynchronously.
+
+        The `data` dictionary and `params` tuple are expected to contain values
+        that are already database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing these to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
                      for k in data.keys()]
         values = list(data.values())
@@ -481,7 +565,15 @@ class AsyncSQLOperationsMixin:
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                      column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                      auto_commit: bool = True) -> QueryResult:
-        """Delete record asynchronously."""
+        """
+        Delete record asynchronously.
+
+        The `params` tuple is expected to contain values that are already
+        database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing these to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         sql = f"DELETE FROM {table} WHERE {where}"
 
         result = await self.execute(sql, params, returning, column_adapters)
@@ -498,6 +590,17 @@ class AsyncSQLOperationsMixin:
 
 class StorageBackendBase(ABC):
     """Minimal base for configuration and connection state only."""
+
+    def _register_default_adapters(self) -> None:
+        adapters = [
+            DateTimeAdapter(), JSONAdapter(), UUIDAdapter(), EnumAdapter(),
+            BooleanAdapter(), DecimalAdapter(),
+        ]
+        for adapter in adapters:
+            for py_type, db_types in adapter.supported_types.items():
+                for db_type in db_types:
+                    self.adapter_registry.register(adapter, py_type, db_type)
+        self.logger.debug("Registered all standard type adapters.")
 
     def __init__(self, **kwargs) -> None:
         """Initialize storage backend with all required attributes."""
@@ -519,6 +622,11 @@ class StorageBackendBase(ABC):
 
         # Capabilities (for CapabilityMixin)
         self._capabilities = None
+
+        # Type Adaptation (for TypeAdaptionMixin)
+        self.adapter_registry = TypeRegistry()
+        self._register_default_adapters()
+        self.logger.info("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")
 
     @property
     @abstractmethod
@@ -608,7 +716,10 @@ class StorageBackend(
         Execute SQL statement with enhanced RETURNING clause support.
 
         This is a template method that implements the common flow for all databases.
-        Parameter conversion should be done before calling this method by using `prepare_parameters`.
+        Parameters (`params`) are expected to be database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`)
+        and will be passed directly to the database driver's execution method. Type adaptation for complex Python
+        types (e.g., `datetime`, `UUID`, `Decimal`) should be performed *before* calling this method,
+        typically by using `prepare_parameters` from `TypeAdaptionMixin`.
         """
         start_time = time.perf_counter()
 
@@ -697,19 +808,52 @@ class StorageBackend(
     # ========================================================================
 
     def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
-        """Execute batch operations (default implementation)."""
-        self.log(logging.INFO,
-                 f"execute_many: Executing statements individually (backend doesn't support batch operations)")
+        """
+        Execute batch operations (default implementation).
+
+        This method executes the same SQL statement multiple times with different parameter sets.
+        It is more efficient than executing individual statements and is ideal for bulk inserts
+        or updates.
+
+        The `params_list` contains sequences of parameters. Each parameter sequence
+        is expected to contain values that are already database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing the `params_list` to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin` for each parameter set.
+
+        Parameters are passed directly to the database driver's `executemany`
+        method without any further type adaptation. It is the caller's
+        responsibility to ensure `params_list` contains database-compatible types.
+
+        Args:
+            sql: SQL statement (must be a single statement without semicolons)
+            params_list: List of parameter tuples, one for each execution
+
+        Returns:
+            QueryResult: Execution results
+        """
+        self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
         start_time = time.perf_counter()
-        affected_rows = 0
+        try:
+            if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
+                self.connect()
 
-        for params in params_list:
-            result = self.execute(sql, params)
-            if result:
-                affected_rows += result.affected_rows
+            cursor = self._get_cursor() # Reuse _get_cursor
+            final_sql = self._prepare_sql_and_params(sql, None)[0] # Just need the SQL, params are in params_list
 
-        duration = time.perf_counter() - start_time
-        return QueryResult(affected_rows=affected_rows, duration=duration)
+            cursor.executemany(final_sql, params_list) # Direct call to executemany
+            duration = time.perf_counter() - start_time
+
+            self._handle_auto_commit_if_needed()
+
+            return QueryResult(
+                affected_rows=cursor.rowcount,
+                duration=duration
+            )
+        except Exception as e:
+            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
+            return self._handle_execution_error(e)
 
     # ========================================================================
     # Fetch Operations
@@ -717,13 +861,27 @@ class StorageBackend(
 
     def fetch_one(self, sql: str, params: Optional[Tuple] = None,
                   column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[Dict]:
-        """Fetch single record."""
+        """
+        Fetch single record.
+
+        Parameters (`params`) are expected to be database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`)
+        and will be passed directly to the database driver. Type adaptation for complex Python
+        types (e.g., `datetime`, `UUID`, `Decimal`) should be performed *before* calling this method,
+        typically by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
         return result.data[0] if result and result.data else None
 
     def fetch_all(self, sql: str, params: Optional[Tuple] = None,
                   column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> List[Dict]:
-        """Fetch multiple records."""
+        """
+        Fetch multiple records.
+
+        Parameters (`params`) are expected to be database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`)
+        and will be passed directly to the database driver. Type adaptation for complex Python
+        types (e.g., `datetime`, `UUID`, `Decimal`) should be performed *before* calling this method,
+        typically by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
         return result.data or []
 
@@ -799,7 +957,7 @@ class AsyncStorageBackend(
     StorageBackendBase,
     LoggingMixin,
     CapabilityMixin,
-    TypeAdaptionMixin,
+    AsyncTypeAdaptionMixin, # <--- Change this
     SQLBuildingMixin,
     QueryAnalysisMixin,
     ReturningClauseMixin,
@@ -868,7 +1026,14 @@ class AsyncStorageBackend(
             params: Optional[Tuple] = None,
             returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
             column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[QueryResult]:
-        """Execute SQL statement asynchronously."""
+        """
+        Execute SQL statement asynchronously.
+
+        Parameters (`params`) are expected to be database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`)
+        and will be passed directly to the database driver. Type adaptation for complex Python
+        types (e.g., `datetime`, `UUID`, `Decimal`) should be performed *before* calling this method,
+        typically by using `prepare_parameters` from `TypeAdaptionMixin`.
+        """
         start_time = time.perf_counter()
 
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
@@ -945,7 +1110,30 @@ class AsyncStorageBackend(
     # ========================================================================
 
     async def execute_many(self, sql: str, params_list: List[Union[Tuple, Dict]]) -> Optional[QueryResult]:
-        """Execute batch operations asynchronously."""
+        """
+        Execute batch operations asynchronously.
+
+        This method executes the same SQL statement multiple times with different parameter sets.
+        It is more efficient than executing individual statements and is ideal for bulk inserts
+        or updates.
+
+        The `params_list` contains sequences of parameters. Each parameter sequence
+        is expected to contain values that are already database-compatible (e.g., Python `str`, `int`, `float`, `bytes`, `None`).
+        Type adaptation for complex Python types (e.g., `datetime`, `UUID`, `Decimal`)
+        should be performed *before* passing the `params_list` to this method, typically
+        by using `prepare_parameters` from `TypeAdaptionMixin` for each parameter set.
+
+        Parameters are passed directly to the database driver's `executemany`
+        method without any further type adaptation. It is the caller's
+        responsibility to ensure `params_list` contains database-compatible types.
+
+        Args:
+            sql: SQL statement (must be a single statement without semicolons)
+            params_list: List of parameter tuples, one for each execution
+
+        Returns:
+            QueryResult: Execution results
+        """
         self.log(logging.DEBUG, f"Executing many SQL: {sql}")
         start_time = time.perf_counter()
 

@@ -353,10 +353,12 @@ class ArrayAdapter(BaseSQLTypeAdapter):
         # self._register_type(list, str) 
 
     def _do_to_database(
-        self, value: List[Any], target_type: Type, options: Optional[Dict[str, Any]]
+        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if target_type == str:
-            return json.dumps(value)
+            if isinstance(value, (list, tuple, set)): # Explicitly check for array-like types
+                return json.dumps(list(value)) # Convert sets to list for JSON
+            raise TypeError(f"Cannot convert {type(value).__name__} to JSON array string.")
         raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
 
     def _do_from_database(
