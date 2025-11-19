@@ -697,6 +697,8 @@ class StorageBackendBase(ABC):
         self._capabilities = None
 
         # Type Adaptation (for TypeAdaptionMixin)
+        # Architectural Note: This registry is completely independent of the dialect.
+        # It maps (Python Type, DBAPI Type) to a SQLTypeAdapter.
         self.adapter_registry = TypeRegistry()
         self._register_default_adapters()
         self.logger.info("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")

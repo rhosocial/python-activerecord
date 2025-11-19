@@ -828,7 +828,7 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
 
-        row = self.model_class.backend().fetch_one(sql, params, self.model_class.model_construct().column_types())
+        row = self.model_class.backend().fetch_one(sql, params, self.model_class.model_construct().get_column_adapters())
 
         self.limit_count = original_limit
 
