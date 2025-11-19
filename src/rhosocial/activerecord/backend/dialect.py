@@ -3,25 +3,19 @@
 Abstract SQL dialect implementation for handling database differences.
 This module provides base classes for SQL dialect handling, including:
 
-- Type conversion between database and Python representations
 - SQL syntax differences
 - Parameter placeholder formatting
 - Identifier quoting
 - Special feature support (like RETURNING clause)
 """
-import uuid
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
-from datetime import datetime, date, time
-from decimal import Decimal
-from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, get_origin
+from enum import Enum
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
-from .typing import DatabaseType
-from .basic_type_converter import DateTimeConverter, BooleanConverter, UUIDConverter, \
-    JSONConverter, DecimalConverter, ArrayConverter, EnumConverter, BasicTypeConverter
-from .errors import ReturningNotSupportedError
-from .type_converters import TypeRegistry
+from .errors import (
+    ReturningNotSupportedError
+)
 
 
 @dataclass
@@ -285,6 +279,7 @@ class JsonOperationHandler:
             operation: Operation type (extract, text, contains, exists, etc.)
             value: Value for operations that need it (contains, insert, etc.)
             alias: Optional alias for the result
+            alias: Optional alias for the result
 
         Returns:
             str: Formatted JSON operation SQL
@@ -483,18 +478,18 @@ class SQLExpressionBase(ABC):
 
 class ExplainType(Enum):
     """Type of EXPLAIN output"""
-    BASIC = auto()  # Basic execution plan
-    ANALYZE = auto()  # Include actual execution statistics
-    QUERYPLAN = auto()  # Query plan only (SQLite specific)
+    BASIC = "basic"
+    ANALYZE = "analyze"
+    QUERYPLAN = "query plan"
 
 
 class ExplainFormat(Enum):
     """Output format for EXPLAIN results"""
-    TEXT = "text"  # Human readable text
-    JSON = "json"  # JSON format
-    XML = "xml"  # XML format (SQL Server)
-    YAML = "yaml"  # YAML format (PostgreSQL)
-    TREE = "tree"  # TREE format (MySQL)
+    TEXT = "text"
+    JSON = "json"
+    XML = "xml"
+    YAML = "yaml"
+    TREE = "tree"
 
 
 @dataclass
@@ -535,66 +530,20 @@ class SQLDialectBase(ABC):
     _aggregate_handler: AggregateHandler
     _json_operation_handler: JsonOperationHandler
     _version: tuple
-    _type_registry: TypeRegistry
     _cte_handler: CTEHandler
 
-    def __init__(self, version: tuple, type_registry: Optional[TypeRegistry] = None) -> None:
+    def __init__(self, version: tuple) -> None:
         """Initialize SQL dialect
 
         Args:
             version: Database version tuple
-            type_registry: Optional custom type registry
         """
         self._version = version
-        self._type_registry = type_registry or TypeRegistry()
-        self._register_default_converters()
 
     @property
     def version(self) -> tuple:
         """Get database version"""
         return self._version
-
-    def _register_default_converters(self) -> None:
-        """Register default type converters"""
-        # Register standard converters
-        self._type_registry.register(BasicTypeConverter(),
-                                     names=["INTEGER", "INT", "SMALLINT", "BIGINT", "TINYINT"],
-                                     types=[DatabaseType.INTEGER, DatabaseType.SMALLINT,
-                                            DatabaseType.BIGINT, DatabaseType.TINYINT])
-
-        self._type_registry.register(DateTimeConverter(),
-                                     names=["DATE", "TIME", "DATETIME", "TIMESTAMP"],
-                                     types=[DatabaseType.DATE, DatabaseType.TIME,
-                                            DatabaseType.DATETIME, DatabaseType.TIMESTAMP])
-
-        self._type_registry.register(BooleanConverter(),
-                                     names=["BOOLEAN", "BOOL"],
-                                     types=[DatabaseType.BOOLEAN])
-
-        self._type_registry.register(UUIDConverter(),
-                                     names=["UUID"],
-                                     types=[DatabaseType.UUID])
-
-        self._type_registry.register(JSONConverter(),
-                                     names=["JSON", "JSONB"],
-                                     types=[DatabaseType.JSON, DatabaseType.JSONB])
-
-        self._type_registry.register(DecimalConverter(),
-                                     names=["DECIMAL", "NUMERIC"],
-                                     types=[DatabaseType.DECIMAL, DatabaseType.NUMERIC])
-
-        self._type_registry.register(ArrayConverter(),
-                                     names=["ARRAY"],
-                                     types=[DatabaseType.ARRAY])
-
-        self._type_registry.register(EnumConverter(),
-                                     names=["ENUM"],
-                                     types=[DatabaseType.ENUM])
-
-    @property
-    def type_registry(self) -> TypeRegistry:
-        """Get the type registry used by this dialect"""
-        return self._type_registry
 
     @property
     def returning_handler(self) -> ReturningClauseHandler:
@@ -615,18 +564,6 @@ class SQLDialectBase(ABC):
     def cte_handler(self) -> CTEHandler:
         """Get CTE handler"""
         return self._cte_handler
-
-    def register_converter(self, converter: Any, names: Optional[List[str]] = None,
-                           types: Optional[List[Any]] = None) -> None:
-        """
-        Register a type converter with this dialect.
-
-        Args:
-            converter: Type converter to register
-            names: Optional list of type names this converter handles
-            types: Optional list of DatabaseType enum values this converter handles
-        """
-        self._type_registry.register(converter, names, types)
 
     @abstractmethod
     def format_expression(self, expr: SQLExpressionBase) -> str:
@@ -767,84 +704,6 @@ class SQLDialectBase(ABC):
             value=value,
             alias=alias
         )
-
-    def to_database(self, value: Any, target_type: Any = None) -> Any:
-        """
-        Convert a Python value to its database representation.
-
-        Args:
-            value: Python value to convert
-            target_type: DatabaseType or string type name
-
-        Returns:
-            Value converted for database storage
-        """
-        return self._type_registry.to_database(value, target_type)
-
-    def from_database(self, value: Any, source_type: Any = None) -> Any:
-        """
-        Convert a database value to its Python representation.
-
-        Args:
-            value: Database value to convert
-            source_type: DatabaseType or string type name
-
-        Returns:
-            Value converted to Python type
-        """
-        return self._type_registry.from_database(value, source_type)
-
-    @classmethod
-    def get_pydantic_model_field_type(cls, field_info) -> Optional[DatabaseType]:
-        """Infer database type from field type
-
-        Args:
-            field_info: Pydantic field information
-
-        Returns:
-            Optional[DatabaseType]: Inferred database type
-        """
-        from pydantic import Json
-        annotation = field_info.annotation
-
-        # Handle Optional/Union types
-        if get_origin(annotation) in (Union, Optional):
-            # Get non-None type
-            types = [t for t in field_info.annotation.__args__ if t is not type(None)]
-            if types:
-                annotation = types[0]
-
-        # Map Python types to DatabaseType
-        if annotation in (datetime, Optional[datetime]):
-            return DatabaseType.DATETIME
-        elif annotation in (date, Optional[date]):
-            return DatabaseType.DATE
-        elif annotation in (time, Optional[time]):
-            return DatabaseType.TIME
-        elif annotation in (bool, Optional[bool]):
-            return DatabaseType.BOOLEAN
-        elif annotation in (int, Optional[int]):
-            return DatabaseType.INTEGER
-        elif annotation in (float, Optional[float]):
-            return DatabaseType.FLOAT
-        elif annotation in (Decimal, Optional[Decimal]):
-            return DatabaseType.DECIMAL
-        elif annotation in (uuid.UUID, Optional[uuid.UUID]):
-            return DatabaseType.UUID
-        elif annotation in (list, List, Optional[list], Optional[List]):
-            return DatabaseType.ARRAY
-        elif annotation in (dict, Dict, Optional[dict], Optional[Dict]):
-            return DatabaseType.JSON
-        # Check if Json type (Pydantic specific)
-        elif get_origin(annotation) is Json:
-            return DatabaseType.JSON
-        # Check if Enum type
-        elif isinstance(annotation, type) and issubclass(annotation, Enum):
-            return DatabaseType.TEXT
-        elif annotation in (bytes, bytearray):
-            return DatabaseType.BLOB
-
-        return DatabaseType.TEXT
 
 
 class SQLBuilder:
@@ -1054,9 +913,10 @@ class ReturningOptions:
         return cls(enabled=True, columns=columns, force=force)
 
     @classmethod
-    def with_expressions(cls,
-                         expressions: List[Dict[str, Any]],
-                         aliases: Optional[Dict[str, str]] = None,
+    def with_expressions(
+                         cls, 
+                         expressions: List[Dict[str, Any]], 
+                         aliases: Optional[Dict[str, str]] = None, 
                          force: bool = False) -> 'ReturningOptions':
         """
         Create options with expressions in RETURNING clause.
