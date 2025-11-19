@@ -300,6 +300,16 @@ class DecimalAdapter(BaseSQLTypeAdapter):
     """
     Converts between Python Decimal and SQL types (str, float).
     Supports a 'precision' option for quantization.
+
+    Rationale for dedicated adapter:
+    While native Python `int` and `float` types typically map directly to
+    corresponding database types through the driver without explicit ORM
+    adapter intervention, `Decimal` requires special handling. This is
+    because `Decimal` preserves exact precision, which standard `float`
+    types do not. This adapter ensures that `Decimal` values are correctly
+    and precisely converted to/from database representations (like `TEXT`
+    or `REAL`), preventing loss of precision that might occur with default
+    `float` conversions.
     """
 
     def __init__(self):

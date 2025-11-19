@@ -12,10 +12,7 @@ from ...errors import (
     JsonOperationNotSupportedError
 )
 
-if sys.version_info >= (3, 9):
-    from typing import Tuple
-else:
-    from typing import Tuple as TupleType
+
 
 
 class SQLiteExpression(SQLExpressionBase):

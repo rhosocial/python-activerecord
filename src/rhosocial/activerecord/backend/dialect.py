@@ -20,7 +20,18 @@ from .errors import (
 
 @dataclass
 class TypeMapping:
-    """Type mapping rules between DatabaseType and specific database implementation"""
+    """
+    Defines type mapping rules between a generic DatabaseType and a specific
+    database implementation's SQL type.
+
+    This class is primarily used for **DDL (Data Definition Language) generation**,
+     such as defining column types in `CREATE TABLE` statements. It allows
+     the ORM to translate abstract model types into the precise, database-specific
+     syntax required for schema creation without needing runtime database introspection.
+
+    It is distinct from the runtime type adaptation system (`SQLTypeAdapter`),
+    which handles conversion of Python values to/from SQL values for DML operations.
+    """
     db_type: str
     format_func: Optional[Callable[[str, Dict[str, Any]], str]] = None
 

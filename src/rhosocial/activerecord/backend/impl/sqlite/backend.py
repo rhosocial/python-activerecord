@@ -49,7 +49,7 @@ class SQLiteBackend(StorageBackend):
     def __init__(self, **kwargs):
         super().__init__(**kwargs)
         self._cursor = None
-        self._dialect = SQLiteDialect(self.config)
+        self._dialect = SQLiteDialect()
 
         # Check if we need to convert a legacy config to the new SQLiteConnectionConfig
         if "connection_config" in kwargs and kwargs["connection_config"] is not None:
