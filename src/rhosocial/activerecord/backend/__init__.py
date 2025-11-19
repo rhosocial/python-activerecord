@@ -14,8 +14,6 @@ This module provides a generic interface for database operations, with support f
 # (mysql, postgresql, etc.) can be installed independently
 __path__ = __import__('pkgutil').extend_path(__path__, __name__)
 
-__version__ = "0.8.0"
-
 from . import base
 from . import dialect
 from . import config
@@ -23,11 +21,11 @@ from . import typing
 from . import errors
 from . import helpers
 from . import transaction
-from . import basic_type_converter
-from . import type_converters
+from . import type_adapter
+from . import type_registry
 
 # Core interfaces and base classes
-from .base import StorageBackend, ColumnTypes
+from .base import StorageBackend
 from .dialect import (
     TypeMapping,
     SQLDialectBase,
@@ -50,6 +48,7 @@ from .typing import (
     DatabaseValue,
     PythonValue,
     DatabaseType,
+    ColumnTypes,
 )
 
 # Error types
@@ -92,22 +91,20 @@ from .transaction import (
     TransactionState,
 )
 
-# Type Converters
-from .basic_type_converter import (
-    BasicTypeConverter,
-    DateTimeConverter,
-    BooleanConverter,
-    UUIDConverter,
-    JSONConverter,
-    DecimalConverter,
-    ArrayConverter,
-    EnumConverter,
+# New Type System
+from .type_adapter import (
+    SQLTypeAdapter,
+    BaseSQLTypeAdapter,
+    DateTimeAdapter,
+    BooleanAdapter,
+    UUIDAdapter,
+    JSONAdapter,
+    DecimalAdapter,
+    ArrayAdapter,
+    EnumAdapter,
 )
-from .type_converters import (
-    TypeConverter,
-    BaseTypeConverter,
-    TypeRegistry,
-)
+from .type_registry import TypeRegistry
+
 
 # Capabilities
 from .capabilities import (
@@ -190,19 +187,18 @@ __all__ = [
     'IsolationLevel',
     'TransactionState',
 
-    # Type Converters
-    'BasicTypeConverter',
-    'DateTimeConverter',
-    'BooleanConverter',
-    'UUIDConverter',
-    'JSONConverter',
-    'DecimalConverter',
-    'ArrayConverter',
-    'EnumConverter',
-    'TypeConverter',
-    'BaseTypeConverter',
+    # Type System
+    'SQLTypeAdapter',
+    'BaseSQLTypeAdapter',
     'TypeRegistry',
-    
+    'DateTimeAdapter',
+    'BooleanAdapter',
+    'UUIDAdapter',
+    'JSONAdapter',
+    'DecimalAdapter',
+    'ArrayAdapter',
+    'EnumAdapter',
+
     # Capabilities
     'DatabaseCapabilities',
     'CapabilityCategory',

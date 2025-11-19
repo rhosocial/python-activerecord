@@ -6,13 +6,13 @@ import re
 import sqlite3
 import sys
 import time
-from typing import Optional, Tuple, List, Any, Dict, Union
+from typing import Optional, Tuple, List, Any, Dict, Union, Type
 
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
-from .type_converters import SQLiteBlobConverter, SQLiteJSONConverter, SQLiteUUIDConverter, SQLiteNumericConverter
-from ...base import StorageBackend, ColumnTypes
+from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
+from ...base import StorageBackend
 from ...capabilities import (
     DatabaseCapabilities,
     CTECapability,
@@ -33,6 +33,7 @@ from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
 from ...typing import QueryResult, DatabaseType
+from ...type_adapter import SQLTypeAdapter
 
 
 class SQLiteBackend(StorageBackend):
@@ -108,7 +109,6 @@ class SQLiteBackend(StorageBackend):
             ConstraintCapability.FOREIGN_KEY,
             ConstraintCapability.UNIQUE,
             ConstraintCapability.NOT_NULL,
-            ConstraintCapability.CHECK,
             ConstraintCapability.DEFAULT
         ])
         capabilities.add_datetime_function(DateTimeFunctionCapability.STRFTIME)
@@ -186,26 +186,19 @@ class SQLiteBackend(StorageBackend):
         return capabilities
 
     def _register_sqlite_converters(self):
-        """Register SQLite-specific type converters"""
-        # Register SQLite BLOB converter
-        self.dialect.register_converter(SQLiteBlobConverter(),
-                                        names=["BLOB", "BYTEA"],
-                                        types=[DatabaseType.BLOB, DatabaseType.BYTEA])
+        """Register SQLite-specific type adapters to the adapter_registry."""
+        sqlite_adapters = [
+            SQLiteBlobAdapter(),
+            SQLiteJSONAdapter(),
+            SQLiteUUIDAdapter(),
+        ]
+        for adapter in sqlite_adapters:
+            for py_type, db_types in adapter.supported_types.items():
+                for db_type in db_types:
+                    # Register with override allowed for backend-specific converters
+                    self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
+        self.logger.debug("Registered SQLite-specific type adapters.")
 
-        # Register SQLite JSON converter with higher priority
-        self.dialect.register_converter(SQLiteJSONConverter(),
-                                        names=["JSON"],
-                                        types=[DatabaseType.JSON])
-
-        # Register SQLite UUID converter
-        self.dialect.register_converter(SQLiteUUIDConverter(),
-                                        names=["UUID", "TEXT"],
-                                        types=[DatabaseType.UUID])
-
-        # Register SQLite Numeric converter
-        self.dialect.register_converter(SQLiteNumericConverter(),
-                                        names=["NUMERIC", "DECIMAL"],
-                                        types=[DatabaseType.NUMERIC, DatabaseType.DECIMAL])
 
     @property
     def pragmas(self) -> Dict[str, str]:
@@ -499,60 +492,6 @@ class SQLiteBackend(StorageBackend):
         cursor = self._connection.cursor()
         return cursor
 
-    def _process_result_set(self, cursor, is_select: bool, need_returning: bool, column_types: Optional[ColumnTypes]) -> \
-            Optional[List[Dict]]:
-        """
-        Process query result set for SQLite.
-
-        SQLite returns Row objects which can be accessed like dictionaries.
-        """
-        if not (is_select or need_returning):
-            return None
-
-        # Fetch all rows
-        rows = cursor.fetchall()
-        self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
-
-        if not rows:
-            return []
-
-        # Apply type conversions if specified
-        if column_types:
-            self.log(logging.DEBUG, "Applying type conversions")
-            data = []
-            for row in rows:
-                # Convert sqlite3.Row to dict and apply type conversions
-                converted_row = {}
-                for key in row.keys():
-                    value = row[key]
-                    type_spec = column_types.get(key)
-                    if type_spec is None:
-                        # No conversion specified
-                        converted_row[key] = value
-                    elif isinstance(type_spec, DatabaseType):
-                        # Using DatabaseType enum for conversion
-                        converted_row[key] = self.dialect.from_database(value, type_spec)
-                    elif isinstance(type_spec, str):
-                        # Using type name string
-                        converter = self.dialect.type_registry.find_converter_by_name(type_spec)
-                        if converter:
-                            converted_row[key] = converter.from_database(value, type_spec)
-                        else:
-                            converted_row[key] = value
-                    else:
-                        # Assume it's a converter instance or similar
-                        try:
-                            # Try to use the converter directly
-                            converted_row[key] = type_spec.from_database(value, None)
-                        except (AttributeError, TypeError):
-                            # If it's not a converter, use it as a type hint
-                            converted_row[key] = self.dialect.from_database(value, type_spec)
-                data.append(converted_row)
-            return data
-        else:
-            # No type conversion needed
-            return [dict(row) for row in rows]
-
     def _handle_auto_commit_if_needed(self) -> None:
         """
         Handle auto-commit for SQLite.
@@ -664,21 +603,14 @@ class SQLiteBackend(StorageBackend):
 
             cursor = self._cursor or self._connection.cursor()
 
-            # Convert all parameters
-            converted_params = []
-            for params in params_list:
-                if params:
-                    converted = tuple(
-                        self.dialect.to_database(value, None)
-                        for value in params
-                    )
-                    converted_params.append(converted)
-
-            cursor.executemany(sql, converted_params)
+            # Parameters are assumed to be pre-converted by the caller using `prepare_parameters`
+            cursor.executemany(sql, params_list)
             duration = time.perf_counter() - start_time
 
             self.log(logging.INFO,
                      f"Batch operation completed, affected {cursor.rowcount} rows, duration={duration:.3f}s")
+            
+            self._handle_auto_commit_if_needed()
 
             return QueryResult(
                 affected_rows=cursor.rowcount,
