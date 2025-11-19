@@ -7,7 +7,7 @@ import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Callable, Tuple, \
-    TYPE_CHECKING
+    TYPE_CHECKING, get_args
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
@@ -250,12 +250,11 @@ class IActiveRecord(BaseModel, ABC):
     def get_column_adapters(self) -> Dict[str, Tuple['SQLTypeAdapter', Type]]:
         """
         Derives a mapping of column names to their corresponding SQLTypeAdapter
-        and target database type.
+        and target DBAPI-compatible Python type by querying the backend's adapter_registry.
 
-        This is used to prepare parameters for DML operations (INSERT/UPDATE).
-
-        Returns:
-            Dict mapping column names to a tuple of (adapter_instance, target_db_type).
+        This method respects the adapter_registry as the single source of truth.
+        It iterates through the model's fields and finds the first matching adapter
+        from the registry based on the field's Python type.
         """
         # Check class cache
         if self.__class__.__column_adapters_cache__ is not None:
@@ -264,16 +263,28 @@ class IActiveRecord(BaseModel, ABC):
         adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(self.__class__.model_fields)
 
-        # Get the backend once
-        backend_instance = self.backend()
-        dialect = backend_instance.dialect
-        type_registry = backend_instance.adapter_registry  # Get the registry from the backend
+        # Get all registered adapters from the backend's registry
+        all_registered_adapters = self.backend().adapter_registry.get_all_adapters()
 
         for field_name, field_info in model_fields.items():
-            # Use the new dialect method
-            adapter_info = dialect.get_column_adapter(field_info, type_registry)
-            if adapter_info:
-                adapters_map[field_name] = adapter_info
+            py_type = field_info.annotation
+
+            # --- Handle complex types like Optional[T] ---
+            origin = get_origin(py_type)
+            if origin is Union:
+                args = [arg for arg in get_args(py_type) if arg is not type(None)]
+                if len(args) == 1:
+                    py_type = args[0]
+                else:
+                    continue  # Skip complex Unions
+
+            # --- Find a matching adapter in the registry ---
+            # This respects the registry completely.
+            for (registered_py_type, registered_db_type), adapter in all_registered_adapters.items():
+                if py_type == registered_py_type:
+                    # Found the first match for this python type.
+                    adapters_map[field_name] = (adapter, registered_db_type)
+                    break  # Move to the next field
 
         # Cache result in the renamed class variable
         self.__class__.__column_adapters_cache__ = adapters_map
@@ -281,12 +292,15 @@ class IActiveRecord(BaseModel, ABC):
 
     def _insert_internal(self, data) -> Any:
         # The caller (_insert_internal) is responsible for preparing parameters.
-        
+        self.log(logging.DEBUG, f"[DEBUG] Raw data for insert: {data}")
+
         # 1. Get the adapter map for the model.
         adapters_map = self.get_column_adapters()
+        self.log(logging.DEBUG, f"[DEBUG] Adapters map: {adapters_map}")
 
         # 2. Prepare the INPUT parameters using the adapters.
         prepared_data = self.backend().prepare_parameters(data, adapters_map)
+        self.log(logging.DEBUG, f"[DEBUG] Prepared data for insert: {prepared_data}")
         
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}: {prepared_data}")
         
