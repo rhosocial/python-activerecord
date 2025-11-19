@@ -732,10 +732,10 @@ git pull origin main
 git checkout -b release/v1.2.0.dev1
 
 # 3. First commit: Bump version number
-# Edit src/rhosocial/activerecord/__init__.py
-__version__ = "1.2.0.dev1"
+# Edit pyproject.toml to update the `version` property
+# version = "1.2.0.dev1"
 
-git add src/rhosocial/activerecord/__init__.py
+git add pyproject.toml
 git commit -m "chore: bump version to 1.2.0.dev1"
 git push origin release/v1.2.0.dev1
 ```
