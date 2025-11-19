@@ -5,7 +5,7 @@ build-backend = "setuptools.build_meta"
 
 [project]
 name = "rhosocial_activerecord"
-version = "1.0.0.dev12"
+version = "1.0.0.dev13"
 description = "A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features."
 readme = "README.md"
 license = { file = "LICENSE" }
