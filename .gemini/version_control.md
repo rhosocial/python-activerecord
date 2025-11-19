@@ -1458,6 +1458,11 @@ docs: update installation guide for Python 3.14
 chore: bump version to 1.2.0
 ```
 
+### Commit Message Language
+
+-   **Default Language**: Commit messages MUST primarily be written in English.
+-   **Non-English Messages**: If a commit message is written in a language other than English (e.g., for specific local context or internal project branches), it MUST be accompanied by an English translation in the commit body. The reason for using a non-English message should also be briefly explained in the commit body (e.g., "Reason: Internal project, localized message for team's convenience.").
+
 ### Commit Types
 
 | Type | Purpose | Example |
