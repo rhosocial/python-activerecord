@@ -14,15 +14,24 @@ import logging
 import time
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, asynccontextmanager
-from typing import Any, Dict, Generator, Optional, Tuple, List, Union, AsyncGenerator
+from typing import Any, Dict, Generator, Optional, Tuple, List, Union, AsyncGenerator, Sequence, Type
 
 from .capabilities import DatabaseCapabilities
 from .config import ConnectionConfig
 from .dialect import SQLDialectBase, SQLExpressionBase, SQLBuilder, ReturningOptions
 from .errors import ReturningNotSupportedError
 from .transaction import TransactionManager, AsyncTransactionManager
-from .type_converters import TypeRegistry
-from .typing import QueryResult, DatabaseType, ColumnTypes
+from .typing import QueryResult, DatabaseType
+from .type_registry import TypeRegistry
+from .type_adapter import (
+    SQLTypeAdapter,
+    DateTimeAdapter,
+    JSONAdapter,
+    UUIDAdapter,
+    EnumAdapter,
+    BooleanAdapter,
+    DecimalAdapter,
+)
 
 
 # ============================================================================
@@ -76,23 +85,131 @@ class CapabilityMixin:
         pass
 
 
-class TypeConversionMixin:
-    """Mixin for type conversion operations."""
+class TypeAdaptionMixin:
+    """
+    Provides type conversion capabilities to storage backends.
 
-    @property
-    def type_registry(self) -> TypeRegistry:
-        """Get the type registry from the dialect."""
-        return self.dialect.type_registry
+    This mixin has a dual role:
+    1. Convenience: On backend instantiation, it creates a public `adapter_registry`
+       (a TypeRegistry instance) and pre-registers a set of standard type adapters
+       (e.g., for DateTime, Decimal, UUID). This provides a convenient entry point
+       for callers to query and retrieve common adapter instances.
+    2. Decoupled Conversion Methods: It provides the two core methods, `prepare_parameters`
+       and `_process_result_set`. When performing conversions, these methods rely entirely
+       on the adapters and target types passed in by the caller, completely decoupling
+       them from the `adapter_registry` itself, ensuring a clear and independent execution path.
+    """
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+        self.adapter_registry = TypeRegistry()
+        self._register_default_adapters()
+        self.logger.info("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")
 
-    def register_converter(self, converter: Any, names: Optional[List[str]] = None,
-                           types: Optional[List[Any]] = None) -> None:
-        """Register a type converter with this backend's dialect."""
-        self.dialect.register_converter(converter, names, types)
+    def _register_default_adapters(self) -> None:
+        adapters = [
+            DateTimeAdapter(), JSONAdapter(), UUIDAdapter(), EnumAdapter(),
+            BooleanAdapter(), DecimalAdapter(),
+        ]
+        for adapter in adapters:
+            for py_type, db_types in adapter.supported_types.items():
+                for db_type in db_types:
+                    self.adapter_registry.register(adapter, py_type, db_type)
+        self.logger.debug("Registered all standard type adapters.")
 
-    def _convert_params(self, params: Union[Tuple, Dict]) -> Tuple:
-        """Convert parameter values to database-compatible types."""
-        param_values = params.values() if isinstance(params, dict) else params
-        return tuple(self.dialect.to_database(value, None) for value in param_values)
+    def prepare_parameters(
+        self,
+        params: Union[Dict[str, Any], Sequence[Any]],
+        param_adapters: Union[Dict[str, Tuple[SQLTypeAdapter, Type]], Sequence[Optional[Tuple[SQLTypeAdapter, Type]]]]
+    ) -> Union[Dict[str, Any], Tuple[Any, ...]]:
+        """
+        Converts Python parameters to database-compatible types based on the provided adapters.
+
+        This method follows the principle of complete decoupling and does not access
+        `self.adapter_registry`. All information required for conversion (adapter instance
+        and target database type) must be explicitly provided by the caller through
+        the `param_adapters` parameter.
+
+        :param params: A dictionary or sequence containing the original Python values.
+        :param param_adapters: A dictionary or sequence corresponding to the structure of `params`.
+               - For a dictionary: `{'param_name': (adapter_instance, target_db_type)}`
+               - For a sequence: `[(adapter_instance, target_db_type), ...]`
+        :return: A dictionary or tuple containing the converted values.
+        """
+        if not params or not param_adapters:
+            return tuple(params) if isinstance(params, Sequence) else params
+
+        if isinstance(params, dict) and isinstance(param_adapters, dict):
+            converted_params = params.copy()
+            for key, adapter_info in param_adapters.items():
+                if key in converted_params and adapter_info and converted_params[key] is not None:
+                    adapter, db_type = adapter_info
+                    original_value = converted_params[key]
+                    converted_params[key] = adapter.to_database(original_value, db_type)
+            return converted_params
+
+        if isinstance(params, Sequence) and isinstance(param_adapters, Sequence):
+            if len(params) != len(param_adapters):
+                raise ValueError("Length of params and param_adapters must match for sequence-based conversion.")
+
+            converted_params = list(params)
+            for i, adapter_info in enumerate(param_adapters):
+                if adapter_info and converted_params[i] is not None:
+                    adapter, db_type = adapter_info
+                    original_value = converted_params[i]
+                    converted_params[i] = adapter.to_database(original_value, db_type)
+            return tuple(converted_params)
+
+        raise TypeError("Unsupported types for params and param_adapters. "
+                        "Provide either two dicts or two sequences.")
+
+    def _process_result_set(
+        self,
+        cursor,
+        is_select: bool,
+        need_returning: bool,
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
+    ) -> Optional[List[Dict]]:
+        """
+        Converts the result set returned from the database to specified Python types
+        based on the provided adapters.
+
+        This method is part of the `execute` call stack and follows the principle of
+        complete decoupling by not accessing `self.adapter_registry`. All information
+        required for conversion (adapter instance and target Python type) must be
+        explicitly provided by the caller through the `column_adapters` parameter.
+
+        :param cursor: The database cursor object.
+        :param is_select: Whether it is a SELECT query.
+        :param need_returning: Whether to process the result of a RETURNING clause.
+        :param column_adapters: A dictionary mapping column names to `(adapter_instance, target_py_type)` tuples.
+        :return: A list of dictionaries containing the converted values.
+        """
+        if not (is_select or need_returning): return None
+        try:
+            rows = cursor.fetchall()
+            if not rows: return []
+            column_names = [desc[0] for desc in cursor.description]
+            column_adapters = column_adapters or {}
+            converted_results = []
+            for row in rows:
+                converted_row = {}
+                row_dict = dict(zip(column_names, row))
+                for key, value in row_dict.items():
+                    if value is None:
+                        converted_row[key] = None
+                        continue
+
+                    adapter_info = column_adapters.get(key)
+                    if adapter_info:
+                        adapter, py_type = adapter_info
+                        converted_row[key] = adapter.from_database(value, py_type)
+                    else:
+                        converted_row[key] = value
+                converted_results.append(converted_row)
+            return converted_results
+        except Exception as e:
+            self.logger.error(f"Error processing result set: {str(e)}", exc_info=True)
+            raise
 
 
 class SQLBuildingMixin:
@@ -215,7 +332,7 @@ class SQLOperationsMixin:
                table: str,
                data: Dict,
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-               column_types: Optional[ColumnTypes] = None,
+               column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                auto_commit: Optional[bool] = True,
                primary_key: Optional[str] = None) -> QueryResult:
         """Insert record."""
@@ -230,7 +347,7 @@ class SQLOperationsMixin:
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
 
-        result = self.execute(sql, tuple(values), returning, column_types)
+        result = self.execute(sql, tuple(values), returning, column_adapters)
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
@@ -253,7 +370,7 @@ class SQLOperationsMixin:
                where: str,
                params: Tuple,
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-               column_types: Optional[ColumnTypes] = None,
+               column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                auto_commit: bool = True) -> QueryResult:
         """Update record."""
         set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
@@ -262,7 +379,7 @@ class SQLOperationsMixin:
 
         sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
 
-        result = self.execute(sql, tuple(values) + params, returning, column_types)
+        result = self.execute(sql, tuple(values) + params, returning, column_adapters)
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
@@ -274,12 +391,12 @@ class SQLOperationsMixin:
                where: str,
                params: Tuple,
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-               column_types: Optional[ColumnTypes] = None,
+               column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                auto_commit: bool = True) -> QueryResult:
         """Delete record."""
         sql = f"DELETE FROM {table} WHERE {where}"
 
-        result = self.execute(sql, params, returning, column_types)
+        result = self.execute(sql, params, returning, column_adapters)
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
@@ -294,7 +411,7 @@ class AsyncSQLOperationsMixin:
                      table: str,
                      data: Dict,
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-                     column_types: Optional[ColumnTypes] = None,
+                     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                      auto_commit: Optional[bool] = True,
                      primary_key: Optional[str] = None) -> QueryResult:
         """Insert record asynchronously."""
@@ -309,7 +426,7 @@ class AsyncSQLOperationsMixin:
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
 
-        result = await self.execute(sql, tuple(values), returning, column_types)
+        result = await self.execute(sql, tuple(values), returning, column_adapters)
 
         if auto_commit:
             await self._handle_auto_commit_if_needed()
@@ -332,7 +449,7 @@ class AsyncSQLOperationsMixin:
                      where: str,
                      params: Tuple,
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-                     column_types: Optional[ColumnTypes] = None,
+                     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                      auto_commit: bool = True) -> QueryResult:
         """Update record asynchronously."""
         set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
@@ -341,7 +458,7 @@ class AsyncSQLOperationsMixin:
 
         sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
 
-        result = await self.execute(sql, tuple(values) + params, returning, column_types)
+        result = await self.execute(sql, tuple(values) + params, returning, column_adapters)
 
         if auto_commit:
             await self._handle_auto_commit_if_needed()
@@ -353,12 +470,12 @@ class AsyncSQLOperationsMixin:
                      where: str,
                      params: Tuple,
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-                     column_types: Optional[ColumnTypes] = None,
+                     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
                      auto_commit: bool = True) -> QueryResult:
         """Delete record asynchronously."""
         sql = f"DELETE FROM {table} WHERE {where}"
 
-        result = await self.execute(sql, params, returning, column_types)
+        result = await self.execute(sql, params, returning, column_adapters)
 
         if auto_commit:
             await self._handle_auto_commit_if_needed()
@@ -409,7 +526,7 @@ class StorageBackend(
     StorageBackendBase,
     LoggingMixin,
     CapabilityMixin,
-    TypeConversionMixin,
+    TypeAdaptionMixin,
     SQLBuildingMixin,
     QueryAnalysisMixin,
     ReturningClauseMixin,
@@ -477,11 +594,12 @@ class StorageBackend(
             sql: str,
             params: Optional[Tuple] = None,
             returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-            column_types: Optional[ColumnTypes] = None) -> Optional[QueryResult]:
+            column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[QueryResult]:
         """
         Execute SQL statement with enhanced RETURNING clause support.
 
         This is a template method that implements the common flow for all databases.
+        Parameter conversion should be done before calling this method by using `prepare_parameters`.
         """
         start_time = time.perf_counter()
 
@@ -509,14 +627,14 @@ class StorageBackend(
             # Get cursor
             cursor = self._get_cursor()
 
-            # Process SQL and parameters
+            # Process SQL and parameters (note: parameters are assumed to be pre-converted)
             final_sql, final_params = self._prepare_sql_and_params(sql, params)
 
             # Execute query
             cursor = self._execute_query(cursor, final_sql, final_params)
 
             # Process results
-            data = self._process_result_set(cursor, is_select, need_returning, column_types)
+            data = self._process_result_set(cursor, is_select, need_returning, column_adapters)
 
             # Calculate duration
             duration = time.perf_counter() - start_time
@@ -547,87 +665,10 @@ class StorageBackend(
     def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
         """Execute the query with prepared SQL and parameters."""
         if params:
-            processed_params = tuple(
-                self.dialect.to_database(value, None)
-                for value in params
-            )
-            cursor.execute(sql, processed_params)
+            cursor.execute(sql, params)
         else:
             cursor.execute(sql)
         return cursor
-
-    def _process_result_set(self, cursor, is_select: bool, need_returning: bool,
-                            column_types: Optional[ColumnTypes]) -> Optional[List[Dict]]:
-        """Process query result set with type conversion."""
-        if not (is_select or need_returning):
-            return None
-
-        try:
-            rows = cursor.fetchall()
-            self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
-
-            if not rows:
-                return []
-
-            # Apply type conversions if specified
-            if column_types:
-                self.log(logging.DEBUG, "Applying type conversions")
-                result = []
-
-                if hasattr(rows[0], 'items'):  # Dict-like rows
-                    for row in rows:
-                        converted_row = self._convert_row_dict(row, column_types)
-                        result.append(converted_row)
-                else:  # Tuple-like rows
-                    column_names = [desc[0] for desc in cursor.description]
-                    for row in rows:
-                        converted_row = self._convert_row_tuple(row, column_names, column_types)
-                        result.append(converted_row)
-
-                return result
-            else:
-                # No type conversion needed
-                if hasattr(rows[0], 'items'):
-                    return [dict(row) for row in rows]
-                else:
-                    column_names = [desc[0] for desc in cursor.description]
-                    return [dict(zip(column_names, row)) for row in rows]
-        except Exception as e:
-            self.log(logging.ERROR, f"Error processing result set: {str(e)}")
-            raise
-
-    def _convert_row_dict(self, row: Dict, column_types: ColumnTypes) -> Dict:
-        """Convert a dict-like row with type specifications."""
-        converted_row = {}
-        for key, value in row.items():
-            converted_row[key] = self._convert_value(value, column_types.get(key))
-        return converted_row
-
-    def _convert_row_tuple(self, row: Tuple, column_names: List[str],
-                           column_types: ColumnTypes) -> Dict:
-        """Convert a tuple-like row with type specifications."""
-        converted_row = {}
-        for i, value in enumerate(row):
-            key = column_names[i]
-            converted_row[key] = self._convert_value(value, column_types.get(key))
-        return converted_row
-
-    def _convert_value(self, value: Any, type_spec: Any) -> Any:
-        """Convert a single value based on type specification."""
-        if type_spec is None:
-            return value
-        elif isinstance(type_spec, DatabaseType):
-            return self.dialect.from_database(value, type_spec)
-        elif isinstance(type_spec, str):
-            converter = self.dialect.type_registry.find_converter_by_name(type_spec)
-            if converter:
-                return converter.from_database(value, type_spec)
-            return value
-        else:
-            try:
-                return type_spec.from_database(value, None)
-            except (AttributeError, TypeError):
-                return self.dialect.from_database(value, type_spec)
 
     def _handle_auto_commit_if_needed(self) -> None:
         """Handle auto-commit if not in transaction."""
@@ -666,15 +707,15 @@ class StorageBackend(
     # ========================================================================
 
     def fetch_one(self, sql: str, params: Optional[Tuple] = None,
-                  column_types: Optional[ColumnTypes] = None) -> Optional[Dict]:
+                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[Dict]:
         """Fetch single record."""
-        result = self.execute(sql, params, ReturningOptions.all_columns(), column_types)
+        result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
         return result.data[0] if result and result.data else None
 
     def fetch_all(self, sql: str, params: Optional[Tuple] = None,
-                  column_types: Optional[ColumnTypes] = None) -> List[Dict]:
+                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> List[Dict]:
         """Fetch multiple records."""
-        result = self.execute(sql, params, ReturningOptions.all_columns(), column_types)
+        result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
         return result.data or []
 
     # ========================================================================
@@ -749,7 +790,7 @@ class AsyncStorageBackend(
     StorageBackendBase,
     LoggingMixin,
     CapabilityMixin,
-    TypeConversionMixin,
+    TypeAdaptionMixin,
     SQLBuildingMixin,
     QueryAnalysisMixin,
     ReturningClauseMixin,
@@ -817,7 +858,7 @@ class AsyncStorageBackend(
             sql: str,
             params: Optional[Tuple] = None,
             returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-            column_types: Optional[ColumnTypes] = None) -> Optional[QueryResult]:
+            column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[QueryResult]:
         """Execute SQL statement asynchronously."""
         start_time = time.perf_counter()
 
@@ -844,7 +885,7 @@ class AsyncStorageBackend(
 
             cursor = await self._execute_query(cursor, final_sql, final_params)
 
-            data = await self._process_result_set(cursor, is_select, need_returning, column_types)
+            data = await self._process_result_set(cursor, is_select, need_returning, column_adapters)
 
             duration = time.perf_counter() - start_time
 
@@ -871,87 +912,10 @@ class AsyncStorageBackend(
     async def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
         """Execute query asynchronously."""
         if params:
-            processed_params = tuple(
-                self.dialect.to_database(value, None)
-                for value in params
-            )
-            await cursor.execute(sql, processed_params)
+            await cursor.execute(sql, params)
         else:
             await cursor.execute(sql)
         return cursor
-
-    async def _process_result_set(self, cursor, is_select: bool, need_returning: bool,
-                                  column_types: Optional[ColumnTypes]) -> Optional[List[Dict]]:
-        """Process query result set with type conversion asynchronously."""
-        if not (is_select or need_returning):
-            return None
-
-        try:
-            rows = await cursor.fetchall()
-            self.log(logging.DEBUG, f"Fetched {len(rows)} rows")
-
-            if not rows:
-                return []
-
-            # Apply type conversions if specified
-            if column_types:
-                self.log(logging.DEBUG, "Applying type conversions")
-                result = []
-
-                if hasattr(rows[0], 'items'):  # Dict-like rows
-                    for row in rows:
-                        converted_row = self._convert_row_dict(row, column_types)
-                        result.append(converted_row)
-                else:  # Tuple-like rows
-                    column_names = [desc[0] for desc in cursor.description]
-                    for row in rows:
-                        converted_row = self._convert_row_tuple(row, column_names, column_types)
-                        result.append(converted_row)
-
-                return result
-            else:
-                # No type conversion needed
-                if hasattr(rows[0], 'items'):
-                    return [dict(row) for row in rows]
-                else:
-                    column_names = [desc[0] for desc in cursor.description]
-                    return [dict(zip(column_names, row)) for row in rows]
-        except Exception as e:
-            self.log(logging.ERROR, f"Error processing result set: {str(e)}")
-            raise
-
-    def _convert_row_dict(self, row: Dict, column_types: ColumnTypes) -> Dict:
-        """Convert a dict-like row with type specifications."""
-        converted_row = {}
-        for key, value in row.items():
-            converted_row[key] = self._convert_value(value, column_types.get(key))
-        return converted_row
-
-    def _convert_row_tuple(self, row: Tuple, column_names: List[str],
-                           column_types: ColumnTypes) -> Dict:
-        """Convert a tuple-like row with type specifications."""
-        converted_row = {}
-        for i, value in enumerate(row):
-            key = column_names[i]
-            converted_row[key] = self._convert_value(value, column_types.get(key))
-        return converted_row
-
-    def _convert_value(self, value: Any, type_spec: Any) -> Any:
-        """Convert a single value based on type specification."""
-        if type_spec is None:
-            return value
-        elif isinstance(type_spec, DatabaseType):
-            return self.dialect.from_database(value, type_spec)
-        elif isinstance(type_spec, str):
-            converter = self.dialect.type_registry.find_converter_by_name(type_spec)
-            if converter:
-                return converter.from_database(value, type_spec)
-            return value
-        else:
-            try:
-                return type_spec.from_database(value, None)
-            except (AttributeError, TypeError):
-                return self.dialect.from_database(value, type_spec)
 
     async def _handle_auto_commit_if_needed(self) -> None:
         """Handle auto-commit asynchronously."""
@@ -980,10 +944,8 @@ class AsyncStorageBackend(
             if not self._connection:
                 await self.connect()
 
-            converted_params = [self._convert_params(p) for p in params_list]
-
             cursor = await self._get_cursor()
-            await cursor.executemany(sql, converted_params)
+            await cursor.executemany(sql, params_list)
             await self._handle_auto_commit_if_needed()
 
             duration = time.perf_counter() - start_time
@@ -1000,15 +962,15 @@ class AsyncStorageBackend(
     # ========================================================================
 
     async def fetch_one(self, sql: str, params: Optional[Tuple] = None,
-                        column_types: Optional[ColumnTypes] = None) -> Optional[Dict]:
+                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[Dict]:
         """Fetch single record asynchronously."""
-        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_types)
+        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
         return result.data[0] if result and result.data else None
 
     async def fetch_all(self, sql: str, params: Optional[Tuple] = None,
-                        column_types: Optional[ColumnTypes] = None) -> List[Dict]:
+                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> List[Dict]:
         """Fetch multiple records asynchronously."""
-        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_types)
+        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
         return result.data or []
 
     # ========================================================================
