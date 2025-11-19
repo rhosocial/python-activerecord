@@ -153,12 +153,27 @@ class BaseActiveRecord(IActiveRecord):
             user = User.find_one({'status': 1, 'type': 2})
         """
         query = cls.query()
+        adapters_map = cls.model_construct().get_column_adapters()
 
         if isinstance(condition, dict):
+            prepared_conditions = {}
             for field, value in condition.items():
-                query = query.where(f"{field} = ?", (value,))
+                adapter_info = adapters_map.get(field)
+                if adapter_info and value is not None:
+                    adapter, dbapi_type = adapter_info
+                    prepared_value = adapter.to_database(value, dbapi_type)
+                    prepared_conditions[field] = prepared_value
+                else:
+                    prepared_conditions[field] = value
+            query = query.query(prepared_conditions)
         else:
-            query = query.where(f"{cls.primary_key()} = ?", (condition,))
+            pk_field_name = cls.primary_key()
+            adapter_info = adapters_map.get(pk_field_name)
+            prepared_condition = condition
+            if adapter_info and condition is not None:
+                adapter, dbapi_type = adapter_info
+                prepared_condition = adapter.to_database(condition, dbapi_type)
+            query = query.where(f"{pk_field_name} = ?", (prepared_condition,))
 
         return query.one()
 
@@ -184,15 +199,41 @@ class BaseActiveRecord(IActiveRecord):
             users = User.find_all()
         """
         query = cls.query()
-
         if condition is None:
             return query.all()
 
+        adapters_map = cls.model_construct().get_column_adapters()
+
         if isinstance(condition, dict):
+            prepared_conditions = {}
             for field, value in condition.items():
-                query = query.where(f"{field} = ?", (value,))
-        else:
-            query = query.where(f"{cls.primary_key()} IN (?)", (tuple(condition),))
+                adapter_info = adapters_map.get(field)
+                if adapter_info and value is not None:
+                    adapter, dbapi_type = adapter_info
+                    # This handles lists for 'IN' clauses correctly if the adapter supports it
+                    if isinstance(value, (list, tuple)):
+                        prepared_value = [adapter.to_database(v, dbapi_type) for v in value]
+                    else:
+                        prepared_value = adapter.to_database(value, dbapi_type)
+                    prepared_conditions[field] = prepared_value
+                else:
+                    prepared_conditions[field] = value
+            query = query.query(prepared_conditions)
+        else: # Assumes list of primary keys
+            pk_field_name = cls.primary_key()
+            adapter_info = adapters_map.get(pk_field_name)
+            prepared_conditions = []
+            if adapter_info:
+                adapter, dbapi_type = adapter_info
+                prepared_conditions = [adapter.to_database(c, dbapi_type) for c in condition if c is not None]
+            else:
+                prepared_conditions = [c for c in condition if c is not None]
+
+            if not prepared_conditions:
+                return []
+                
+            placeholders = ','.join(['?' for _ in prepared_conditions])
+            query = query.where(f"{pk_field_name} IN ({placeholders})", prepared_conditions)
 
         return query.all()
 
@@ -269,44 +310,51 @@ class BaseActiveRecord(IActiveRecord):
 
         self._trigger_event(ModelEvent.BEFORE_DELETE)
 
-        # Get the backend
         backend = self.backend()
+        
+        # Prepare the primary key value before passing it to the backend
+        pk_name = self.primary_key()
+        pk_value = getattr(self, pk_name)
+        
+        adapters_map = self.get_column_adapters()
+        adapter_info = adapters_map.get(pk_name)
 
-        # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_placeholder()
+        prepared_pk_value = pk_value
+        if adapter_info and pk_value is not None:
+            adapter, dbapi_type = adapter_info
+            prepared_pk_value = adapter.to_database(pk_value, dbapi_type)
 
-        # Create the condition with the standard question mark
         condition = f"{self.primary_key()} = ?"
-
-        # Only convert if the placeholder is not a question mark
-        if placeholder != '?':
-            from ..interface.model import replace_question_marks
-            condition = replace_question_marks(condition, placeholder)
+        params = (prepared_pk_value,)
 
         is_soft_delete = hasattr(self, 'prepare_delete')
 
         if is_soft_delete:
-            self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{getattr(self, self.primary_key())}")
+            self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
+            
+            # Also prepare the data for soft delete
+            prepared_data = backend.prepare_parameters(data, adapters_map)
+            
             result = backend.update(
                 self.table_name(),
-                data,
+                prepared_data,
                 condition,
-                (getattr(self, self.primary_key()),)
+                params
             )
         else:
-            self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{getattr(self, self.primary_key())}")
+            self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
             result = backend.delete(
                 self.table_name(),
                 condition,
-                (getattr(self, self.primary_key()),)
+                params
             )
 
         affected_rows = result.affected_rows
         if affected_rows > 0:
             if not is_soft_delete:
-                if hasattr(self, self.primary_key()):
-                    setattr(self, self.primary_key(), None)
+                if hasattr(self, pk_name):
+                    setattr(self, pk_name, None)
             self.reset_tracking()
             self._trigger_event(ModelEvent.AFTER_DELETE)
 

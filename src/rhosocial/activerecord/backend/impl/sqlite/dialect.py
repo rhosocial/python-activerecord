@@ -1,9 +1,7 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
 import sqlite3
 import sys
-from typing import Optional, List, Set, Union, Dict, Any, TYPE_CHECKING
-
-from pydantic.fields import FieldInfo
+from typing import Optional, List, Set, Union, Dict, Any
 
 from ...dialect import (
     SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, ExplainOptions, ExplainType,
@@ -13,11 +11,6 @@ from ...errors import (
     ReturningNotSupportedError, WindowFunctionNotSupportedError, GroupingSetNotSupportedError,
     JsonOperationNotSupportedError
 )
-from ...typing import DatabaseType
-
-if TYPE_CHECKING:
-    from ...type_registry import TypeRegistry
-    from ...type_adapter import SQLTypeAdapter
 
 
 
@@ -112,44 +105,10 @@ class SQLiteDialect(SQLDialectBase):
         return {ExplainFormat.TEXT}
 
     def create_expression(self, expression: str) -> SQLiteExpression:
-        """Create SQLite expression"""
-        return SQLiteExpression(expression)
 
-    def get_column_adapter(
-        self,
-        field_info: FieldInfo,
-        type_registry: 'TypeRegistry'
-    ) -> Optional[Tuple['SQLTypeAdapter', type]]:
-        """
-        Gets the appropriate SQLTypeAdapter and target database type for a Pydantic field
-        in a SQLite context.
-        """
-        from datetime import datetime, date
-        from decimal import Decimal
-        import uuid
-        
-        python_type = field_info.annotation
-        
-        # Check for complex types that require specific adapters
-        if python_type is datetime or python_type is date:
-            adapter = type_registry.get_adapter(python_type, DatabaseType.TEXT)
-            return adapter, DatabaseType.TEXT
-        if python_type is dict or python_type is list:
-            adapter = type_registry.get_adapter(python_type, DatabaseType.TEXT)
-            return adapter, DatabaseType.TEXT
-        if python_type is Decimal:
-            adapter = type_registry.get_adapter(python_type, DatabaseType.TEXT)
-            return adapter, DatabaseType.TEXT
-        if python_type is uuid.UUID:
-            adapter = type_registry.get_adapter(python_type, DatabaseType.TEXT)
-            return adapter, DatabaseType.TEXT
-        if python_type is bool:
-            adapter = type_registry.get_adapter(python_type, DatabaseType.INTEGER)
-            return adapter, DatabaseType.INTEGER
-            
-        # For native types (int, str, float, bytes), no specific adapter is needed
-        # as the driver handles them.
-        return None
+        """Create SQLite expression"""
+
+        return SQLiteExpression(expression)
 
 
 class SQLiteReturningHandler(ReturningClauseHandler):

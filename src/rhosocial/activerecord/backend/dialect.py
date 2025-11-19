@@ -11,17 +11,11 @@ This module provides base classes for SQL dialect handling, including:
 from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union, TYPE_CHECKING
-
-from pydantic.fields import FieldInfo
+from typing import Any, Callable, Dict, List, Optional, Set, Tuple, Union
 
 from .errors import (
     ReturningNotSupportedError
 )
-
-if TYPE_CHECKING:
-    from .type_registry import TypeRegistry
-    from .type_adapter import SQLTypeAdapter
 
 
 @dataclass
@@ -679,30 +673,9 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    @abstractmethod
     def create_expression(self, expression: str) -> SQLExpressionBase:
         """Create SQL expression"""
-        pass
-
-    @abstractmethod
-    def get_column_adapter(
-        self,
-        field_info: FieldInfo,
-        type_registry: 'TypeRegistry'
-    ) -> Optional[Tuple['SQLTypeAdapter', type]]:
-        """
-        Gets the appropriate SQLTypeAdapter and target database type for a Pydantic field.
-
-        This method is crucial for DML operations, determining how to convert Python
-        types to database-compatible values before an INSERT or UPDATE.
-
-        Args:
-            field_info: The Pydantic FieldInfo object for the model field.
-            type_registry: The backend's type registry to look up adapters.
-
-        Returns:
-            A tuple of (SQLTypeAdapter_instance, target_database_type) or None if no
-            specific adapter is needed for this field.
-        """
         pass
 
     def format_json_expression(self, **params) -> str:
