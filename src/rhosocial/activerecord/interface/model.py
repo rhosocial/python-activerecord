@@ -6,16 +6,20 @@ import inspect
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Callable
+from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Callable, Tuple, \
+    TYPE_CHECKING
 
 from pydantic import BaseModel
 from pydantic.fields import FieldInfo
 
 from .base import ModelEvent
-from ..backend.base import StorageBackend, ColumnTypes
+from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound
 from ..backend.typing import DatabaseType
 from ..backend.config import ConnectionConfig
+
+if TYPE_CHECKING:
+    from ..backend.type_adapter import SQLTypeAdapter
 
 
 class CustomModuleFormatter(logging.Formatter):
@@ -94,8 +98,8 @@ class IActiveRecord(BaseModel, ABC):
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
     __logger__: ClassVar[logging.Logger] = logging.getLogger('activerecord')
 
-    # Class-level column type cache
-    __column_types_cache__: ClassVar[Optional[Dict[str, DatabaseType]]] = None
+    # Class-level column adapters cache
+    __column_adapters_cache__: ClassVar[Optional[Dict[str, Tuple['SQLTypeAdapter', Type]]]] = None
 
     # Change tracking attributes
     _dirty_fields = set()  # Set of field names that have been modified
@@ -109,9 +113,9 @@ class IActiveRecord(BaseModel, ABC):
         self._event_handlers = {event: [] for event in ModelEvent}  # Stores event handlers for model instance
 
     def __init_subclass__(cls) -> None:
-        """Reset type cache when initializing subclass"""
+        """Reset adapters cache when initializing subclass"""
         super().__init_subclass__()
-        cls.__column_types_cache__ = None
+        cls.__column_adapters_cache__ = None
 
     def __setattr__(self, name: str, value: Any):
         """Overridden to track field changes.
@@ -243,35 +247,56 @@ class IActiveRecord(BaseModel, ABC):
         """Get old attribute value."""
         return deepcopy(self._original_values[field_name])
 
-    def column_types(self) -> ColumnTypes:
-        """Derive database column types from model field definitions.
+    def get_column_adapters(self) -> Dict[str, Tuple['SQLTypeAdapter', Type]]:
+        """
+        Derives a mapping of column names to their corresponding SQLTypeAdapter
+        and target database type.
+
+        This is used to prepare parameters for DML operations (INSERT/UPDATE).
 
         Returns:
-            Dict mapping column names to their DatabaseType.
+            Dict mapping column names to a tuple of (adapter_instance, target_db_type).
         """
         # Check class cache
-        if self.__class__.__column_types_cache__ is not None:
-            return self.__class__.__column_types_cache__
+        if self.__class__.__column_adapters_cache__ is not None:
+            return self.__class__.__column_adapters_cache__
 
-        types: Dict[str, DatabaseType] = {}
+        adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(self.__class__.model_fields)
 
-        for field_name, field_info in model_fields.items():
-            db_type = self.backend().dialect.get_pydantic_model_field_type(field_info)
-            if db_type is not None:
-                types[field_name] = db_type
+        # Get the backend once
+        backend_instance = self.backend()
+        dialect = backend_instance.dialect
+        type_registry = backend_instance.adapter_registry  # Get the registry from the backend
 
-        # Cache result in class variable
-        self.__class__.__column_types_cache__ = types
-        return types
+        for field_name, field_info in model_fields.items():
+            # Use the new dialect method
+            adapter_info = dialect.get_column_adapter(field_info, type_registry)
+            if adapter_info:
+                adapters_map[field_name] = adapter_info
+
+        # Cache result in the renamed class variable
+        self.__class__.__column_adapters_cache__ = adapters_map
+        return adapters_map
 
     def _insert_internal(self, data) -> Any:
-        # Insert new record
-        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}: {data}")
+        # The caller (_insert_internal) is responsible for preparing parameters.
+        
+        # 1. Get the adapter map for the model.
+        adapters_map = self.get_column_adapters()
+
+        # 2. Prepare the INPUT parameters using the adapters.
+        prepared_data = self.backend().prepare_parameters(data, adapters_map)
+        
+        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}: {prepared_data}")
+        
+        # 3. Call `insert` with the prepared data.
+        # ALSO pass `adapters_map` to the `column_adapters` parameter, so the
+        # backend can use it to process the OUTPUT of a RETURNING clause if needed.
         result = self.backend().insert(
             self.table_name(),
-            data,
-            column_types=self.column_types(),
+            prepared_data,
+            column_adapters=adapters_map,
             returning=False,
             primary_key=self.primary_key()
         )
