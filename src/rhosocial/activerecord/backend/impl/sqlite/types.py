@@ -1,11 +1,16 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/types.py
 from typing import Dict
 
+# TypeMapping is used here for DDL generation (defining schema),
+# distinct from runtime type adaptation.
 from ...dialect import TypeMapping
 from ...typing import DatabaseType
 from ...helpers import format_with_length
 
-# SQLite type mapping configuration
+# This dictionary defines the mapping from generic DatabaseType (used by the ORM)
+# to concrete SQLite SQL type definitions, specifically for DDL generation
+# (e.g., CREATE TABLE statements).
+# It utilizes TypeMapping to specify the SQL type and an optional formatting function.
 SQLITE_TYPE_MAPPINGS: Dict[DatabaseType, TypeMapping] = {
     DatabaseType.TINYINT: TypeMapping("INTEGER"),
     DatabaseType.SMALLINT: TypeMapping("INTEGER"),
