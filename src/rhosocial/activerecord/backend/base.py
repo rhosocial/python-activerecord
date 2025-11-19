@@ -87,9 +87,17 @@ class CapabilityMixin:
 
 class TypeAdaptionMixin:
     """
-    Provides type conversion capabilities to storage backends.
+    Provides robust, decoupled type adaptation capabilities to storage backends
+    for DML (Data Manipulation Language) operations.
 
-    This mixin has a dual role:
+    This mixin's existence is a direct response to the need for efficient runtime
+    conversion of Python values to/from database-compatible values. Unlike DDL
+    generation (where `TypeMapping` defines schema types), DML operations cannot
+    afford the overhead of repeated database schema introspection to determine
+    conversion rules. Instead, this mixin relies on pre-determined `SQLTypeAdapter`s
+    provided by higher layers (e.g., the ORM model layer).
+
+    It plays a dual role:
     1. Convenience: On backend instantiation, it creates a public `adapter_registry`
        (a TypeRegistry instance) and pre-registers a set of standard type adapters
        (e.g., for DateTime, Decimal, UUID). This provides a convenient entry point
@@ -97,7 +105,8 @@ class TypeAdaptionMixin:
     2. Decoupled Conversion Methods: It provides the two core methods, `prepare_parameters`
        and `_process_result_set`. When performing conversions, these methods rely entirely
        on the adapters and target types passed in by the caller, completely decoupling
-       them from the `adapter_registry` itself, ensuring a clear and independent execution path.
+       them from the `adapter_registry` itself, ensuring a clear and independent execution path
+       without runtime schema lookups.
     """
     def __init__(self, *args, **kwargs):
         super().__init__(*args, **kwargs)
