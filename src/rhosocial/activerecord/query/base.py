@@ -27,6 +27,24 @@ class BaseQueryMixin(IQuery[ModelT]):
                 kwargs["offset"] = 1
             self.model_class.log(level, msg, *args, **kwargs)
 
+    def adapt_params(self, adapt: bool = True) -> 'IQuery[ModelT]':
+        """
+        Sets a flag to control parameter type adaptation during query building.
+
+        If set to True (default), parameters will be adapted to database-compatible types.
+        If set to False, raw Python values will be returned as parameters.
+        This is useful for scenarios like migrations where parameters might already
+        be in a DB-compatible format and further adaptation is undesirable.
+
+        Args:
+            adapt: If True, parameter adaptation will be performed. Defaults to True.
+
+        Returns:
+            Self for method chaining.
+        """
+        self._adapt_params = adapt
+        return self
+
     def to_sql(self) -> Tuple[str, tuple]:
         """Get SQL statement and its parameters."""
         sql, params = self.build()
@@ -688,12 +706,12 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         This method constructs the SQL string and collects all query parameters.
         It also performs type adaptation on the parameters to ensure they are
-        compatible with the target database driver before execution.
+        compatible with the target database driver before execution, if `self._adapt_params` is True.
 
         Returns:
             Tuple of (sql_query, params) where:
             - sql_query: Complete SQL string with placeholders
-            - params: Tuple of type-adapted parameter values
+            - params: Tuple of type-adapted parameter values (or raw values if adaptation is skipped)
 
         Raises:
             QueryError: If query construction fails
@@ -723,27 +741,28 @@ class BaseQueryMixin(IQuery[ModelT]):
             query_parts.append(limit_offset_sql)
 
         raw_sql = " ".join(query_parts)
+        
+        # Step 1: Perform type adaptation on all collected parameters, if _adapt_params is True.
+        if hasattr(self, '_adapt_params') and self._adapt_params:
+            # Get default type adapter suggestions from the backend.
+            all_suggestions = self.model_class.backend().get_default_adapter_suggestions()
 
-        # Step 1: Get default type adapter suggestions from the backend.
-        # This map provides guidance for converting Python values to DB-compatible types.
-        all_suggestions = self.model_class.backend().get_default_adapter_suggestions()
+            processed_params = []
+            for param_value in all_params:
+                py_type = type(param_value)
+                suggestion = all_suggestions.get(py_type)
 
-        # Step 2: Perform type adaptation on all collected parameters.
-        # Iterate through the parameters and convert them using appropriate adapters.
-        processed_params = []
-        for param_value in all_params:
-            py_type = type(param_value)
-            suggestion = all_suggestions.get(py_type)
-
-            if suggestion:
-                adapter_instance, target_driver_type = suggestion
-                # Use the adapter to convert the Python value to a database-compatible type.
-                processed_params.append(adapter_instance.to_database(param_value, target_driver_type))
-            else:
-                # If no specific adapter is found, use the original value (pass-through).
-                processed_params.append(param_value)
-
-        params = tuple(processed_params)
+                if suggestion:
+                    adapter_instance, target_driver_type = suggestion
+                    # Use the adapter to convert the Python value to a database-compatible type.
+                    processed_params.append(adapter_instance.to_database(param_value, target_driver_type))
+                else:
+                    # If no specific adapter is found, use the original value (pass-through).
+                    processed_params.append(param_value)
+            params = tuple(processed_params) # Final adapted parameters
+        else:
+            # If adapt_params is False or not set, return raw parameters as is.
+            params = tuple(all_params)
 
         # Get the target database placeholder
         backend = self.model_class.backend()
