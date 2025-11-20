@@ -19,7 +19,7 @@ from sqlite3 import ProgrammingError
 import aiosqlite
 import logging
 import sqlite3
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, Type
 
 from rhosocial.activerecord.backend import DatabaseCapabilities, ALL_SET_OPERATIONS
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
@@ -37,9 +37,11 @@ from rhosocial.activerecord.backend.errors import (
     ReturningNotSupportedError,
     TransactionError, DeadlockError,
 )
+from rhosocial.activerecord.backend.impl.sqlite.adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.transaction import IsolationLevel
+from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
 
 class AsyncTransactionManager:
@@ -403,6 +405,66 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         self._cursor: Optional[aiosqlite.Cursor] = None
         self._transaction_manager: Optional[AsyncTransactionManager] = None
         self._dialect = SQLiteDialect()
+
+        # Register SQLite-specific adapters
+        self._register_sqlite_adapters()
+
+    def _register_sqlite_adapters(self):
+        """Register SQLite-specific type adapters to the adapter_registry."""
+        sqlite_adapters = [
+            SQLiteBlobAdapter(),
+            SQLiteJSONAdapter(),
+            SQLiteUUIDAdapter(),
+        ]
+        for adapter in sqlite_adapters:
+            for py_type, db_types in adapter.supported_types.items():
+                for db_type in db_types:
+                    # Register with override allowed for backend-specific converters
+                    self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
+        self.logger.debug("Registered SQLite-specific type adapters.")
+
+    _default_suggestions_cache: Optional[Dict[Type, Tuple['SQLTypeAdapter', Type]]] = None
+
+    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
+        """
+        [Backend Implementation] Provides default type adapter suggestions for SQLite.
+        """
+        # Step 1: Check for cached suggestions (class-level cache for efficiency).
+        if AsyncSQLiteBackend._default_suggestions_cache is not None:
+            return AsyncSQLiteBackend._default_suggestions_cache
+
+        suggestions: Dict[Type, Tuple['SQLTypeAdapter', Type]] = {}
+
+        # Step 2: Define a list of desired Python type to DB driver type mappings.
+        from datetime import date, datetime, time
+        from decimal import Decimal
+        from uuid import UUID
+        from enum import Enum
+
+        type_mappings = [
+            (bool, int),
+            (datetime, str),
+            (date, str),
+            (time, str),
+            (Decimal, float),
+            (UUID, str),
+            (dict, str),
+            (list, str),
+            (Enum, str),
+        ]
+
+        # Step 3: Iterate through the defined mappings and retrieve adapters from the registry.
+        for py_type, db_type in type_mappings:
+            adapter = self.adapter_registry.get_adapter(py_type, db_type)
+            if adapter:
+                suggestions[py_type] = (adapter, db_type)
+            else:
+                self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}). "
+                                  "Suggestion will not be provided for this type.")
+
+        # Step 4: Cache the constructed suggestions for future calls.
+        AsyncSQLiteBackend._default_suggestions_cache = suggestions
+        return suggestions
 
     @property
     def dialect(self) -> SQLiteDialect:
