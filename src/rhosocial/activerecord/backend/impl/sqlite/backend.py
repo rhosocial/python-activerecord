@@ -7,10 +7,6 @@ import sqlite3
 import sys
 import time
 from typing import Optional, Tuple, List, Any, Dict, Union, Type
-from datetime import date, datetime, time
-from decimal import Decimal
-from uuid import UUID
-from enum import Enum
 
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
@@ -240,12 +236,17 @@ class SQLiteBackend(StorageBackend):
         # (e.g., custom serialization/deserialization for JSON strings beyond basic conversion),
         # they would need to implement and register their own specialized adapter.
         # This backend's default suggestions do not cater to such advanced processing needs.
+        from datetime import date, datetime, time
+        from decimal import Decimal
+        from uuid import UUID
+        from enum import Enum
+
         type_mappings = [
             (bool, int),        # Python bool -> DB driver int (SQLite INTEGER)
             (datetime, str),    # Python datetime -> DB driver str (SQLite TEXT)
             (date, str),        # Python date -> DB driver str (SQLite TEXT)
             (time, str),        # Python time -> DB driver str (SQLite TEXT)
-            (Decimal, str),     # Python Decimal -> DB driver str (SQLite TEXT)
+            (Decimal, float),   # Python Decimal -> DB driver float (SQLite DECIMAL)
             (UUID, str),        # Python UUID -> DB driver str (SQLite TEXT)
             (dict, str),        # Python dict -> DB driver str (SQLite TEXT for JSON)
             (list, str),        # Python list -> DB driver str (SQLite TEXT for JSON)
