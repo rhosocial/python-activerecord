@@ -48,6 +48,8 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
     def __init__(self, model_class: Type[ModelT]):
         super().__init__(model_class)
+        # Initialize _adapt_params in the concrete query mixin. Defaults to True.
+        self._adapt_params: bool = True
         self._group_columns: List[str] = []
         self._having_conditions: List[Tuple[str, Tuple]] = []
         self._expressions: List[SQLExpression] = []
@@ -838,14 +840,19 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         Follows standard SQL clause order:
         SELECT ... FROM ... [JOIN] ... WHERE ... GROUP BY ... HAVING ... WINDOW ... ORDER BY ... LIMIT/OFFSET
 
+        It also performs type adaptation on the parameters collected from WHERE and HAVING
+        clauses to ensure they are compatible with the target database driver before execution,
+        if `self._adapt_params` is True.
+
         Returns:
             Tuple of (sql_query, params)
         """
         if not self._is_aggregate_query():
+            # Delegate to super().build(), which will use self._adapt_params
             return super().build()
 
         query_parts = [self._build_select()]
-        all_params = []
+        all_raw_params = [] # Renamed to emphasize they are raw at this point
 
         # Add JOIN clauses
         join_parts = self._build_joins()
@@ -856,13 +863,13 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         where_sql, where_params = self._build_where()
         if where_sql:
             query_parts.append(where_sql)
-            all_params.extend(where_params)
+            all_raw_params.extend(where_params) # Collect raw WHERE params
 
         # Add GROUP BY and HAVING clauses
         group_sql, group_params = self._build_group_by()
         if group_sql:
             query_parts.append(group_sql)
-            all_params.extend(group_params)
+            all_raw_params.extend(group_params) # Collect raw HAVING params
 
         # Add WINDOW definitions if any
         window_sql = self._build_window_defs()
@@ -880,7 +887,28 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             query_parts.append(limit_offset_sql)
 
         raw_sql = " ".join(query_parts)
-        params = tuple(all_params)
+
+        # Step 1: Perform type adaptation on all collected raw parameters, if _adapt_params is True.
+        if hasattr(self, '_adapt_params') and self._adapt_params:
+            # Get default type adapter suggestions from the backend.
+            all_suggestions = self.model_class.backend().get_default_adapter_suggestions()
+
+            processed_params = []
+            for param_value in all_raw_params:
+                py_type = type(param_value)
+                suggestion = all_suggestions.get(py_type)
+
+                if suggestion:
+                    adapter_instance, target_driver_type = suggestion
+                    # Use the adapter to convert the Python value to a database-compatible type.
+                    processed_params.append(adapter_instance.to_database(param_value, target_driver_type))
+                else:
+                    # If no specific adapter is found, use the original value (pass-through).
+                    processed_params.append(param_value)
+            params = tuple(processed_params) # Final adapted parameters
+        else:
+            # If adapt_params is False or not set, return raw parameters as is.
+            params = tuple(all_raw_params)
 
         # Get the target database placeholder
         backend = self.model_class.backend()

@@ -154,41 +154,13 @@ class BaseActiveRecord(IActiveRecord):
         """
         query = cls.query()
 
-        # Step 1: Get default type adapter suggestions from the backend.
-        # This map guides conversion from Python types to DB-compatible types for query conditions.
-        all_suggestions = cls.backend().get_default_adapter_suggestions()
-
         if isinstance(condition, dict):
-            # Step 2a: Process dictionary conditions.
-            prepared_conditions = {}
-            for field, value in condition.items():
-                # Determine Python type of the condition value.
-                value_type = type(value)
-                suggestion = all_suggestions.get(value_type)
-
-                prepared_value = value
-                if suggestion and value is not None:
-                    adapter, dbapi_type = suggestion
-                    # Convert value to a database-compatible type.
-                    prepared_value = adapter.to_database(value, dbapi_type)
-                
-                prepared_conditions[field] = prepared_value
-            query = query.query(prepared_conditions)
+            # Pass dictionary conditions directly. Type adaptation will be handled by the query builder.
+            query = query.query(condition)
         else:
-            # Step 2b: Process scalar primary key condition.
+            # Pass scalar primary key condition directly. Type adaptation will be handled by the query builder.
             pk_field_name = cls.primary_key()
-            
-            # Determine Python type of the primary key condition value.
-            condition_type = type(condition)
-            suggestion = all_suggestions.get(condition_type)
-
-            prepared_condition = condition
-            if suggestion and condition is not None:
-                adapter, dbapi_type = suggestion
-                # Convert primary key value to a database-compatible type.
-                prepared_condition = adapter.to_database(condition, dbapi_type)
-                
-            query = query.where(f"{pk_field_name} = ?", (prepared_condition,))
+            query = query.where(f"{pk_field_name} = ?", (condition,))
 
         return query.one()
 
@@ -217,53 +189,18 @@ class BaseActiveRecord(IActiveRecord):
         if condition is None:
             return query.all()
 
-        # Step 1: Get default type adapter suggestions from the backend.
-        # This map guides conversion from Python types to DB-compatible types for query conditions.
-        all_suggestions = cls.backend().get_default_adapter_suggestions()
-
         if isinstance(condition, dict):
-            # Step 2a: Process dictionary conditions.
-            prepared_conditions = {}
-            for field, value in condition.items():
-                # Determine Python type of the condition value.
-                value_type = type(value)
-                suggestion = all_suggestions.get(value_type)
-
-                prepared_value = value
-                if suggestion and value is not None:
-                    adapter, dbapi_type = suggestion
-                    # Handle lists for 'IN' clauses correctly if the adapter supports it.
-                    # Convert each item in the list using the adapter.
-                    if isinstance(value, (list, tuple)):
-                        prepared_value = [adapter.to_database(v, dbapi_type) for v in value]
-                    else:
-                        prepared_value = adapter.to_database(value, dbapi_type)
-                
-                prepared_conditions[field] = prepared_value
-            query = query.query(prepared_conditions)
+            # Pass dictionary conditions directly. Type adaptation will be handled by the query builder.
+            query = query.query(condition)
         else: # Assumes list of primary keys
-            # Step 2b: Process list of primary keys.
+            # Pass list of primary keys directly. Type adaptation will be handled by the query builder.
             pk_field_name = cls.primary_key()
             
-            prepared_pk_list = []
-            if condition: # Ensure condition is not empty before attempting to get type
-                # Determine Python type of the elements in the primary key list.
-                # Assuming all elements in the list are of the same type or convertible by a single adapter.
-                pk_list_type = type(condition[0]) 
-                
-                suggestion = all_suggestions.get(pk_list_type)
-                if suggestion:
-                    adapter, dbapi_type = suggestion
-                    prepared_pk_list = [adapter.to_database(c, dbapi_type) for c in condition if c is not None]
-                else:
-                    # Fallback if no specific adapter for the PK type is suggested (pass-through).
-                    prepared_pk_list = [c for c in condition if c is not None]
-
-            if not prepared_pk_list:
+            if not condition:
                 return []
                 
-            placeholders = ','.join(['?' for _ in prepared_pk_list])
-            query = query.where(f"{pk_field_name} IN ({placeholders})", prepared_pk_list)
+            placeholders = ','.join(['?' for _ in condition])
+            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
 
         return query.all()
 
@@ -342,25 +279,12 @@ class BaseActiveRecord(IActiveRecord):
 
         backend = self.backend()
         
-        # Step 1: Get default type adapter suggestions from the backend.
-        # This map guides conversion from Python types to DB-compatible types for conditions.
-        all_suggestions = backend.get_default_adapter_suggestions()
-
-        # Prepare the primary key value before passing it to the backend.
         pk_name = self.primary_key()
         pk_value = getattr(self, pk_name)
         
-        # Step 2: Adapt primary key value for database use.
-        prepared_pk_value = pk_value
-        if pk_value is not None:
-            pk_type = type(pk_value)
-            pk_suggestion = all_suggestions.get(pk_type)
-            if pk_suggestion:
-                adapter, dbapi_type = pk_suggestion
-                prepared_pk_value = adapter.to_database(pk_value, dbapi_type)
-
         condition = f"{self.primary_key()} = ?"
-        params = (prepared_pk_value,)
+        # Pass raw pk_value to backend, it will be adapted by the query builder if _adapt_params is True.
+        params = (pk_value,) 
 
         is_soft_delete = hasattr(self, 'prepare_delete')
 
@@ -368,20 +292,13 @@ class BaseActiveRecord(IActiveRecord):
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
             
-            # Step 3: Prepare soft delete data using type adapters.
-            # This builds a param_adapters map for the soft delete data dictionary.
-            param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
-            for field_name, value in data.items():
-                value_type = type(value)
-                suggestion = all_suggestions.get(value_type)
-                if suggestion:
-                    param_adapters[field_name] = suggestion
-
-            prepared_data = backend.prepare_parameters(data, param_adapters)
+            # The backend's update method will handle parameter adaptation for 'data'.
+            # We don't need param_adapters here, assuming backend.update is updated to use _adapt_params.
+            # (Which is handled by the overall plan if backend.update constructs queries using query builders)
             
             result = backend.update(
                 self.table_name(),
-                prepared_data,
+                data, # Pass raw data, adaptation handled by backend if it uses a query builder.
                 condition,
                 params
             )
