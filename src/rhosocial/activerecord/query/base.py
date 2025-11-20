@@ -686,10 +686,14 @@ class BaseQueryMixin(IQuery[ModelT]):
     def build(self) -> Tuple[str, tuple]:
         """Build complete SQL query with parameters.
 
+        This method constructs the SQL string and collects all query parameters.
+        It also performs type adaptation on the parameters to ensure they are
+        compatible with the target database driver before execution.
+
         Returns:
             Tuple of (sql_query, params) where:
             - sql_query: Complete SQL string with placeholders
-            - params: Tuple of parameter values
+            - params: Tuple of type-adapted parameter values
 
         Raises:
             QueryError: If query construction fails
@@ -719,7 +723,27 @@ class BaseQueryMixin(IQuery[ModelT]):
             query_parts.append(limit_offset_sql)
 
         raw_sql = " ".join(query_parts)
-        params = tuple(all_params)
+
+        # Step 1: Get default type adapter suggestions from the backend.
+        # This map provides guidance for converting Python values to DB-compatible types.
+        all_suggestions = self.model_class.backend().get_default_adapter_suggestions()
+
+        # Step 2: Perform type adaptation on all collected parameters.
+        # Iterate through the parameters and convert them using appropriate adapters.
+        processed_params = []
+        for param_value in all_params:
+            py_type = type(param_value)
+            suggestion = all_suggestions.get(py_type)
+
+            if suggestion:
+                adapter_instance, target_driver_type = suggestion
+                # Use the adapter to convert the Python value to a database-compatible type.
+                processed_params.append(adapter_instance.to_database(param_value, target_driver_type))
+            else:
+                # If no specific adapter is found, use the original value (pass-through).
+                processed_params.append(param_value)
+
+        params = tuple(processed_params)
 
         # Get the target database placeholder
         backend = self.model_class.backend()
@@ -778,7 +802,13 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
 
-        rows = self.model_class.backend().fetch_all(sql, params)
+        # Step 1: Get column adapters for processing output (DB -> Python).
+        # This map specifies how database results should be converted back to Python objects.
+        column_adapters = self.model_class.get_column_adapters()
+        self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
+
+        # Step 2: Fetch all records, passing the column adapters to the backend.
+        rows = self.model_class.backend().fetch_all(sql, params, column_adapters=column_adapters)
         records = self.model_class.create_collection_from_database(rows)
 
         if self._eager_loads:
@@ -828,7 +858,13 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         self._log(logging.INFO, f"Executing query: {sql}, parameters: {params}")
 
-        row = self.model_class.backend().fetch_one(sql, params, self.model_class.model_construct().get_column_adapters())
+        # Step 1: Get column adapters for processing output (DB -> Python).
+        # This map specifies how database results should be converted back to Python objects.
+        column_adapters = self.model_class.get_column_adapters()
+        self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
+
+        # Step 2: Fetch a single record, passing the column adapters to the backend.
+        row = self.model_class.backend().fetch_one(sql, params, column_adapters=column_adapters)
 
         self.limit_count = original_limit
 

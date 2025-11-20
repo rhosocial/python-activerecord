@@ -7,6 +7,10 @@ import sqlite3
 import sys
 import time
 from typing import Optional, Tuple, List, Any, Dict, Union, Type
+from datetime import date, datetime, time
+from decimal import Decimal
+from uuid import UUID
+from enum import Enum
 
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
@@ -198,6 +202,70 @@ class SQLiteBackend(StorageBackend):
                     # Register with override allowed for backend-specific converters
                     self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
         self.logger.debug("Registered SQLite-specific type adapters.")
+
+    _default_suggestions_cache: Optional[Dict[Type, Tuple['SQLTypeAdapter', Type]]] = None
+
+    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
+        """
+        [Backend Implementation] Provides default type adapter suggestions for SQLite.
+
+        This method defines a curated set of type adapter suggestions for common Python
+        types, mapping them to their typical SQLite-compatible representations as
+        demonstrated in test fixtures. It explicitly retrieves necessary `SQLTypeAdapter`
+        instances from the backend's `adapter_registry`. If an adapter for a specific
+        (Python type, DB driver type) pair is not registered, no suggestion will be
+        made for that Python type.
+
+        Returns:
+            Dict[Type, Tuple[SQLTypeAdapter, Type]]: A dictionary where keys are
+            original Python types (`TypeRegistry`'s `py_type`), and values are
+            tuples containing a `SQLTypeAdapter` instance and the target
+            Python type (`TypeRegistry`'s `db_type`) expected by the driver.
+        """
+        # Step 1: Check for cached suggestions (class-level cache for efficiency).
+        if SQLiteBackend._default_suggestions_cache is not None:
+            return SQLiteBackend._default_suggestions_cache
+
+        suggestions: Dict[Type, Tuple['SQLTypeAdapter', Type]] = {}
+
+        # Step 2: Define a list of desired Python type to DB driver type mappings.
+        # This list reflects types seen in test fixtures and common usage,
+        # along with their preferred database-compatible Python types for the driver.
+        # Types that are natively compatible with the DB driver (e.g., Python str, int, float)
+        # and for which no specific conversion logic is needed are omitted from this list.
+        # The consuming layer should assume pass-through behavior for any Python type
+        # that does not have an explicit adapter suggestion.
+        #
+        # Exception: If a user requires specific processing for a natively compatible type
+        # (e.g., custom serialization/deserialization for JSON strings beyond basic conversion),
+        # they would need to implement and register their own specialized adapter.
+        # This backend's default suggestions do not cater to such advanced processing needs.
+        type_mappings = [
+            (bool, int),        # Python bool -> DB driver int (SQLite INTEGER)
+            (datetime, str),    # Python datetime -> DB driver str (SQLite TEXT)
+            (date, str),        # Python date -> DB driver str (SQLite TEXT)
+            (time, str),        # Python time -> DB driver str (SQLite TEXT)
+            (Decimal, str),     # Python Decimal -> DB driver str (SQLite TEXT)
+            (UUID, str),        # Python UUID -> DB driver str (SQLite TEXT)
+            (dict, str),        # Python dict -> DB driver str (SQLite TEXT for JSON)
+            (list, str),        # Python list -> DB driver str (SQLite TEXT for JSON)
+            # (bytes, bytes),   # Python bytes -> DB driver bytes (SQLite BLOB) - Handled as pass-through by default if no explicit adapter.
+            (Enum, str),        # Python Enum -> DB driver str (SQLite TEXT)
+        ]
+
+        # Step 3: Iterate through the defined mappings and retrieve adapters from the registry.
+        for py_type, db_type in type_mappings:
+            adapter = self.adapter_registry.get_adapter(py_type, db_type)
+            if adapter:
+                suggestions[py_type] = (adapter, db_type)
+            else:
+                # Log a debug message if a specific adapter is expected but not found.
+                self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}). "
+                                  "Suggestion will not be provided for this type.")
+
+        # Step 4: Cache the constructed suggestions for future calls.
+        SQLiteBackend._default_suggestions_cache = suggestions
+        return suggestions
 
 
     @property
