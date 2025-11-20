@@ -269,7 +269,7 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
         try:
             rows = await cursor.fetchall() # Make fetchall awaitable
             if not rows: return []
-            column_names = [desc[0] for desc in cursor.description]
+            column_names = [desc[0].strip('"') for desc in cursor.description]
             column_adapters = column_adapters or {}
             converted_results = []
             for row in rows:
