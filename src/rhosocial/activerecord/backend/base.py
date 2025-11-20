@@ -225,6 +225,29 @@ class TypeAdaptionMixin:
             self.logger.error(f"Error processing result set: {str(e)}", exc_info=True)
             raise
 
+    @abstractmethod
+    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        """
+        Provides default type adapter suggestions to the consuming application layer.
+
+        Concrete backend implementations must override this method to provide
+        their specific suggestions. These suggestions guide the application
+        layer on how to convert Python types to database-compatible types
+        and vice-versa, based on the backend's `TypeRegistry`.
+        
+        It's important to note that these suggestions represent a curated default view and
+        may not expose every adapter registered within the backend's internal `TypeRegistry`
+        (e.g., if multiple `db_type` mappings exist for a single `py_type`). The consuming
+        layer should be aware of this potential divergence.
+
+        Returns:
+            Dict[Type, Tuple[SQLTypeAdapter, Type]]: A dictionary where keys are
+            original Python types (`TypeRegistry`'s `py_type`), and values are
+            tuples containing a `SQLTypeAdapter` instance and the target
+            Python type (`TypeRegistry`'s `db_type`) expected by the driver.
+        """
+        pass
+
 
 class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
     """
