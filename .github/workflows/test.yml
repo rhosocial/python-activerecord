@@ -40,7 +40,7 @@ jobs:
 
     - name: Install testsuite package from PyPI
       run: |
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev2
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev3
 
     - name: Run tests with coverage
       run: |
@@ -86,7 +86,7 @@ jobs:
 
     - name: Install testsuite package from PyPI
       run: |
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev2
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev3
 
     - name: Run tests
       run: |
@@ -121,7 +121,7 @@ jobs:
 
     - name: Install testsuite package from PyPI
       run: |
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev2
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev3
 
     - name: Run tests
       run: |
