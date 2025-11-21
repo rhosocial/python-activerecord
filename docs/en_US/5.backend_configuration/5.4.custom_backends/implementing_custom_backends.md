@@ -124,94 +124,111 @@ class YourSQLBuilder(SQLBuilder):
     # Implement other builder-specific methods
 ```
 
-### 4. Implement Type Mappings
+### 4. Implement Type Mappings and Adapters
 
-In `types.py`, define your database type mappings:
+In `types.py`, you'll define the type mappings and create specific `SQLTypeAdapter` implementations for your database. This is crucial for ensuring that data is correctly converted between Python types and the database's native types.
+
+#### a. The SQLTypeAdapter Protocol
+
+The `SQLTypeAdapter` protocol is the foundation of the type conversion system. Any custom adapter you create must conform to this protocol:
 
 ```python
-from typing import Dict
+from typing import Any
+from ...typing import SQLTypeAdapter
 
-from ...dialect import TypeMapping
-from ...typing import DatabaseType
-from ...helpers import format_with_length
-
-# Your database type mapping configuration
-YOUR_DB_TYPE_MAPPINGS: Dict[DatabaseType, TypeMapping] = {
-    DatabaseType.TINYINT: TypeMapping("INTEGER"),
-    DatabaseType.SMALLINT: TypeMapping("INTEGER"),
-    DatabaseType.INTEGER: TypeMapping("INTEGER"),
-    DatabaseType.BIGINT: TypeMapping("INTEGER"),
-    DatabaseType.FLOAT: TypeMapping("REAL"),
-    DatabaseType.DOUBLE: TypeMapping("REAL"),
-    DatabaseType.DECIMAL: TypeMapping("REAL"),
-    DatabaseType.CHAR: TypeMapping("TEXT", format_with_length),
-    DatabaseType.VARCHAR: TypeMapping("TEXT", format_with_length),
-    DatabaseType.TEXT: TypeMapping("TEXT"),
-    DatabaseType.DATE: TypeMapping("TEXT"),
-    DatabaseType.TIME: TypeMapping("TEXT"),
-    DatabaseType.DATETIME: TypeMapping("TEXT"),
-    DatabaseType.TIMESTAMP: TypeMapping("TEXT"),
-    DatabaseType.BLOB: TypeMapping("BLOB"),
-    DatabaseType.BOOLEAN: TypeMapping("INTEGER"),
-    DatabaseType.UUID: TypeMapping("TEXT"),
-    DatabaseType.JSON: TypeMapping("TEXT"),
-    DatabaseType.ARRAY: TypeMapping("TEXT"),
-    # Your database specific types are set as CUSTOM
-    DatabaseType.CUSTOM: TypeMapping("TEXT"),
-}
-
-
-class YourDBTypes:
-    """Your database specific type constants"""
-    # Add your database specific types here
-
-
-class YourDBColumnType:
-    """Your database column type definition"""
-
-    def __init__(self, sql_type: str, **constraints):
-        """Initialize column type
-
-        Args:
-            sql_type: SQL type definition
-            **constraints: Constraint conditions
+class YourCustomAdapter(SQLTypeAdapter):
+    """
+    An adapter for handling a specific data type for your backend.
+    """
+    def to_database(self, value: Any) -> Any:
         """
-        self.sql_type = sql_type
-        self.constraints = constraints
-
-    def __str__(self):
-        """Generate complete type definition statement"""
-        # Implement type definition string generation
-        pass
-
-    @classmethod
-    def get_type(cls, db_type: DatabaseType, **params) -> 'YourDBColumnType':
-        """Create your database column type from generic type
-
-        Args:
-            db_type: Generic database type definition
-            **params: Type parameters and constraints
-
-        Returns:
-            YourDBColumnType: Your database column type instance
-
-        Raises:
-            ValueError: If type is not supported
+        Converts a Python value to its database representation.
+        For example, converting a Python `datetime` object to a
+        string suitable for a DATETIME column.
         """
-        mapping = YOUR_DB_TYPE_MAPPINGS.get(db_type)
-        if not mapping:
-            raise ValueError(f"Unsupported type: {db_type}")
+        # Implementation here
+        return str(value)
 
-        sql_type = mapping.db_type
-        if mapping.format_func:
-            sql_type = mapping.format_func(sql_type, params)
-
-        constraints = {k: v for k, v in params.items()
-                     if k in ['primary_key', 'autoincrement', 'unique',
-                             'not_null', 'default']}
-
-        return cls(sql_type, **constraints)
+    def to_python(self, value: Any, from_type: Any) -> Any:
+        """
+        Converts a value from the database to the specified Python type.
+        For example, converting a string from the database back into
+        a `datetime` object.
+        """
+        # Implementation here
+        import datetime
+        return datetime.datetime.fromisoformat(value)
 ```
+
+#### b. Creating Backend-Specific Adapters
+
+Your backend will likely need several custom adapters for different data types (e.g., for handling JSON, UUIDs, or specific date/time formats). You should implement these in your `types.py` file.
+
+```python
+# In rhosocial/activerecord/backend/impl/your_backend_name/types.py
+
+from ...base import SQLTypeAdapter, adapter_registry
+from ...typing import DatabaseType
+
+# Example adapter for handling booleans as integers
+class BooleanAdapter(SQLTypeAdapter):
+    def to_database(self, value: bool) -> int:
+        return 1 if value else 0
+
+    def to_python(self, value: int, from_type: Any) -> bool:
+        return bool(value)
+
+# Example for a type that is directly supported
+class StringAdapter(SQLTypeAdapter):
+    def to_database(self, value: str) -> str:
+        return value
+
+    def to_python(self, value: str, from_type: Any) -> str:
+        return value
+
+```
+
+#### c. Registering Type Adapters
+
+After defining your adapters, you must register them so the backend knows which adapter to use for each `DatabaseType`. This is typically done in a dedicated function within `types.py`. The main `Backend` class will call this function during its initialization.
+
+```python
+# In rhosocial/activerecord/backend/impl/your_backend_name/types.py
+
+def register_your_backend_adapters():
+    """
+    Registers all the custom type adapters for YourBackend.
+    """
+    # Unregister default adapters for types you want to override
+    adapter_registry.unregister(DatabaseType.BOOLEAN)
+    
+    # Register your custom adapters
+    adapter_registry.register(DatabaseType.BOOLEAN, BooleanAdapter())
+    
+    # You can also register adapters for custom types specific to your backend
+    # For example, if your database has a native 'MONEY' type:
+    # adapter_registry.register(DatabaseType.CUSTOM, MoneyAdapter(), "MONEY")
+
+```
+
+In your main backend class (`backend.py`), you must call this registration function.
+
+```python
+# In rhosocial/activerecord/backend/impl/your_backend_name/backend.py
+from .types import register_your_backend_adapters
+
+class YourBackendName(StorageBackend):
+    """Your database backend implementation"""
+    
+    def __init__(self, **kwargs):
+        """Initialize your backend"""
+        super().__init__(**kwargs)
+        # Register the type adapters for this backend
+        register_your_backend_adapters()
+        # ... rest of the initialization
+```
+
+This registration process ensures that when your backend is active, ActiveRecord will use your custom type conversion logic instead of the default implementations.
 
 ### 5. Update the Package Initialization
 

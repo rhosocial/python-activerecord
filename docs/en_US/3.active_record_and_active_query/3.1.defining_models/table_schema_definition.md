@@ -68,6 +68,8 @@ rhosocial ActiveRecord leverages Pydantic's type system and maps Python types to
 | `dict`, `list` | TEXT (JSON) | JSON | JSONB |
 | `UUID` | TEXT | CHAR(36) | UUID |
 
+This conversion is handled by a flexible and extensible type adaptation system built on the `SQLTypeAdapter` protocol. This system is responsible for converting data between Python types and the specific types used by your database backend. For a deeper understanding of how this works or to learn how to create your own custom type converters, please see the [Data Type Mapping](../../../5.backend_configuration/5.3.database_specific_differences/data_type_mapping.md) documentation.
+
 ## Field Constraints
 
 You can add constraints to your fields using Pydantic's `Field` function:
