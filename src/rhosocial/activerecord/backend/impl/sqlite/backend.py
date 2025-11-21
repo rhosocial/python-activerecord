@@ -199,8 +199,6 @@ class SQLiteBackend(StorageBackend):
                     self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
         self.logger.debug("Registered SQLite-specific type adapters.")
 
-    _default_suggestions_cache: Optional[Dict[Type, Tuple['SQLTypeAdapter', Type]]] = None
-
     def get_default_adapter_suggestions(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
         """
         [Backend Implementation] Provides default type adapter suggestions for SQLite.
@@ -218,13 +216,9 @@ class SQLiteBackend(StorageBackend):
             tuples containing a `SQLTypeAdapter` instance and the target
             Python type (`TypeRegistry`'s `db_type`) expected by the driver.
         """
-        # Step 1: Check for cached suggestions (class-level cache for efficiency).
-        if SQLiteBackend._default_suggestions_cache is not None:
-            return SQLiteBackend._default_suggestions_cache
-
         suggestions: Dict[Type, Tuple['SQLTypeAdapter', Type]] = {}
 
-        # Step 2: Define a list of desired Python type to DB driver type mappings.
+        # Define a list of desired Python type to DB driver type mappings.
         # This list reflects types seen in test fixtures and common usage,
         # along with their preferred database-compatible Python types for the driver.
         # Types that are natively compatible with the DB driver (e.g., Python str, int, float)
@@ -254,7 +248,7 @@ class SQLiteBackend(StorageBackend):
             (Enum, str),        # Python Enum -> DB driver str (SQLite TEXT)
         ]
 
-        # Step 3: Iterate through the defined mappings and retrieve adapters from the registry.
+        # Iterate through the defined mappings and retrieve adapters from the registry.
         for py_type, db_type in type_mappings:
             adapter = self.adapter_registry.get_adapter(py_type, db_type)
             if adapter:
@@ -264,8 +258,6 @@ class SQLiteBackend(StorageBackend):
                 self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}). "
                                   "Suggestion will not be provided for this type.")
 
-        # Step 4: Cache the constructed suggestions for future calls.
-        SQLiteBackend._default_suggestions_cache = suggestions
         return suggestions
 
 

@@ -98,8 +98,6 @@ class IActiveRecord(BaseModel, ABC):
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
     __logger__: ClassVar[logging.Logger] = logging.getLogger('activerecord')
 
-    # Class-level column adapters cache
-    __column_adapters_cache__: ClassVar[Optional[Dict[str, Tuple['SQLTypeAdapter', Type]]]] = None
 
     # Change tracking attributes
     _dirty_fields = set()  # Set of field names that have been modified
@@ -113,9 +111,8 @@ class IActiveRecord(BaseModel, ABC):
         self._event_handlers = {event: [] for event in ModelEvent}  # Stores event handlers for model instance
 
     def __init_subclass__(cls) -> None:
-        """Reset adapters cache when initializing subclass"""
+        """Initialize subclass"""
         super().__init_subclass__()
-        cls.__column_adapters_cache__ = None
 
     def __setattr__(self, name: str, value: Any):
         """Overridden to track field changes.
@@ -257,20 +254,14 @@ class IActiveRecord(BaseModel, ABC):
         and uses these to build a model-specific map for converting database
         results back into Python objects.
         """
-        # Step 1: Check class-level cache for model-specific column adapters.
-        # This cache is for the final, processed column adapters for DB -> Python conversion.
-        if cls.__column_adapters_cache__ is not None:
-            return cls.__column_adapters_cache__
-
         adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
 
-        # Step 2: Get default type adapter suggestions from the backend.
+        # Get default type adapter suggestions from the backend.
         # This provides a map from Python type -> (SQLTypeAdapter instance, target_driver_type).
-        # We do NOT cache these suggestions globally as per the updated plan to avoid concurrency issues.
         all_suggestions = cls.backend().get_default_adapter_suggestions()
 
-        # Step 3: Iterate through model fields to build the column_adapters map.
+        # Iterate through model fields to build the column_adapters map.
         for field_name, field_info in model_fields.items():
             # Get the original Python type of the field.
             field_py_type = field_info.annotation
@@ -286,7 +277,7 @@ class IActiveRecord(BaseModel, ABC):
                     # For complex Unions (e.g., Union[int, str]), we skip for now.
                     continue
 
-            # Step 4: Find a matching adapter in the backend's suggestions using the field's Python type.
+            # Find a matching adapter in the backend's suggestions using the field's Python type.
             suggestion = all_suggestions.get(field_py_type)
 
             if suggestion:
@@ -297,8 +288,6 @@ class IActiveRecord(BaseModel, ABC):
                 # The 'original_python_type_of_field' is crucial for 'from_database' conversion.
                 adapters_map[field_name] = (adapter_instance, field_py_type)
 
-        # Step 5: Cache the constructed column_adapters map for future use.
-        cls.__column_adapters_cache__ = adapters_map
         return adapters_map
 
     def _insert_internal(self, data) -> Any:
