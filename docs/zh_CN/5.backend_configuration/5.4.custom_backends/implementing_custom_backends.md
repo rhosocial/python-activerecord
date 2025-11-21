@@ -143,31 +143,107 @@ class YourSQLBuilder(SQLBuilder):
     # 实现其他构建器特定方法
 ```
 
-### 4. 实现类型映射
+### 4. 实现类型映射与适配器
 
-在`types.py`中，创建一个继承自`TypeMapper`的类：
+在 `types.py` 文件中，您需要为您的数据库定义类型映射并创建特定的 `SQLTypeAdapter` 实现。这对于确保数据在 Python 类型和数据库原生类型之间正确转换至关重要。
+
+#### a. SQLTypeAdapter 协议
+
+`SQLTypeAdapter` 协议是类型转换系统的基础。您创建的任何自定义适配器都必须遵循此协议：
 
 ```python
-from ...dialect import TypeMapper, TypeMapping, DatabaseType
+from typing import Any
+from ...typing import SQLTypeAdapter
 
-class YourTypeMapper(TypeMapper):
-    """您的数据库的类型映射器"""
-    
-    def __init__(self):
-        super().__init__()
-        self._type_map = {
-            # 将rhosocial ActiveRecord类型映射到您的数据库类型
-            DatabaseType.INTEGER: TypeMapping("INTEGER"),
-            DatabaseType.FLOAT: TypeMapping("FLOAT"),
-            DatabaseType.TEXT: TypeMapping("TEXT"),
-            DatabaseType.BOOLEAN: TypeMapping("BOOLEAN"),
-            DatabaseType.DATE: TypeMapping("DATE"),
-            DatabaseType.DATETIME: TypeMapping("DATETIME"),
-            DatabaseType.BLOB: TypeMapping("BLOB"),
-            # 根据需要添加其他类型映射
-            DatabaseType.CUSTOM: TypeMapping("TEXT"),  # 自定义类型的默认值
-        }
+class YourCustomAdapter(SQLTypeAdapter):
+    """
+    一个为您的后端处理特定数据类型的适配器。
+    """
+    def to_database(self, value: Any) -> Any:
+        """
+        将 Python 值转换为其数据库表示形式。
+        例如，将 Python 的 `datetime` 对象转换为适用于 DATETIME 列的字符串。
+        """
+        # 在此实现
+        return str(value)
+
+    def to_python(self, value: Any, from_type: Any) -> Any:
+        """
+        将数据库中的值转换回指定的 Python 类型。
+        例如，将数据库中的字符串转换回 `datetime` 对象。
+        """
+        # 在此实现
+        import datetime
+        return datetime.datetime.fromisoformat(value)
 ```
+
+#### b. 创建后端特定的适配器
+
+您的后端可能需要为不同的数据类型（例如，处理 JSON、UUID 或特定的日期/时间格式）提供多个自定义适配器。您应该在 `types.py` 文件中实现这些适配器。
+
+```python
+# 位于 rhosocial/activerecord/backend/impl/your_backend_name/types.py
+
+from ...base import SQLTypeAdapter, adapter_registry
+from ...typing import DatabaseType
+
+# 处理布尔值作为整数的示例适配器
+class BooleanAdapter(SQLTypeAdapter):
+    def to_database(self, value: bool) -> int:
+        return 1 if value else 0
+
+    def to_python(self, value: int, from_type: Any) -> bool:
+        return bool(value)
+
+# 直接支持的类型的示例
+class StringAdapter(SQLTypeAdapter):
+    def to_database(self, value: str) -> str:
+        return value
+
+    def to_python(self, value: str, from_type: Any) -> str:
+        return value
+```
+
+#### c. 注册类型适配器
+
+定义适配器后，您必须注册它们，以便后端知道为每个 `DatabaseType` 使用哪个适配器。这通常在 `types.py` 文件中的一个专用函数中完成。主 `Backend` 类将在其初始化期间调用此函数。
+
+```python
+# 位于 rhosocial/activerecord/backend/impl/your_backend_name/types.py
+
+def register_your_backend_adapters():
+    """
+    为 YourBackend 注册所有自定义类型适配器。
+    """
+    #为您要覆盖的类型注销默认适配器
+    adapter_registry.unregister(DatabaseType.BOOLEAN)
+    
+    # 注册您的自定义适配器
+    adapter_registry.register(DatabaseType.BOOLEAN, BooleanAdapter())
+    
+    # 您还可以为后端特有的自定义类型注册适配器
+    # 例如，如果您的数据库有原生的 'MONEY' 类型：
+    # adapter_registry.register(DatabaseType.CUSTOM, MoneyAdapter(), "MONEY")
+```
+
+在您的主后端类（`backend.py`）中，您必须调用此注册函数。
+
+```python
+# 位于 rhosocial/activerecord/backend/impl/your_backend_name/backend.py
+from .types import register_your_backend_adapters
+
+class YourBackendName(StorageBackend):
+    """您的数据库后端实现"""
+    
+    def __init__(self, **kwargs):
+        """初始化您的后端"""
+        super().__init__(**kwargs)
+        # 为此后端注册类型适配器
+        register_your_backend_adapters()
+        # ...其余的初始化
+```
+
+此注册过程可确保当您的后端处于活动状态时，ActiveRecord 将使用您的自定义类型转换逻辑而不是默认实现。
 
 ### 5. 更新包初始化
 

@@ -68,6 +68,7 @@ rhosocial ActiveRecord利用Pydantic的类型系统，并将Python类型映射�
 | `dict`, `list` | TEXT (JSON) | JSON | JSONB |
 | `UUID` | TEXT | CHAR(36) | UUID |
 
+这种转换由一个基于 `SQLTypeAdapter` 协议的灵活且可扩展的类型适配系统处理。该系统负责在 Python 类型和您的数据库后端使用的特定类型之间转换数据。要深入了解其工作原理或学习如何创建自定义类型转换器，请参阅[数据类型映射](../../../5.backend_configuration/5.3.database_specific_differences/data_type_mapping.md)文档。
 ## 字段约束
 
 您可以使用Pydantic的`Field`函数为字段添加约束：
