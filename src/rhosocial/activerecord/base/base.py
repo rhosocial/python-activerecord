@@ -281,8 +281,9 @@ class BaseActiveRecord(IActiveRecord):
         
         pk_name = self.primary_key()
         pk_value = getattr(self, pk_name)
-        
-        condition = f"{self.primary_key()} = ?"
+
+        placeholder = backend.dialect.get_placeholder()
+        condition = f"{self.primary_key()} = {placeholder}"
         # Pass raw pk_value to backend, it will be adapted by the query builder if _adapt_params is True.
         params = (pk_value,) 
 
