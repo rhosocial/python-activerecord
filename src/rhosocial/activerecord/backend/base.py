@@ -328,7 +328,7 @@ class QueryAnalysisMixin:
 
     def _is_select_statement(self, stmt_type: str) -> bool:
         """Check if statement is a SELECT query or similar read-only operation."""
-        return stmt_type in ("SELECT", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "PRAGMA")
+        return stmt_type in ("SELECT", "EXPLAIN", "SHOW", "DESCRIBE", "DESC", "PRAGMA", "WITH")
 
     def _is_dml_statement(self, stmt_type: str) -> bool:
         """Check if statement is a DML operation (INSERT, UPDATE, DELETE)."""
