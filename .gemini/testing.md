@@ -123,31 +123,31 @@ Tests import from `rhosocial.activerecord`, but the test files themselves are no
 **Linux/macOS (bash/zsh):**
 ```bash
 # Single command execution
-PYTHONPATH=src pytest tests/
+PYTHONPATH=src pytest
 
 # Persistent for session
 export PYTHONPATH=src
-pytest tests/
+pytest
 ```
 
 **Windows (PowerShell 7 - Recommended):**
 ```powershell
 # Single command execution
-$env:PYTHONPATH="src"; pytest tests/
+$env:PYTHONPATH="src"; pytest
 
 # Persistent for session
 $env:PYTHONPATH="src"
-pytest tests/
+pytest
 ```
 
 **Windows (Legacy CMD - Not Recommended):**
 ```cmd
 REM Single command execution
-set PYTHONPATH=src && pytest tests/
+set PYTHONPATH=src && pytest
 
 REM Persistent for session
 set PYTHONPATH=src
-pytest tests/
+pytest
 ```
 
 ### Common Errors Without PYTHONPATH
@@ -645,23 +645,19 @@ rhosocial-activerecord-{backend}/
 
 ### Quick Reference
 
+> Note: Running `pytest` without arguments executes all tests defined in `testpaths` (`pyproject.toml`). To run a specific subset, provide a path to a directory or file.
+
 ```bash
 # ALWAYS set PYTHONPATH first
 export PYTHONPATH=src  # or equivalent for your platform
 
-# Run local backend tests only (default)
-pytest tests/
-
-# Run testsuite validation tests
-pytest tests/ --run-testsuite
+# Run all tests (as configured in pyproject.toml)
+pytest
 
 # Run specific feature tests by directory
 pytest tests/rhosocial/activerecord_test/feature/basic/  # Run basic CRUD tests
 pytest tests/rhosocial/activerecord_test/feature/query/  # Run query tests
 pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # Run SQLite backend tests
-
-# Run with capability report
-pytest tests/ --run-testsuite --show-skipped-capabilities
 ```
 
 ### Test Organization and Execution
@@ -971,16 +967,12 @@ export PYTHONPATH=src  # Linux/macOS
 $env:PYTHONPATH="src"  # Windows PowerShell
 
 # Basic execution
-pytest tests/                              # Local tests only
-pytest tests/ --run-testsuite              # Include testsuite
+pytest
 
 # Directory-based execution (preferred method)
 pytest tests/rhosocial/activerecord_test/feature/basic/     # Basic CRUD tests
 pytest tests/rhosocial/activerecord_test/feature/query/     # Query tests
 pytest tests/rhosocial/activerecord_test/feature/backend/sqlite/  # SQLite backend tests
-
-# With capability reporting
-pytest tests/ --run-testsuite --show-skipped-capabilities
 
 # Debug mode
 pytest -v tests/                           # Verbose

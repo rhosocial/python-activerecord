@@ -1,8 +1,7 @@
 # src/rhosocial/activerecord/field/soft_delete.py
 """Module providing soft delete functionality."""
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Dict, Any, Optional
-import tzlocal
 from pydantic import Field
 
 from ..query import ActiveQuery
@@ -26,7 +25,7 @@ class SoftDeleteMixin(IActiveRecord):
 
     def _mark_as_deleted(self, instance: 'SoftDeleteMixin', **kwargs):
         """Mark record as soft deleted by setting deleted_at timestamp."""
-        instance.deleted_at = datetime.now(tzlocal.get_localzone())
+        instance.deleted_at = datetime.now(timezone.utc)
 
     def prepare_delete(self) -> Dict[str, Any]:
         """Prepare soft delete data"""

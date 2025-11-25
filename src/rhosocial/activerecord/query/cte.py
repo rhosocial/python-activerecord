@@ -320,19 +320,22 @@ class CTEQueryMixin(AggregateQueryMixin[ModelT]):
         dialect = self.model_class.backend().dialect
         cte_handler = dialect.cte_handler
 
-        # Check recursive support for any recursive CTEs
+        # Check if any of the CTEs are recursive
+        is_recursive = False
         for cte in self._ctes.values():
-            if cte.get('recursive', False) and not self.supports_recursive_cte():
-                raise CTENotSupportedError(
-                    f"Recursive CTEs are not supported by {dialect.__class__.__name__}"
-                )
+            if cte.get('recursive', False):
+                is_recursive = True
+                if not self.supports_recursive_cte():
+                    raise CTENotSupportedError(
+                        f"Recursive CTEs are not supported by {dialect.__class__.__name__}"
+                    )
+                break  # Found one, no need to check others
 
         # Pass the raw CTE definitions to the dialect handler
-        # Let the handler decide how to format them according to database-specific rules
         ctes_list = list(self._ctes.values())
 
-        # Build WITH clause using dialect handler
-        with_clause = cte_handler.format_with_clause(ctes_list)
+        # Build WITH clause using dialect handler, passing the recursive flag
+        with_clause = cte_handler.format_with_clause(ctes_list, recursive=is_recursive)
 
         # Collect all parameters from CTE definitions
         all_params = []

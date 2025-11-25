@@ -343,14 +343,40 @@ class IActiveRecord(BaseModel, ABC):
                 pk_field not in data and
                 getattr(self, pk_field, None) is None):
 
-            field_type = self.__class__.model_fields[pk_field].annotation
-            if get_origin(field_type) in (Union, Optional):
-                types = [t for t in field_type.__args__ if t is not type(None)]
-                if types:
-                    field_type = types[0]
+            pk_retrieved = False
 
-            if field_type is int:
-                setattr(self, pk_field, result.last_insert_id)
+            # Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
+            if result.data and isinstance(result.data, list) and len(result.data) > 0:
+                first_row = result.data[0]
+                if isinstance(first_row, dict) and pk_field in first_row:
+                    pk_value = first_row[pk_field]
+                    setattr(self, pk_field, pk_value)
+                    pk_retrieved = True
+                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field}' from RETURNING clause: {pk_value}")
+                else:
+                    self.log(logging.WARNING, f"RETURNING clause data found, but primary key '{pk_field}' is missing in the result row: {first_row}")
+
+            # Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
+            if not pk_retrieved and result.last_insert_id is not None:
+                field_type = self.__class__.model_fields[pk_field].annotation
+                # Handle Optional[int]
+                if get_origin(field_type) in (Union, Optional):
+                    types = [t for t in get_args(field_type) if t is not type(None)]
+                    if types:
+                        field_type = types[0]
+
+                # last_insert_id is for integer keys.
+                if field_type is int:
+                    pk_value = result.last_insert_id
+                    setattr(self, pk_field, pk_value)
+                    pk_retrieved = True
+                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field}' from last_insert_id: {pk_value}")
+
+            # If PK still not retrieved, it's an error.
+            if not pk_retrieved:
+                error_msg = f"Failed to retrieve primary key '{pk_field}' for new record after insert."
+                self.log(logging.ERROR, error_msg)
+                raise DatabaseError(error_msg)
 
         self._is_from_db = True
         return result

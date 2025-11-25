@@ -648,7 +648,7 @@ class SQLiteCTEHandler(CTEHandler):
 
         return f"{name}{column_def} AS ({query})"
 
-    def format_with_clause(self, ctes: List[Dict[str, Any]]) -> str:
+    def format_with_clause(self, ctes: List[Dict[str, Any]], recursive: bool = False) -> str:
         """Format SQLite WITH clause syntax.
 
         This method accepts CTE definitions and generates a complete WITH clause
@@ -660,8 +660,9 @@ class SQLiteCTEHandler(CTEHandler):
                  - name: CTE name
                  - query: CTE query
                  - columns: Optional column names
-                 - recursive: Whether this is a recursive CTE
                  - materialized: Materialization hint
+            recursive: If True, add the RECURSIVE keyword to the WITH clause.
+                       This flag should be True if any CTE within 'ctes' is recursive.
 
         Returns:
             str: Formatted WITH clause
@@ -669,9 +670,7 @@ class SQLiteCTEHandler(CTEHandler):
         if not ctes:
             return ""
 
-        # Check if any CTE is recursive
-        any_recursive = any(cte.get('recursive', False) for cte in ctes)
-        recursive_keyword = "RECURSIVE " if any_recursive else ""
+        recursive_keyword = "RECURSIVE " if recursive else ""
 
         formatted_ctes = []
         for cte in ctes:
@@ -679,7 +678,7 @@ class SQLiteCTEHandler(CTEHandler):
                 name=cte['name'],
                 query=cte['query'],
                 columns=cte.get('columns'),
-                recursive=cte.get('recursive', False),
+                recursive=recursive, # Use the overall recursive flag
                 materialized=cte.get('materialized')
             ))
 

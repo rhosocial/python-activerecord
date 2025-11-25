@@ -689,9 +689,15 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         # Save original state
         original_select = self.select_columns
         original_exprs = self._expressions
+        original_orders = self.order_clauses
+        original_limit = self.limit_count
+        original_offset = self.offset_count
 
         self._log(logging.DEBUG, f"Executing scalar aggregate: {func}({column})", extra={"distinct": distinct},
                   offset=2)
+        
+        # Temporarily clear order for scalar query
+        self.order_clauses = []
 
         # Build the query using the hook method
         sql, params = self._build_scalar_aggregate_query(func, column, distinct)
@@ -705,7 +711,10 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             # Restore original state
             self.select_columns = original_select
             self._expressions = original_exprs
-
+            self.order_clauses = original_orders
+            self.limit_count = original_limit
+            self.offset_count = original_offset
+            
             return result
 
         result = self.model_class.backend().fetch_one(sql, params)
@@ -713,6 +722,9 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         # Restore original state
         self.select_columns = original_select
         self._expressions = original_exprs
+        self.order_clauses = original_orders
+        self.limit_count = original_limit
+        self.offset_count = original_offset
 
         return result["result"] if result else None
 
