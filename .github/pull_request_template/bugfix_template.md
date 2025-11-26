@@ -52,9 +52,17 @@ Does this PR introduce a breaking change?
 - If NO, please indicate N/A.
 -->
 
-- [ ] Yes
-- [ ] No
-(If Yes, provide details below):
+- [ ] Yes, for end-users (backward-incompatible API changes)
+- [ ] Yes, for backend developers (internal architectural changes that may affect custom implementations)
+- [ ] No breaking changes
+(If Yes, please describe the impact and migration path below):
+
+**Impact on End-Users:**
+<!-- Describe backward-incompatible changes for typical end-user applications consuming the public API. If none, state "No backward-incompatible changes are expected for typical end-user applications." -->
+
+**Impact on Backend Developers (Custom Implementations):**
+<!-- Describe backward-incompatible changes for developers with custom backend implementations or those directly interacting with internal mechanisms. If none, state "No backward-incompatible changes are expected for backend developers using custom implementations." -->
+
 
 
 ## Related Repositories/Packages
