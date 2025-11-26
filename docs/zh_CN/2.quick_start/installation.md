@@ -41,7 +41,7 @@ pip install rhosocial-activerecord[mysql]
 pip install rhosocial-activerecord[mariadb]
 
 # PostgreSQL支持
-pip install rhosocial-activerecord[pgsql]
+pip install rhosocial-activerecord[postgres]
 
 # Oracle支持
 pip install rhosocial-activerecord[oracle]

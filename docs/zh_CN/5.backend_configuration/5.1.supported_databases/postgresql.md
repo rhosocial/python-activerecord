@@ -26,7 +26,7 @@ PostgreSQL 是一个功能强大的开源对象关系数据库系统，以其可
 ```python
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
-from rhosocial.activerecord.backend.impl.postgresql import PostgreSQLBackend
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLBackend
 
 class User(ActiveRecord):
     pass

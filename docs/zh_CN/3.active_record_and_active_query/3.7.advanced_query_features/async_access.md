@@ -29,8 +29,8 @@ from rhosocial.activerecord.model import ActiveRecord
 # 使用异步驱动程序配置ActiveRecord
 ActiveRecord.configure({
     'default': {
-        'driver': 'pgsql',  # 使用asyncpg的PostgreSQL
-        'driver_type': 'asyncpg',  # 指定异步驱动程序
+        'driver': 'postgres',  # 使用psycopg的PostgreSQL
+        'driver_type': 'psycopg',  # 指定异步驱动程序
         'host': 'localhost',
         'database': 'myapp',
         'username': 'user',

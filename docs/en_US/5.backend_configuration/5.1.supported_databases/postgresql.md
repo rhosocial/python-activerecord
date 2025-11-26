@@ -24,7 +24,7 @@ To use PostgreSQL with rhosocial ActiveRecord, you need to configure your model 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend import ConnectionConfig
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLBackend
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLBackend
 
 class User(ActiveRecord):
     pass

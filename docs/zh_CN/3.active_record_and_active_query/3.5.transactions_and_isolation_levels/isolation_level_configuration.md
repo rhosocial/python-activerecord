@@ -43,7 +43,7 @@ backend.transaction_manager.isolation_level = IsolationLevel.SERIALIZABLE
 
 ```python
 # 对于PostgreSQL
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLTransactionManager
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLTransactionManager
 
 # 获取事务管理器
 tx_manager = User.backend().transaction_manager
@@ -89,7 +89,7 @@ tx_manager.isolation_level = IsolationLevel.READ_COMMITTED
 - 独特功能：`SERIALIZABLE`事务可以是`DEFERRABLE`的
 
 ```python
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLTransactionManager
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLTransactionManager
 from rhosocial.activerecord.backend import IsolationLevel
 
 # PostgreSQL特定的事务管理器
@@ -145,7 +145,7 @@ if current_level == IsolationLevel.SERIALIZABLE:
 
 ```python
 # 对于PostgreSQL
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLTransactionManager
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLTransactionManager
 
 tx_manager = User.backend().transaction_manager
 assert isinstance(tx_manager, PostgreSQLTransactionManager)
