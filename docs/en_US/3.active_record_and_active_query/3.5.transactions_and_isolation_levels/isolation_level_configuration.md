@@ -43,7 +43,7 @@ Some database backends allow setting the isolation level at the beginning of a t
 
 ```python
 # For PostgreSQL
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLTransactionManager
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLTransactionManager
 
 # Get the transaction manager
 tx_manager = User.backend().transaction_manager
@@ -89,7 +89,7 @@ tx_manager.isolation_level = IsolationLevel.READ_COMMITTED
 - Unique feature: `SERIALIZABLE` transactions can be `DEFERRABLE`
 
 ```python
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLTransactionManager
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLTransactionManager
 from rhosocial.activerecord.backend import IsolationLevel
 
 # PostgreSQL-specific transaction manager
@@ -145,7 +145,7 @@ Some database backends also provide a method to get the actual isolation level f
 
 ```python
 # For PostgreSQL
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLTransactionManager
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLTransactionManager
 
 tx_manager = User.backend().transaction_manager
 assert isinstance(tx_manager, PostgreSQLTransactionManager)

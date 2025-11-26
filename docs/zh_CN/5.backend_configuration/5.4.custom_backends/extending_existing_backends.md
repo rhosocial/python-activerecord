@@ -84,7 +84,7 @@ class ExtendedMySQLBuilder(MySQLBuilder):
 扩展类型映射器以添加对自定义类型的支持：
 
 ```python
-from rhosocial.activerecord.backend.impl.pgsql.types import PostgreSQLTypeMapper
+from rhosocial.activerecord.backend.impl.postgres.types import PostgreSQLTypeMapper
 from rhosocial.activerecord.backend.dialect import TypeMapping, DatabaseType
 
 class ExtendedPostgreSQLTypeMapper(PostgreSQLTypeMapper):
@@ -197,8 +197,8 @@ class ProfilingMySQLBackend(MySQLBackend):
 ### 添加自定义JSON操作
 
 ```python
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLBackend
-from rhosocial.activerecord.backend.impl.pgsql.dialect import PostgreSQLDialect
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLBackend
+from rhosocial.activerecord.backend.impl.postgres.dialect import PostgreSQLDialect
 
 class JSONEnhancedPostgreSQLDialect(PostgreSQLDialect):
     """具有增强JSON操作的PostgreSQL方言"""

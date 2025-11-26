@@ -27,8 +27,8 @@ from rhosocial.activerecord.model import ActiveRecord
 # Configure ActiveRecord with an async driver
 ActiveRecord.configure({
     'default': {
-        'driver': 'pgsql',  # PostgreSQL with asyncpg
-        'driver_type': 'asyncpg',  # Specify the async driver
+        'driver': 'postgres',  # PostgreSQL with psycopg
+        'driver_type': 'psycopg',  # Specify the async driver
         'host': 'localhost',
         'database': 'myapp',
         'username': 'user',

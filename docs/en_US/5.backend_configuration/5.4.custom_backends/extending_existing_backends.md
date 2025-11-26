@@ -84,7 +84,7 @@ class ExtendedMySQLBuilder(MySQLBuilder):
 Extend the type mapper to add support for custom types:
 
 ```python
-from rhosocial.activerecord.backend.impl.pgsql.types import PostgreSQLTypeMapper
+from rhosocial.activerecord.backend.impl.postgres.types import PostgreSQLTypeMapper
 from rhosocial.activerecord.backend.dialect import TypeMapping, DatabaseType
 
 class ExtendedPostgreSQLTypeMapper(PostgreSQLTypeMapper):
@@ -197,8 +197,8 @@ class ProfilingMySQLBackend(MySQLBackend):
 ### Adding Custom JSON Operations
 
 ```python
-from rhosocial.activerecord.backend.impl.pgsql import PostgreSQLBackend
-from rhosocial.activerecord.backend.impl.pgsql.dialect import PostgreSQLDialect
+from rhosocial.activerecord.backend.impl.postgres import PostgreSQLBackend
+from rhosocial.activerecord.backend.impl.postgres.dialect import PostgreSQLDialect
 
 class JSONEnhancedPostgreSQLDialect(PostgreSQLDialect):
     """PostgreSQL dialect with enhanced JSON operations"""

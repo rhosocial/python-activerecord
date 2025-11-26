@@ -91,7 +91,7 @@ dependencies = [
 # These are distributed as independent packages to maintain modularity
 mysql = ["rhosocial-activerecord-mysql>=1.0.0,<2.0.0"]
 mariadb = ["rhosocial-activerecord-mariadb>=1.0.0,<2.0.0"]
-pgsql = ["rhosocial-activerecord-pgsql>=1.0.0,<2.0.0"]
+postgres = ["rhosocial-activerecord-postgres>=1.0.0,<2.0.0"]
 oracle = ["rhosocial-activerecord-oracle>=1.0.0,<2.0.0"]
 mssql = ["rhosocial-activerecord-mssql>=1.0.0,<2.0.0"]
 
@@ -99,7 +99,7 @@ mssql = ["rhosocial-activerecord-mssql>=1.0.0,<2.0.0"]
 databases = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
-    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-postgres>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
 ]
@@ -111,7 +111,7 @@ migration = ["rhosocial-activerecord-migration>=1.0.0,<2.0.0"]
 all = [
     "rhosocial-activerecord-mysql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
-    "rhosocial-activerecord-pgsql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-postgres>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
@@ -249,7 +249,7 @@ markers = [
     # Database backend-specific markers
     "sqlite: marks tests specific to SQLite backend",
     "mysql: marks tests specific to MySQL backend",
-    "pgsql: marks tests specific to PostgreSQL backend",
+    "postgres: marks tests specific to PostgreSQL backend",
     "mssql: marks tests specific to SQL Server backend",
     "oracle: marks tests specific to Oracle backend",
     "mariadb: marks tests specific to MariaDB backend",

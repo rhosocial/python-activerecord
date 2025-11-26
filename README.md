@@ -95,7 +95,7 @@ pip install rhosocial-activerecord
 # Optional database backends
 pip install rhosocial-activerecord[mysql]     # MySQL support
 pip install rhosocial-activerecord[mariadb]   # MariaDB support
-pip install rhosocial-activerecord[pgsql]     # PostgreSQL support
+pip install rhosocial-activerecord[postgres]     # PostgreSQL support
 pip install rhosocial-activerecord[oracle]    # Oracle support
 pip install rhosocial-activerecord[mssql]     # SQL Server support
 
@@ -183,4 +183,3 @@ Your logo will appear here with a link to your website:
 [![license](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
 
 Copyright © 2025 [vistart](https://github.com/vistart)
-```
