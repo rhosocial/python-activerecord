@@ -45,7 +45,7 @@ jobs:
     - name: Run tests with coverage
       run: |
         export PYTHONPATH=src
-        coverage run -m pytest tests/ --reruns 3 --reruns-delay 1
+        coverage run -m pytest tests/
         coverage xml
         coverage report
 
@@ -91,7 +91,7 @@ jobs:
     - name: Run tests
       run: |
         export PYTHONPATH=src
-        python -m pytest tests/ --reruns 3 --reruns-delay 1
+        python -m pytest tests/
 
   test-free-threaded:
     name: Run tests with Python ${{ matrix.python-version }} free-threaded
@@ -126,4 +126,4 @@ jobs:
     - name: Run tests
       run: |
         export PYTHONPATH=src
-        python -m pytest tests/ --reruns 3 --reruns-delay 1
+        python -m pytest tests/
