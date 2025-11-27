@@ -1,4 +1,4 @@
-# $\rho_{AR}^{sqlite}$ - SQLite Backend Quick Execution Tool
+# $\mathcal{B}_{\text{sqlite}}^{\rho}$ - SQLite Backend Quick Execution Tool
 
 This `__main__.py` script provides a command-line interface to quickly execute SQL queries against a SQLite database using the `rhosocial-activerecord` SQLite backend implementation.
 
