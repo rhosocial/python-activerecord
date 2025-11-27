@@ -633,6 +633,39 @@ class SQLiteBackend(StorageBackend):
             raise error
         raise error
 
+    def executescript(self, sql_script: str) -> None:
+        """
+        Execute a multi-statement SQL script.
+
+        This is a convenience method for SQLite to run scripts from files,
+        which may contain multiple statements (e.g., CREATE TABLE, INSERT).
+        The underlying driver's `executescript` method is used.
+
+        Note: This method does not return a QueryResult and is intended for
+        DDL or batch DML operations, not for queries that return rows.
+
+        Args:
+            sql_script: A string containing one or more SQL statements separated
+                        by semicolons.
+        """
+        self.log(logging.INFO, "Executing SQL script.")
+        start_time = time.perf_counter()
+        try:
+            if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
+                self.connect()
+
+            cursor = self._cursor or self._connection.cursor()
+            cursor.executescript(sql_script)
+            duration = time.perf_counter() - start_time
+            self.log(logging.INFO, f"SQL script executed successfully, duration={duration:.3f}s")
+            
+            self._handle_auto_commit_if_needed()
+
+        except Exception as e:
+            self.log(logging.ERROR, f"Error executing SQL script: {str(e)}")
+            self._handle_error(e)
+
     def execute_many(
             self,
             sql: str,
