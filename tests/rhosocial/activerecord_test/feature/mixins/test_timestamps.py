@@ -1,19 +1,18 @@
 # tests/rhosocial/activerecord_test/feature/mixins/test_timestamps.py
 """
-Test timestamp functionality
+Timestamp Mixin Tests
 
-Directly import and run the testsuite's timestamp tests.
+Directly import and run the testsuite's timestamp mixin tests.
 """
 
-# Set the environment variable that the testsuite uses to locate the provider registry.
-# The testsuite is a generic package and doesn't know the specific location of the
-# provider implementations for this backend (SQLite). This environment variable
-# acts as a bridge, pointing the testsuite to the correct import path.
-import os
-os.environ.setdefault(
-    'TESTSUITE_PROVIDER_REGISTRY',
-    'tests.providers.registry:provider_registry'
-)
+# IMPORTANT: The import of test functions with `*` is essential for pytest to work correctly.
+# Even though they may be flagged as "unused" by some IDEs or linters,
+# they must not be removed. They are the mechanism by which pytest discovers
+# the tests from the external testsuite package by bringing them into this module's scope.
 
-# Import the test functions from the testsuite
+# Fixtures (e.g., timestamp_model) are automatically discovered by pytest from `conftest.py` files
+# in the test path and do not need to be explicitly imported here for pytest to find them.
+# Explicit imports might be added for IDE-specific code completion or type checking,
+# but are not required for test execution.
+
 from rhosocial.activerecord.testsuite.feature.mixins.test_timestamps import *
