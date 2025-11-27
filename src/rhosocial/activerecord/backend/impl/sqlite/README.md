@@ -29,6 +29,11 @@ python -m rhosocial.activerecord.backend.impl.sqlite [OPTIONAL_FLAGS] "YOUR_SQL_
 | `--plain`     | _False_     | Use plain text output even if `rich` is installed.                                                            |
 | `--rich-ascii`| _False_     | Use ASCII characters for table borders. Recommended for terminals that have trouble rendering Unicode boxes. |
 
+## Important Notes
+
+*   **Database File Management**: If `--db-file` points to a non-existent file, SQLite will automatically create it. However, this tool does not automatically delete database files; users are responsible for managing these files. For in-memory connections (`:memory:`), different processes establish isolated connections, meaning data is not shared between them.
+*   **Concurrency**: This tool does not include built-in concurrency checks. When multiple connections simultaneously access the same SQLite database file, it may lead to race conditions or locking issues, depending on the SQLite locking mechanism and transaction isolation levels. It is the user's responsibility to manage concurrent access in such scenarios.
+
 ## Examples
 
 ### In-Memory Database

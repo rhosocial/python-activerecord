@@ -7,13 +7,13 @@ import sys
 from .backend import SQLiteBackend
 from .config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
-from .output import PlainTextOutputProvider
+from rhosocial.activerecord.backend.output import PlainTextOutputProvider
 
 # Attempt to import rich and the RichOutputProvider
 try:
     from rich.console import Console
     from rich.logging import RichHandler
-    from .output import RichOutputProvider
+    from rhosocial.activerecord.backend.output import RichOutputProvider
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
