@@ -13,7 +13,7 @@ rhosocial ActiveRecord follows the ActiveRecord design pattern, which combines d
 - **Fluent Query Interface**: Provides a chainable API for building complex queries
 - **Built-in SQLite Support**: Works out of the box with SQLite
 
-For a detailed comparison, see the [ORM Comparison](../1.introduction) document.
+For a detailed comparison, see the [ORM Comparison](../1.introduction/README.md) document.
 
 ### Can I use ActiveRecord with existing databases?
 

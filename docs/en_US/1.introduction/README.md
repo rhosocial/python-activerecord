@@ -117,19 +117,19 @@ Additionally, for optimal development experience:
 
 ## Documentation
 
-- [Introduction](docs/introduction.md)
-- [Philosophy and Design Approach](docs/philosophy.md)
-- [Feature Comparison](docs/features.md)
-- [Pydantic Integration Advantages](docs/pydantic-integration.md)
-- [Advanced Aggregation Capabilities](docs/aggregation.md)
-- [Asynchronous Support](docs/async-support.md)
-- [Code Comparison](docs/code-comparison.md)
-- [Performance Benchmarks](docs/performance.md)
-- [Learning Curve and Documentation](docs/learning-curve.md)
-- [Community and Ecosystem](docs/community.md)
-- [When to Choose Each ORM](docs/when-to-choose.md)
-- [Relationship Management](docs/relationships.md)
-- [Conclusion](docs/conclusion.md)
+- [Introduction](introduction.md)
+- [Philosophy and Design Approach](philosophy.md)
+- [Feature Comparison](features.md)
+- [Pydantic Integration Advantages](pydantic-integration.md)
+- [Advanced Aggregation Capabilities](aggregation.md)
+- [Asynchronous Support](async-support.md)
+- [Code Comparison](code-comparison.md)
+- [Performance Benchmarks](performance.md)
+- [Learning Curve and Documentation](learning-curve.md)
+- [Community and Ecosystem](community.md)
+- [When to Choose Each ORM](when-to-choose.md)
+- [Relationship Management](relationships.md)
+- [Conclusion](conclusion.md)
 
 ## Quick Start
 
@@ -164,4 +164,4 @@ differences can help you choose the right tool for your specific needs.
 rhosocial ActiveRecord is an implementation of the ActiveRecord design pattern that has made significant innovations on that pattern, providing a clean, model-centric approach to database access.
 
 For a detailed analysis of how rhosocial ActiveRecord compares to these frameworks with specific code examples, performance
-benchmarks, and use case recommendations, please see the [When to Choose Each ORM](docs/when-to-choose.md) guide.
+benchmarks, and use case recommendations, please see the [When to Choose Each ORM](when-to-choose.md) guide.

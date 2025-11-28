@@ -13,7 +13,7 @@ rhosocial ActiveRecord遵循ActiveRecord设计模式，将数据访问和业务�
 - **流畅的查询接口**：提供可链接的API来构建复杂查询
 - **内置SQLite支持**：开箱即用，支持SQLite
 
-有关详细比较，请参阅[ORM比较](../1.introduction)文档。
+有关详细比较，请参阅[ORM比较](../1.introduction/README.md)文档。
 
 ### 我可以将ActiveRecord用于现有数据库吗？
 
