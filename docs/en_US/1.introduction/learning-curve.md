@@ -5,7 +5,7 @@
 - **Documentation**: Comprehensive with many examples
 - **Strengths**: Clear model definitions, intuitive API, Pydantic knowledge transferability
 - **Challenges**: Newer library with fewer external resources
-- **Advantage**: Familiar pattern for developers coming from Ruby on Rails or Yii2 frameworks, making adoption easier for those with this background
+- **Advantage**: Familiar ActiveRecord design pattern for developers coming from Ruby on Rails or Yii2 frameworks, making adoption easier for those with this background
 
 ## SQLAlchemy
 - **Learning Curve**: Steep

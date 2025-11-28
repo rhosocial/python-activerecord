@@ -6,7 +6,7 @@
 - When you want an intuitive model API and clean code structure
 - When you need complex aggregation capabilities but want a more intuitive API
 - When you want to use both synchronous and asynchronous code
-- When you prefer the ActiveRecord pattern and are familiar with Ruby on Rails or Yii2
+- When you prefer the ActiveRecord design pattern and are familiar with Ruby on Rails or Yii2
 
 ## When to Choose SQLAlchemy
 - When you need maximum flexibility and control over database operations

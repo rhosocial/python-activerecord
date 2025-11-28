@@ -1,0 +1,6 @@
+# Temporary database files
+demo.db*
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
