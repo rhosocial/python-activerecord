@@ -2,8 +2,8 @@
 
 ## 概述
 
-rhosocial ActiveRecord 是一个强大的对象关系映射(ORM)库，为 Python 应用程序中的数据库交互提供了直观的接口。
-基于 Ruby on Rails 流行的 ActiveRecord 模式构建，该库提供了一种干净、以模型为中心的数据库访问方法，显著减少了样板代码，同时保持了灵活性和性能。
+rhosocial ActiveRecord 是一个现代的、Pythonic 的 ActiveRecord 设计模式实现，为数据库操作提供了优雅直观的接口，具有类型安全和丰富的功能。
+基于 Ruby on Rails 流行的 ActiveRecord 模式构建，该库在该模式基础上进行了重大革新，提供了一种干净、以模型为中心的数据库访问方法，显著减少了样板代码，同时保持了灵活性和性能。
 
 该库允许开发者将数据库表表示为 Python 类，将行表示为对象，在面向对象的领域模型和关系数据库结构之间创建自然映射。
 这种方法强调约定优于配置，使数据库操作更加直观，更不容易出错。
@@ -156,5 +156,7 @@ active_users = User.query().where('is_active = ?', (True,)).all()
 ## 与其他 Python ORM 框架的比较
 
 Python 提供了多种成熟的 ORM 解决方案，每种都有自己的哲学和设计方法。了解这些差异可以帮助您为特定需求选择正确的工具。
+
+rhosocial ActiveRecord 是一个在传统 ActiveRecord 模式基础上进行重大革新的设计模式实现，提供了一种干净、以模型为中心的数据库访问方法。
 
 有关 rhosocial ActiveRecord 与这些框架的详细分析、具体代码示例、性能基准和用例建议，请参阅 [何时选择各种 ORM](docs/when-to-choose.md) 指南。

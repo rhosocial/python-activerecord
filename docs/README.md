@@ -30,6 +30,6 @@ rhosocial ActiveRecord 是一个现代的、Pythonic 的 ActiveRecord 模式实�
 详细信息请查看对应语言的文档。
 
 **English**：
-rhosocial ActiveRecord is a modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features.
+rhosocial ActiveRecord is a modern, Pythonic implementation of the ActiveRecord design pattern, providing an elegant and intuitive interface for database operations with type safety and rich features. This library has made significant innovations on the traditional ActiveRecord pattern.
 
 Please refer to the documentation in your preferred language for detailed information.

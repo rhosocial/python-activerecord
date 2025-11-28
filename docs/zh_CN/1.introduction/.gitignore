@@ -1,0 +1,6 @@
+# 临时数据库文件
+demo.db*
+*.db
+*.db-journal
+*.db-shm
+*.db-wal
