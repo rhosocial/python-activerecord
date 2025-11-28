@@ -65,7 +65,7 @@ Also note that according to Python's official development plan (https://peps.pyt
 
 ## Free-Threading Python Support
 
-This library provides compatibility with Free-Threading Python (available from Python 3.14+). Free-Threading Python removes the Global Interpreter Lock (GIL), allowing true parallel execution. The library uses `threading.local` and `threading.Lock` for thread-safe operations, which are compatible with Free-Threading Python.
+This library supports Free-Threading Python (available from Python 3.14+), but support may be limited by backend database drivers. For example, SQLite and MySQL backends support Free-Threading mode, but PostgreSQL's psycopg driver may not. Free-Threading Python removes the Global Interpreter Lock (GIL), allowing true parallel execution. The library uses `threading.local` and `threading.Lock` for thread-safe operations, which are compatible with Free-Threading Python.
 
 ### Installing Free-Threading Python on Windows
 
