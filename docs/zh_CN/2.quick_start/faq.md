@@ -6,7 +6,7 @@
 
 ### ActiveRecord与其他ORM有什么区别？
 
-rhosocial ActiveRecord遵循ActiveRecord模式，将数据访问和业务逻辑合并在一个对象中。这与其他ORM（如SQLAlchemy）不同，后者通常将这些关注点分开。主要区别包括：
+rhosocial ActiveRecord遵循ActiveRecord设计模式，将数据访问和业务逻辑合并在一个对象中。这与其他ORM（如SQLAlchemy）不同，后者通常将这些关注点分开。主要区别包括：
 
 - **与Pydantic集成**：rhosocial ActiveRecord利用Pydantic进行类型验证和转换
 - **更简单的API**：设计为直观且需要更少的样板代码

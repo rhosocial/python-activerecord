@@ -11,7 +11,7 @@ This guide will help you get started with rhosocial ActiveRecord using SQLite as
 
 ## Overview
 
-rhosocial ActiveRecord is a modern ORM (Object-Relational Mapping) framework that follows the ActiveRecord pattern, providing an intuitive interface for database operations. It combines the simplicity of the ActiveRecord pattern with the type safety of Pydantic.
+rhosocial ActiveRecord is a modern implementation of the ActiveRecord design pattern, providing an intuitive interface for database operations. It combines the simplicity of the ActiveRecord pattern with the type safety of Pydantic, with significant innovations on that pattern.
 
 The framework allows you to:
 

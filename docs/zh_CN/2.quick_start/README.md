@@ -11,7 +11,7 @@
 
 ## 概述
 
-rhosocial ActiveRecord是一个现代化的ORM（对象关系映射）框架，它遵循ActiveRecord模式，为数据库操作提供直观的接口。它将ActiveRecord模式的简洁性与Pydantic的类型安全性相结合。
+rhosocial ActiveRecord是一个现代化的ActiveRecord设计模式实现框架，为数据库操作提供直观的接口。它将ActiveRecord模式的简洁性与Pydantic的类型安全性相结合，并在该模式基础上进行了重大革新。
 
 该框架允许您：
 

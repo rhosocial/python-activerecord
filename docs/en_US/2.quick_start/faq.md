@@ -6,7 +6,7 @@ This guide addresses common questions and issues you might encounter when gettin
 
 ### What is the difference between ActiveRecord and other ORMs?
 
-rhosocial ActiveRecord follows the ActiveRecord pattern, which combines data access and business logic in a single object. This differs from other ORMs like SQLAlchemy, which often separate these concerns. Key differences include:
+rhosocial ActiveRecord follows the ActiveRecord design pattern, which combines data access and business logic in a single object. This differs from other ORMs like SQLAlchemy, which often separate these concerns. Key differences include:
 
 - **Integration with Pydantic**: rhosocial ActiveRecord leverages Pydantic for type validation and conversion
 - **Simpler API**: Designed to be intuitive and require less boilerplate code
