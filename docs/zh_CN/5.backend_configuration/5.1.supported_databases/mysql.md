@@ -266,3 +266,9 @@ articles = Article.find_all(
 ## 总结
 
 rhosocial ActiveRecord 的 MySQL 后端提供了一个强大而灵活的接口，用于与 MySQL 数据库交互。通过利用 MySQL 的特定功能，同时保持 ActiveRecord 的简洁 API，您可以构建高效且可维护的数据库驱动应用程序。
+
+## 进一步阅读
+
+- [MySQL 官方文档](https://dev.mysql.com/doc/)
+- [rhosocial ActiveRecord 事务管理](../../3.active_record_and_active_query/3.5.transactions_and_isolation_levels/transaction_management.md)
+- [性能优化](../../4.performance_optimization/README.md)

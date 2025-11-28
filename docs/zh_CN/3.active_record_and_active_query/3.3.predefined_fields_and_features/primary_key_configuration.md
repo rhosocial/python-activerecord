@@ -123,4 +123,4 @@ rhosocial ActiveRecord为您处理这些差异，但在设计架构时了解这�
 现在您了解了如何配置主键，您可能想探索：
 
 - [时间戳字段](timestamp_fields.md) - 用于自动创建和更新时间跟踪
-- [关系](../relationships/README.md) - 用于定义模型之间的关联
+- [关系](../3.4.relationships/README.md) - 用于定义模型之间的关联
