@@ -1,5 +1,7 @@
 # Asynchronous Support
 
+**YET NOT IMPLEMENTED** - Async functionality is currently only implemented at the backend level, not at the ActiveRecord/ActiveQuery level.
+
 rhosocial ActiveRecord provides a well-designed asynchronous interface, distinguishing it from many competing ORMs.
 The approach to async support prioritizes usability, flexibility, and backward compatibility.
 

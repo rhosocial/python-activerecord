@@ -1,5 +1,7 @@
 # 异步支持
 
+**尚未实现** - 异步功能目前只在后端实现，ActiveRecord/ActiveQuery 层面尚未实现。
+
 rhosocial ActiveRecord 提供了精心设计的异步接口，这使其与许多竞争对手的 ORM 有所不同。异步支持方法优先考虑可用性、灵活性和向后兼容性。
 
 ## 双 API 架构
