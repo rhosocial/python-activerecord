@@ -93,7 +93,7 @@ flowchart TD
 
 - **Python**: 3.8 或更高版本。
   - **关于 Python 3.8 的说明**: 为了向后兼容，我们继续支持 Python 3.8。但由于官方已停止支持，本库的未来主要版本将不再保证对其的兼容性。
-  - **Free-Threading Python**: 本库支持实验性的 Free-Threading Python (3.14+) 版本，但具体支持情况取决于后端数据库驱动。例如，SQLite 和 MySQL 后端支持 Free-Threading 模式，但 PostgreSQL 的 psycopg 驱动可能不支持。具体支持情况请参阅各后端文档。
+  - **Free-Threading Python**: 本库支持实验性的 Free-Threading Python (3.13+) 版本，但具体支持情况取决于后端数据库驱动。例如，SQLite 和 MySQL 后端支持 Free-Threading 模式，但 PostgreSQL 的 psycopg 驱动可能不支持。具体支持情况请参阅各后端文档。
 
 - **Pydantic**: 所需的 Pydantic 版本取决于您的 Python 版本。这些依赖在安装时会自动管理。
   - 对于 **Python 3.8**: `pydantic==2.10.6`

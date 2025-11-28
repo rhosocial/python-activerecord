@@ -96,7 +96,7 @@ To use rhosocial ActiveRecord, you need:
 
 - **Python**: Version 3.8 or higher.
   - **Note on Python 3.8**: Support for Python 3.8 is maintained for backward compatibility. However, as official support for Python 3.8 has ended, it will be deprecated in a future major release of this library.
-  - **Free-Threading Python**: The library supports experimental Free-Threading builds of Python (3.14+), but support may be limited by backend database drivers. For example, SQLite and MySQL backends support Free-Threading mode, but PostgreSQL's psycopg driver may not. For specific support details, please refer to the individual backend documentation.
+  - **Free-Threading Python**: The library supports experimental Free-Threading builds of Python (3.13+), but support may be limited by backend database drivers. For example, SQLite and MySQL backends support Free-Threading mode, but PostgreSQL's psycopg driver may not. For specific support details, please refer to the individual backend documentation.
 
 - **Pydantic**: The required version of Pydantic depends on your Python version. These dependencies are managed automatically during installation.
   - For **Python 3.8**: `pydantic==2.10.6`

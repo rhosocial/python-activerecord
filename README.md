@@ -55,9 +55,9 @@ For Python 3.9+:
 - `pydantic>=2.12.0` (minimum required version, no upper limit on minor versions as long as major version remains 2.x)
 - `pydantic-core>=2.41.0` (minimum required version, no upper limit on minor versions as long as major version remains 2.x)
 
-**Python 3.14 Compatibility**: Python 3.14 introduces significant changes that impact core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.14 in our requirements specifications.
+**Python 3.13/3.14 Compatibility**: Python 3.13+ introduces significant changes including free-threaded mode (PEP 703), which impacts core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.13+ in our requirements specifications.
 
-As of the release of this software, the latest version of pydantic is 2.12.x. This version supports Python 3.14 free-threaded mode (PEP 703).
+As of the release of this software, the latest version of pydantic is 2.12.x. This version supports Python 3.13+ free-threaded mode (PEP 703).
 
 Note that pydantic 2.11+ has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.6.
 
@@ -65,7 +65,7 @@ Also note that according to Python's official development plan (https://peps.pyt
 
 ## Free-Threading Python Support
 
-This library supports Free-Threading Python (available from Python 3.14+), but support may be limited by backend database drivers. For example, SQLite and MySQL backends support Free-Threading mode, but PostgreSQL's psycopg driver may not. Free-Threading Python removes the Global Interpreter Lock (GIL), allowing true parallel execution. The library uses `threading.local` and `threading.Lock` for thread-safe operations, which are compatible with Free-Threading Python.
+This library supports Free-Threading Python (available from Python 3.13+), but support may be limited by backend database drivers. For example, SQLite and MySQL backends support Free-Threading mode, but PostgreSQL's psycopg driver may not. Free-Threading Python removes the Global Interpreter Lock (GIL), allowing true parallel execution. The library uses `threading.local` and `threading.Lock` for thread-safe operations, which are compatible with Free-Threading Python.
 
 ### Installing Free-Threading Python on Windows
 
