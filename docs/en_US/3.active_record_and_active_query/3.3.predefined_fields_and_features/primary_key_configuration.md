@@ -123,4 +123,4 @@ rhosocial ActiveRecord handles these differences for you, but it's good to be aw
 Now that you understand how to configure primary keys, you might want to explore:
 
 - [Timestamp Fields](timestamp_fields.md) - For automatic creation and update time tracking
-- [Relationships](../relationships/README.md) - For defining associations between models
+- [Relationships](../3.4.relationships/README.md) - For defining associations between models

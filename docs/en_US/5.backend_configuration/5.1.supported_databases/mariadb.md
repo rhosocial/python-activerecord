@@ -258,5 +258,5 @@ rhosocial ActiveRecord adapts to different MariaDB versions, enabling you to use
 ## Further Reading
 
 - [MariaDB Documentation](https://mariadb.com/kb/en/documentation/)
-- [rhosocial ActiveRecord Transaction Management](../../../3.active_record_and_active_query/3.4.transaction_management.md)
-- [Performance Optimization](../../../4.performance_optimization/README.md)
+- [rhosocial ActiveRecord Transaction Management](../../3.active_record_and_active_query/3.5.transactions_and_isolation_levels/transaction_management.md)
+- [Performance Optimization](../../4.performance_optimization/README.md)

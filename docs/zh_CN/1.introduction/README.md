@@ -114,19 +114,19 @@ flowchart TD
 
 ## 文档
 
-- [介绍](docs/introduction.md)
-- [哲学和设计方法](docs/philosophy.md)
-- [特性比较](docs/features.md)
-- [Pydantic 集成优势](docs/pydantic-integration.md)
-- [高级聚合功能](docs/aggregation.md)
-- [异步支持](docs/async-support.md)
-- [代码比较](docs/code-comparison.md)
-- [性能基准](docs/performance.md)
-- [学习曲线和文档](docs/learning-curve.md)
-- [社区和生态系统](docs/community.md)
-- [何时选择各种 ORM](docs/when-to-choose.md)
-- [关系管理](docs/relationships.md)
-- [结论](docs/conclusion.md)
+- [介绍](introduction.md)
+- [哲学和设计方法](philosophy.md)
+- [特性比较](features.md)
+- [Pydantic 集成优势](pydantic-integration.md)
+- [高级聚合功能](aggregation.md)
+- [异步支持](async-support.md)
+- [代码比较](code-comparison.md)
+- [性能基准](performance.md)
+- [学习曲线和文档](learning-curve.md)
+- [社区和生态系统](community.md)
+- [何时选择各种 ORM](when-to-choose.md)
+- [关系管理](relationships.md)
+- [结论](conclusion.md)
 
 ## 快速开始
 
@@ -159,4 +159,4 @@ Python 提供了多种成熟的 ORM 解决方案，每种都有自己的哲学�
 
 rhosocial ActiveRecord 是一个在传统 ActiveRecord 模式基础上进行重大革新的设计模式实现，提供了一种干净、以模型为中心的数据库访问方法。
 
-有关 rhosocial ActiveRecord 与这些框架的详细分析、具体代码示例、性能基准和用例建议，请参阅 [何时选择各种 ORM](docs/when-to-choose.md) 指南。
+有关 rhosocial ActiveRecord 与这些框架的详细分析、具体代码示例、性能基准和用例建议，请参阅 [何时选择各种 ORM](when-to-choose.md) 指南。
