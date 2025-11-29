@@ -406,6 +406,40 @@ class JsonExpression(SQLExpression):
         }
 
 
+class CurrentExpression(SQLExpression):
+    """Represents SQL current expressions like CURRENT_DATE, CURRENT_TIME, CURRENT_USER, etc.
+
+    These expressions are SQL keywords that don't use parentheses, unlike functions.
+    Examples:
+    - CURRENT_DATE
+    - CURRENT_TIME
+    - CURRENT_TIMESTAMP
+    - CURRENT_USER
+    - CURRENT_SCHEMA
+    - USER
+    - SESSION_USER
+    """
+
+    # Common SQL current expressions
+    CURRENT_DATE = "CURRENT_DATE"
+    CURRENT_TIME = "CURRENT_TIME"
+    CURRENT_TIMESTAMP = "CURRENT_TIMESTAMP"
+    CURRENT_USER = "CURRENT_USER"
+    CURRENT_SCHEMA = "CURRENT_SCHEMA"
+    USER = "USER"
+    SESSION_USER = "SESSION_USER"
+
+    def __init__(self, expression: str, alias: Optional[str] = None):
+        super().__init__(alias)
+        self.expression = expression
+
+    def as_sql(self) -> str:
+        expr = self.expression
+        if self.alias:
+            return f"{expr} as {self.alias}"
+        return expr
+
+
 class GroupingSetExpression(SQLExpression):
     """Represents advanced grouping operations (CUBE, ROLLUP, GROUPING SETS)"""
 
