@@ -9,21 +9,6 @@ pydantic~=2.10.6
 # Version ~=2.27.2 matches pydantic 2.10.6 requirements
 pydantic-core~=2.27.2
 
-# World timezone definitions for Python
-# Required for timezone-aware datetime handling in database operations
-# Version ~=2025.2 includes the latest timezone data
-pytz~=2025.2
-
-# Extensions to the standard datetime module
-# Used for robust datetime parsing and manipulation
-# Version ~=2.9.0.post0 provides stable datetime utilities
-python-dateutil~=2.9.0.post0
-
-# System timezone detection
-# Automatically detects local timezone for timestamp fields
-# Version ~=5.2 is compatible with Python 3.8
-tzlocal~=5.2
-
 # Testing framework for unit and integration tests
 # Required for running the test suite
 # Version ~=8.3.5 provides stable testing capabilities
