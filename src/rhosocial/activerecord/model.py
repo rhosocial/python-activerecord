@@ -2,12 +2,14 @@
 # Define the main ActiveRecord class by combining mixins
 # This approach keeps the class definition clean and modular
 from .base import BaseActiveRecord, QueryMixin
+from .base.field_adapter_mixin import FieldAdapterMixin
 from .relation import RelationManagementMixin
 
 class ActiveRecord(
     RelationManagementMixin,
     # FieldMixin, # import when needed
     QueryMixin,
+    FieldAdapterMixin,
     BaseActiveRecord,
 ):
     """Complete ActiveRecord implementation combining core features.
@@ -15,8 +17,9 @@ class ActiveRecord(
     Inherits functionality from:
 
     - BaseActiveRecord: Core CRUD operations
-    - RelationalModelMixin: Relationship handling
+    - RelationManagementMixin: Relationship handling
     - QueryMixin: Query builder
+    - FieldAdapterMixin: Field-specific type adapter support
     """
     ...
 
