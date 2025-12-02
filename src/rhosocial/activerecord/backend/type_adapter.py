@@ -29,6 +29,9 @@ from typing import (
     Protocol,
     Set,
     Type,
+    Union,
+    get_args,
+    get_origin,
     runtime_checkable,
 )
 import json
@@ -126,6 +129,15 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
     ) -> Any:
         if value is None:
             return None
+
+        origin = get_origin(target_type)
+        if origin is Union:
+            args = get_args(target_type)
+            # Filter out NoneType
+            non_none_args = [arg for arg in args if arg is not type(None)]
+            if len(non_none_args) == 1:
+                target_type = non_none_args[0]
+
         return self._do_from_database(value, target_type, options)
 
     @abstractmethod
@@ -174,7 +186,7 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
         elif isinstance(value, time):
             if target_type == str:
                 return value.isoformat()
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
@@ -192,7 +204,7 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
         elif target_type == time:
             if isinstance(value, str):
                 return time.fromisoformat(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
 class JSONAdapter(BaseSQLTypeAdapter):
@@ -208,14 +220,14 @@ class JSONAdapter(BaseSQLTypeAdapter):
     ) -> Any:
         if target_type == str:
             return json.dumps(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if isinstance(value, str):
             return json.loads(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
 class UUIDAdapter(BaseSQLTypeAdapter):
@@ -230,14 +242,14 @@ class UUIDAdapter(BaseSQLTypeAdapter):
     ) -> Any:
         if target_type == str:
             return str(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: str, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if target_type == UUID:
             return UUID(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
 class EnumAdapter(BaseSQLTypeAdapter):
@@ -255,7 +267,7 @@ class EnumAdapter(BaseSQLTypeAdapter):
             return value.name
         if target_type == int:
             return value.value
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: Any, target_type: Type[Enum], options: Optional[Dict[str, Any]]
@@ -265,7 +277,7 @@ class EnumAdapter(BaseSQLTypeAdapter):
             return target_type[value]
         if isinstance(value, int):
             return target_type(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
 class BooleanAdapter(BaseSQLTypeAdapter):
@@ -283,7 +295,7 @@ class BooleanAdapter(BaseSQLTypeAdapter):
             return 1 if value else 0
         if target_type == str:
             return str(value).lower()  # 'true' or 'false'
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
@@ -293,7 +305,7 @@ class BooleanAdapter(BaseSQLTypeAdapter):
                 return bool(value)
             if isinstance(value, str):
                 return value.lower() == 'true'
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
 class DecimalAdapter(BaseSQLTypeAdapter):
@@ -324,7 +336,7 @@ class DecimalAdapter(BaseSQLTypeAdapter):
             return str(value)
         if target_type == float:
             return float(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
@@ -337,7 +349,7 @@ class DecimalAdapter(BaseSQLTypeAdapter):
                     rounding = options.get('rounding', ROUND_HALF_UP)
                     return decimal_value.quantize(precision, rounding=rounding)
                 return decimal_value
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
 class ArrayAdapter(BaseSQLTypeAdapter):
@@ -359,11 +371,11 @@ class ArrayAdapter(BaseSQLTypeAdapter):
             if isinstance(value, (list, tuple, set)): # Explicitly check for array-like types
                 return json.dumps(list(value)) # Convert sets to list for JSON
             raise TypeError(f"Cannot convert {type(value).__name__} to JSON array string.")
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
         self, value: str, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if target_type == list:
             return json.loads(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {target_type.__name__}")
+        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
