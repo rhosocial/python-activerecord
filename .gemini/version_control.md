@@ -1472,7 +1472,7 @@ chore: bump version to 1.2.0
 | `docs` | Documentation only | `docs: add CTE usage examples` |
 | `style` | Code style/formatting | `style: apply black formatting` |
 | `refactor` | Code restructuring | `refactor: simplify query builder logic` |
-| `perf` | Performance improvement | `perf: optimize bulk insert for PostgreSQL` |
+| `perf` | Performance improvement | `perf: optimize bulk insert for Postgres` |
 | `test` | Add or modify tests | `test: add coverage for recursive CTE` |
 | `chore` | Maintenance tasks | `chore: update dependencies` |
 | `ci` | CI/CD changes | `ci: add Python 3.14 to test matrix` |
@@ -1482,6 +1482,7 @@ chore: bump version to 1.2.0
 ### Scope Guidelines
 
 **Optional but recommended** for multi-component projects:
+See the [.gemini/feature_points.md](.gemini/feature_points.md) document for a complete list and description of valid scopes.
 
 **Core Package Scopes**:
 
@@ -1495,10 +1496,11 @@ chore: bump version to 1.2.0
 **Backend Package Scopes**:
 
 - `mysql`: MySQL-specific
-- `postgresql`: PostgreSQL-specific
+- `postgres`: Postgres-specific
 - `sqlite`: SQLite-specific
 - `dialect`: SQL dialect handling
-- `driver`: Database driver integration
+- Separate multiple scopes with commas: `feat(query,backend): add new query optimization feature`
+- Scopes can be further subdivided for more detail, e.g., `backend-cli` for backend command-line tools or `backend-adapters` for type adapters.
 
 **Testsuite Scopes**:
 
@@ -1668,7 +1670,7 @@ Before committing, verify:
 **Good History** (linear, clean):
 
 ```
-* a1b2c3d feat: add window function support for PostgreSQL
+* a1b2c3d feat: add window function support for Postgres
 * b2c3d4e fix: resolve connection timeout in MySQL backend
 * c3d4e5f docs: add examples for CTE usage
 * d4e5f6g test: increase coverage for query builder
@@ -2143,7 +2145,7 @@ Deprecated `QueryBuilder.filter()` method in favor of `QueryBuilder.where()`. Th
 
 ```markdown
 <!-- 1003.added.md -->
-Added support for window functions (ROW_NUMBER, RANK, LAG, LEAD) in PostgreSQL and SQLite 3.25+. See documentation for usage examples.
+Added support for window functions (ROW_NUMBER, RANK, LAG, LEAD) in Postgres and SQLite 3.25+. See documentation for usage examples.
 ```
 
 **Behavior Change**:
@@ -3330,7 +3332,7 @@ Each release must include:
 
 **Installation**: `pip install rhosocial-activerecord-mysql`
 
-#### PostgreSQL (rhosocial-activerecord-postgresql)
+#### Postgres (rhosocial-activerecord-postgres)
 
 **Status**: ✅ Stable implementation, separate package
 
@@ -3345,11 +3347,12 @@ Each release must include:
 - Upsert (ON CONFLICT) ✅
 - Array types ✅
 
-**Driver**: psycopg2 or psycopg3
+**Driver**: psycopg
+**Notes**: Supports psycopg (version 3) only. Psycopg2 is not supported.
 
-**Version Support**: PostgreSQL 9.6+, PostgreSQL 12+ recommended
+**Version Support**: Postgres 9.6+, Postgres 12+ recommended
 
-**Installation**: `pip install rhosocial-activerecord-postgresql`
+**Installation**: `pip install rhosocial-activerecord-postgres`
 
 #### Community Backends
 
