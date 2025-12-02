@@ -252,41 +252,41 @@ class IActiveRecord(BaseModel, ABC):
 
         This method queries the backend for its default type adapter suggestions
         and uses these to build a model-specific map for converting database
-        results back into Python objects.
+        results back into Python objects. It prioritizes user-defined adapters
+        specified via annotations.
         """
         adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
-
-        # Get default type adapter suggestions from the backend.
-        # This provides a map from Python type -> (SQLTypeAdapter instance, target_driver_type).
         all_suggestions = cls.backend().get_default_adapter_suggestions()
 
-        # Iterate through model fields to build the column_adapters map.
         for field_name, field_info in model_fields.items():
             # Get the original Python type of the field.
             field_py_type = field_info.annotation
+            original_type = field_py_type # Keep the full original type for from_database
 
-            # Handle complex types like Optional[T] (e.g., Optional[datetime] -> datetime).
+            # Handle complex types like Optional[T] to get the base type for suggestion lookup.
             origin = get_origin(field_py_type)
             if origin is Union:
-                # Filter out NoneType to get the actual type.
                 args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
                 if len(args) == 1:
                     field_py_type = args[0]
                 else:
-                    # For complex Unions (e.g., Union[int, str]), we skip for now.
-                    continue
+                    continue # Skip complex Unions for now.
 
-            # Find a matching adapter in the backend's suggestions using the field's Python type.
+            # Priority 1: Check for a field-specific adapter from annotations.
+            custom_adapter_tuple = cls._get_adapter_for_field(field_name)
+            if custom_adapter_tuple:
+                adapter_instance, _ = custom_adapter_tuple
+                # For reading from DB, we pair the adapter with the field's original Python type.
+                adapters_map[field_name] = (adapter_instance, original_type)
+                continue
+
+            # Priority 2: Fallback to the backend's default suggestion.
             suggestion = all_suggestions.get(field_py_type)
-
             if suggestion:
-                # Extract the adapter instance. The target_driver_type is not directly used here
-                # but is part of the suggestion.
                 adapter_instance, _ = suggestion
-                # Store (adapter_instance, original_python_type_of_field) for result processing.
-                # The 'original_python_type_of_field' is crucial for 'from_database' conversion.
-                adapters_map[field_name] = (adapter_instance, field_py_type)
+                # The 'original_type' is crucial for 'from_database' conversion.
+                adapters_map[field_name] = (adapter_instance, original_type)
 
         return adapters_map
 
@@ -294,40 +294,38 @@ class IActiveRecord(BaseModel, ABC):
         # The caller (_insert_internal) is responsible for preparing parameters.
         self.log(logging.DEBUG, f"[DEBUG] Raw data for insert: {data}")
 
-        # Step 1: Get default type adapter suggestions from the backend.
-        # This provides a map from Python type -> (SQLTypeAdapter instance, target_driver_type).
+        # Step 1: Resolve parameter adapters with the new prioritized logic.
+        param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         all_suggestions = self.backend().get_default_adapter_suggestions()
 
-        # Step 2: Build param_adapters dictionary for Python -> DB conversion.
-        # This map specifies how each input parameter should be converted.
-        param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         for field_name, py_value in data.items():
-            # Get the Python type of the value being inserted.
-            # Handle Optional types to get the underlying type for suggestion lookup.
-            # (e.g., Optional[datetime] should lookup for datetime)
-            value_type = type(py_value)
+            resolved_adapter_info = None
+
+            # Priority 1: Check for a field-specific adapter from annotations.
+            custom_adapter_tuple = self._get_adapter_for_field(field_name)
+            if custom_adapter_tuple:
+                # User-specified adapter (adapter, target_db_type) found. Use it directly.
+                resolved_adapter_info = custom_adapter_tuple
             
-            # Find a matching adapter in the backend's suggestions.
-            suggestion = all_suggestions.get(value_type)
+            # Priority 2: If no custom adapter was found, fall back to default suggestion.
+            if not resolved_adapter_info:
+                value_type = type(py_value)
+                resolved_adapter_info = all_suggestions.get(value_type)
 
-            if suggestion:
-                # Store (adapter_instance, target_driver_type) for parameter preparation.
-                param_adapters[field_name] = suggestion
+            if resolved_adapter_info:
+                param_adapters[field_name] = resolved_adapter_info
 
-        # Step 3: Prepare the INPUT parameters using the param_adapters.
-        # The backend's prepare_parameters will use these adapters to convert
-        # Python values to database-compatible types.
+        # Step 2: Prepare the INPUT parameters using the resolved adapters.
         prepared_data = self.backend().prepare_parameters(data, param_adapters)
         self.log(logging.DEBUG, f"[DEBUG] Prepared data for insert: {prepared_data}")
         
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}: {prepared_data}")
         
-        # Step 4: Get the column adapters for processing output (e.g., RETURNING clauses).
-        # This map specifies how database results should be converted back to Python objects.
+        # Step 3: Get the column adapters for processing output (e.g., RETURNING clauses).
         column_adapters = self.get_column_adapters()
         self.log(logging.DEBUG, f"[DEBUG] Column adapters map: {column_adapters}")
 
-        # Step 5: Call `insert` with the prepared data and column adapters.
+        # Step 4: Call `insert` with the prepared data and column adapters.
         result = self.backend().insert(
             self.table_name(),
             prepared_data,
@@ -336,7 +334,7 @@ class IActiveRecord(BaseModel, ABC):
             primary_key=self.primary_key()
         )
 
-        # Step 6: Handle auto-increment primary key if needed.
+        # Step 5: Handle auto-increment primary key if needed.
         pk_field = self.primary_key()
         if (result is not None and result.affected_rows > 0 and
                 pk_field in self.__class__.model_fields and
@@ -417,24 +415,31 @@ class IActiveRecord(BaseModel, ABC):
         # Combine data with additional expressions. This 'data' becomes the SET clause values.
         data.update(update_expressions)
 
-        # Step 1: Get default type adapter suggestions from the backend.
+        # Step 1: Resolve and prepare the SET clause parameters using the new prioritized logic.
+        set_param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         all_suggestions = self.backend().get_default_adapter_suggestions()
 
-        # Step 2: Prepare the SET clause parameters.
-        # Build param_adapters dictionary for Python -> DB conversion for the SET clause data.
-        set_param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         for field_name, py_value in data.items():
-            value_type = type(py_value)
-            suggestion = all_suggestions.get(value_type)
-            if suggestion:
-                set_param_adapters[field_name] = suggestion
+            resolved_adapter_info = None
 
-        # Prepare the SET clause data using the param_adapters.
+            # Priority 1: Check for a field-specific adapter.
+            custom_adapter_tuple = self._get_adapter_for_field(field_name)
+            if custom_adapter_tuple:
+                resolved_adapter_info = custom_adapter_tuple
+            
+            # Priority 2: If no custom adapter was found, fall back to default suggestion.
+            if not resolved_adapter_info:
+                value_type = type(py_value)
+                resolved_adapter_info = all_suggestions.get(value_type)
+
+            if resolved_adapter_info:
+                set_param_adapters[field_name] = resolved_adapter_info
+
         prepared_set_data = self.backend().prepare_parameters(data, set_param_adapters)
 
 
-        # Step 3: Prepare the WHERE clause parameters.
-        # Collect all raw parameters for the WHERE clause.
+        # Step 2: Prepare the WHERE clause parameters.
+        # (WHERE clause adaptation remains type-based as field context is not available here)
         raw_where_params_list = []
         where_conditions_list = []
 
@@ -452,14 +457,13 @@ class IActiveRecord(BaseModel, ABC):
                 raw_where_params_list.extend(condition_params)
         
         # Build param_adapters for the WHERE clause parameters.
-        # This will be a sequence of (adapter, db_type) tuples.
         where_param_adapters_sequence: List[Optional[Tuple['SQLTypeAdapter', Type]]] = []
         for raw_value in raw_where_params_list:
             value_type = type(raw_value)
             suggestion = all_suggestions.get(value_type)
             where_param_adapters_sequence.append(suggestion)
 
-        # Prepare the WHERE clause parameters using the param_adapters sequence.
+        # Prepare the WHERE clause parameters using the resolved adapters.
         prepared_where_params = self.backend().prepare_parameters(
             tuple(raw_where_params_list), # Pass as a tuple for prepare_parameters
             where_param_adapters_sequence
@@ -473,7 +477,6 @@ class IActiveRecord(BaseModel, ABC):
         placeholder = backend.dialect.get_placeholder()
 
         # Combine base condition with additional conditions
-        # The conditions string itself needs placeholder replacement based on the backend dialect
         final_where_clause = " AND ".join(where_conditions_list)
         if placeholder != '?':
             final_where_clause = replace_question_marks(final_where_clause, placeholder)
@@ -482,16 +485,16 @@ class IActiveRecord(BaseModel, ABC):
                  f"Updating {self.__class__.__name__}#{getattr(self, self.primary_key())}: "
                  f"set_data={prepared_set_data}, where_clause={final_where_clause}, where_params={prepared_where_params}")
 
-        # Step 4: Get the column adapters for processing output.
+        # Step 3: Get the column adapters for processing output.
         column_adapters = self.get_column_adapters()
         self.log(logging.DEBUG, f"[DEBUG] Column adapters map: {column_adapters}")
 
-        # Step 5: Execute update with prepared SET data, prepared WHERE clause, and column adapters.
+        # Step 4: Execute update with prepared SET data, prepared WHERE clause, and column adapters.
         result = backend.update(
             self.table_name(),
-            prepared_set_data, # Use prepared_set_data for the SET clause
-            final_where_clause, # Use the prepared WHERE clause string
-            prepared_where_params, # Use the prepared WHERE clause parameters
+            prepared_set_data,
+            final_where_clause,
+            prepared_where_params,
             column_adapters=column_adapters
         )
         return result
