@@ -750,3 +750,25 @@ class IActiveRecord(BaseModel, ABC):
         self._is_from_db = True
         # Reset change tracking
         self.reset_tracking()
+
+    @classmethod
+    def get_feature_handlers(cls) -> List[Callable]:
+        """
+        Discovers and collects unique feature handlers from the class's MRO.
+
+        This method walks the inheritance hierarchy (MRO) and collects all handlers
+        defined in `_feature_handlers` lists within parent classes and mixins.
+        It ensures that each handler is unique and maintains a consistent order.
+
+        Returns:
+            A list of unique feature handler classes, ordered by their appearance
+            in the MRO.
+        """
+        collected_handlers = {}
+        # We iterate through the MRO in reverse. This ensures that handlers
+        # from base classes are registered before handlers from child classes.
+        for mro_class in reversed(cls.mro()):
+            if hasattr(mro_class, '_feature_handlers'):
+                for handler in mro_class._feature_handlers:
+                    collected_handlers[handler] = True  # Use dict for ordered set
+        return list(collected_handlers.keys())
