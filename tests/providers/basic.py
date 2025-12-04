@@ -13,12 +13,17 @@ Its main responsibilities are:
 """
 import os
 from typing import Type, List
+
+from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # The models are defined generically in the testsuite...
-from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
+    User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser, TypeAdapterTest, YesOrNoBooleanAdapter
+)
+from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
+
 
 class BasicProvider(IBasicProvider):
     """
@@ -101,6 +106,14 @@ class BasicProvider(IBasicProvider):
     def setup_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `ValidatedUser` model tests."""
         return self._setup_model(ValidatedUser, scenario_name, "validated_users")
+
+    def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `TypeAdapterTest` model tests."""
+        return self._setup_model(TypeAdapterTest, scenario_name, "type_adapter_tests")
+
+    def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
+        """Returns an instance of the YesOrNoBooleanAdapter."""
+        return YesOrNoBooleanAdapter()
 
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
