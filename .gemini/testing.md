@@ -183,6 +183,38 @@ ModuleNotFoundError: No module named 'rhosocial.activerecord'
 PYTHONPATH=src
 ```
 
+## CRITICAL: Test Suite Dependency (`rhosocial-activerecord-testsuite`)
+
+**MUST install the `rhosocial-activerecord-testsuite` package.** Tests in this project rely heavily on the shared test contracts and fixtures provided by the `rhosocial-activerecord-testsuite` package. Without it, you will encounter `ModuleNotFoundError` for `rhosocial.activerecord.testsuite`.
+
+### Installation Methods
+
+There are several ways to ensure `rhosocial-activerecord-testsuite` is available in your testing environment:
+
+#### 1. Install from PyPI (Recommended for most users)
+
+```bash
+pip install rhosocial-activerecord-testsuite
+```
+
+#### 2. Install from Git Repository (for development or specific versions)
+
+If you need to install directly from its Git repository, use the following command (replace with the actual repository URL):
+
+```bash
+pip install git+https://github.com/Rhosocial/python-activerecord-testsuite.git  # Replace with actual URL
+```
+
+#### 3. Install in Editable Mode (for local development of the test suite)
+
+If you are developing or modifying the `rhosocial-activerecord-testsuite` locally, you should install it in editable mode. Assuming it's a sibling directory to your current project:
+
+```bash
+pip install -e ../python-activerecord-testsuite
+```
+
+This ensures any changes to the test suite's source code are immediately reflected in your testing environment.
+
 ## Responsibilities Division
 
 ### Testsuite Authors MUST:
