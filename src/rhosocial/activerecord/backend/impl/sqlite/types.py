@@ -58,29 +58,31 @@ class SQLiteColumnType:
 
     def __str__(self):
         """Generate complete type definition statement"""
-        sql = self.sql_type
+        sql_parts = [self.sql_type] # Start with the base type
 
-        # Handle primary key
-        if "primary_key" in self.constraints:
-            # For INTEGER PRIMARY KEY, it's an auto-incrementing primary key
-            if self.sql_type.upper() == "INTEGER":
-                sql = SQLiteTypes.ROWID
-            else:
-                sql += " PRIMARY KEY"
+        is_integer_pk = self.sql_type.upper() == "INTEGER" and self.constraints.get("primary_key")
+        is_autoincrement = self.constraints.get("autoincrement")
 
-        # Handle auto-increment
-        if "autoincrement" in self.constraints and sql != SQLiteTypes.ROWID:
-            sql += " AUTOINCREMENT"
+        if is_integer_pk:
+            sql_parts = ["INTEGER PRIMARY KEY"]
+            if is_autoincrement:
+                sql_parts.append("AUTOINCREMENT")
+        elif "primary_key" in self.constraints: # Non-integer PK
+            sql_parts.append("PRIMARY KEY")
 
         # Handle other constraints
         if "unique" in self.constraints:
-            sql += " UNIQUE"
+            sql_parts.append("UNIQUE")
         if "not_null" in self.constraints:
-            sql += " NOT NULL"
+            sql_parts.append("NOT NULL")
         if "default" in self.constraints:
-            sql += f" DEFAULT {self.constraints['default']}"
+            default_value = self.constraints["default"]
+            # Ensure string defaults are quoted if they are strings but not already quoted
+            if isinstance(default_value, str) and not (default_value.startswith("'") and default_value.endswith("'")):
+                default_value = f"'{default_value}'"
+            sql_parts.append(f"DEFAULT {default_value}")
 
-        return sql
+        return " ".join(sql_parts)
 
     @classmethod
     def get_type(cls, db_type: DatabaseType, **params) -> 'SQLiteColumnType':
