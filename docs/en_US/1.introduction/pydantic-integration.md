@@ -717,7 +717,7 @@ class Query(ObjectType):
 
     def resolve_user_with_posts(self, info, id: int):
         # Preload user and all their posts, avoiding N+1 query problem
-        user = User.query().with_('posts').find_one(id)
+        user = User.query().with_('posts').where('id = ?', (id, )).one(id)
         return UserWithPostsGQL.from_active_record(user)
 ```
 
