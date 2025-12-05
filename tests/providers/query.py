@@ -176,6 +176,17 @@ class QueryProvider(IQueryProvider):
         ]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
+    def setup_annotated_query_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+        """
+        Sets up the database for models using Annotated type adapters in queries.
+        Returns a tuple containing the configured SearchableItem model class.
+        """
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.annotated_adapter_models import SearchableItem
+        models_and_tables = [
+            (SearchableItem, "searchable_items"),
+        ]
+        return self._setup_multiple_models(models_and_tables, scenario_name)
+
     def _load_sqlite_schema(self, filename: str) -> str:
         """Helper to load a SQL schema file from this project's fixtures."""
         # Schemas are stored in the centralized location for query feature.
