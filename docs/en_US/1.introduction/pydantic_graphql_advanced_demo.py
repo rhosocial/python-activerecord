@@ -167,7 +167,7 @@ class Query(ObjectType):
         """Get specific user by ID (with posts)"""
         # Use preloading to avoid N+1 problem
         try:
-            user = User.query().with_('posts').find_one(id)
+            user = User.query().with_('posts').where('id = ?', (id, )).one()
             return UserGQL.from_active_record(user) if user else None
         except Exception as e:
             print(f"Error in resolve_user: {e}")
@@ -189,7 +189,7 @@ class Query(ObjectType):
         """Get specific post by ID (with author)"""
         # Use preloading to avoid N+1 problem
         try:
-            post = Post.query().with_('user').find_one(id)
+            post = Post.query().with_('user').where('id = ?', (id, )).one()
             return PostGQL.from_active_record(post) if post else None
         except Exception as e:
             print(f"Error in resolve_post: {e}")
