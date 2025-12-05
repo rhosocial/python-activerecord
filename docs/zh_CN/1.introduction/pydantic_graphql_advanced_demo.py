@@ -333,10 +333,10 @@ class GraphQLApp:
                 <html>
                 <head>
                     <title>GraphiQL</title>
-                    <script src="https://unpkg.com/react@17/umd/react.development.js"></script>
-                    <script src="https://unpkg.com/react-dom@17/umd/react-dom.development.js"></script>
-                    <link rel="stylesheet" href="https://unpkg.com/graphiql@2.0.0/graphiql.min.css" />
-                    <script src="https://unpkg.com/graphiql@2.0.0/graphiql.min.js"></script>
+                    <script src="https://unpkg.com/react@^18/umd/react.development.js"></script>
+                    <script src="https://unpkg.com/react-dom@^18/umd/react-dom.development.js"></script>
+                    <link rel="stylesheet" href="https://unpkg.com/graphiql@^2/graphiql.min.css" />
+                    <script src="https://unpkg.com/graphiql@^2/graphiql.min.js"></script>
                 </head>
                 <body style="margin: 0; overflow: hidden; width: 100%; height: 100vh;">
                     <div id="graphiql" style="height: 100vh;"></div>
