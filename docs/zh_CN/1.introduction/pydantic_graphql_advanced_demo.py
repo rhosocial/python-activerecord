@@ -167,7 +167,7 @@ class Query(ObjectType):
         """根据ID获取特定用户（带帖子）"""
         # 使用预加载避免N+1问题
         try:
-            user = User.query().with_('posts').find_one(id)
+            user = User.query().with_('posts').where('id = ?', (id, )).one()
             return UserGQL.from_active_record(user) if user else None
         except Exception as e:
             print(f"Error in resolve_user: {e}")
@@ -189,7 +189,7 @@ class Query(ObjectType):
         """根据ID获取特定帖子（带作者）"""
         # 使用预加载避免N+1问题
         try:
-            post = Post.query().with_('user').find_one(id)
+            post = Post.query().with_('user').where('id = ?', (id, )).one()
             return PostGQL.from_active_record(post) if post else None
         except Exception as e:
             print(f"Error in resolve_post: {e}")

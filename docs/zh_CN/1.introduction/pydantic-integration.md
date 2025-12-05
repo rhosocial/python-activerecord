@@ -717,7 +717,7 @@ class Query(ObjectType):
 
     def resolve_user_with_posts(self, info, id: int):
         # 预加载用户和其所有帖子，避免N+1查询问题
-        user = User.query().with_('posts').find_one(id)
+        user = User.query().with_('posts').where('id = ?', (id, )).one()
         return UserWithPostsGQL.from_active_record(user)
 ```
 
