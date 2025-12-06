@@ -353,6 +353,11 @@ class BaseQueryMixin(IQuery[ModelT]):
         Returns:
             Query instance
 
+        Note:
+            This method does not involve the field type adapter conversion process.
+            Parameters are sent directly to the database driver.
+            See the `test_query_by_exact_string` test for an example of correct usage.
+
         Example:
             query.where('status = ?', (1,))
         """
@@ -378,6 +383,11 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         Returns:
             Query instance
+
+        Note:
+            This method does not involve the field type adapter conversion process.
+            Parameters are sent directly to the database driver.
+            See the `test_query_by_exact_string` test for an example of correct usage.
 
         Example:
             # Basic OR condition
