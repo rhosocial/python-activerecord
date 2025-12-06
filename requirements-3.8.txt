@@ -9,15 +9,9 @@ pydantic~=2.10.6
 # Version ~=2.27.2 matches pydantic 2.10.6 requirements
 pydantic-core~=2.27.2
 
-# Testing framework for unit and integration tests
-# Required for running the test suite
-# Version ~=8.3.5 provides stable testing capabilities
-pytest~=8.3.5
-
-# Python packaging utilities
-# Required for package building and distribution
-# Version ~=75.3.2 is stable for Python 3.8
-setuptools~=75.3.2
+# Type extension utilities
+# Provides additional typing features for older Python versions
+typing-extensions>=4.12.0
 
 # Timezone info backport for Python 3.8
 # Python 3.8 lacks native zoneinfo support, this provides compatibility
