@@ -501,9 +501,14 @@ class SQLOperationsMixin:
         Returns:
             QueryResult: A QueryResult object containing the results of the operation.
         """
-        set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
-                     for k in data.keys()]
-        values = list(data.values())
+        set_items = []
+        values = []
+        for k, v in data.items():
+            if isinstance(v, SQLExpressionBase):
+                set_items.append(f"{self.dialect.format_identifier(k)} = {v.format(self.dialect)}")
+            else:
+                set_items.append(f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}")
+                values.append(v)
 
         sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
 
@@ -635,9 +640,14 @@ class AsyncSQLOperationsMixin:
         Returns:
             QueryResult: A QueryResult object containing the results of the operation.
         """
-        set_items = [f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}"
-                     for k in data.keys()]
-        values = list(data.values())
+        set_items = []
+        values = []
+        for k, v in data.items():
+            if isinstance(v, SQLExpressionBase):
+                set_items.append(f"{self.dialect.format_identifier(k)} = {v.format(self.dialect)}")
+            else:
+                set_items.append(f"{self.dialect.format_identifier(k)} = {self.dialect.get_placeholder()}")
+                values.append(v)
 
         sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
 

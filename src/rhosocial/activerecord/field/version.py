@@ -131,7 +131,7 @@ class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
                 raise DatabaseError("Record was updated by another process")
 
             if hasattr(result, 'data') and result.data:
-                new_version = result.data.get(self._version.db_column)
+                new_version = result.data[0].get(self._version.db_column)
                 if new_version is not None:
                     self._version = Version(
                         value=new_version,

@@ -59,31 +59,35 @@ class BaseQueryMixin(IQuery[ModelT]):
         - Table-qualified identifiers (e.g., "users.name")
         - Aliases (e.g., "name AS display_name")
         - Already quoted identifiers (preserves them)
+        - Applies model field to database column name mapping.
 
         Args:
-            identifier: The identifier to format
-            dialect: Optional dialect to use (defaults to model's dialect)
+            identifier: The identifier to format (can be a model field name or a raw column name).
+            dialect: Optional dialect to use (defaults to model's dialect).
 
         Returns:
-            Properly formatted and quoted identifier
+            Properly formatted and quoted identifier.
         """
         if not dialect:
             dialect = self.model_class.backend().dialect
 
         # If the identifier contains function calls, subqueries, or is already quoted
-        # or contains an alias definition, return it as is
+        # or contains an alias definition, return it as is.
+        # This prevents accidental mapping of SQL keywords or expressions.
         if any(token in identifier for token in ['(', ')', ' as ', ' AS ', '"', '`', "'", '*']):
             return identifier
 
-        # Check if this is a column with table qualification
+        # Check if this is a column with table qualification (e.g., "table.column")
         parts = identifier.split('.')
         if len(parts) == 2:
-            # Handle "table.column" format
-            table, column = parts
-            return f"{dialect.format_identifier(table)}.{dialect.format_identifier(column)}"
+            # Handle "table.column" format: map the column part, then format both.
+            table_name, model_field_name = parts
+            db_column_name = self.model_class._get_db_column_name(model_field_name)
+            return f"{dialect.format_identifier(table_name)}.{dialect.format_identifier(db_column_name)}"
 
-        # Simple identifier
-        return dialect.format_identifier(identifier)
+        # Simple identifier: map to database column name if it's a model field.
+        db_column_name = self.model_class._get_db_column_name(identifier)
+        return dialect.format_identifier(db_column_name)
 
     def explain(self,
                 type: Optional[ExplainType] = None,
@@ -314,18 +318,19 @@ class BaseQueryMixin(IQuery[ModelT]):
 
             # Parse key to get column and operator
             parts = key.split('__')
-            column = parts[0]
+            model_field = parts[0]
+            db_column = self.model_class._get_db_column_name(model_field)
             op = parts[1] if len(parts) > 1 else None
 
             # Handle different value types and operators
             if value is None:
-                self.where(f"{column} IS NULL")
+                self.where(f"{db_column} IS NULL")
 
             elif isinstance(value, (list, tuple)):
                 if not value:  # Empty list
                     continue
                 placeholders = ','.join(['?' for _ in value])
-                self.where(f"{column} IN ({placeholders})", value)
+                self.where(f"{db_column} IN ({placeholders})", value)
 
             elif op and op in operator_map:
                 operator = operator_map[op]
@@ -333,13 +338,13 @@ class BaseQueryMixin(IQuery[ModelT]):
                     if not isinstance(value, (list, tuple)):
                         value = [value]
                     placeholders = ','.join(['?' for _ in value])
-                    self.where(f"{column} {operator} ({placeholders})", value)
+                    self.where(f"{db_column} {operator} ({placeholders})", value)
                 else:
-                    self.where(f"{column} {operator} ?", (value,))
+                    self.where(f"{db_column} {operator} ?", (value,))
 
             else:
                 # Default to equality comparison
-                self.where(f"{column} = ?", (value,))
+                self.where(f"{db_column} = ?", (value,))
 
         return self
 
@@ -487,18 +492,34 @@ class BaseQueryMixin(IQuery[ModelT]):
         # Format each column identifier
         formatted_columns = []
         for col in self.select_columns:
-            # Handle special case for COUNT(*) and other aggregate functions
-            if '*' in col and any(agg in col.lower() for agg in ['count(', 'sum(', 'avg(', 'min(', 'max(']):
+            # Handle special cases:
+            # 1. Aggregates like COUNT(*), SUM(col), etc.
+            # 2. Raw SQL expressions that might contain parentheses or other keywords
+            # 3. Already dialect-formatted strings
+            if any(kw in col.lower() for kw in ['*', '(', ')', ' as ']) or (col.startswith('"') and col.endswith('"')) or (col.startswith('`') and col.endswith('`')):
+                # If it's a complex expression or already quoted, pass as is.
+                # However, if it's "table.column" without an alias, try to format.
+                if '.' in col and not (' as ' in col.lower() or '(' in col):
+                    parts = col.split('.')
+                    if len(parts) == 2:
+                        table_name, model_field_name = parts
+                        db_column_name = self.model_class._get_db_column_name(model_field_name)
+                        formatted_columns.append(f"{self._format_identifier(table_name)}.{self._format_identifier(db_column_name)}")
+                        continue
                 formatted_columns.append(col)
+                continue
+
+            # Handle 'model_field AS alias' format
+            parts = col.split(' as ')
+            if len(parts) == 2:
+                model_field_name, alias = parts
+                db_column_name = self.model_class._get_db_column_name(model_field_name.strip())
+                formatted_columns.append(
+                    f"{self._format_identifier(db_column_name)} AS {self._format_identifier(alias.strip())}")
             else:
-                # Handle 'column AS alias' format
-                parts = col.split(' as ')
-                if len(parts) == 2:
-                    col_name, alias = parts
-                    formatted_columns.append(
-                        f"{self._format_identifier(col_name)} AS {dialect.format_identifier(alias)}")
-                else:
-                    formatted_columns.append(self._format_identifier(col))
+                # Simple model field name, apply mapping
+                db_column_name = self.model_class._get_db_column_name(col)
+                formatted_columns.append(self._format_identifier(db_column_name))
 
         return f"SELECT {', '.join(formatted_columns)} FROM {table}"
 
@@ -649,24 +670,28 @@ class BaseQueryMixin(IQuery[ModelT]):
                     # Process the "column ASC/DESC" format
                     parts = col.split()
                     if len(parts) == 2 and parts[1].upper() in ('ASC', 'DESC'):
-                        column = parts[0]
+                        model_field_name = parts[0]
                         direction = parts[1]
-                        sub_formatted.append(f"{self._format_identifier(column, dialect)} {direction}")
+                        db_column_name = self.model_class._get_db_column_name(model_field_name)
+                        sub_formatted.append(f"{self._format_identifier(db_column_name, dialect)} {direction}")
                     else:
                         # Simple columns or complex expressions
-                        sub_formatted.append(self._format_identifier(col, dialect))
+                        db_column_name = self.model_class._get_db_column_name(col)
+                        sub_formatted.append(self._format_identifier(db_column_name, dialect))
 
                 formatted_clauses.append(", ".join(sub_formatted))
             else:
                 # Process the "column ASC/DESC" format
                 parts = clause.split()
                 if len(parts) == 2 and parts[1].upper() in ('ASC', 'DESC'):
-                    column = parts[0]
+                    model_field_name = parts[0]
                     direction = parts[1]
-                    formatted_clauses.append(f"{self._format_identifier(column, dialect)} {direction}")
+                    db_column_name = self.model_class._get_db_column_name(model_field_name)
+                    formatted_clauses.append(f"{self._format_identifier(db_column_name, dialect)} {direction}")
                 else:
                     # Simple columns or complex expressions
-                    formatted_clauses.append(self._format_identifier(clause, dialect))
+                    db_column_name = self.model_class._get_db_column_name(clause)
+                    formatted_clauses.append(self._format_identifier(db_column_name, dialect))
 
         return f"ORDER BY {', '.join(formatted_clauses)}"
 

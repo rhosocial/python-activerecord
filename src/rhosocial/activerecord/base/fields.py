@@ -41,3 +41,30 @@ class UseAdapter:
             )
         self.adapter = adapter
         self.target_db_type = target_db_type
+
+
+class UseColumn:
+    """
+    A marker class used within `typing.Annotated` to specify the exact
+    database column name for a model field.
+
+    This allows the model's field name to differ from the actual column name
+    in the database, providing flexibility for naming conventions or integration
+    with existing schemas.
+
+    Example:
+        class User(ActiveRecord):
+            user_name: Annotated[str, UseColumn("name")]
+    """
+    def __init__(self, name: str):
+        """
+        Initializes the UseColumn marker.
+
+        Args:
+            name: The exact name of the column in the database table that this
+                  model field maps to.
+        """
+        if not isinstance(name, str) or not name:
+            raise ValueError("Column name must be a non-empty string.")
+        self.name = name
+
