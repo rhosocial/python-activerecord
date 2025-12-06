@@ -96,9 +96,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             Self for method chaining
 
         Note:
-            - HAVING conditions can reference aggregate functions
-            - Column aliases from SELECT cannot be used in HAVING
-            - Table qualified columns (table.column) are supported
+            - This method does not involve the field type adapter conversion process.
+              Parameters are sent directly to the database driver.
+              See the `test_query_by_exact_string` test for an example of correct usage.
+            - HAVING conditions can reference aggregate functions.
+            - Column aliases from SELECT cannot be used in HAVING.
+            - Table qualified columns (table.column) are supported.
         """
         if params is None:
             params = ()
