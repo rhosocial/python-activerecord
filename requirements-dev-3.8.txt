@@ -5,6 +5,10 @@
 pytest~=8.3.5
 pytest-asyncio
 
+# Pytest plugin for mocking
+# Provides the 'mocker' fixture for patching and mocking objects in tests
+pytest-mock
+
 # Async support for tests
 aiosqlite>=0.19.0
 aiofiles>=23.0.0
@@ -13,17 +17,15 @@ aiofiles>=23.0.0
 # Enables faster test execution through parallel processing
 # No version constraint for Python 3.8 compatibility
 pytest-xdist
-pytest-timeout
-
-# Pytest plugin for re-running failed tests
-# Helps handle flaky tests by automatically retrying failures
-# No version constraint for Python 3.8 compatibility
-pytest-rerunfailures
 
 # Code coverage measurement tool
 # Measures test coverage and generates coverage reports
 # No version constraint for Python 3.8 compatibility
 coverage
+
+# Coverage integration with pytest
+# Combines pytest and coverage for seamless test coverage reporting
+pytest-cov>=4.0.0
 
 # Pydantic with email validation support
 # Adds email field validation capabilities to the core framework
@@ -34,8 +36,3 @@ pydantic[email]
 # Used for configuration file handling and test data
 # No version constraint for Python 3.8 compatibility
 pyyaml
-
-# MySQL database connector
-# Required for MySQL database integration testing
-# No version constraint for Python 3.8 compatibility
-# mysql-connector-python
