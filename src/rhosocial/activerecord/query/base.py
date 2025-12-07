@@ -314,8 +314,11 @@ class BaseQueryMixin(IQuery[ModelT]):
 
             # Parse key to get column and operator
             parts = key.split('__')
-            column = parts[0]
+            field_name = parts[0]  # This is the Python field name
             op = parts[1] if len(parts) > 1 else None
+
+            # Convert field name to database column name
+            column = self.model_class._get_column_name(field_name)
 
             # Handle different value types and operators
             if value is None:
@@ -838,7 +841,10 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
         rows = self.model_class.backend().fetch_all(sql, params, column_adapters=column_adapters)
-        records = self.model_class.create_collection_from_database(rows)
+
+        # Convert database column names back to Python field names before creating model instances
+        field_data_rows = [self.model_class._translate_columns_to_fields(row) for row in rows]
+        records = [self.model_class.create_from_database(field_data) for field_data in field_data_rows]
 
         if self._eager_loads:
             self._log(logging.DEBUG, f"Loading eager relations: {list(self._eager_loads.keys())}")
@@ -900,7 +906,9 @@ class BaseQueryMixin(IQuery[ModelT]):
         if not row:
             return None
 
-        record = self.model_class.create_from_database(row)
+        # Convert database column names back to Python field names before creating model instance
+        field_data = self.model_class._translate_columns_to_fields(row)
+        record = self.model_class.create_from_database(field_data)
 
         if self._eager_loads:
             # self._log(logging.INFO, f"Loading eager relations: {list(self._eager_loads.keys())}...")

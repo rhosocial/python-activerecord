@@ -291,10 +291,9 @@ class IActiveRecord(BaseModel, ABC):
         return adapters_map
 
     def _insert_internal(self, data) -> Any:
-        # The caller (_insert_internal) is responsible for preparing parameters.
-        self.log(logging.DEBUG, f"[DEBUG] Raw data for insert: {data}")
+        self.log(logging.DEBUG, f"1. Raw data for insert: {data}")
 
-        # Step 1: Resolve parameter adapters with the new prioritized logic.
+        # Step 2: Resolve parameter adapters with the new prioritized logic.
         param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         all_suggestions = self.backend().get_default_adapter_suggestions()
 
@@ -302,11 +301,11 @@ class IActiveRecord(BaseModel, ABC):
             resolved_adapter_info = None
 
             # Priority 1: Check for a field-specific adapter from annotations.
-            custom_adapter_tuple = self._get_adapter_for_field(field_name)
+            custom_adapter_tuple = self.__class__._get_adapter_for_field(field_name)
             if custom_adapter_tuple:
                 # User-specified adapter (adapter, target_db_type) found. Use it directly.
                 resolved_adapter_info = custom_adapter_tuple
-            
+
             # Priority 2: If no custom adapter was found, fall back to default suggestion.
             if not resolved_adapter_info:
                 value_type = type(py_value)
@@ -315,17 +314,23 @@ class IActiveRecord(BaseModel, ABC):
             if resolved_adapter_info:
                 param_adapters[field_name] = resolved_adapter_info
 
-        # Step 2: Prepare the INPUT parameters using the resolved adapters.
-        prepared_data = self.backend().prepare_parameters(data, param_adapters)
-        self.log(logging.DEBUG, f"[DEBUG] Prepared data for insert: {prepared_data}")
-        
-        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}: {prepared_data}")
-        
-        # Step 3: Get the column adapters for processing output (e.g., RETURNING clauses).
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"[DEBUG] Column adapters map: {column_adapters}")
+        self.log(logging.DEBUG, f"2. Resolved parameter adapters: {len(param_adapters)} adapters found")
 
-        # Step 4: Call `insert` with the prepared data and column adapters.
+        # Step 3: Prepare the INPUT parameters using the resolved adapters.
+        prepared_data = self.backend().prepare_parameters(data, param_adapters)
+        self.log(logging.DEBUG, f"3. Prepared data with Python field names and adapted values: {prepared_data}")
+
+        # Step 4: Translate Python field names to database column names.
+        prepared_data = self.__class__._translate_fields_to_columns(prepared_data)
+        self.log(logging.DEBUG, f"4. Prepared data with database column names and adapted values: {prepared_data}")
+
+        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
+
+        # Step 5: Get the column adapters for processing output (e.g., RETURNING clauses).
+        column_adapters = self.get_column_adapters()
+        self.log(logging.DEBUG, f"5. Column adapters map: {column_adapters}")
+
+        # Step 6: Call `insert` with the prepared data and column adapters.
         result = self.backend().insert(
             self.table_name(),
             prepared_data,
@@ -334,7 +339,7 @@ class IActiveRecord(BaseModel, ABC):
             primary_key=self.primary_key()
         )
 
-        # Step 5: Handle auto-increment primary key if needed.
+        # Step 7: Handle auto-increment primary key if needed.
         pk_field = self.primary_key()
         if (result is not None and result.affected_rows > 0 and
                 pk_field in self.__class__.model_fields and
@@ -342,19 +347,20 @@ class IActiveRecord(BaseModel, ABC):
                 getattr(self, pk_field, None) is None):
 
             pk_retrieved = False
+            self.log(logging.DEBUG, f"7. Attempting to retrieve primary key '{pk_field}' for new record")
 
-            # Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
+            # Step 7.1: Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
             if result.data and isinstance(result.data, list) and len(result.data) > 0:
                 first_row = result.data[0]
                 if isinstance(first_row, dict) and pk_field in first_row:
                     pk_value = first_row[pk_field]
                     setattr(self, pk_field, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field}' from RETURNING clause: {pk_value}")
+                    self.log(logging.DEBUG, f"7.1 Retrieved primary key '{pk_field}' from RETURNING clause: {pk_value}")
                 else:
-                    self.log(logging.WARNING, f"RETURNING clause data found, but primary key '{pk_field}' is missing in the result row: {first_row}")
+                    self.log(logging.WARNING, f"7.1 RETURNING clause data found, but primary key '{pk_field}' is missing in the result row: {first_row}")
 
-            # Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
+            # Step 7.2: Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
             if not pk_retrieved and result.last_insert_id is not None:
                 field_type = self.__class__.model_fields[pk_field].annotation
                 # Handle Optional[int]
@@ -368,12 +374,12 @@ class IActiveRecord(BaseModel, ABC):
                     pk_value = result.last_insert_id
                     setattr(self, pk_field, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field}' from last_insert_id: {pk_value}")
+                    self.log(logging.DEBUG, f"7.2 Retrieved primary key '{pk_field}' from last_insert_id: {pk_value}")
 
-            # If PK still not retrieved, it's an error.
+            # Step 7.3: If PK still not retrieved, it's an error.
             if not pk_retrieved:
                 error_msg = f"Failed to retrieve primary key '{pk_field}' for new record after insert."
-                self.log(logging.ERROR, error_msg)
+                self.log(logging.ERROR, f"7.3 {error_msg}")
                 raise DatabaseError(error_msg)
 
         self._is_from_db = True
@@ -423,10 +429,10 @@ class IActiveRecord(BaseModel, ABC):
             resolved_adapter_info = None
 
             # Priority 1: Check for a field-specific adapter.
-            custom_adapter_tuple = self._get_adapter_for_field(field_name)
+            custom_adapter_tuple = self.__class__._get_adapter_for_field(field_name)
             if custom_adapter_tuple:
                 resolved_adapter_info = custom_adapter_tuple
-            
+
             # Priority 2: If no custom adapter was found, fall back to default suggestion.
             if not resolved_adapter_info:
                 value_type = type(py_value)
@@ -434,6 +440,8 @@ class IActiveRecord(BaseModel, ABC):
 
             if resolved_adapter_info:
                 set_param_adapters[field_name] = resolved_adapter_info
+
+        self.log(logging.DEBUG, f"1. Resolved SET clause parameter adapters: {len(set_param_adapters)} adapters found")
 
         prepared_set_data = self.backend().prepare_parameters(data, set_param_adapters)
 
@@ -468,6 +476,8 @@ class IActiveRecord(BaseModel, ABC):
             tuple(raw_where_params_list), # Pass as a tuple for prepare_parameters
             where_param_adapters_sequence
         )
+
+        self.log(logging.DEBUG, f"2. Prepared WHERE clause parameters: {len(prepared_where_params)} parameters prepared")
 
 
         # Get the database backend
