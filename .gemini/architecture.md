@@ -398,7 +398,7 @@ StorageBackendBase (ABC)
 
 ```python
 # 1. User configures model
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
 class User(ActiveRecord):

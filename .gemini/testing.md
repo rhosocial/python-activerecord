@@ -447,7 +447,7 @@ The provider pattern enables test reuse across backends:
 # src/rhosocial/activerecord/testsuite/feature/query/interfaces.py
 from abc import ABC, abstractmethod
 from typing import Type, List, Tuple
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 
 class IQueryProvider(ABC):
