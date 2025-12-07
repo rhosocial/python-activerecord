@@ -29,6 +29,36 @@ The rhosocial-activerecord project follows a modular, protocol-based architectur
 - Models handle business logic
 - Query builders handle query construction
 
+### 5. Consistent SQL Identifier and Literal Formatting (Single Point of Call)
+
+**Purpose**: Ensure all database identifiers (table names, column names, aliases) and literal values are consistently and correctly formatted according to the specific database dialect. This is crucial for conforming to dialect-specific quoting rules (e.g., `"name"`, ``` `name` ```, `[name]`) and ensuring broad compatibility.
+
+**Note on Security**: While proper identifier formatting is essential for SQL correctness, the primary mechanism for preventing SQL injection vulnerabilities in this project is the use of **SQL placeholders and parameter separation**, ensuring that literal values are always bound securely and never concatenated directly into the SQL query string.
+
+**Implementation**: The `SQLDialectBase` (and its concrete implementations like `SQLiteDialect`) provides dedicated methods for this:
+- `format_identifier(self, identifier: str) -> str`: Formats and quotes identifiers.
+- `format_string_literal(self, value: str) -> str`: Formats and quotes string literals.
+
+All query building components (e.g., mixins, `SQLExpression` subclasses) are designed to route identifier and literal formatting through these dialect methods, ensuring a single, centralized point of control for SQL syntax generation.
+
+```python
+# In backend/dialect.py
+class SQLDialectBase(ABC):
+    @abstractmethod
+    def format_identifier(self, identifier: str) -> str:
+        """Format identifier (table name, column name)."""
+        pass
+
+    @abstractmethod
+    def format_string_literal(self, value: str) -> str:
+        """Format string literal."""
+        pass
+
+# Usage in query builder (conceptual)
+# formatted_column = self.model_class.backend().dialect.format_identifier(column_name)
+# formatted_string = self.model_class.backend().dialect.format_string_literal(string_value)
+```
+
 ## Package Architecture
 
 ### Namespace Package Structure
@@ -97,6 +127,8 @@ class IActiveRecord(BaseModel, ABC):
 class ActiveRecord(
     RelationManagementMixin,  # Relationship handling
     QueryMixin,                # Query capabilities
+    FieldAdapterMixin,         # Field-specific type adaptation
+    MetaclassMixin,            # Metaclass-based feature handling
     BaseActiveRecord           # Core CRUD
 ):
     pass
@@ -110,11 +142,19 @@ class ActiveRecord(
 
 ```python
 # backend/base.py
-class StorageBackend(ABC):
-    """Abstract storage backend interface."""
+class StorageBackend(
+    # ...composed from LoggingMixin, CapabilityMixin, TypeAdaptionMixin, SQLBuildingMixin, etc.
+    ABC
+):
+    """
+    Abstract storage backend, primarily composed from various functional mixins.
+    Its `execute` method acts as a template method orchestrating these mixins.
+    """
     
-    @abstractmethod
-    def execute(self, sql: str, params: Dict) -> QueryResult:
+    # The actual execute method is a template method, coordinating mixins
+    def execute(self, sql: str, params: Dict, **kwargs) -> QueryResult:
+        # ... implementation coordinates mixins for connection, parsing,
+        #     returning clause, cursor, SQL building, execution, result processing ...
         pass
 ```
 
@@ -164,13 +204,18 @@ user.save()  # Persists to database
 ```python
 from typing import Protocol, runtime_checkable
 
+# Example: SQLTypeAdapter protocol
+from typing import Protocol, runtime_checkable, Any, Type, Dict, Optional
+
 @runtime_checkable
-class TypeConverter(Protocol):
-    """Type conversion protocol."""
+class SQLTypeAdapter(Protocol):
+    """Protocol for type conversion between Python and database values."""
     
-    def can_handle(self, value: Any) -> bool: ...
-    def to_database(self, value: Any) -> Any: ...
-    def from_database(self, value: Any) -> Any: ...
+    def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any: ...
+    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any: ...
+    
+    @property
+    def supported_types(self) -> Dict[Type, Set[Type]]: ...
 ```
 
 **Benefits**:
@@ -201,6 +246,9 @@ class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
     __table_name__ = "articles"
     title: str
     content: str
+
+# Mixins are also extensively used for backend composition (e.g., StorageBackend from backend/base.py)
+# providing modular and reusable components for database interaction.
 ```
 
 ### 4. Builder Pattern
@@ -208,26 +256,25 @@ class Article(TimestampMixin, SoftDeleteMixin, ActiveRecord):
 **Implementation**: Query construction
 
 ```python
-class QueryBuilder:
-    def __init__(self, model_class):
-        self.model_class = model_class
-        self.conditions = {}
-        self.ordering = []
-        
-    def where(self, **conditions):
-        self.conditions.update(conditions)
-        return self
-        
-    def order_by(self, *fields):
-        self.ordering.extend(fields)
-        return self
-        
-    def build(self):
-        # Construct SQL
-        pass
+# The project's query builder is ActiveQuery, composed from specialized mixins.
+from rhosocial.activerecord.query import ActiveQuery, BaseQueryMixin, AggregateQueryMixin, CTEQueryMixin, JoinQueryMixin, RangeQueryMixin, RelationalQueryMixin
+
+class ActiveQuery(
+    CTEQueryMixin,
+    JoinQueryMixin,
+    RelationalQueryMixin,
+    RangeQueryMixin,
+    # BaseQueryMixin and AggregateQueryMixin are inherited through CTEQueryMixin
+):
+    """
+    Complete ActiveQuery implementation, combining all query mixins.
+    It builds SQL by collecting conditions, orders, joins, etc.,
+    and delegates to its mixins for specific functionalities.
+    """
+    pass
 
 # Usage
-users = User.where("age >= ?", (18,)).order_by("-created_at").limit(10)
+users = User.query().where("age >= ?", (18,)).order_by("-created_at").limit(10).all()
 ```
 
 ### 5. Registry Pattern
@@ -235,21 +282,20 @@ users = User.where("age >= ?", (18,)).order_by("-created_at").limit(10)
 **Purpose**: Manage type converters and backends
 
 ```python
+# The project uses backend.type_registry.TypeRegistry for SQLTypeAdapter instances
+from typing import Dict, Tuple, Type, Optional
+from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
+
 class TypeRegistry:
-    """Central registry for type converters."""
-    
+    """Central registry for SQLTypeAdapter instances."""
     def __init__(self):
-        self._converters: List[TypeConverter] = []
-    
-    def register(self, converter: TypeConverter):
-        self._converters.append(converter)
-        self._converters.sort(key=lambda c: c.priority, reverse=True)
-    
-    def find_converter(self, value: Any) -> Optional[TypeConverter]:
-        for converter in self._converters:
-            if converter.can_handle(value):
-                return converter
-        return None
+        self._adapters: Dict[Tuple[Type, Type], SQLTypeAdapter] = {}
+
+    def register(self, adapter: SQLTypeAdapter, py_type: Type, db_type: Type) -> None:
+        self._adapters[(py_type, db_type)] = adapter
+
+    def get_adapter(self, py_type: Type, db_type: Type) -> Optional[SQLTypeAdapter]:
+        return self._adapters.get((py_type, db_type))
 ```
 
 ### 6. Template Method Pattern
@@ -257,29 +303,39 @@ class TypeRegistry:
 **Purpose**: Define algorithm skeleton in base class
 
 ```python
-class StorageBackend(ABC):
-    """Template for query execution."""
+# The execute method in StorageBackend acts as a Template Method
+class StorageBackend(
+    # ...composed from various functional mixins like SQLBuildingMixin,
+    # QueryAnalysisMixin, ReturningClauseMixin, ResultProcessingMixin, etc.
+    ABC
+):
+    """
+    Abstract storage backend. Its `execute` method is a Template Method
+    that orchestrates the query execution process by coordinating its
+    composed functional mixins.
+    """
     
-    def execute(self, sql: str, params: Dict) -> QueryResult:
-        # Template method
-        sql = self._prepare_sql(sql, params)
-        cursor = self._get_cursor()
-        
-        try:
-            self._execute_query(cursor, sql, params)
-            result = self._fetch_results(cursor)
-            self._commit_if_needed()
-            return result
-        except Exception as e:
-            self._handle_error(e)
-            raise
+    # This is the actual Template Method
+    def execute(self, sql: str, params: Optional[Tuple] = None, **kwargs) -> QueryResult:
+        # 1. Start timer
+        # 2. Log SQL and parameters
+        # 3. Handle connection setup (if not already connected)
+        # 4. Parse statement type (via QueryAnalysisMixin)
+        # 5. Process RETURNING clause (via ReturningClauseMixin)
+        # 6. Get cursor
+        # 7. Prepare SQL and parameters (via SQLBuildingMixin)
+        # 8. Execute query (hook method `_execute_query` in concrete backend)
+        # 9. Process results (via TypeAdaptionMixin, ResultProcessingMixin)
+        # 10. Log completion
+        # 11. Build QueryResult
+        # 12. Handle auto-commit (hook method `_handle_auto_commit_if_needed`)
+        # 13. Handle errors (hook method `_handle_execution_error`)
+        pass
     
-    # Hook methods for subclasses
+    # Hook methods (some are abstract in StorageBackend, others in mixins)
     @abstractmethod
-    def _prepare_sql(self, sql: str, params: Dict) -> str: ...
-    
-    @abstractmethod
-    def _execute_query(self, cursor, sql: str, params: Dict): ...
+    def _execute_query(self, cursor, sql: str, params: Optional[Tuple]): ...
+    # ... other abstract hook methods like connect(), disconnect(), etc.
 ```
 
 ### 7. Factory Pattern
@@ -308,25 +364,32 @@ def create_backend(backend_type: str, **config) -> StorageBackend:
 
 ```
 BaseModel (Pydantic)
-    └── IActiveRecord (Interface)
-        └── BaseActiveRecord (Core implementation)
+    └── IActiveRecord (Interface - implemented by BaseActiveRecord)
+        └── BaseActiveRecord (Core implementation, implements IActiveRecord)
+            # ActiveRecord is composed from these mixins and BaseActiveRecord
             └── QueryMixin
-                └── RelationManagementMixin
-                    └── ActiveRecord (Full implementation)
-                        └── User, Post, etc. (User models)
+            └── RelationManagementMixin
+            └── FieldAdapterMixin
+            └── MetaclassMixin
+                └── ActiveRecord (Full implementation, combines BaseActiveRecord and mixins)
+                    └── User, Post, etc. (User models)
 ```
 
 ### Backend Hierarchy
 
 ```
-StorageBackend (ABC)
-    ├── SQLBackend (Common SQL operations)
-    │   ├── SQLiteBackend
-    │   ├── MySQLBackend
-    │   └── PostgreSQLBackend
-    └── NoSQLBackend (Future)
-        ├── MongoDBBackend
-        └── RedisBackend
+StorageBackendBase (ABC)
+    # Composed from mixins for sync operations
+    └── StorageBackend (ABC)
+        └── SQLiteBackend # Concrete implementation
+        # └── MySQLBackend (if implemented)
+        # └── PostgreSQLBackend (if implemented)
+
+StorageBackendBase (ABC)
+    # Composed from mixins for async operations
+    └── AsyncStorageBackend (ABC)
+        └── # AsyncSQLiteBackend (if implemented)
+        # └── AsyncMySQLBackend (if implemented)
 ```
 
 ## Module Interactions
@@ -502,22 +565,29 @@ class PooledBackend(StorageBackend):
         return self.pool.acquire()
 ```
 
-### 2. Query Caching
+### 2. Relation Caching (Instance-level)
 
 ```python
-class CachedQueryMixin:
-    _query_cache = {}
-    
-    @classmethod
-    def where(cls, **conditions):
-        cache_key = (cls.__name__, frozenset(conditions.items()))
+from rhosocial.activerecord.relation.cache import InstanceCache, CacheConfig
+
+# In RelationDescriptor (used by mixins like RelationalQueryMixin)
+class RelationDescriptor:
+    # ...
+    def _load_relation(self, instance: Any) -> Optional[T]:
+        """
+        Load relation with instance-level caching support.
+        """
+        cached = InstanceCache.get(instance, self.name, self._cache_config)
+        if cached is not None:
+            return cached
         
-        if cache_key in cls._query_cache:
-            return cls._query_cache[cache_key]
-        
-        result = super().where(**conditions)
-        cls._query_cache[cache_key] = result
-        return result
+        data = self._loader.load(instance)
+        InstanceCache.set(instance, self.name, data, self._cache_config)
+        return data
+
+# Cache configuration can be global or per-relation
+global_config = GlobalCacheConfig()
+global_config.set_config(enabled=True, ttl=300, max_size=1000)
 ```
 
 ### 3. Lazy Loading
@@ -537,22 +607,37 @@ class RelationDescriptor:
 
 ## Thread Safety
 
-### Connection Management
+### Key Thread Safety Mechanisms
 
-```python
-import threading
+# The project utilizes specific mechanisms for thread safety:
+# 1. ThreadSafeDict for mutable shared state (e.g., query eager loads, _eager_loads in RelationalQueryMixin)
+# 2. InstanceCache for per-instance caching (thread-safe for each instance's data)
+# 3. Backend connection management (e.g., SQLiteBackend uses sqlite3.connect which can be thread-safe for basic ops,
+#    or relies on external connection pooling for more robust solutions in other DBs).
 
-class ThreadSafeBackend(StorageBackend):
-    def __init__(self, config):
-        self.config = config
-        self._local = threading.local()
+# Example: ThreadSafeDict (from interface/query.py)
+from typing import Dict, Any, TypeVar
+from threading import local
+
+K = TypeVar('K')
+V = TypeVar('V')
+
+class ThreadSafeDict(Dict[K, V]):
+    """A thread-safe dictionary that behaves exactly like a normal dict."""
+    def __init__(self, *args, **kwargs):
+        self._local = local()
+        if not hasattr(self._local, 'data'):
+            self._local.data = {}
+        if args or kwargs:
+            self.update(*args, **kwargs)
     
-    @property
-    def connection(self):
-        if not hasattr(self._local, 'connection'):
-            self._local.connection = self.create_connection()
-        return self._local.connection
-```
+    def __getitem__(self, key: K) -> V:
+        return self._local.data[key]
+
+# InstanceCache for relation caching (from relation/cache.py)
+# This design ensures thread-safety by storing cache data on the instance itself
+# or using thread-local storage where appropriate, preventing race conditions
+# on shared cache structures.
 
 ## Error Handling Strategy
 
