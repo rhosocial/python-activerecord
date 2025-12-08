@@ -247,19 +247,24 @@ class IActiveRecord(BaseModel, ABC):
     @classmethod
     def get_column_adapters(cls) -> Dict[str, Tuple['SQLTypeAdapter', Type]]:
         """
-        Derives a mapping of column names to their corresponding SQLTypeAdapter
+        Derives a mapping of database column names to their corresponding SQLTypeAdapter
         and the original Python type of the field for result processing.
 
         This method queries the backend for its default type adapter suggestions
         and uses these to build a model-specific map for converting database
         results back into Python objects. It prioritizes user-defined adapters
         specified via annotations.
+
+        The keys of the returned dictionary are database column names.
         """
         adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
 
         for field_name, field_info in model_fields.items():
+            # Get the database column name for this field
+            column_name = cls._get_column_name(field_name)
+
             # Get the original Python type of the field.
             field_py_type = field_info.annotation
             original_type = field_py_type # Keep the full original type for from_database
@@ -278,7 +283,7 @@ class IActiveRecord(BaseModel, ABC):
             if custom_adapter_tuple:
                 adapter_instance, _ = custom_adapter_tuple
                 # For reading from DB, we pair the adapter with the field's original Python type.
-                adapters_map[field_name] = (adapter_instance, original_type)
+                adapters_map[column_name] = (adapter_instance, original_type) # Key by column_name
                 continue
 
             # Priority 2: Fallback to the backend's default suggestion.
@@ -286,7 +291,7 @@ class IActiveRecord(BaseModel, ABC):
             if suggestion:
                 adapter_instance, _ = suggestion
                 # The 'original_type' is crucial for 'from_database' conversion.
-                adapters_map[field_name] = (adapter_instance, original_type)
+                adapters_map[column_name] = (adapter_instance, original_type) # Key by column_name
 
         return adapters_map
 
@@ -321,48 +326,59 @@ class IActiveRecord(BaseModel, ABC):
         self.log(logging.DEBUG, f"3. Prepared data with Python field names and adapted values: {prepared_data}")
 
         # Step 4: Translate Python field names to database column names.
-        prepared_data = self.__class__._translate_fields_to_columns(prepared_data)
+        prepared_data = self.__class__._map_fields_to_columns(prepared_data)
         self.log(logging.DEBUG, f"4. Prepared data with database column names and adapted values: {prepared_data}")
 
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
 
-        # Step 5: Get the column adapters for processing output (e.g., RETURNING clauses).
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"5. Column adapters map: {column_adapters}")
+        # Step 5: Create column_mapping for result processing (maps column names back to field names).
+        # This is derived from the model's get_column_to_field_map.
+        column_mapping = self.__class__.get_column_to_field_map()
+        self.log(logging.DEBUG, f"5. Column mapping for result processing: {column_mapping}")
 
-        # Step 6: Call `insert` with the prepared data and column adapters.
+        # Step 6: Get the column adapters for processing output (e.g., RETURNING clauses).
+        column_adapters = self.get_column_adapters()
+        self.log(logging.DEBUG, f"6. Column adapters map: {column_adapters}")
+
+        # Step 7: Call `insert` with the prepared data, column mapping, and column adapters.
         result = self.backend().insert(
             self.table_name(),
             prepared_data,
+            column_mapping=column_mapping, # Pass column_mapping for result processing.
             column_adapters=column_adapters, # Pass column_adapters for output processing.
             returning=False,
             primary_key=self.primary_key()
         )
 
-        # Step 7: Handle auto-increment primary key if needed.
-        pk_field = self.primary_key()
+        # Step 8: Handle auto-increment primary key if needed.
+        pk_column = self.primary_key() # This is the database column name
         if (result is not None and result.affected_rows > 0 and
-                pk_field in self.__class__.model_fields and
-                pk_field not in data and
-                getattr(self, pk_field, None) is None):
+                pk_column in self.__class__.model_fields and # Check if the DB PK column name matches a field
+                pk_column not in prepared_data and # Check if PK was not explicitly set in original data
+                getattr(self, pk_column, None) is None): # Check if the field is still None
 
             pk_retrieved = False
-            self.log(logging.DEBUG, f"7. Attempting to retrieve primary key '{pk_field}' for new record")
+            self.log(logging.DEBUG, f"8. Attempting to retrieve primary key '{pk_column}' for new record")
 
-            # Step 7.1: Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
+            # Get the Python field name corresponding to the primary key column
+            pk_field_name = self.__class__._get_field_name(pk_column)
+            self.log(logging.DEBUG, f"8.1 Primary key column '{pk_column}' maps to field '{pk_field_name}'")
+
+            # Step 8.1: Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
             if result.data and isinstance(result.data, list) and len(result.data) > 0:
                 first_row = result.data[0]
-                if isinstance(first_row, dict) and pk_field in first_row:
-                    pk_value = first_row[pk_field]
-                    setattr(self, pk_field, pk_value)
+                # Result data will have already been mapped back to field names if column_mapping was used.
+                if isinstance(first_row, dict) and pk_field_name in first_row:
+                    pk_value = first_row[pk_field_name]
+                    setattr(self, pk_field_name, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"7.1 Retrieved primary key '{pk_field}' from RETURNING clause: {pk_value}")
+                    self.log(logging.DEBUG, f"8.1 Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
                 else:
-                    self.log(logging.WARNING, f"7.1 RETURNING clause data found, but primary key '{pk_field}' is missing in the result row: {first_row}")
+                    self.log(logging.WARNING, f"8.1 RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
 
-            # Step 7.2: Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
+            # Step 8.2: Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
             if not pk_retrieved and result.last_insert_id is not None:
-                field_type = self.__class__.model_fields[pk_field].annotation
+                field_type = self.__class__.model_fields[pk_field_name].annotation
                 # Handle Optional[int]
                 if get_origin(field_type) in (Union, Optional):
                     types = [t for t in get_args(field_type) if t is not type(None)]
@@ -372,17 +388,18 @@ class IActiveRecord(BaseModel, ABC):
                 # last_insert_id is for integer keys.
                 if field_type is int:
                     pk_value = result.last_insert_id
-                    setattr(self, pk_field, pk_value)
+                    setattr(self, pk_field_name, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"7.2 Retrieved primary key '{pk_field}' from last_insert_id: {pk_value}")
+                    self.log(logging.DEBUG, f"8.2 Retrieved primary key '{pk_field_name}' from last_insert_id: {pk_value}")
 
-            # Step 7.3: If PK still not retrieved, it's an error.
+            # Step 8.3: If PK still not retrieved, it's an error.
             if not pk_retrieved:
-                error_msg = f"Failed to retrieve primary key '{pk_field}' for new record after insert."
-                self.log(logging.ERROR, f"7.3 {error_msg}")
+                error_msg = f"Failed to retrieve primary key '{pk_field_name}' for new record after insert."
+                self.log(logging.ERROR, f"8.3 {error_msg}")
                 raise DatabaseError(error_msg)
 
         self._is_from_db = True
+        self.reset_tracking()
         return result
 
     def _update_internal(self, data) -> Any:
@@ -421,15 +438,24 @@ class IActiveRecord(BaseModel, ABC):
         # Combine data with additional expressions. This 'data' becomes the SET clause values.
         data.update(update_expressions)
 
-        # Step 1: Resolve and prepare the SET clause parameters using the new prioritized logic.
+        # Step 1: Map Python field names in `data` to database column names.
+        # This `mapped_set_data` will be used for preparing parameters.
+        mapped_set_data = self.__class__._map_fields_to_columns(data)
+        self.log(logging.DEBUG, f"1. SET clause raw data (Python field names): {data}")
+        self.log(logging.DEBUG, f"1. SET clause mapped data (DB column names): {mapped_set_data}")
+
+        # Step 2: Resolve and prepare the SET clause parameters using the new prioritized logic.
         set_param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
         all_suggestions = self.backend().get_default_adapter_suggestions()
 
-        for field_name, py_value in data.items():
+        for field_name, py_value in mapped_set_data.items(): # Iterate over mapped data to get DB column names
             resolved_adapter_info = None
 
             # Priority 1: Check for a field-specific adapter.
-            custom_adapter_tuple = self.__class__._get_adapter_for_field(field_name)
+            # NOTE: Custom adapters are defined for Python field names.
+            # We need to get the original field name from the mapped column name for adapter lookup.
+            original_field_name = self.__class__._get_field_name(field_name)
+            custom_adapter_tuple = self.__class__._get_adapter_for_field(original_field_name)
             if custom_adapter_tuple:
                 resolved_adapter_info = custom_adapter_tuple
 
@@ -441,21 +467,21 @@ class IActiveRecord(BaseModel, ABC):
             if resolved_adapter_info:
                 set_param_adapters[field_name] = resolved_adapter_info
 
-        self.log(logging.DEBUG, f"1. Resolved SET clause parameter adapters: {len(set_param_adapters)} adapters found")
+        self.log(logging.DEBUG, f"2. Resolved SET clause parameter adapters: {len(set_param_adapters)} adapters found")
 
-        prepared_set_data = self.backend().prepare_parameters(data, set_param_adapters)
+        prepared_set_data = self.backend().prepare_parameters(mapped_set_data, set_param_adapters)
+        self.log(logging.DEBUG, f"2. Prepared SET clause data: {prepared_set_data}")
 
-
-        # Step 2: Prepare the WHERE clause parameters.
+        # Step 3: Prepare the WHERE clause parameters.
         # (WHERE clause adaptation remains type-based as field context is not available here)
         raw_where_params_list = []
         where_conditions_list = []
 
         # Add primary key condition.
-        pk_field_name = self.primary_key()
-        pk_value = getattr(self, pk_field_name)
+        pk_column = self.primary_key() # Use DB column name for WHERE clause
+        pk_value = getattr(self, self.__class__.primary_key_field()) # Get value from Python field
         
-        where_conditions_list.append(f"{pk_field_name} = ?")
+        where_conditions_list.append(f"{pk_column} = ?")
         raw_where_params_list.append(pk_value)
 
         # Add additional conditions from mixins.
@@ -477,8 +503,15 @@ class IActiveRecord(BaseModel, ABC):
             where_param_adapters_sequence
         )
 
-        self.log(logging.DEBUG, f"2. Prepared WHERE clause parameters: {len(prepared_where_params)} parameters prepared")
+        self.log(logging.DEBUG, f"3. Prepared WHERE clause parameters: {len(prepared_where_params)} parameters prepared")
 
+        # Step 4: Create column_mapping for result processing (maps column names back to field names).
+        column_mapping = self.__class__.get_column_to_field_map()
+        self.log(logging.DEBUG, f"4. Column mapping for result processing: {column_mapping}")
+
+        # Step 5: Get the column adapters for processing output.
+        column_adapters = self.get_column_adapters()
+        self.log(logging.DEBUG, f"5. Column adapters map: {column_adapters}")
 
         # Get the database backend
         backend = self.backend()
@@ -492,19 +525,16 @@ class IActiveRecord(BaseModel, ABC):
             final_where_clause = replace_question_marks(final_where_clause, placeholder)
 
         self.log(logging.INFO,
-                 f"Updating {self.__class__.__name__}#{getattr(self, self.primary_key())}: "
+                 f"Updating {self.__class__.__name__}#{getattr(self, self.__class__.primary_key_field())}: "
                  f"set_data={prepared_set_data}, where_clause={final_where_clause}, where_params={prepared_where_params}")
 
-        # Step 3: Get the column adapters for processing output.
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"[DEBUG] Column adapters map: {column_adapters}")
-
-        # Step 4: Execute update with prepared SET data, prepared WHERE clause, and column adapters.
+        # Step 6: Execute update with prepared SET data, prepared WHERE clause, and column adapters.
         result = backend.update(
             self.table_name(),
             prepared_set_data,
             final_where_clause,
             prepared_where_params,
+            column_mapping=column_mapping, # Pass column_mapping for result processing.
             column_adapters=column_adapters
         )
         return result

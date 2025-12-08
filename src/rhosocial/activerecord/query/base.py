@@ -843,7 +843,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         rows = self.model_class.backend().fetch_all(sql, params, column_adapters=column_adapters)
 
         # Convert database column names back to Python field names before creating model instances
-        field_data_rows = [self.model_class._translate_columns_to_fields(row) for row in rows]
+        field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
         records = [self.model_class.create_from_database(field_data) for field_data in field_data_rows]
 
         if self._eager_loads:
@@ -907,7 +907,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             return None
 
         # Convert database column names back to Python field names before creating model instance
-        field_data = self.model_class._translate_columns_to_fields(row)
+        field_data = self.model_class._map_columns_to_fields(row)
         record = self.model_class.create_from_database(field_data)
 
         if self._eager_loads:
