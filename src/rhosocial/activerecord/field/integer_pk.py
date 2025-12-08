@@ -11,5 +11,9 @@ class IntegerPKMixin(IActiveRecord):
 
     def __init__(self, **data):
         super().__init__(**data)
-        if self.primary_key() not in data:
-            setattr(self, self.primary_key(), None)
+        # Use primary_key_field() to get the correct Python attribute name
+        # for the primary key. This is crucial for models that map their
+        # primary key field to a different database column name.
+        pk_field_name = self.primary_key_field()
+        if pk_field_name not in data:
+            setattr(self, pk_field_name, None)

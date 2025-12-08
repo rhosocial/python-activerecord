@@ -351,11 +351,12 @@ class IActiveRecord(BaseModel, ABC):
         )
 
         # Step 8: Handle auto-increment primary key if needed.
-        pk_column = self.primary_key() # This is the database column name
+        pk_column = self.primary_key()
+        pk_field_name = self.__class__._get_field_name(pk_column)
         if (result is not None and result.affected_rows > 0 and
-                pk_column in self.__class__.model_fields and # Check if the DB PK column name matches a field
-                pk_column not in prepared_data and # Check if PK was not explicitly set in original data
-                getattr(self, pk_column, None) is None): # Check if the field is still None
+                pk_field_name in self.__class__.model_fields and
+                prepared_data.get(pk_column) is None and
+                getattr(self, pk_field_name, None) is None):
 
             pk_retrieved = False
             self.log(logging.DEBUG, f"8. Attempting to retrieve primary key '{pk_column}' for new record")
