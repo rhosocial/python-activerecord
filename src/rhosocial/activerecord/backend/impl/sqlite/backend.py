@@ -563,37 +563,7 @@ class SQLiteBackend(StorageBackend):
             self._connection.commit()
             self.log(logging.DEBUG, "Auto-committed operation (not in active transaction)")
 
-    def _handle_execution_error(self, error: Exception):
-        """
-        Handle SQLite-specific errors during execution.
 
-        Args:
-            error: Exception raised during execution
-
-        Raises:
-            Appropriate database exception based on error type
-        """
-        if isinstance(error, sqlite3.Error):
-            error_msg = str(error)
-
-            if isinstance(error, sqlite3.OperationalError):
-                if "database is locked" in error_msg:
-                    self.log(logging.ERROR, f"Database lock error: {error_msg}")
-                    raise OperationalError("Database is locked")
-                elif "no such table" in error_msg:
-                    self.log(logging.ERROR, f"Table not found: {error_msg}")
-                    raise QueryError(f"Table not found: {error_msg}")
-
-            elif isinstance(error, sqlite3.IntegrityError):
-                if "UNIQUE constraint failed" in error_msg:
-                    self.log(logging.ERROR, f"Unique constraint violation: {error_msg}")
-                    raise IntegrityError(f"Unique constraint violation: {error_msg}")
-                elif "FOREIGN KEY constraint failed" in error_msg:
-                    self.log(logging.ERROR, f"Foreign key constraint violation: {error_msg}")
-                    raise IntegrityError(f"Foreign key constraint violation: {error_msg}")
-
-        # Call parent handler for common error processing
-        super()._handle_execution_error(error)
 
     def _handle_error(self, error: Exception) -> None:
         """Handle SQLite-specific errors and convert to appropriate exceptions"""
