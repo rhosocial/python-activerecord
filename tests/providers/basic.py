@@ -18,7 +18,8 @@ from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
 from rhosocial.activerecord.model import ActiveRecord
 # The models are defined generically in the testsuite...
 from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
-    User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser, TypeAdapterTest, YesOrNoBooleanAdapter
+    User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser, TypeAdapterTest, YesOrNoBooleanAdapter,
+    MappedUser, MappedPost, MappedComment
 )
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # ...and the scenarios are defined specifically for this backend.
@@ -106,6 +107,13 @@ class BasicProvider(IBasicProvider):
     def setup_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `ValidatedUser` model tests."""
         return self._setup_model(ValidatedUser, scenario_name, "validated_users")
+
+    def setup_mapped_models(self, scenario_name: str):
+        """Sets up the database for MappedUser, MappedPost, and MappedComment models."""
+        user = self._setup_model(MappedUser, scenario_name, "users")
+        post = self._setup_model(MappedPost, scenario_name, "posts")
+        comment = self._setup_model(MappedComment, scenario_name, "comments")
+        return user, post, comment
 
     def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `TypeAdapterTest` model tests."""
