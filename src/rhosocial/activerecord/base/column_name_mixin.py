@@ -175,37 +175,61 @@ class ColumnNameMixin:
     @classmethod
     def get_column_to_field_map(cls) -> Dict[str, str]:
         """
-        Get complete column-to-field name mapping.
+        Get complete column-to-field name mapping, giving precedence to
+        explicit `UseColumn` annotations to allow overriding mixin fields.
 
         Returns a dictionary where:
         - Keys are database column names
         - Values are Python field names
 
-        Returns:
-            Dict[str, str]: Complete column-to-field mapping
+        This method uses a two-pass approach:
+        1. It first processes all fields with an explicit `UseColumn` annotation.
+           This ensures that user-defined mappings are prioritized.
+        2. It then processes all remaining fields, only adding them if their
+           implicit column name hasn't already been claimed by an explicit mapping.
+           This allows a model to define a field like `creation_date: ... UseColumn("created_at")`
+           which takes precedence over the `created_at` field inherited from `TimestampMixin`,
+           resolving the "duplicate column name" error.
 
         Raises:
-            ValueError: If duplicate column names are detected
+            ValueError: If duplicate explicit column names are detected.
         """
         from pydantic.fields import FieldInfo
 
         reverse_mapping: Dict[str, str] = {}
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
 
-        for field_name in model_fields.keys():
-            column_name = cls._get_column_name(field_name)
+        # Separate fields into those with explicit mappings and those with implicit ones
+        explicit_mappers = {
+            field_name: cls.__field_column_names__[field_name]
+            for field_name in model_fields.keys()
+            if field_name in cls.__field_column_names__
+        }
+        
+        implicit_mappers = [
+            field_name
+            for field_name in model_fields.keys()
+            if field_name not in cls.__field_column_names__
+        ]
 
-            # Check for duplicate column names
+        # First pass: Process explicit mappings, raising an error for duplicates among them.
+        for field_name, column_name in explicit_mappers.items():
             if column_name in reverse_mapping:
                 existing_field = reverse_mapping[column_name]
                 raise ValueError(
-                    f"Duplicate column name '{column_name}' found. "
+                    f"Duplicate explicit column name '{column_name}' found. "
                     f"Both fields '{existing_field}' and '{field_name}' "
-                    f"map to the same database column."
+                    f"explicitly map to the same database column."
                 )
-
             reverse_mapping[column_name] = field_name
 
+        # Second pass: Process implicit mappings, skipping any that conflict with explicit ones.
+        for field_name in implicit_mappers:
+            # For implicit mappers, the column name is the same as the field name.
+            column_name = field_name
+            if column_name not in reverse_mapping:
+                reverse_mapping[column_name] = field_name
+        
         return reverse_mapping
 
     @classmethod
