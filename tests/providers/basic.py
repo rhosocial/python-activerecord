@@ -12,14 +12,14 @@ Its main responsibilities are:
 3.  Cleaning up any resources (like temporary database files) after a test runs.
 """
 import os
-from typing import Type, List
+from typing import Type, List, Tuple
 
 from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
 from rhosocial.activerecord.model import ActiveRecord
 # The models are defined generically in the testsuite...
 from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
     User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser, TypeAdapterTest, YesOrNoBooleanAdapter,
-    MappedUser, MappedPost, MappedComment
+    MappedUser, MappedPost, MappedComment, ColumnMappingModel, MixedAnnotationModel
 )
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # ...and the scenarios are defined specifically for this backend.
@@ -114,6 +114,12 @@ class BasicProvider(IBasicProvider):
         post = self._setup_model(MappedPost, scenario_name, "posts")
         comment = self._setup_model(MappedComment, scenario_name, "comments")
         return user, post, comment
+
+    def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+        """Sets up the database for ColumnMappingModel and MixedAnnotationModel."""
+        column_mapping_model = self._setup_model(ColumnMappingModel, scenario_name, "column_mapping_items")
+        mixed_annotation_model = self._setup_model(MixedAnnotationModel, scenario_name, "mixed_annotation_items")
+        return column_mapping_model, mixed_annotation_model
 
     def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `TypeAdapterTest` model tests."""
