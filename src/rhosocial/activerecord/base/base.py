@@ -89,15 +89,11 @@ class BaseActiveRecord(IActiveRecord):
         2. If primary key value is None
         3. If dirty fields set is empty
         """
-        if not self._is_from_db:
-            return True
+        pk_field_name = self.__class__.primary_key_field()
+        pk_value = getattr(self, pk_field_name)
 
-        pk = self.primary_key()
-        if not hasattr(self, pk):
-            return True
-
-        pk_value = getattr(self, pk)
-        return pk_value is None
+        # A record is new if its primary key field is None OR if it hasn't been loaded from the DB
+        return pk_value is None or not self._is_from_db
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         """Prepare data for database persistence.

@@ -144,16 +144,12 @@ class ColumnNameMixin:
         Returns:
             str: The Python field name
         """
-        # Build reverse mapping
-        for field_name, col_name in cls.__field_column_names__.items():
-            if col_name == column_name:
-                return field_name
-
-        # If no custom mapping found, the column name IS the field name
-        return column_name
+        # Use the pre-computed column-to-field map for efficiency
+        column_to_field_map = cls.get_column_to_field_map()
+        return column_to_field_map.get(column_name, column_name)
 
     @classmethod
-    def get_column_mapping(cls) -> Dict[str, str]:
+    def get_field_to_column_map(cls) -> Dict[str, str]:
         """
         Get complete field-to-column name mapping.
 
@@ -177,7 +173,7 @@ class ColumnNameMixin:
         return mapping
 
     @classmethod
-    def get_reverse_column_mapping(cls) -> Dict[str, str]:
+    def get_column_to_field_map(cls) -> Dict[str, str]:
         """
         Get complete column-to-field name mapping.
 
@@ -228,7 +224,7 @@ class ColumnNameMixin:
             ValueError: If duplicate column names or other validation errors are found
         """
         # This will raise ValueError if duplicates are found
-        cls.get_reverse_column_mapping()
+        cls.get_column_to_field_map()
 
     @classmethod
     def primary_key_field(cls) -> str:
@@ -263,9 +259,9 @@ class ColumnNameMixin:
         return cls._get_field_name(pk_column)  # Reverse-map to field name
 
     @classmethod
-    def _translate_fields_to_columns(cls, field_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _map_fields_to_columns(cls, field_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Translate field names to column names in a data dictionary.
+        Map field names in a data dictionary to column names.
 
         This is used when sending data to the database - we need to convert
         Python field names to database column names.
@@ -278,7 +274,7 @@ class ColumnNameMixin:
 
         Example:
             field_data = {"user_id": 1, "user_name": "Alice"}
-            result = User._translate_fields_to_columns(field_data)
+            result = User._map_fields_to_columns(field_data)
             # Returns: {"id": 1, "name": "Alice"}
         """
         return {
@@ -287,9 +283,9 @@ class ColumnNameMixin:
         }
 
     @classmethod
-    def _translate_columns_to_fields(cls, column_data: Dict[str, Any]) -> Dict[str, Any]:
+    def _map_columns_to_fields(cls, column_data: Dict[str, Any]) -> Dict[str, Any]:
         """
-        Translate column names to field names in a data dictionary.
+        Map column names in a data dictionary back to field names.
 
         This is used when receiving data from the database - we need to convert
         database column names to Python field names.
@@ -302,7 +298,7 @@ class ColumnNameMixin:
 
         Example:
             column_data = {"id": 1, "name": "Alice"}
-            result = User._translate_columns_to_fields(column_data)
+            result = User._map_columns_to_fields(column_data)
             # Returns: {"user_id": 1, "user_name": "Alice"}
         """
         return {

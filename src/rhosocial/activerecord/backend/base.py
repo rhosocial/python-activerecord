@@ -181,11 +181,12 @@ class TypeAdaptionMixin:
         cursor,
         is_select: bool,
         need_returning: bool,
-        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+        column_mapping: Optional[Dict[str, str]] = None # Added column_mapping
     ) -> Optional[List[Dict]]:
         """
         Converts the result set returned from the database to specified Python types
-        based on the provided adapters.
+        based on the provided adapters, and optionally remaps column names to field names.
 
         This method is part of the `execute` call stack and follows the principle of
         complete decoupling by not accessing `self.adapter_registry`. All information
@@ -196,30 +197,37 @@ class TypeAdaptionMixin:
         :param is_select: Whether it is a SELECT query.
         :param need_returning: Whether to process the result of a RETURNING clause.
         :param column_adapters: A dictionary mapping column names to `(adapter_instance, target_py_type)` tuples.
-        :return: A list of dictionaries containing the converted values.
+                                Used for type conversion of values.
+        :param column_mapping: An optional dictionary mapping database column names to
+                               Python field names. Used for renaming keys in the result.
+        :return: A list of dictionaries containing the converted values and remapped keys.
         """
         if not (is_select or need_returning): return None
         try:
             rows = cursor.fetchall()
             if not rows: return []
-            column_names = [desc[0] for desc in cursor.description]
+            column_names = [desc[0].strip('"') for desc in cursor.description] # Strip quotes here
             column_adapters = column_adapters or {}
             converted_results = []
             for row in rows:
-                converted_row = {}
+                processed_row = {}
                 row_dict = dict(zip(column_names, row))
-                for key, value in row_dict.items():
+                for col_name, value in row_dict.items():
+                    # Apply type adaptation first
                     if value is None:
-                        converted_row[key] = None
-                        continue
-
-                    adapter_info = column_adapters.get(key)
-                    if adapter_info:
-                        adapter, py_type = adapter_info
-                        converted_row[key] = adapter.from_database(value, py_type)
+                        processed_value = None
                     else:
-                        converted_row[key] = value
-                converted_results.append(converted_row)
+                        adapter_info = column_adapters.get(col_name)
+                        if adapter_info:
+                            adapter, py_type = adapter_info
+                            processed_value = adapter.from_database(value, py_type)
+                        else:
+                            processed_value = value
+                    
+                    # Apply column name remapping
+                    field_name = column_mapping.get(col_name, col_name) if column_mapping else col_name
+                    processed_row[field_name] = processed_value
+                converted_results.append(processed_row)
             return converted_results
         except Exception as e:
             self.logger.error(f"Error processing result set: {str(e)}", exc_info=True)
@@ -263,7 +271,8 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
         cursor,
         is_select: bool,
         need_returning: bool,
-        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+        column_mapping: Optional[Dict[str, str]] = None # Added column_mapping
     ) -> Optional[List[Dict]]:
         if not (is_select or need_returning): return None
         try:
@@ -273,22 +282,26 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
             column_adapters = column_adapters or {}
             converted_results = []
             for row in rows:
-                converted_row = {}
+                processed_row = {}
                 # aiosqlite.Row objects behave like sqlite3.Row, allowing dict-like access
                 # and iterable behavior for zip.
                 row_dict = dict(zip(column_names, row))
-                for key, value in row_dict.items():
+                for col_name, value in row_dict.items():
+                    # Apply type adaptation first
                     if value is None:
-                        converted_row[key] = None
-                        continue
-
-                    adapter_info = column_adapters.get(key)
-                    if adapter_info:
-                        adapter, py_type = adapter_info
-                        converted_row[key] = adapter.from_database(value, py_type)
+                        processed_value = None
                     else:
-                        converted_row[key] = value
-                converted_results.append(converted_row)
+                        adapter_info = column_adapters.get(col_name)
+                        if adapter_info:
+                            adapter, py_type = adapter_info
+                            processed_value = adapter.from_database(value, py_type)
+                        else:
+                            processed_value = value
+                    
+                    # Apply column name remapping
+                    field_name = column_mapping.get(col_name, col_name) if column_mapping else col_name
+                    processed_row[field_name] = processed_value
+                converted_results.append(processed_row)
             return converted_results
         except Exception as e:
             self.logger.error(f"Error processing async result set: {str(e)}", exc_info=True)
@@ -417,6 +430,7 @@ class SQLOperationsMixin:
                data: Dict,
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+               column_mapping: Optional[Dict[str, str]] = None, # Added column_mapping
                auto_commit: Optional[bool] = True,
                primary_key: Optional[str] = None) -> QueryResult:
         """
@@ -436,6 +450,8 @@ class SQLOperationsMixin:
                 statement.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the output data if a RETURNING clause is used.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
             auto_commit (Optional[bool]): If True, commits the transaction if one
                 is not already active. Defaults to True.
             primary_key (Optional[str]): The name of the primary key field.
@@ -454,21 +470,13 @@ class SQLOperationsMixin:
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
 
-        result = self.execute(sql, tuple(values), returning, column_adapters)
+        result = self.execute(sql, tuple(values), returning, column_adapters, column_mapping) # Pass column_mapping
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
 
-        if returning and result.data:
-            cleaned_data = []
-            for row in result.data:
-                cleaned_row = {
-                    k.strip('"').strip('`'): v
-                    for k, v in row.items()
-                }
-                cleaned_data.append(cleaned_row)
-            result.data = cleaned_data
-
+        # The result data will be processed by _process_result_set with column_mapping
+        # So manual cleaning here is not needed and would be redundant/incorrect
         return result
 
     def update(self,
@@ -478,6 +486,7 @@ class SQLOperationsMixin:
                params: Tuple,
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+               column_mapping: Optional[Dict[str, str]] = None, # Added column_mapping
                auto_commit: bool = True) -> QueryResult:
         """
         Updates records in the database.
@@ -496,6 +505,8 @@ class SQLOperationsMixin:
                 Options for a RETURNING clause.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing output from a RETURNING clause.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
             auto_commit (bool): If True, commits the transaction if not already active.
 
         Returns:
@@ -507,7 +518,7 @@ class SQLOperationsMixin:
 
         sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
 
-        result = self.execute(sql, tuple(values) + params, returning, column_adapters)
+        result = self.execute(sql, tuple(values) + params, returning, column_adapters, column_mapping) # Pass column_mapping
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
@@ -520,6 +531,7 @@ class SQLOperationsMixin:
                params: Tuple,
                returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+               column_mapping: Optional[Dict[str, str]] = None, # Added column_mapping
                auto_commit: bool = True) -> QueryResult:
         """
         Deletes records from the database.
@@ -534,6 +546,8 @@ class SQLOperationsMixin:
                 Options for a RETURNING clause.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing output from a RETURNING clause.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
             auto_commit (bool): If True, commits the transaction if not already active.
 
         Returns:
@@ -541,7 +555,7 @@ class SQLOperationsMixin:
         """
         sql = f"DELETE FROM {table} WHERE {where}"
 
-        result = self.execute(sql, params, returning, column_adapters)
+        result = self.execute(sql, params, returning, column_adapters, column_mapping) # Pass column_mapping
 
         if auto_commit:
             self._handle_auto_commit_if_needed()
@@ -557,6 +571,7 @@ class AsyncSQLOperationsMixin:
                      data: Dict,
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                      column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                     column_mapping: Optional[Dict[str, str]] = None, # Added column_mapping
                      auto_commit: Optional[bool] = True,
                      primary_key: Optional[str] = None) -> QueryResult:
         """
@@ -571,6 +586,8 @@ class AsyncSQLOperationsMixin:
                 the insert statement.
             column_adapters: A map used for processing the output data if a
                 RETURNING clause is used.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
             auto_commit: If True, commits the transaction if one is not already active.
             primary_key: The name of the primary key field.
 
@@ -588,21 +605,13 @@ class AsyncSQLOperationsMixin:
 
         sql = f"INSERT INTO {table} ({','.join(fields)}) VALUES ({','.join(placeholders)})"
 
-        result = await self.execute(sql, tuple(values), returning, column_adapters)
+        result = await self.execute(sql, tuple(values), returning, column_adapters, column_mapping) # Pass column_mapping
 
         if auto_commit:
             await self._handle_auto_commit_if_needed()
 
-        if returning and result.data:
-            cleaned_data = []
-            for row in result.data:
-                cleaned_row = {
-                    k.strip('"').strip('`'): v
-                    for k, v in row.items()
-                }
-                cleaned_data.append(cleaned_row)
-            result.data = cleaned_data
-
+        # The result data will be processed by _process_result_set with column_mapping
+        # So manual cleaning here is not needed and would be redundant/incorrect
         return result
 
     async def update(self,
@@ -612,6 +621,7 @@ class AsyncSQLOperationsMixin:
                      params: Tuple,
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                      column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                     column_mapping: Optional[Dict[str, str]] = None, # Added column_mapping
                      auto_commit: bool = True) -> QueryResult:
         """
         Updates records in the database asynchronously.
@@ -630,6 +640,8 @@ class AsyncSQLOperationsMixin:
                 Options for a RETURNING clause.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing output from a RETURNING clause.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
             auto_commit (bool): If True, commits the transaction if not already active.
 
         Returns:
@@ -641,7 +653,7 @@ class AsyncSQLOperationsMixin:
 
         sql = f"UPDATE {table} SET {','.join(set_items)} WHERE {where}"
 
-        result = await self.execute(sql, tuple(values) + params, returning, column_adapters)
+        result = await self.execute(sql, tuple(values) + params, returning, column_adapters, column_mapping) # Pass column_mapping
 
         if auto_commit:
             await self._handle_auto_commit_if_needed()
@@ -654,6 +666,7 @@ class AsyncSQLOperationsMixin:
                      params: Tuple,
                      returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
                      column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                     column_mapping: Optional[Dict[str, str]] = None, # Added column_mapping
                      auto_commit: bool = True) -> QueryResult:
         """
         Deletes records from the database asynchronously.
@@ -665,6 +678,8 @@ class AsyncSQLOperationsMixin:
                 values are expected to be pre-adapted and database-compatible.
             returning: Options for a RETURNING clause.
             column_adapters: A map used for processing output from a RETURNING clause.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
             auto_commit: If True, commits the transaction if not already active.
 
         Returns:
@@ -672,7 +687,7 @@ class AsyncSQLOperationsMixin:
         """
         sql = f"DELETE FROM {table} WHERE {where}"
 
-        result = await self.execute(sql, params, returning, column_adapters)
+        result = await self.execute(sql, params, returning, column_adapters, column_mapping) # Pass column_mapping
 
         if auto_commit:
             await self._handle_auto_commit_if_needed()
@@ -809,7 +824,8 @@ class StorageBackend(
             sql: str,
             params: Optional[Tuple] = None,
             returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-            column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[QueryResult]:
+            column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+            column_mapping: Optional[Dict[str, str]] = None) -> QueryResult: # Changed from Optional[QueryResult] # Added column_mapping
         """
         Executes a SQL statement.
 
@@ -823,6 +839,8 @@ class StorageBackend(
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the result set (e.g., from a SELECT or a
                 RETURNING clause) to convert database types back into Python types.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                result set by transforming column names to field names.
 
         Architectural Note:
         -------------------
@@ -835,6 +853,9 @@ class StorageBackend(
         - `column_adapters` (Output): This dictionary is used *only* for
           processing the result set (e.g., from a SELECT or a RETURNING
           clause) to convert database types back into Python types.
+        - `column_mapping` (Output): This dictionary is used *only* for
+          processing the result set (e.g., from a SELECT or a RETURNING
+          clause) to transform database column names into Python field names.
         """
         start_time = time.perf_counter()
 
@@ -869,7 +890,7 @@ class StorageBackend(
             cursor = self._execute_query(cursor, final_sql, final_params)
 
             # Process results
-            data = self._process_result_set(cursor, is_select, need_returning, column_adapters)
+            data = self._process_result_set(cursor, is_select, need_returning, column_adapters, column_mapping) # Pass column_mapping
 
             # Calculate duration
             duration = time.perf_counter() - start_time
@@ -970,7 +991,8 @@ class StorageBackend(
     # ========================================================================
 
     def fetch_one(self, sql: str, params: Optional[Tuple] = None,
-                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[Dict]:
+                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                  column_mapping: Optional[Dict[str, str]] = None) -> Optional[Dict]: # Added column_mapping
         """
         Fetches a single record from the database.
 
@@ -981,17 +1003,20 @@ class StorageBackend(
                 database-compatible.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the output data from the query.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
 
         IMPORTANT: The `params` tuple is expected to contain values that are
         already database-compatible. The caller is responsible for pre-processing
         inputs, typically by using `prepare_parameters`. The `column_adapters`
         are used for processing the output.
         """
-        result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
+        result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters, column_mapping) # Pass column_mapping
         return result.data[0] if result and result.data else None
 
     def fetch_all(self, sql: str, params: Optional[Tuple] = None,
-                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> List[Dict]:
+                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                  column_mapping: Optional[Dict[str, str]] = None) -> List[Dict]: # Added column_mapping
         """
         Fetches all matching records from the database.
 
@@ -1002,13 +1027,15 @@ class StorageBackend(
                 database-compatible.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the output data from the query.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
 
         IMPORTANT: The `params` tuple is expected to contain values that are
         already database-compatible. The caller is responsible for pre-processing
         inputs, typically by using `prepare_parameters`. The `column_adapters`
         are used for processing the output.
         """
-        result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
+        result = self.execute(sql, params, ReturningOptions.all_columns(), column_adapters, column_mapping) # Pass column_mapping
         return result.data or []
 
     # ========================================================================
@@ -1151,7 +1178,8 @@ class AsyncStorageBackend(
             sql: str,
             params: Optional[Tuple] = None,
             returning: Optional[Union[bool, List[str], ReturningOptions]] = None,
-            column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[QueryResult]:
+            column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+            column_mapping: Optional[Dict[str, str]] = None) -> QueryResult: # Changed from Optional[QueryResult] # Added column_mapping
         """
         Executes a SQL statement asynchronously.
 
@@ -1165,6 +1193,8 @@ class AsyncStorageBackend(
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the result set (e.g., from a SELECT or a
                 RETURNING clause) to convert database types back into Python types.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                result set by transforming column names to field names.
 
         Architectural Note:
         -------------------
@@ -1177,6 +1207,9 @@ class AsyncStorageBackend(
         - `column_adapters` (Output): This dictionary is used *only* for
           processing the result set (e.g., from a SELECT or a RETURNING
           clause) to convert database types back into Python types.
+        - `column_mapping` (Output): This dictionary is used *only* for
+          processing the result set (e.g., from a SELECT or a RETURNING
+          clause) to transform database column names into Python field names.
         """
         start_time = time.perf_counter()
 
@@ -1203,7 +1236,7 @@ class AsyncStorageBackend(
 
             cursor = await self._execute_query(cursor, final_sql, final_params)
 
-            data = await self._process_result_set(cursor, is_select, need_returning, column_adapters)
+            data = await self._process_result_set(cursor, is_select, need_returning, column_adapters, column_mapping) # Pass column_mapping
 
             duration = time.perf_counter() - start_time
 
@@ -1298,7 +1331,8 @@ class AsyncStorageBackend(
     # ========================================================================
 
     async def fetch_one(self, sql: str, params: Optional[Tuple] = None,
-                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> Optional[Dict]:
+                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                        column_mapping: Optional[Dict[str, str]] = None) -> Optional[Dict]: # Added column_mapping
         """
         Fetches a single record from the database asynchronously.
 
@@ -1309,17 +1343,20 @@ class AsyncStorageBackend(
                 database-compatible.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the output data from the query.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
 
         IMPORTANT: The `params` tuple is expected to contain values that are
         already database-compatible. The caller is responsible for pre-processing
         inputs, typically by using `prepare_parameters`. The `column_adapters`
         are used for processing the output.
         """
-        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
+        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_adapters, column_mapping) # Pass column_mapping
         return result.data[0] if result and result.data else None
 
     async def fetch_all(self, sql: str, params: Optional[Tuple] = None,
-                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None) -> List[Dict]:
+                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+                        column_mapping: Optional[Dict[str, str]] = None) -> List[Dict]: # Added column_mapping
         """
         Fetches all matching records from the database asynchronously.
 
@@ -1330,13 +1367,15 @@ class AsyncStorageBackend(
                 database-compatible.
             column_adapters (Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]]):
                 A map used for processing the output data from the query.
+            column_mapping (Optional[Dict[str, str]]): A map used for processing the
+                output data by transforming column names to field names.
 
         IMPORTANT: The `params` tuple is expected to contain values that are
         already database-compatible. The caller is responsible for pre-processing
         inputs, typically by using `prepare_parameters`. The `column_adapters`
         are used for processing the output.
         """
-        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_adapters)
+        result = await self.execute(sql, params, ReturningOptions.all_columns(), column_adapters, column_mapping) # Pass column_mapping
         return result.data or []
 
     # ========================================================================
