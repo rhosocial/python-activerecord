@@ -16,6 +16,7 @@ from typing import Type, List, Tuple
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
 # The models are defined generically in the testsuite...
+from rhosocial.activerecord.testsuite.feature.query.fixtures.models import MappedUser, MappedPost, MappedComment
 
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
@@ -184,6 +185,15 @@ class QueryProvider(IQueryProvider):
         from rhosocial.activerecord.testsuite.feature.query.fixtures.annotated_adapter_models import SearchableItem
         models_and_tables = [
             (SearchableItem, "searchable_items"),
+        ]
+        return self._setup_multiple_models(models_and_tables, scenario_name)
+
+    def setup_mapped_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], Type[ActiveRecord], Type[ActiveRecord]]:
+        """Sets up the database for MappedUser, MappedPost, and MappedComment models."""
+        models_and_tables = [
+            (MappedUser, "users"),
+            (MappedPost, "posts"),
+            (MappedComment, "comments")
         ]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
