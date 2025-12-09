@@ -93,7 +93,7 @@ class ColumnNameMixin:
 
     Example:
         from typing import Annotated
-        from rhosocial.activerecord import ActiveRecord
+        from rhosocial.activerecord.model import ActiveRecord
         from rhosocial.activerecord.base.fields import UseColumn
 
         class User(ActiveRecord):
