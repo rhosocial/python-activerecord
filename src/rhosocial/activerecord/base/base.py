@@ -9,7 +9,7 @@ from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
 from ..backend.config import ConnectionConfig
 from .typing import ConditionType, MultiConditionType, ModelT
-
+from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Import DummyBackend
 
 class BaseActiveRecord(IActiveRecord):
     """Core ActiveRecord implementation with basic CRUD operations.
@@ -48,6 +48,10 @@ class BaseActiveRecord(IActiveRecord):
             backend_instance.logger = cls.__logger__
 
         cls.__backend__ = backend_instance
+        # Invalidate dummy backend cache if a real backend is configured
+        if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
+            cls._dummy_backend = None # Invalidate cache by setting to None
+
 
     def __init__(self, **data):
         """Initialize ActiveRecord instance.
@@ -74,6 +78,9 @@ class BaseActiveRecord(IActiveRecord):
                 no_track_fields.update(base.__no_track_fields__)
         cls.__no_track_fields__ = no_track_fields
         cls.__column_types_cache__ = None
+        # Initialize _dummy_backend to None for each subclass
+        cls._dummy_backend: Optional[DummyBackend] = None
+
 
     @property
     def is_from_db(self) -> bool:
@@ -326,3 +333,43 @@ class BaseActiveRecord(IActiveRecord):
         if cls.backend() is None:
             raise DatabaseError("No backend configured")
         return cls.backend().transaction()
+
+    @classmethod
+    def backend(cls) -> StorageBackend:
+        """Get storage backend instance.
+
+        Returns the class's __backend__ attribute by default. Subclasses can override
+        for dynamic backends.
+
+        If no backend is explicitly configured, a DummyBackend instance is returned.
+        The DummyBackend allows SQL generation but raises NotImplementedError for
+        any database operations.
+
+        Raises:
+            DatabaseError: if backend class or connection config is invalid during configuration.
+        """
+        if cls.__backend__:
+            return cls.__backend__
+        
+        # If a backend_class and config are set, but __backend__ is None,
+        # it means the backend was never instantiated (e.g., configure was called,
+        # but the actual __backend__ instance was not set yet). This should not happen
+        # if `configure` is always called correctly. But for robustness:
+        if cls.__backend_class__ and cls.__connection_config__:
+            try:
+                # Attempt to instantiate and cache the real backend now
+                from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Lazy import for initial backend check
+                backend_instance = cls.__backend_class__(connection_config=cls.__connection_config__)
+                if hasattr(cls, '__logger__'):
+                    backend_instance.logger = cls.__logger__
+                cls.__backend__ = backend_instance
+                return cls.__backend__
+            except Exception as e:
+                # If instantiation fails, re-raise as a DatabaseError
+                raise DatabaseError(f"Failed to instantiate configured backend: {e}") from e
+        
+        # Fallback to DummyBackend if no real backend is configured
+        if not hasattr(cls, '_dummy_backend') or cls._dummy_backend is None:
+            from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Lazy import
+            cls._dummy_backend = DummyBackend()
+        return cls._dummy_backend
