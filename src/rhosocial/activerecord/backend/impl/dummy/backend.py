@@ -6,7 +6,7 @@ import logging
 from typing import Any, Dict, List, Optional, Tuple, Type
 
 from rhosocial.activerecord.backend.base import StorageBackend
-from rhosocial.activerecord.backend.capabilities import DatabaseCapabilities
+from rhosocial.activerecord.backend.capabilities import DatabaseCapabilities, CapabilityCategory, CTECapability
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from rhosocial.activerecord.backend.errors import DatabaseError
@@ -34,9 +34,11 @@ class DummyBackend(StorageBackend):
     def _initialize_capabilities(self) -> DatabaseCapabilities:
         """
         Initializes dummy capabilities.
-        Returns an empty set of capabilities as this backend doesn't support real DB features.
+        For to_sql testing, we need to declare support for some features.
         """
-        return DatabaseCapabilities()
+        capabilities = DatabaseCapabilities()
+        capabilities.add_cte([CTECapability.BASIC_CTE])
+        return capabilities
 
     def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
         """
