@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/query/base.py
 """Base query mixin implementation."""
 import logging
-from typing import List, Any, Optional, Union, Set, Tuple, Dict
+from typing import List, Any, Optional, Union, Set, Tuple, Dict, Type
 
 from .dict_query import DictQuery
 from ..backend.dialect import ExplainType, ExplainOptions, ExplainFormat
