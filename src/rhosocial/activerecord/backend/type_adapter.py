@@ -250,7 +250,14 @@ class UUIDAdapter(BaseSQLTypeAdapter):
         if target_type == UUID:
             if isinstance(value, UUID):
                 return value
-            return UUID(value)
+            # Only allow conversion from str and bytes, which are unambiguous.
+            if isinstance(value, (str, bytes)):
+                try:
+                    return UUID(value)
+                except ValueError as e:
+                    # Catch cases like "not-a-uuid"
+                    raise TypeError(f"Cannot convert {type(value).__name__} to UUID: {e}") from e
+        # For any other type (like int), fall through and raise the TypeError.
         raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
 
