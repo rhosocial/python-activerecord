@@ -50,11 +50,22 @@ class DummyJsonOperationHandler(JsonOperationHandler):
 
 
 class DummyCTEHandler(CTEHandler):
-    """A dummy CTE handler that raises NotImplementedError for all operations."""
+    """A dummy CTE handler that allows to_sql tests to pass."""
     @property
-    def is_supported(self) -> bool: return False
-    def format_cte(self, name, query, cols, rec, mat) -> str: raise NotImplementedError("DummyCTEHandler.format_cte")
-    def format_with_clause(self, ctes: List[Dict[str, Any]]) -> str: raise NotImplementedError("DummyCTEHandler.format_with_clause")
+    def is_supported(self) -> bool:
+        return True
+
+    @property
+    def supports_recursive(self) -> bool:
+        return True
+
+    def format_cte(self, name, query, cols, rec, mat) -> str:
+        return f"{name} AS ({query})"
+
+    def format_with_clause(self, ctes: List[Dict[str, Any]], recursive: bool = False) -> str:
+        cte_parts = [self.format_cte(c['name'], c['query'], c.get('columns'), c.get('recursive'), c.get('materialized')) for c in ctes]
+        with_keyword = "WITH RECURSIVE" if recursive else "WITH"
+        return f"{with_keyword} {', '.join(cte_parts)}"
 
 
 class DummyReturningHandler(ReturningClauseHandler):
