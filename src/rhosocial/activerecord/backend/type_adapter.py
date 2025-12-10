@@ -245,9 +245,11 @@ class UUIDAdapter(BaseSQLTypeAdapter):
         raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 
     def _do_from_database(
-        self, value: str, target_type: Type, options: Optional[Dict[str, Any]]
+        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if target_type == UUID:
+            if isinstance(value, UUID):
+                return value
             return UUID(value)
         raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
 

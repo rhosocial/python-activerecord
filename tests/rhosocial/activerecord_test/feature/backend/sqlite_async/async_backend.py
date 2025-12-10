@@ -704,6 +704,29 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             if pattern in clean_name.upper():
                 raise ValueError(f"Invalid column name: {name}")
 
+    async def executescript(self, sql_script: str) -> None:
+        """
+        Execute a multi-statement SQL script asynchronously.
+
+        Args:
+            sql_script: A string containing one or more SQL statements separated
+                        by semicolons.
+        """
+        self.log(logging.INFO, "Executing SQL script asynchronously.")
+        try:
+            if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
+                await self.connect()
+
+            await self._connection.executescript(sql_script)
+            self.log(logging.INFO, "Async SQL script executed successfully.")
+
+            await self._handle_auto_commit()
+
+        except Exception as e:
+            self.log(logging.ERROR, f"Error executing async SQL script: {str(e)}")
+            await self._handle_error(e)
+
     async def _handle_auto_commit(self):
         """Handle auto-commit"""
         if self._transaction_manager is None or not self._transaction_manager.is_active:
