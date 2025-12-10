@@ -385,6 +385,54 @@ ALL_MATHEMATICAL_FUNCTIONS = (
 )
 
 
+# Capability constants for common use cases
+# These are predefined combinations of capabilities that are commonly supported together
+
+ALL_SET_OPERATIONS = (
+    SetOperationCapability.UNION |
+    SetOperationCapability.UNION_ALL |
+    SetOperationCapability.INTERSECT |
+    SetOperationCapability.INTERSECT_ALL |
+    SetOperationCapability.EXCEPT |
+    SetOperationCapability.EXCEPT_ALL
+)
+
+ALL_WINDOW_FUNCTIONS = (
+    WindowFunctionCapability.ROW_NUMBER |
+    WindowFunctionCapability.RANK |
+    WindowFunctionCapability.DENSE_RANK |
+    WindowFunctionCapability.LAG |
+    WindowFunctionCapability.LEAD |
+    WindowFunctionCapability.FIRST_VALUE |
+    WindowFunctionCapability.LAST_VALUE |
+    WindowFunctionCapability.NTH_VALUE |
+    WindowFunctionCapability.CUME_DIST |
+    WindowFunctionCapability.PERCENT_RANK |
+    WindowFunctionCapability.NTILE
+)
+
+ALL_CTE_FEATURES = (
+    CTECapability.BASIC_CTE |
+    CTECapability.RECURSIVE_CTE |
+    CTECapability.COMPOUND_RECURSIVE_CTE |
+    CTECapability.CTE_IN_DML |
+    CTECapability.MATERIALIZED_CTE
+)
+
+ALL_JSON_OPERATIONS = (
+    JSONCapability.JSON_EXTRACT |
+    JSONCapability.JSON_CONTAINS |
+    JSONCapability.JSON_EXISTS |
+    JSONCapability.JSON_SET |
+    JSONCapability.JSON_INSERT |
+    JSONCapability.JSON_REPLACE |
+    JSONCapability.JSON_REMOVE |
+    JSONCapability.JSON_KEYS |
+    JSONCapability.JSON_ARRAY |
+    JSONCapability.JSON_OBJECT
+)
+
+
 ALL_SUPPORTED_CAPABILITIES = {
     CapabilityCategory.SET_OPERATIONS: ALL_SET_OPERATIONS,
     CapabilityCategory.WINDOW_FUNCTIONS: ALL_WINDOW_FUNCTIONS,

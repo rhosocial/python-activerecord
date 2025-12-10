@@ -1,10 +1,11 @@
 # tests/rhosocial/activerecord_test/feature/query/test_to_sql_no_backend.py
 import pytest
 from pydantic import Field
-from typing import ClassVar, Optional
+from typing import ClassVar, Optional, List
 
 from rhosocial.activerecord.query import CaseExpression, Column
 from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.relation import HasMany, BelongsTo
 
 from rhosocial.activerecord.backend.base import StorageBackend
 
@@ -15,6 +16,9 @@ class UserModel(ActiveRecord):
     name: str
     email: str
 
+    posts: ClassVar[HasMany['PostModel']] = HasMany(foreign_key='user_id', inverse_of='user')
+    comments: ClassVar[HasMany['CommentModel']] = HasMany(foreign_key='user_id', inverse_of='user')
+
 
 class PostModel(ActiveRecord):
     __table_name__: ClassVar[str] = "posts"
@@ -22,12 +26,19 @@ class PostModel(ActiveRecord):
     user_id: int = Field(json_schema_extra={'foreign_key': "users.id"})
     title: str
 
+    user: ClassVar[BelongsTo['UserModel']] = BelongsTo(foreign_key='user_id', inverse_of='posts')
+    comments: ClassVar[HasMany['CommentModel']] = HasMany(foreign_key='post_id', inverse_of='post')
+
 
 class CommentModel(ActiveRecord):
     __table_name__: ClassVar[str] = "comments"
     id: Optional[int] = Field(default=None, json_schema_extra={'primary_key': True})
+    user_id: int
     post_id: int = Field(json_schema_extra={'foreign_key': "posts.id"})
     content: str
+
+    user: ClassVar[BelongsTo['UserModel']] = BelongsTo(foreign_key='user_id', inverse_of='comments')
+    post: ClassVar[BelongsTo['PostModel']] = BelongsTo(foreign_key='post_id', inverse_of='comments')
 
 
 @pytest.fixture
@@ -39,6 +50,7 @@ def unconfigured_models():
         model.__backend__ = None
         model.__backend_class__ = None
         model.__connection_config__ = None
+        model.model_rebuild()
     yield UserModel, PostModel, CommentModel
     # Clean up after test
     for model in models:
@@ -86,8 +98,8 @@ def test_to_sql_with_dummy_backend(unconfigured_models):
     assert params_2 == expected_params_2
 
 
-def test_to_sql_with_joins(unconfigured_models):
-    """Test `to_sql` for queries with JOIN clauses."""
+def test_to_sql_with_manual_joins(unconfigured_models):
+    """Test `to_sql` for queries with manually specified JOIN clauses."""
     User, Post, _ = unconfigured_models
     sql, params = User.query().select(
         "users.name", "posts.title"
@@ -100,6 +112,20 @@ def test_to_sql_with_joins(unconfigured_models):
     assert sql == expected_sql
     assert params == expected_params
 
+
+def test_to_sql_with_relation_joins(unconfigured_models):
+    """Test `to_sql` for queries with JOINs based on model relationships."""
+    User, Post, _ = unconfigured_models
+    sql, params = User.query().join(Post).to_sql()
+    expected_sql = 'SELECT * FROM "users" INNER JOIN "posts" ON "posts"."user_id" = "users"."id"'
+    expected_params = ()
+    assert sql == expected_sql
+    assert params == expected_params
+
+    sql, params = Post.query().join(User).to_sql()
+    expected_sql = 'SELECT * FROM "posts" INNER JOIN "users" ON "posts"."user_id" = "users"."id"'
+    assert sql == expected_sql
+    assert params == expected_params
 
 def test_to_sql_with_aggregate(unconfigured_models):
     """Test `to_sql` for queries with aggregate functions."""

@@ -451,8 +451,8 @@ class BaseQueryMixin(IQuery[ModelT]):
         self._log(logging.DEBUG, f"Added ORDER BY clauses: {clauses}")
         return self
 
-    def join(self, join_clause: str) -> 'IQuery':
-        """Add JOIN clause."""
+    def join(self, join_clause: Union[str, Type['IActiveRecord']]) -> 'IQuery':
+        """Add JOIN clause by string or model class."""
         self.join_clauses.append(join_clause)
         self._log(logging.DEBUG, f"Added JOIN clause: {join_clause}")
         return self
@@ -520,89 +520,99 @@ class BaseQueryMixin(IQuery[ModelT]):
         return condition_part
 
     def _build_joins(self) -> List[str]:
-        """Build JOIN clauses with dialect awareness.
-
-        This method handles formatting of table names and columns in JOIN clauses
-        according to the database dialect.
-
-        Returns:
-            List of formatted JOIN clauses
-        """
+        """Build JOIN clauses with dialect awareness, handling both strings and models."""
         if not self.join_clauses:
             return []
 
+        from rhosocial.activerecord.interface import IActiveRecord
+        from rhosocial.activerecord.relation import BelongsTo
+
         dialect = self.model_class.backend().dialect
         formatted_joins = []
+        source_model = self.model_class
 
         for join_clause in self.join_clauses:
-            # Parse JOIN clause to identify and quote tables and columns
-            join_lower = join_clause.lower()
+            # --- MODEL-BASED JOIN LOGIC ---
+            if isinstance(join_clause, type) and issubclass(join_clause, IActiveRecord):
+                target_model = join_clause
+                on_condition = ""
+                source_relations = source_model._ensure_relations()
+                target_relations = target_model._ensure_relations()
 
-            # Handle basic JOIN types
-            join_type_index = -1
-            for join_keyword in (' join ', ' inner join ', ' left join ', ' right join ', ' full join '):
-                if join_keyword in join_lower:
-                    join_type_index = join_lower.index(join_keyword) + len(join_keyword)
-                    break
-
-            if join_type_index > 0:
-                # Get the join prefix (JOIN type)
-                join_prefix = join_clause[:join_type_index]
-
-                # Extract the table reference
-                on_index = join_lower.find(' on ')
-                using_index = join_lower.find(' using ')
-
-                # Determine where the table reference ends
-                if on_index > 0:
-                    table_ref = join_clause[join_type_index:on_index].strip()
-                    condition_part = join_clause[on_index:]
-                elif using_index > 0:
-                    table_ref = join_clause[join_type_index:using_index].strip()
-                    condition_part = join_clause[using_index:]
-                else:
-                    # Just a simple JOIN without ON or USING
-                    table_ref = join_clause[join_type_index:].strip()
-                    condition_part = ""
-
-                # Handle table reference with alias (e.g., "users AS u")
-                alias_match = False
-                formatted_table = ""
-                for alias_keyword in (' as ', ' '):
-                    if alias_keyword in table_ref.lower():
-                        table_parts = table_ref.split(alias_keyword, 1)
-                        if len(table_parts) == 2 and table_parts[1].strip():
-                            table_name = table_parts[0].strip()
-                            alias = table_parts[1].strip()
-                            formatted_table = f"{dialect.format_identifier(table_name)}{alias_keyword}{dialect.format_identifier(alias)}"
-                            alias_match = True
+                # 1. Search relations on the source model
+                for relation in source_relations.values():
+                    if relation.get_related_model(source_model) == target_model:
+                        if isinstance(relation, BelongsTo):
+                            on_condition = (f"{self._format_identifier(f'{source_model.table_name()}.{relation.foreign_key}')} = "
+                                            f"{self._format_identifier(f'{target_model.table_name()}.{target_model.primary_key()}')}")
+                        else:  # HasMany or HasOne
+                            on_condition = (f"{self._format_identifier(f'{target_model.table_name()}.{relation.foreign_key}')} = "
+                                            f"{self._format_identifier(f'{source_model.table_name()}.{source_model.primary_key()}')}")
+                        break
+                
+                # 2. If not found, search relations on the target model
+                if not on_condition:
+                    for relation in target_relations.values():
+                        if relation.get_related_model(target_model) == source_model:
+                            if isinstance(relation, BelongsTo):
+                                on_condition = (f"{self._format_identifier(f'{target_model.table_name()}.{relation.foreign_key}')} = "
+                                                f"{self._format_identifier(f'{source_model.table_name()}.{source_model.primary_key()}')}")
+                            else: # HasMany or HasOne
+                                on_condition = (f"{self._format_identifier(f'{source_model.table_name()}.{relation.foreign_key}')} = "
+                                                f"{self._format_identifier(f'{target_model.table_name()}.{target_model.primary_key()}')}")
                             break
 
-                if not alias_match:
-                    # Simple table without alias
-                    formatted_table = dialect.format_identifier(table_ref)
+                if not on_condition:
+                    raise ValueError(f"No relationship found between {source_model.__name__} and {target_model.__name__}")
 
-                # Format the JOIN condition if it exists
-                formatted_condition = condition_part
-                if ' on ' in condition_part.lower():
-                    # Format column references in ON condition
-                    # This is complex and would need a proper SQL parser for full correctness
-                    # For now, we'll do basic formatting of common patterns
-                    condition_parts = condition_part.split('=')
-                    if len(condition_parts) == 2:
-                        left_part = condition_parts[0].strip().replace(' on ', ' ON ')
-                        right_part = condition_parts[1].strip()
+                target_table_formatted = self._format_identifier(target_model.table_name())
+                # Default to INNER JOIN for model-based joins for now
+                join_sql = f'INNER JOIN {target_table_formatted} ON {on_condition}'
+                formatted_joins.append(join_sql)
+                continue
 
-                        # Try to format column references (table.column)
-                        left_formatted = self._format_on_condition_part(left_part, dialect)
-                        right_formatted = self._format_on_condition_part(right_part, dialect)
+            # --- STRING-BASED JOIN LOGIC (Restored) ---
+            if isinstance(join_clause, str):
+                join_lower = join_clause.lower()
+                join_type_index = -1
+                for join_keyword in (' join ', ' inner join ', ' left join ', ' right join ', ' full join '):
+                    if join_keyword in join_lower:
+                        join_type_index = join_lower.index(join_keyword) + len(join_keyword)
+                        break
 
-                        formatted_condition = f" ON {left_formatted} = {right_formatted}"
+                if join_type_index > 0:
+                    join_prefix = join_clause[:join_type_index]
+                    on_index = join_lower.find(' on ')
+                    using_index = join_lower.find(' using ')
 
-                formatted_joins.append(f"{join_prefix}{formatted_table}{formatted_condition}")
-            else:
-                # If we can't parse the JOIN clause, use it as is
-                formatted_joins.append(join_clause)
+                    if on_index > 0:
+                        table_ref = join_clause[join_type_index:on_index].strip()
+                        condition_part = join_clause[on_index:]
+                    elif using_index > 0:
+                        table_ref = join_clause[join_type_index:using_index].strip()
+                        condition_part = join_clause[using_index:]
+                    else:
+                        table_ref = join_clause[join_type_index:].strip()
+                        condition_part = ""
+
+                    formatted_table = self._format_identifier(table_ref)
+
+                    formatted_condition = condition_part
+                    if ' on ' in condition_part.lower():
+                        condition_parts = condition_part.split('=')
+                        if len(condition_parts) == 2:
+                            left_part = condition_parts[0].strip().replace(' on ', ' ON ')
+                            right_part = condition_parts[1].strip()
+                            left_formatted = self._format_on_condition_part(left_part, dialect)
+                            right_formatted = self._format_on_condition_part(right_part, dialect)
+                            formatted_condition = f" ON {left_formatted} = {right_formatted}"
+                    
+                    formatted_joins.append(f"{join_prefix}{formatted_table}{formatted_condition}")
+                else:
+                    formatted_joins.append(join_clause)
+                continue
+
+            raise TypeError(f"Unsupported join clause type: {type(join_clause)}")
 
         return formatted_joins
 
