@@ -176,13 +176,39 @@ class TypeAdaptionMixin:
         raise TypeError("Unsupported types for params and param_adapters. "
                         "Provide either two dicts or two sequences.")
 
+    def _adapt_row_types(
+        self, row_dict: Dict[str, Any], column_adapters: Dict[str, Tuple[SQLTypeAdapter, Type]]
+    ) -> Dict[str, Any]:
+        processed_row = {}
+        for col_name, value in row_dict.items():
+            if value is None:
+                processed_row[col_name] = None
+                continue
+
+            adapter_info = column_adapters.get(col_name)
+            if adapter_info:
+                adapter, py_type = adapter_info
+                processed_row[col_name] = adapter.from_database(value, py_type)
+            else:
+                processed_row[col_name] = value
+        return processed_row
+
+    def _remap_row_columns(
+        self, row_dict: Dict[str, Any], column_mapping: Dict[str, str]
+    ) -> Dict[str, Any]:
+        final_row = {}
+        for col_name, value in row_dict.items():
+            field_name = column_mapping.get(col_name, col_name)
+            final_row[field_name] = value
+        return final_row
+
     def _process_result_set(
         self,
         cursor,
         is_select: bool,
         need_returning: bool,
         column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
-        column_mapping: Optional[Dict[str, str]] = None # Added column_mapping
+        column_mapping: Optional[Dict[str, str]] = None
     ) -> Optional[List[Dict]]:
         """
         Converts the result set returned from the database to specified Python types
@@ -202,33 +228,28 @@ class TypeAdaptionMixin:
                                Python field names. Used for renaming keys in the result.
         :return: A list of dictionaries containing the converted values and remapped keys.
         """
-        if not (is_select or need_returning): return None
+        if not (is_select or need_returning):
+            return None
         try:
             rows = cursor.fetchall()
-            if not rows: return []
-            column_names = [desc[0].strip('"') for desc in cursor.description] # Strip quotes here
-            column_adapters = column_adapters or {}
-            converted_results = []
+            if not rows:
+                return []
+            
+            column_names = [desc[0].strip('"') for desc in cursor.description]
+            final_results = []
+            
+            adapters = column_adapters or {}
+            mapping = column_mapping or {}
+            
             for row in rows:
-                processed_row = {}
                 row_dict = dict(zip(column_names, row))
-                for col_name, value in row_dict.items():
-                    # Apply type adaptation first
-                    if value is None:
-                        processed_value = None
-                    else:
-                        adapter_info = column_adapters.get(col_name)
-                        if adapter_info:
-                            adapter, py_type = adapter_info
-                            processed_value = adapter.from_database(value, py_type)
-                        else:
-                            processed_value = value
+                
+                adapted_row = self._adapt_row_types(row_dict, adapters)
+                final_row = self._remap_row_columns(adapted_row, mapping)
                     
-                    # Apply column name remapping
-                    field_name = column_mapping.get(col_name, col_name) if column_mapping else col_name
-                    processed_row[field_name] = processed_value
-                converted_results.append(processed_row)
-            return converted_results
+                final_results.append(final_row)
+                
+            return final_results
         except Exception as e:
             self.logger.error(f"Error processing result set: {str(e)}", exc_info=True)
             raise
@@ -272,37 +293,46 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
         is_select: bool,
         need_returning: bool,
         column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
-        column_mapping: Optional[Dict[str, str]] = None # Added column_mapping
+        column_mapping: Optional[Dict[str, str]] = None
     ) -> Optional[List[Dict]]:
-        if not (is_select or need_returning): return None
+        """
+        Converts and remaps the full result set from an async database cursor.
+
+        This method orchestrates the two-step process of type adaptation and column
+        name remapping for an entire result set from an asynchronous cursor.
+
+        :param cursor: The async database cursor object after a query has been executed.
+        :param is_select: Flag indicating if it was a SELECT query.
+        :param need_returning: Flag indicating if a DML statement had a RETURNING clause.
+        :param column_adapters: Dictionary for type conversion, passed to `_adapt_row_types`.
+        :param column_mapping: Dictionary for key remapping, passed to `_remap_row_columns`.
+        :return: A list of fully processed row dictionaries, or None.
+        """
+        if not (is_select or need_returning):
+            return None
         try:
-            rows = await cursor.fetchall() # Make fetchall awaitable
-            if not rows: return []
+            rows = await cursor.fetchall()
+            if not rows:
+                return []
+
             column_names = [desc[0].strip('"') for desc in cursor.description]
-            column_adapters = column_adapters or {}
-            converted_results = []
+            final_results = []
+
+            adapters = column_adapters or {}
+            mapping = column_mapping or {}
+
             for row in rows:
-                processed_row = {}
-                # aiosqlite.Row objects behave like sqlite3.Row, allowing dict-like access
-                # and iterable behavior for zip.
                 row_dict = dict(zip(column_names, row))
-                for col_name, value in row_dict.items():
-                    # Apply type adaptation first
-                    if value is None:
-                        processed_value = None
-                    else:
-                        adapter_info = column_adapters.get(col_name)
-                        if adapter_info:
-                            adapter, py_type = adapter_info
-                            processed_value = adapter.from_database(value, py_type)
-                        else:
-                            processed_value = value
+                
+                # Step 1: Adapt types (sync helper is fine here as it's CPU-bound)
+                adapted_row = self._adapt_row_types(row_dict, adapters)
+                
+                # Step 2: Remap column names (sync helper is fine here as it's CPU-bound)
+                final_row = self._remap_row_columns(adapted_row, mapping)
                     
-                    # Apply column name remapping
-                    field_name = column_mapping.get(col_name, col_name) if column_mapping else col_name
-                    processed_row[field_name] = processed_value
-                converted_results.append(processed_row)
-            return converted_results
+                final_results.append(final_row)
+                
+            return final_results
         except Exception as e:
             self.logger.error(f"Error processing async result set: {str(e)}", exc_info=True)
             raise
