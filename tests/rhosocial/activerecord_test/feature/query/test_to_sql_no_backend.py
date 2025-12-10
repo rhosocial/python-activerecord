@@ -188,6 +188,28 @@ def test_sync_execution_fails_with_dummy_backend(unconfigured_models):
     assert "DummyBackend does not support real database operations. Did you forget to configure a concrete backend?" in str(excinfo.value)
 
 
+def test_to_sql_with_eager_loading(unconfigured_models):
+    """
+    Test that `with_()` for eager loading does not affect the main SQL query.
+    """
+    User, Post, _ = unconfigured_models
+
+    # Test with a simple relationship
+    sql, params = User.query().with_('posts').to_sql()
+    assert sql == 'SELECT * FROM "users"'
+    assert params == ()
+
+    # Test with a nested relationship
+    sql, params = User.query().with_('posts.comments').to_sql()
+    assert sql == 'SELECT * FROM "users"'
+    assert params == ()
+
+    # Test with multiple relationships
+    sql, params = Post.query().with_('user', 'comments').to_sql()
+    assert sql == 'SELECT * FROM "posts"'
+    assert params == ()
+
+
 @pytest.mark.asyncio
 async def test_async_execution_fails_with_dummy_backend(unconfigured_models):
     """
