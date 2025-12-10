@@ -9,7 +9,7 @@ from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
 from ..backend.config import ConnectionConfig
 from .typing import ConditionType, MultiConditionType, ModelT
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Import DummyBackend
+from rhosocial.activerecord.backend.impl.dummy import DummyBackend  # Import DummyBackend
 
 class BaseActiveRecord(IActiveRecord):
     """Core ActiveRecord implementation with basic CRUD operations.
@@ -373,3 +373,4 @@ class BaseActiveRecord(IActiveRecord):
             from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Lazy import
             cls._dummy_backend = DummyBackend()
         return cls._dummy_backend
+

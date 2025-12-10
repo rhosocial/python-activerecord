@@ -37,7 +37,7 @@ def test_to_sql_with_dummy_backend(unconfigured_user_model):
     falling back to DummyBackend.
     """
     User = unconfigured_user_model
-    
+
     # Verify that the backend is indeed DummyBackend
     backend_instance = User.backend()
     assert isinstance(backend_instance, StorageBackend)
@@ -95,6 +95,16 @@ async def test_async_execution_fails_with_dummy_backend(unconfigured_user_model)
     # Since DummyBackend has sync methods, awaiting them will cause TypeError
     with pytest.raises(NotImplementedError) as excinfo:
         await User.query().one() # This will try to await a sync backend.one() which does not exist
-    
+
     # The error message might vary slightly depending on how pytest-asyncio and Python handle it,
     assert "DummyBackend does not support real database operations. Did you forget to configure a concrete backend?" in str(excinfo.value)
+
+
+# TODO: Add comprehensive async ActiveRecord/ActiveQuery tests with AsyncDummyBackend once async support is implemented in ActiveRecord.
+# This would include tests for:
+# - async_backend() method returning AsyncDummyBackend when no backend configured
+# - AsyncDummyBackend working properly with async query methods like async query().one(), query().all(), etc.
+# - async save() and async delete() methods (when implemented)
+# - async transaction support with async context managers
+
+
