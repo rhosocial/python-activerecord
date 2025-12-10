@@ -3,6 +3,7 @@ import pytest
 from pydantic import Field
 from typing import ClassVar, Optional
 
+from rhosocial.activerecord.query import CaseExpression, Column
 from rhosocial.activerecord.model import ActiveRecord
 
 from rhosocial.activerecord.backend.base import StorageBackend
@@ -10,33 +11,52 @@ from rhosocial.activerecord.backend.base import StorageBackend
 
 class UserModel(ActiveRecord):
     __table_name__: ClassVar[str] = "users"
-    id: Optional[int] = Field(default=None, primary_key=True)
+    id: Optional[int] = Field(default=None, json_schema_extra={'primary_key': True})
     name: str
     email: str
 
 
+class PostModel(ActiveRecord):
+    __table_name__: ClassVar[str] = "posts"
+    id: Optional[int] = Field(default=None, json_schema_extra={'primary_key': True})
+    user_id: int = Field(json_schema_extra={'foreign_key': "users.id"})
+    title: str
+
+
+class CommentModel(ActiveRecord):
+    __table_name__: ClassVar[str] = "comments"
+    id: Optional[int] = Field(default=None, json_schema_extra={'primary_key': True})
+    post_id: int = Field(json_schema_extra={'foreign_key': "posts.id"})
+    content: str
+
+
 @pytest.fixture
-def unconfigured_user_model():
-    """Provides a UserModel that has no backend configured."""
-    # Ensure no backend is configured before each test
-    UserModel.__backend__ = None
-    UserModel.__backend_class__ = None
-    UserModel.__connection_config__ = None
-    yield UserModel
+def unconfigured_models():
+    """Provides models that have no backend configured."""
+    models = [UserModel, PostModel, CommentModel]
+    for model in models:
+        # Ensure no backend is configured before each test
+        model.__backend__ = None
+        model.__backend_class__ = None
+        model.__connection_config__ = None
+    yield UserModel, PostModel, CommentModel
     # Clean up after test
-    UserModel.__backend__ = None
-    UserModel.__backend_class__ = None
-    UserModel.__connection_config__ = None
-    if hasattr(UserModel, '_dummy_backend'):
-        del UserModel._dummy_backend
+    for model in models:
+        model.__backend__ = None
+        model.__backend_class__ = None
+        model.__connection_config__ = None
+        try:
+            delattr(model, '_dummy_backend')
+        except AttributeError:
+            pass
 
 
-def test_to_sql_with_dummy_backend(unconfigured_user_model):
+def test_to_sql_with_dummy_backend(unconfigured_models):
     """
     Test that to_sql() works correctly even when no real backend is configured,
     falling back to DummyBackend.
     """
-    User = unconfigured_user_model
+    User, _, _ = unconfigured_models
 
     # Verify that the backend is indeed DummyBackend
     backend_instance = User.backend()
@@ -66,12 +86,71 @@ def test_to_sql_with_dummy_backend(unconfigured_user_model):
     assert params_2 == expected_params_2
 
 
-def test_sync_execution_fails_with_dummy_backend(unconfigured_user_model):
+def test_to_sql_with_joins(unconfigured_models):
+    """Test `to_sql` for queries with JOIN clauses."""
+    User, Post, _ = unconfigured_models
+    sql, params = User.query().select(
+        "users.name", "posts.title"
+    ).inner_join(
+        'posts', 'posts.user_id', 'users.id'
+    ).where("users.id = ?", (1,)).to_sql()
+
+    expected_sql = 'SELECT "users"."name", "posts"."title" FROM "users" INNER JOIN "posts" ON "posts"."user_id" = "users"."id" WHERE users.id = ?'
+    expected_params = (1,)
+    assert sql == expected_sql
+    assert params == expected_params
+
+
+def test_to_sql_with_aggregate(unconfigured_models):
+    """Test `to_sql` for queries with aggregate functions."""
+    User, _, _ = unconfigured_models
+    sql, params = User.query().select("COUNT(*) as user_count").to_sql()
+    expected_sql = 'SELECT COUNT(*) as user_count FROM "users"'
+    assert sql == expected_sql
+    assert params == ()
+
+    sql, params = User.query().select("name", "COUNT(id) as c").group_by("name").to_sql()
+    expected_sql = 'SELECT name, COUNT(id) as c FROM "users" GROUP BY "name"'
+    assert sql == expected_sql
+    assert params == ()
+
+
+def test_to_sql_with_cte(unconfigured_models):
+    """Test `to_sql` for queries with Common Table Expressions (CTE)."""
+    User, _, _ = unconfigured_models
+    high_id_users_query = User.query().select("id", "name").where("id > ?", (10,))
+    sql, params = User.query().with_cte("high_id_users", high_id_users_query).select("*").from_cte("high_id_users").to_sql()
+
+    expected_sql = 'WITH high_id_users AS (SELECT "id", "name" FROM "users" WHERE id > ?) SELECT * FROM high_id_users'
+    expected_params = (10,)
+    assert sql == expected_sql
+    assert params == expected_params
+
+
+def test_to_sql_with_case_expression(unconfigured_models):
+    """Test `to_sql` for queries with CASE expressions."""
+    User, _, _ = unconfigured_models
+
+    query = User.query().select('name').case(
+        [("name = 'Alice'", "is_alice")],
+        else_result="not_alice",
+        alias="status"
+    )
+    sql, params = query.to_sql()
+
+    # Note: The current CaseExpression implementation formats results as string literals
+    expected_sql = "SELECT name, CASE WHEN name = 'Alice' THEN 'is_alice' ELSE 'not_alice' END as status FROM \"users\""
+    expected_params = ()
+
+    assert sql == expected_sql
+    assert params == expected_params
+
+def test_sync_execution_fails_with_dummy_backend(unconfigured_models):
     """
     Test that synchronous execution methods on an unconfigured model
     raise NotImplementedError when using DummyBackend.
     """
-    User = unconfigured_user_model
+    User, _, _ = unconfigured_models
 
     # Attempt to execute a query that requires database interaction
     with pytest.raises(NotImplementedError) as excinfo:
@@ -84,12 +163,12 @@ def test_sync_execution_fails_with_dummy_backend(unconfigured_user_model):
 
 
 @pytest.mark.asyncio
-async def test_async_execution_fails_with_dummy_backend(unconfigured_user_model):
+async def test_async_execution_fails_with_dummy_backend(unconfigured_models):
     """
     Test that asynchronous execution methods on an unconfigured model
-    raise TypeError (because a sync method is not awaitable) when using DummyBackend.
+    raise NotImplementedError when using DummyBackend.
     """
-    User = unconfigured_user_model
+    User, _, _ = unconfigured_models
 
     # Attempt to execute an async query (should implicitly call an async method on backend)
     # Since DummyBackend has sync methods, awaiting them will cause TypeError

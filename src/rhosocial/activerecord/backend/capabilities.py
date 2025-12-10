@@ -311,6 +311,98 @@ class MathematicalFunctionCapability(Flag):
     SQRT = auto()
 
 
+ALL_RETURNING_FEATURES = (
+    ReturningCapability.BASIC_RETURNING |
+    ReturningCapability.RETURNING_EXPRESSIONS |
+    ReturningCapability.RETURNING_ALIASES
+)
+
+ALL_ADVANCED_GROUPING = (
+    AdvancedGroupingCapability.CUBE |
+    AdvancedGroupingCapability.ROLLUP |
+    AdvancedGroupingCapability.GROUPING_SETS
+)
+
+ALL_TRANSACTION_FEATURES = (
+    TransactionCapability.SAVEPOINT |
+    TransactionCapability.ISOLATION_LEVELS |
+    TransactionCapability.READ_ONLY_TRANSACTIONS
+)
+
+ALL_BULK_OPERATIONS = (
+    BulkOperationCapability.MULTI_ROW_INSERT |
+    BulkOperationCapability.BATCH_OPERATIONS |
+    BulkOperationCapability.UPSERT
+)
+
+ALL_JOIN_OPERATIONS = (
+    JoinCapability.INNER_JOIN |
+    JoinCapability.LEFT_OUTER_JOIN |
+    JoinCapability.RIGHT_OUTER_JOIN |
+    JoinCapability.FULL_OUTER_JOIN |
+    JoinCapability.CROSS_JOIN
+)
+
+ALL_CONSTRAINT_FEATURES = (
+    ConstraintCapability.PRIMARY_KEY |
+    ConstraintCapability.FOREIGN_KEY |
+    ConstraintCapability.UNIQUE |
+    ConstraintCapability.NOT_NULL |
+    ConstraintCapability.CHECK |
+    ConstraintCapability.DEFAULT |
+    ConstraintCapability.STRICT_TABLES
+)
+
+ALL_AGGREGATE_FUNCTIONS = (
+    AggregateFunctionCapability.STRING_AGG |
+    AggregateFunctionCapability.GROUP_CONCAT |
+    AggregateFunctionCapability.JSON_AGG
+)
+
+ALL_DATETIME_FUNCTIONS = (
+    DateTimeFunctionCapability.EXTRACT |
+    DateTimeFunctionCapability.STRFTIME |
+    DateTimeFunctionCapability.DATE_ADD |
+    DateTimeFunctionCapability.DATE_SUB
+)
+
+ALL_STRING_FUNCTIONS = (
+    StringFunctionCapability.CONCAT |
+    StringFunctionCapability.CONCAT_WS |
+    StringFunctionCapability.LOWER |
+    StringFunctionCapability.UPPER |
+    StringFunctionCapability.SUBSTRING |
+    StringFunctionCapability.TRIM
+)
+
+ALL_MATHEMATICAL_FUNCTIONS = (
+    MathematicalFunctionCapability.ABS |
+    MathematicalFunctionCapability.ROUND |
+    MathematicalFunctionCapability.CEIL |
+    MathematicalFunctionCapability.FLOOR |
+    MathematicalFunctionCapability.POWER |
+    MathematicalFunctionCapability.SQRT
+)
+
+
+ALL_SUPPORTED_CAPABILITIES = {
+    CapabilityCategory.SET_OPERATIONS: ALL_SET_OPERATIONS,
+    CapabilityCategory.WINDOW_FUNCTIONS: ALL_WINDOW_FUNCTIONS,
+    CapabilityCategory.ADVANCED_GROUPING: ALL_ADVANCED_GROUPING,
+    CapabilityCategory.CTE: ALL_CTE_FEATURES,
+    CapabilityCategory.JSON_OPERATIONS: ALL_JSON_OPERATIONS,
+    CapabilityCategory.RETURNING_CLAUSE: ALL_RETURNING_FEATURES,
+    CapabilityCategory.TRANSACTION_FEATURES: ALL_TRANSACTION_FEATURES,
+    CapabilityCategory.BULK_OPERATIONS: ALL_BULK_OPERATIONS,
+    CapabilityCategory.JOIN_OPERATIONS: ALL_JOIN_OPERATIONS,
+    CapabilityCategory.CONSTRAINTS: ALL_CONSTRAINT_FEATURES,
+    CapabilityCategory.AGGREGATE_FUNCTIONS: ALL_AGGREGATE_FUNCTIONS,
+    CapabilityCategory.DATETIME_FUNCTIONS: ALL_DATETIME_FUNCTIONS,
+    CapabilityCategory.STRING_FUNCTIONS: ALL_STRING_FUNCTIONS,
+    CapabilityCategory.MATHEMATICAL_FUNCTIONS: ALL_MATHEMATICAL_FUNCTIONS,
+}
+
+
 # Main capability structure that combines all capabilities
 class DatabaseCapabilities:
     """Database capability descriptor.
@@ -341,6 +433,36 @@ class DatabaseCapabilities:
         self.string_functions: StringFunctionCapability = StringFunctionCapability.NONE
         self.mathematical_functions: MathematicalFunctionCapability = MathematicalFunctionCapability.NONE
     
+    def add_all_supported_features(self) -> 'DatabaseCapabilities':
+        """Declare support for all defined capabilities.
+
+        This method is a convenience for backends that support all features,
+        or for testing purposes. It iterates through all capability categories
+        and adds full support for each one.
+
+        IMPORTANT: When adding new capabilities or categories, remember to update
+        this method and the ALL_SUPPORTED_CAPABILITIES dictionary to ensure
+        "all features" remains accurate.
+
+        Returns:
+            DatabaseCapabilities: This instance for method chaining
+        """
+        self.add_set_operation(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.SET_OPERATIONS])
+        self.add_window_function(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.WINDOW_FUNCTIONS])
+        self.add_advanced_grouping(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.ADVANCED_GROUPING])
+        self.add_cte(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.CTE])
+        self.add_json(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.JSON_OPERATIONS])
+        self.add_returning(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.RETURNING_CLAUSE])
+        self.add_transaction(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.TRANSACTION_FEATURES])
+        self.add_bulk_operation(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.BULK_OPERATIONS])
+        self.add_join_operation(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.JOIN_OPERATIONS])
+        self.add_constraint(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.CONSTRAINTS])
+        self.add_aggregate_function(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.AGGREGATE_FUNCTIONS])
+        self.add_datetime_function(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.DATETIME_FUNCTIONS])
+        self.add_string_function(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.STRING_FUNCTIONS])
+        self.add_mathematical_function(ALL_SUPPORTED_CAPABILITIES[CapabilityCategory.MATHEMATICAL_FUNCTIONS])
+        return self
+
     def supports_category(self, category: CapabilityCategory) -> bool:
         """Check if a capability category is supported.
         
@@ -667,6 +789,145 @@ class DatabaseCapabilities:
             self.mathematical_functions |= func
         self.categories |= CapabilityCategory.MATHEMATICAL_FUNCTIONS
         return self
+
+# Capability constants for common use cases
+# These are predefined combinations of capabilities that are commonly supported together
+
+ALL_SET_OPERATIONS = (
+    SetOperationCapability.UNION | 
+    SetOperationCapability.UNION_ALL | 
+    SetOperationCapability.INTERSECT | 
+    SetOperationCapability.INTERSECT_ALL | 
+    SetOperationCapability.EXCEPT | 
+    SetOperationCapability.EXCEPT_ALL
+)
+
+ALL_WINDOW_FUNCTIONS = (
+    WindowFunctionCapability.ROW_NUMBER |
+    WindowFunctionCapability.RANK |
+    WindowFunctionCapability.DENSE_RANK |
+    WindowFunctionCapability.LAG |
+    WindowFunctionCapability.LEAD |
+    WindowFunctionCapability.FIRST_VALUE |
+    WindowFunctionCapability.LAST_VALUE |
+    WindowFunctionCapability.NTH_VALUE |
+    WindowFunctionCapability.CUME_DIST |
+    WindowFunctionCapability.PERCENT_RANK |
+    WindowFunctionCapability.NTILE
+)
+
+ALL_CTE_FEATURES = (
+    CTECapability.BASIC_CTE |
+    CTECapability.RECURSIVE_CTE |
+    CTECapability.COMPOUND_RECURSIVE_CTE |
+    CTECapability.CTE_IN_DML |
+    CTECapability.MATERIALIZED_CTE
+)
+
+ALL_JSON_OPERATIONS = (
+    JSONCapability.JSON_EXTRACT |
+    JSONCapability.JSON_CONTAINS |
+    JSONCapability.JSON_EXISTS |
+    JSONCapability.JSON_SET |
+    JSONCapability.JSON_INSERT |
+    JSONCapability.JSON_REPLACE |
+    JSONCapability.JSON_REMOVE |
+    JSONCapability.JSON_KEYS |
+    JSONCapability.JSON_ARRAY |
+    JSONCapability.JSON_OBJECT
+)
+
+ALL_RETURNING_FEATURES = (
+    ReturningCapability.BASIC_RETURNING |
+    ReturningCapability.RETURNING_EXPRESSIONS |
+    ReturningCapability.RETURNING_ALIASES
+)
+
+ALL_ADVANCED_GROUPING = (
+    AdvancedGroupingCapability.CUBE |
+    AdvancedGroupingCapability.ROLLUP |
+    AdvancedGroupingCapability.GROUPING_SETS
+)
+
+ALL_TRANSACTION_FEATURES = (
+    TransactionCapability.SAVEPOINT |
+    TransactionCapability.ISOLATION_LEVELS |
+    TransactionCapability.READ_ONLY_TRANSACTIONS
+)
+
+ALL_BULK_OPERATIONS = (
+    BulkOperationCapability.MULTI_ROW_INSERT |
+    BulkOperationCapability.BATCH_OPERATIONS |
+    BulkOperationCapability.UPSERT
+)
+
+ALL_JOIN_OPERATIONS = (
+    JoinCapability.INNER_JOIN |
+    JoinCapability.LEFT_OUTER_JOIN |
+    JoinCapability.RIGHT_OUTER_JOIN |
+    JoinCapability.FULL_OUTER_JOIN |
+    JoinCapability.CROSS_JOIN
+)
+
+ALL_CONSTRAINT_FEATURES = (
+    ConstraintCapability.PRIMARY_KEY |
+    ConstraintCapability.FOREIGN_KEY |
+    ConstraintCapability.UNIQUE |
+    ConstraintCapability.NOT_NULL |
+    ConstraintCapability.CHECK |
+    ConstraintCapability.DEFAULT |
+    ConstraintCapability.STRICT_TABLES
+)
+
+ALL_AGGREGATE_FUNCTIONS = (
+    AggregateFunctionCapability.STRING_AGG |
+    AggregateFunctionCapability.GROUP_CONCAT |
+    AggregateFunctionCapability.JSON_AGG
+)
+
+ALL_DATETIME_FUNCTIONS = (
+    DateTimeFunctionCapability.EXTRACT |
+    DateTimeFunctionCapability.STRFTIME |
+    DateTimeFunctionCapability.DATE_ADD |
+    DateTimeFunctionCapability.DATE_SUB
+)
+
+ALL_STRING_FUNCTIONS = (
+    StringFunctionCapability.CONCAT |
+    StringFunctionCapability.CONCAT_WS |
+    StringFunctionCapability.LOWER |
+    StringFunctionCapability.UPPER |
+    StringFunctionCapability.SUBSTRING |
+    StringFunctionCapability.TRIM
+)
+
+ALL_MATHEMATICAL_FUNCTIONS = (
+    MathematicalFunctionCapability.ABS |
+    MathematicalFunctionCapability.ROUND |
+    MathematicalFunctionCapability.CEIL |
+    MathematicalFunctionCapability.FLOOR |
+    MathematicalFunctionCapability.POWER |
+    MathematicalFunctionCapability.SQRT
+)
+
+
+ALL_SUPPORTED_CAPABILITIES = {
+    CapabilityCategory.SET_OPERATIONS: ALL_SET_OPERATIONS,
+    CapabilityCategory.WINDOW_FUNCTIONS: ALL_WINDOW_FUNCTIONS,
+    CapabilityCategory.ADVANCED_GROUPING: ALL_ADVANCED_GROUPING,
+    CapabilityCategory.CTE: ALL_CTE_FEATURES,
+    CapabilityCategory.JSON_OPERATIONS: ALL_JSON_OPERATIONS,
+    CapabilityCategory.RETURNING_CLAUSE: ALL_RETURNING_FEATURES,
+    CapabilityCategory.TRANSACTION_FEATURES: ALL_TRANSACTION_FEATURES,
+    CapabilityCategory.BULK_OPERATIONS: ALL_BULK_OPERATIONS,
+    CapabilityCategory.JOIN_OPERATIONS: ALL_JOIN_OPERATIONS,
+    CapabilityCategory.CONSTRAINTS: ALL_CONSTRAINT_FEATURES,
+    CapabilityCategory.AGGREGATE_FUNCTIONS: ALL_AGGREGATE_FUNCTIONS,
+    CapabilityCategory.DATETIME_FUNCTIONS: ALL_DATETIME_FUNCTIONS,
+    CapabilityCategory.STRING_FUNCTIONS: ALL_STRING_FUNCTIONS,
+    CapabilityCategory.MATHEMATICAL_FUNCTIONS: ALL_MATHEMATICAL_FUNCTIONS,
+}
+
 
 # Capability constants for common use cases
 # These are predefined combinations of capabilities that are commonly supported together
