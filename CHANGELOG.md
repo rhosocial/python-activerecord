@@ -1,3 +1,18 @@
+## [1.0.0.dev14] - 2025-12-11
+
+### Added
+
+- Added support for handling Union types in type adapters, resolving issues when converting optional (Union) types from the database. ([#26](https://github.com/rhosocial/python-activerecord/issues/26))
+- Added support for custom column name mapping via the `UseColumn` annotation, allowing model fields to map to different database column names. ([#27](https://github.com/rhosocial/python-activerecord/issues/27))
+- Introduce dummy backends for offline SQL generation and enhance .join() to support model-based relationship joins. ([#28](https://github.com/rhosocial/python-activerecord/issues/28))
+
+
+
+### Changed
+
+- Timestamp fields in `TimestampMixin` now use UTC instead of local time to ensure timezone consistency. ([#25](https://github.com/rhosocial/python-activerecord/issues/25))
+
+
 ## [1.0.0.dev13] - 2025-11-29
 
 ### Added
