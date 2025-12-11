@@ -38,7 +38,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ rhosocial-activerecord-testsuite==1.0.0.dev4
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev4
 
     - name: Run tests with coverage
       run: |
@@ -82,7 +82,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ rhosocial-activerecord-testsuite==1.0.0.dev4
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev4
 
     - name: Run tests
       run: |
@@ -115,7 +115,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install --index-url https://test.pypi.org/simple/ --extra-index-url https://pypi.org/simple/ rhosocial-activerecord-testsuite==1.0.0.dev4
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev4
 
     - name: Run tests
       run: |
