@@ -34,6 +34,15 @@ from ...errors import ConnectionError, IntegrityError, OperationalError, QueryEr
     ReturningNotSupportedError, JsonOperationNotSupportedError
 from ...typing import QueryResult, DatabaseType
 from ...type_adapter import SQLTypeAdapter
+from ...field_registry import FieldTypeRegistry
+from ...field import (
+    StringField,
+    IntegerField,
+    FloatField,
+    BooleanField,
+    BytesField,
+    SQLField
+)
 
 
 class SQLiteBackend(StorageBackend):
@@ -258,8 +267,26 @@ class SQLiteBackend(StorageBackend):
                 self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}). "
                                   "Suggestion will not be provided for this type.")
 
-        return suggestions
+                return suggestions
 
+    def get_field_type_registry(self) -> Optional[FieldTypeRegistry]:
+        """
+        [Backend Implementation] Provides a registry for mapping Python types to
+        default SQLField types for use in query expressions.
+
+        This allows the expression system to treat a Python type like `int` as
+        an `IntegerField`, enabling type-specific operations (e.g., arithmetic).
+
+        Returns:
+            An instance of FieldTypeRegistry populated with default mappings.
+        """
+        registry = FieldTypeRegistry()
+        registry.register(int, IntegerField)
+        registry.register(str, StringField)
+        registry.register(float, FloatField)
+        registry.register(bool, BooleanField)
+        registry.register(bytes, BytesField)
+        return registry
 
     @property
     def pragmas(self) -> Dict[str, str]:

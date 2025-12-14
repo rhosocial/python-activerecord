@@ -1,9 +1,10 @@
 # src/rhosocial/activerecord/query/base.py
 """Base query mixin implementation."""
 import logging
-from typing import List, Any, Optional, Union, Set, Tuple, Dict, Type
+from typing import List, Any, Optional, Union, Set, Tuple, Dict, Type, overload
 
 from .dict_query import DictQuery
+from ..base.expression import SQLExpression
 from ..backend.dialect import ExplainType, ExplainOptions, ExplainFormat
 from ..backend.errors import QueryError, RecordNotFound
 from ..interface import ModelT, IQuery
@@ -346,77 +347,106 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         return self
 
+    @overload
     def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
+        ...
+
+    @overload
+    def where(self, condition: SQLExpression) -> 'IQuery':
+        ...
+
+    def where(self, condition: Union[str, SQLExpression], params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
         """Add AND condition.
 
+        This method supports two distinct ways of adding conditions:
+
+        1.  **Raw SQL String**: For complex or custom SQL. Type adapters are NOT applied.
+        2.  **SQLExpression Object**: (Recommended) A type-safe, structured approach where
+            type adapters are automatically applied.
+
         Args:
-            condition: Condition expression
-            params: Condition parameters
+            condition: Condition expression (str or SQLExpression).
+            params: Query parameters (only for raw SQL string mode).
 
         Returns:
             Query instance
-
-        Note:
-            This method does not involve the field type adapter conversion process.
-            Parameters are sent directly to the database driver.
-            See the `test_query_by_exact_string` test for an example of correct usage.
-
-        Example:
-            query.where('status = ?', (1,))
         """
-        if params is None:
-            params = ()
-        elif not isinstance(params, tuple):
-            try:
-                params = tuple(params)
-            except TypeError:
-                self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
-                raise QueryError("Did you forget to pass scalar values in a tuple?") from None
+        if isinstance(condition, str):
+            if params is None:
+                params = ()
+            elif not isinstance(params, tuple):
+                try:
+                    params = tuple(params)
+                except TypeError:
+                    self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
+                    raise QueryError("Did you forget to pass scalar values in a tuple?") from None
 
-        self.condition_groups[self.current_group].append((condition, params, 'AND'))
-        self._log(logging.DEBUG, f"Added WHERE condition: {condition}, parameters: {params}")
+            self.condition_groups[self.current_group].append((condition, params, 'AND'))
+            self._log(logging.DEBUG, f"Added WHERE condition: {condition}, parameters: {params}")
+        
+        elif isinstance(condition, SQLExpression):
+            if params is not None:
+                self._log(logging.WARNING, "Parameters provided with SQLExpression for WHERE. They will be ignored.")
+
+            dialect = self.model_class.backend().dialect
+            sql, sql_params = condition.to_sql(dialect=dialect)
+            self.condition_groups[self.current_group].append((sql, sql_params, 'AND'))
+            self._log(logging.DEBUG, f"Added WHERE condition with SQLExpression: {sql}, parameters: {sql_params}")
+
+        else:
+            raise TypeError("WHERE condition must be a string or an SQLExpression object.")
+        
         return self
 
+    @overload
     def or_where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
+        ...
+
+    @overload
+    def or_where(self, condition: SQLExpression) -> 'IQuery[ModelT]':
+        ...
+
+    def or_where(self, condition: Union[str, SQLExpression], params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
         """Add OR condition.
 
+        This method supports two distinct ways of adding conditions:
+
+        1.  **Raw SQL String**: For complex or custom SQL. Type adapters are NOT applied.
+        2.  **SQLExpression Object**: (Recommended) A type-safe, structured approach where
+            type adapters are automatically applied.
+
         Args:
-            condition: Condition expression
-            params: Condition parameters
+            condition: Condition expression (str or SQLExpression).
+            params: Query parameters (only for raw SQL string mode).
 
         Returns:
             Query instance
-
-        Note:
-            This method does not involve the field type adapter conversion process.
-            Parameters are sent directly to the database driver.
-            See the `test_query_by_exact_string` test for an example of correct usage.
-
-        Example:
-            # Basic OR condition
-            query.where('status = ?', (1,))\\
-                .or_where('status = ?', (2,))
-
-            # Equivalent to: WHERE status = 1 OR status = 2
-
-            # Complex condition combination
-            query.where('status = ?', (1,))\\
-                .or_where('type = ?', ('admin',))\\
-                .where('deleted_at IS NULL')
-
-            # Equivalent to: WHERE (status = 1 OR type = 'admin') AND deleted_at IS NULL
         """
-        if params is None:
-            params = ()
-        elif not isinstance(params, tuple):
-            try:
-                params = tuple(params)
-            except TypeError:
-                self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
-                raise QueryError("Did you forget to pass scalar values in a tuple?") from None
+        if isinstance(condition, str):
+            if params is None:
+                params = ()
+            elif not isinstance(params, tuple):
+                try:
+                    params = tuple(params)
+                except TypeError:
+                    self._log(logging.ERROR, "Invalid params type for condition: %s", condition)
+                    raise QueryError("Did you forget to pass scalar values in a tuple?") from None
 
-        self.condition_groups[self.current_group].append((condition, params, 'OR'))
-        self._log(logging.DEBUG, f"Added OR WHERE condition: {condition}, parameters: {params}")
+            self.condition_groups[self.current_group].append((condition, params, 'OR'))
+            self._log(logging.DEBUG, f"Added OR WHERE condition: {condition}, parameters: {params}")
+        
+        elif isinstance(condition, SQLExpression):
+            if params is not None:
+                self._log(logging.WARNING, "Parameters provided with SQLExpression for OR WHERE. They will be ignored.")
+
+            dialect = self.model_class.backend().dialect
+            sql, sql_params = condition.to_sql(dialect=dialect)
+            self.condition_groups[self.current_group].append((sql, sql_params, 'OR'))
+            self._log(logging.DEBUG, f"Added OR WHERE condition with SQLExpression: {sql}, parameters: {sql_params}")
+
+        else:
+            raise TypeError("OR WHERE condition must be a string or an SQLExpression object.")
+        
         return self
 
     def start_or_group(self) -> 'IQuery[ModelT]':

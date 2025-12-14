@@ -2,14 +2,15 @@
 """Core BaseActiveRecord implementation."""
 
 import logging
-from typing import Any, Dict, List, Optional, ClassVar, Type
+from typing import Any, Dict, List, Optional, Type
 
-from ..interface import IActiveRecord, ModelEvent
-from ..backend.base import StorageBackend
-from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
-from ..backend.config import ConnectionConfig
 from .typing import ConditionType, MultiConditionType, ModelT
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend  # Import DummyBackend
+from ..backend.base import StorageBackend
+from ..backend.config import ConnectionConfig
+from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
+from ..backend.impl.dummy import DummyBackend
+from ..interface import IActiveRecord, ModelEvent
+
 
 class BaseActiveRecord(IActiveRecord):
     """Core ActiveRecord implementation with basic CRUD operations.

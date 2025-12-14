@@ -2,9 +2,10 @@
 """
 This module provides classes and functions related to field definitions and annotations.
 """
-from typing import Type
+from typing import Type, Optional, Union
 
 from ..backend.type_adapter import SQLTypeAdapter
+from ..backend.field import SQLField
 
 
 class UseColumn:
@@ -84,3 +85,24 @@ class UseAdapter:
             )
         self.adapter = adapter
         self.target_db_type = target_db_type
+
+
+class UseFieldType:
+    """
+    Annotation to explicitly specify the SQL field type for a model field.
+    This takes the highest priority in the type resolution system.
+    """
+
+    def __init__(self, field_type: Type[SQLField]):
+        if not isinstance(field_type, type) or not issubclass(field_type, SQLField):
+            raise TypeError("field_type must be a subclass of SQLField")
+        self.field_type = field_type
+
+
+# --- Convenience Annotation Instances ---
+# This section is reserved for commonly used pre-defined field type annotations.
+# For example, a function like `Integer()` could be defined here to return
+# `UseFieldType(IntegerField)`, simplifying model definitions.
+
+
+

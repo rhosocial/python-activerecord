@@ -7,7 +7,7 @@ import pytest
 
 def test_sqlite_datetime_functions(order_fixtures):
     """Test SQLite-specific datetime functions."""
-    from rhosocial.activerecord.query.expression import FunctionExpression, CurrentExpression
+    from rhosocial.activerecord.base.expression import FunctionExpression, Column
     
     User, Order, OrderItem = order_fixtures
 
@@ -26,7 +26,8 @@ def test_sqlite_datetime_functions(order_fixtures):
     try:
         # Test STRFTIME function (SQLite datetime function)
         query = Order.query().where('id = ?', (order.id,))
-        query.select_expr(FunctionExpression('STRFTIME', "'%Y-%m-%d'", 'created_at', alias='order_date'))
+        date_expr = FunctionExpression('STRFTIME', '%Y-%m-%d', Column('created_at'))
+        query.select_expr(date_expr, alias='order_date')
         results = query.aggregate()[0]
 
         assert 'order_date' in results
@@ -37,7 +38,8 @@ def test_sqlite_datetime_functions(order_fixtures):
 
         # Test DATE function
         query = Order.query().where('id = ?', (order.id,))
-        query.select_expr(FunctionExpression('DATE', 'created_at', alias='order_date_only'))
+        date_only_expr = FunctionExpression('DATE', Column('created_at'))
+        query.select_expr(date_only_expr, alias='order_date_only')
         results = query.aggregate()[0]
 
         assert 'order_date_only' in results
@@ -48,7 +50,8 @@ def test_sqlite_datetime_functions(order_fixtures):
 
         # Test current date/time functions
         query = Order.query().where('id = ?', (order.id,))
-        query.select_expr(FunctionExpression('DATE', "'now'", alias='current_date'))
+        current_date_expr = FunctionExpression('DATE', 'now')
+        query.select_expr(current_date_expr, alias='current_date')
         results = query.aggregate()[0]
 
         # Convert to string for consistent comparison across different database drivers

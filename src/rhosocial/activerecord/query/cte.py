@@ -3,7 +3,7 @@
 import logging
 from typing import Dict, List, Optional, Union, Any, Tuple, Type, Set
 
-from .expression import AggregateExpression
+from ..base.expression import AggregateExpression
 from ..backend.errors import CTENotSupportedError
 from ..interface import ModelT, IQuery
 from .aggregate import AggregateQueryMixin

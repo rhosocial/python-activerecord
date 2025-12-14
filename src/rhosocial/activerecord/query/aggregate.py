@@ -1,15 +1,15 @@
 # src/rhosocial/activerecord/query/aggregate.py
 """Enhanced aggregate query implementation with SQL expression support."""
 import logging
-from typing import List, Optional, Union, Any, Dict, Type, Tuple
+from typing import List, Optional, Union, Any, Dict, Type, Tuple, overload
 
 from .base import BaseQueryMixin
-from .expression import (
+from ..base.expression import (
     SQLExpression, AggregateExpression,
     WindowExpression, CaseExpression,
-    FunctionExpression, ArithmeticExpression,
-    ConditionalExpression, SubqueryExpression,
-    JsonExpression, GroupingSetExpression
+    FunctionExpression, ConditionalExpression,
+    SubqueryExpression, JsonExpression, GroupingSetExpression,
+    AliasedExpression, SQLOperation, Column
 )
 from ..interface import ModelT
 
@@ -85,61 +85,73 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         self._log(logging.DEBUG, f"Added GROUP BY columns: {columns}")
         return self
 
+    @overload
     def having(self, condition: str, params: Optional[tuple] = None) -> 'AggregateQueryMixin':
-        """Add HAVING condition
+        ...
+
+    @overload
+    def having(self, condition: SQLExpression) -> 'AggregateQueryMixin':
+        ...
+
+    def having(self, condition: Union[str, SQLExpression], params: Optional[tuple] = None) -> 'AggregateQueryMixin':
+        """Add HAVING condition.
+
+        This method supports two distinct ways of adding conditions:
+
+        1.  **Raw SQL String**: For complex or custom SQL. Type adapters are NOT applied.
+        2.  **SQLExpression Object**: (Recommended) A type-safe, structured approach where
+            type adapters are automatically applied.
 
         Args:
-            condition: HAVING condition expression
-            params: Query parameters
+            condition: HAVING condition expression (str or SQLExpression).
+            params: Query parameters (only for raw SQL string mode).
 
         Returns:
-            Self for method chaining
-
-        Note:
-            - This method does not involve the field type adapter conversion process.
-              Parameters are sent directly to the database driver.
-              See the `test_query_by_exact_string` test for an example of correct usage.
-            - HAVING conditions can reference aggregate functions.
-            - Column aliases from SELECT cannot be used in HAVING.
-            - Table qualified columns (table.column) are supported.
+            Self for method chaining.
         """
-        if params is None:
-            params = ()
+        if isinstance(condition, str):
+            if params is None:
+                params = ()
+            self._having_conditions.append((condition, params))
+            self._log(logging.DEBUG, f"Added HAVING condition: {condition}, parameters: {params}")
+        
+        elif isinstance(condition, SQLExpression):
+            if params is not None:
+                self._log(logging.WARNING, "Parameters provided with SQLExpression for HAVING. They will be ignored.")
+            
+            dialect = self.model_class.backend().dialect
+            sql, sql_params = condition.to_sql(dialect=dialect)
+            self._having_conditions.append((sql, sql_params))
+            self._log(logging.DEBUG, f"Added HAVING condition with SQLExpression: {sql}, parameters: {sql_params}")
 
-        # Check for potential alias usage in common patterns
-        if " AS " in condition.upper() or " as " in condition:
-            self._log(logging.WARNING,
-                      "HAVING condition contains 'AS' which might indicate alias usage. "
-                      "Note that column aliases cannot be used in HAVING clauses.",
-                      extra={"condition": condition})
-
-        self._having_conditions.append((condition, params))
-        self._log(logging.DEBUG, f"Added HAVING condition: {condition}, parameters: {params}")
+        else:
+            raise TypeError("Having condition must be a string or an SQLExpression object.")
+            
         return self
 
-    def select_expr(self, expr: SQLExpression) -> 'AggregateQueryMixin':
-        """Add expression to select list
-
-        Automatically clears the default SELECT * behavior unless
-        the user has explicitly selected columns.
+    def select_expr(self, expr: SQLExpression, alias: Optional[str] = None) -> 'AggregateQueryMixin':
+        """Add an expression to the SELECT clause, optionally with an alias.
 
         Args:
-            expr: SQL expression to select
+            expr: The SQLExpression to select.
+            alias: Optional alias for the expression.
 
         Returns:
-            Self for method chaining
+            Self for method chaining.
         """
-        self._expressions.append(expr)
+        
+        if alias:
+            final_expr = AliasedExpression(expr, alias)
+        else:
+            final_expr = expr
+        
+        self._expressions.append(final_expr)
 
-        # Clear default SELECT * if no explicit columns were selected
-        # This preserves any explicit selections the user has made
-        if self.select_columns is None:
-            self.select_columns = []
-        elif self.select_columns == ["*"]:
-            # If user has only selected "*" (not other columns), clear it
+        if self.select_columns is None or self.select_columns == ["*"]:
             self.select_columns = []
 
-        self._log(logging.DEBUG, f"Added SELECT expression: {expr.as_sql()}")
+        sql, _ = final_expr.to_sql(dialect=self.model_class.backend().dialect)
+        self._log(logging.DEBUG, f"Added SELECT expression: {sql}")
         return self
 
     # Advanced expression builders
@@ -169,19 +181,20 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             Self for method chaining
         """
         window_expr = WindowExpression(
-            expr, partition_by, order_by, alias,
-            frame_type, frame_start, frame_end,
-            exclude_option, window_name
+            expr, partition_by, order_by,
+            frame_type=frame_type, frame_start=frame_start, frame_end=frame_end,
+            exclude_option=exclude_option, window_name=window_name
         )
 
+        sql, _ = window_expr.to_sql(dialect=self.model_class.backend().dialect)
         self._log(logging.DEBUG,
-                  f"Added WINDOW function: {window_expr.as_sql()}",
+                  f"Added WINDOW function: {sql}",
                   extra={
                       'partition_by': partition_by,
                       'order_by': order_by,
                       'frame_type': frame_type
                   })
-        return self.select_expr(window_expr)
+        return self.select_expr(window_expr, alias=alias)
 
     def define_window(self, name: str,
                       partition_by: Optional[List[str]] = None,
@@ -216,14 +229,15 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         Returns:
             Self for method chaining
         """
-        case_expr = CaseExpression(conditions, else_result, alias)
+        case_expr = CaseExpression(conditions, else_result)
+        sql, _ = case_expr.to_sql(dialect=self.model_class.backend().dialect)
         self._log(logging.DEBUG,
-                  f"Added CASE expression: {case_expr.as_sql()}",
+                  f"Added CASE expression: {sql}",
                   extra={
                       'conditions': conditions,
                       'else_result': else_result
                   })
-        return self.select_expr(case_expr)
+        return self.select_expr(case_expr, alias=alias)
 
     def function(self, func: str, *args: Union[str, SQLExpression],
                  alias: Optional[str] = None) -> 'AggregateQueryMixin':
@@ -237,28 +251,24 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         Returns:
             Self for method chaining
         """
-        func_expr = FunctionExpression(func, *args, alias=alias)
-        self._log(logging.DEBUG, f"Added function expression: {func_expr.as_sql()}")
-        return self.select_expr(func_expr)
+        func_expr = FunctionExpression(func, *args)
+        sql, _ = func_expr.to_sql(dialect=self.model_class.backend().dialect)
+        self._log(logging.DEBUG, f"Added function expression: {sql}")
+        return self.select_expr(func_expr, alias=alias)
 
     def arithmetic(self, left: Union[str, SQLExpression],
                    operator: str,
                    right: Union[str, SQLExpression],
                    alias: Optional[str] = None) -> 'AggregateQueryMixin':
-        """Add an arithmetic expression
-
-        Args:
-            left: Left operand (column or expression)
-            operator: Arithmetic operator (+, -, *, /, %)
-            right: Right operand (column or expression)
-            alias: Optional alias for the result
-
-        Returns:
-            Self for method chaining
-        """
-        arith_expr = ArithmeticExpression(left, operator, right, alias)
-        self._log(logging.DEBUG, f"Added arithmetic expression: {arith_expr.as_sql()}")
-        return self.select_expr(arith_expr)
+        """Add an arithmetic expression"""
+        
+        left_expr = left if isinstance(left, SQLExpression) else Column(left)
+        right_expr = right if isinstance(right, SQLExpression) else Column(right)
+        
+        op_expr = SQLOperation(left_expr, operator, right_expr)
+        
+        self._log(logging.DEBUG, f"Added arithmetic expression: {op_expr!r}")
+        return self.select_expr(op_expr, alias=alias)
 
     def coalesce(self, *args: Union[str, SQLExpression, Any],
                  alias: Optional[str] = None) -> 'AggregateQueryMixin':
@@ -655,21 +665,25 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         Returns:
             Tuple of (sql_query, params)
         """
+        
         # Clear any existing expressions
         self._expressions = []
 
         # Add single aggregate expression
-        expr = AggregateExpression(func, column, distinct, "result")
+        expr = AggregateExpression(func, column, distinct)
+        aliased_expr = AliasedExpression(expr, "result")
 
         # Save original state and set new selection
         original_select = self.select_columns
-        self.select_columns = [expr.as_sql()]
+        self.select_columns = []
+        self._expressions.append(aliased_expr)
 
         # Build query
-        sql, params = super().build()
+        sql, params = self._build_aggregate_query()
 
         # Restore original state
         self.select_columns = original_select
+        self._expressions = []
 
         return sql, params
 
@@ -731,57 +745,49 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         return result["result"] if result else None
 
-    def _build_select(self) -> str:
-        """Override _build_select to handle expressions.
-
-        This method builds the SELECT clause for aggregate queries.
-        It includes:
-        1. Explicitly selected columns from select_columns
-        2. Group by columns if not already included in select_columns
-        3. SQL expressions added via aggregate methods
-
-        For non-aggregate queries, it delegates to the parent implementation.
-        """
+    def _build_select(self) -> Tuple[str, List[Any]]:
+        """Override _build_select to handle expressions and their parameters."""
         if not self._is_aggregate_query():
-            return super()._build_select()
+            sql = super()._build_select()
+            return sql, []
 
         dialect = self.model_class.backend().dialect
         table = dialect.format_identifier(self.model_class.table_name())
-
-        # Build select parts
+        
         select_parts = []
+        params: List[Any] = []
+        selected_columns = set()
 
         # First add explicitly selected columns from select_columns
-        selected_columns = set()
         if self.select_columns:
             for col in self.select_columns:
-                select_parts.append(col)
-                # Extract column name for tracking (handle "column as alias" format)
-                base_col = col.split(' as ')[0].strip() if ' as ' in col else col
-                base_col = base_col.strip('"').strip('`')  # Remove quotes if present
+                select_parts.append(self._format_identifier(col))
+                # Extract base column name for tracking
+                base_col = col.split(' as ')[0].strip().strip('"').strip('`')
                 selected_columns.add(base_col)
-        elif not self._expressions:  # Only use * if no expressions
-            # Default SELECT *
-            select_parts.append("*")
 
-        # Add group columns with proper quoting if not already included
+        # Add group columns if not already included
         for col in self._group_columns:
-            # Check if column exists in expressions with same name
-            col_exists_in_expr = any(
-                expr.alias == col.split('.')[-1]  # Handle table.column format
-                for expr in self._expressions
-                if hasattr(expr, 'alias') and expr.alias
-            )
-            
-            if col not in selected_columns and not col_exists_in_expr:
-                select_parts.append(dialect.format_identifier(col))
-                selected_columns.add(col)
+            if col not in selected_columns:
+                col_exists_in_expr = any(
+                    hasattr(expr, 'alias') and expr.alias == col.split('.')[-1]
+                    for expr in self._expressions
+                )
+                if not col_exists_in_expr:
+                    select_parts.append(self._format_identifier(col))
+                    selected_columns.add(col)
 
-        # Add expressions (they handle their own formatting)
+        # Add expressions
         for expr in self._expressions:
-            select_parts.append(expr.as_sql())
+            sql, expr_params = expr.to_sql(dialect)
+            select_parts.append(sql)
+            params.extend(expr_params)
+        
+        # Handle the case where there are no explicit columns or expressions
+        if not select_parts:
+             select_parts.append("*")
 
-        return f"SELECT {', '.join(select_parts)} FROM {table}"
+        return f"SELECT {', '.join(select_parts)} FROM {table}", params
 
     def _build_group_by(self) -> Tuple[Optional[str], List[Any]]:
         """Build GROUP BY and HAVING clauses.
@@ -855,8 +861,8 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         Follows standard SQL clause order:
         SELECT ... FROM ... [JOIN] ... WHERE ... GROUP BY ... HAVING ... WINDOW ... ORDER BY ... LIMIT/OFFSET
 
-        It also performs type adaptation on the parameters collected from WHERE and HAVING
-        clauses to ensure they are compatible with the target database driver before execution,
+        It also performs type adaptation on the parameters collected from all clauses
+        to ensure they are compatible with the target database driver before execution,
         if `self._adapt_params` is True.
 
         Returns:
@@ -866,8 +872,9 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             # Delegate to super().build(), which will use self._adapt_params
             return super().build()
 
-        query_parts = [self._build_select()]
-        all_raw_params = [] # Renamed to emphasize they are raw at this point
+        select_sql, select_params = self._build_select()
+        query_parts = [select_sql]
+        all_raw_params = list(select_params)  # Start with params from SELECT expressions
 
         # Add JOIN clauses
         join_parts = self._build_joins()
@@ -878,13 +885,13 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         where_sql, where_params = self._build_where()
         if where_sql:
             query_parts.append(where_sql)
-            all_raw_params.extend(where_params) # Collect raw WHERE params
+            all_raw_params.extend(where_params)
 
         # Add GROUP BY and HAVING clauses
         group_sql, group_params = self._build_group_by()
         if group_sql:
             query_parts.append(group_sql)
-            all_raw_params.extend(group_params) # Collect raw HAVING params
+            all_raw_params.extend(group_params)
 
         # Add WINDOW definitions if any
         window_sql = self._build_window_defs()
@@ -905,33 +912,24 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         # Step 1: Perform type adaptation on all collected raw parameters, if _adapt_params is True.
         if hasattr(self, '_adapt_params') and self._adapt_params:
-            # Get default type adapter suggestions from the backend.
             all_suggestions = self.model_class.backend().get_default_adapter_suggestions()
-
             processed_params = []
             for param_value in all_raw_params:
                 py_type = type(param_value)
                 suggestion = all_suggestions.get(py_type)
-
                 if suggestion:
                     adapter_instance, target_driver_type = suggestion
-                    # Use the adapter to convert the Python value to a database-compatible type.
                     processed_params.append(adapter_instance.to_database(param_value, target_driver_type))
                 else:
-                    # If no specific adapter is found, use the original value (pass-through).
                     processed_params.append(param_value)
-            params = tuple(processed_params) # Final adapted parameters
+            params = tuple(processed_params)
         else:
-            # If adapt_params is False or not set, return raw parameters as is.
             params = tuple(all_raw_params)
 
-        # Get the target database placeholder
+        # Get the target database placeholder and replace if necessary
         backend = self.model_class.backend()
         placeholder = backend.dialect.get_placeholder()
-
-        # Only replace if the placeholder is not a question mark
         if placeholder != '?':
-            # Replace all question marks with the correct placeholder
             processed_sql = super()._replace_question_marks(raw_sql, placeholder)
         else:
             processed_sql = raw_sql

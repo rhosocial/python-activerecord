@@ -20,9 +20,8 @@ from .capabilities import DatabaseCapabilities
 from .config import ConnectionConfig
 from .dialect import SQLDialectBase, SQLExpressionBase, SQLBuilder, ReturningOptions
 from .errors import ReturningNotSupportedError
+from .field_registry import FieldTypeRegistry
 from .transaction import TransactionManager, AsyncTransactionManager
-from .typing import QueryResult, DatabaseType
-from .type_registry import TypeRegistry
 from .type_adapter import (
     SQLTypeAdapter,
     DateTimeAdapter,
@@ -32,6 +31,8 @@ from .type_adapter import (
     BooleanAdapter,
     DecimalAdapter,
 )
+from .type_registry import TypeRegistry
+from .typing import QueryResult
 
 
 # ============================================================================
@@ -82,6 +83,30 @@ class CapabilityMixin:
     @abstractmethod
     def _initialize_capabilities(self) -> DatabaseCapabilities:
         """Initialize database capabilities (to be implemented by concrete backends)."""
+        pass
+
+
+class FieldTypeSupportMixin:
+    """
+    A mixin for StorageBackend implementations that provides an interface
+    for them to offer a custom FieldTypeRegistry.
+
+    By implementing `get_field_type_registry`, a backend can influence how
+    Python types are mapped to SQLField types when building expressions.
+    """
+
+    @abstractmethod
+    def get_field_type_registry(self) -> Optional[FieldTypeRegistry]:
+        """
+        Returns a registry for mapping Python types to SQLField types.
+
+        If a backend provides a registry, it will be consulted during the
+        type resolution process for query expressions.
+
+        Returns:
+            An instance of FieldTypeRegistry, or None if no custom mapping
+            is provided.
+        """
         pass
 
 
@@ -787,6 +812,7 @@ class StorageBackend(
     LoggingMixin,
     CapabilityMixin,
     TypeAdaptionMixin,
+    FieldTypeSupportMixin,
     SQLBuildingMixin,
     QueryAnalysisMixin,
     ReturningClauseMixin,
@@ -1141,6 +1167,7 @@ class AsyncStorageBackend(
     LoggingMixin,
     CapabilityMixin,
     AsyncTypeAdaptionMixin, # <--- Change this
+    FieldTypeSupportMixin,
     SQLBuildingMixin,
     QueryAnalysisMixin,
     ReturningClauseMixin,

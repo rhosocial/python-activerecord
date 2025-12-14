@@ -6,7 +6,7 @@ import pytest
 import sqlite3
 
 from rhosocial.activerecord.backend.dialect import ExplainType
-from rhosocial.activerecord.query.expression import FunctionExpression, WindowExpression
+from rhosocial.activerecord.base.expression import FunctionExpression, WindowExpression
 from rhosocial.activerecord.testsuite.feature.query.conftest import (
     order_fixtures,
     blog_fixtures,
