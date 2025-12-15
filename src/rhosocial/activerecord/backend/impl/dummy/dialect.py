@@ -155,14 +155,20 @@ class DummyDialect(SQLDialectBase):
         """Formats a SQL identifier by double-quoting it."""
         return f'"{identifier}"'
 
-    def format_limit_offset(self, limit: Optional[int] = None, offset: Optional[int] = None) -> str:
+    def format_limit_offset(self, limit: Optional[int] = None, offset: Optional[int] = None) -> Tuple[Optional[str], List[Any]]:
         """Appends standard LIMIT and OFFSET clauses."""
         clause_parts = []
+        params = []
         if limit is not None:
-            clause_parts.append(f"LIMIT {limit}")
+            clause_parts.append(f"LIMIT ?")
+            params.append(limit)
         if offset is not None:
-            clause_parts.append(f"OFFSET {offset}")
-        return " ".join(clause_parts)
+            clause_parts.append(f"OFFSET ?")
+            params.append(offset)
+        
+        if not clause_parts:
+            return None, []
+        return " ".join(clause_parts), params
 
     def get_parameter_placeholder(self, position: int) -> str:
         """Returns a generic '?' parameter placeholder, ignoring position for dummy."""

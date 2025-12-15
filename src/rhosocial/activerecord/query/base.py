@@ -683,10 +683,15 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         return f"ORDER BY {', '.join(formatted_clauses)}"
 
-    def _build_limit_offset(self) -> Optional[str]:
-        """Build LIMIT/OFFSET clause using dialect."""
+    def _build_limit_offset(self) -> Tuple[Optional[str], List[Any]]:
+        """Build LIMIT/OFFSET clause using dialect.
+
+        Returns:
+            Tuple[Optional[str], List[Any]]: SQL fragment and list of parameters
+        """
         dialect = self.model_class.backend().dialect
-        return dialect.format_limit_offset(self.limit_count, self.offset_count)
+        sql_fragment, params = dialect.format_limit_offset(self.limit_count, self.offset_count)
+        return sql_fragment, params
 
     def _replace_question_marks(self, sql: str, placeholder: str) -> str:
         """Replace question mark placeholders with database-specific placeholders.
@@ -759,9 +764,10 @@ class BaseQueryMixin(IQuery[ModelT]):
             query_parts.append(order_sql)
 
         # Add LIMIT/OFFSET clause
-        limit_offset_sql = self._build_limit_offset()
+        limit_offset_sql, limit_offset_params = self._build_limit_offset()
         if limit_offset_sql:
             query_parts.append(limit_offset_sql)
+            all_params.extend(limit_offset_params)
 
         raw_sql = " ".join(query_parts)
         

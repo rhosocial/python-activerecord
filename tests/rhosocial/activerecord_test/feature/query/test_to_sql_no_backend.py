@@ -81,8 +81,8 @@ def test_to_sql_with_dummy_backend(unconfigured_models):
     sql, params = query_builder.to_sql()
 
     # Expected SQL from DummyDialect (uses double quotes for identifiers, ? for placeholders)
-    expected_sql = 'SELECT * FROM "users" WHERE name = ? ORDER BY "id" DESC LIMIT 5 OFFSET 10'
-    expected_params = ("Alice",)
+    expected_sql = 'SELECT * FROM "users" WHERE name = ? ORDER BY "id" DESC LIMIT ? OFFSET ?'
+    expected_params = ("Alice", 5, 10)
 
     assert sql == expected_sql
     assert params == expected_params

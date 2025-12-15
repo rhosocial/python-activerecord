@@ -897,12 +897,12 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             query_parts.append(order_sql)
 
         # Add LIMIT/OFFSET clause
-        limit_offset_sql = self._build_limit_offset()
+        limit_offset_sql, limit_offset_params = self._build_limit_offset()
         if limit_offset_sql:
             query_parts.append(limit_offset_sql)
-
+            all_raw_params.extend(limit_offset_params) # 将参数添加到参数列表中
+        
         raw_sql = " ".join(query_parts)
-
         # Step 1: Perform type adaptation on all collected raw parameters, if _adapt_params is True.
         if hasattr(self, '_adapt_params') and self._adapt_params:
             # Get default type adapter suggestions from the backend.

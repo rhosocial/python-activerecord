@@ -623,7 +623,7 @@ class SQLDialectBase(ABC):
 
     @abstractmethod
     def format_limit_offset(self, limit: Optional[int] = None,
-                            offset: Optional[int] = None) -> str:
+                            offset: Optional[int] = None) -> Tuple[Optional[str], List[Any]]:
         """Format LIMIT and OFFSET clause.
 
         Args:

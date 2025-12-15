@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
 import sqlite3
 import sys
-from typing import Optional, List, Set, Union, Dict, Any
+from typing import Optional, List, Set, Union, Dict, Any, Tuple # Added Tuple
 
 from ...dialect import (
     SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, ExplainOptions, ExplainType,
@@ -64,16 +64,28 @@ class SQLiteDialect(SQLDialectBase):
         return f'"{identifier}"'
 
     def format_limit_offset(self, limit: Optional[int] = None,
-                            offset: Optional[int] = None) -> str:
-        # SQLite requires LIMIT when using OFFSET
-        # Use -1 as LIMIT to indicate "no limit"
+                            offset: Optional[int] = None) -> Tuple[Optional[str], List[Any]]:
+        params = []
+        sql_parts = []
+
         if limit is None and offset is not None:
-            return f"LIMIT -1 OFFSET {offset}"
+            # SQLite requires LIMIT when using OFFSET, use -1 as LIMIT to indicate "no limit"
+            sql_parts.append("LIMIT ? OFFSET ?")
+            params.append(-1) # SQLite uses -1 for no limit
+            params.append(offset)
         elif limit is not None:
             if offset is not None:
-                return f"LIMIT {limit} OFFSET {offset}"
-            return f"LIMIT {limit}"
-        return ""
+                sql_parts.append("LIMIT ? OFFSET ?")
+                params.append(limit)
+                params.append(offset)
+            else:
+                sql_parts.append("LIMIT ?")
+                params.append(limit)
+        
+        if not sql_parts:
+            return None, []
+
+        return " ".join(sql_parts), params
 
     def get_parameter_placeholder(self, position: int) -> str:
         """Get SQLite parameter placeholder
