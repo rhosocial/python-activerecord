@@ -1,17 +1,23 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/backend.py
-from sqlite3 import ProgrammingError
+"""
+SQLite-specific implementation of the StorageBackend.
 
+This module provides the concrete implementation for interacting with SQLite databases,
+handling connections, queries, transactions, and type adaptations tailored for SQLite's
+specific behaviors and SQL dialect.
+"""
 import logging
 import re
 import sqlite3
 import sys
 import time
+from sqlite3 import ProgrammingError
 from typing import Optional, Tuple, List, Any, Dict, Union, Type
 
+from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
-from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from ...base import StorageBackend
 from ...capabilities import (
     DatabaseCapabilities,
@@ -32,7 +38,7 @@ from ...capabilities import (
 from ...dialect import ReturningOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
-from ...typing import QueryResult, DatabaseType
+from ...result import QueryResult
 from ...type_adapter import SQLTypeAdapter
 
 
@@ -449,48 +455,7 @@ class SQLiteBackend(StorageBackend):
         """Flag to identify SQLite backend for compatibility checks"""
         return True
 
-    def _get_statement_type(self, sql: str) -> str:
-        """
-        Parse the SQL statement type from the query.
 
-        SQLite supports pragmas which start with 'PRAGMA'.
-        Also handles CTE queries that start with 'WITH'.
-
-        Args:
-            sql: SQL statement
-
-        Returns:
-            str: Statement type in uppercase
-        """
-        # Strip comments and whitespace for better detection
-        clean_sql = re.sub(r'--.*$', '', sql, flags=re.MULTILINE).strip()
-
-        # Check if SQL is empty after cleaning
-        if not clean_sql:
-            return ""
-
-        upper_sql = clean_sql.upper()
-
-        # Check for PRAGMA statements
-        if upper_sql.startswith('PRAGMA'):
-            return 'PRAGMA'
-
-        # Check for CTE queries (WITH ... SELECT)
-        if upper_sql.startswith('WITH'):
-            # Find the main statement type after WITH clause
-            # Look for SELECT, INSERT, UPDATE, DELETE after the closing parenthesis
-            # of the CTE definition
-            for main_type in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']:
-                if main_type in upper_sql:
-                    # Find the position of the main statement type
-                    # This is a simple approach that works for most cases
-                    # More complex cases might need a SQL parser
-                    return main_type
-            # If no main type found, default to SELECT (most common)
-            return 'SELECT'
-
-        # Default to base implementation
-        return super()._get_statement_type(clean_sql)
 
     def _is_select_statement(self, stmt_type: str) -> bool:
         """

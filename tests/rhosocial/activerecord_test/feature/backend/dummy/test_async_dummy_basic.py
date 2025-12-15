@@ -3,7 +3,7 @@ Test to verify that AsyncDummyBackend can be imported and instantiated without e
 This test verifies that the async backend implementation is properly structured.
 """
 import pytest
-from rhosocial.activerecord.backend.impl.dummy.async_backend import AsyncDummyBackend
+from rhosocial.activerecord.backend.impl.dummy.backend import AsyncDummyBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 
 

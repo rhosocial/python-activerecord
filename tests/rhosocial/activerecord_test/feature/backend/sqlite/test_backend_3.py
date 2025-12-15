@@ -6,7 +6,7 @@ from unittest.mock import patch, MagicMock
 
 import pytest
 
-from rhosocial.activerecord.backend import ReturningOptions
+from rhosocial.activerecord.backend.dialect import ReturningOptions
 from rhosocial.activerecord.backend.errors import ConnectionError
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig

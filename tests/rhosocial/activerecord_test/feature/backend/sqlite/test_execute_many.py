@@ -7,7 +7,7 @@ import pytest
 
 from rhosocial.activerecord.backend.errors import DatabaseError, QueryError
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.typing import QueryResult
+from rhosocial.activerecord.backend.result import QueryResult
 
 
 class TestSQLiteExecuteMany:

@@ -8,6 +8,8 @@ from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
+from rhosocial.activerecord.backend.options import ExecutionOptions # Added import
+from rhosocial.activerecord.backend.schema import StatementType
 
 # Attempt to import rich for formatted output
 try:
@@ -21,6 +23,22 @@ except ImportError:
     RichOutputProvider = None
 
 logger = logging.getLogger(__name__)
+
+
+def guess_statement_type(sql: str) -> StatementType:
+    """Makes a best guess at the statement type from a raw SQL string."""
+    # A simple parser that looks at the first word.
+    # This is non-critical and only for CLI usability.
+    sql_stripped = sql.strip().upper()
+    if sql_stripped.startswith(("SELECT", "WITH", "EXPLAIN", "PRAGMA")):
+        return StatementType.DQL
+    elif sql_stripped.startswith(("INSERT", "UPDATE", "DELETE")):
+        return StatementType.DML
+    elif sql_stripped.startswith(("CREATE", "ALTER", "DROP")):
+        return StatementType.DDL
+    else:
+        # For other types or when in doubt, default to OTHER
+        return StatementType.OTHER
 
 
 def parse_args():
@@ -90,7 +108,12 @@ def execute_query(sql_query: str, backend: SQLiteBackend, provider: 'OutputProvi
         backend.connect()
         # Since this backend is sync-only, is_async is always False
         provider.display_query(sql_query, is_async=False)
-        result = backend.execute(sql_query)
+        
+        # Determine statement type for the CLI tool
+        stmt_type = guess_statement_type(sql_query)
+        exec_options = ExecutionOptions(stmt_type=stmt_type)
+
+        result = backend.execute(sql_query, options=exec_options)
         
         if not result:
             provider.display_no_result_object()
@@ -154,7 +177,7 @@ def main():
     
     # Configure logging handlers based on provider
     # Force all logging to stderr to keep stdout clean for data piping
-    if isinstance(provider, RichOutputProvider):
+    if RICH_AVAILABLE and isinstance(provider, RichOutputProvider):
          logging.basicConfig(
             level=numeric_level,
             format="%(message)s",

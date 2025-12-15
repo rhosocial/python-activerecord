@@ -6,6 +6,8 @@ from rhosocial.activerecord.backend.errors import QueryError, RecordNotFound, Da
 from rhosocial.activerecord.model import ActiveRecord
 from pydantic import Field
 from typing import ClassVar, Optional
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 
 
 class UserModel(ActiveRecord):
@@ -74,8 +76,9 @@ def test_dummy_backend_transaction_manager_raises_not_implemented_error(dummy_ba
 
 def test_dummy_backend_execute_raises_not_implemented_error(dummy_backend_instance):
     """Test that execute() on DummyBackend (via StorageBackend base) raises NotImplementedError."""
+    options = ExecutionOptions(stmt_type=StatementType.DQL) # No sql, params here
     with pytest.raises(NotImplementedError) as excinfo:
-        dummy_backend_instance.execute("SELECT 1", None)
+        dummy_backend_instance.execute("SELECT 1", None, options=options) # Pass sql, params positionally
     assert get_expected_error_message() in str(excinfo.value)
 
 
@@ -134,4 +137,5 @@ def test_dummy_backend_model_delete_raises_not_implemented_error(unconfigured_us
     with pytest.raises(NotImplementedError) as excinfo:
         user.delete()
     assert get_expected_error_message() in str(excinfo.value)
+
 

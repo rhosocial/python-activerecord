@@ -1,697 +1,1229 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
-import sqlite3
-import sys
-from typing import Optional, List, Set, Union, Dict, Any, Tuple # Added Tuple
+"""
+SQLite backend SQL dialect implementation.
 
-from ...dialect import (
-    SQLExpressionBase, SQLDialectBase, ReturningClauseHandler, ExplainOptions, ExplainType,
-    ExplainFormat, AggregateHandler, JsonOperationHandler, CTEHandler
+SQLite is a lightweight database with limited support for advanced SQL features.
+This dialect implements only the protocols for features that SQLite actually supports.
+"""
+from typing import Any, List, Optional, Tuple
+
+from rhosocial.activerecord.backend.dialect import UnsupportedFeatureError
+from rhosocial.activerecord.backend.dialect.base import BaseDialect
+from rhosocial.activerecord.backend.dialect.protocols import (
+    CTESupport,
+    ReturningSupport,
+    JSONSupport
 )
-from ...errors import (
-    ReturningNotSupportedError, WindowFunctionNotSupportedError, GroupingSetNotSupportedError,
-    JsonOperationNotSupportedError
-)
 
 
+class SQLiteDialect(
+    BaseDialect,
+    CTESupport,
+    ReturningSupport,
+    JSONSupport
+):
+    """
+    SQLite dialect implementation.
 
+    SQLite supports:
+    - Basic and recursive CTEs (since 3.8.3)
+    - RETURNING clause (since 3.35.0)
+    - JSON operations (with JSON1 extension, since 3.38.0)
 
-class SQLiteExpression(SQLExpressionBase):
-    """SQLite expression implementation"""
-
-    def format(self, dialect: SQLDialectBase) -> str:
-        """Format SQLite expression"""
-        return self.expression
-
-
-class SQLiteDialect(SQLDialectBase):
-    """SQLite dialect implementation"""
-
-    def __init__(self):
-        """Initialize SQLite dialect"""
-        version = tuple(map(int, sqlite3.sqlite_version.split('.')))
-        super().__init__(version)
-
-        # Initialize handlers
-        self._returning_handler = SQLiteReturningHandler(version)
-        self._aggregate_handler = SQLiteAggregateHandler(version)
-        self._json_operation_handler = SQLiteJsonHandler(version)
-        self._cte_handler = SQLiteCTEHandler(version)
-
-    def format_expression(self, expr: SQLExpressionBase) -> str:
-        """Format SQLite expression"""
-        if not isinstance(expr, SQLiteExpression):
-            raise ValueError(f"Unsupported expression type: {type(expr)}")
-        return expr.format(self)
+    SQLite does NOT support:
+    - Window functions (requires 3.25.0+, not implemented here for minimum version)
+    - Advanced grouping (ROLLUP, CUBE, GROUPING SETS)
+    - LATERAL joins
+    - Array types
+    - UPSERT with ON CONFLICT syntax (has INSERT OR REPLACE but different semantics)
+    """
 
     def get_placeholder(self) -> str:
-        """Get SQLite parameter placeholder"""
+        """SQLite uses '?' for placeholders."""
         return "?"
 
-    def format_string_literal(self, value: str) -> str:
-        # SQLite accepts both single and double quotes
-        # We choose single quotes for consistency
-        escaped = value.replace("'", "''")
-        return f"'{escaped}'"
+    def supports_basic_cte(self) -> bool:
+        """Basic CTEs are supported since SQLite 3.8.3."""
+        return True
 
-    def format_identifier(self, identifier: str) -> str:
-        # SQLite allows double quotes or backticks for identifiers
-        # We choose double quotes as it's more standard SQL
-        if '"' in identifier:
-            # If identifier contains double quotes, switch to backticks
-            # to avoid complex escaping
-            escaped = identifier.replace('`', '``')
-            return f"`{escaped}`"
-        return f'"{identifier}"'
+    def supports_recursive_cte(self) -> bool:
+        """Recursive CTEs are supported since SQLite 3.8.3."""
+        return True
 
-    def format_limit_offset(self, limit: Optional[int] = None,
-                            offset: Optional[int] = None) -> Tuple[Optional[str], List[Any]]:
-        params = []
-        sql_parts = []
-
-        if limit is None and offset is not None:
-            # SQLite requires LIMIT when using OFFSET, use -1 as LIMIT to indicate "no limit"
-            sql_parts.append("LIMIT ? OFFSET ?")
-            params.append(-1) # SQLite uses -1 for no limit
-            params.append(offset)
-        elif limit is not None:
-            if offset is not None:
-                sql_parts.append("LIMIT ? OFFSET ?")
-                params.append(limit)
-                params.append(offset)
-            else:
-                sql_parts.append("LIMIT ?")
-                params.append(limit)
-        
-        if not sql_parts:
-            return None, []
-
-        return " ".join(sql_parts), params
-
-    def get_parameter_placeholder(self, position: int) -> str:
-        """Get SQLite parameter placeholder
-
-        SQLite uses ? for all parameters regardless of position
-        """
-        return "?"
-
-    def format_explain(self, sql: str, options: Optional[ExplainOptions] = None) -> str:
-        """Format SQLite EXPLAIN statement
-
-        Args:
-            sql: SQL to explain
-            options: EXPLAIN options
-
-        Returns:
-            str: Formatted EXPLAIN statement
-        """
-        if not options:
-            options = ExplainOptions()
-
-        # SQLite supports two types of EXPLAIN
-        if options.type == ExplainType.QUERYPLAN:
-            return f"EXPLAIN QUERY PLAN {sql}"
-        return f"EXPLAIN {sql}"
-
-    @property
-    def supported_formats(self) -> Set[ExplainFormat]:
-        return {ExplainFormat.TEXT}
-
-    def create_expression(self, expression: str) -> SQLiteExpression:
-
-        """Create SQLite expression"""
-
-        return SQLiteExpression(expression)
-
-
-class SQLiteReturningHandler(ReturningClauseHandler):
-    """SQLite RETURNING clause handler implementation"""
-
-    def __init__(self, version: tuple):
-        """
-        Initialize SQLite RETURNING handler with version information.
-
-        Args:
-            version: SQLite version tuple (major, minor, patch)
-        """
-        self._version = version
-
-    @property
-    def is_supported(self) -> bool:
-        """
-        Check if RETURNING clause is supported.
-
-        RETURNING clause was added in SQLite 3.35.0.
-
-        Returns:
-            bool: True if supported, False otherwise
-        """
-        return self._version >= (3, 35, 0)
-
-    def format_clause(self, columns: Optional[List[str]] = None) -> str:
-        """
-        Format RETURNING clause.
-
-        Args:
-            columns: Column names to return. None means all columns (*).
-
-        Returns:
-            str: Formatted RETURNING clause
-
-        Raises:
-            ReturningNotSupportedError: If RETURNING not supported by SQLite version
-        """
-        if not self.is_supported:
-            raise ReturningNotSupportedError(
-                f"RETURNING clause not supported in SQLite {'.'.join(map(str, self._version))}. "
-                f"Version 3.35.0 or higher is required."
-            )
-
-        if not columns:
-            return "RETURNING *"
-
-        # Validate and escape each column name
-        safe_columns = [self._validate_column_name(col) for col in columns]
-        return f"RETURNING {', '.join(safe_columns)}"
-
-    def format_advanced_clause(self,
-                               columns: Optional[List[str]] = None,
-                               expressions: Optional[List[Dict[str, Any]]] = None,
-                               aliases: Optional[Dict[str, str]] = None,
-                               dialect_options: Optional[Dict[str, Any]] = None) -> str:
-        """
-        Format advanced RETURNING clause for SQLite.
-
-        SQLite supports expressions in RETURNING clause since 3.35.0.
-
-        Args:
-            columns: List of column names to return
-            expressions: List of expressions to return
-            aliases: Dictionary mapping column/expression names to aliases
-            dialect_options: SQLite-specific options
-
-        Returns:
-            str: Formatted RETURNING clause
-
-        Raises:
-            ReturningNotSupportedError: If RETURNING not supported
-        """
-        if not self.is_supported:
-            raise ReturningNotSupportedError(
-                f"RETURNING clause not supported in SQLite {'.'.join(map(str, self._version))}. "
-                f"Version 3.35.0 or higher is required."
-            )
-
-        # Process returning clause components
-        items = []
-
-        # Add columns with potential aliases
-        if columns:
-            for col in columns:
-                alias = aliases.get(col) if aliases else None
-                if alias:
-                    items.append(f"{self._validate_column_name(col)} AS {self._validate_column_name(alias)}")
-                else:
-                    items.append(self._validate_column_name(col))
-
-        # Add expressions with potential aliases
-        if expressions:
-            for expr in expressions:
-                expr_text = expr.get("expression", "")
-                expr_alias = expr.get("alias")
-                if expr_alias:
-                    items.append(f"{expr_text} AS {self._validate_column_name(expr_alias)}")
-                else:
-                    items.append(expr_text)
-
-        # If no items specified, return all columns
-        if not items:
-            return "RETURNING *"
-
-        return f"RETURNING {', '.join(items)}"
-
-    def _validate_column_name(self, column: str) -> str:
-        """
-        Validate and escape column name for SQLite.
-
-        SQLite uses double quotes or backticks for identifiers.
-        We choose double quotes as it's more standard SQL.
-
-        Args:
-            column: Column name to validate
-
-        Returns:
-            str: Validated and properly quoted column name
-
-        Raises:
-            ValueError: If column name is invalid
-        """
-        # Remove any quotes first
-        clean_name = column.strip('"').strip('`')
-
-        # Basic validation
-        if not clean_name or clean_name.isspace():
-            raise ValueError("Empty column name")
-
-        # Check for common SQL injection patterns
-        dangerous_patterns = [';', '--', 'union', 'select', 'drop', 'delete', 'update']
-        lower_name = clean_name.lower()
-        if any(pattern in lower_name for pattern in dangerous_patterns):
-            raise ValueError(f"Invalid column name: {column}")
-
-        # If name contains special chars, wrap in quotes
-        if ' ' in clean_name or '.' in clean_name or '"' in clean_name:
-            return f'"{clean_name}"'
-
-        return clean_name
-
-    def supports_feature(self, feature: str) -> bool:
-        """
-        Check if a specific RETURNING feature is supported by SQLite.
-
-        SQLite supports basic expressions and aliases in RETURNING.
-
-        Args:
-            feature: Feature name, such as "expressions", "aliases"
-
-        Returns:
-            bool: True if feature is supported, False otherwise
-        """
-        if not self.is_supported:
-            return False
-
-        # SQLite supports basic expressions and aliases
-        supported_features = {"columns", "expressions", "aliases"}
-        return feature in supported_features
-
-
-class SQLiteAggregateHandler(AggregateHandler):
-    """SQLite-specific aggregate functionality handler."""
-
-    def __init__(self, version: tuple):
-        """Initialize with SQLite version.
-
-        Args:
-            version: SQLite version tuple (major, minor, patch)
-        """
-        super().__init__(version)
-
-    @property
-    def supports_window_functions(self) -> bool:
-        """Check if SQLite supports window functions.
-
-        SQLite supports window functions from version 3.25.0
-        """
-        return self._version >= (3, 25, 0)
-
-    @property
-    def supports_advanced_grouping(self) -> bool:
-        """Check if SQLite supports advanced grouping.
-
-        SQLite does not support CUBE, ROLLUP, or GROUPING SETS.
-        """
+    def supports_materialized_cte(self) -> bool:
+        """SQLite does not support MATERIALIZED hint."""
         return False
 
-    def format_window_function(self,
-                               expr: str,
-                               partition_by: Optional[List[str]] = None,
-                               order_by: Optional[List[str]] = None,
-                               frame_type: Optional[str] = None,
-                               frame_start: Optional[str] = None,
-                               frame_end: Optional[str] = None,
-                               exclude_option: Optional[str] = None) -> str:
-        """Format window function SQL for SQLite.
+    def supports_returning_clause(self) -> bool:
+        """RETURNING clause is supported since SQLite 3.35.0."""
+        return True
+
+    def format_returning_clause(
+        self,
+        columns: List[str]
+    ) -> Tuple[str, Tuple]:
+        """
+        Format RETURNING clause for SQLite.
 
         Args:
-            expr: Base expression for window function
-            partition_by: PARTITION BY columns
-            order_by: ORDER BY columns
-            frame_type: Window frame type (ROWS/RANGE only, GROUPS not supported)
-            frame_start: Frame start specification
-            frame_end: Frame end specification
-            exclude_option: Frame exclusion option (not supported in SQLite)
+            columns: List of column names
 
         Returns:
-            str: Formatted window function SQL
-
-        Raises:
-            WindowFunctionNotSupportedError: If window functions not supported or using unsupported features
+            Tuple of (SQL string, empty parameters tuple)
         """
-        if not self.supports_window_functions:
-            raise WindowFunctionNotSupportedError(
-                f"Window functions not supported in SQLite {'.'.join(map(str, self._version))}"
-            )
+        cols = [self.format_identifier(c) for c in columns]
+        return f"RETURNING {', '.join(cols)}", ()
 
-        window_parts = []
+    def supports_json_type(self) -> bool:
+        """JSON is supported with JSON1 extension."""
+        return True
 
-        if partition_by:
-            window_parts.append(f"PARTITION BY {', '.join(partition_by)}")
+    def get_json_access_operator(self) -> str:
+        """SQLite uses '->' for JSON access."""
+        return "->"
 
-        if order_by:
-            window_parts.append(f"ORDER BY {', '.join(order_by)}")
+    def format_limit_offset(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None
+    ) -> Tuple[Optional[str], List[Any]]:
+        """
+        Format LIMIT/OFFSET clause with SQLite-specific handling.
 
-        # Build frame clause
-        frame_clause = []
-        if frame_type:
-            if frame_type == "GROUPS":
-                raise WindowFunctionNotSupportedError("GROUPS frame type not supported in SQLite")
-
-            frame_clause.append(frame_type)
-
-            if frame_start:
-                if frame_end:
-                    frame_clause.append(f"BETWEEN {frame_start} AND {frame_end}")
-                else:
-                    frame_clause.append(frame_start)
-
-        if frame_clause:
-            window_parts.append(" ".join(frame_clause))
-
-        if exclude_option:
-            raise WindowFunctionNotSupportedError("EXCLUDE options not supported in SQLite")
-
-        window_clause = " ".join(window_parts)
-        return f"{expr} OVER ({window_clause})"
-
-    def format_grouping_sets(self,
-                             type_name: str,
-                             columns: List[Union[str, List[str]]]) -> str:
-        """Format grouping sets SQL for SQLite.
-
-        SQLite does not support CUBE, ROLLUP, or GROUPING SETS.
+        SQLite requires LIMIT when using OFFSET alone, so we use LIMIT -1
+        to indicate "no limit" when only OFFSET is specified.
 
         Args:
-            type_name: Grouping type (CUBE, ROLLUP, GROUPING SETS)
-            columns: Columns to group by
-
-        Raises:
-            GroupingSetNotSupportedError: Always raised as SQLite doesn't support these
-        """
-        raise GroupingSetNotSupportedError(
-            f"{type_name} not supported in SQLite. Consider using basic GROUP BY instead."
-        )
-
-
-class SQLiteJsonHandler(JsonOperationHandler):
-    """SQLite-specific implementation of JSON operations."""
-
-    def __init__(self, version: tuple):
-        """Initialize handler with SQLite version info.
-
-        Args:
-            version: SQLite version as (major, minor, patch) tuple
-        """
-        self._version = version
-
-        # Cache capability detection results
-        self._json_supported = None
-        self._arrows_supported = None
-        self._function_support = {}
-
-    @property
-    def supports_json_operations(self) -> bool:
-        """Check if SQLite version supports JSON1 extension.
-
-        SQLite includes JSON1 extension in most builds from version 3.9.0
+            limit: Optional row limit
+            offset: Optional row offset
 
         Returns:
-            bool: True if JSON operations are supported
+            Tuple of (SQL string or None, parameters list)
         """
-        if self._json_supported is None:
-            self._json_supported = self._version >= (3, 9, 0)
-        return self._json_supported
+        if offset is not None and limit is None:
+            return "LIMIT -1 OFFSET ?", [offset]
+        return super().format_limit_offset(limit, offset)
 
-    @property
-    def supports_json_arrows(self) -> bool:
-        """Check if SQLite version supports -> and ->> operators.
 
-        SQLite added -> and ->> operators in version 3.38.0 (2022-02-22)
+if __name__ == "__main__":
+    from rhosocial.activerecord.backend.expression import (
+        Literal, Column, Identifier, FunctionCall, Subquery, TableExpression,
+        ComparisonPredicate, LogicalPredicate, InPredicate, BetweenPredicate,
+        IsNullPredicate, LikePredicate,
+        BinaryExpression, UnaryExpression, RawSQLExpression, BinaryArithmeticExpression,
+        CaseExpression, CastExpression, ExistsExpression, AnyExpression, AllExpression,
+        WindowExpression, JSONExpression, ArrayExpression,
+        SetOperationExpression, GroupingExpression, GroupExpression, JoinExpression,
+        CTEExpression, WithQueryExpression, ValuesExpression, TableFunctionExpression,
+        LateralExpression,
+        QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
+        ExplainExpression, SQLOperation
+    )
 
-        Returns:
-            bool: True if JSON arrow operators are supported
-        """
-        if self._arrows_supported is None:
-            self._arrows_supported = self._version >= (3, 38, 0)
-        return self._arrows_supported
+    dialect = SQLiteDialect()
 
-    def format_json_operation(self,
-                              column: Union[str, Any],
-                              path: Optional[str] = None,
-                              operation: str = "extract",
-                              value: Any = None,
-                              alias: Optional[str] = None) -> str:
-        """Format JSON operation according to SQLite syntax.
 
-        This method converts abstract JSON operations into SQLite-specific syntax,
-        handling version differences and using alternatives for unsupported functions.
+    def print_sql(description: str, sql: str, params: tuple):
+        """Helper function to print SQL and parameters separately."""
+        print(f"--- {description} ---")
+        print(f"SQL: {sql}")
+        if params:
+            print(f"Parameters: {params}")
+        print()
 
-        Args:
-            column: JSON column name or expression
-            path: JSON path (e.g. '$.name')
-            operation: Operation type (extract, text, contains, exists, etc.)
-            value: Value for operations that need it (contains, insert, etc.)
-            alias: Optional alias for the result
 
-        Returns:
-            str: Formatted SQLite JSON operation
+    # ========== Part 1: Basic Expressions ==========
 
-        Raises:
-            JsonOperationNotSupportedError: If JSON operations not supported by SQLite version
-        """
-        if not self.supports_json_operations:
-            raise JsonOperationNotSupportedError(
-                f"JSON operations are not supported in SQLite {'.'.join(map(str, self._version))}"
-            )
+    def demo_literals():
+        """Demonstrate Literal expressions with various types."""
+        print("=" * 70)
+        print("LITERALS")
+        print("=" * 70)
+        print()
 
-        # Handle column formatting
-        col = str(column)
+        # Integer literal
+        lit = Literal(dialect, 42)
+        sql, params = lit.to_sql()
+        print_sql("Integer Literal", sql, params)
 
-        # Use shorthand operators if available for extract operations
-        if self.supports_json_arrows and path:
-            if operation == "extract":
-                expr = f"{col}->'{path}'"
-                return f"{expr} as {alias}" if alias else expr
-            elif operation == "text":
-                expr = f"{col}->>'{path}'"
-                return f"{expr} as {alias}" if alias else expr
+        # String literal
+        lit = Literal(dialect, "hello world")
+        sql, params = lit.to_sql()
+        print_sql("String Literal", sql, params)
 
-        # Function-based approach for other operations or when arrows not supported
-        if operation == "extract":
-            expr = f"json_extract({col}, '{path}')" if path else col
+        # NULL literal
+        lit = Literal(dialect, None)
+        sql, params = lit.to_sql()
+        print_sql("NULL Literal", sql, params)
 
-        elif operation == "text":
-            # There's no direct text extraction in SQLite, so we use json_extract
-            expr = f"json_extract({col}, '{path}')" if path else col
+        # List literal (for IN clause)
+        lit = Literal(dialect, [1, 2, 3])
+        sql, params = lit.to_sql()
+        print_sql("List Literal", sql, params)
 
-        elif operation == "contains":
-            # SQLite doesn't have json_contains function, use json_extract with comparison
-            if path:
-                # For checking if a value exists at specific path
-                expr = f"json_extract({col}, '{path}') = '{value}'"
-            else:
-                # For checking in entire JSON document
-                # Note: This is simplified and may not work for complex contains logic
-                expr = f"json_extract({col}, ') LIKE '%{value}%'"
 
-        elif operation == "exists":
-            # SQLite doesn't have json_exists, use IS NOT NULL with json_extract instead
-            expr = f"json_extract({col}, '{path}') IS NOT NULL"
+    def demo_identifiers():
+        """Demonstrate Identifier expressions."""
+        print("=" * 70)
+        print("IDENTIFIERS")
+        print("=" * 70)
+        print()
 
-        elif operation == "type":
-            if self.supports_json_function("json_type"):
-                path_part = f", '{path}'" if path else ""
-                expr = f"json_type({col}{path_part})"
-            else:
-                # Fall back to typeof with json_extract if json_type not available
-                expr = f"typeof(json_extract({col}, '{path}'))"
+        ident = Identifier(dialect, "table_name")
+        sql, params = ident.to_sql()
+        print_sql("Simple Identifier", sql, params)
 
-        elif operation == "remove":
-            expr = f"json_remove({col}, '{path}')"
+        ident = Identifier(dialect, "column with spaces")
+        sql, params = ident.to_sql()
+        print_sql("Identifier with Spaces", sql, params)
 
-        elif operation == "insert":
-            expr = f"json_insert({col}, '{path}', '{value}')"
 
-        elif operation == "replace":
-            expr = f"json_replace({col}, '{path}', '{value}')"
+    def demo_columns():
+        """Demonstrate Column expressions."""
+        print("=" * 70)
+        print("COLUMNS")
+        print("=" * 70)
+        print()
 
-        elif operation == "set":
-            expr = f"json_set({col}, '{path}', '{value}')"
+        col = Column(dialect, "name")
+        sql, params = col.to_sql()
+        print_sql("Simple Column", sql, params)
 
+        col = Column(dialect, "name", table="users")
+        sql, params = col.to_sql()
+        print_sql("Column with Table", sql, params)
+
+        col = Column(dialect, "name", alias="user_name")
+        sql, params = col.to_sql()
+        print_sql("Column with Alias", sql, params)
+
+        col = Column(dialect, "email", table="users", alias="contact")
+        sql, params = col.to_sql()
+        print_sql("Column with Table and Alias", sql, params)
+
+
+    def demo_tables():
+        """Demonstrate TableExpression."""
+        print("=" * 70)
+        print("TABLE EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        tbl = TableExpression(dialect, "users")
+        sql, params = tbl.to_sql()
+        print_sql("Simple Table", sql, params)
+
+        tbl = TableExpression(dialect, "users", alias="u")
+        sql, params = tbl.to_sql()
+        print_sql("Table with Alias", sql, params)
+
+
+    def demo_functions():
+        """Demonstrate FunctionCall expressions."""
+        print("=" * 70)
+        print("FUNCTION CALLS")
+        print("=" * 70)
+        print()
+
+        func = FunctionCall(dialect, "COUNT", Column(dialect, "id"))
+        sql, params = func.to_sql()
+        print_sql("COUNT Function", sql, params)
+
+        func = FunctionCall(dialect, "SUM", Column(dialect, "amount"), alias="total")
+        sql, params = func.to_sql()
+        print_sql("SUM with Alias", sql, params)
+
+        func = FunctionCall(dialect, "CONCAT",
+                            Column(dialect, "first_name"),
+                            Literal(dialect, " "),
+                            Column(dialect, "last_name"))
+        sql, params = func.to_sql()
+        print_sql("CONCAT Function", sql, params)
+
+        func = FunctionCall(dialect, "COUNT", Column(dialect, "id"), is_distinct=True)
+        sql, params = func.to_sql()
+        print_sql("COUNT DISTINCT", sql, params)
+
+
+    # ========== Part 2: Operators ==========
+
+    def demo_arithmetic():
+        """Demonstrate arithmetic operations."""
+        print("=" * 70)
+        print("ARITHMETIC OPERATIONS")
+        print("=" * 70)
+        print()
+
+        expr = BinaryArithmeticExpression(dialect, "+",
+                                          Column(dialect, "price"),
+                                          Literal(dialect, 10))
+        sql, params = expr.to_sql()
+        print_sql("Addition", sql, params)
+
+        expr = BinaryArithmeticExpression(dialect, "*",
+                                          Column(dialect, "quantity"),
+                                          Column(dialect, "unit_price"))
+        sql, params = expr.to_sql()
+        print_sql("Multiplication", sql, params)
+
+        # Nested arithmetic
+        price_with_tax = BinaryArithmeticExpression(dialect, "*",
+                                                    Column(dialect, "price"),
+                                                    Literal(dialect, 1.1))
+        rounded = FunctionCall(dialect, "ROUND", price_with_tax, Literal(dialect, 2))
+        sql, params = rounded.to_sql()
+        print_sql("Nested: ROUND(price * 1.1, 2)", sql, params)
+
+
+    def demo_binary_operators():
+        """Demonstrate binary operators."""
+        print("=" * 70)
+        print("BINARY OPERATORS")
+        print("=" * 70)
+        print()
+
+        expr = BinaryExpression(dialect, "||",
+                                Column(dialect, "first_name"),
+                                Column(dialect, "last_name"))
+        sql, params = expr.to_sql()
+        print_sql("String Concatenation (||)", sql, params)
+
+
+    def demo_unary_operators():
+        """Demonstrate unary operators."""
+        print("=" * 70)
+        print("UNARY OPERATORS")
+        print("=" * 70)
+        print()
+
+        expr = UnaryExpression(dialect, "NOT", Column(dialect, "active"))
+        sql, params = expr.to_sql()
+        print_sql("NOT Operator", sql, params)
+
+        expr = UnaryExpression(dialect, "-", Column(dialect, "balance"), pos='before')
+        sql, params = expr.to_sql()
+        print_sql("Negation", sql, params)
+
+
+    def demo_raw_sql():
+        """Demonstrate raw SQL expressions."""
+        print("=" * 70)
+        print("RAW SQL EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        expr = RawSQLExpression(dialect, "CURRENT_TIMESTAMP")
+        sql, params = expr.to_sql()
+        print_sql("Current Timestamp", sql, params)
+
+        expr = RawSQLExpression(dialect, "datetime('now', 'localtime')")
+        sql, params = expr.to_sql()
+        print_sql("SQLite Date Function", sql, params)
+
+
+    # ========== Part 3: Predicates ==========
+
+    def demo_comparisons():
+        """Demonstrate comparison predicates."""
+        print("=" * 70)
+        print("COMPARISON PREDICATES")
+        print("=" * 70)
+        print()
+
+        pred = ComparisonPredicate(dialect, ">=",
+                                   Column(dialect, "age"),
+                                   Literal(dialect, 18))
+        sql, params = pred.to_sql()
+        print_sql("Greater Than or Equal", sql, params)
+
+        pred = ComparisonPredicate(dialect, "=",
+                                   Column(dialect, "status"),
+                                   Literal(dialect, "active"))
+        sql, params = pred.to_sql()
+        print_sql("Equality", sql, params)
+
+        pred = ComparisonPredicate(dialect, "!=",
+                                   Column(dialect, "deleted_at"),
+                                   Literal(dialect, None))
+        sql, params = pred.to_sql()
+        print_sql("Not Equal", sql, params)
+
+
+    def demo_logical():
+        """Demonstrate logical predicates."""
+        print("=" * 70)
+        print("LOGICAL PREDICATES")
+        print("=" * 70)
+        print()
+
+        pred1 = ComparisonPredicate(dialect, ">=", Column(dialect, "age"), Literal(dialect, 18))
+        pred2 = ComparisonPredicate(dialect, "<", Column(dialect, "age"), Literal(dialect, 65))
+
+        and_pred = LogicalPredicate(dialect, "AND", pred1, pred2)
+        sql, params = and_pred.to_sql()
+        print_sql("AND Predicate", sql, params)
+
+        pred3 = ComparisonPredicate(dialect, "=", Column(dialect, "country"), Literal(dialect, "US"))
+        or_pred = LogicalPredicate(dialect, "OR", and_pred, pred3)
+        sql, params = or_pred.to_sql()
+        print_sql("Nested AND/OR", sql, params)
+
+        not_pred = LogicalPredicate(dialect, "NOT", pred1)
+        sql, params = not_pred.to_sql()
+        print_sql("NOT Predicate", sql, params)
+
+
+    def demo_in_predicate():
+        """Demonstrate IN predicates."""
+        print("=" * 70)
+        print("IN PREDICATES")
+        print("=" * 70)
+        print()
+
+        pred = InPredicate(dialect,
+                           Column(dialect, "status"),
+                           Literal(dialect, ["active", "pending", "approved"]))
+        sql, params = pred.to_sql()
+        print_sql("IN with List", sql, params)
+
+        # IN with subquery
+        subquery = Subquery(dialect, "SELECT id FROM users WHERE verified = ?", (True,))
+        pred = InPredicate(dialect, Column(dialect, "user_id"), subquery)
+        sql, params = pred.to_sql()
+        print_sql("IN with Subquery", sql, params)
+
+
+    def demo_between():
+        """Demonstrate BETWEEN predicates."""
+        print("=" * 70)
+        print("BETWEEN PREDICATES")
+        print("=" * 70)
+        print()
+
+        pred = BetweenPredicate(dialect,
+                                Column(dialect, "age"),
+                                Literal(dialect, 18),
+                                Literal(dialect, 65))
+        sql, params = pred.to_sql()
+        print_sql("BETWEEN", sql, params)
+
+        pred = BetweenPredicate(dialect,
+                                Column(dialect, "created_at"),
+                                Literal(dialect, "2024-01-01"),
+                                Literal(dialect, "2024-12-31"))
+        sql, params = pred.to_sql()
+        print_sql("BETWEEN Dates", sql, params)
+
+
+    def demo_is_null():
+        """Demonstrate IS NULL predicates."""
+        print("=" * 70)
+        print("IS NULL PREDICATES")
+        print("=" * 70)
+        print()
+
+        pred = IsNullPredicate(dialect, Column(dialect, "deleted_at"))
+        sql, params = pred.to_sql()
+        print_sql("IS NULL", sql, params)
+
+        pred = IsNullPredicate(dialect, Column(dialect, "deleted_at"), is_not=True)
+        sql, params = pred.to_sql()
+        print_sql("IS NOT NULL", sql, params)
+
+
+    def demo_like():
+        """Demonstrate LIKE predicates."""
+        print("=" * 70)
+        print("LIKE PREDICATES")
+        print("=" * 70)
+        print()
+
+        pred = LikePredicate(dialect, "LIKE",
+                             Column(dialect, "name"),
+                             Literal(dialect, "John%"))
+        sql, params = pred.to_sql()
+        print_sql("LIKE", sql, params)
+
+        pred = LikePredicate(dialect, "NOT LIKE",
+                             Column(dialect, "email"),
+                             Literal(dialect, "%@spam.com"))
+        sql, params = pred.to_sql()
+        print_sql("NOT LIKE", sql, params)
+
+
+    # ========== Part 4: Advanced Functions ==========
+
+    def demo_case():
+        """Demonstrate CASE expressions."""
+        print("=" * 70)
+        print("CASE EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        cases = [
+            (ComparisonPredicate(dialect, "<", Column(dialect, "age"), Literal(dialect, 18)),
+             Literal(dialect, "minor")),
+            (ComparisonPredicate(dialect, "<", Column(dialect, "age"), Literal(dialect, 65)),
+             Literal(dialect, "adult"))
+        ]
+        case_expr = CaseExpression(dialect,
+                                   cases=cases,
+                                   else_result=Literal(dialect, "senior"))
+        sql, params = case_expr.to_sql()
+        print_sql("Searched CASE", sql, params)
+
+        # Simple CASE
+        cases = [
+            (Literal(dialect, 1), Literal(dialect, "One")),
+            (Literal(dialect, 2), Literal(dialect, "Two")),
+            (Literal(dialect, 3), Literal(dialect, "Three"))
+        ]
+        case_expr = CaseExpression(dialect,
+                                   value=Column(dialect, "status_code"),
+                                   cases=cases,
+                                   else_result=Literal(dialect, "Unknown"))
+        sql, params = case_expr.to_sql()
+        print_sql("Simple CASE", sql, params)
+
+
+    def demo_cast():
+        """Demonstrate CAST expressions."""
+        print("=" * 70)
+        print("CAST EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        expr = CastExpression(dialect, Column(dialect, "price"), "INTEGER")
+        sql, params = expr.to_sql()
+        print_sql("CAST to INTEGER", sql, params)
+
+        expr = CastExpression(dialect, Column(dialect, "amount"), "REAL")
+        sql, params = expr.to_sql()
+        print_sql("CAST to REAL", sql, params)
+
+
+    def demo_exists():
+        """Demonstrate EXISTS expressions."""
+        print("=" * 70)
+        print("EXISTS EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        subquery = Subquery(dialect,
+                            "SELECT 1 FROM orders WHERE user_id = users.id",
+                            ())
+        exists = ExistsExpression(dialect, subquery)
+        sql, params = exists.to_sql()
+        print_sql("EXISTS", sql, params)
+
+        not_exists = ExistsExpression(dialect, subquery, is_not=True)
+        sql, params = not_exists.to_sql()
+        print_sql("NOT EXISTS", sql, params)
+
+
+    def demo_any_all():
+        """Demonstrate ANY/ALL expressions."""
+        print("=" * 70)
+        print("ANY/ALL EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        any_expr = AnyExpression(dialect,
+                                 Column(dialect, "price"),
+                                 ">",
+                                 Literal(dialect, [100, 200, 300]))
+        sql, params = any_expr.to_sql()
+        print_sql("ANY", sql, params)
+
+        all_expr = AllExpression(dialect,
+                                 Column(dialect, "price"),
+                                 ">",
+                                 Literal(dialect, [50, 75]))
+        sql, params = all_expr.to_sql()
+        print_sql("ALL", sql, params)
+
+
+    def demo_window():
+        """Demonstrate window functions (SQLite 3.25.0+)."""
+        print("=" * 70)
+        print("WINDOW FUNCTIONS (SQLite 3.25.0+)")
+        print("=" * 70)
+        print()
+
+        version = dialect.get_server_version() if hasattr(dialect, 'get_server_version') else (3, 35, 0)
+
+        if version >= (3, 25, 0):
+            rank_func = FunctionCall(dialect, "RANK")
+            window = WindowExpression(dialect,
+                                      rank_func,
+                                      partition_by=[Column(dialect, "department")],
+                                      order_by=[Column(dialect, "salary")])
+            sql, params = window.to_sql()
+            print_sql("RANK() OVER (PARTITION BY ... ORDER BY ...)", sql, params)
+
+            row_num = FunctionCall(dialect, "ROW_NUMBER")
+            window = WindowExpression(dialect,
+                                      row_num,
+                                      order_by=[Column(dialect, "created_at")],
+                                      alias="row_num")
+            sql, params = window.to_sql()
+            print_sql("ROW_NUMBER() OVER (ORDER BY ...)", sql, params)
         else:
-            # Default to extract if operation not recognized
-            raise JsonOperationNotSupportedError(
-                f"JSON operation '{operation}' is not supported in SQLite {'.'.join(map(str, self._version))}"
-            )
-
-        if alias:
-            return f"{expr} as {alias}"
-        return expr
-
-    def supports_json_function(self, function_name: str) -> bool:
-        """Check if specific JSON function is supported in this SQLite version.
-
-        Args:
-            function_name: Name of JSON function to check (e.g., "json_extract")
-
-        Returns:
-            bool: True if function is supported
-        """
-        # Cache results for performance
-        if function_name in self._function_support:
-            return self._function_support[function_name]
-
-        # All functions require JSON1 extension
-        if not self.supports_json_operations:
-            self._function_support[function_name] = False
-            return False
-
-        # Define version requirements for each function
-        function_versions = {
-            # Core JSON1 functions (all available since 3.9.0)
-            "json_extract": (3, 9, 0),
-            "json_insert": (3, 9, 0),
-            "json_replace": (3, 9, 0),
-            "json_set": (3, 9, 0),
-            "json_remove": (3, 9, 0),
-            "json_type": (3, 9, 0),
-            "json_valid": (3, 9, 0),
-            "json_quote": (3, 9, 0),
-            "json_each": (3, 9, 0),
-            "json_tree": (3, 9, 0),
-            "json_array": (3, 9, 0),
-            "json_object": (3, 9, 0),
-            "json_array_length": (3, 9, 0),
-
-            # JSON5 extension functions (some versions added later)
-            "json_patch": (3, 18, 0),  # Added in 3.18.0
-            "json_group_array": (3, 13, 0),  # Added in 3.13.0
-            "json_group_object": (3, 13, 0),  # Added in 3.13.0
-
-            # Note: SQLite doesn't have native json_contains function
-            "json_contains": (99, 0, 0),  # Set to impossible version to indicate never supported
-
-            # Arrow operators
-            "->": (3, 38, 0),  # Added in 3.38.0
-            "->>": (3, 38, 0)  # Added in 3.38.0
-        }
-
-        # Check if function is supported based on version
-        required_version = function_versions.get(function_name.lower())
-        if required_version:
-            is_supported = self._version >= required_version
-        else:
-            # Unknown function, assume not supported
-            is_supported = False
-
-        # Cache result
-        self._function_support[function_name] = is_supported
-        return is_supported
+            print("Window functions not supported in SQLite < 3.25.0")
+            print()
 
 
-class SQLiteCTEHandler(CTEHandler):
-    """SQLite-specific CTE handler."""
+    def demo_json():
+        """Demonstrate JSON operations (SQLite with JSON1 extension)."""
+        print("=" * 70)
+        print("JSON OPERATIONS (JSON1 extension)")
+        print("=" * 70)
+        print()
 
-    def __init__(self, version: tuple):
-        self._version = version
+        json_expr = JSONExpression(dialect,
+                                   Column(dialect, "data"),
+                                   "$.name")
+        sql, params = json_expr.to_sql()
+        print_sql("JSON Extract", sql, params)
 
-    @property
-    def is_supported(self) -> bool:
-        # CTEs are supported in SQLite 3.8.3+
-        return self._version >= (3, 8, 3)
+        json_expr = JSONExpression(dialect,
+                                   Column(dialect, "metadata"),
+                                   "$.settings.theme",
+                                   operation="->>")
+        sql, params = json_expr.to_sql()
+        print_sql("JSON Extract as Text", sql, params)
 
-    @property
-    def supports_recursive(self) -> bool:
-        # Basic recursive CTEs supported since 3.8.3
-        return self.is_supported
 
-    @property
-    def supports_compound_recursive(self) -> bool:
-        # Compound queries in recursive CTEs supported in SQLite 3.34.0+
-        # (UNION, UNION ALL, EXCEPT, INTERSECT in recursive part)
-        return self._version >= (3, 34, 0)
+    def demo_array():
+        """Demonstrate array operations (not natively supported in SQLite)."""
+        print("=" * 70)
+        print("ARRAY OPERATIONS (Not Natively Supported)")
+        print("=" * 70)
+        print()
 
-    @property
-    def supports_multiple_ctes(self) -> bool:
-        # Multiple CTEs supported since 3.8.3
-        return self.is_supported
+        print("SQLite does not natively support array types.")
+        print("Arrays must be stored as JSON or delimited strings.")
+        print()
 
-    @property
-    def supports_cte_in_dml(self) -> bool:
-        # SQLite supports CTEs in DML statements from version 3.8.3
-        return self.is_supported
+        # Array constructor (would work in PostgreSQL)
+        array = ArrayExpression(dialect, "CONSTRUCTOR",
+                                elements=[Literal(dialect, 1),
+                                          Literal(dialect, 2),
+                                          Literal(dialect, 3)])
+        sql, params = array.to_sql()
+        print_sql("Array Constructor (PostgreSQL syntax)", sql, params)
 
-    @property
-    def supports_materialized_hint(self) -> bool:
-        # SQLite supports materialization hints from version 3.35.0
-        return self._version >= (3, 35, 0)
 
-    def format_cte(self,
-                   name: str,
-                   query: str,
-                   columns: Optional[List[str]] = None,
-                   recursive: bool = False,
-                   materialized: Optional[bool] = None) -> str:
-        """Format SQLite CTE syntax.
+    # ========== Part 5: Query Clauses ==========
 
-        This method only formats the CTE syntax according to SQLite's rules
-        without checking if the feature is supported by the current SQLite version.
-        Users should check support properties before executing the formatted SQL.
+    def demo_joins():
+        """Demonstrate JOIN expressions."""
+        print("=" * 70)
+        print("JOIN EXPRESSIONS")
+        print("=" * 70)
+        print()
 
-        Args:
-            name: CTE name
-            query: CTE query
-            columns: Optional column names for the CTE
-            recursive: Whether this is a recursive CTE (informational only)
-            materialized: Materialization hint (only affects output if SQLite version supports it)
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "users", "u"),
+                              right_table=TableExpression(dialect, "orders", "o"),
+                              join_type="INNER",
+                              condition=ComparisonPredicate(dialect, "=",
+                                                            Column(dialect, "id", "u"),
+                                                            Column(dialect, "user_id", "o")))
+        sql, params = join.to_sql()
+        print_sql("INNER JOIN", sql, params)
 
-        Returns:
-            str: Formatted CTE definition
-        """
-        name = self.validate_cte_name(name)
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "users", "u"),
+                              right_table=TableExpression(dialect, "profiles", "p"),
+                              join_type="LEFT",
+                              condition=ComparisonPredicate(dialect, "=",
+                                                            Column(dialect, "id", "u"),
+                                                            Column(dialect, "user_id", "p")))
+        sql, params = join.to_sql()
+        print_sql("LEFT JOIN", sql, params)
 
-        # Add column definitions if provided
-        column_def = ""
-        if columns:
-            column_def = f"({', '.join(columns)})"
+        # USING clause
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "orders", "o"),
+                              right_table=TableExpression(dialect, "order_items", "oi"),
+                              join_type="INNER",
+                              using=["order_id"])
+        sql, params = join.to_sql()
+        print_sql("JOIN with USING", sql, params)
 
-        # Handle materialization hints if supported by SQLite version
-        if materialized is not None and self.supports_materialized_hint:
-            materialized_hint = "MATERIALIZED " if materialized else "NOT MATERIALIZED "
-            return f"{name}{column_def} AS {materialized_hint}({query})"
 
-        return f"{name}{column_def} AS ({query})"
+    def demo_cte():
+        """Demonstrate CTE (Common Table Expressions)."""
+        print("=" * 70)
+        print("COMMON TABLE EXPRESSIONS (CTE)")
+        print("=" * 70)
+        print()
 
-    def format_with_clause(self, ctes: List[Dict[str, Any]], recursive: bool = False) -> str:
-        """Format SQLite WITH clause syntax.
+        cte = CTEExpression(dialect,
+                            name="high_earners",
+                            query=("SELECT id, name, salary FROM employees WHERE salary > ?", [50000]),
+                            columns=["id", "name", "salary"])
+        sql, params = cte.to_sql()
+        print_sql("Basic CTE", sql, params)
 
-        This method accepts CTE definitions and generates a complete WITH clause
-        according to SQLite syntax rules, handling recursive CTEs and other
-        SQLite-specific features.
+        # Recursive CTE
+        cte = CTEExpression(dialect,
+                            name="org_tree",
+                            query=("""
+                                   SELECT id, name, manager_id, 1 AS level
+                                   FROM employees
+                                   WHERE manager_id IS NULL
+                                   UNION ALL
+                                   SELECT e.id, e.name, e.manager_id, t.level + 1
+                                   FROM employees e
+                                            INNER JOIN org_tree t ON e.manager_id = t.id
+                                   """, []),
+                            columns=["id", "name", "manager_id", "level"],
+                            recursive=True)
+        sql, params = cte.to_sql()
+        print_sql("Recursive CTE", sql, params)
 
-        Args:
-            ctes: List of CTE definitions, each a dict with keys:
-                 - name: CTE name
-                 - query: CTE query
-                 - columns: Optional column names
-                 - materialized: Materialization hint
-            recursive: If True, add the RECURSIVE keyword to the WITH clause.
-                       This flag should be True if any CTE within 'ctes' is recursive.
 
-        Returns:
-            str: Formatted WITH clause
-        """
-        if not ctes:
-            return ""
+    def demo_set_operations():
+        """Demonstrate set operations (UNION, INTERSECT, EXCEPT)."""
+        print("=" * 70)
+        print("SET OPERATIONS")
+        print("=" * 70)
+        print()
 
-        recursive_keyword = "RECURSIVE " if recursive else ""
+        query1 = Subquery(dialect, "SELECT id FROM active_users", ())
+        query2 = Subquery(dialect, "SELECT id FROM premium_users", ())
 
-        formatted_ctes = []
-        for cte in ctes:
-            formatted_ctes.append(self.format_cte(
-                name=cte['name'],
-                query=cte['query'],
-                columns=cte.get('columns'),
-                recursive=recursive, # Use the overall recursive flag
-                materialized=cte.get('materialized')
-            ))
+        union = SetOperationExpression(dialect,
+                                       query1, query2,
+                                       "UNION", "combined")
+        sql, params = union.to_sql()
+        print_sql("UNION", sql, params)
 
-        return f"WITH {recursive_keyword}{', '.join(formatted_ctes)}"
+        union_all = SetOperationExpression(dialect,
+                                           query1, query2,
+                                           "UNION", "combined",
+                                           all=True)
+        sql, params = union_all.to_sql()
+        print_sql("UNION ALL", sql, params)
+
+        intersect = SetOperationExpression(dialect,
+                                           query1, query2,
+                                           "INTERSECT", "both")
+        sql, params = intersect.to_sql()
+        print_sql("INTERSECT", sql, params)
+
+        except_op = SetOperationExpression(dialect,
+                                           query1, query2,
+                                           "EXCEPT", "difference")
+        sql, params = except_op.to_sql()
+        print_sql("EXCEPT", sql, params)
+
+
+    def demo_grouping():
+        """Demonstrate grouping operations."""
+        print("=" * 70)
+        print("GROUPING OPERATIONS")
+        print("=" * 70)
+        print()
+
+        # Basic GROUP BY
+        group = GroupExpression(dialect, [Column(dialect, "department")])
+        sql, params = group.to_sql()
+        print_sql("GROUP BY", sql, params)
+
+        # Multiple columns
+        group = GroupExpression(dialect, [
+            Column(dialect, "department"),
+            Column(dialect, "category")
+        ])
+        sql, params = group.to_sql()
+        print_sql("GROUP BY Multiple", sql, params)
+
+        # Advanced grouping - Demonstrating lack of support
+        print("--- ROLLUP (Demonstrating lack of support) ---")
+        try:
+            rollup = GroupingExpression(dialect, "ROLLUP", [
+                Column(dialect, "year"),
+                Column(dialect, "quarter"),
+                Column(dialect, "month")
+            ])
+            rollup.to_sql()
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        print("--- CUBE (Demonstrating lack of support) ---")
+        try:
+            cube = GroupingExpression(dialect, "CUBE", [
+                Column(dialect, "region"),
+                Column(dialect, "product")
+            ])
+            cube.to_sql()
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        print("--- GROUPING SETS (Demonstrating lack of support) ---")
+        try:
+            grouping_sets = GroupingExpression(dialect, "GROUPING SETS", [
+                Column(dialect, "country"),
+                Column(dialect, "city")
+            ])
+            grouping_sets.to_sql()
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_values():
+        """Demonstrate VALUES expressions."""
+        print("=" * 70)
+        print("VALUES EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        values = ValuesExpression(dialect,
+                                  [(1, "John"), (2, "Jane"), (3, "Bob")],
+                                  "v",
+                                  ["id", "name"])
+        sql, params = values.to_sql()
+        print_sql("VALUES", sql, params)
+
+
+    def demo_table_functions():
+        """Demonstrate table functions (limited in SQLite)."""
+        print("=" * 70)
+        print("TABLE FUNCTIONS")
+        print("=" * 70)
+        print()
+
+        print("SQLite has limited table function support.")
+        print("Example: json_each() for JSON arrays")
+        print()
+
+        func = TableFunctionExpression(dialect,
+                                       "json_each",
+                                       Column(dialect, "json_data"),
+                                       alias="j",
+                                       column_names=["key", "value"])
+        sql, params = func.to_sql()
+        print_sql("json_each() Table Function", sql, params)
+
+
+    def demo_lateral():
+        """Demonstrate LATERAL joins (not supported in SQLite)."""
+        print("=" * 70)
+        print("LATERAL JOINS (NOT SUPPORTED)")
+        print("=" * 70)
+        print()
+
+        print("SQLite does not support LATERAL joins")
+        print()
+
+
+    # ========== Part 6: Complete Statements ==========
+
+    def demo_select():
+        """Demonstrate complete SELECT statements."""
+        print("=" * 70)
+        print("SELECT STATEMENTS")
+        print("=" * 70)
+        print()
+
+        # Simple SELECT
+        query = QueryExpression(dialect,
+                                select=[Column(dialect, "id"),
+                                        Column(dialect, "name"),
+                                        Column(dialect, "email")],
+                                from_=TableExpression(dialect, "users"))
+        sql, params = query.to_sql()
+        print_sql("Simple SELECT", sql, params)
+
+        # SELECT with WHERE
+        query = QueryExpression(dialect,
+                                select=[Column(dialect, "id"),
+                                        Column(dialect, "name")],
+                                from_=TableExpression(dialect, "users", "u"),
+                                where=ComparisonPredicate(dialect, ">",
+                                                          Column(dialect, "age"),
+                                                          Literal(dialect, 18)))
+        sql, params = query.to_sql()
+        print_sql("SELECT with WHERE", sql, params)
+
+        # SELECT with ORDER BY and LIMIT
+        query = QueryExpression(dialect,
+                                select=[Column(dialect, "name"),
+                                        Column(dialect, "created_at")],
+                                from_=TableExpression(dialect, "users"),
+                                order_by=[Column(dialect, "created_at")],
+                                limit=10)
+        sql, params = query.to_sql()
+        print_sql("SELECT with ORDER BY and LIMIT", sql, params)
+
+        # SELECT with GROUP BY and HAVING
+        query = QueryExpression(dialect,
+                                select=[Column(dialect, "department"),
+                                        FunctionCall(dialect, "COUNT",
+                                                     Column(dialect, "id"),
+                                                     alias="emp_count")],
+                                from_=TableExpression(dialect, "employees"),
+                                group_by=[Column(dialect, "department")],
+                                having=ComparisonPredicate(dialect, ">",
+                                                           FunctionCall(dialect, "COUNT",
+                                                                        Column(dialect, "id")),
+                                                           Literal(dialect, 5)))
+        sql, params = query.to_sql()
+        print_sql("SELECT with GROUP BY and HAVING", sql, params)
+
+
+    def demo_insert():
+        """Demonstrate INSERT statements."""
+        print("=" * 70)
+        print("INSERT STATEMENTS")
+        print("=" * 70)
+        print()
+
+        insert = InsertExpression(dialect,
+                                  "users",
+                                  ["name", "email", "age"],
+                                  [Literal(dialect, "John Doe"),
+                                   Literal(dialect, "john@example.com"),
+                                   Literal(dialect, 30)])
+        sql, params = insert.to_sql()
+        print_sql("Simple INSERT", sql, params)
+
+        # INSERT with RETURNING (SQLite 3.35.0+)
+        version = (3, 35, 0)  # Assume supported version
+        if version >= (3, 35, 0):
+            print("--- INSERT with RETURNING (SQLite 3.35.0+) ---")
+            print(f"SQL: {sql} RETURNING id, created_at")
+            if params:
+                print(f"Parameters: {params}")
+            print()
+
+
+    def demo_update():
+        """Demonstrate UPDATE statements."""
+        print("=" * 70)
+        print("UPDATE STATEMENTS")
+        print("=" * 70)
+        print()
+
+        update = UpdateExpression(dialect,
+                                  "users",
+                                  {"name": Literal(dialect, "Jane Doe"),
+                                   "age": Literal(dialect, 31)},
+                                  ComparisonPredicate(dialect, "=",
+                                                      Column(dialect, "id"),
+                                                      Literal(dialect, 1)))
+        sql, params = update.to_sql()
+        print_sql("Simple UPDATE", sql, params)
+
+        # UPDATE with complex WHERE
+        update = UpdateExpression(dialect,
+                                  "orders",
+                                  {"status": Literal(dialect, "shipped")},
+                                  LogicalPredicate(dialect, "AND",
+                                                   ComparisonPredicate(dialect, "=",
+                                                                       Column(dialect, "status"),
+                                                                       Literal(dialect, "pending")),
+                                                   ComparisonPredicate(dialect, "<",
+                                                                       Column(dialect, "created_at"),
+                                                                       Literal(dialect, "2024-01-01"))))
+        sql, params = update.to_sql()
+        print_sql("UPDATE with Complex WHERE", sql, params)
+
+
+    def demo_delete():
+        """Demonstrate DELETE statements."""
+        print("=" * 70)
+        print("DELETE STATEMENTS")
+        print("=" * 70)
+        print()
+
+        delete = DeleteExpression(dialect,
+                                  "users",
+                                  ComparisonPredicate(dialect, "=",
+                                                      Column(dialect, "id"),
+                                                      Literal(dialect, 1)))
+        sql, params = delete.to_sql()
+        print_sql("Simple DELETE", sql, params)
+
+        # DELETE with complex condition
+        delete = DeleteExpression(dialect,
+                                  "logs",
+                                  LogicalPredicate(dialect, "AND",
+                                                   IsNullPredicate(dialect,
+                                                                   Column(dialect, "user_id"),
+                                                                   is_not=False),
+                                                   ComparisonPredicate(dialect, "<",
+                                                                       Column(dialect, "created_at"),
+                                                                       Literal(dialect, "2023-01-01"))))
+        sql, params = delete.to_sql()
+        print_sql("DELETE with Complex WHERE", sql, params)
+
+
+    def demo_explain():
+        """Demonstrate EXPLAIN statements."""
+        print("=" * 70)
+        print("EXPLAIN STATEMENTS")
+        print("=" * 70)
+        print()
+
+        query = QueryExpression(dialect,
+                                select=[Column(dialect, "name")],
+                                from_=TableExpression(dialect, "users"),
+                                where=ComparisonPredicate(dialect, "=",
+                                                          Column(dialect, "email"),
+                                                          Literal(dialect, "test@example.com")))
+
+        explain = ExplainExpression(dialect, query)
+        sql, params = explain.to_sql()
+        print_sql("EXPLAIN SELECT", sql, params)
+
+
+    # ========== Part 7: Complex Scenarios ==========
+
+    def demo_complex_join_query():
+        """Demonstrate complex query with multiple joins."""
+        print("=" * 70)
+        print("COMPLEX SCENARIO: Multiple Joins")
+        print("=" * 70)
+        print()
+
+        # Build the FROM clause with joins
+        users_orders = JoinExpression(dialect,
+                                      left_table=TableExpression(dialect, "users", "u"),
+                                      right_table=TableExpression(dialect, "orders", "o"),
+                                      join_type="LEFT",
+                                      condition=ComparisonPredicate(dialect, "=",
+                                                                    Column(dialect, "id", "u"),
+                                                                    Column(dialect, "user_id", "o")))
+
+        with_items = JoinExpression(dialect,
+                                    left_table=users_orders,
+                                    right_table=TableExpression(dialect, "order_items", "oi"),
+                                    join_type="LEFT",
+                                    condition=ComparisonPredicate(dialect, "=",
+                                                                  Column(dialect, "id", "o"),
+                                                                  Column(dialect, "order_id", "oi")))
+
+        query = QueryExpression(dialect,
+                                select=[
+                                    Column(dialect, "name", "u"),
+                                    FunctionCall(dialect, "COUNT",
+                                                 Column(dialect, "id", "o"),
+                                                 alias="order_count"),
+                                    FunctionCall(dialect, "SUM",
+                                                 Column(dialect, "quantity", "oi"),
+                                                 alias="total_items")
+                                ],
+                                from_=with_items,
+                                group_by=[Column(dialect, "id", "u")],
+                                order_by=[FunctionCall(dialect, "COUNT",
+                                                       Column(dialect, "id", "o"))])
+
+        sql, params = query.to_sql()
+        print_sql("Multiple Joins with Aggregation", sql, params)
+
+
+    def demo_complex_cte_query():
+        """Demonstrate complex query with CTEs."""
+        print("=" * 70)
+        print("COMPLEX SCENARIO: Multiple CTEs")
+        print("=" * 70)
+        print()
+
+        # First CTE: high earners
+        cte1 = CTEExpression(dialect,
+                             name="high_earners",
+                             query=("SELECT id, name, salary, department FROM employees WHERE salary > ?",
+                                    [75000]),
+                             columns=["id", "name", "salary", "department"])
+
+        # Second CTE: department stats
+        cte2 = CTEExpression(dialect,
+                             name="dept_stats",
+                             query=("""
+                                    SELECT department,
+                                           COUNT(*)    as emp_count,
+                                           AVG(salary) as avg_salary
+                                    FROM high_earners
+                                    GROUP BY department
+                                    """, []),
+                             columns=["department", "emp_count", "avg_salary"])
+
+        # Main query using both CTEs
+        main_query = QueryExpression(dialect,
+                                     select=[
+                                         Column(dialect, "name", "he"),
+                                         Column(dialect, "salary", "he"),
+                                         Column(dialect, "emp_count", "ds"),
+                                         Column(dialect, "avg_salary", "ds")
+                                     ],
+                                     from_=JoinExpression(dialect,
+                                                          left_table=TableExpression(dialect, "high_earners", "he"),
+                                                          right_table=TableExpression(dialect, "dept_stats", "ds"),
+                                                          join_type="INNER",
+                                                          using=["department"]))
+
+        with_query = WithQueryExpression(dialect,
+                                         ctes=[cte1, cte2],
+                                         main_query=main_query)
+
+        sql, params = with_query.to_sql()
+        print_sql("Multiple CTEs with Join", sql, params)
+
+
+    def demo_complex_set_operations():
+        """Demonstrate complex set operations."""
+        print("=" * 70)
+        print("COMPLEX SCENARIO: Nested Set Operations")
+        print("=" * 70)
+        print()
+
+        # Active premium users
+        active_premium = Subquery(dialect,
+                                  """SELECT user_id
+                                     FROM subscriptions
+                                     WHERE status = ?
+                                       AND tier = ?""",
+                                  ("active", "premium"))
+
+        # Recent purchasers
+        recent_buyers = Subquery(dialect,
+                                 """SELECT DISTINCT user_id
+                                    FROM orders
+                                    WHERE created_at > ?""",
+                                 ("2024-01-01",))
+
+        # Union of both
+        union_result = SetOperationExpression(dialect,
+                                              active_premium,
+                                              recent_buyers,
+                                              "UNION",
+                                              "engaged_users")
+
+        # Exclude banned users
+        banned = Subquery(dialect,
+                          "SELECT user_id FROM banned_users",
+                          ())
+
+        final_result = SetOperationExpression(dialect,
+                                              union_result,
+                                              banned,
+                                              "EXCEPT",
+                                              "target_users")
+
+        sql, params = final_result.to_sql()
+        print_sql("Nested Set Operations", sql, params)
+
+
+    def demo_complex_subqueries():
+        """Demonstrate complex subqueries."""
+        print("=" * 70)
+        print("COMPLEX SCENARIO: Correlated Subqueries")
+        print("=" * 70)
+        print()
+
+        # Subquery in SELECT
+        subquery = Subquery(dialect,
+                            """SELECT COUNT(*)
+                               FROM orders o
+                               WHERE o.user_id = u.id""",
+                            ())
+
+        query = QueryExpression(dialect,
+                                select=[
+                                    Column(dialect, "name", "u"),
+                                    FunctionCall(dialect, "SUBQUERY", subquery, alias="order_count")
+                                ],
+                                from_=TableExpression(dialect, "users", "u"))
+
+        sql, params = query.to_sql()
+        print_sql("Subquery in SELECT", sql, params)
+
+        # EXISTS subquery
+        exists_sub = Subquery(dialect,
+                              """SELECT 1
+                                 FROM orders o
+                                 WHERE o.user_id = u.id
+                                   AND o.total > ?""",
+                              (1000,))
+        exists_pred = ExistsExpression(dialect, exists_sub)
+
+        query = QueryExpression(dialect,
+                                select=[Column(dialect, "name", "u"),
+                                        Column(dialect, "email", "u")],
+                                from_=TableExpression(dialect, "users", "u"),
+                                where=exists_pred)
+
+        sql, params = query.to_sql()
+        print_sql("Correlated Subquery with EXISTS", sql, params)
+
+
+    # ========== Main Execution ==========
+
+    print("\n")
+    print("=" * 70)
+    print("SQLite Dialect - Complete Expression Demonstrations")
+    print("=" * 70)
+    print("\n")
+
+    # Part 1: Basic Expressions
+    demo_literals()
+    demo_identifiers()
+    demo_columns()
+    demo_tables()
+    demo_functions()
+
+    # Part 2: Operators
+    demo_arithmetic()
+    demo_binary_operators()
+    demo_unary_operators()
+    demo_raw_sql()
+
+    # Part 3: Predicates
+    demo_comparisons()
+    demo_logical()
+    demo_in_predicate()
+    demo_between()
+    demo_is_null()
+    demo_like()
+
+    # Part 4: Advanced Functions
+    demo_case()
+    demo_cast()
+    demo_exists()
+    demo_any_all()
+    demo_window()
+    demo_json()
+    demo_array()
+
+    # Part 5: Query Clauses
+    demo_joins()
+    demo_cte()
+    demo_set_operations()
+    demo_grouping()
+    demo_values()
+    demo_table_functions()
+    demo_lateral()
+
+    # Part 6: Complete Statements
+    demo_select()
+    demo_insert()
+    demo_update()
+    demo_delete()
+    demo_explain()
+
+    # Part 7: Complex Scenarios
+    demo_complex_join_query()
+    demo_complex_cte_query()
+    demo_complex_set_operations()
+    demo_complex_subqueries()
+
+    print("=" * 70)
+    print("All demonstrations completed successfully!")
+    print("=" * 70)

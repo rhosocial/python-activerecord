@@ -21,7 +21,7 @@ import logging
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple, Union, Type
 
-from rhosocial.activerecord.backend import DatabaseCapabilities, ALL_SET_OPERATIONS
+from rhosocial.activerecord.backend.capabilities import DatabaseCapabilities, ALL_SET_OPERATIONS
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
 from rhosocial.activerecord.backend.capabilities import JoinCapability, TransactionCapability, BulkOperationCapability, \
     ConstraintCapability, DateTimeFunctionCapability, AggregateFunctionCapability, CTECapability, JSONCapability, \

@@ -14,28 +14,13 @@ from rhosocial.activerecord.backend.errors import (
     JsonOperationNotSupportedError
 )
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.typing import DatabaseType
+from rhosocial.activerecord.backend.schema import DatabaseType
 
 
 class TestSQLiteBackendCoveragePart2:
     """Fixed tests to improve coverage of SQLiteBackend - Part 2"""
 
-    def test_get_statement_type_default_branch(self):
-        """Test _get_statement_type() default branch (calls super)"""
-        backend = SQLiteBackend(database=":memory:")
 
-        # Test with a statement that is not PRAGMA or WITH
-        result = backend._get_statement_type("CREATE TABLE test (id INTEGER)")
-        assert result == "CREATE"
-
-        # Test with empty string
-        result = backend._get_statement_type("")
-        assert result == ""  # Default behavior of base implementation
-
-        # Test with comments
-        sql_with_comments = "-- This is a comment\nSELECT * FROM users"
-        result = backend._get_statement_type(sql_with_comments)
-        assert result == "SELECT"
 
     def test_check_returning_compatibility_version_checks(self):
         """Test _check_returning_compatibility() version checks"""

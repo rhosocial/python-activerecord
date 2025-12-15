@@ -5,19 +5,17 @@ Dummy Backend for SQL generation without a real database connection.
 import logging
 from typing import Any, Dict, List, Optional, Tuple, Type
 
-from rhosocial.activerecord.backend.base import StorageBackend
+from rhosocial.activerecord.backend.base import StorageBackend, AsyncStorageBackend
 from rhosocial.activerecord.backend.capabilities import DatabaseCapabilities, CapabilityCategory, CTECapability
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from rhosocial.activerecord.backend.errors import DatabaseError
-from rhosocial.activerecord.backend.typing import QueryResult
+from rhosocial.activerecord.backend.result import QueryResult
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
-from rhosocial.activerecord.backend.transaction import TransactionManager # Import for type hinting
+from rhosocial.activerecord.backend.transaction import TransactionManager, AsyncTransactionManager
 
 from .dialect import DummyDialect
 
-# Create a logger for the DummyBackend
-dummy_backend_logger = logging.getLogger('dummy_backend')
 
 class DummyBackend(StorageBackend):
     """
@@ -26,9 +24,10 @@ class DummyBackend(StorageBackend):
     """
 
     def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs):
-        # DummyBackend doesn't really need connection_config but accept it for API compatibility
+        # Ensure a default logger for DummyBackend if not explicitly provided
+        if 'logger' not in kwargs:
+            kwargs['logger'] = logging.getLogger('dummy_backend')
         super().__init__(connection_config=connection_config or ConnectionConfig(), **kwargs)
-        self.logger = dummy_backend_logger
         self._dialect = DummyDialect()
 
     def _initialize_capabilities(self) -> DatabaseCapabilities:
@@ -83,8 +82,56 @@ class DummyBackend(StorageBackend):
     def transaction_manager(self) -> TransactionManager:
         raise NotImplementedError("DummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
 
-    # --- Methods from StorageBackend that will raise NotImplementedError ---
-    # The inherited implementations of execute, execute_many, fetch_one, fetch_all
-    # all rely on _execute_query or _get_cursor, so raising there is sufficient.
-    # The base SQLOperationsMixin.insert/update/delete call self.execute,
-    # so raising in self.execute is also sufficient.
+# Async Dummy Backend
+class AsyncDummyBackend(AsyncStorageBackend):
+    """
+    An async dummy backend for ActiveRecord that generates SQL without connecting to a real database.
+    All operations requiring a database connection will raise NotImplementedError.
+    """
+
+    def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs):
+        # Ensure a default logger for AsyncDummyBackend if not explicitly provided
+        if 'logger' not in kwargs:
+            kwargs['logger'] = logging.getLogger('async_dummy_backend')
+        super().__init__(connection_config=connection_config or ConnectionConfig(), **kwargs)
+        self._dialect = DummyDialect()
+
+    def _initialize_capabilities(self) -> DatabaseCapabilities:
+        return DatabaseCapabilities()
+
+    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
+        return {}
+
+    @property
+    def dialect(self) -> SQLDialectBase:
+        return self._dialect
+
+    async def connect(self) -> None:
+        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+
+    async def disconnect(self) -> None:
+        pass
+
+    async def ping(self, reconnect: bool = True) -> bool:
+        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+
+    async def _handle_error(self, error: Exception) -> None:
+        if isinstance(error, NotImplementedError):
+            raise error
+        raise DatabaseError(f"An unexpected error occurred in AsyncDummyBackend: {error}") from error
+
+    async def get_server_version(self) -> Tuple[int, int, int]:
+        return (0, 0, 0)
+
+    async def _get_cursor(self) -> Any:
+        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+
+    async def _execute_query(self, cursor: Any, sql: str, params: Optional[Tuple]) -> Any:
+        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+
+    async def _handle_auto_commit(self) -> None:
+        pass
+
+    @property
+    def transaction_manager(self) -> AsyncTransactionManager:
+        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")

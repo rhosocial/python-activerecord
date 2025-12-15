@@ -4,7 +4,7 @@ import logging
 from typing import List, Any, Optional, Union, Set, Tuple, Dict, Type
 
 from .dict_query import DictQuery
-from ..backend.dialect import ExplainType, ExplainOptions, ExplainFormat
+from ..backend.dialect import ExplainType, ExplainOptions, ExplainFormat # NEW
 from ..backend.errors import QueryError, RecordNotFound
 from ..interface import ModelT, IQuery
 
@@ -85,10 +85,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         # Simple identifier
         return dialect.format_identifier(identifier)
 
-    def explain(self,
-                type: Optional[ExplainType] = None,
-                format: ExplainFormat = ExplainFormat.TEXT,
-                **kwargs) -> 'IQuery[ModelT]':
+    def explain(self, **kwargs) -> 'IQuery[ModelT]':
         """Enable EXPLAIN for the subsequent query execution.
 
         This method configures the query to generate an execution plan when executed.
@@ -96,15 +93,7 @@ class BaseQueryMixin(IQuery[ModelT]):
         count(), etc.
 
         Args:
-            type: Type of explain output
-            format: Output format (TEXT/JSON/XML/YAML)
-            **kwargs: Additional EXPLAIN options:
-                costs (bool): Show estimated costs
-                buffers (bool): Show buffer usage
-                timing (bool): Include timing information
-                verbose (bool): Show additional information
-                settings (bool): Show modified settings (PostgreSQL)
-                wal (bool): Show WAL usage (PostgreSQL)
+            **kwargs: EXPLAIN options. These will be passed directly to ExplainOptions.
 
         Returns:
             IQuery[ModelT]: Query instance for method chaining
@@ -135,11 +124,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             result = query.all()  # Will show execution plan
         """
         self._explain_enabled = True
-        self._explain_options = ExplainOptions(
-            type=type or ExplainType.BASIC,
-            format=format,
-            **kwargs
-        )
+        self._explain_options = kwargs
         return self
 
     def _execute_with_explain(self, sql: str, params: tuple) -> Union[str, List[Dict]]:
@@ -161,18 +146,21 @@ class BaseQueryMixin(IQuery[ModelT]):
             self._log(logging.DEBUG, "explain not enabled")
             return backend.execute(sql, params, returning=True)
 
+        # Create ExplainOptions from the stored dict
+        explain_options_instance = ExplainOptions(**self._explain_options)
+
         # Validate options for current database
-        self._explain_options.validate_for_database(backend.dialect.__class__.__name__)
+        explain_options_instance.validate_for_database(backend.dialect.__class__.__name__)
 
         # Build explain SQL using dialect
-        explain_sql = backend.dialect.format_explain(sql, self._explain_options)
+        explain_sql = backend.dialect.format_explain(sql, explain_options_instance)
 
         # Execute explain
         self._log(logging.INFO, f"Executing query: {explain_sql}, parameters: {params}")
         result = backend.execute(explain_sql, params, returning=True)
 
         # Return raw data for non-text formats
-        if self._explain_options.format != ExplainFormat.TEXT:
+        if explain_options_instance.format != ExplainFormat.TEXT:
             return result.data
 
         self._log(logging.DEBUG, f"Explained: {result}")

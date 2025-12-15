@@ -15,8 +15,9 @@ from pydantic.fields import FieldInfo
 from .base import ModelEvent
 from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.typing import DatabaseType
+from ..backend.schema import DatabaseType
 from ..backend.config import ConnectionConfig
+from ..backend.options import InsertOptions, UpdateOptions # NEW IMPORTS
 
 if TYPE_CHECKING:
     from ..backend.type_adapter import SQLTypeAdapter
@@ -341,14 +342,16 @@ class IActiveRecord(BaseModel, ABC):
         self.log(logging.DEBUG, f"6. Column adapters map: {column_adapters}")
 
         # Step 7: Call `insert` with the prepared data, column mapping, and column adapters.
-        result = self.backend().insert(
-            self.table_name(),
-            prepared_data,
-            column_mapping=column_mapping, # Pass column_mapping for result processing.
-            column_adapters=column_adapters, # Pass column_adapters for output processing.
+        # Step 7: Call `insert` with an InsertOptions object.
+        insert_options = InsertOptions(
+            table=self.table_name(),
+            data=prepared_data,
+            column_mapping=column_mapping,
+            column_adapters=column_adapters,
             returning=False,
             primary_key=self.primary_key()
         )
+        result = self.backend().insert(insert_options)
 
         # Step 8: Handle auto-increment primary key if needed.
         pk_column = self.primary_key()
@@ -529,15 +532,23 @@ class IActiveRecord(BaseModel, ABC):
                  f"Updating {self.__class__.__name__}#{getattr(self, self.__class__.primary_key_field())}: "
                  f"set_data={prepared_set_data}, where_clause={final_where_clause}, where_params={prepared_where_params}")
 
-        # Step 6: Execute update with prepared SET data, prepared WHERE clause, and column adapters.
-        result = backend.update(
-            self.table_name(),
-            prepared_set_data,
-            final_where_clause,
-            prepared_where_params,
-            column_mapping=column_mapping, # Pass column_mapping for result processing.
+        # Step 6: Execute update with an UpdateOptions object.
+        pk_name = self.primary_key() # Get primary key name (e.g., 'id')
+        pk_value = getattr(self, self.__class__.primary_key_field()) # Get value of primary key field
+
+        # Construct the WHERE predicate using ComparisonPredicate
+        where_predicate = ComparisonPredicate(
+            backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+        )
+
+        update_options = UpdateOptions(
+            table=self.table_name(),
+            data=prepared_set_data, # mapped_set_data contains prepared and mapped data
+            where=where_predicate,
+            column_mapping=column_mapping,
             column_adapters=column_adapters
         )
+        result = backend.update(update_options)
         return result
 
     def _save_internal(self) -> int:

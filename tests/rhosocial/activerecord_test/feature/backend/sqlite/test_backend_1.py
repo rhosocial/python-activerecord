@@ -1,16 +1,14 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite/test_backend_1.py
-"""Tests for improving SQLite backend coverage - Fixed version"""
-
 import os
 import sqlite3
 import tempfile
 from unittest.mock import patch
-
-import pytest
+import pytest # Added import
 
 from rhosocial.activerecord.backend.errors import ConnectionError
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 
 
 class TestSQLiteBackendCoveragePart1:
@@ -74,7 +72,8 @@ class TestSQLiteBackendCoveragePart1:
 
         # The method should catch and log the error without raising
         # We can verify that connection still works
-        result = backend.execute("SELECT 1 as test", returning=True)
+        options = ExecutionOptions(stmt_type=StatementType.DQL, returning=True)
+        result = backend.execute("SELECT 1 as test", options=options)
         assert result.data[0]['test'] == 1
 
         backend.disconnect()

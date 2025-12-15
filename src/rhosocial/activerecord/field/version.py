@@ -52,7 +52,7 @@ class Version:
         """
         return f"{self.db_column} = ?", (self.value,)
 
-    def get_update_expression(self, backend: StorageBackend) -> SQLExpressionBase:
+    def get_update_expression(self, backend: StorageBackend) -> BaseExpression:
         """Get SQL expression for version update
 
         Args:

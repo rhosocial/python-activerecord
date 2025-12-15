@@ -1,43 +1,31 @@
-# src/rhosocial/activerecord/backend/typing.py
+# src/rhosocial/activerecord/backend/schema.py
 """
-Defines common data structures and type hints used across the backend.
+Defines types related to database schema, such as column and data types.
 
-This file serves as a central place for backend-related types. The goal is to:
-1.  Avoid circular imports between other backend modules.
-2.  Provide a single source of truth for common data structures like `ConnectionConfig`,
-    `QueryResult`, and the extensive `DatabaseType` enum.
-
-This centralization is particularly important in the refactored sync/async architecture,
-as it provides a stable set of types that both implementations can rely on.
+This file is intended for data structures used in DDL (Data Definition Language)
+operations and schema management.
 """
 from dataclasses import dataclass
-from datetime import datetime
-from decimal import Decimal
 from enum import Enum, auto
-from typing import Any, Dict, Generic, Optional, TypeVar, Union
+from typing import Any, Dict, Union, Callable, Optional
 
-# Base type aliases
-DatabaseValue = Union[str, int, float, bool, datetime, Decimal, bytes, None]
-PythonValue = TypeVar('PythonValue')
-T = TypeVar('T')
 
 @dataclass
-class ConnectionConfig:
-    """Configuration for database connection."""
-    database: str = ""
-    host: str = "localhost"
-    port: int = 5432
-    user: str = ""
-    password: str = ""
-    pool_size: int = 10
+class TypeMapping:
+    """
+    Defines type mapping rules between a generic DatabaseType and a specific
+    database implementation's SQL type.
 
-@dataclass
-class QueryResult(Generic[T]):
-    """Query result wrapper"""
-    data: Optional[T] = None
-    affected_rows: int = 0
-    last_insert_id: Optional[int] = None
-    duration: float = 0.0  # Query execution time (seconds)
+    This class is primarily used for **DDL (Data Definition Language) generation**,
+     such as defining column types in `CREATE TABLE` statements. It allows
+     the ORM to translate abstract model types into the precise, database-specific
+     syntax required for schema creation without needing runtime database introspection.
+
+    It is distinct from the runtime type adaptation system (`SQLTypeAdapter`),
+    which handles conversion of Python values to/from SQL values for DML operations.
+    """
+    db_type: str
+    format_func: Optional[Callable[[str, Dict[str, Any]], str]] = None
 
 ColumnTypes = Dict[str, Union["DatabaseType", str, Any]]
 
@@ -160,3 +148,28 @@ class DatabaseType(Enum):
 
     # --- Extensible custom type ---
     CUSTOM = auto()  # For database-specific types not covered above
+
+
+class StatementType(Enum):
+    """Explicitly defines the type of SQL statement."""
+    # General categories
+    DQL = auto()  # Data Query Language
+    DML = auto()  # Data Manipulation Language
+    DDL = auto()  # Data Definition Language
+    TCL = auto()  # Transaction Control Language
+    OTHER = auto() # Other or unknown types
+
+    # Specific DQL/DML statements
+    SELECT = auto()
+    INSERT = auto()
+    UPDATE = auto()
+    DELETE = auto()
+    TRUNCATE = auto()
+    MERGE = auto()
+
+    # Procedure/Function related
+    CALL = auto()
+    EXECUTE = auto()
+
+    # Explain statement type
+    EXPLAIN = auto()

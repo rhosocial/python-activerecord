@@ -1,8 +1,10 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy/test_async_dummy_backend.py
 import pytest
-from rhosocial.activerecord.backend.impl.dummy.async_backend import AsyncDummyBackend
+from rhosocial.activerecord.backend.impl.dummy.backend import AsyncDummyBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import QueryError, RecordNotFound, DatabaseError
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 
 
 @pytest.fixture
@@ -44,7 +46,7 @@ async def test_async_dummy_backend_get_cursor_raises_not_implemented_error(async
 async def test_async_dummy_backend_execute_query_raises_not_implemented_error(async_dummy_backend_instance):
     """Test that _execute_query() on AsyncDummyBackend raises NotImplementedError."""
     with pytest.raises(NotImplementedError) as excinfo:
-        await async_dummy_backend_instance._execute_query(None, "SELECT 1", None)  # Cursor is None as it's dummy
+        await async_dummy_backend_instance._execute_query(None, "SELECT 1", None)
     assert get_expected_error_message() in str(excinfo.value)
 
 
@@ -59,8 +61,9 @@ async def test_async_dummy_backend_transaction_manager_raises_not_implemented_er
 @pytest.mark.asyncio
 async def test_async_dummy_backend_execute_raises_not_implemented_error(async_dummy_backend_instance):
     """Test that execute() on AsyncDummyBackend (via AsyncStorageBackend base) raises NotImplementedError."""
+    options = ExecutionOptions(stmt_type=StatementType.DQL)
     with pytest.raises(NotImplementedError) as excinfo:
-        await async_dummy_backend_instance.execute("SELECT 1", None)
+        await async_dummy_backend_instance.execute("SELECT 1", None, options=options)
     assert get_expected_error_message() in str(excinfo.value)
 
 

@@ -8,8 +8,10 @@ from ..interface import IActiveRecord, ModelEvent
 from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
 from ..backend.config import ConnectionConfig
+from ..backend.options import DeleteOptions, UpdateOptions
+from ..backend.expression import ComparisonPredicate, Column, Literal
 from .typing import ConditionType, MultiConditionType, ModelT
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend  # Import DummyBackend
+from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend  # Import DummyBackend
 
 class BaseActiveRecord(IActiveRecord):
     """Core ActiveRecord implementation with basic CRUD operations.
@@ -285,10 +287,9 @@ class BaseActiveRecord(IActiveRecord):
         pk_name = self.primary_key()
         pk_value = getattr(self, pk_name)
 
-        placeholder = backend.dialect.get_placeholder()
-        condition = f"{self.primary_key()} = {placeholder}"
-        # Pass raw pk_value to backend, it will be adapted by the query builder if _adapt_params is True.
-        params = (pk_value,) 
+        where_predicate = ComparisonPredicate(
+            backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+        )
 
         is_soft_delete = hasattr(self, 'prepare_delete')
 
@@ -296,23 +297,19 @@ class BaseActiveRecord(IActiveRecord):
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
             
-            # The backend's update method will handle parameter adaptation for 'data'.
-            # We don't need param_adapters here, assuming backend.update is updated to use _adapt_params.
-            # (Which is handled by the overall plan if backend.update constructs queries using query builders)
-            
-            result = backend.update(
-                self.table_name(),
-                data, # Pass raw data, adaptation handled by backend if it uses a query builder.
-                condition,
-                params
+            update_opts = UpdateOptions(
+                table=self.table_name(),
+                data=data,
+                where=where_predicate
             )
+            result = backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
-            result = backend.delete(
-                self.table_name(),
-                condition,
-                params
+            delete_opts = DeleteOptions(
+                table=self.table_name(),
+                where=where_predicate
             )
+            result = backend.delete(delete_opts)
 
         affected_rows = result.affected_rows
         if affected_rows > 0:
@@ -358,7 +355,7 @@ class BaseActiveRecord(IActiveRecord):
         if cls.__backend_class__ and cls.__connection_config__:
             try:
                 # Attempt to instantiate and cache the real backend now
-                from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Lazy import for initial backend check
+                from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend # Lazy import for initial backend check
                 backend_instance = cls.__backend_class__(connection_config=cls.__connection_config__)
                 if hasattr(cls, '__logger__'):
                     backend_instance.logger = cls.__logger__
@@ -370,7 +367,7 @@ class BaseActiveRecord(IActiveRecord):
         
         # Fallback to DummyBackend if no real backend is configured
         if not hasattr(cls, '_dummy_backend') or cls._dummy_backend is None:
-            from rhosocial.activerecord.backend.impl.dummy import DummyBackend # Lazy import
+            from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend # Lazy import
             cls._dummy_backend = DummyBackend()
         return cls._dummy_backend
 

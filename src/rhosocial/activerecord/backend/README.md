@@ -8,7 +8,9 @@ To maintain the Open-Closed Principle and decouple the backend module from speci
 backend/
     __init__.py                  # Only exports interfaces and base classes
     base.py                      # Core interfaces and class definitions
-    typing.py                    # Type definitions
+    config.py                    # Configuration-related classes
+    result.py                    # Query result types
+    schema.py                    # Database schema and type definitions
     dialect.py                   # Dialect-related abstract definitions
     errors.py                    # Error definitions
     helpers.py                   # Helper utilities
@@ -65,9 +67,10 @@ Benefits of this design:
     # __init__.py
     """Exports public interfaces only
     from .base import StorageBackend
-    from .dialect import DatabaseType, TypeMapping
+    from .config import ConnectionConfig
+    from .schema import DatabaseType
+    from .result import QueryResult
     from .errors import DatabaseError, ConnectionError
-    from .typing import ConnectionConfig, DatabaseValue
     """
 
     # base.py  
@@ -79,17 +82,26 @@ Benefits of this design:
     Without any concrete implementation or database-specific code
     """
 
-    # typing.py
-    """Type definitions
-    - Custom type aliases
-    - Configuration-related data classes (ConnectionConfig, etc.)
-    - Query result types (QueryResult, etc.)
-    - Type mapping-related generic definitions
+    # config.py
+    """Configuration-related data classes
+    - ConnectionConfig
+    - and other configuration-related classes
+    """
+
+    # result.py
+    """Query result types
+    - QueryResult
+    - and other result-related types
+    """
+
+    # schema.py
+    """Database schema and type definitions
+    - DatabaseType enum (unified type system)
+    - and other schema-related types
     """
 
     # dialect.py
     """SQL dialect-related abstract definitions
-    - DatabaseType enum (unified type system)
     - TypeMapping interface (type mapping rules)
     - ValueMapper interface (value conversion rules) 
     Without specific database mapping implementations
