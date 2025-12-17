@@ -134,12 +134,18 @@ class WindowExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQL
                 else: parts.append(str(part))
             over_parts.append("PARTITION BY " + ", ".join(parts))
         if self.order_by:
-            parts = []
-            for order in self.order_by:
-                if isinstance(order, bases.BaseExpression):
-                    order_sql, order_param = order.to_sql(); parts.append(order_sql); all_params.extend(order_param)
-                else: parts.append(str(order))
-            over_parts.append("ORDER BY " + ", ".join(parts))
+            order_by_parts = []
+            for item in self.order_by:
+                if isinstance(item, tuple):
+                    expr, direction = item
+                    expr_sql, expr_params = expr.to_sql()
+                    order_by_parts.append(f"{expr_sql} {direction.upper()}")
+                    all_params.extend(expr_params)
+                else:
+                    expr_sql, expr_params = item.to_sql()
+                    order_by_parts.append(expr_sql)
+                    all_params.extend(expr_params)
+            over_parts.append(f"ORDER BY {', '.join(order_by_parts)}")
         if self.frame_type:
             frame_parts = [self.frame_type]
             if self.frame_start and self.frame_end: frame_parts.append(f"BETWEEN {self.frame_start} AND {self.frame_end}")

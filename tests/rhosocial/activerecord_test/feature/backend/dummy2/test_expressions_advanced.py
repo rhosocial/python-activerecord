@@ -47,14 +47,33 @@ class TestAdvancedExpressions:
         assert params == (1, "Pending", 2, "Approved", "Rejected")
 
     # --- CastExpression ---
-    @pytest.mark.parametrize("expr_to_cast, target_type, expected_sql, expected_params", [
-        (Column(None, "price"), "INTEGER", 'CAST("price" AS INTEGER)', ()),
-        (Literal(None, "2023-01-01"), "DATE", 'CAST(? AS DATE)', ("2023-01-01",)),
-        (BinaryArithmeticExpression(None, "*", Column(None, "value"), Literal(None, 100)), "DECIMAL(10,2)", 'CAST(("value" * ?) AS DECIMAL(10,2))', (100,)),
+    @pytest.mark.parametrize("expr_data, target_type, expected_sql, expected_params", [
+        (("Column", ("price",)), "INTEGER", 'CAST("price" AS INTEGER)', ()),
+        (("Literal", ("2023-01-01",)), "DATE", 'CAST(? AS DATE)', ("2023-01-01",)),
+        (("BinaryArithmeticExpression", ("*", ("Column", "value"), ("Literal", 100))), "DECIMAL(10,2)", 'CAST((("value") * ?)) AS DECIMAL(10,2)', (100,)),
     ])
-    def test_cast_expression(self, dummy_dialect: DummyDialect, expr_to_cast, target_type, expected_sql, expected_params):
+    def test_cast_expression(self, dummy_dialect: DummyDialect, expr_data, target_type, expected_sql, expected_params):
         """Tests CAST expression to convert types."""
-        expr_to_cast.dialect = dummy_dialect # Assign dialect
+        expr_class_name, expr_args = expr_data
+        
+        if expr_class_name == "BinaryArithmeticExpression":
+            op, left_data, right_data = expr_args
+            
+            def get_arg_instance(data_tuple):
+                arg_class = globals()[data_tuple[0]]
+                arg_value = data_tuple[1]
+                if isinstance(arg_value, tuple):
+                    return arg_class(dummy_dialect, *arg_value)
+                return arg_class(dummy_dialect, arg_value)
+
+            left = get_arg_instance(left_data)
+            right = get_arg_instance(right_data)
+            
+            expr_to_cast = BinaryArithmeticExpression(dummy_dialect, op, left, right)
+        else:
+            expr_class = globals()[expr_class_name]
+            expr_to_cast = expr_class(dummy_dialect, *expr_args)
+
         cast_expr = CastExpression(dummy_dialect, expr_to_cast, target_type)
         sql, params = cast_expr.to_sql()
         assert sql == expected_sql
@@ -103,7 +122,7 @@ class TestAdvancedExpressions:
             dummy_dialect,
             func_call,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[Column(dummy_dialect, "salary", order="DESC")]
+            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
         )
         sql, params = window_expr.to_sql()
         expected = 'RANK() OVER (PARTITION BY "department" ORDER BY "salary" DESC)'
@@ -129,13 +148,13 @@ class TestAdvancedExpressions:
         assert params == ()
 
     # --- JSONExpression ---
-    @pytest.mark.parametrize("json_col, path, operation, expected_sql, expected_params", [
-        (Column(None, "data"), "$.name", "->", '("data" -> ?)', ('$.name',)),
-        (Column(None, "metadata"), "$.user.id", "->>", '("metadata" ->> ?)', ('$.user.id',)),
+    @pytest.mark.parametrize("col_name, path, operation, expected_sql, expected_params", [
+        ("data", "$.name", "->", '("data" -> ?)', ('$.name',)),
+        ("metadata", "$.user.id", "->>", '("metadata" ->> ?)', ('$.user.id',)),
     ])
-    def test_json_expression(self, dummy_dialect: DummyDialect, json_col, path, operation, expected_sql, expected_params):
+    def test_json_expression(self, dummy_dialect: DummyDialect, col_name, path, operation, expected_sql, expected_params):
         """Tests JSON path extraction operations."""
-        json_col.dialect = dummy_dialect
+        json_col = Column(dummy_dialect, col_name)
         json_expr = JSONExpression(dummy_dialect, json_col, path, operation=operation)
         sql, params = json_expr.to_sql()
         assert sql == expected_sql

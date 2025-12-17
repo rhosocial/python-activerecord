@@ -7,6 +7,7 @@ from typing import Optional, Tuple, TYPE_CHECKING, List
 
 from . import bases
 from . import mixins
+from . import operators # Added this import
 
 if TYPE_CHECKING:
     from .bases import SQLPredicate
@@ -52,12 +53,19 @@ class AggregateFunctionCall(AggregatableExpression):
         Generates the SQL string and parameters for this aggregate function call,
         including any attached FILTER clause.
         """
-        args_sql = []
-        args_params = []
-        for arg in self.args:
-            arg_sql_part, arg_params_tuple = arg.to_sql()
-            args_sql.append(arg_sql_part)
-            args_params.append(arg_params_tuple)
+        # Special handling for COUNT(*)
+        if self.func_name.upper() == "COUNT" and len(self.args) == 1:
+            if isinstance(self.args[0], operators.RawSQLExpression) and self.args[0].expression == "*":
+                args_sql = ["*"]
+                args_params = []
+            else:
+                args_sql = [arg.to_sql()[0] for arg in self.args]
+                args_params = [p for arg_tuple in [arg.to_sql()[1] for arg in self.args] for p in arg_tuple]
+        else:
+            args_sql = [arg.to_sql()[0] for arg in self.args]
+            args_params = [p for arg_tuple in [arg.to_sql()[1] for arg in self.args] for p in arg_tuple]
+
+
 
         filter_sql, filter_params = None, None
         if self._filter_predicate:

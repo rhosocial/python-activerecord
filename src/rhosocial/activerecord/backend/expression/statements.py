@@ -164,8 +164,17 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             all_params.extend(having_expr_params)
         order_by_sql = ""
         if self.order_by:
-            order_by_parts = [expr.to_sql()[0] for expr in self.order_by]
-            all_params.extend([p for expr in self.order_by for p in expr.to_sql()[1]])
+            order_by_parts = []
+            for item in self.order_by:
+                if isinstance(item, tuple):
+                    expr, direction = item
+                    expr_sql, expr_params = expr.to_sql()
+                    order_by_parts.append(f"{expr_sql} {direction.upper()}")
+                    all_params.extend(expr_params)
+                else:
+                    expr_sql, expr_params = item.to_sql()
+                    order_by_parts.append(expr_sql)
+                    all_params.extend(expr_params)
             order_by_sql = f" ORDER BY {', '.join(order_by_parts)}"
         qualify_sql = ""
         if self.qualify:

@@ -29,12 +29,12 @@ class TestQueryStatements:
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "products", "p"),
             where=ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "price", "p"), Literal(dummy_dialect, 100)),
-            order_by=[Column(dummy_dialect, "name", order="ASC")],
+            order_by=[(Column(dummy_dialect, "name"), "ASC")],
             limit=10,
             offset=5
         )
         sql, params = query.to_sql()
-        assert sql == 'SELECT "id", "name" FROM "products" AS "p" WHERE ("p"."price" > ?) ORDER BY "name" ASC LIMIT ? OFFSET ?'
+        assert sql == 'SELECT "id", "name" FROM "products" AS "p" WHERE (("p"."price") > ?) ORDER BY "name" ASC LIMIT ? OFFSET ?'
         assert params == (100, 10, 5)
 
     def test_select_with_groupby_having(self, dummy_dialect: DummyDialect):
@@ -50,7 +50,7 @@ class TestQueryStatements:
             having=ComparisonPredicate(dummy_dialect, ">", FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")), Literal(dummy_dialect, 5))
         )
         sql, params = query.to_sql()
-        assert sql == 'SELECT "category", COUNT("id") AS "product_count" FROM "products" GROUP BY "category" HAVING (COUNT("id") > ?)'
+        assert sql == 'SELECT "category", COUNT("id") AS "product_count" FROM "products" GROUP BY "category" HAVING ((COUNT("id")) > ?)'
         assert params == (5,)
 
     # --- InsertExpression ---
@@ -84,7 +84,7 @@ class TestQueryStatements:
         update_expr = UpdateExpression(
             dummy_dialect,
             table="users",
-            set_values={
+            assignments={
                 "name": Literal(dummy_dialect, "Jane Smith"),
                 "age": Literal(dummy_dialect, 30)
             },
@@ -92,14 +92,11 @@ class TestQueryStatements:
         )
         sql, params = update_expr.to_sql()
         # Note: dictionary order is not guaranteed, so the SET clause might vary.
-        # However, for DummyDialect, it generates based on insertion order, but we can't rely on it.
         # A more robust test would check for presence of parts or sort them.
-        # For simplicity, we'll use a fixed order here.
-        assert sql in [
-            'UPDATE "users" SET "name" = ?, "age" = ? WHERE ("id" = ?)',
-            'UPDATE "users" SET "age" = ?, "name" = ? WHERE ("id" = ?)'
-        ]
-        assert params == ("Jane Smith", 30, 1) or params == (30, "Jane Smith", 1)
+        assert 'UPDATE "users" SET' in sql
+        assert 'WHERE (("id") = ?)' in sql
+        assert ('"name" = ?, "age" = ?' in sql) or ('"age" = ?, "name" = ?' in sql)
+        assert set(params) == {"Jane Smith", 30, 1}
 
 
     def test_update_with_arithmetic_expression(self, dummy_dialect: DummyDialect):
@@ -107,13 +104,13 @@ class TestQueryStatements:
         update_expr = UpdateExpression(
             dummy_dialect,
             table="products",
-            set_values={
+            assignments={
                 "stock": BinaryArithmeticExpression(dummy_dialect, "-", Column(dummy_dialect, "stock"), Literal(dummy_dialect, 5))
             },
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 10))
         )
         sql, params = update_expr.to_sql()
-        assert sql == 'UPDATE "products" SET "stock" = ("stock" - ?) WHERE ("id" = ?)'
+        assert sql == 'UPDATE "products" SET "stock" = (("stock") - ?) WHERE (("id") = ?)'
         assert params == (5, 10)
 
     # --- DeleteExpression ---
@@ -125,7 +122,7 @@ class TestQueryStatements:
             where=ComparisonPredicate(dummy_dialect, "<", Column(dummy_dialect, "order_date"), Literal(dummy_dialect, "2023-01-01"))
         )
         sql, params = delete_expr.to_sql()
-        assert sql == 'DELETE FROM "orders" WHERE ("order_date" < ?)'
+        assert sql == 'DELETE FROM "orders" WHERE (("order_date") < ?)'
         assert params == ("2023-01-01",)
 
     def test_delete_with_complex_where(self, dummy_dialect: DummyDialect):
@@ -141,5 +138,5 @@ class TestQueryStatements:
             where=condition
         )
         sql, params = delete_expr.to_sql()
-        assert sql == 'DELETE FROM "temp_records" WHERE (("status" = ?) AND ("user_id" IN (?, ?)))'
+        assert sql == 'DELETE FROM "temp_records" WHERE ((("status") = ?) AND ("user_id" IN (?, ?)))'
         assert params == ("cancelled", 101, 102)

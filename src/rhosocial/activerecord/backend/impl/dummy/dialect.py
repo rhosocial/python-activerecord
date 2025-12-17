@@ -1416,8 +1416,8 @@ if __name__ == "__main__":
 
         # GROUPING SETS
         grouping_sets = GroupingExpression(dialect, "GROUPING SETS", [
-            Column(dialect, "country"),
-            Column(dialect, "city")
+            [Column(dialect, "country")],
+            [Column(dialect, "city")]
         ])
         sql, params = grouping_sets.to_sql()
         print_sql("GROUPING SETS", sql, params)

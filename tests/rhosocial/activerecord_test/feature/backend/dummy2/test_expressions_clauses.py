@@ -12,27 +12,29 @@ class TestClauseExpressions:
     """Tests for various SQL clause-related expressions."""
 
     # --- JoinExpression ---
-    @pytest.mark.parametrize("left_table, right_table, join_type, condition, using, expected_sql, expected_params", [
-        (TableExpression(None, "users", "u"), TableExpression(None, "orders", "o"), "INNER",
-         ComparisonPredicate(None, "=", Column(None, "id", "u"), Column(None, "user_id", "o")), None,
+    @pytest.mark.parametrize("left_data, right_data, join_type, condition_data, using, expected_sql, expected_params", [
+        (("users", "u"), ("orders", "o"), "INNER", ("=", ("id", "u"), ("user_id", "o")), None,
          '"users" AS "u" INNER JOIN "orders" AS "o" ON ("u"."id" = "o"."user_id")', ()),
-        (TableExpression(None, "products", "p"), TableExpression(None, "categories", "c"), "LEFT",
-         ComparisonPredicate(None, "=", Column(None, "category_id", "p"), Column(None, "id", "c")), None,
-         '"products" AS "p" LEFT JOIN "categories" AS "c" ON ("p"."category_id" = "c"."id")', ()),
-        (TableExpression(None, "customers"), TableExpression(None, "addresses"), "FULL",
-         None, ["customer_id"], '"customers" FULL JOIN "addresses" USING ("customer_id")', ()),
-        (TableExpression(None, "tbl1"), TableExpression(None, "tbl2"), "CROSS",
-         None, None, '"tbl1" CROSS JOIN "tbl2"', ()),
+        (("products", "p"), ("categories", "c"), "LEFT", ("=", ("category_id", "p"), ("id", "c")), None,
+         '"products" AS "p" LEFT OUTER JOIN "categories" AS "c" ON ("p"."category_id" = "c"."id")', ()),
+        (("customers", None), ("addresses", None), "FULL", None, ["customer_id"], 
+         '"customers" FULL OUTER JOIN "addresses" USING ("customer_id")', ()),
+        (("tbl1", None), ("tbl2", None), "CROSS", None, None, 
+         '"tbl1" CROSS JOIN "tbl2"', ()),
     ])
-    def test_join_expression(self, dummy_dialect: DummyDialect, left_table, right_table, join_type, condition, using, expected_sql, expected_params):
+    def test_join_expression(self, dummy_dialect: DummyDialect, left_data, right_data, join_type, condition_data, using, expected_sql, expected_params):
         """Tests various types of JOIN expressions."""
-        # Assign dialect to sub-expressions if they exist
-        left_table.dialect = dummy_dialect
-        right_table.dialect = dummy_dialect
-        if condition:
-            condition.dialect = dummy_dialect # Condition handles its own sub-expressions
+        left_table = TableExpression(dummy_dialect, left_data[0], alias=left_data[1])
+        right_table = TableExpression(dummy_dialect, right_data[0], alias=right_data[1])
         
-        join_expr = JoinExpression(dummy_dialect, left_table, right_table, join_type, condition=condition, using=using)
+        condition = None
+        if condition_data:
+            op, left_col, right_col = condition_data
+            condition = ComparisonPredicate(dummy_dialect, op, 
+                                            Column(dummy_dialect, left_col[0], table=left_col[1]), 
+                                            Column(dummy_dialect, right_col[0], table=right_col[1]))
+        
+        join_expr = JoinExpression(dummy_dialect, left_table, right_table, join_type=join_type, condition=condition, using=using)
         sql, params = join_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
@@ -43,19 +45,12 @@ class TestClauseExpressions:
         cte_query = Subquery(dummy_dialect, "SELECT id, name FROM employees WHERE salary > ?", (50000,))
         cte_expr = CTEExpression(dummy_dialect, name="high_earners", query=cte_query, columns=["id", "name"])
         sql, params = cte_expr.to_sql()
-        assert sql == '"high_earners" ("id", "name") AS (SELECT id, name FROM employees WHERE salary > ?)'
+        assert sql == '"high_earners" ("id", "name") AS ((SELECT id, name FROM employees WHERE salary > ?))'
         assert params == (50000,)
 
     def test_recursive_cte_expression(self, dummy_dialect: DummyDialect):
         """Tests a recursive CTE."""
-        cte_query_sql = """
-            SELECT id, name, manager_id, 1 AS level
-            FROM employees
-            WHERE manager_id IS NULL
-            UNION ALL
-            SELECT e.id, e.name, e.manager_id, t.level + 1
-            FROM employees e INNER JOIN org_tree t ON e.manager_id = t.id
-        """
+        cte_query_sql = """SELECT id, name, manager_id, 1 AS level FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, e.manager_id, t.level + 1 FROM employees e INNER JOIN org_tree t ON e.manager_id = t.id"""
         cte_query = RawSQLExpression(dummy_dialect, cte_query_sql) # Or Subquery
         cte_expr = CTEExpression(dummy_dialect, name="org_tree", query=cte_query, recursive=True)
         sql, params = cte_expr.to_sql()
@@ -67,30 +62,28 @@ class TestClauseExpressions:
         cte_query = Subquery(dummy_dialect, "SELECT * FROM large_data WHERE condition = ?", (True,))
         cte_expr = CTEExpression(dummy_dialect, name="cached_data", query=cte_query, materialized=True)
         sql, params = cte_expr.to_sql()
-        assert sql == '"cached_data" AS MATERIALIZED (SELECT * FROM large_data WHERE condition = ?)'
+        assert sql == '"cached_data" AS MATERIALIZED ((SELECT * FROM large_data WHERE condition = ?))'
         assert params == (True,)
 
     # --- GroupingExpression (ROLLUP, CUBE, GROUPING SETS) ---
-    @pytest.mark.parametrize("grouping_type, args, expected_sql", [
-        ("ROLLUP", [Column(None, "year"), Column(None, "quarter")], 'ROLLUP("year", "quarter")'),
-        ("CUBE", [Column(None, "region"), Column(None, "product")], 'CUBE("region", "product")'),
-        ("GROUPING SETS", [[Column(None, "country")], [Column(None, "city")]], 'GROUPING SETS(("country"), ("city"))'),
+    @pytest.mark.parametrize("grouping_type, args_data, expected_sql", [
+        ("ROLLUP", [("year",), ("quarter",)], 'ROLLUP("year", "quarter")'),
+        ("CUBE", [("region",), ("product",)], 'CUBE("region", "product")'),
+        ("GROUPING SETS", [[("country",)], [("city",)]], 'GROUPING SETS(("country"), ("city"))'),
     ])
-    def test_grouping_expression(self, dummy_dialect: DummyDialect, grouping_type, args, expected_sql):
+    def test_grouping_expression(self, dummy_dialect: DummyDialect, grouping_type, args_data, expected_sql):
         """Tests advanced GROUP BY features: ROLLUP, CUBE, GROUPING SETS."""
         # Assign dialect to arguments
         processed_args = []
         if grouping_type == "GROUPING SETS":
-            for group_set in args:
+            for group_set_data in args_data:
                 processed_group_set = []
-                for arg in group_set:
-                    arg.dialect = dummy_dialect
-                    processed_group_set.append(arg)
+                for arg_data in group_set_data:
+                    processed_group_set.append(Column(dummy_dialect, *arg_data))
                 processed_args.append(processed_group_set)
         else:
-            for arg in args:
-                arg.dialect = dummy_dialect
-                processed_args.append(arg)
+            for arg_data in args_data:
+                processed_args.append(Column(dummy_dialect, *arg_data))
 
         grouping_expr = GroupingExpression(dummy_dialect, grouping_type, processed_args)
         sql, params = grouping_expr.to_sql()

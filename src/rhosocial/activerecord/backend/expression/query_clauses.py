@@ -42,16 +42,31 @@ class GroupingExpression(bases.BaseExpression):
         self.expressions = expressions
 
     def to_sql(self) -> Tuple[str, tuple]:
-        op, expr_parts, all_params = self.operation.upper(), [], []
+        op, all_params = self.operation.upper(), []
         if op == "ROLLUP": self.dialect.check_feature_support('supports_rollup', 'ROLLUP')
         elif op == "CUBE": self.dialect.check_feature_support('supports_cube', 'CUBE')
         elif op == "GROUPING SETS": self.dialect.check_feature_support('supports_grouping_sets', 'GROUPING SETS')
-        for expr in self.expressions:
-            expr_sql, expr_params = expr.to_sql()
-            expr_parts.append(expr_sql)
-            all_params.extend(expr_params)
-        inner_expr = ", ".join(expr_parts)
-        sql = f"{op}(({inner_expr}))" if op == "GROUPING SETS" else f"{op}({inner_expr})"
+        
+        if op == "GROUPING SETS":
+            sets_parts = []
+            for expr_list in self.expressions:
+                expr_parts = []
+                for expr in expr_list:
+                    expr_sql, expr_params = expr.to_sql()
+                    expr_parts.append(expr_sql)
+                    all_params.extend(expr_params)
+                sets_parts.append(f"({', '.join(expr_parts)})")
+            inner_expr = ", ".join(sets_parts)
+            sql = f"{op}({inner_expr})"
+        else:
+            expr_parts = []
+            for expr in self.expressions:
+                expr_sql, expr_params = expr.to_sql()
+                expr_parts.append(expr_sql)
+                all_params.extend(expr_params)
+            inner_expr = ", ".join(expr_parts)
+            sql = f"{op}({inner_expr})"
+            
         return sql, tuple(all_params)
 
 
@@ -84,27 +99,38 @@ class JoinExpression(bases.BaseExpression):
         left_sql, left_params = left.to_sql()
         right = self.right_table if not isinstance(self.right_table, str) else core.TableExpression(self.dialect, self.right_table)
         right_sql, right_params = right.to_sql()
-        join_parts = ["NATURAL"] if self.natural else []
-        join_parts.extend([self.join_type, "JOIN"])
-        join_type_str = " ".join(join_parts)
+
+        join_type_upper = self.join_type.upper()
+        
+        join_phrase = ""
+        if join_type_upper == "CROSS":
+            join_phrase = "CROSS JOIN"
+        elif join_type_upper in ["INNER", "LEFT", "RIGHT", "FULL"]:
+            join_phrase = f"{join_type_upper}"
+            if join_type_upper in ["LEFT", "RIGHT", "FULL"]:
+                join_phrase += " OUTER"
+            join_phrase += " JOIN"
+        else:
+            join_phrase = f"{join_type_upper} JOIN" # Fallback for custom/unrecognized types
+
+        if self.natural:
+            join_phrase = f"NATURAL {join_phrase}"
+
         all_params: List[Any] = list(left_params) + list(right_params)
+        
         if self.using:
             using_cols = [self.dialect.format_identifier(col) for col in self.using]
-            sql = f"{left_sql} {join_type_str} {right_sql} USING ({', '.join(using_cols)})"
+            sql = f"{left_sql} {join_phrase} {right_sql} USING ({', '.join(using_cols)})"
         elif self.condition:
             condition_sql, condition_params = self.condition.to_sql()
-            sql = f"{left_sql} {join_type_str} {right_sql} ON {condition_sql}"
+            sql = f"{left_sql} {join_phrase} {right_sql} ON {condition_sql}"
             all_params.extend(condition_params)
         else:
-            sql = f"{left_sql} {join_type_str} {right_sql}"
+            sql = f"{left_sql} {join_phrase} {right_sql}"
         return sql, tuple(all_params)
 
     def to_sql(self) -> Tuple[str, tuple]:
-        base_sql, base_params = self._build_base_join_sql()
-        formatted_sql, formatted_params = self.dialect.format_join_expression(base_sql, base_params)
-        if self.alias:
-            return f"({formatted_sql}) AS {self.dialect.format_identifier(self.alias)}", formatted_params
-        return formatted_sql, formatted_params
+        return self._build_base_join_sql()
 
 
 class CTEExpression(bases.BaseExpression):

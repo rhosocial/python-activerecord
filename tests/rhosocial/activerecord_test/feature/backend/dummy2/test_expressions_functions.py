@@ -12,37 +12,41 @@ class TestFunctionExpressions:
         assert sql == "NOW()"
         assert params == ()
 
-    @pytest.mark.parametrize("func_name, args, is_distinct, expected_sql, expected_params", [
-        ("LENGTH", [Literal(None, "some_text")], False, "LENGTH(?)", ("some_text",)),
-        ("CONCAT", [Column(None, "first"), Literal(None, " "), Column(None, "last")], False, "CONCAT(\"first\", ?, \"last\")", (" ",)),
-        ("COALESCE", [Column(None, "col1"), Literal(None, "default")], False, "COALESCE(\"col1\", ?)", ("default",)),
-        ("MAX", [Column(None, "price")], False, "MAX(\"price\")", ())
-        ("COUNT", [Literal(None, "*")], True, "COUNT(DISTINCT *)", ())
+    @pytest.mark.parametrize("func_name, args_data, is_distinct, expected_sql, expected_params", [
+        ("LENGTH", [("some_text",)], False, "LENGTH(?)", ("some_text",)),
+        ("CONCAT", [("Column", "first"), " ", ("Column", "last")], False, 'CONCAT("first", ?, "last")', (" ",)),
+        ("COALESCE", [("Column", "col1"), "default"], False, 'COALESCE("col1", ?)', ("default",)),
+        ("MAX", [("Column", "price")], False, 'MAX("price")', ()),
+        ("COUNT", ["*"], True, "COUNT(DISTINCT *)", ()),
     ])
-    def test_function_with_args(self, dummy_dialect: DummyDialect, func_name, args, is_distinct, expected_sql, expected_params):
+    def test_function_with_args(self, dummy_dialect: DummyDialect, func_name, args_data, is_distinct, expected_sql, expected_params):
         """Tests function calls with various arguments and distinct flag."""
-        # Update args with the dialect instance
         dialect_args = []
-        for arg in args:
-            if isinstance(arg, (Literal, Column, RawSQLExpression)):
-                arg.dialect = dummy_dialect
-            dialect_args.append(arg)
+        for arg_data in args_data:
+            if isinstance(arg_data, tuple) and arg_data[0] == "Column":
+                dialect_args.append(Column(dummy_dialect, arg_data[1]))
+            elif isinstance(arg_data, str) and arg_data == "*":
+                dialect_args.append(Literal(dummy_dialect, arg_data))
+            else:
+                dialect_args.append(Literal(dummy_dialect, arg_data))
 
         func_call = FunctionCall(dummy_dialect, func_name, *dialect_args, is_distinct=is_distinct)
         sql, params = func_call.to_sql()
         assert sql == expected_sql
         assert params == expected_params
 
-    @pytest.mark.parametrize("agg_func, arg_expr, alias, is_distinct, expected_sql, expected_params", [
-        (count, Literal(None, "*"), None, False, "COUNT(*)", ())
-        (count, Column(None, "id"), "total", False, "COUNT(\"id\") AS \"total\"", ())
-        (sum_, Column(None, "amount"), None, False, "SUM(\"amount\")", ())
-        (avg, Column(None, "score"), "avg_score", True, "AVG(DISTINCT \"score\") AS \"avg_score\"", ())
+    @pytest.mark.parametrize("agg_func, arg_data, alias, is_distinct, expected_sql, expected_params", [
+        (count, "*", None, False, "COUNT(*)", ()),
+        (count, ("Column", "id"), "total", False, 'COUNT("id") AS "total"', ()),
+        (sum_, ("Column", "amount"), None, False, 'SUM("amount")', ()),
+        (avg, ("Column", "score"), "avg_score", True, 'AVG(DISTINCT "score") AS "avg_score"', ()),
     ])
-    def test_aggregate_function_factories(self, dummy_dialect: DummyDialect, agg_func, arg_expr, alias, is_distinct, expected_sql, expected_params):
+    def test_aggregate_function_factories(self, dummy_dialect: DummyDialect, agg_func, arg_data, alias, is_distinct, expected_sql, expected_params):
         """Tests aggregate function factories (count, sum_, avg) with various configurations."""
-        if arg_expr:
-            arg_expr.dialect = dummy_dialect # Assign dialect to argument expression
+        if isinstance(arg_data, tuple) and arg_data[0] == "Column":
+            arg_expr = Column(dummy_dialect, arg_data[1])
+        else:
+            arg_expr = Literal(dummy_dialect, arg_data)
 
         # Create the aggregate function using the factory
         agg_call = agg_func(dummy_dialect, arg_expr, alias=alias, is_distinct=is_distinct)
@@ -57,7 +61,7 @@ class TestFunctionExpressions:
             Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         )
         sql, params = active_count.to_sql()
-        assert sql == "COUNT(*) FILTER (WHERE (\"status\" = ?)) AS \"active_count\""
+        assert sql == 'COUNT(*) FILTER (WHERE ("status" = ?)) AS "active_count"'
         assert params == ("active",)
 
         # SUM with multiple chained filters (combined with AND)
@@ -67,5 +71,5 @@ class TestFunctionExpressions:
             Column(dummy_dialect, "priority") == Literal(dummy_dialect, True)
         )
         sql, params = high_value_sum.to_sql()
-        assert sql == "SUM(\"amount\") FILTER (WHERE (((\"category\" = ?)) AND (((\"priority\" = ?))))) AS \"high_value_sum\""
+        assert sql == 'SUM("amount") FILTER (WHERE ((("category" = ?)) AND (("priority" = ?)))) AS "high_value_sum"'
         assert params == ("sales", True)
