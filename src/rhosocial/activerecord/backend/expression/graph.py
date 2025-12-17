@@ -1,24 +1,27 @@
-# src/rhosocial/activerecord/backend/expression/graph.py
+# src/rhosocial/activerecord/backend/expression_/graph.py
 """
 SQL Graph Query (MATCH) expression building blocks.
 """
 from enum import Enum
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
 
-from .base import BaseExpression
-from ..dialect import SQLDialectBase
+from . import bases
+
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
 
 
 class GraphEdgeDirection(Enum):
+    """Specifies the direction of an edge in a graph pattern."""
     LEFT = "<-"
     RIGHT = "->"
     ANY = "<->"
     NONE = "-"
 
 
-class GraphVertex(BaseExpression):
+class GraphVertex(bases.BaseExpression):
     """Represents a vertex in a graph pattern."""
-    def __init__(self, dialect: SQLDialectBase, variable: str, table: str):
+    def __init__(self, dialect: "SQLDialectBase", variable: str, table: str):
         super().__init__(dialect)
         self.variable = variable
         self.table = table
@@ -27,30 +30,36 @@ class GraphVertex(BaseExpression):
         return f"({self.variable} IS {self.dialect.format_identifier(self.table)})", ()
 
 
-class GraphEdge(BaseExpression):
+class GraphEdge(bases.BaseExpression):
     """Represents an edge in a graph pattern."""
-    def __init__(self, dialect: SQLDialectBase, variable: str, table: str, direction: GraphEdgeDirection):
+    def __init__(self, dialect: "SQLDialectBase", variable: str, table: str, direction: GraphEdgeDirection):
         super().__init__(dialect)
         self.variable = variable
         self.table = table
         self.direction = direction
 
     def to_sql(self) -> Tuple[str, tuple]:
-        return f"{self.direction.value}[{self.variable} IS {self.dialect.format_identifier(self.table)}]", ()
+        left_arrow, right_arrow = "", ""
+        if self.direction in [GraphEdgeDirection.LEFT, GraphEdgeDirection.ANY]:
+            left_arrow = "<"
+        if self.direction in [GraphEdgeDirection.RIGHT, GraphEdgeDirection.ANY]:
+            right_arrow = ">"
+        
+        return f"{left_arrow}-[{self.variable} IS {self.dialect.format_identifier(self.table)}]-{right_arrow}", ()
 
 
-class MatchClause(BaseExpression):
+class MatchClause(bases.BaseExpression):
     """Represents a MATCH clause with one or more path patterns."""
-    def __init__(self, dialect: SQLDialectBase, *path: Union[GraphVertex, GraphEdge]):
+    def __init__(self, dialect: "SQLDialectBase", *path: Union[GraphVertex, GraphEdge]):
         super().__init__(dialect)
         self.path = list(path)
 
     def to_sql(self) -> Tuple[str, tuple]:
-        path_sql = []
-        all_params: List[Any] = []
+        path_sql, all_params = [], []
         for part in self.path:
             sql, params = part.to_sql()
             path_sql.append(sql)
             all_params.extend(params)
         
-        return f"MATCH {' '.join(path_sql)}", tuple(all_params)
+        match_sql, match_params = self.dialect.format_match_clause(path_sql, tuple(all_params))
+        return match_sql, match_params

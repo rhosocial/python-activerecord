@@ -1,22 +1,17 @@
-# src/rhosocial/activerecord/backend/expression/__init__.py
+# src/rhosocial/activerecord/backend/expression_/__init__.py
 """
 SQL Expression building blocks.
 """
 
-from .base import (
+from .bases import (
     ToSQLProtocol,
     BaseExpression,
     SQLValueExpression,
     SQLPredicate,
-    ComparableExpression,
-    StringExpression,
-    Literal,
 )
-
 from .literals import (
     Identifier,
 )
-
 from .operators import (
     SQLOperation,
     BinaryExpression,
@@ -24,14 +19,13 @@ from .operators import (
     RawSQLExpression,
     BinaryArithmeticExpression,
 )
-
 from .core import (
     Column,
     FunctionCall,
     Subquery,
     TableExpression,
+    Literal,
 )
-
 from .predicates import (
     ComparisonPredicate,
     LogicalPredicate,
@@ -40,7 +34,10 @@ from .predicates import (
     BetweenPredicate,
     IsNullPredicate,
 )
-
+from .aggregates import (
+    AggregatableExpression,
+    AggregateFunctionCall,
+)
 from .advanced_functions import (
     CaseExpression,
     CastExpression,
@@ -52,7 +49,6 @@ from .advanced_functions import (
     ArrayExpression,
     OrderedSetAggregation,
 )
-
 from .query_clauses import (
     SetOperationExpression,
     GroupingExpression,
@@ -66,7 +62,6 @@ from .query_clauses import (
     JSONTableColumn,
     JSONTableExpression,
 )
-
 from .statements import (
     QueryExpression,
     DeleteExpression,
@@ -77,85 +72,38 @@ from .statements import (
     MergeAction,
     MergeExpression,
 )
-
 from .graph import (
     GraphEdgeDirection,
     GraphVertex,
     GraphEdge,
     MatchClause,
 )
+from .functions import (
+    count,
+    sum_,
+    avg,
+    min_,
+    max_,
+    lower,
+    upper,
+    concat,
+    coalesce,
+)
 
 __all__ = [
-    # base.py
-    "ToSQLProtocol",
-    "BaseExpression",
-    "SQLValueExpression",
-    "SQLPredicate",
-    "ComparableExpression",
-    "StringExpression",
-    "Literal",
-
-    # literals.py
+    "ToSQLProtocol", "BaseExpression", "SQLValueExpression", "SQLPredicate",
     "Identifier",
-
-    # operators.py
-    "SQLOperation",
-    "BinaryExpression",
-    "UnaryExpression",
-    "RawSQLExpression",
-    "BinaryArithmeticExpression",
-
-    # core.py
-    "Column",
-    "FunctionCall",
-    "Subquery",
-    "TableExpression",
-
-    # predicates.py
-    "ComparisonPredicate",
-    "LogicalPredicate",
-    "LikePredicate",
-    "InPredicate",
-    "BetweenPredicate",
-    "IsNullPredicate",
-
-    # advanced_functions.py
-    "CaseExpression",
-    "CastExpression",
-    "ExistsExpression",
-    "AnyExpression",
-    "AllExpression",
-    "WindowExpression",
-    "JSONExpression",
-    "ArrayExpression",
-    "OrderedSetAggregation",
-
-    # query_clauses.py
-    "SetOperationExpression",
-    "GroupingExpression",
-    "GroupExpression",
-    "JoinExpression",
-    "CTEExpression",
-    "WithQueryExpression",
-    "ValuesExpression",
-    "TableFunctionExpression",
-    "LateralExpression",
-    "JSONTableColumn",
-    "JSONTableExpression",
-
-    # statements.py
-    "QueryExpression",
-    "DeleteExpression",
-    "UpdateExpression",
-    "InsertExpression",
-    "ExplainExpression",
-    "MergeActionType",
-    "MergeAction",
-    "MergeExpression",
-
-    # graph.py
-    "GraphEdgeDirection",
-    "GraphVertex",
-    "GraphEdge",
-    "MatchClause",
+    "SQLOperation", "BinaryExpression", "UnaryExpression", "RawSQLExpression", "BinaryArithmeticExpression",
+    "Column", "FunctionCall", "Subquery", "TableExpression", "Literal",
+    "ComparisonPredicate", "LogicalPredicate", "LikePredicate", "InPredicate", "BetweenPredicate", "IsNullPredicate",
+    "AggregatableExpression", "AggregateFunctionCall",
+    "CaseExpression", "CastExpression", "ExistsExpression", "AnyExpression", "AllExpression",
+    "WindowExpression", "JSONExpression", "ArrayExpression", "OrderedSetAggregation",
+    "SetOperationExpression", "GroupingExpression", "GroupExpression", "JoinExpression", "CTEExpression",
+    "WithQueryExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression",
+    "JSONTableColumn", "JSONTableExpression",
+    "QueryExpression", "DeleteExpression", "UpdateExpression", "InsertExpression", "ExplainExpression",
+    "MergeActionType", "MergeAction", "MergeExpression",
+    "GraphEdgeDirection", "GraphVertex", "GraphEdge", "MatchClause",
+    "count", "sum_", "avg", "min_", "max_", "lower", "upper", "concat", "coalesce",
 ]

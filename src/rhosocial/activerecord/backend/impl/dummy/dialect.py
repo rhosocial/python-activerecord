@@ -397,6 +397,7 @@ if __name__ == "__main__":
         QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
         ExplainExpression, SQLOperation, MergeExpression, MergeAction, OrderedSetAggregation,
         JSONTableExpression,
+        count, sum_, avg,
     )
 
     dialect = DummyDialect()
@@ -510,59 +511,76 @@ if __name__ == "__main__":
 
 
     def demo_functions():
-        """Demonstrate FunctionCall expressions."""
+        """Demonstrate aggregate and scalar function expressions."""
         print("=" * 70)
         print("FUNCTION CALLS")
         print("=" * 70)
         print()
 
-        func = FunctionCall(dialect, "COUNT", Column(dialect, "id"))
+        # Aggregate functions using new factories
+        func = count(dialect, Column(dialect, "id"))
         sql, params = func.to_sql()
         print_sql("COUNT Function", sql, params)
 
-        func = FunctionCall(dialect, "SUM", Column(dialect, "amount"), alias="total")
+        func = sum_(dialect, Column(dialect, "amount"), alias="total")
         sql, params = func.to_sql()
         print_sql("SUM with Alias", sql, params)
 
+        func = count(dialect, Column(dialect, "id"), is_distinct=True)
+        sql, params = func.to_sql()
+        print_sql("COUNT DISTINCT", sql, params)
+        
+        func = avg(dialect, Column(dialect, "price"), alias="avg_price")
+        sql, params = func.to_sql()
+        print_sql("AVG Function", sql, params)
+
+        # Scalar functions using FunctionCall
         func = FunctionCall(dialect, "CONCAT",
                             Column(dialect, "first_name"),
                             Literal(dialect, " "),
                             Column(dialect, "last_name"))
         sql, params = func.to_sql()
-        print_sql("CONCAT Function", sql, params)
-
-        func = FunctionCall(dialect, "COUNT", Column(dialect, "id"), is_distinct=True)
-        sql, params = func.to_sql()
-        print_sql("COUNT DISTINCT", sql, params)
-
-        func = FunctionCall(dialect, "AVG", Column(dialect, "price"), alias="avg_price")
-        sql, params = func.to_sql()
-        print_sql("AVG Function", sql, params)
+        print_sql("CONCAT Function (Scalar)", sql, params)
 
         func = FunctionCall(dialect, "COALESCE",
                             Column(dialect, "phone"),
                             Literal(dialect, "N/A"))
         sql, params = func.to_sql()
-        print_sql("COALESCE Function", sql, params)
-
+        print_sql("COALESCE Function (Scalar)", sql, params)
 
 
     def demo_filter_clause():
-        """Demonstrate aggregate FILTER clause."""
+        """Demonstrate aggregate FILTER clause with the new chainable API."""
         print("=" * 70)
         print("AGGREGATE FILTER CLAUSE")
         print("=" * 70)
         print()
 
-        filter_cond = ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, "active"))
-        func = FunctionCall(dialect, "COUNT", Column(dialect, "*"), filter_=filter_cond, alias="active_count")
-        sql, params = func.to_sql()
-        print_sql("COUNT with FILTER clause", sql, params)
+        # COUNT with a single filter
+        active_count = count(dialect, "*", alias="active_count").filter(
+            Column(dialect, "status") == "active"
+        )
+        
+        sql, params = active_count.to_sql()
+        print_sql("COUNT with a single filter", sql, params)
 
-        filter_cond_2 = ComparisonPredicate(dialect, ">", Column(dialect, "amount"), Literal(dialect, 100))
-        func_2 = FunctionCall(dialect, "SUM", Column(dialect, "amount"), filter_=filter_cond_2, alias="high_value_sum")
-        sql_2, params_2 = func_2.to_sql()
-        print_sql("SUM with FILTER clause", sql_2, params_2)
+        # SUM with a different filter
+        high_value_sum = sum_(dialect, "amount", alias="high_value_sum").filter(
+            Column(dialect, "amount") > 100
+        )
+
+        sql, params = high_value_sum.to_sql()
+        print_sql("SUM with a single filter", sql, params)
+        
+        # AVG with multiple chained filters (combined with AND)
+        avg_priority_sales = avg(dialect, "price", alias="avg_priority_sales").filter(
+            Column(dialect, "category") == "sales"
+        ).filter(
+            Column(dialect, "priority") == True
+        )
+
+        sql, params = avg_priority_sales.to_sql()
+        print_sql("AVG with multiple chained filters (AND)", sql, params)
 
 
     def demo_subqueries():

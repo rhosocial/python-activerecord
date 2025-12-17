@@ -1,28 +1,26 @@
-# src/rhosocial/activerecord/backend/expression/literals.py
+# src/rhosocial/activerecord/backend/expression_/literals.py
 """
 Literal identifiers in SQL expressions.
 """
-from typing import Tuple
-from ..dialect import SQLDialectBase
-from .base import SQLValueExpression
+from typing import Tuple, TYPE_CHECKING
+from . import bases
+from . import mixins
+
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
 
 
-class Identifier(SQLValueExpression):
-    """Represents a generic SQL identifier (e.g., table name, alias)."""
-    def __init__(self, dialect: SQLDialectBase, name: str):
-        """
-        Initializes an Identifier SQL expression.
-
-        Args:
-            dialect: The SQL dialect instance to use for formatting this expression.
-            name: The name of the identifier.
-        """
+class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):
+    """
+    Represents a generic SQL identifier (e.g., table name, column name, alias).
+    It is comparable but generally not used in arithmetic.
+    """
+    def __init__(self, dialect: "SQLDialectBase", name: str):
         super().__init__(dialect)
         self.name = name
 
     def to_sql(self) -> Tuple[str, tuple]:
-        # Delegate to dialect for identifier formatting/quoting
         return self.dialect.format_identifier(self.name), ()
-    
-    def __repr__(self) -> str: 
+
+    def __repr__(self) -> str:
         return f"Identifier({self.name!r})"
