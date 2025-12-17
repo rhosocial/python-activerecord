@@ -5,22 +5,42 @@ SQLite backend SQL dialect implementation.
 SQLite is a lightweight database with limited support for advanced SQL features.
 This dialect implements only the protocols for features that SQLite actually supports.
 """
-from typing import Any, List, Optional, Tuple
+from typing import Any, Dict, List, Optional, Tuple
 
 from rhosocial.activerecord.backend.dialect import UnsupportedFeatureError
 from rhosocial.activerecord.backend.dialect.base import BaseDialect
 from rhosocial.activerecord.backend.dialect.protocols import (
     CTESupport,
     ReturningSupport,
-    JSONSupport
+    JSONSupport,
+    FilterClauseSupport, # Add FilterClauseSupport
+    OrderedSetAggregationSupport, # Add OrderedSetAggregationSupport
+    MergeSupport, # Add MergeSupport
+    TemporalTableSupport, # Add TemporalTableSupport
+    QualifyClauseSupport, # Add QualifyClauseSupport
+    LockingSupport, # Add LockingSupport
+    GraphSupport, # Add GraphSupport
+    WindowFunctionSupport # Add WindowFunctionSupport
 )
+from rhosocial.activerecord.backend.expression.statements import MergeActionType, MergeAction, MergeExpression # Add for MERGE demo
+from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation # Add for OrderedSetAggregation demo
+from rhosocial.activerecord.backend.expression.graph import GraphVertex, GraphEdge, MatchClause, GraphEdgeDirection # Add for Graph demo
+from rhosocial.activerecord.backend.expression.query_clauses import JSONTableColumn, JSONTableExpression # Add for JSON_TABLE demo
 
 
 class SQLiteDialect(
     BaseDialect,
     CTESupport,
     ReturningSupport,
-    JSONSupport
+    JSONSupport,
+    FilterClauseSupport, # Add FilterClauseSupport
+    OrderedSetAggregationSupport, # Add OrderedSetAggregationSupport
+    MergeSupport, # Add MergeSupport
+    TemporalTableSupport, # Add TemporalTableSupport
+    QualifyClauseSupport, # Add QualifyClauseSupport
+    LockingSupport, # Add LockingSupport
+    GraphSupport, # Add GraphSupport
+    WindowFunctionSupport # Add WindowFunctionSupport
 ):
     """
     SQLite dialect implementation.
@@ -82,6 +102,38 @@ class SQLiteDialect(
         """SQLite uses '->' for JSON access."""
         return "->"
 
+    def supports_window_functions(self) -> bool:
+        """Window functions are supported since SQLite 3.25.0."""
+        # This check should ideally be dynamic based on the actual SQLite version at runtime.
+        # For demonstration purposes, we assume a modern SQLite version is used.
+        return True
+
+    def supports_window_frame_clause(self) -> bool:
+        """Whether window frame clauses (ROWS/RANGE) are supported, since SQLite 3.25.0."""
+        # Similar to supports_window_functions, assumes a modern SQLite version.
+        return True
+
+    def supports_filter_clause(self) -> bool:
+        """FILTER clause for aggregate functions is supported since SQLite 3.10.0."""
+        return True
+
+    def format_filter_clause(
+        self,
+        condition_sql: str,
+        condition_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Format a FILTER (WHERE ...) clause.
+
+        Args:
+            condition_sql: SQL string for the WHERE condition.
+            condition_params: Parameters for the WHERE condition.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        return f"FILTER (WHERE {condition_sql})", condition_params
+
     def format_limit_offset(
         self,
         limit: Optional[int] = None,
@@ -105,6 +157,155 @@ class SQLiteDialect(
         return super().format_limit_offset(limit, offset)
 
 
+    def supports_json_table(self) -> bool:
+        """SQLite does not directly support JSON_TABLE as a table function."""
+        return False
+
+    def format_json_table_expression(
+        self,
+        json_col_sql: str,
+        path: str,
+        columns: List[Dict[str, Any]],
+        alias: Optional[str],
+        params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Formats a JSON_TABLE expression.
+
+        SQLite does not support JSON_TABLE.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "JSON_TABLE function",
+            "Consider using json_each() or json_extract() with subqueries or CTEs instead."
+        )
+
+    def supports_ordered_set_aggregation(self) -> bool:
+        """SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."""
+        return False
+
+    def format_ordered_set_aggregation(
+        self,
+        func_name: str,
+        func_args_sql: List[str],
+        func_args_params: tuple,
+        order_by_sql: List[str],
+        order_by_params: tuple,
+        alias: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """
+        Format an ordered-set aggregate function call.
+
+        SQLite does not support ordered-set aggregate functions (WITHIN GROUP).
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "Ordered-set aggregate functions (WITHIN GROUP)",
+            "Consider emulating with window functions or subqueries if possible."
+        )
+
+    def supports_merge_statement(self) -> bool:
+        """SQLite does not support MERGE statements."""
+        return False
+
+    def format_merge_statement(
+        self,
+        target_sql: str,
+        source_sql: str,
+        on_sql: str,
+        when_matched: List[Dict[str, Any]],
+        when_not_matched: List[Dict[str, Any]],
+        all_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Formats a MERGE statement.
+
+        SQLite does not support MERGE statements.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "MERGE statement",
+            "Consider using a combination of INSERT, UPDATE, and DELETE statements."
+        )
+
+    def supports_temporal_tables(self) -> bool:
+        """SQLite does not support temporal table queries."""
+        return False
+
+    def format_temporal_options(
+        self,
+        options: Dict[str, Any]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a temporal table clause.
+
+        SQLite does not support temporal tables.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "Temporal table queries (FOR SYSTEM_TIME)",
+            "Manage historical data through application logic or custom versioning tables."
+        )
+
+    def supports_qualify_clause(self) -> bool:
+        """SQLite does not support QUALIFY clause."""
+        return False
+
+    def format_qualify_clause(
+        self,
+        qualify_sql: str,
+        qualify_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Formats a QUALIFY clause.
+
+        SQLite does not support QUALIFY clause.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "QUALIFY clause",
+            "Consider using a CTE or subquery with WHERE clause instead."
+        )
+
+    def supports_for_update_skip_locked(self) -> bool:
+        """SQLite does not support FOR UPDATE/FOR SHARE with SKIP LOCKED."""
+        return False
+
+    def format_for_update_clause(
+        self,
+        options: Dict[str, Any]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a FOR UPDATE/FOR SHARE clause.
+
+        SQLite does not support FOR UPDATE/FOR SHARE.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "FOR UPDATE / FOR SHARE clauses",
+            "Implement locking at the application level or use transactions for atomicity."
+        )
+
+    def supports_graph_match(self) -> bool:
+        """SQLite does not support graph query MATCH clause."""
+        return False
+
+    def format_match_clause(
+        self,
+        path_sql: List[str],
+        path_params: tuple
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a MATCH clause.
+
+        SQLite does not support graph query MATCH clause.
+        """
+        raise UnsupportedFeatureError(
+            self.name,
+            "Graph query MATCH clause",
+            "Implement graph traversal logic in application code or use a graph database."
+        )
+
 if __name__ == "__main__":
     from rhosocial.activerecord.backend.expression import (
         Literal, Column, Identifier, FunctionCall, Subquery, TableExpression,
@@ -120,19 +321,18 @@ if __name__ == "__main__":
         ExplainExpression, SQLOperation
     )
 
+
+def print_sql(description: str, sql: str, params: tuple):
+    """Helper function to print SQL and parameters separately."""
+    print(f"--- {description} ---")
+    print(f"SQL: {sql}")
+    if params:
+        print(f"Parameters: {params}")
+    print()
+
+
+if __name__ == "__main__":
     dialect = SQLiteDialect()
-
-
-    def print_sql(description: str, sql: str, params: tuple):
-        """Helper function to print SQL and parameters separately."""
-        print(f"--- {description} ---")
-        print(f"SQL: {sql}")
-        if params:
-            print(f"Parameters: {params}")
-        print()
-
-
-    # ========== Part 1: Basic Expressions ==========
 
     def demo_literals():
         """Demonstrate Literal expressions with various types."""
@@ -161,6 +361,14 @@ if __name__ == "__main__":
         sql, params = lit.to_sql()
         print_sql("List Literal", sql, params)
 
+        lit = Literal(dialect, 3.14159)
+        sql, params = lit.to_sql()
+        print_sql("Float Literal", sql, params)
+
+        lit = Literal(dialect, True)
+        sql, params = lit.to_sql()
+        print_sql("Boolean Literal", sql, params)
+
 
     def demo_identifiers():
         """Demonstrate Identifier expressions."""
@@ -176,6 +384,10 @@ if __name__ == "__main__":
         ident = Identifier(dialect, "column with spaces")
         sql, params = ident.to_sql()
         print_sql("Identifier with Spaces", sql, params)
+
+        ident = Identifier(dialect, "user-defined")
+        sql, params = ident.to_sql()
+        print_sql("Identifier with Hyphen", sql, params)
 
 
     def demo_columns():
@@ -217,6 +429,10 @@ if __name__ == "__main__":
         sql, params = tbl.to_sql()
         print_sql("Table with Alias", sql, params)
 
+        tbl = TableExpression(dialect, "order_details", alias="od")
+        sql, params = tbl.to_sql()
+        print_sql("Complex Table Name", sql, params)
+
 
     def demo_functions():
         """Demonstrate FunctionCall expressions."""
@@ -244,6 +460,55 @@ if __name__ == "__main__":
         sql, params = func.to_sql()
         print_sql("COUNT DISTINCT", sql, params)
 
+        func = FunctionCall(dialect, "AVG", Column(dialect, "price"), alias="avg_price")
+        sql, params = func.to_sql()
+        print_sql("AVG Function", sql, params)
+
+        func = FunctionCall(dialect, "COALESCE",
+                            Column(dialect, "phone"),
+                            Literal(dialect, "N/A"))
+        sql, params = func.to_sql()
+        print_sql("COALESCE Function", sql, params)
+
+
+    def demo_filter_clause():
+        """Demonstrate aggregate FILTER clause."""
+        print("=" * 70)
+        print("AGGREGATE FILTER CLAUSE")
+        print("=" * 70)
+        print()
+
+        filter_cond = ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, "active"))
+        func = FunctionCall(dialect, "COUNT", Column(dialect, "*"), filter_=filter_cond, alias="active_count")
+        sql, params = func.to_sql()
+        print_sql("COUNT with FILTER clause", sql, params)
+
+        filter_cond_2 = ComparisonPredicate(dialect, ">", Column(dialect, "amount"), Literal(dialect, 100))
+        func_2 = FunctionCall(dialect, "SUM", Column(dialect, "amount"), filter_=filter_cond_2, alias="high_value_sum")
+        sql_2, params_2 = func_2.to_sql()
+        print_sql("SUM with FILTER clause", sql_2, params_2)
+
+
+
+
+    def demo_subqueries():
+        """Demonstrate Subquery expressions."""
+        print("=" * 70)
+        print("SUBQUERIES")
+        print("=" * 70)
+        print()
+
+        sub = Subquery(dialect, "SELECT id FROM users WHERE active = ?", (True,), alias="active_users")
+        sql, params = sub.to_sql()
+        print_sql("Simple Subquery", sql, params)
+
+        sub = Subquery(dialect,
+                       "SELECT MAX(salary) FROM employees WHERE department = ?",
+                       ("Engineering",),
+                       alias="max_sal")
+        sql, params = sub.to_sql()
+        print_sql("Aggregate Subquery", sql, params)
+
 
     # ========== Part 2: Operators ==========
 
@@ -260,11 +525,29 @@ if __name__ == "__main__":
         sql, params = expr.to_sql()
         print_sql("Addition", sql, params)
 
+        expr = BinaryArithmeticExpression(dialect, "-",
+                                          Column(dialect, "balance"),
+                                          Literal(dialect, 50))
+        sql, params = expr.to_sql()
+        print_sql("Subtraction", sql, params)
+
         expr = BinaryArithmeticExpression(dialect, "*",
                                           Column(dialect, "quantity"),
                                           Column(dialect, "unit_price"))
         sql, params = expr.to_sql()
         print_sql("Multiplication", sql, params)
+
+        expr = BinaryArithmeticExpression(dialect, "/",
+                                          Column(dialect, "total"),
+                                          Literal(dialect, 12))
+        sql, params = expr.to_sql()
+        print_sql("Division", sql, params)
+
+        expr = BinaryArithmeticExpression(dialect, "%",
+                                          Column(dialect, "value"),
+                                          Literal(dialect, 10))
+        sql, params = expr.to_sql()
+        print_sql("Modulo", sql, params)
 
         # Nested arithmetic
         price_with_tax = BinaryArithmeticExpression(dialect, "*",
@@ -288,6 +571,16 @@ if __name__ == "__main__":
         sql, params = expr.to_sql()
         print_sql("String Concatenation (||)", sql, params)
 
+        try:
+            expr = BinaryExpression(dialect, "&&",
+                                    Column(dialect, "flag1"),
+                                    Column(dialect, "flag2"))
+            sql, params = expr.to_sql()
+            print_sql("Bitwise AND (should fail or be specific to DB)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
 
     def demo_unary_operators():
         """Demonstrate unary operators."""
@@ -303,6 +596,10 @@ if __name__ == "__main__":
         expr = UnaryExpression(dialect, "-", Column(dialect, "balance"), pos='before')
         sql, params = expr.to_sql()
         print_sql("Negation", sql, params)
+
+        expr = UnaryExpression(dialect, "!", Column(dialect, "completed"), pos='before')
+        sql, params = expr.to_sql()
+        print_sql("Logical NOT (before)", sql, params)
 
 
     def demo_raw_sql():
@@ -320,8 +617,57 @@ if __name__ == "__main__":
         sql, params = expr.to_sql()
         print_sql("SQLite Date Function", sql, params)
 
+        expr = RawSQLExpression(dialect, "NOW()")
+        sql, params = expr.to_sql()
+        print_sql("NOW() Function", sql, params)
 
-    # ========== Part 3: Predicates ==========
+        try:
+            expr = RawSQLExpression(dialect, "LAST_INSERT_ID()")
+            sql, params = expr.to_sql()
+            print_sql("Last Insert ID (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_sql_operations():
+        """Demonstrate SQLOperation (generic operations)."""
+        print("=" * 70)
+        print("SQL OPERATIONS (Generic)")
+        print("=" * 70)
+        print()
+
+        op = SQLOperation(dialect, "COALESCE",
+                          Column(dialect, "name"),
+                          Literal(dialect, "Unknown"))
+        sql, params = op.to_sql()
+        print_sql("COALESCE Operation", sql, params)
+
+        try:
+            op = SQLOperation(dialect, "GREATEST",
+                              Column(dialect, "value1"),
+                              Column(dialect, "value2"),
+                              Literal(dialect, 0))
+            sql, params = op.to_sql()
+            print_sql("GREATEST Operation (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        # Re-adding NOW() and LAST_INSERT_ID() from previous context for completeness,
+        # ensuring they are wrapped where appropriate.
+        expr = RawSQLExpression(dialect, "NOW()")
+        sql, params = expr.to_sql()
+        print_sql("NOW() Function (re-added)", sql, params)
+
+        try:
+            expr = RawSQLExpression(dialect, "LAST_INSERT_ID()")
+            sql, params = expr.to_sql()
+            print_sql("Last Insert ID (should fail in SQLite, re-added)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
 
     def demo_comparisons():
         """Demonstrate comparison predicates."""
@@ -348,6 +694,24 @@ if __name__ == "__main__":
         sql, params = pred.to_sql()
         print_sql("Not Equal", sql, params)
 
+        pred = ComparisonPredicate(dialect, "<",
+                                   Column(dialect, "price"),
+                                   Literal(dialect, 100))
+        sql, params = pred.to_sql()
+        print_sql("Less Than", sql, params)
+
+        pred = ComparisonPredicate(dialect, "<=",
+                                   Column(dialect, "stock"),
+                                   Literal(dialect, 10))
+        sql, params = pred.to_sql()
+        print_sql("Less Than or Equal", sql, params)
+
+        pred = ComparisonPredicate(dialect, ">",
+                                   Column(dialect, "rating"),
+                                   Literal(dialect, 4.5))
+        sql, params = pred.to_sql()
+        print_sql("Greater Than", sql, params)
+
 
     def demo_logical():
         """Demonstrate logical predicates."""
@@ -372,6 +736,13 @@ if __name__ == "__main__":
         sql, params = not_pred.to_sql()
         print_sql("NOT Predicate", sql, params)
 
+        # Complex nested logic
+        complex_pred = LogicalPredicate(dialect, "AND",
+                                        LogicalPredicate(dialect, "OR", pred1, pred2),
+                                        LogicalPredicate(dialect, "NOT", pred3))
+        sql, params = complex_pred.to_sql()
+        print_sql("Complex Nested Logic", sql, params)
+
 
     def demo_in_predicate():
         """Demonstrate IN predicates."""
@@ -385,6 +756,12 @@ if __name__ == "__main__":
                            Literal(dialect, ["active", "pending", "approved"]))
         sql, params = pred.to_sql()
         print_sql("IN with List", sql, params)
+
+        pred = InPredicate(dialect,
+                           Column(dialect, "id"),
+                           Literal(dialect, [1, 2, 3, 4, 5]))
+        sql, params = pred.to_sql()
+        print_sql("IN with Numbers", sql, params)
 
         # IN with subquery
         subquery = Subquery(dialect, "SELECT id FROM users WHERE verified = ?", (True,))
@@ -405,7 +782,7 @@ if __name__ == "__main__":
                                 Literal(dialect, 18),
                                 Literal(dialect, 65))
         sql, params = pred.to_sql()
-        print_sql("BETWEEN", sql, params)
+        print_sql("BETWEEN Numbers", sql, params)
 
         pred = BetweenPredicate(dialect,
                                 Column(dialect, "created_at"),
@@ -413,6 +790,13 @@ if __name__ == "__main__":
                                 Literal(dialect, "2024-12-31"))
         sql, params = pred.to_sql()
         print_sql("BETWEEN Dates", sql, params)
+
+        pred = BetweenPredicate(dialect,
+                                Column(dialect, "price"),
+                                Literal(dialect, 10.50),
+                                Literal(dialect, 99.99))
+        sql, params = pred.to_sql()
+        print_sql("BETWEEN Decimals", sql, params)
 
 
     def demo_is_null():
@@ -430,6 +814,10 @@ if __name__ == "__main__":
         sql, params = pred.to_sql()
         print_sql("IS NOT NULL", sql, params)
 
+        pred = IsNullPredicate(dialect, Column(dialect, "optional_field"))
+        sql, params = pred.to_sql()
+        print_sql("IS NULL on Optional Field", sql, params)
+
 
     def demo_like():
         """Demonstrate LIKE predicates."""
@@ -442,7 +830,19 @@ if __name__ == "__main__":
                              Column(dialect, "name"),
                              Literal(dialect, "John%"))
         sql, params = pred.to_sql()
-        print_sql("LIKE", sql, params)
+        print_sql("LIKE (starts with)", sql, params)
+
+        pred = LikePredicate(dialect, "LIKE",
+                             Column(dialect, "email"),
+                             Literal(dialect, "%@gmail.com"))
+        sql, params = pred.to_sql()
+        print_sql("LIKE (ends with)", sql, params)
+
+        pred = LikePredicate(dialect, "LIKE",
+                             Column(dialect, "description"),
+                             Literal(dialect, "%important%"))
+        sql, params = pred.to_sql()
+        print_sql("LIKE (contains)", sql, params)
 
         pred = LikePredicate(dialect, "NOT LIKE",
                              Column(dialect, "email"),
@@ -450,8 +850,353 @@ if __name__ == "__main__":
         sql, params = pred.to_sql()
         print_sql("NOT LIKE", sql, params)
 
+        try:
+            pred = LikePredicate(dialect, "ILIKE",
+                                 Column(dialect, "name"),
+                                 Literal(dialect, "%smith%"))
+            sql, params = pred.to_sql()
+            print_sql("ILIKE (case-insensitive) (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
 
-    # ========== Part 4: Advanced Functions ==========
+
+    def demo_case():
+        """Demonstrate CASE expressions."""
+        print("=" * 70)
+        print("CASE EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        # Searched CASE
+        cases = [
+            (ComparisonPredicate(dialect, "<", Column(dialect, "age"), Literal(dialect, 18)),
+             Literal(dialect, "minor")),
+            (ComparisonPredicate(dialect, "<", Column(dialect, "age"), Literal(dialect, 65)),
+             Literal(dialect, "adult"))
+        ]
+        case_expr = CaseExpression(dialect,
+                                   cases=cases,
+                                   else_result=Literal(dialect, "senior"))
+        sql, params = case_expr.to_sql()
+        print_sql("Searched CASE", sql, params)
+
+        # Simple CASE
+        cases = [
+            (Literal(dialect, 1), Literal(dialect, "One")),
+            (Literal(dialect, 2), Literal(dialect, "Two")),
+            (Literal(dialect, 3), Literal(dialect, "Three"))
+        ]
+        case_expr = CaseExpression(dialect,
+                                   value=Column(dialect, "status_code"),
+                                   cases=cases,
+                                   else_result=Literal(dialect, "Unknown"))
+        sql, params = case_expr.to_sql()
+        print_sql("Simple CASE", sql, params)
+
+        # Complex CASE with multiple conditions
+        cases = [
+            (LogicalPredicate(dialect, "AND",
+                              ComparisonPredicate(dialect, ">=", Column(dialect, "score"), Literal(dialect, 90)),
+                              ComparisonPredicate(dialect, "<=", Column(dialect, "score"), Literal(dialect, 100))),
+             Literal(dialect, "A")),
+            (BetweenPredicate(dialect, Column(dialect, "score"), Literal(dialect, 80), Literal(dialect, 89)),
+             Literal(dialect, "B")),
+            (BetweenPredicate(dialect, Column(dialect, "score"), Literal(dialect, 70), Literal(dialect, 79)),
+             Literal(dialect, "C"))
+        ]
+        case_expr = CaseExpression(dialect,
+                                   cases=cases,
+                                   else_result=Literal(dialect, "F"))
+        sql, params = case_expr.to_sql()
+        print_sql("Complex CASE with Ranges", sql, params)
+
+
+    def demo_cast():
+        """Demonstrate CAST expressions."""
+        print("=" * 70)
+        print("CAST EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        expr = CastExpression(dialect, Column(dialect, "price"), "INTEGER")
+        sql, params = expr.to_sql()
+        print_sql("CAST to INTEGER", sql, params)
+
+        expr = CastExpression(dialect, Column(dialect, "amount"), "REAL") # Adjusted for SQLite
+        sql, params = expr.to_sql()
+        print_sql("CAST to REAL", sql, params)
+
+        expr = CastExpression(dialect, Column(dialect, "created_at"), "TEXT") # Adjusted for SQLite
+        sql, params = expr.to_sql()
+        print_sql("CAST to DATE (as TEXT)", sql, params)
+
+        expr = CastExpression(dialect, Column(dialect, "value"), "TEXT") # Adjusted for SQLite
+        sql, params = expr.to_sql()
+        print_sql("CAST to VARCHAR (as TEXT)", sql, params)
+
+
+    def demo_exists():
+        """Demonstrate EXISTS expressions."""
+        print("=" * 70)
+        print("EXISTS EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        subquery = Subquery(dialect,
+                            "SELECT 1 FROM orders WHERE user_id = users.id",
+                            ())
+        exists = ExistsExpression(dialect, subquery)
+        sql, params = exists.to_sql()
+        print_sql("EXISTS", sql, params)
+
+        not_exists = ExistsExpression(dialect, subquery, is_not=True)
+        sql, params = not_exists.to_sql()
+        print_sql("NOT EXISTS", sql, params)
+
+        # Complex EXISTS
+        complex_sub = Subquery(dialect,
+                               "SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.total > ?",
+                               (1000,))
+        exists = ExistsExpression(dialect, complex_sub)
+        sql, params = exists.to_sql()
+        print_sql("EXISTS with Condition", sql, params)
+
+
+    def demo_any_all():
+        """Demonstrate ANY/ALL expressions."""
+        print("=" * 70)
+        print("ANY/ALL EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        any_expr = AnyExpression(dialect,
+                                 Column(dialect, "price"),
+                                 ">",
+                                 Literal(dialect, [100, 200, 300]))
+        sql, params = any_expr.to_sql()
+        print_sql("ANY", sql, params) # SQLite uses IN for ANY with lists
+
+        all_expr = AllExpression(dialect,
+                                 Column(dialect, "price"),
+                                 ">",
+                                 Literal(dialect, [50, 75]))
+        sql, params = all_expr.to_sql()
+        print_sql("ALL", sql, params) # SQLite uses <= for ALL with lists
+
+        # ANY with subquery
+        subquery = Subquery(dialect, "SELECT price FROM products WHERE category = ?", ("electronics",))
+        any_expr = AnyExpression(dialect,
+                                 Column(dialect, "budget"),
+                                 ">=",
+                                 subquery)
+        sql, params = any_expr.to_sql()
+        print_sql("ANY with Subquery", sql, params)
+
+
+    def demo_window():
+        """Demonstrate window functions (SQLite 3.25.0+)."""
+        print("=" * 70)
+        print("WINDOW FUNCTIONS (SQLite 3.25.0+)")
+        print("=" * 70)
+        print()
+
+        version = (3, 35, 0) # Assuming a modern SQLite version for demonstration.
+        # In a real scenario, you'd retrieve the actual connection's version.
+
+        if version >= (3, 25, 0):
+            rank_func = FunctionCall(dialect, "RANK")
+            window = WindowExpression(dialect,
+                                      rank_func,
+                                      partition_by=[Column(dialect, "department")],
+                                      order_by=[Column(dialect, "salary")])
+            sql, params = window.to_sql()
+            print_sql("RANK() OVER (PARTITION BY ... ORDER BY ...)", sql, params)
+
+            row_num = FunctionCall(dialect, "ROW_NUMBER")
+            window = WindowExpression(dialect,
+                                      row_num,
+                                      order_by=[Column(dialect, "created_at")],
+                                      alias="row_num")
+            sql, params = window.to_sql()
+            print_sql("ROW_NUMBER() OVER (ORDER BY ...)", sql, params)
+
+            lag_func = FunctionCall(dialect, "LAG", Column(dialect, "value"), Literal(dialect, 1))
+            window = WindowExpression(dialect,
+                                      lag_func,
+                                      partition_by=[Column(dialect, "category")],
+                                      order_by=[Column(dialect, "date")],
+                                      alias="prev_value")
+            sql, params = window.to_sql()
+            print_sql("LAG() Function", sql, params)
+
+            # Window with frame specification
+            sum_func = FunctionCall(dialect, "SUM", Column(dialect, "amount"))
+            window = WindowExpression(dialect,
+                                      sum_func,
+                                      partition_by=[Column(dialect, "user_id")],
+                                      order_by=[Column(dialect, "date")],
+                                      frame_type="ROWS",
+                                      frame_start="UNBOUNDED PRECEDING",
+                                      frame_end="CURRENT ROW",
+                                      alias="running_total")
+            sql, params = window.to_sql()
+            print_sql("SUM() with Frame Specification", sql, params)
+        else:
+            print("Window functions not supported in SQLite < 3.25.0")
+            print()
+
+
+    def demo_json():
+        """Demonstrate JSON operations (SQLite with JSON1 extension)."""
+        print("=" * 70)
+        print("JSON OPERATIONS (JSON1 extension)")
+        print("=" * 70)
+        print()
+
+        json_expr = JSONExpression(dialect,
+                                   Column(dialect, "data"),
+                                   "$.name")
+        sql, params = json_expr.to_sql()
+        print_sql("JSON Extract Path", sql, params)
+
+        json_expr = JSONExpression(dialect,
+                                   Column(dialect, "metadata"),
+                                   "$.settings.theme",
+                                   operation="->>")
+        sql, params = json_expr.to_sql()
+        print_sql("JSON Extract as Text", sql, params)
+
+        json_expr = JSONExpression(dialect,
+                                   Column(dialect, "config"),
+                                   "$.features[0]",
+                                   operation="->")
+        sql, params = json_expr.to_sql()
+        print_sql("JSON Array Access", sql, params)
+
+
+    def demo_array():
+        """Demonstrate array operations (not natively supported in SQLite)."""
+        print("=" * 70)
+        print("ARRAY OPERATIONS (Not Natively Supported)")
+        print("=" * 70)
+        print()
+
+        print("SQLite does not natively support array types.")
+        print("Arrays must be stored as JSON or delimited strings.")
+        print()
+
+        try:
+            # Array constructor (would work in PostgreSQL)
+            array = ArrayExpression(dialect, "CONSTRUCTOR",
+                                    elements=[Literal(dialect, 1),
+                                              Literal(dialect, 2),
+                                              Literal(dialect, 3)])
+            sql, params = array.to_sql()
+            print_sql("Array Constructor (PostgreSQL syntax)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+        try:
+            # Array access
+            array_access = ArrayExpression(dialect, "ACCESS",
+                                           base_expr=Column(dialect, "tags"),
+                                           index_expr=Literal(dialect, 1))
+            sql, params = array_access.to_sql()
+            print_sql("Array Subscript Access", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # Array with string elements
+            array = ArrayExpression(dialect, "CONSTRUCTOR",
+                                    elements=[Literal(dialect, "red"),
+                                              Literal(dialect, "green"),
+                                              Literal(dialect, "blue")])
+            sql, params = array.to_sql()
+            print_sql("String Array Constructor", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+    def demo_json_table():
+        """Demonstrate JSON_TABLE function."""
+        print("=" * 70)
+        print("JSON_TABLE FUNCTION")
+        print("=" * 70)
+        print()
+
+        from rhosocial.activerecord.backend.expression.query_clauses import JSONTableColumn
+        
+        cols = [
+            JSONTableColumn(name="id", data_type="INTEGER", path="$.id"),
+            JSONTableColumn(name="name", data_type="TEXT", path="$.name"),
+            JSONTableColumn(name="is_active", data_type="BOOLEAN", path="$.active")
+        ]
+
+        try:
+            json_table_expr = JSONTableExpression(dialect,
+                                                  json_column=Column(dialect, "json_data"),
+                                                  path="$.users[*]",
+                                                  columns=cols,
+                                                  alias="user_data")
+            sql, params = json_table_expr.to_sql()
+            print_sql("JSON_TABLE Expression", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_ordered_set_aggregation():
+        """Demonstrate ordered-set aggregate functions (WITHIN GROUP)."""
+        print("=" * 70)
+        print("ORDERED-SET AGGREGATION (WITHIN GROUP)")
+        print("=" * 70)
+        print()
+
+        try:
+            # PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)
+            expr = OrderedSetAggregation(dialect,
+                                         "PERCENTILE_CONT",
+                                         args=[Literal(dialect, 0.5)],
+                                         order_by=[Column(dialect, "salary")],
+                                         alias="median_salary")
+            sql, params = expr.to_sql()
+            print_sql("PERCENTILE_CONT WITHIN GROUP", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LISTAGG(name, ',') WITHIN GROUP (ORDER BY name)
+            expr = OrderedSetAggregation(dialect,
+                                         "LISTAGG",
+                                         args=[Column(dialect, "name"), Literal(dialect, ",")],
+                                         order_by=[Column(dialect, "name")],
+                                         alias="employee_list")
+            sql, params = expr.to_sql()
+            print_sql("LISTAGG WITHIN GROUP", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # Some other function, e.g., NTILE (though usually a window function, some databases might support it as ordered-set)
+            expr = OrderedSetAggregation(dialect,
+                                         "NTILE",
+                                         args=[Literal(dialect, 4)], # Divide into 4 tiles
+                                         order_by=[Column(dialect, "score")],
+                                         alias="score_quartile")
+            sql, params = expr.to_sql()
+            print_sql("NTILE WITHIN GROUP", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+    # ========== Part 5: Query Clauses ==========
 
     def demo_case():
         """Demonstrate CASE expressions."""
@@ -485,6 +1230,23 @@ if __name__ == "__main__":
         sql, params = case_expr.to_sql()
         print_sql("Simple CASE", sql, params)
 
+        # Complex CASE with multiple conditions
+        cases = [
+            (LogicalPredicate(dialect, "AND",
+                              ComparisonPredicate(dialect, ">=", Column(dialect, "score"), Literal(dialect, 90)),
+                              ComparisonPredicate(dialect, "<=", Column(dialect, "score"), Literal(dialect, 100))),
+             Literal(dialect, "A")),
+            (BetweenPredicate(dialect, Column(dialect, "score"), Literal(dialect, 80), Literal(dialect, 89)),
+             Literal(dialect, "B")),
+            (BetweenPredicate(dialect, Column(dialect, "score"), Literal(dialect, 70), Literal(dialect, 79)),
+             Literal(dialect, "C"))
+        ]
+        case_expr = CaseExpression(dialect,
+                                   cases=cases,
+                                   else_result=Literal(dialect, "F"))
+        sql, params = case_expr.to_sql()
+        print_sql("Complex CASE with Ranges", sql, params)
+
 
     def demo_cast():
         """Demonstrate CAST expressions."""
@@ -500,6 +1262,14 @@ if __name__ == "__main__":
         expr = CastExpression(dialect, Column(dialect, "amount"), "REAL")
         sql, params = expr.to_sql()
         print_sql("CAST to REAL", sql, params)
+
+        expr = CastExpression(dialect, Column(dialect, "created_at"), "TEXT")
+        sql, params = expr.to_sql()
+        print_sql("CAST to DATE (as TEXT)", sql, params)
+
+        expr = CastExpression(dialect, Column(dialect, "value"), "TEXT")
+        sql, params = expr.to_sql()
+        print_sql("CAST to VARCHAR (as TEXT)", sql, params)
 
 
     def demo_exists():
@@ -519,6 +1289,14 @@ if __name__ == "__main__":
         not_exists = ExistsExpression(dialect, subquery, is_not=True)
         sql, params = not_exists.to_sql()
         print_sql("NOT EXISTS", sql, params)
+
+        # Complex EXISTS
+        complex_sub = Subquery(dialect,
+                               "SELECT 1 FROM orders o WHERE o.user_id = u.id AND o.total > ?",
+                               (1000,))
+        exists = ExistsExpression(dialect, complex_sub)
+        sql, params = exists.to_sql()
+        print_sql("EXISTS with Condition", sql, params)
 
 
     def demo_any_all():
@@ -541,6 +1319,15 @@ if __name__ == "__main__":
                                  Literal(dialect, [50, 75]))
         sql, params = all_expr.to_sql()
         print_sql("ALL", sql, params)
+
+        # ANY with subquery
+        subquery = Subquery(dialect, "SELECT price FROM products WHERE category = ?", ("electronics",))
+        any_expr = AnyExpression(dialect,
+                                 Column(dialect, "budget"),
+                                 ">=",
+                                 subquery)
+        sql, params = any_expr.to_sql()
+        print_sql("ANY with Subquery", sql, params)
 
 
     def demo_window():
@@ -568,6 +1355,28 @@ if __name__ == "__main__":
                                       alias="row_num")
             sql, params = window.to_sql()
             print_sql("ROW_NUMBER() OVER (ORDER BY ...)", sql, params)
+
+            lag_func = FunctionCall(dialect, "LAG", Column(dialect, "value"), Literal(dialect, 1))
+            window = WindowExpression(dialect,
+                                      lag_func,
+                                      partition_by=[Column(dialect, "category")],
+                                      order_by=[Column(dialect, "date")],
+                                      alias="prev_value")
+            sql, params = window.to_sql()
+            print_sql("LAG() Function", sql, params)
+
+            # Window with frame specification
+            sum_func = FunctionCall(dialect, "SUM", Column(dialect, "amount"))
+            window = WindowExpression(dialect,
+                                      sum_func,
+                                      partition_by=[Column(dialect, "user_id")],
+                                      order_by=[Column(dialect, "date")],
+                                      frame_type="ROWS",
+                                      frame_start="UNBOUNDED PRECEDING",
+                                      frame_end="CURRENT ROW",
+                                      alias="running_total")
+            sql, params = window.to_sql()
+            print_sql("SUM() with Frame Specification", sql, params)
         else:
             print("Window functions not supported in SQLite < 3.25.0")
             print()
@@ -584,7 +1393,7 @@ if __name__ == "__main__":
                                    Column(dialect, "data"),
                                    "$.name")
         sql, params = json_expr.to_sql()
-        print_sql("JSON Extract", sql, params)
+        print_sql("JSON Extract Path", sql, params)
 
         json_expr = JSONExpression(dialect,
                                    Column(dialect, "metadata"),
@@ -592,6 +1401,13 @@ if __name__ == "__main__":
                                    operation="->>")
         sql, params = json_expr.to_sql()
         print_sql("JSON Extract as Text", sql, params)
+
+        json_expr = JSONExpression(dialect,
+                                   Column(dialect, "config"),
+                                   "$.features[0]",
+                                   operation="->")
+        sql, params = json_expr.to_sql()
+        print_sql("JSON Array Access", sql, params)
 
 
     def demo_array():
@@ -612,6 +1428,110 @@ if __name__ == "__main__":
                                           Literal(dialect, 3)])
         sql, params = array.to_sql()
         print_sql("Array Constructor (PostgreSQL syntax)", sql, params)
+
+        # Array access
+        array_access = ArrayExpression(dialect, "ACCESS",
+                                       base_expr=Column(dialect, "tags"),
+                                       index_expr=Literal(dialect, 1))
+        sql, params = array_access.to_sql()
+        print_sql("Array Subscript Access", sql, params)
+
+        # Array with string elements
+        array = ArrayExpression(dialect, "CONSTRUCTOR",
+                                elements=[Literal(dialect, "red"),
+                                          Literal(dialect, "green"),
+                                          Literal(dialect, "blue")])
+        sql, params = array.to_sql()
+        print_sql("String Array Constructor", sql, params)
+
+    def demo_json_table():
+        """Demonstrate JSON_TABLE function."""
+        print("=" * 70)
+        print("JSON_TABLE FUNCTION")
+        print("=" * 70)
+        print()
+
+        from rhosocial.activerecord.backend.expression.query_clauses import JSONTableColumn
+        
+        cols = [
+            JSONTableColumn(name="id", data_type="INTEGER", path="$.id"),
+            JSONTableColumn(name="name", data_type="TEXT", path="$.name"),
+            JSONTableColumn(name="is_active", data_type="BOOLEAN", path="$.active")
+        ]
+
+        try:
+            json_table_expr = JSONTableExpression(dialect,
+                                                  json_column=Column(dialect, "json_data"),
+                                                  path="$.users[*]",
+                                                  columns=cols,
+                                                  alias="user_data")
+            sql, params = json_table_expr.to_sql()
+            print_sql("JSON_TABLE Expression", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_ordered_set_aggregation():
+        """Demonstrate ordered-set aggregate functions (WITHIN GROUP)."""
+        print("=" * 70)
+        print("ORDERED-SET AGGREGATION (WITHIN GROUP)")
+        print("=" * 70)
+        print()
+
+        try:
+            # PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)
+            expr = OrderedSetAggregation(dialect,
+                                         "PERCENTILE_CONT",
+                                         args=[Literal(dialect, 0.5)],
+                                         order_by=[Column(dialect, "salary")],
+                                         alias="median_salary")
+            sql, params = expr.to_sql()
+            print_sql("PERCENTILE_CONT WITHIN GROUP", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LISTAGG(name, ',') WITHIN GROUP (ORDER BY name)
+            expr = OrderedSetAggregation(dialect,
+                                         "LISTAGG",
+                                         args=[Column(dialect, "name"), Literal(dialect, ",")],
+                                         order_by=[Column(dialect, "name")],
+                                         alias="employee_list")
+            sql, params = expr.to_sql()
+            print_sql("LISTAGG WITHIN GROUP", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # Some other function, e.g., NTILE (though usually a window function, some databases might support it as ordered-set)
+            expr = OrderedSetAggregation(dialect,
+                                         "NTILE",
+                                         args=[Literal(dialect, 4)], # Divide into 4 tiles
+                                         order_by=[Column(dialect, "score")],
+                                         alias="score_quartile")
+            sql, params = expr.to_sql()
+            print_sql("NTILE WITHIN GROUP", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        # Array access
+        array_access = ArrayExpression(dialect, "ACCESS",
+                                       base_expr=Column(dialect, "tags"),
+                                       index_expr=Literal(dialect, 1))
+        sql, params = array_access.to_sql()
+        print_sql("Array Subscript Access", sql, params)
+
+        # Array with string elements
+        array = ArrayExpression(dialect, "CONSTRUCTOR",
+                                elements=[Literal(dialect, "red"),
+                                          Literal(dialect, "green"),
+                                          Literal(dialect, "blue")])
+        sql, params = array.to_sql()
+        print_sql("String Array Constructor", sql, params)
 
 
     # ========== Part 5: Query Clauses ==========
@@ -643,6 +1563,34 @@ if __name__ == "__main__":
         sql, params = join.to_sql()
         print_sql("LEFT JOIN", sql, params)
 
+        try:
+            join = JoinExpression(dialect,
+                                  left_table=TableExpression(dialect, "employees", "e"),
+                                  right_table=TableExpression(dialect, "departments", "d"),
+                                  join_type="RIGHT",
+                                  condition=ComparisonPredicate(dialect, "=",
+                                                                Column(dialect, "dept_id", "e"),
+                                                                Column(dialect, "id", "d")))
+            sql, params = join.to_sql()
+            print_sql("RIGHT JOIN (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            join = JoinExpression(dialect,
+                                  left_table=TableExpression(dialect, "table1", "t1"),
+                                  right_table=TableExpression(dialect, "table2", "t2"),
+                                  join_type="FULL",
+                                  condition=ComparisonPredicate(dialect, "=",
+                                                                Column(dialect, "key", "t1"),
+                                                                Column(dialect, "key", "t2")))
+            sql, params = join.to_sql()
+            print_sql("FULL OUTER JOIN (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
         # USING clause
         join = JoinExpression(dialect,
                               left_table=TableExpression(dialect, "orders", "o"),
@@ -651,6 +1599,87 @@ if __name__ == "__main__":
                               using=["order_id"])
         sql, params = join.to_sql()
         print_sql("JOIN with USING", sql, params)
+
+        # CROSS JOIN
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "colors", "c"),
+                              right_table=TableExpression(dialect, "sizes", "s"),
+                              join_type="CROSS")
+        sql, params = join.to_sql()
+        print_sql("CROSS JOIN", sql, params)
+
+
+    def demo_joins():
+        """Demonstrate JOIN expressions."""
+        print("=" * 70)
+        print("JOIN EXPRESSIONS")
+        print("=" * 70)
+        print()
+
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "users", "u"),
+                              right_table=TableExpression(dialect, "orders", "o"),
+                              join_type="INNER",
+                              condition=ComparisonPredicate(dialect, "=",
+                                                            Column(dialect, "id", "u"),
+                                                            Column(dialect, "user_id", "o")))
+        sql, params = join.to_sql()
+        print_sql("INNER JOIN", sql, params)
+
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "users", "u"),
+                              right_table=TableExpression(dialect, "profiles", "p"),
+                              join_type="LEFT",
+                              condition=ComparisonPredicate(dialect, "=",
+                                                            Column(dialect, "id", "u"),
+                                                            Column(dialect, "user_id", "p")))
+        sql, params = join.to_sql()
+        print_sql("LEFT JOIN", sql, params)
+
+        try:
+            join = JoinExpression(dialect,
+                                  left_table=TableExpression(dialect, "employees", "e"),
+                                  right_table=TableExpression(dialect, "departments", "d"),
+                                  join_type="RIGHT",
+                                  condition=ComparisonPredicate(dialect, "=",
+                                                                Column(dialect, "dept_id", "e"),
+                                                                Column(dialect, "id", "d")))
+            sql, params = join.to_sql()
+            print_sql("RIGHT JOIN (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            join = JoinExpression(dialect,
+                                  left_table=TableExpression(dialect, "table1", "t1"),
+                                  right_table=TableExpression(dialect, "table2", "t2"),
+                                  join_type="FULL",
+                                  condition=ComparisonPredicate(dialect, "=",
+                                                                Column(dialect, "key", "t1"),
+                                                                Column(dialect, "key", "t2")))
+            sql, params = join.to_sql()
+            print_sql("FULL OUTER JOIN (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        # USING clause
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "orders", "o"),
+                              right_table=TableExpression(dialect, "order_items", "oi"),
+                              join_type="INNER",
+                              using=["order_id"])
+        sql, params = join.to_sql()
+        print_sql("JOIN with USING", sql, params)
+
+        # CROSS JOIN
+        join = JoinExpression(dialect,
+                              left_table=TableExpression(dialect, "colors", "c"),
+                              right_table=TableExpression(dialect, "sizes", "s"),
+                              join_type="CROSS")
+        sql, params = join.to_sql()
+        print_sql("CROSS JOIN", sql, params)
 
 
     def demo_cte():
@@ -684,6 +1713,18 @@ if __name__ == "__main__":
         sql, params = cte.to_sql()
         print_sql("Recursive CTE", sql, params)
 
+        try:
+            # Materialized CTE
+            cte = CTEExpression(dialect,
+                                name="expensive_query",
+                                query=("SELECT * FROM large_table WHERE complex_condition = ?", [True]),
+                                materialized=True)
+            sql, params = cte.to_sql()
+            print_sql("Materialized CTE (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
 
     def demo_set_operations():
         """Demonstrate set operations (UNION, INTERSECT, EXCEPT)."""
@@ -714,11 +1755,25 @@ if __name__ == "__main__":
         sql, params = intersect.to_sql()
         print_sql("INTERSECT", sql, params)
 
+        intersect_all = SetOperationExpression(dialect,
+                                               query1, query2,
+                                               "INTERSECT", "both",
+                                               all=True)
+        sql, params = intersect_all.to_sql()
+        print_sql("INTERSECT ALL", sql, params)
+
         except_op = SetOperationExpression(dialect,
                                            query1, query2,
                                            "EXCEPT", "difference")
         sql, params = except_op.to_sql()
         print_sql("EXCEPT", sql, params)
+
+        except_all = SetOperationExpression(dialect,
+                                            query1, query2,
+                                            "EXCEPT", "difference",
+                                            all=True)
+        sql, params = except_all.to_sql()
+        print_sql("EXCEPT ALL", sql, params)
 
 
     def demo_grouping():
@@ -731,7 +1786,7 @@ if __name__ == "__main__":
         # Basic GROUP BY
         group = GroupExpression(dialect, [Column(dialect, "department")])
         sql, params = group.to_sql()
-        print_sql("GROUP BY", sql, params)
+        print_sql("GROUP BY Single Column", sql, params)
 
         # Multiple columns
         group = GroupExpression(dialect, [
@@ -739,7 +1794,7 @@ if __name__ == "__main__":
             Column(dialect, "category")
         ])
         sql, params = group.to_sql()
-        print_sql("GROUP BY Multiple", sql, params)
+        print_sql("GROUP BY Multiple Columns", sql, params)
 
         # Advanced grouping - Demonstrating lack of support
         print("--- ROLLUP (Demonstrating lack of support) ---")
@@ -789,7 +1844,16 @@ if __name__ == "__main__":
                                   "v",
                                   ["id", "name"])
         sql, params = values.to_sql()
-        print_sql("VALUES", sql, params)
+        print_sql("Simple VALUES", sql, params)
+
+        values = ValuesExpression(dialect,
+                                  [(1, "Product A", 29.99),
+                                   (2, "Product B", 39.99),
+                                   (3, "Product C", 49.99)],
+                                  "products",
+                                  ["id", "name", "price"])
+        sql, params = values.to_sql()
+        print_sql("VALUES with Multiple Types", sql, params)
 
 
     def demo_table_functions():
@@ -811,6 +1875,46 @@ if __name__ == "__main__":
         sql, params = func.to_sql()
         print_sql("json_each() Table Function", sql, params)
 
+        try:
+            # UNNEST function (PostgreSQL)
+            func = TableFunctionExpression(dialect,
+                                           "UNNEST",
+                                           Column(dialect, "tags"),
+                                           alias="t",
+                                           column_names=["tag"])
+            sql, params = func.to_sql()
+            print_sql("UNNEST Array (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # JSON_TABLE (MySQL/Oracle)
+            func = TableFunctionExpression(dialect,
+                                           "JSON_TABLE",
+                                           Column(dialect, "data"),
+                                           alias="jt",
+                                           column_names=["id", "name", "value"])
+            sql, params = func.to_sql()
+            print_sql("JSON_TABLE (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # generate_series (PostgreSQL)
+            func = TableFunctionExpression(dialect,
+                                           "generate_series",
+                                           Literal(dialect, 1),
+                                           Literal(dialect, 10),
+                                           alias="series",
+                                           column_names=["n"])
+            sql, params = func.to_sql()
+            print_sql("generate_series (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
 
     def demo_lateral():
         """Demonstrate LATERAL joins (not supported in SQLite)."""
@@ -820,6 +1924,290 @@ if __name__ == "__main__":
         print()
 
         print("SQLite does not support LATERAL joins")
+        print()
+
+        try:
+            # LATERAL with subquery
+            lateral_sub = Subquery(dialect,
+                                   "SELECT * FROM orders o WHERE o.user_id = u.id ORDER BY created_at DESC LIMIT 3",
+                                   ())
+            lateral = LateralExpression(dialect,
+                                        lateral_sub,
+                                        "recent_orders",
+                                        "CROSS")
+            sql, params = lateral.to_sql()
+            print_sql("CROSS JOIN LATERAL (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LEFT JOIN LATERAL
+            lateral = LateralExpression(dialect,
+                                        lateral_sub,
+                                        "recent_orders",
+                                        "LEFT")
+            sql, params = lateral.to_sql()
+            print_sql("LEFT JOIN LATERAL (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LATERAL with table function
+            lateral_func = TableFunctionExpression(dialect,
+                                                   "UNNEST",
+                                                   Column(dialect, "tags", "p"),
+                                                   alias="t",
+                                                   column_names=["tag"])
+            lateral = LateralExpression(dialect,
+                                        lateral_func,
+                                        "tag_list",
+                                        "CROSS")
+            sql, params = lateral.to_sql()
+            print_sql("LATERAL with Table Function (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_merge_statement():
+        """Demonstrate MERGE statements."""
+        print("=" * 70)
+        print("MERGE STATEMENTS")
+        print("=" * 70)
+        print()
+
+        try:
+            # Source data: VALUES expression
+            source_values = ValuesExpression(dialect,
+                                             [(1, "New Product A", 15.0),
+                                              (4, "New Product D", 25.0)], # 4 is new, 1 is existing
+                                             "new_products",
+                                             ["id", "name", "price"])
+
+            # Target table
+            target_table = TableExpression(dialect, "products", "p")
+
+            # ON condition
+            on_cond = ComparisonPredicate(dialect, "=",
+                                          Column(dialect, "id", "p"),
+                                          Column(dialect, "id", "new_products"))
+
+            # WHEN MATCHED THEN UPDATE
+            when_matched_update = MergeAction(
+                action_type=MergeActionType.UPDATE,
+                assignments={
+                    "name": Column(dialect, "name", "new_products"),
+                    "price": Column(dialect, "price", "new_products")
+                },
+                condition=ComparisonPredicate(dialect, "!=",
+                                              Column(dialect, "price", "p"),
+                                              Column(dialect, "price", "new_products")) # Update only if price changed
+            )
+
+            # WHEN NOT MATCHED THEN INSERT
+            when_not_matched_insert = MergeAction(
+                action_type=MergeActionType.INSERT,
+                assignments={ # Using assignments to carry column names for INSERT for DummyDialect
+                    "id": Column(dialect, "id", "new_products"),
+                    "name": Column(dialect, "name", "new_products"),
+                    "price": Column(dialect, "price", "new_products")
+                }
+            )
+
+            merge_expr = MergeExpression(dialect,
+                                         target_table=target_table,
+                                         source=source_values,
+                                         on_condition=on_cond,
+                                         when_matched=[when_matched_update],
+                                         when_not_matched=[when_not_matched_insert])
+            sql, params = merge_expr.to_sql()
+            print_sql("Simple MERGE (Update existing, Insert new) (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_temporal_tables():
+        """Demonstrate temporal table queries."""
+        print("=" * 70)
+        print("TEMPORAL TABLE QUERIES")
+        print("=" * 70)
+        print()
+
+        try:
+            # FOR SYSTEM_TIME AS OF
+            table_as_of = TableExpression(dialect,
+                                          name="employees",
+                                          alias="e",
+                                          temporal_options={"as_of": "2024-01-01T00:00:00Z"})
+            sql, params = table_as_of.to_sql()
+            print_sql("FOR SYSTEM_TIME AS OF (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # FOR SYSTEM_TIME BETWEEN ... AND ...
+            table_between = TableExpression(dialect,
+                                            name="employees",
+                                            alias="e",
+                                            temporal_options={"between": "2023-01-01", "and": "2023-12-31"})
+            sql, params = table_between.to_sql()
+            print_sql("FOR SYSTEM_TIME BETWEEN (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # FOR SYSTEM_TIME FROM ... TO ...
+            table_from_to = TableExpression(dialect,
+                                            name="employees",
+                                            alias="e",
+                                            temporal_options={"from": "2023-01-01", "to": "2023-12-31"})
+            sql, params = table_from_to.to_sql()
+            print_sql("FOR SYSTEM_TIME FROM ... TO (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_qualify_clause():
+        """Demonstrate QUALIFY clause."""
+        print("=" * 70)
+        print("QUALIFY CLAUSE")
+        print("=" * 70)
+        print()
+
+        try:
+            # SELECT with QUALIFY
+            query = QueryExpression(dialect,
+                                    select=[Column(dialect, "id"),
+                                            Column(dialect, "name"),
+                                            WindowExpression(dialect,
+                                                           FunctionCall(dialect, "ROW_NUMBER"),
+                                                           partition_by=[Column(dialect, "department")],
+                                                           order_by=[Column(dialect, "salary")],
+                                                           alias="rn")],
+                                    from_=TableExpression(dialect, "employees"),
+                                    qualify=ComparisonPredicate(dialect, "=", Column(dialect, "rn"), Literal(dialect, 1)))
+            sql, params = query.to_sql()
+            print_sql("SELECT with QUALIFY (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_for_update_skip_locked():
+        """Demonstrate FOR UPDATE SKIP LOCKED clause."""
+        print("=" * 70)
+        print("FOR UPDATE SKIP LOCKED CLAUSE")
+        print("=" * 70)
+        print()
+
+        try:
+            # Basic FOR UPDATE
+            query = QueryExpression(dialect,
+                                    select=[Column(dialect, "id"),
+                                            Column(dialect, "name")],
+                                    from_=TableExpression(dialect, "products"),
+                                    for_update_options={})
+            sql, params = query.to_sql()
+            print_sql("Basic FOR UPDATE (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # FOR UPDATE SKIP LOCKED
+            query_skip_locked = QueryExpression(dialect,
+                                                select=[Column(dialect, "id"),
+                                                        Column(dialect, "name")],
+                                                from_=TableExpression(dialect, "products"),
+                                                for_update_options={"skip_locked": True})
+            sql_skip_locked, params_skip_locked = query_skip_locked.to_sql()
+            print_sql("FOR UPDATE SKIP LOCKED (should fail in SQLite)", sql_skip_locked, params_skip_locked)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # FOR UPDATE OF table NOWAIT
+            query_nowait = QueryExpression(dialect,
+                                           select=[Column(dialect, "id"),
+                                                   Column(dialect, "name")],
+                                           from_=TableExpression(dialect, "products", alias="p"),
+                                           for_update_options={"of": ["p"], "nowait": True})
+            sql_nowait, params_nowait = query_nowait.to_sql()
+            print_sql("FOR UPDATE OF table NOWAIT (should fail in SQLite)", sql_nowait, params_nowait)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+
+    def demo_graph_match():
+        """Demonstrate graph query MATCH clause."""
+        print("=" * 70)
+        print("GRAPH QUERY MATCH CLAUSE")
+        print("=" * 70)
+        print()
+
+        try:
+            # Simple MATCH clause
+            vertex_a = GraphVertex(dialect, "a", "Person")
+            edge_rel = GraphEdge(dialect, "r", "Knows", GraphEdgeDirection.RIGHT)
+            vertex_b = GraphVertex(dialect, "b", "Person")
+
+            match_clause = MatchClause(dialect, vertex_a, edge_rel, vertex_b)
+            sql, params = match_clause.to_sql()
+            print_sql("Simple MATCH clause (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LATERAL with subquery
+            lateral_sub = Subquery(dialect,
+                                   "SELECT * FROM orders o WHERE o.user_id = u.id ORDER BY created_at DESC LIMIT 3",
+                                   ())
+            lateral = LateralExpression(dialect,
+                                        lateral_sub,
+                                        "recent_orders",
+                                        "CROSS")
+            sql, params = lateral.to_sql()
+            print_sql("CROSS JOIN LATERAL (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LEFT JOIN LATERAL
+            lateral = LateralExpression(dialect,
+                                        lateral_sub,
+                                        "recent_orders",
+                                        "LEFT")
+            sql, params = lateral.to_sql()
+            print_sql("LEFT JOIN LATERAL (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
+        print()
+
+        try:
+            # LATERAL with table function
+            lateral_func = TableFunctionExpression(dialect,
+                                                   "UNNEST",
+                                                   Column(dialect, "tags", "p"),
+                                                   alias="t",
+                                                   column_names=["tag"])
+            lateral = LateralExpression(dialect,
+                                        lateral_func,
+                                        "tag_list",
+                                        "CROSS")
+            sql, params = lateral.to_sql()
+            print_sql("LATERAL with Table Function (should fail in SQLite)", sql, params)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected: {e}")
         print()
 
 
@@ -858,9 +2246,10 @@ if __name__ == "__main__":
                                         Column(dialect, "created_at")],
                                 from_=TableExpression(dialect, "users"),
                                 order_by=[Column(dialect, "created_at")],
-                                limit=10)
+                                limit=10,
+                                offset=5)
         sql, params = query.to_sql()
-        print_sql("SELECT with ORDER BY and LIMIT", sql, params)
+        print_sql("SELECT with ORDER BY, LIMIT and OFFSET", sql, params)
 
         # SELECT with GROUP BY and HAVING
         query = QueryExpression(dialect,
@@ -876,6 +2265,20 @@ if __name__ == "__main__":
                                                            Literal(dialect, 5)))
         sql, params = query.to_sql()
         print_sql("SELECT with GROUP BY and HAVING", sql, params)
+
+        # SELECT with multiple aggregates
+        query = QueryExpression(dialect,
+                                select=[
+                                    Column(dialect, "category"),
+                                    FunctionCall(dialect, "COUNT", Column(dialect, "id"), alias="total"),
+                                    FunctionCall(dialect, "AVG", Column(dialect, "price"), alias="avg_price"),
+                                    FunctionCall(dialect, "MAX", Column(dialect, "price"), alias="max_price"),
+                                    FunctionCall(dialect, "MIN", Column(dialect, "price"), alias="min_price")
+                                ],
+                                from_=TableExpression(dialect, "products"),
+                                group_by=[Column(dialect, "category")])
+        sql, params = query.to_sql()
+        print_sql("SELECT with Multiple Aggregates", sql, params)
 
 
     def demo_insert():
@@ -903,6 +2306,18 @@ if __name__ == "__main__":
                 print(f"Parameters: {params}")
             print()
 
+        # INSERT with more columns
+        insert = InsertExpression(dialect,
+                                  "products",
+                                  ["name", "description", "price", "stock", "category"],
+                                  [Literal(dialect, "Widget"),
+                                   Literal(dialect, "A useful widget"),
+                                   Literal(dialect, 29.99),
+                                   Literal(dialect, 100),
+                                   Literal(dialect, "Tools")])
+        sql, params = insert.to_sql()
+        print_sql("INSERT with Multiple Columns", sql, params)
+
 
     def demo_update():
         """Demonstrate UPDATE statements."""
@@ -924,7 +2339,8 @@ if __name__ == "__main__":
         # UPDATE with complex WHERE
         update = UpdateExpression(dialect,
                                   "orders",
-                                  {"status": Literal(dialect, "shipped")},
+                                  {"status": Literal(dialect, "shipped"),
+                                   "shipped_at": RawSQLExpression(dialect, "NOW()")},
                                   LogicalPredicate(dialect, "AND",
                                                    ComparisonPredicate(dialect, "=",
                                                                        Column(dialect, "status"),
@@ -934,6 +2350,18 @@ if __name__ == "__main__":
                                                                        Literal(dialect, "2024-01-01"))))
         sql, params = update.to_sql()
         print_sql("UPDATE with Complex WHERE", sql, params)
+
+        # UPDATE with arithmetic
+        update = UpdateExpression(dialect,
+                                  "products",
+                                  {"stock": BinaryArithmeticExpression(dialect, "-",
+                                                                       Column(dialect, "stock"),
+                                                                       Literal(dialect, 1))},
+                                  ComparisonPredicate(dialect, "=",
+                                                      Column(dialect, "id"),
+                                                      Literal(dialect, 100)))
+        sql, params = update.to_sql()
+        print_sql("UPDATE with Arithmetic", sql, params)
 
 
     def demo_delete():
@@ -956,13 +2384,21 @@ if __name__ == "__main__":
                                   "logs",
                                   LogicalPredicate(dialect, "AND",
                                                    IsNullPredicate(dialect,
-                                                                   Column(dialect, "user_id"),
-                                                                   is_not=False),
+                                                                   Column(dialect, "user_id")),
                                                    ComparisonPredicate(dialect, "<",
                                                                        Column(dialect, "created_at"),
                                                                        Literal(dialect, "2023-01-01"))))
         sql, params = delete.to_sql()
         print_sql("DELETE with Complex WHERE", sql, params)
+
+        # DELETE with IN
+        delete = DeleteExpression(dialect,
+                                  "temp_data",
+                                  InPredicate(dialect,
+                                              Column(dialect, "status"),
+                                              Literal(dialect, ["expired", "invalid", "duplicate"])))
+        sql, params = delete.to_sql()
+        print_sql("DELETE with IN", sql, params)
 
 
     def demo_explain():
@@ -982,6 +2418,28 @@ if __name__ == "__main__":
         explain = ExplainExpression(dialect, query)
         sql, params = explain.to_sql()
         print_sql("EXPLAIN SELECT", sql, params)
+
+        # EXPLAIN with complex query
+        complex_query = QueryExpression(dialect,
+                                        select=[
+                                            Column(dialect, "u", "name"),
+                                            FunctionCall(dialect, "COUNT",
+                                                         Column(dialect, "o", "id"),
+                                                         alias="order_count")
+                                        ],
+                                        from_=JoinExpression(dialect,
+                                                             left_table=TableExpression(dialect, "users", "u"),
+                                                             right_table=TableExpression(dialect, "orders", "o"),
+                                                             join_type="LEFT",
+                                                             condition=ComparisonPredicate(dialect, "=",
+                                                                                           Column(dialect, "id", "u"),
+                                                                                           Column(dialect, "user_id",
+                                                                                                  "o"))),
+                                        group_by=[Column(dialect, "id", "u")])
+
+        explain = ExplainExpression(dialect, complex_query)
+        sql, params = explain.to_sql()
+        print_sql("EXPLAIN Complex Query", sql, params)
 
 
     # ========== Part 7: Complex Scenarios ==========
@@ -1010,20 +2468,46 @@ if __name__ == "__main__":
                                                                   Column(dialect, "id", "o"),
                                                                   Column(dialect, "order_id", "oi")))
 
+        with_products = JoinExpression(dialect,
+                                       left_table=with_items,
+                                       right_table=TableExpression(dialect, "products", "p"),
+                                       join_type="LEFT",
+                                       condition=ComparisonPredicate(dialect, "=",
+                                                                     Column(dialect, "product_id", "oi"),
+                                                                     Column(dialect, "id", "p")))
+
         query = QueryExpression(dialect,
                                 select=[
                                     Column(dialect, "name", "u"),
+                                    Column(dialect, "email", "u"),
                                     FunctionCall(dialect, "COUNT",
                                                  Column(dialect, "id", "o"),
+                                                 is_distinct=True,
                                                  alias="order_count"),
                                     FunctionCall(dialect, "SUM",
                                                  Column(dialect, "quantity", "oi"),
-                                                 alias="total_items")
+                                                 alias="total_items"),
+                                    FunctionCall(dialect, "SUM",
+                                                 BinaryArithmeticExpression(dialect, "*",
+                                                                            Column(dialect, "quantity", "oi"),
+                                                                            Column(dialect, "price", "p")),
+                                                 alias="total_value")
                                 ],
-                                from_=with_items,
+                                from_=with_products,
+                                where=ComparisonPredicate(dialect, ">",
+                                                          Column(dialect, "created_at", "u"),
+                                                          Literal(dialect, "2024-01-01")),
                                 group_by=[Column(dialect, "id", "u")],
-                                order_by=[FunctionCall(dialect, "COUNT",
-                                                       Column(dialect, "id", "o"))])
+                                having=ComparisonPredicate(dialect, ">",
+                                                           FunctionCall(dialect, "COUNT",
+                                                                        Column(dialect, "id", "o"),
+                                                                        is_distinct=True),
+                                                           Literal(dialect, 0)),
+                                order_by=[FunctionCall(dialect, "SUM",
+                                                       BinaryArithmeticExpression(dialect, "*",
+                                                                                  Column(dialect, "quantity", "oi"),
+                                                                                  Column(dialect, "price", "p")))],
+                                limit=100)
 
         sql, params = query.to_sql()
         print_sql("Multiple Joins with Aggregation", sql, params)
@@ -1043,38 +2527,80 @@ if __name__ == "__main__":
                                     [75000]),
                              columns=["id", "name", "salary", "department"])
 
-        # Second CTE: department stats
+        # Second CTE: department stats (depends on CTE 1)
         cte2 = CTEExpression(dialect,
                              name="dept_stats",
                              query=("""
                                     SELECT department,
                                            COUNT(*)    as emp_count,
-                                           AVG(salary) as avg_salary
+                                           AVG(salary) as avg_salary,
+                                           MAX(salary) as max_salary,
+                                           MIN(salary) as min_salary
                                     FROM high_earners
                                     GROUP BY department
                                     """, []),
-                             columns=["department", "emp_count", "avg_salary"])
+                             columns=["department", "emp_count", "avg_salary", "max_salary", "min_salary"])
 
-        # Main query using both CTEs
+        try:
+            # CTE 3: Top departments (materialized, should fail)
+            cte3 = CTEExpression(dialect,
+                                 name="top_depts",
+                                 query=("SELECT department FROM dept_stats ORDER BY avg_salary DESC LIMIT ?", [5]),
+                                 columns=["department"],
+                                 materialized=True)
+        except UnsupportedFeatureError as e:
+            print(f"Correctly failed as expected for Materialized CTE: {e}")
+            cte3 = CTEExpression(dialect,
+                                 name="top_depts",
+                                 query=("SELECT department FROM dept_stats ORDER BY avg_salary DESC LIMIT ?", [5]),
+                                 columns=["department"],
+                                 materialized=False) # Fallback to non-materialized for demo if dialect raises error
+
+        # Main query using all CTEs
         main_query = QueryExpression(dialect,
                                      select=[
                                          Column(dialect, "name", "he"),
                                          Column(dialect, "salary", "he"),
+                                         Column(dialect, "department", "he"),
                                          Column(dialect, "emp_count", "ds"),
-                                         Column(dialect, "avg_salary", "ds")
+                                         Column(dialect, "avg_salary", "ds"),
+                                         CaseExpression(dialect,
+                                                        cases=[
+                                                            (ComparisonPredicate(dialect, ">",
+                                                                                 Column(dialect, "salary", "he"),
+                                                                                 Column(dialect, "avg_salary", "ds")),
+                                                             Literal(dialect, "Above Average")),
+                                                            (ComparisonPredicate(dialect, "=",
+                                                                                 Column(dialect, "salary", "he"),
+                                                                                 Column(dialect, "avg_salary", "ds")),
+                                                             Literal(dialect, "Average"))
+                                                        ],
+                                                        else_result=Literal(dialect, "Below Average"))
                                      ],
                                      from_=JoinExpression(dialect,
-                                                          left_table=TableExpression(dialect, "high_earners", "he"),
-                                                          right_table=TableExpression(dialect, "dept_stats", "ds"),
+                                                          left_table=JoinExpression(dialect,
+                                                                                    left_table=TableExpression(dialect,
+                                                                                                               "high_earners",
+                                                                                                               "he"),
+                                                                                    right_table=TableExpression(dialect,
+                                                                                                                "dept_stats",
+                                                                                                                "ds"),
+                                                                                    join_type="INNER",
+                                                                                    using=["department"]),
+                                                          right_table=TableExpression(dialect, "top_depts", "td"),
                                                           join_type="INNER",
-                                                          using=["department"]))
+                                                          condition=ComparisonPredicate(dialect, "=",
+                                                                                        Column(dialect, "department",
+                                                                                               "he"),
+                                                                                        Column(dialect, "department",
+                                                                                               "td"))))
 
         with_query = WithQueryExpression(dialect,
-                                         ctes=[cte1, cte2],
+                                         ctes=[cte1, cte2, cte3],
                                          main_query=main_query)
 
         sql, params = with_query.to_sql()
-        print_sql("Multiple CTEs with Join", sql, params)
+        print_sql("Multiple CTEs with Dependencies", sql, params)
 
 
     def demo_complex_set_operations():
@@ -1096,72 +2622,214 @@ if __name__ == "__main__":
         recent_buyers = Subquery(dialect,
                                  """SELECT DISTINCT user_id
                                     FROM orders
-                                    WHERE created_at > ?""",
-                                 ("2024-01-01",))
+                                    WHERE created_at > ?
+                                      AND total > ?""",
+                                 ("2024-01-01", 100))
 
-        # Union of both
-        union_result = SetOperationExpression(dialect,
-                                              active_premium,
-                                              recent_buyers,
-                                              "UNION",
-                                              "engaged_users")
+        # Union of active premium and recent buyers
+        engaged = SetOperationExpression(dialect,
+                                         active_premium,
+                                         recent_buyers,
+                                         "UNION",
+                                         "engaged_users")
 
-        # Exclude banned users
+        # Active trial users
+        trial_users = Subquery(dialect,
+                               """SELECT user_id
+                                  FROM subscriptions
+                                  WHERE status = ?
+                                    AND tier = ?""",
+                               ("active", "trial"))
+
+        # All valuable users (union of engaged and trial)
+        valuable = SetOperationExpression(dialect,
+                                          engaged,
+                                          trial_users,
+                                          "UNION",
+                                          "valuable_users")
+
+        # Banned users
         banned = Subquery(dialect,
                           "SELECT user_id FROM banned_users",
                           ())
 
-        final_result = SetOperationExpression(dialect,
-                                              union_result,
-                                              banned,
-                                              "EXCEPT",
-                                              "target_users")
+        # Inactive users
+        inactive = Subquery(dialect,
+                            """SELECT user_id
+                               FROM users
+                               WHERE last_login < ?""",
+                            ("2023-01-01",))
 
-        sql, params = final_result.to_sql()
-        print_sql("Nested Set Operations", sql, params)
+        # Users to exclude (union of banned and inactive)
+        exclude = SetOperationExpression(dialect,
+                                         banned,
+                                         inactive,
+                                         "UNION",
+                                         "excluded_users")
+
+        # Final result: valuable users minus excluded users
+        final = SetOperationExpression(dialect,
+                                       valuable,
+                                       exclude,
+                                       "EXCEPT",
+                                       "target_users")
+
+        sql, params = final.to_sql()
+        print_sql("Complex Nested Set Operations", sql, params)
 
 
     def demo_complex_subqueries():
-        """Demonstrate complex subqueries."""
+        """Demonstrate complex correlated and scalar subqueries."""
         print("=" * 70)
-        print("COMPLEX SCENARIO: Correlated Subqueries")
+        print("COMPLEX SCENARIO: Correlated and Scalar Subqueries")
         print("=" * 70)
         print()
 
-        # Subquery in SELECT
-        subquery = Subquery(dialect,
-                            """SELECT COUNT(*)
-                               FROM orders o
-                               WHERE o.user_id = u.id""",
-                            ())
+        # --- Subquery 1: Order Count ---
+        order_count_sql = "SELECT COUNT(*) FROM orders o WHERE o.user_id = u.id"
+        order_count_params = ()
+
+        # Version for WHERE clause (no alias)
+        order_count_sub_for_where = Subquery(dialect, order_count_sql, order_count_params)
+        # Version for SELECT list (with alias)
+        order_count_sub_for_select = Subquery(dialect, order_count_sql, order_count_params, alias="order_count")
+
+        # --- Subquery 2: Total Spent ---
+        total_spent_sql = "SELECT COALESCE(SUM(total), 0) FROM orders o WHERE o.user_id = u.id AND o.status = ?"
+        total_spent_params = ("completed",)
+
+        # Version for WHERE clause (no alias)
+        total_spent_sub_for_where = Subquery(dialect, total_spent_sql, total_spent_params)
+        # Version for SELECT list (with alias)
+        total_spent_sub_for_select = Subquery(dialect, total_spent_sql, total_spent_params, alias="total_spent")
+
+        # --- Subquery 3: Average Order Value (only used in SELECT) ---
+        avg_order_sub_for_select = Subquery(dialect,
+                                            "SELECT AVG(total) FROM orders o WHERE o.user_id = u.id",
+                                            (),
+                                            alias="avg_order_value")
 
         query = QueryExpression(dialect,
                                 select=[
+                                    Column(dialect, "id", "u"),
                                     Column(dialect, "name", "u"),
-                                    FunctionCall(dialect, "SUBQUERY", subquery, alias="order_count")
+                                    Column(dialect, "email", "u"),
+                                    order_count_sub_for_select,
+                                    total_spent_sub_for_select,
+                                    avg_order_sub_for_select
                                 ],
-                                from_=TableExpression(dialect, "users", "u"))
+                                from_=TableExpression(dialect, "users", "u"),
+                                where=LogicalPredicate(dialect, "AND",
+                                                       ComparisonPredicate(dialect, ">",
+                                                                           order_count_sub_for_where,
+                                                                           Literal(dialect, 0)),
+                                                       ComparisonPredicate(dialect, ">",
+                                                                           total_spent_sub_for_where,
+                                                                           Literal(dialect, 1000))))
 
         sql, params = query.to_sql()
-        print_sql("Subquery in SELECT", sql, params)
+        print_sql("Scalar Subqueries in SELECT", sql, params)
 
-        # EXISTS subquery
+        # EXISTS with correlated subquery
         exists_sub = Subquery(dialect,
                               """SELECT 1
                                  FROM orders o
                                  WHERE o.user_id = u.id
-                                   AND o.total > ?""",
-                              (1000,))
+                                   AND o.total > ?
+                                   AND o.created_at > ?""",
+                              (1000, "2024-01-01"))
         exists_pred = ExistsExpression(dialect, exists_sub)
 
         query = QueryExpression(dialect,
                                 select=[Column(dialect, "name", "u"),
-                                        Column(dialect, "email", "u")],
+                                        Column(dialect, "email", "u"),
+                                        Column(dialect, "created_at", "u")],
                                 from_=TableExpression(dialect, "users", "u"),
-                                where=exists_pred)
+                                where=LogicalPredicate(dialect, "AND",
+                                                       exists_pred,
+                                                       ComparisonPredicate(dialect, ">",
+                                                                           Column(dialect, "created_at", "u"),
+                                                                           Literal(dialect, "2023-01-01"))))
 
         sql, params = query.to_sql()
-        print_sql("Correlated Subquery with EXISTS", sql, params)
+        print_sql("EXISTS with Correlated Subquery", sql, params)
+
+
+    def demo_complex_window_query():
+        """Demonstrate complex window functions with frames."""
+        print("=" * 70)
+        print("COMPLEX SCENARIO: Window Functions with Multiple Partitions")
+        print("=" * 70)
+        print()
+
+        version = dialect.get_server_version() if hasattr(dialect, 'get_server_version') else (3, 35, 0)
+
+        if version >= (3, 25, 0):
+            try:
+                # Row number within partition
+                row_num = FunctionCall(dialect,
+                                       "ROW_NUMBER")
+                window1 = WindowExpression(dialect,
+                                           row_num,
+                                           partition_by=[Column(dialect, "department")],
+                                           order_by=[Column(dialect, "salary")],
+                                           alias="dept_rank")
+
+                # Running total with frame
+                sum_func = FunctionCall(dialect, "SUM", Column(dialect, "salary"))
+                window2 = WindowExpression(dialect,
+                                           sum_func,
+                                           partition_by=[Column(dialect, "department")],
+                                           order_by=[Column(dialect, "hire_date")],
+                                           frame_type="ROWS",
+                                           frame_start="UNBOUNDED PRECEDING",
+                                           frame_end="CURRENT ROW",
+                                           alias="cumulative_salary")
+
+                # Moving average (3-row window)
+                avg_func = FunctionCall(dialect, "AVG", Column(dialect, "salary"))
+                window3 = WindowExpression(dialect,
+                                           avg_func,
+                                           partition_by=[Column(dialect, "department")],
+                                           order_by=[Column(dialect, "hire_date")],
+                                           frame_type="ROWS",
+                                           frame_start="2 PRECEDING",
+                                           frame_end="CURRENT ROW",
+                                           alias="moving_avg")
+
+                # LAG to compare with previous
+                lag_func = FunctionCall(dialect, "LAG", Column(dialect, "salary"), Literal(dialect, 1))
+                window4 = WindowExpression(dialect,
+                                           lag_func,
+                                           partition_by=[Column(dialect, "department")],
+                                           order_by=[Column(dialect, "hire_date")],
+                                           alias="prev_salary")
+
+                query = QueryExpression(dialect,
+                                        select=[
+                                            Column(dialect, "id"),
+                                            Column(dialect, "name"),
+                                            Column(dialect, "department"),
+                                            Column(dialect, "salary"),
+                                            Column(dialect, "hire_date"),
+                                            window1,
+                                            window2,
+                                            window3,
+                                            window4,
+                                            BinaryArithmeticExpression(dialect, "-",
+                                                                       Column(dialect, "salary"),
+                                                                       window4)
+                                        ],
+                                        from_=TableExpression(dialect, "employees"))
+
+                sql, params = query.to_sql()
+                print_sql("Complex Window Functions", sql, params)
+            except UnsupportedFeatureError as e:
+                print(f"Correctly failed as expected: {e}")
+            print()
+        else:
+            print("Window functions not supported in SQLite < 3.25.0")
+            print()
 
 
     # ========== Main Execution ==========
@@ -1178,12 +2846,15 @@ if __name__ == "__main__":
     demo_columns()
     demo_tables()
     demo_functions()
+    demo_filter_clause()
+    demo_subqueries()
 
     # Part 2: Operators
     demo_arithmetic()
     demo_binary_operators()
     demo_unary_operators()
     demo_raw_sql()
+    demo_sql_operations()
 
     # Part 3: Predicates
     demo_comparisons()
@@ -1201,6 +2872,8 @@ if __name__ == "__main__":
     demo_window()
     demo_json()
     demo_array()
+    demo_ordered_set_aggregation()
+    demo_json_table()
 
     # Part 5: Query Clauses
     demo_joins()
@@ -1217,12 +2890,19 @@ if __name__ == "__main__":
     demo_update()
     demo_delete()
     demo_explain()
+    demo_merge_statement()
+    demo_temporal_tables()
+    demo_qualify_clause()
+    demo_for_update_skip_locked()
+    demo_graph_match()
+
 
     # Part 7: Complex Scenarios
     demo_complex_join_query()
     demo_complex_cte_query()
     demo_complex_set_operations()
     demo_complex_subqueries()
+    demo_complex_window_query()
 
     print("=" * 70)
     print("All demonstrations completed successfully!")

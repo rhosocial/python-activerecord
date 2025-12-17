@@ -138,8 +138,8 @@ class JoinExpression(BaseExpression):
     Represents a JOIN expression (e.g., table1 JOIN table2 ON condition).
     """
     def __init__(self, dialect: SQLDialectBase,
-                 left_table: Union[str, TableExpression, Subquery, QueryExpression],
-                 right_table: Union[str, TableExpression, Subquery, QueryExpression],
+                 left_table: Union[str, TableExpression, Subquery, "QueryExpression"],
+                 right_table: Union[str, TableExpression, Subquery, "QueryExpression"],
                  alias: Optional[str] = None,
                  join_type: str = "INNER",
                  condition: Optional[SQLPredicate] = None,

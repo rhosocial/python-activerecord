@@ -37,7 +37,7 @@ class MergeExpression(BaseExpression):
     """
     def __init__(self, dialect: SQLDialectBase,
                  target_table: Union[str, TableExpression],
-                 source: Union[Subquery, TableExpression, ValuesExpression],
+                 source: Union[Subquery, TableExpression, "ValuesExpression"],
                  on_condition: SQLPredicate,
                  when_matched: Optional[List[MergeAction]] = None,
                  when_not_matched: Optional[List[MergeAction]] = None):
@@ -157,7 +157,7 @@ class QueryExpression(BaseExpression):
     """
     def __init__(self, dialect: SQLDialectBase,
                  select: List[BaseExpression],
-                 from_: Optional[Union[TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, BaseExpression]] = None,
+                 from_: Optional[Union[TableExpression, Subquery, "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression", BaseExpression]] = None,
                  where: Optional[SQLPredicate] = None,
                  group_by: Optional[List[BaseExpression]] = None,
                  having: Optional[SQLPredicate] = None,
