@@ -893,8 +893,7 @@ class BaseDialect(SQLDialectBase):
         left_params: tuple,
         right_params: tuple
     ) -> Tuple[str, Tuple]:
-        """Format comparison predicate."""
-        sql = f"({left_sql} {op} {right_sql})"
+        sql = f"{left_sql} {op} {right_sql}"
         return sql, left_params + right_params
 
     def format_logical_predicate(
@@ -905,15 +904,15 @@ class BaseDialect(SQLDialectBase):
         """Format logical predicate (AND, OR, NOT)."""
         if op.upper() == "NOT" and len(predicates_sql_and_params) == 1:
             sql, params = predicates_sql_and_params[0]
-            return f"NOT ({sql})", params
+            return f"NOT ({sql})", params # KEEP () here for NOT
         else:
             parts = []
             all_params: List[Any] = []
             for sql, params in predicates_sql_and_params:
-                parts.append(f"({sql})")
+                parts.append(sql) # Removed () around sql
                 all_params.extend(params)
             sql = f" {op} ".join(parts)
-            return f"({sql})", tuple(all_params)
+            return sql, tuple(all_params) # Removed outer () here
 
     def format_in_predicate(
         self,
@@ -923,7 +922,7 @@ class BaseDialect(SQLDialectBase):
         values_params: tuple
     ) -> Tuple[str, Tuple]:
         """Format IN predicate."""
-        sql = f"({expr_sql} IN {values_sql})"
+        sql = f"{expr_sql} IN {values_sql}"
         return sql, expr_params + values_params
 
     def format_between_predicate(
@@ -936,7 +935,7 @@ class BaseDialect(SQLDialectBase):
         high_params: tuple
     ) -> Tuple[str, Tuple]:
         """Format BETWEEN predicate."""
-        sql = f"({expr_sql} BETWEEN {low_sql} AND {high_sql})"
+        sql = f"{expr_sql} BETWEEN {low_sql} AND {high_sql}"
         return sql, expr_params + low_params + high_params
 
     def format_is_null_predicate(
@@ -947,7 +946,7 @@ class BaseDialect(SQLDialectBase):
     ) -> Tuple[str, Tuple]:
         """Format IS NULL predicate."""
         not_str = " NOT" if is_not else ""
-        sql = f"({expr_sql} IS{not_str} NULL)"
+        sql = f"{expr_sql} IS{not_str} NULL"
         return sql, expr_params
 
     def format_like_predicate(
@@ -959,7 +958,7 @@ class BaseDialect(SQLDialectBase):
         pattern_params: tuple
     ) -> Tuple[str, Tuple]:
         """Format LIKE predicate."""
-        sql = f"({expr_sql} {op} {pattern_sql})"
+        sql = f"{expr_sql} {op} {pattern_sql}"
         return sql, expr_params + pattern_params
 
     def format_binary_operator(
@@ -970,8 +969,7 @@ class BaseDialect(SQLDialectBase):
         left_params: tuple,
         right_params: tuple
     ) -> Tuple[str, Tuple]:
-        """Format binary operator."""
-        sql = f"({left_sql} {op} {right_sql})"
+        sql = f"{left_sql} {op} {right_sql}"
         return sql, left_params + right_params
 
     def format_unary_operator(
@@ -983,9 +981,9 @@ class BaseDialect(SQLDialectBase):
     ) -> Tuple[str, Tuple]:
         """Format unary operator."""
         if pos == 'before':
-            sql = f"{op} ({operand_sql})"
+            sql = f"{op} {operand_sql}"
         else:
-            sql = f"({operand_sql}) {op}"
+            sql = f"{operand_sql} {op}"
         return sql, operand_params
 
     def format_binary_arithmetic_expression(
@@ -997,7 +995,7 @@ class BaseDialect(SQLDialectBase):
         right_params: tuple
     ) -> Tuple[str, Tuple]:
         """Format binary arithmetic expression."""
-        sql = f"({left_sql} {op} {right_sql})"
+        sql = f"{left_sql} {op} {right_sql}"
         return sql, left_params + right_params
 
     def format_case_expression(
@@ -1155,7 +1153,7 @@ class BaseDialect(SQLDialectBase):
         join_type: str
     ) -> Tuple[str, Tuple]:
         """Format LATERAL expression."""
-        sql = f"{join_type.upper()} JOIN LATERAL ({expr_sql}) AS {self.format_identifier(alias)}"
+        sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
         return sql, expr_params
 
     def format_explain(

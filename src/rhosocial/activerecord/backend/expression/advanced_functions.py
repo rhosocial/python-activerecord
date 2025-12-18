@@ -81,7 +81,7 @@ class AnyExpression(mixins.LogicalMixin, bases.SQLPredicate):
             array_params = (tuple(self.array_expr.value),)
         else:
             array_sql, array_params = self.array_expr.to_sql()
-        sql = f"({expr_sql} {self.op} ANY({array_sql}))"
+        sql = f"({expr_sql} {self.op} ANY{array_sql})"
         return sql, tuple(list(expr_params) + list(array_params))
 
 
@@ -100,7 +100,7 @@ class AllExpression(mixins.LogicalMixin, bases.SQLPredicate):
             array_params = (tuple(self.array_expr.value),)
         else:
             array_sql, array_params = self.array_expr.to_sql()
-        sql = f"({expr_sql} {self.op} ALL({array_sql}))"
+        sql = f"({expr_sql} {self.op} ALL{array_sql})"
         return sql, tuple(list(expr_params) + list(array_params))
 
 

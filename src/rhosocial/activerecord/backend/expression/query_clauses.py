@@ -27,7 +27,7 @@ class SetOperationExpression(bases.BaseExpression):
         left_sql, left_params = self.left.to_sql()
         right_sql, right_params = self.right.to_sql()
         all_str = " ALL" if self.all else ""
-        sql = f"({left_sql}) {self.operation}{all_str} ({right_sql})"
+        sql = f"{left_sql} {self.operation}{all_str} {right_sql}"
         params = left_params + right_params
         return f"({sql}) AS {self.dialect.format_identifier(self.alias)}", tuple(params)
 
