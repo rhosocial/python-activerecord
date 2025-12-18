@@ -8,6 +8,7 @@ It is used for to_sql() testing and does not involve actual database connections
 from typing import Any, List, Optional, Tuple, Dict
 
 from rhosocial.activerecord.backend.dialect.base import BaseDialect
+from rhosocial.activerecord.backend.dialect.options import ExplainType, ExplainFormat
 from rhosocial.activerecord.backend.dialect.protocols import (
     WindowFunctionSupport,
     CTESupport,
@@ -178,6 +179,43 @@ class DummyDialect(
     def supports_explain_format(self, format_type: str) -> bool:
         """All EXPLAIN formats are supported."""
         return True
+
+    def format_explain(
+        self,
+        sql: str,
+        options: Optional['ExplainOptions'] = None
+    ) -> str:
+        """Format EXPLAIN statement with proper handling of options."""
+        if options is None:
+            return f"EXPLAIN {sql}"
+
+        # Build EXPLAIN clause with options
+        parts = ["EXPLAIN"]
+
+        # Handle type (ANALYZE, etc.)
+        if options.type == ExplainType.ANALYZE:
+            parts.append("ANALYZE")
+        elif options.type == ExplainType.QUERYPLAN:
+            parts.append("QUERY PLAN")
+
+        # Handle format - always add regardless of whether it's the default
+        parts.append(f"FORMAT {options.format.value.upper()}")
+
+        # Handle additional boolean options
+        if options.costs:
+            parts.append("COSTS ON")
+        if options.buffers:
+            parts.append("BUFFERS")
+        if options.timing and options.type == ExplainType.ANALYZE:
+            parts.append("TIMING ON")
+        if options.verbose:
+            parts.append("VERBOSE")
+        if options.settings:
+            parts.append("SETTINGS")
+        if options.wal:
+            parts.append("WAL")
+
+        return f"{' '.join(parts)} {sql}"
 
     def supports_filter_clause(self) -> bool:
         """FILTER clause is supported."""
