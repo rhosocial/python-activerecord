@@ -60,7 +60,7 @@ class TestQueryStatements:
             dummy_dialect,
             table="users",
             columns=["name", "email"],
-            values=[Literal(dummy_dialect, "John Doe"), Literal(dummy_dialect, "john@example.com")]
+            values_list=[[Literal(dummy_dialect, "John Doe"), Literal(dummy_dialect, "john@example.com")]]
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "users" ("name", "email") VALUES (?, ?)'
@@ -72,7 +72,7 @@ class TestQueryStatements:
             dummy_dialect,
             table="logs",
             columns=["event_time", "message"],
-            values=[RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"), Literal(dummy_dialect, "System started")]
+            values_list=[[RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"), Literal(dummy_dialect, "System started")]]
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "logs" ("event_time", "message") VALUES (CURRENT_TIMESTAMP, ?)'

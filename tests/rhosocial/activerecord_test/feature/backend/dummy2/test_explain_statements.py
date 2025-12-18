@@ -117,7 +117,7 @@ class TestExplainStatements:
                 dummy_dialect,
                 table="test_table",
                 columns=["name"],
-                values=[Literal(dummy_dialect, "test")]
+                values_list=[[Literal(dummy_dialect, "test")]]
             )
         elif statement_type == "UPDATE":
             stmt = UpdateExpression(

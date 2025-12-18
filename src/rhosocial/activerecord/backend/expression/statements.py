@@ -245,22 +245,133 @@ class UpdateExpression(bases.BaseExpression):
 
 
 class InsertExpression(bases.BaseExpression):
-    """Represents an INSERT statement."""
-    def __init__(self, dialect: "SQLDialectBase", table: str, columns: List[str], values: List["bases.BaseExpression"]):
+    """
+    Represents an SQL INSERT statement.
+
+    This class supports various forms of the INSERT statement:
+    1.  `INSERT INTO <table> (columns) VALUES (...)` for single or multi-row inserts.
+    2.  `INSERT INTO <table> (columns) SELECT ... FROM ...` for inserting data from a subquery.
+    3.  `INSERT INTO <table> DEFAULT VALUES` for inserting a row with default column values.
+
+    It performs validation to ensure only one insertion method is specified at a time.
+    """
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: str,
+        columns: Optional[List[str]] = None,
+        values_list: Optional[List[List["bases.BaseExpression"]]] = None,
+        select_query: Optional["QueryExpression"] = None,
+        default_values: bool = False,
+    ):
+        """
+        Initializes an InsertExpression.
+
+        Args:
+            dialect: The SQL dialect to use for formatting.
+            table: The name of the target table.
+            columns: An optional list of column names for the insert. Required for VALUES and SELECT inserts,
+                     optional for DEFAULT VALUES (though usually omitted).
+            values_list: An optional list of lists of BaseExpression objects, where each inner list
+                         represents a row of values to be inserted. Used for `INSERT ... VALUES`.
+            select_query: An optional QueryExpression object representing a SELECT subquery
+                          whose results are to be inserted. Used for `INSERT ... SELECT`.
+            default_values: A boolean flag indicating whether to use `DEFAULT VALUES` clause.
+                            Used for `INSERT ... DEFAULT VALUES`.
+
+        Raises:
+            ValueError: If an invalid combination of insertion methods is provided.
+        """
         super().__init__(dialect)
-        self.table, self.columns, self.values = table, columns, values
+        self.table = table
+        self.columns = columns
+
+        # Validate that only one insertion method is provided
+        provided_methods = sum([
+            1 if values_list is not None else 0,
+            1 if select_query is not None else 0,
+            1 if default_values else 0,
+        ])
+        if provided_methods > 1:
+            raise ValueError(
+                "Only one of 'values_list', 'select_query', or 'default_values' "
+                "can be provided for an INSERT statement."
+            )
+        # Ensure that at least one insertion method or columns for a SELECT subquery are provided.
+        # This handles cases like INSERT INTO tbl (col1) SELECT ... where columns is provided
+        # but no direct insertion method.
+        if provided_methods == 0 and not columns:
+            raise ValueError(
+                "At least one of 'values_list', 'select_query', or 'default_values' "
+                "must be provided for an INSERT statement, or columns must be specified "
+                "for a SELECT subquery."
+            )
+
+        self.values_list = values_list
+        self.select_query = select_query
+        self.default_values = default_values
 
     def to_sql(self) -> Tuple[str, tuple]:
+        """
+        Generates the SQL string and parameters for the INSERT statement.
+
+        Returns:
+            A tuple containing the formatted SQL string and a tuple of parameters.
+
+        Raises:
+            ValueError: If the InsertExpression is in an invalid state, e.g., using DEFAULT VALUES
+                        with other insertion methods, or a SELECT/VALUES insert without columns.
+        """
         table_sql = self.dialect.format_identifier(self.table)
-        columns_sql = "(" + ", ".join([self.dialect.format_identifier(c) for c in self.columns]) + ")"
-        values_parts, all_params = [], []
-        for value_expr in self.values:
-            value_sql, value_params = value_expr.to_sql()
-            values_parts.append(value_sql)
-            all_params.extend(value_params)
-        values_sql = "(" + ", ".join(values_parts) + ")"
-        sql = f"INSERT INTO {table_sql} {columns_sql} VALUES {values_sql}"
-        return sql, tuple(all_params)
+        all_params: List[Any] = []
+
+        columns_sql = ""
+        if self.columns:
+            columns_sql = "(" + ", ".join([self.dialect.format_identifier(c) for c in self.columns]) + ")"
+
+        # Handle INSERT ... DEFAULT VALUES
+        if self.default_values:
+            if self.columns or self.values_list or self.select_query:
+                raise ValueError(
+                    "Cannot use 'DEFAULT VALUES' with 'columns', 'values_list', or 'select_query'."
+                )
+            sql = f"INSERT INTO {table_sql} DEFAULT VALUES"
+            return sql, tuple(all_params)
+
+        # Handle INSERT ... SELECT
+        if self.select_query:
+            if not self.columns:
+                 raise ValueError("Columns must be specified when using 'select_query' for INSERT.")
+            select_sql, select_params = self.select_query.to_sql()
+            all_params.extend(select_params)
+            sql = f"INSERT INTO {table_sql} {columns_sql} {select_sql}"
+            return sql, tuple(all_params)
+
+        # Handle INSERT ... VALUES (single or multi-row)
+        if self.values_list is not None:
+            if not self.columns:
+                raise ValueError("Columns must be specified when using 'values_list' for INSERT.")
+
+            all_rows_sql_parts = []
+            for row_values in self.values_list:
+                row_values_sql_parts = []
+                for value_expr in row_values:
+                    value_sql, value_params = value_expr.to_sql()
+                    row_values_sql_parts.append(value_sql)
+                    all_params.extend(value_params)
+                all_rows_sql_parts.append("(" + ", ".join(row_values_sql_parts) + ")")
+            
+            values_clause = "VALUES " + ", ".join(all_rows_sql_parts)
+            sql = f"INSERT INTO {table_sql} {columns_sql} {values_clause}"
+            return sql, tuple(all_params)
+        
+        # This fallback covers the scenario where provided_methods == 0 but columns were specified.
+        # This typically implies an INSERT ... SELECT where select_query was not directly passed
+        # but implied (e.g., from a higher-level query builder that will inject it).
+        # However, for a standalone InsertExpression, this is an invalid state.
+        if self.columns:
+            raise ValueError("No insertion data (values_list, select_query, default_values) provided despite columns being specified.")
+
 
 
 class ExplainExpression(bases.BaseExpression):

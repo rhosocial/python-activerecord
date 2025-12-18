@@ -18,10 +18,9 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
         self.value = value
 
     def to_sql(self) -> Tuple[str, tuple]:
-        if isinstance(self.value, (list, tuple, set)):
-            if not self.value:
-                return "()", ()
-            return f"({', '.join([self.dialect.get_placeholder()] * len(self.value))})", tuple(self.value)
+        # Always return a single placeholder and the value itself.
+        # It's up to higher-level expressions (like InPredicate or ValuesExpression)
+        # to decide if this value needs to be expanded or formatted differently.
         return self.dialect.get_placeholder(), (self.value,)
 
     def __repr__(self) -> str:

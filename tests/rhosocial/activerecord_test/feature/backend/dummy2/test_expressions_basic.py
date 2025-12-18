@@ -11,9 +11,9 @@ class TestBasicExpressions:
         (None, "?", (None,)),
         (3.14, "?", (3.14,)),
         (True, "?", (True,)),
-        ([1, 2, "three"], "(?, ?, ?)", (1, 2, "three")),
-        ((4, 5, 6), "(?, ?, ?)", (4, 5, 6)),
-        ([], "()", ()), # Empty list/tuple
+        ([1, 2, "three"], "?", ([1, 2, "three"],)),
+        ((4, 5, 6), "?", ((4, 5, 6),)),
+        ([], "?", ([],)), # Empty list/tuple now passed as a single parameter
     ])
     def test_literal(self, dummy_dialect, value, expected_sql, expected_params):
         """Tests various types of literal values."""

@@ -6,6 +6,7 @@ from typing import Tuple, Any, TYPE_CHECKING
 
 from . import bases
 from . import mixins
+from .core import Literal
 
 # if TYPE_CHECKING:
 #     from .bases import BaseExpression, SQLValueExpression
@@ -61,7 +62,19 @@ class InPredicate(mixins.LogicalMixin, bases.SQLPredicate):
 
     def to_sql(self) -> Tuple[str, tuple]:
         expr_sql, expr_params = self.expr.to_sql()
-        values_sql, values_params = self.values.to_sql()
+        
+        # Check if values is a Literal containing a collection and expand it
+        if isinstance(self.values, Literal) and isinstance(self.values.value, (list, tuple, set)):
+            if not self.values.value: # Handle empty list case for IN ()
+                values_sql = "()"
+                values_params = ()
+            else:
+                placeholders = ", ".join([self.dialect.get_placeholder()] * len(self.values.value))
+                values_sql = f"({placeholders})"
+                values_params = tuple(self.values.value)
+        else:
+            values_sql, values_params = self.values.to_sql()
+            
         return self.dialect.format_in_predicate(expr_sql, values_sql, expr_params, values_params)
 
 

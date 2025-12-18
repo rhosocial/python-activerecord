@@ -13,7 +13,7 @@ class TestFunctionExpressions:
         assert params == ()
 
     @pytest.mark.parametrize("func_name, args_data, is_distinct, expected_sql, expected_params", [
-        ("LENGTH", [("some_text",)], False, "LENGTH((?))", ("some_text",)),
+        ("LENGTH", ["some_text"], False, "LENGTH(?)", ("some_text",)),
         ("CONCAT", [("Column", "first"), " ", ("Column", "last")], False, 'CONCAT("first", ?, "last")', (" ",)),
         ("COALESCE", [("Column", "col1"), "default"], False, 'COALESCE("col1", ?)', ("default",)),
         ("MAX", [("Column", "price")], False, 'MAX("price")', ()),

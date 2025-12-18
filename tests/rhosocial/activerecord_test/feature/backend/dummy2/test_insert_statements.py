@@ -1,35 +1,35 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, RawSQLExpression,
-    InsertExpression, ValuesExpression
+    Column, Literal, RawSQLExpression, Subquery, QueryExpression, TableExpression
 )
+from rhosocial.activerecord.backend.expression.statements import InsertExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 class TestInsertStatements:
     """Tests for INSERT statements with various configurations."""
     
-    @pytest.mark.parametrize("table, columns, values_data, expected_sql_pattern, expected_param_count", [
+    @pytest.mark.parametrize("table, columns, values_data_row, expected_sql_pattern, expected_param_count", [
         ("users", ["name", "email"], ["John Doe", "john@example.com"],
          'INSERT INTO "users" ("name", "email") VALUES (?, ?)', 2),
 
         ("products", ["id", "name", "price"], [1, "Widget", 19.99],
          'INSERT INTO "products" ("id", "name", "price") VALUES (?, ?, ?)', 3),
     ])
-    def test_basic_insert(self, dummy_dialect: DummyDialect, table, columns, values_data, expected_sql_pattern, expected_param_count):
-        """Tests basic INSERT statements with explicit columns and values."""
+    def test_basic_insert(self, dummy_dialect: DummyDialect, table, columns, values_data_row, expected_sql_pattern, expected_param_count):
+        """Tests basic INSERT statements with explicit columns and a single row of values."""
         # Create Literal values with dialect
-        values = [Literal(dummy_dialect, val) for val in values_data]
+        values_list_expr = [[Literal(dummy_dialect, val) for val in values_data_row]]
 
         insert_expr = InsertExpression(
             dummy_dialect,
             table=table,
             columns=columns,
-            values=values
+            values_list=values_list_expr
         )
         sql, params = insert_expr.to_sql()
         assert sql == expected_sql_pattern
         assert len(params) == expected_param_count
-        assert params == tuple(values_data)
+        assert params == tuple(values_data_row)
 
     def test_insert_with_raw_sql_value(self, dummy_dialect: DummyDialect):
         """Tests INSERT statement with a value from a raw SQL expression."""
@@ -37,115 +37,69 @@ class TestInsertStatements:
             dummy_dialect,
             table="logs",
             columns=["event_time", "message"],
-            values=[RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"), Literal(dummy_dialect, "System started")]
+            values_list=[[RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"), Literal(dummy_dialect, "System started")]]
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "logs" ("event_time", "message") VALUES (CURRENT_TIMESTAMP, ?)'
         assert params == ("System started",)
 
-    @pytest.mark.parametrize("values_data, alias, columns, expected_sql, expected_params", [
-        ([(1, "A"), (2, "B")], "t", ["id", "val"], 
-         '(VALUES (?, ?), (?, ?)) AS "t"("id", "val")', (1, "A", 2, "B")),
-        
-        ([("item1",)], "items", ["name"], 
-         '(VALUES (?)) AS "items"("name")', ("item1",)),
-        
-        ([(101, "Alice", 50000), (102, "Bob", 60000)], "employees", ["id", "name", "salary"],
-         '(VALUES (?, ?, ?), (?, ?, ?)) AS "employees"("id", "name", "salary")', (101, "Alice", 50000, 102, "Bob", 60000)),
-    ])
-    def test_values_expression(self, dummy_dialect: DummyDialect, values_data, alias, columns, expected_sql, expected_params):
-        """Tests VALUES expressions used in INSERT statements."""
-        values_expr = ValuesExpression(dummy_dialect, values_data, alias, columns)
-        sql, params = values_expr.to_sql()
-        assert sql == expected_sql
-        assert params == expected_params
-
-    def test_insert_with_subquery(self, dummy_dialect: DummyDialect):
-        """Tests INSERT ... SELECT statement using subquery."""
-        from rhosocial.activerecord.backend.expression import Subquery
-        # This is a conceptual test since InsertExpression as defined may not directly support subqueries
-        # But we can test it conceptually using ValuesExpression or Subquery
-        subquery = Subquery(dummy_dialect, "SELECT name, email FROM active_users WHERE created_date > ?", ("2024-01-01",))
-
-        # Since direct INSERT ... SELECT might not be supported by the InsertExpression as defined,
-        # we test the components separately or test a VALUES approach
-        insert_expr = InsertExpression(
-            dummy_dialect,
-            table="backup_users",
-            columns=["name", "email"],
-            values=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")]  # Conceptual
-        )
-        # Actual implementation might differ based on how InsertExpression handles subqueries
-        # For now, we test using VALUES expression directly
-        values_expr = ValuesExpression(dummy_dialect, [("John", "john@example.com")], "source", ["name", "email"])
-        sql, params = values_expr.to_sql()
-        assert "VALUES" in sql
-        assert params == ("John", "john@example.com")
-
-    def test_bulk_insert(self, dummy_dialect: DummyDialect):
-        """Tests bulk insert with multiple rows."""
-        # Since the current InsertExpression accepts single values, 
-        # we'll test by using ValuesExpression in combination with insert-like structures
-        # Testing bulk insert with ValuesExpression
-        bulk_values = [
+    def test_multi_row_insert_values(self, dummy_dialect: DummyDialect):
+        """Tests INSERT with multiple rows using the VALUES clause."""
+        bulk_values_data = [
             (1, "Product A", 10.0),
             (2, "Product B", 15.0),
             (3, "Product C", 20.0)
         ]
-        values_expr = ValuesExpression(dummy_dialect, bulk_values, "new_products", ["id", "name", "price"])
-        sql, params = values_expr.to_sql()
-        
-        # Check that multiple value sets are represented
-        assert sql.startswith('(VALUES ')
-        assert sql.count('?') == len([item for sublist in bulk_values for item in sublist])  # Flatten and count
-        assert len(params) == 9  # 3 rows * 3 cols each
+        columns = ["id", "name", "price"]
+        values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in bulk_values_data]
 
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="products",
+            columns=columns,
+            values_list=values_list_expr
+        )
+        sql, params = insert_expr.to_sql()
+        expected_sql = 'INSERT INTO "products" ("id", "name", "price") VALUES (?, ?, ?), (?, ?, ?), (?, ?, ?)'
+        expected_params = (1, "Product A", 10.0, 2, "Product B", 15.0, 3, "Product C", 20.0)
+        assert sql == expected_sql
+        assert params == expected_params
+    
     def test_insert_with_special_types(self, dummy_dialect: DummyDialect):
         """Tests INSERT with special data types like None, lists, etc."""
         insert_expr = InsertExpression(
             dummy_dialect,
             table="test_table",
             columns=["nullable_col", "array_col", "simple_col"],
-            values=[Literal(dummy_dialect, None), Literal(dummy_dialect, ["item1", "item2"]), Literal(dummy_dialect, "simple_value")]
+            values_list=[[Literal(dummy_dialect, None), Literal(dummy_dialect, ["item1", "item2"]), Literal(dummy_dialect, "simple_value")]]
         )
         sql, params = insert_expr.to_sql()
         # Should contain placeholders for all values including NULL and arrays
-        assert "INSERT INTO" in sql
-        # Check that all expected values are present in params
-        assert len(params) >= 3  # minimum expected parameters
-        assert None in params
-        assert "simple_value" in params
+        assert 'INSERT INTO "test_table" ("nullable_col", "array_col", "simple_col") VALUES (?, ?, ?)' == sql
         # The array might be expanded to individual items depending on the implementation
-        if len(params) == 3:  # If treated as single parameter
-            assert ("item1", "item2") in params
-        else:  # If expanded to individual items
-            assert "item1" in params
-            assert "item2" in params
+        assert params == (None, ["item1", "item2"], "simple_value")
 
     def test_insert_with_default_values_using_raw_sql(self, dummy_dialect: DummyDialect):
         """Tests INSERT with DEFAULT using RawSQLExpression to simulate default value assignment."""
-        # Since there's no DefaultExpression, we use RawSQLExpression to represent DEFAULT keyword
         insert_expr = InsertExpression(
             dummy_dialect,
             table="users",
             columns=["name", "status"],  # Assuming 'status' has a default value in schema
-            values=[Literal(dummy_dialect, "John Doe"), RawSQLExpression(dummy_dialect, "DEFAULT")]
+            values_list=[[Literal(dummy_dialect, "John Doe"), RawSQLExpression(dummy_dialect, "DEFAULT")]]
         )
         sql, params = insert_expr.to_sql()
         # The implementation should handle RawSQLExpression as-is, so "DEFAULT" appears directly
-        assert 'INSERT INTO "users"' in sql
-        assert 'DEFAULT' in sql
+        assert 'INSERT INTO "users" ("name", "status") VALUES (?, DEFAULT)' == sql
         # Only the parametrized value ("John Doe") should be in params
         assert params == ("John Doe",)
 
     def test_insert_omitting_primary_key_autoincrement(self, dummy_dialect: DummyDialect):
         """Tests INSERT when primary key column is omitted (auto-increment scenario)."""
-        # Scenario: Inserting into a table where primary key is auto-incrementing and should be omitted from INSERT
         insert_expr = InsertExpression(
             dummy_dialect,
             table="products",
             columns=["name", "price"],  # Omitting the 'id' primary key column
-            values=[Literal(dummy_dialect, "New Product"), Literal(dummy_dialect, 29.99)]
+            values_list=[[Literal(dummy_dialect, "New Product"), Literal(dummy_dialect, 29.99)]]
         )
         sql, params = insert_expr.to_sql()
         # The SQL should only include the specified columns, not the omitted primary key
@@ -153,3 +107,114 @@ class TestInsertStatements:
         assert params == ("New Product", 29.99)
         # The primary key would be automatically generated by the database
         assert '"id"' not in sql  # Primary key column should not appear in the INSERT statement
+
+    def test_insert_default_values(self, dummy_dialect: DummyDialect):
+        """Tests INSERT INTO <table> DEFAULT VALUES statement."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="settings",
+            default_values=True
+        )
+        sql, params = insert_expr.to_sql()
+        assert sql == 'INSERT INTO "settings" DEFAULT VALUES'
+        assert params == ()
+
+    def test_insert_select(self, dummy_dialect: DummyDialect):
+        """Tests INSERT INTO <table> (cols) SELECT ... FROM ... statement."""
+        select_query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "old_name"), Column(dummy_dialect, "old_email")],
+            from_=TableExpression(dummy_dialect, "old_users"),
+            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="new_users",
+            columns=["name", "email"],
+            select_query=select_query
+        )
+        sql, params = insert_expr.to_sql()
+        expected_sql = 'INSERT INTO "new_users" ("name", "email") SELECT "old_name", "old_email" FROM "old_users" WHERE "status" = ?'
+        assert sql == expected_sql
+        assert params == ("active",)
+
+    def test_insert_validation_multiple_methods(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError if multiple insertion methods are provided."""
+        with pytest.raises(ValueError, match="Only one of 'values_list', 'select_query', or 'default_values' can be provided"):
+            InsertExpression(
+                dummy_dialect,
+                table="test_table",
+                columns=["col1"],
+                values_list=[[Literal(dummy_dialect, 1)]],
+                default_values=True
+            )
+        
+        with pytest.raises(ValueError, match="Only one of 'values_list', 'select_query', or 'default_values' can be provided"):
+            InsertExpression(
+                dummy_dialect,
+                table="test_table",
+                columns=["col1"],
+                values_list=[[Literal(dummy_dialect, 1)]],
+                select_query=QueryExpression(dummy_dialect, select=[Literal(dummy_dialect, 1)])
+            )
+    
+    def test_insert_validation_no_source_no_columns(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError if no insertion method and no columns are provided."""
+        with pytest.raises(ValueError, match="At least one of 'values_list', 'select_query', or 'default_values' must be provided"):
+            InsertExpression(
+                dummy_dialect,
+                table="test_table"
+            )
+
+    def test_insert_validation_select_query_without_columns(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError if select_query is used without specifying columns."""
+        select_query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "data")]
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="test_table",
+            select_query=select_query
+        )
+        with pytest.raises(ValueError, match="Columns must be specified when using 'select_query' for INSERT."):
+            insert_expr.to_sql()
+
+    def test_insert_validation_values_list_without_columns(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError if values_list is used without specifying columns."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="test_table",
+            values_list=[[Literal(dummy_dialect, 1)]]
+        )
+        with pytest.raises(ValueError, match="Columns must be specified when using 'values_list' for INSERT."):
+            insert_expr.to_sql()
+
+    def test_insert_validation_no_insertion_data_with_columns(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError if columns are provided but no insertion method is specified."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="test_table",
+            columns=["col1", "col2"]
+        )
+        with pytest.raises(ValueError, match="No insertion data \(values_list, select_query, default_values\) provided."):
+            insert_expr.to_sql()
+
+    def test_insert_validation_invalid_state(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError for a completely invalid state (no data, no columns)."""
+        with pytest.raises(ValueError, match="At least one of 'values_list', 'select_query', or 'default_values' must be provided for an INSERT statement, or columns must be specified for a SELECT subquery."):
+            InsertExpression(
+                dummy_dialect,
+                table="test_table"
+            )
+
+    def test_insert_validation_default_values_with_columns(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises ValueError if default_values is true but columns are also provided."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            table="test_table",
+            columns=["col1"],
+            default_values=True
+        )
+        with pytest.raises(ValueError, match="Cannot use 'DEFAULT VALUES' with 'columns', 'values_list', or 'select_query'."):
+            insert_expr.to_sql()
