@@ -9,8 +9,8 @@ from . import bases
 from . import mixins
 from . import core
 
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
+# if TYPE_CHECKING:
+#     from ..dialect import SQLDialectBase
 
 
 class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):

@@ -6,8 +6,8 @@ from typing import Tuple, TYPE_CHECKING
 from . import bases
 from . import mixins
 
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
+# if TYPE_CHECKING:
+#     from ..dialect import SQLDialectBase
 
 
 class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):

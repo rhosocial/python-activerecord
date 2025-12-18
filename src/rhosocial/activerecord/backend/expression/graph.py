@@ -7,8 +7,8 @@ from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from . import bases
 
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
+# if TYPE_CHECKING:
+#     from ..dialect import SQLDialectBase
 
 
 class GraphEdgeDirection(Enum):

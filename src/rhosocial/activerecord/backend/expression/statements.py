@@ -10,9 +10,9 @@ from . import bases
 from . import core
 from . import mixins
 
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase, ExplainOptions
-    from .query_clauses import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
+# if TYPE_CHECKING:
+#     from ..dialect import SQLDialectBase, ExplainOptions
+#     from .query_clauses import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
 
 
 class MergeActionType(Enum):

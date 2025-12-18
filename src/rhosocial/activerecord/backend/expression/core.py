@@ -7,8 +7,8 @@ from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING
 from . import bases
 from . import mixins
 
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
+# if TYPE_CHECKING:
+#     from ..dialect import SQLDialectBase
 
 
 class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):

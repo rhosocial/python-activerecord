@@ -9,8 +9,8 @@ from . import aggregates
 from . import core
 from . import operators
 
-if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
+# if TYPE_CHECKING:
+#     from ..dialect import SQLDialectBase
 
 
 # --- Aggregate Function Factories ---
