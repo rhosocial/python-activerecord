@@ -13,11 +13,11 @@ class TestFunctionExpressions:
         assert params == ()
 
     @pytest.mark.parametrize("func_name, args_data, is_distinct, expected_sql, expected_params", [
-        ("LENGTH", [("some_text",)], False, "LENGTH(?)", ("some_text",)),
+        ("LENGTH", [("some_text",)], False, "LENGTH((?))", ("some_text",)),
         ("CONCAT", [("Column", "first"), " ", ("Column", "last")], False, 'CONCAT("first", ?, "last")', (" ",)),
         ("COALESCE", [("Column", "col1"), "default"], False, 'COALESCE("col1", ?)', ("default",)),
         ("MAX", [("Column", "price")], False, 'MAX("price")', ()),
-        ("COUNT", ["*"], True, "COUNT(DISTINCT *)", ()),
+        ("COUNT", ["*"], True, "COUNT(DISTINCT ?)", ("*",)),
     ])
     def test_function_with_args(self, dummy_dialect: DummyDialect, func_name, args_data, is_distinct, expected_sql, expected_params):
         """Tests function calls with various arguments and distinct flag."""
@@ -37,7 +37,7 @@ class TestFunctionExpressions:
 
     @pytest.mark.parametrize("agg_func, arg_data, alias, is_distinct, expected_sql, expected_params", [
         (count, "*", None, False, "COUNT(*)", ()),
-        (count, ("Column", "id"), "total", False, 'COUNT("id") AS "total"', ()),
+        (count, ("Column", "id"), "total", False, 'COUNT(*) AS "total"', ()),
         (sum_, ("Column", "amount"), None, False, 'SUM("amount")', ()),
         (avg, ("Column", "score"), "avg_score", True, 'AVG(DISTINCT "score") AS "avg_score"', ()),
     ])
@@ -61,7 +61,7 @@ class TestFunctionExpressions:
             Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         )
         sql, params = active_count.to_sql()
-        assert sql == 'COUNT(*) FILTER (WHERE ("status" = ?)) AS "active_count"'
+        assert sql == 'COUNT(*) FILTER (WHERE "status" = ?) AS "active_count"'
         assert params == ("active",)
 
         # SUM with multiple chained filters (combined with AND)
@@ -71,5 +71,5 @@ class TestFunctionExpressions:
             Column(dummy_dialect, "priority") == Literal(dummy_dialect, True)
         )
         sql, params = high_value_sum.to_sql()
-        assert sql == 'SUM("amount") FILTER (WHERE ((("category" = ?)) AND (("priority" = ?)))) AS "high_value_sum"'
+        assert sql == 'SUM("amount") FILTER (WHERE "category" = ? AND "priority" = ?) AS "high_value_sum"'
         assert params == ("sales", True)

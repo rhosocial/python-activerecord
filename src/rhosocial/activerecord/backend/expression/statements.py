@@ -59,10 +59,19 @@ class MergeExpression(bases.BaseExpression):
         all_params.extend(on_params)
 
         prepared_when_matched = []
-        action_params: List[Any] = []
         for action in self.when_matched:
+            action_params: List[Any] = []  # Reset for each action
             assignments_sql_and_params = []
             values_sql_and_params = []
+
+            # Process condition parameters first to match the order of placeholders in SQL
+            condition_sql_and_params = None
+            if action.condition:
+                cond_sql, cond_params = action.condition.to_sql()
+                condition_sql_and_params = (cond_sql, cond_params)
+                action_params.extend(cond_params)
+
+            # Then process assignment and value parameters
             if action.assignments:
                 for col, expr in action.assignments.items():
                     expr_sql, expr_params = expr.to_sql()
@@ -73,11 +82,7 @@ class MergeExpression(bases.BaseExpression):
                     expr_sql, expr_params = expr.to_sql()
                     values_sql_and_params.append((expr_sql, expr_params))
                     action_params.extend(expr_params)
-            condition_sql_and_params = None
-            if action.condition:
-                cond_sql, cond_params = action.condition.to_sql()
-                condition_sql_and_params = (cond_sql, cond_params)
-                action_params.extend(cond_params)
+
             prepared_when_matched.append({
                 "action_type": action.action_type, "assignments": assignments_sql_and_params,
                 "values": values_sql_and_params, "condition": condition_sql_and_params,
@@ -87,8 +92,18 @@ class MergeExpression(bases.BaseExpression):
 
         prepared_when_not_matched = []
         for action in self.when_not_matched:
+            action_params: List[Any] = []  # Reset for each action
             assignments_sql_and_params = []
             values_sql_and_params = []
+
+            # Process condition parameters first to match the order of placeholders in SQL
+            condition_sql_and_params = None
+            if action.condition:
+                cond_sql, cond_params = action.condition.to_sql()
+                condition_sql_and_params = (cond_sql, cond_params)
+                action_params.extend(cond_params)
+
+            # Then process assignment and value parameters
             if action.assignments:
                 for col, expr in action.assignments.items():
                     expr_sql, expr_params = expr.to_sql()
@@ -99,11 +114,7 @@ class MergeExpression(bases.BaseExpression):
                     expr_sql, expr_params = expr.to_sql()
                     values_sql_and_params.append((expr_sql, expr_params))
                     action_params.extend(expr_params)
-            condition_sql_and_params = None
-            if action.condition:
-                cond_sql, cond_params = action.condition.to_sql()
-                condition_sql_and_params = (cond_sql, cond_params)
-                action_params.extend(cond_params)
+
             prepared_when_not_matched.append({
                 "action_type": action.action_type, "assignments": assignments_sql_and_params,
                 "values": values_sql_and_params, "condition": condition_sql_and_params,

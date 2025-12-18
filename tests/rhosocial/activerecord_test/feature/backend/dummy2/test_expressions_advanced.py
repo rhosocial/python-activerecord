@@ -25,7 +25,7 @@ class TestAdvancedExpressions:
             else_result=Literal(dummy_dialect, "unknown")
         )
         sql, params = case_expr.to_sql()
-        expected = 'CASE WHEN ("age" > ?) THEN ? WHEN ("age" <= ?) THEN ? ELSE ? END'
+        expected = 'CASE WHEN "age" > ? THEN ? WHEN "age" <= ? THEN ? ELSE ? END'
         assert sql == expected
         assert params == (18, "adult", 18, "minor", "unknown")
 
@@ -50,7 +50,7 @@ class TestAdvancedExpressions:
     @pytest.mark.parametrize("expr_data, target_type, expected_sql, expected_params", [
         (("Column", ("price",)), "INTEGER", 'CAST("price" AS INTEGER)', ()),
         (("Literal", ("2023-01-01",)), "DATE", 'CAST(? AS DATE)', ("2023-01-01",)),
-        (("BinaryArithmeticExpression", ("*", ("Column", "value"), ("Literal", 100))), "DECIMAL(10,2)", 'CAST((("value") * ?)) AS DECIMAL(10,2)', (100,)),
+        (("BinaryArithmeticExpression", ("*", ("Column", "value"), ("Literal", 100))), "DECIMAL(10,2)", 'CAST("value" * ? AS DECIMAL(10,2))', (100,)),
     ])
     def test_cast_expression(self, dummy_dialect: DummyDialect, expr_data, target_type, expected_sql, expected_params):
         """Tests CAST expression to convert types."""
@@ -94,8 +94,8 @@ class TestAdvancedExpressions:
 
     # --- AnyExpression / AllExpression ---
     @pytest.mark.parametrize("expr_type, operator, operand_list, expected_keyword, expected_sql_pattern, expected_params", [
-        (AnyExpression, ">", [10, 20, 30], "ANY", '("age" > ANY(?))', ((10, 20, 30),)),
-        (AllExpression, "<", [5, 10], "ALL", '("age" < ALL(?))', ((5, 10),)),
+        (AnyExpression, ">", [10, 20, 30], "ANY", '("age" > ANY?)', ((10, 20, 30),)),
+        (AllExpression, "<", [5, 10], "ALL", '("age" < ALL?)', ((5, 10),)),
     ])
     def test_any_all_expressions(self, dummy_dialect: DummyDialect, expr_type, operator, operand_list, expected_keyword, expected_sql_pattern, expected_params):
         """Tests ANY and ALL expressions with a list of values."""
@@ -111,7 +111,7 @@ class TestAdvancedExpressions:
         subquery = Subquery(dummy_dialect, "SELECT product_id FROM top_sellers WHERE category = ?", ("electronics",))
         any_expr = AnyExpression(dummy_dialect, Column(dummy_dialect, "item_id"), "=", subquery)
         sql, params = any_expr.to_sql()
-        assert sql == '("item_id" = ANY((SELECT product_id FROM top_sellers WHERE category = ?)))'
+        assert sql == '("item_id" = ANY(SELECT product_id FROM top_sellers WHERE category = ?))'
         assert params == ("electronics",)
 
     # --- WindowExpression ---

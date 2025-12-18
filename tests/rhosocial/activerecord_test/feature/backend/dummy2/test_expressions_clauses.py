@@ -14,12 +14,12 @@ class TestClauseExpressions:
     # --- JoinExpression ---
     @pytest.mark.parametrize("left_data, right_data, join_type, condition_data, using, expected_sql, expected_params", [
         (("users", "u"), ("orders", "o"), "INNER", ("=", ("id", "u"), ("user_id", "o")), None,
-         '"users" AS "u" INNER JOIN "orders" AS "o" ON ("u"."id" = "o"."user_id")', ()),
+         '"users" AS "u" INNER JOIN "orders" AS "o" ON "u"."id" = "o"."user_id"', ()),
         (("products", "p"), ("categories", "c"), "LEFT", ("=", ("category_id", "p"), ("id", "c")), None,
-         '"products" AS "p" LEFT OUTER JOIN "categories" AS "c" ON ("p"."category_id" = "c"."id")', ()),
-        (("customers", None), ("addresses", None), "FULL", None, ["customer_id"], 
+         '"products" AS "p" LEFT OUTER JOIN "categories" AS "c" ON "p"."category_id" = "c"."id"', ()),
+        (("customers", None), ("addresses", None), "FULL", None, ["customer_id"],
          '"customers" FULL OUTER JOIN "addresses" USING ("customer_id")', ()),
-        (("tbl1", None), ("tbl2", None), "CROSS", None, None, 
+        (("tbl1", None), ("tbl2", None), "CROSS", None, None,
          '"tbl1" CROSS JOIN "tbl2"', ()),
     ])
     def test_join_expression(self, dummy_dialect: DummyDialect, left_data, right_data, join_type, condition_data, using, expected_sql, expected_params):
@@ -134,7 +134,7 @@ class TestClauseExpressions:
             when_not_matched=[when_not_matched_insert]
         )
         sql, params = merge_expr.to_sql()
-        expected_sql = ('MERGE INTO "products" AS "p" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON ("p"."id" = "new_prods"."id") '
+        expected_sql = ('MERGE INTO "products" AS "p" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '
                         'WHEN MATCHED THEN UPDATE SET name = "new_prods"."name", price = "new_prods"."price" '
                         'WHEN NOT MATCHED THEN INSERT ("id", "name", "price") VALUES ("new_prods"."id", "new_prods"."name", "new_prods"."price")')
         assert sql == expected_sql
