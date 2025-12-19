@@ -138,7 +138,7 @@ class TestClauseExpressions:
                         'WHEN MATCHED THEN UPDATE SET "name" = "new_prods"."name", "price" = "new_prods"."price" '
                         'WHEN NOT MATCHED THEN INSERT ("id", "name", "price") VALUES ("new_prods"."id", "new_prods"."name", "new_prods"."price")')
         assert sql == expected_sql
-        assert params == (1, "New Product A", 15.0, 1, "New Product A", 15.0) # Parameters are duplicated for dummy dialect
+        assert params == (1, "New Product A", 15.0)  # Only the original values, no duplication
 
     # --- OrderedSetAggregation ---
     def test_ordered_set_aggregation_percentile_cont(self, dummy_dialect: DummyDialect):

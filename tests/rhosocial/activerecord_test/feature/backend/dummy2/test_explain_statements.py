@@ -1,8 +1,8 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, TableExpression, 
+    Column, Literal, TableExpression,
     QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
-    ExplainExpression
+    ExplainExpression, ValuesSource
 )
 from rhosocial.activerecord.backend.dialect.options import ExplainOptions, ExplainType, ExplainFormat
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -115,9 +115,9 @@ class TestExplainStatements:
         elif statement_type == "INSERT":
             stmt = InsertExpression(
                 dummy_dialect,
-                table="test_table",
+                into="test_table",
                 columns=["name"],
-                values_list=[[Literal(dummy_dialect, "test")]]
+                source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
             )
         elif statement_type == "UPDATE":
             stmt = UpdateExpression(

@@ -1559,6 +1559,11 @@ class BaseDialect(SQLDialectBase):
 
         return sql, tuple(all_params)
 
+    def supports_offset_without_limit(self) -> bool:
+        """Check if the dialect supports OFFSET clause without LIMIT clause."""
+        # By default, assume the dialect does not support OFFSET without LIMIT
+        return False
+
     def format_explain(
         self,
         sql: str,

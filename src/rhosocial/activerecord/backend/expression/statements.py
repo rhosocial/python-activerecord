@@ -19,6 +19,7 @@ from . import mixins
 if TYPE_CHECKING:
     from ..dialect import SQLDialectBase, ExplainOptions
     from .query_clauses import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
+    from .advanced_functions import WindowFunctionCall, WindowSpecification, WindowFrameSpecification
 
 
 # region DML and DQL Statements
@@ -66,31 +67,149 @@ class MergeExpression(bases.BaseExpression):
 
 # region Query Statement
 class SelectModifier(Enum):
-    """SELECT modifier enum for DISTINCT and ALL keywords."""
+    """
+    Specifies the SELECT clause modifier to apply to the result set.
+
+    This enumeration allows controlling duplicate row inclusion in query results.
+    Note that ALL is often the default behavior in SQL and may be omitted in
+    the generated SQL depending on the dialect's requirements.
+    """
     DISTINCT = "DISTINCT"
     ALL = "ALL"
 
 
 class ForUpdateClause(bases.BaseExpression):
-    """Represents FOR UPDATE clause, used to request row-level locking."""
+    """
+    Represents the FOR UPDATE clause used for row-level locking in SELECT statements.
+
+    The FOR UPDATE clause locks selected rows preventing other transactions from
+    modifying them until the current transaction is committed or rolled back.
+
+    Example Usage:
+        # Basic FOR UPDATE
+        ForUpdateClause(dialect)
+
+        # FOR UPDATE with specific columns
+        ForUpdateClause(dialect, of_columns=[Column(dialect, "id"), "name"])
+
+        # FOR UPDATE with NOWAIT
+        ForUpdateClause(dialect, nowait=True)
+
+        # FOR UPDATE with SKIP LOCKED
+        ForUpdateClause(dialect, skip_locked=True)
+    """
     def __init__(self, dialect: "SQLDialectBase",
                  of_columns: Optional[List[Union[str, "bases.BaseExpression"]]] = None,  # Specify columns to lock
-                 nowait: bool = False,  # NOWAIT option
-                 skip_locked: bool = False,  # SKIP LOCKED option
-                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect specific options
+                 nowait: bool = False,  # NOWAIT option - fail immediately if locked
+                 skip_locked: bool = False,  # SKIP LOCKED option - skip locked rows
+                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
         super().__init__(dialect)
-        self.of_columns = of_columns or []
-        self.nowait = nowait
-        self.skip_locked = skip_locked
-        self.dialect_options = dialect_options or {}
+        self.of_columns = of_columns or []  # Columns to apply the lock to
+        self.nowait = nowait  # If True, fail immediately if rows are locked
+        self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting
+        self.dialect_options = dialect_options or {}  # Additional dialect-specific options
 
     def to_sql(self) -> Tuple[str, tuple]:
-        """Delegate to dialect for FOR UPDATE clause formatting."""
+        """
+        Generate the SQL representation of the FOR UPDATE clause.
+
+        This method delegates the actual SQL generation to the configured dialect,
+        allowing for database-specific variations in the FOR UPDATE syntax.
+
+        Args:
+            None - All data is contained within the object instance
+
+        Returns:
+            Tuple containing:
+            - SQL string fragment for the FOR UPDATE clause
+            - Tuple of parameter values for prepared statements
+        """
         return self.dialect.format_for_update_clause(self)
 
 
 class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    """Represents a complete SELECT query expression with all clauses."""
+    """
+    Represents a complete SELECT query expression with all clauses supported by the framework.
+
+    This class encapsulates a full SQL SELECT statement structure, offering comprehensive
+    support for various SQL clauses including SELECT modifiers, complex FROM clauses with
+    joins and subqueries, filtering, grouping, window functions, and locking mechanisms.
+
+    The class validates inter-clause dependencies (e.g., HAVING requires GROUP BY) and
+    delegates SQL generation to the configured dialect for database-specific syntax.
+
+    Example Usage:
+        # Basic SELECT query
+        query = QueryExpression(
+            dialect,
+            select=[Column(dialect, "id"), Column(dialect, "name")],
+            from_=TableExpression(dialect, "users"),
+            where=Column(dialect, "status") == Literal(dialect, "active")  # Using overloaded comparison operator
+        )
+
+        # Scalar SELECT query - selecting constants or function results without FROM
+        scalar_query = QueryExpression(
+            dialect,
+            select=[Literal(dialect, 1)]  # Equivalent to SELECT 1;
+        )
+
+        now_query = QueryExpression(
+            dialect,
+            select=[FunctionCall(dialect, "NOW")]  # Equivalent to SELECT NOW();
+        )
+
+        # SELECT with DISTINCT and complex clauses
+        query = QueryExpression(
+            dialect,
+            select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
+            from_=TableExpression(dialect, "products"),
+            where=Column(dialect, "price") > Literal(dialect, 100),  # Using overloaded comparison operator
+            group_by=[Column(dialect, "category")],
+            having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 5),  # Using overloaded comparison operator
+            order_by=[(Column(dialect, "category"), "ASC")],
+            limit=10,
+            select_modifier=SelectModifier.DISTINCT
+        )
+
+        # Simple aggregate functions
+        count_query = QueryExpression(
+            dialect,
+            select=[FunctionCall(dialect, "COUNT", Column(dialect, "id"))],  # COUNT(id)
+            from_=TableExpression(dialect, "users")
+        )
+
+        max_price_query = QueryExpression(
+            dialect,
+            select=[FunctionCall(dialect, "MAX", Column(dialect, "price"))],  # MAX(price)
+            from_=TableExpression(dialect, "products")
+        )
+
+        # Window functions using the window function classes
+        # Example of using window functions - ROW_NUMBER() with PARTITION BY
+        window_spec = WindowSpecification(
+            dialect,
+            partition_by=[Column(dialect, "department")],
+            order_by=[(Column(dialect, "salary"), "DESC")]
+        )
+        window_func = WindowFunctionCall(
+            dialect,
+            function_name="ROW_NUMBER",
+            window_spec=window_spec,
+            alias="row_num"
+        )
+
+        window_query = QueryExpression(
+            dialect,
+            select=[
+                Column(dialect, "employee_name"),
+                Column(dialect, "department"),
+                Column(dialect, "salary"),
+                window_func  # Window function call
+            ],
+            from_=TableExpression(dialect, "employees"),
+            order_by=[Column(dialect, "department"), (Column(dialect, "row_num"), "ASC")]
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase",
                  select: List["bases.BaseExpression"],  # SELECT clause - required, list of selected expressions
                  from_: Optional[Union[  # FROM clause - optional, but determines the nature of the query
@@ -108,17 +227,47 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                  having: Optional["bases.SQLPredicate"] = None,  # HAVING clause - optional, only valid with GROUP BY, must be a predicate
                  order_by: Optional[List[  # ORDER BY clause - optional, list of ordering specifications
                      Union[
-                         "bases.BaseExpression",  # Expression ordering
-                         Tuple["bases.BaseExpression", str]  # (expression, ASC/DESC)
+                         "bases.BaseExpression",  # Expression ordering (assumes ASC direction)
+                         Tuple["bases.BaseExpression", str]  # (expression, ASC/DESC direction)
                      ]
                  ]] = None,
-                 qualify: Optional["bases.SQLPredicate"] = None,  # QUALIFY clause - optional
-                 limit: Optional[Union[int, "bases.BaseExpression"]] = None,  # LIMIT clause - optional
-                 offset: Optional[Union[int, "bases.BaseExpression"]] = None,  # OFFSET clause - requires LIMIT
+                 qualify: Optional["bases.SQLPredicate"] = None,  # QUALIFY clause - optional, for filtering window function results
+                 limit: Optional[Union[int, "bases.BaseExpression"]] = None,  # LIMIT clause - optional, for limiting result count
+                 offset: Optional[Union[int, "bases.BaseExpression"]] = None,  # OFFSET clause - requires LIMIT, for skipping rows
                  for_update: Optional["ForUpdateClause"] = None,  # FOR UPDATE clause - optional locking specification
                  select_modifier: Optional[SelectModifier] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
                  *,  # Force keyword arguments
                  dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options - optional
+        """
+        Initialize a QueryExpression instance with the specified query components.
+
+        Args:
+            dialect: The SQL dialect instance that determines query generation rules
+            select: List of expressions to select (required). At least one expression must be provided.
+            from_: Source of data for the query (optional). Can be a table, subquery, join, etc.
+            where: Filtering condition applied to rows (optional). Must be a predicate.
+            group_by: List of expressions to group by (optional). Used with aggregate functions.
+            having: Group filtering condition (optional). Can only be used with GROUP BY. Must be a predicate.
+            order_by: List of ordering specifications (optional). Each can be an expression
+                     (defaults to ASC) or a tuple of (expression, direction).
+            qualify: Filtering condition for window function results (optional). Available in some dialects.
+            limit: Maximum number of rows to return (optional). Can be int or expression.
+            offset: Number of rows to skip before returning results (optional). Requires LIMIT.
+            for_update: Row locking specification (optional). Used for concurrent access control.
+            select_modifier: Modifier for the SELECT clause (optional). Options: DISTINCT, ALL.
+            dialect_options: Additional database-specific parameters (optional).
+
+        Raises:
+            ValueError: If HAVING is provided without GROUP BY
+                      If OFFSET is provided without LIMIT (depending on dialect support)
+                      If assignments are empty (though not applicable to QueryExpression)
+
+        Note:
+            - The HAVING clause requires a GROUP BY clause to be present
+            - OFFSET without LIMIT behavior depends on dialect support
+            - ORDER BY items can include either expressions (defaulting to ASC) or tuples of (expression, direction)
+            - The select_modifier controls duplicate inclusion (DISTINCT removes duplicates, ALL keeps all rows)
+        """
         super().__init__(dialect)
 
         # Validate HAVING requires GROUP BY
@@ -131,21 +280,32 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             if not dialect.supports_offset_without_limit():
                 raise ValueError("OFFSET clause requires LIMIT clause in this dialect")
 
-        self.select = select or []
-        self.from_ = from_
-        self.where = where  # Must be a bases.SQLPredicate type
-        self.group_by = group_by or []
-        self.having = having  # Must be a bases.SQLPredicate type
-        self.order_by = order_by or []
-        self.qualify = qualify
-        self.limit = limit
-        self.offset = offset
-        self.for_update = for_update  # FOR UPDATE clause object
-        self.select_modifier = select_modifier  # SELECT modifier, None means no modifier
-        self.dialect_options = dialect_options or {}  # Dialect-specific options, keep consistent pattern
+        self.select = select or []  # List of expressions to be selected
+        self.from_ = from_  # Source of query data (optional)
+        self.where = where  # Filter condition (predicate), optional
+        self.group_by = group_by or []  # Grouping expressions, optional
+        self.having = having  # Group filter condition (predicate), optional, requires GROUP BY
+        self.order_by = order_by or []  # Ordering specifications, optional
+        self.qualify = qualify  # Window function filter condition, optional
+        self.limit = limit  # Result limit, optional
+        self.offset = offset  # Row skip count, optional, requires LIMIT
+        self.for_update = for_update  # FOR UPDATE clause object, optional
+        self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
+        self.dialect_options = dialect_options or {}  # Dialect-specific options
 
     def to_sql(self) -> Tuple[str, tuple]:
-        """Delegates SQL generation for the entire SELECT statement to the configured dialect."""
+        """
+        Generate the SQL string and parameters for this query expression.
+
+        This method delegates the SQL generation to the configured dialect, allowing for
+        database-specific variations in syntax and feature support. The generated SQL
+        follows the structure: SELECT ... FROM ... WHERE ... GROUP BY ... HAVING ... etc.
+
+        Returns:
+            A tuple containing:
+            - str: The complete SQL query string
+            - tuple: The parameter values for prepared statement execution
+        """
         return self.dialect.format_query_statement(self)
 # endregion Query Statement
 

@@ -42,10 +42,10 @@ class TestMergeStatements:
         )
         sql, params = merge_expr.to_sql()
         expected_sql = ('MERGE INTO "products" AS "p" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '
-                        'WHEN MATCHED THEN UPDATE SET name = "new_prods"."name", price = "new_prods"."price" '
+                        'WHEN MATCHED THEN UPDATE SET "name" = "new_prods"."name", "price" = "new_prods"."price" '
                         'WHEN NOT MATCHED THEN INSERT ("id", "name", "price") VALUES ("new_prods"."id", "new_prods"."name", "new_prods"."price")')
         assert sql == expected_sql
-        assert params == (1, "New Product A", 15.0, 1, "New Product A", 15.0)  # Parameters are duplicated for dummy dialect
+        assert params == (1, "New Product A", 15.0)  # Only the original values, no duplication
 
     def test_merge_with_update_action(self, dummy_dialect: DummyDialect):
         """Tests MERGE with UPDATE action in WHEN MATCHED clause."""
@@ -75,8 +75,8 @@ class TestMergeStatements:
         )
         sql, params = merge_expr.to_sql()
         assert "WHEN MATCHED THEN UPDATE" in sql
-        assert "SET name = " in sql
-        assert params == (1, "Updated Product", 25.0, 1, "Updated Product", 25.0)  # Source values duplicated per dialect convention
+        assert 'SET "name" = ' in sql  # Column names are now properly quoted
+        assert params == (1, "Updated Product", 25.0)  # Only the original values, no duplication
 
     def test_merge_with_insert_action(self, dummy_dialect: DummyDialect):
         """Tests MERGE with INSERT action in WHEN NOT MATCHED clause."""
@@ -108,7 +108,7 @@ class TestMergeStatements:
         sql, params = merge_expr.to_sql()
         assert "WHEN NOT MATCHED THEN INSERT" in sql
         assert "VALUES (" in sql
-        assert params == (2, "New Product B", 35.0, 2, "New Product B", 35.0)  # Source values duplicated
+        assert params == (2, "New Product B", 35.0)  # Only the original values, no duplication
 
     def test_merge_with_delete_action(self, dummy_dialect: DummyDialect):
         """Tests MERGE with DELETE action in WHEN MATCHED clause."""
@@ -192,8 +192,7 @@ class TestMergeStatements:
         assert "WHEN MATCHED AND" in sql
         assert "WHEN NOT MATCHED AND" in sql
         # Check that the parameters contain all expected values (source values plus condition values)
-        # The exact count depends on how many times values are duplicated in the dialect
-        assert len(params) >= 5  # minimum: 3 source values + 2 condition values
+        assert len(params) == 4  # 3 source values + 1 condition value (50000)
         # Verify the presence of key values
         assert 101 in params  # source id
         assert "John Doe" in params  # source name
@@ -229,8 +228,7 @@ class TestMergeStatements:
 
         assert "WHEN MATCHED" in sql
         assert "DELETE" in sql
-        # The parameters are 555 (from source) and "pending" (from condition), but they appear twice
-        # because both source and condition reference them
-        assert len(params) == 3  # source value (555) appears once, condition value ("pending") appears once, and maybe another copy
+        # The parameters are 555 (from source) and "pending" (from condition)
+        assert len(params) == 2  # source value (555) and condition value ("pending") appear once each
         assert 555 in params
         assert "pending" in params

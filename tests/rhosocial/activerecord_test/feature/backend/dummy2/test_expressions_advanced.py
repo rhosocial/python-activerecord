@@ -3,7 +3,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, Subquery, FunctionCall,
     ComparisonPredicate, LogicalPredicate,
     CaseExpression, CastExpression, ExistsExpression, AnyExpression, AllExpression,
-    WindowExpression, JSONExpression, ArrayExpression,
+    WindowFunctionCall, WindowSpecification, WindowFrameSpecification, JSONExpression, ArrayExpression,
     BinaryArithmeticExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -114,15 +114,20 @@ class TestAdvancedExpressions:
         assert sql == '("item_id" = ANY(SELECT product_id FROM top_sellers WHERE category = ?))'
         assert params == ("electronics",)
 
-    # --- WindowExpression ---
+    # --- WindowFunctionCall ---
     def test_window_function_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic window function with PARTITION BY and ORDER BY."""
-        func_call = FunctionCall(dummy_dialect, "RANK")
-        window_expr = WindowExpression(
+        # Create window specification
+        window_spec = WindowSpecification(
             dummy_dialect,
-            func_call,
             partition_by=[Column(dummy_dialect, "department")],
             order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+        )
+        # Create window function call
+        window_expr = WindowFunctionCall(
+            dummy_dialect,
+            function_name="RANK",
+            window_spec=window_spec
         )
         sql, params = window_expr.to_sql()
         expected = 'RANK() OVER (PARTITION BY "department" ORDER BY "salary" DESC)'
@@ -131,15 +136,26 @@ class TestAdvancedExpressions:
 
     def test_window_function_with_frame(self, dummy_dialect: DummyDialect):
         """Tests a window function with frame specification (ROWS BETWEEN ... AND ...)."""
-        sum_func = FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"))
-        window_expr = WindowExpression(
+        # Create frame specification
+        frame_spec = WindowFrameSpecification(
             dummy_dialect,
-            sum_func,
+            frame_type="ROWS",
+            start_frame="UNBOUNDED PRECEDING",
+            end_frame="CURRENT ROW"
+        )
+        # Create window specification with frame
+        window_spec = WindowSpecification(
+            dummy_dialect,
             partition_by=[Column(dummy_dialect, "user_id")],
             order_by=[Column(dummy_dialect, "transaction_date")],
-            frame_type="ROWS",
-            frame_start="UNBOUNDED PRECEDING",
-            frame_end="CURRENT ROW",
+            frame=frame_spec
+        )
+        # Create window function call
+        window_expr = WindowFunctionCall(
+            dummy_dialect,
+            function_name="SUM",
+            args=[Column(dummy_dialect, "amount")],
+            window_spec=window_spec,
             alias="running_total"
         )
         sql, params = window_expr.to_sql()
