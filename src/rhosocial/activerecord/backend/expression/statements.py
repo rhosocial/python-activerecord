@@ -90,10 +90,37 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
 
 # region Delete Statement
 class DeleteExpression(bases.BaseExpression):
-    """Represents a DELETE statement."""
-    def __init__(self, dialect: "SQLDialectBase", table: str, where: Optional["bases.SQLPredicate"] = None):
+    """
+    Represents an SQL DELETE statement, allowing removal of rows from a table.
+    It supports specifying a target table, an optional FROM clause for joining
+    with other tables or subqueries (behavior and supported sources may vary
+    significantly across SQL dialects), a WHERE clause for filtering rows,
+    a RETURNING clause, and backend-specific options.
+    """
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Union[str, "core.TableExpression"],
+        *, # Enforce keyword-only arguments for optional parameters
+        from_: Optional[Union[
+            "core.TableExpression",
+            "core.Subquery",
+            "SetOperationExpression",
+            "JoinExpression",
+            List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
+        ]] = None,
+        where: Optional["bases.SQLPredicate"] = None,
+        returning: Optional[List["bases.BaseExpression"]] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(dialect)
-        self.table, self.where = table, where
+
+        # Normalize the target table to a TableExpression
+        self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
+        self.from_ = from_
+        self.where = where
+        self.returning = returning
+        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the DELETE statement to the configured dialect."""

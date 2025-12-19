@@ -243,14 +243,55 @@ class DummyDialect(
         return current_sql, tuple(all_params)
 
     def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
-        table_sql = self.format_identifier(expr.table)
-        sql = f"DELETE FROM {table_sql}"
         all_params: List[Any] = []
+
+        # Target table (expr.table is a TableExpression)
+        table_sql, table_params = expr.table.to_sql()
+        all_params.extend(table_params)
+
+        current_sql = f"DELETE FROM {table_sql}"
+
+        # FROM clause (for multi-table delete or joins)
+        if expr.from_:
+            from_sql_parts = []
+            from_params: List[Any] = []
+
+            # Helper to format a single FROM source (copied from format_update_statement)
+            def _format_single_from_source(source: Union["BaseExpression", str]) -> Tuple[str, List[Any]]:
+                if isinstance(source, str):
+                    return self.format_identifier(source), []
+                if isinstance(source, QueryExpression):
+                    s_sql, s_params = source.to_sql() # Get bare SQL
+                    return f"({s_sql})", s_params # Add parentheses
+                if isinstance(source, BaseExpression):
+                    return source.to_sql()
+                raise TypeError(f"Unsupported FROM source type: {type(source)}")
+
+            if isinstance(expr.from_, list):
+                for source_item in expr.from_:
+                    item_sql, item_params = _format_single_from_source(source_item)
+                    from_sql_parts.append(item_sql)
+                    from_params.extend(item_params)
+                current_sql += f" FROM {', '.join(from_sql_parts)}"
+                all_params.extend(from_params)
+            else:
+                from_expr_sql, from_expr_params = _format_single_from_source(expr.from_)
+                current_sql += f" FROM {from_expr_sql}"
+                all_params.extend(from_expr_params)
+
+        # WHERE clause
         if expr.where:
             where_sql, where_params = expr.where.to_sql()
-            sql += f" WHERE {where_sql}"
+            current_sql += f" WHERE {where_sql}"
             all_params.extend(where_params)
-        return sql, tuple(all_params)
+
+        # RETURNING clause
+        if expr.returning:
+            returning_sql, returning_params = self.format_returning_clause(expr.returning)
+            current_sql += f" {returning_sql}"
+            all_params.extend(returning_params)
+
+        return current_sql, tuple(all_params)
 
     def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
         all_params: List[Any] = []
