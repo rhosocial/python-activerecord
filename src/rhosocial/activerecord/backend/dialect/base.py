@@ -6,10 +6,18 @@ This module defines the core dialect interfaces and provides default
 implementations for standard SQL features.
 """
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Dict
+from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
 from .options import ExplainOptions # Import ExplainOptions
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
+from ..expression import bases
+
+if TYPE_CHECKING:
+    from ..expression.statements import (
+        QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
+        MergeExpression, ExplainExpression, CreateTableExpression,
+        DropTableExpression, AlterTableExpression, OnConflictClause
+    )
 
 
 class SQLDialectBase(ABC):
@@ -25,7 +33,7 @@ class SQLDialectBase(ABC):
     2. No database-specific functionality in the base class
     3. Subclasses declare additional capabilities via Protocols
     """
-
+    # region Core & General
     def __init__(self) -> None:
         """Initialize SQL dialect."""
         pass
@@ -62,7 +70,213 @@ class SQLDialectBase(ABC):
             Positional placeholder string
         """
         pass
+    # endregion Core & General
 
+    # region Full Statement Formatting
+    @abstractmethod
+    def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
+        """Formats a complete SELECT statement from a QueryExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+        """Formats a complete INSERT statement from an InsertExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
+        """Formats a complete UPDATE statement from an UpdateExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
+        """Formats a complete DELETE statement from a DeleteExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
+        """Formats a complete MERGE statement from a MergeExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+        """Formats an EXPLAIN statement from an ExplainExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
+        """Formats a CREATE TABLE statement from a CreateTableExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
+        """Formats a DROP TABLE statement from a DropTableExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
+        """Formats an ALTER TABLE statement from an AlterTableExpression object."""
+        raise NotImplementedError
+    # endregion Full Statement Formatting
+
+    # region Clause Formatting
+    @abstractmethod
+    def format_with_clause(self, ctes_sql: List[str]) -> str:
+        """
+        Format complete WITH clause from list of CTE definitions.
+
+        Args:
+            ctes_sql: List of formatted CTE definition strings
+
+        Returns:
+            Complete WITH clause string
+        """
+        pass
+
+    @abstractmethod
+    def format_cte(
+        self,
+        name: str,
+        query_sql: str,
+        columns: Optional[List[str]] = None,
+        recursive: bool = False,
+        materialized: Optional[bool] = None
+    ) -> str:
+        """
+        Format a single CTE definition.
+
+        Args:
+            name: CTE name
+            query_sql: CTE query SQL
+            columns: Optional column names
+            recursive: Whether CTE is recursive
+            materialized: Optional materialization hint
+
+        Returns:
+            Formatted CTE definition string
+        """
+        pass
+
+    @abstractmethod
+    def format_join_expression(
+        self,
+        base_join_sql: str,
+        base_join_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Format JOIN expression.
+
+        Args:
+            base_join_sql: Base JOIN SQL
+            base_join_params: JOIN parameters
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
+        """
+        Formats an ON CONFLICT clause for upsert operations.
+        This should be implemented by dialects that support it, e.g., PostgreSQL's
+        ON CONFLICT or MySQL's ON DUPLICATE KEY UPDATE.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_returning_clause(self, expressions: List["bases.BaseExpression"]) -> Tuple[str, tuple]:
+        """Formats a RETURNING clause."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_for_update_clause(
+        self,
+        options: Dict[str, Any]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a FOR UPDATE/FOR SHARE clause with optional locking modifiers.
+
+        Args:
+            options: A dictionary of locking options.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        pass
+
+    @abstractmethod
+    def format_limit_offset(
+        self,
+        limit: Optional[int] = None,
+        offset: Optional[int] = None
+    ) -> Tuple[Optional[str], List[Any]]:
+        """
+        Format LIMIT and OFFSET clause.
+
+        Args:
+            limit: Optional row limit
+            offset: Optional row offset
+
+        Returns:
+            Tuple of (SQL string or None, parameters list)
+        """
+        pass
+
+    @abstractmethod
+    def format_qualify_clause(
+        self,
+        qualify_sql: str,
+        qualify_params: tuple
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a QUALIFY clause.
+
+        Args:
+            qualify_sql: SQL string for the QUALIFY condition.
+            qualify_params: Parameters for the QUALIFY condition.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        pass
+
+    @abstractmethod
+    def format_match_clause(
+        self,
+        path_sql: List[str],
+        path_params: tuple
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a MATCH clause.
+
+        Args:
+            path_sql: List of SQL strings for each part of the path.
+            path_params: All parameters for the path.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        pass
+
+    @abstractmethod
+    def format_temporal_options(
+        self,
+        options: Dict[str, Any]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a temporal table clause (e.g., FOR SYSTEM_TIME AS OF ...).
+
+        Args:
+            options: A dictionary of temporal options.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        pass
+    # endregion Clause Formatting
+
+    # region Expression & Predicate Formatting
     @abstractmethod
     def format_identifier(self, identifier: str) -> str:
         """
@@ -115,6 +329,46 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def format_alias(
+        self,
+        expression_sql: str,
+        alias: str,
+        expression_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Format alias.
+
+        Args:
+            expression_sql: Expression SQL
+            alias: Alias name
+            expression_params: Expression parameters
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_subquery(
+        self,
+        subquery_sql: str,
+        subquery_params: tuple,
+        alias: str
+    ) -> Tuple[str, Tuple]:
+        """
+        Format subquery.
+
+        Args:
+            subquery_sql: Subquery SQL
+            subquery_params: Subquery parameters
+            alias: Subquery alias
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
     def format_function_call(
         self,
         func_name: str,
@@ -136,6 +390,76 @@ class SQLDialectBase(ABC):
             alias: Optional result alias
             filter_sql: Optional SQL for FILTER (WHERE ...) clause
             filter_params: Optional parameters for FILTER clause
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_ordered_set_aggregation(
+        self,
+        func_name: str,
+        func_args_sql: List[str],
+        func_args_params: tuple,
+        order_by_sql: List[str],
+        order_by_params: tuple,
+        alias: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """
+        Format an ordered-set aggregate function call (WITHIN GROUP (ORDER BY ...)).
+
+        Args:
+            func_name: The name of the aggregate function.
+            func_args_sql: List of SQL strings for the function's arguments.
+            func_args_params: Parameters for the function's arguments.
+            order_by_sql: List of SQL strings for the ORDER BY expressions.
+            order_by_params: Parameters for the ORDER BY expressions.
+            alias: Optional alias for the result.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        pass
+
+    @abstractmethod
+    def format_case_expression(
+        self,
+        value_sql: Optional[str],
+        value_params: Optional[tuple],
+        conditions_results: List[Tuple[str, str, tuple, tuple]],
+        else_result_sql: Optional[str],
+        else_result_params: Optional[tuple]
+    ) -> Tuple[str, Tuple]:
+        """
+        Format CASE expression.
+
+        Args:
+            value_sql: Optional value expression SQL (for simple CASE)
+            value_params: Value expression parameters
+            conditions_results: List of (condition_sql, result_sql, condition_params, result_params)
+            else_result_sql: Optional ELSE result SQL
+            else_result_params: ELSE result parameters
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_cast_expression(
+        self,
+        expr_sql: str,
+        target_type: str,
+        expr_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Format CAST expression.
+
+        Args:
+            expr_sql: Expression SQL
+            target_type: Target type name
+            expr_params: Expression parameters
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -347,163 +671,6 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
-    def format_case_expression(
-        self,
-        value_sql: Optional[str],
-        value_params: Optional[tuple],
-        conditions_results: List[Tuple[str, str, tuple, tuple]],
-        else_result_sql: Optional[str],
-        else_result_params: Optional[tuple]
-    ) -> Tuple[str, Tuple]:
-        """
-        Format CASE expression.
-
-        Args:
-            value_sql: Optional value expression SQL (for simple CASE)
-            value_params: Value expression parameters
-            conditions_results: List of (condition_sql, result_sql, condition_params, result_params)
-            else_result_sql: Optional ELSE result SQL
-            else_result_params: ELSE result parameters
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass
-
-    @abstractmethod
-    def format_cast_expression(
-        self,
-        expr_sql: str,
-        target_type: str,
-        expr_params: tuple
-    ) -> Tuple[str, Tuple]:
-        """
-        Format CAST expression.
-
-        Args:
-            expr_sql: Expression SQL
-            target_type: Target type name
-            expr_params: Expression parameters
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass
-
-    @abstractmethod
-    def format_subquery(
-        self,
-        subquery_sql: str,
-        subquery_params: tuple,
-        alias: str
-    ) -> Tuple[str, Tuple]:
-        """
-        Format subquery.
-
-        Args:
-            subquery_sql: Subquery SQL
-            subquery_params: Subquery parameters
-            alias: Subquery alias
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass
-
-    @abstractmethod
-    def format_limit_offset(
-        self,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None
-    ) -> Tuple[Optional[str], List[Any]]:
-        """
-        Format LIMIT and OFFSET clause.
-
-        Args:
-            limit: Optional row limit
-            offset: Optional row offset
-
-        Returns:
-            Tuple of (SQL string or None, parameters list)
-        """
-        pass
-
-    @abstractmethod
-    def format_join_expression(
-        self,
-        base_join_sql: str,
-        base_join_params: tuple
-    ) -> Tuple[str, Tuple]:
-        """
-        Format JOIN expression.
-
-        Args:
-            base_join_sql: Base JOIN SQL
-            base_join_params: JOIN parameters
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass
-
-    @abstractmethod
-    def format_alias(
-        self,
-        expression_sql: str,
-        alias: str,
-        expression_params: tuple
-    ) -> Tuple[str, Tuple]:
-        """
-        Format alias.
-
-        Args:
-            expression_sql: Expression SQL
-            alias: Alias name
-            expression_params: Expression parameters
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass
-
-    @abstractmethod
-    def format_cte(
-        self,
-        name: str,
-        query_sql: str,
-        columns: Optional[List[str]] = None,
-        recursive: bool = False,
-        materialized: Optional[bool] = None
-    ) -> str:
-        """
-        Format a single CTE definition.
-
-        Args:
-            name: CTE name
-            query_sql: CTE query SQL
-            columns: Optional column names
-            recursive: Whether CTE is recursive
-            materialized: Optional materialization hint
-
-        Returns:
-            Formatted CTE definition string
-        """
-        pass
-
-    @abstractmethod
-    def format_with_clause(self, ctes_sql: List[str]) -> str:
-        """
-        Format complete WITH clause from list of CTE definitions.
-
-        Args:
-            ctes_sql: List of formatted CTE definition strings
-
-        Returns:
-            Complete WITH clause string
-        """
-        pass
-
-    @abstractmethod
     def format_values_expression(
         self,
         values: List[Tuple[Any, ...]],
@@ -592,145 +759,9 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         pass
+    # endregion Expression & Predicate Formatting
 
-    @abstractmethod
-    def format_temporal_options(
-        self,
-        options: Dict[str, Any]
-    ) -> Tuple[str, tuple]:
-        """
-        Formats a temporal table clause (e.g., FOR SYSTEM_TIME AS OF ...).
-
-        Args:
-            options: A dictionary of temporal options.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
-        """
-        pass
-
-    @abstractmethod
-    def format_qualify_clause(
-        self,
-        qualify_sql: str,
-        qualify_params: tuple
-    ) -> Tuple[str, tuple]:
-        """
-        Formats a QUALIFY clause.
-
-        Args:
-            qualify_sql: SQL string for the QUALIFY condition.
-            qualify_params: Parameters for the QUALIFY condition.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
-        """
-        pass
-
-    @abstractmethod
-    def format_ordered_set_aggregation(
-        self,
-        func_name: str,
-        func_args_sql: List[str],
-        func_args_params: tuple,
-        order_by_sql: List[str],
-        order_by_params: tuple,
-        alias: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
-        """
-        Format an ordered-set aggregate function call (WITHIN GROUP (ORDER BY ...)).
-
-        Args:
-            func_name: The name of the aggregate function.
-            func_args_sql: List of SQL strings for the function's arguments.
-            func_args_params: Parameters for the function's arguments.
-            order_by_sql: List of SQL strings for the ORDER BY expressions.
-            order_by_params: Parameters for the ORDER BY expressions.
-            alias: Optional alias for the result.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted expression.
-        """
-        pass
-
-    @abstractmethod
-    def format_merge_statement(
-        self,
-        target_sql: str,
-        source_sql: str,
-        on_sql: str,
-        when_matched: List[Dict[str, Any]],
-        when_not_matched: List[Dict[str, Any]],
-        all_params: tuple
-    ) -> Tuple[str, Tuple]:
-        """
-        Formats a MERGE statement.
-
-        Args:
-            target_sql: SQL for the target table.
-            source_sql: SQL for the source data.
-            on_sql: SQL for the ON condition.
-            when_matched: List of dictionaries describing WHEN MATCHED actions.
-            when_not_matched: List of dictionaries describing WHEN NOT MATCHED actions.
-            all_params: All parameters collected from expressions within the MERGE statement.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted MERGE statement.
-        """
-        pass
-
-    @abstractmethod
-    def format_explain(
-        self,
-        sql: str,
-        options: Optional['ExplainOptions'] = None
-    ) -> str:
-        """
-        Format EXPLAIN statement.
-
-        Args:
-            sql: SQL to explain
-            options: Optional EXPLAIN options
-
-        Returns:
-            Formatted EXPLAIN statement
-        """
-        pass
-
-    @abstractmethod
-    def format_for_update_clause(
-        self,
-        options: Dict[str, Any]
-    ) -> Tuple[str, tuple]:
-        """
-        Formats a FOR UPDATE/FOR SHARE clause with optional locking modifiers.
-
-        Args:
-            options: A dictionary of locking options.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
-        """
-        pass
-
-    @abstractmethod
-    def format_match_clause(
-        self,
-        path_sql: List[str],
-        path_params: tuple
-    ) -> Tuple[str, tuple]:
-        """
-        Formats a MATCH clause.
-
-        Args:
-            path_sql: List of SQL strings for each part of the path.
-            path_params: All parameters for the path.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
-        """
-        pass
-
+    # region Utilities
     def require_protocol(
         self,
         protocol_type: type,
@@ -782,6 +813,7 @@ class SQLDialectBase(ABC):
                 feature_name=feature_name,
                 suggestion=suggestion
             )
+    # endregion Utilities
 
 
 class BaseDialect(SQLDialectBase):

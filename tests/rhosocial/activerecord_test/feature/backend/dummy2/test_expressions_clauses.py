@@ -135,7 +135,7 @@ class TestClauseExpressions:
         )
         sql, params = merge_expr.to_sql()
         expected_sql = ('MERGE INTO "products" AS "p" USING (VALUES (?, ?, ?)) AS "new_prods"("id", "name", "price") ON "p"."id" = "new_prods"."id" '
-                        'WHEN MATCHED THEN UPDATE SET name = "new_prods"."name", price = "new_prods"."price" '
+                        'WHEN MATCHED THEN UPDATE SET "name" = "new_prods"."name", "price" = "new_prods"."price" '
                         'WHEN NOT MATCHED THEN INSERT ("id", "name", "price") VALUES ("new_prods"."id", "new_prods"."name", "new_prods"."price")')
         assert sql == expected_sql
         assert params == (1, "New Product A", 15.0, 1, "New Product A", 15.0) # Parameters are duplicated for dummy dialect

@@ -71,6 +71,21 @@ from .statements import (
     MergeActionType,
     MergeAction,
     MergeExpression,
+    # Insert Abstractions
+    InsertDataSource,
+    ValuesSource,
+    SelectSource,
+    DefaultValuesSource,
+    OnConflictClause,
+    # DDL Expressions
+    ColumnDefinition,
+    IndexDefinition,
+    CreateTableExpression,
+    DropTableExpression,
+    AlterTableAction,
+    AddColumn,
+    DropColumn,
+    AlterTableExpression,
 )
 from .graph import (
     GraphEdgeDirection,
@@ -104,6 +119,9 @@ __all__ = [
     "JSONTableColumn", "JSONTableExpression",
     "QueryExpression", "DeleteExpression", "UpdateExpression", "InsertExpression", "ExplainExpression",
     "MergeActionType", "MergeAction", "MergeExpression",
+    "InsertDataSource", "ValuesSource", "SelectSource", "DefaultValuesSource", "OnConflictClause",
+    "ColumnDefinition", "IndexDefinition", "CreateTableExpression", "DropTableExpression",
+    "AlterTableAction", "AddColumn", "DropColumn", "AlterTableExpression",
     "GraphEdgeDirection", "GraphVertex", "GraphEdge", "MatchClause",
     "count", "sum_", "avg", "min_", "max_", "lower", "upper", "concat", "coalesce",
 ]

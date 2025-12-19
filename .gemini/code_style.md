@@ -271,6 +271,10 @@ def utility_function():
 __all__ = ['MainClass', 'utility_function']
 ```
 
+#### Grouping Functionalities and File Splitting
+- If a single file contains several functionalities and the file is not long, it is recommended to group and arrange these functionalities together, and add section comments (e.g., `# region ... # endregion`).
+- If the file is too long, e.g., over 1000 lines, and a single group also exceeds 400 lines, it is recommended to split it into separate files under a directory package.
+
 ### Class Organization
 
 ```python
