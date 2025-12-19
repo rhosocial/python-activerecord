@@ -200,6 +200,16 @@ class TestUpdateStatements:
                 (123,),
                 "from_join_expr",
                 id="from_join_expr"
+            ),
+            pytest.param(
+                "logs_table", # Simple string for FROM source
+                {"status": Literal(None, "active")},
+                Column(None, "user_id") == Literal(None, 1),
+                'FROM "logs_table"',
+                'UPDATE "users" SET "status" = ? %s WHERE "user_id" = ?',
+                ("active", 1),
+                "from_string_table_name",
+                id="from_string_table_name"
             )
         ]
     )
@@ -290,3 +300,20 @@ class TestUpdateStatements:
         assert sql == expected_sql_template % (expected_from_sql,)
         assert params == expected_params
     # endregion FROM Clause Tests
+
+    def test_update_from_unsupported_source_type_raises_type_error(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression raises TypeError for unsupported FROM source types."""
+        unsupported_source = 123 # An integer, not a string or BaseExpression
+
+        assignments = {"name": Literal(dummy_dialect, "New Name")}
+        where = Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        
+        with pytest.raises(TypeError, match=r"Unsupported FROM source type: <class 'int'>"):
+            update_expr = UpdateExpression(
+                dummy_dialect,
+                table="users",
+                assignments=assignments,
+                from_=unsupported_source,
+                where=where
+            )
+            update_expr.to_sql()
