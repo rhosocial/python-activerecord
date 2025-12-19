@@ -365,6 +365,27 @@ class DummyDialect(
                     action_sql_parts.append("THEN INSERT DEFAULT VALUES")
             merge_sql_parts.append(" ".join(action_sql_parts))
 
+        # Handle WHEN NOT MATCHED BY SOURCE clauses
+        for action in expr.when_not_matched_by_source:
+            action_sql_parts = []
+            if action.condition:
+                cond_sql, cond_params = action.condition.to_sql()
+                action_sql_parts.append(f"WHEN NOT MATCHED BY SOURCE AND {cond_sql}")
+                all_params.extend(cond_params)
+            else:
+                action_sql_parts.append("WHEN NOT MATCHED BY SOURCE")
+
+            if action.action_type == MergeActionType.UPDATE:
+                assignments = []
+                for col, as_expr in action.assignments.items():
+                    as_sql, as_params = as_expr.to_sql()
+                    assignments.append(f"{self.format_identifier(col)} = {as_sql}")
+                    all_params.extend(as_params)
+                action_sql_parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
+            elif action.action_type == MergeActionType.DELETE:
+                action_sql_parts.append("THEN DELETE")
+            merge_sql_parts.append(" ".join(action_sql_parts))
+
         return " ".join(merge_sql_parts), tuple(all_params)
 
     def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:

@@ -39,25 +39,68 @@ class MergeAction:
     within a MERGE statement's WHEN clause.
     """
     action_type: MergeActionType
-    assignments: Optional[Dict[str, "bases.BaseExpression"]] = field(default_factory=dict)
-    values: Optional[List["bases.BaseExpression"]] = field(default_factory=list)
-    condition: Optional["bases.SQLPredicate"] = None
+    assignments: Optional[Dict[str, "bases.BaseExpression"]] = field(default_factory=dict)  # For UPDATE SET clause
+    values: Optional[List["bases.BaseExpression"]] = field(default_factory=list)  # For INSERT VALUES clause
+    condition: Optional["bases.SQLPredicate"] = None  # Optional additional condition for the WHEN clause
 
 
 class MergeExpression(bases.BaseExpression):
-    """Represents a MERGE statement."""
+    """
+    Represents a SQL MERGE statement conforming to SQL standard syntax.
+
+    The MERGE statement performs conditional processing based on whether a row
+    exists in the target table that matches the source row according to the ON condition.
+
+    Basic syntax:
+        MERGE INTO target_table
+        USING source
+        ON condition
+        WHEN MATCHED THEN action
+        WHEN NOT MATCHED THEN action
+        [WHEN NOT MATCHED BY SOURCE THEN action];
+
+    Example:
+        # Simple merge: update if exists, insert if not
+        merge = MergeExpression(
+            dialect,
+            target_table="products",
+            source=ValuesSource(dialect, [[1, "Product A", 19.99]], "new_products", ["id", "name", "price"]),
+            on_condition=Column(dialect, "id", "tgt") == Column(dialect, "id", "src"),
+            when_matched=[
+                MergeAction(
+                    action_type=MergeActionType.UPDATE,
+                    assignments={
+                        "name": Column(dialect, "name", "src"),
+                        "price": Column(dialect, "price", "src")
+                    }
+                )
+            ],
+            when_not_matched=[
+                MergeAction(
+                    action_type=MergeActionType.INSERT,
+                    assignments={
+                        "id": Column(dialect, "id", "src"),
+                        "name": Column(dialect, "name", "src"),
+                        "price": Column(dialect, "price", "src")
+                    }
+                )
+            ]
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase",
                  target_table: Union[str, "core.TableExpression"],
-                 source: Union["core.Subquery", "core.TableExpression", "ValuesExpression"],
-                 on_condition: "bases.SQLPredicate",
-                 when_matched: Optional[List[MergeAction]] = None,
-                 when_not_matched: Optional[List[MergeAction]] = None):
+                 source: Union["core.Subquery", "core.TableExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"],
+                 on_condition: "bases.SQLPredicate",  # The main matching condition
+                 when_matched: Optional[List[MergeAction]] = None,  # WHEN MATCHED THEN ...
+                 when_not_matched: Optional[List[MergeAction]] = None,  # WHEN NOT MATCHED THEN ...
+                 when_not_matched_by_source: Optional[List[MergeAction]] = None):  # WHEN NOT MATCHED BY SOURCE THEN ... (not supported by all DBs)
         super().__init__(dialect)
-        self.target_table = target_table if isinstance(target_table, core.TableExpression) else core.TableExpression(dialect, target_table)
+        self.target_table = target_table if isinstance(target_table, core.TableExpression) else core.TableExpression(dialect, str(target_table))
         self.source = source
         self.on_condition = on_condition
         self.when_matched = when_matched or []
         self.when_not_matched = when_not_matched or []
+        self.when_not_matched_by_source = when_not_matched_by_source or []
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the MERGE statement to the configured dialect."""
