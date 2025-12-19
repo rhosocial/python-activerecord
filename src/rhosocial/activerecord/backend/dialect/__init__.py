@@ -54,9 +54,6 @@ from .protocols import (
     GraphSupport,
 )
 from .options import (
-    ExplainType,
-    ExplainFormat,
-    ExplainOptions,
     ReturningType,
     ReturningOptions,
 )
@@ -89,9 +86,6 @@ __all__ = [
     'GraphSupport',
 
     # Options and enums
-    'ExplainType',
-    'ExplainFormat',
-    'ExplainOptions',
     'ReturningType',
     'ReturningOptions',
 ]

@@ -6,49 +6,6 @@ from enum import Enum
 from typing import Any, Dict, List, Optional, Set
 
 
-class ExplainType(Enum):
-    """Type of EXPLAIN output"""
-    BASIC = "basic"
-    ANALYZE = "analyze"
-    QUERYPLAN = "query plan"
-
-
-class ExplainFormat(Enum):
-    """Output format for EXPLAIN results"""
-    TEXT = "text"
-    JSON = "json"
-    XML = "xml"
-    YAML = "yaml"
-    TREE = "tree"
-
-
-@dataclass
-class ExplainOptions:
-    """Options for EXPLAIN command"""
-    type: ExplainType = ExplainType.BASIC
-    format: ExplainFormat = ExplainFormat.TEXT
-    costs: bool = True  # Show estimated costs
-    buffers: bool = False  # Show buffer usage
-    timing: bool = True  # Include timing information
-    verbose: bool = False  # Show additional information
-    settings: bool = False  # Show modified settings (PostgreSQL)
-    wal: bool = False  # Show WAL usage (PostgreSQL)
-    analyze: bool = False  # Same as type=ANALYZE, for compatibility
-
-    def __post_init__(self) -> None:
-        """Validate options and handle compatibility"""
-        if self.analyze:
-            self.type = ExplainType.ANALYZE
-
-    @property
-    def supported_formats(self) -> Set[ExplainFormat]:
-        """Get supported output formats for current database"""
-        return {ExplainFormat.TEXT}  # Base implementation
-
-    def validate_for_database(self, dialect: str) -> None:
-        """Validate options against specific database capabilities"""
-        if self.format not in self.supported_formats:
-            raise ValueError(f"Format {self.format} not supported by {dialect}")
 
 
 class ReturningType(Enum):

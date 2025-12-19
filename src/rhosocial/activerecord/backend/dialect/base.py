@@ -7,7 +7,6 @@ implementations for standard SQL features.
 """
 from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
-from .options import ExplainOptions # Import ExplainOptions
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..expression import bases
@@ -16,7 +15,8 @@ if TYPE_CHECKING:
     from ..expression.statements import (
         QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
         MergeExpression, ExplainExpression, CreateTableExpression,
-        DropTableExpression, AlterTableExpression, OnConflictClause, ForUpdateClause
+        DropTableExpression, AlterTableExpression, OnConflictClause, ForUpdateClause,
+        ExplainOptions  # Updated import to reference ExplainOptions from expression module
     )
     from ..expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,

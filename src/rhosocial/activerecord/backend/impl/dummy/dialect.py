@@ -8,7 +8,6 @@ It is used for to_sql() testing and does not involve actual database connections
 from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import BaseDialect
-from rhosocial.activerecord.backend.dialect.options import ExplainType
 from rhosocial.activerecord.backend.dialect.protocols import (
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
@@ -16,7 +15,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
 )
 from rhosocial.activerecord.backend.expression.statements import (
-    MergeActionType, ValuesSource, SelectSource, DefaultValuesSource, QueryExpression, QueryExpression
+    MergeActionType, ValuesSource, SelectSource, DefaultValuesSource, QueryExpression,
+    ExplainType, ExplainFormat, ExplainOptions  # For handling EXPLAIN functionality
 )
 from rhosocial.activerecord.backend.expression.bases import BaseExpression # Added this import
 
@@ -395,7 +395,9 @@ class DummyDialect(
             return f"EXPLAIN {statement_sql}", statement_params
 
         parts = ["EXPLAIN"]
-        if options.analyze:
+        # Determine if ANALYZE should be included based on the type field
+        # If type is ANALYZE, or if the boolean analyze field is True
+        if (hasattr(options, 'type') and options.type == ExplainType.ANALYZE) or options.analyze:
             parts.append("ANALYZE")
         if options.format:
             parts.append(f"FORMAT {options.format.value.upper()}")
@@ -408,7 +410,7 @@ class DummyDialect(
             parts.append("TIMING ON")
         if options.verbose:
             parts.append("VERBOSE")
-        if options.enable_settings:
+        if options.settings:
             parts.append("SETTINGS")
         if options.wal:
             parts.append("WAL")

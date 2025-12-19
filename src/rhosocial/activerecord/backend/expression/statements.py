@@ -399,7 +399,7 @@ class ExplainOptions:
 
     # General options
     type: Optional[ExplainType] = None      # Analysis type
-    enable_settings: bool = False           # Show settings impact
+    settings: bool = False                  # Show settings impact (PostgreSQL)
     wal: bool = False                       # Show WAL statistics
 
     # Dialect-specific options - for uncommon database options
@@ -450,7 +450,7 @@ class ExplainExpression(bases.BaseExpression):
                  options: Optional[ExplainOptions] = None):  # EXPLAIN options
         super().__init__(dialect)
         self.statement = statement  # SQL statement to analyze (query, insert, update, delete, etc.)
-        self.options = options or ExplainOptions()  # EXPLAIN options
+        self.options = options  # EXPLAIN options, keeping None if passed as None
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegate to dialect for EXPLAIN statement SQL generation."""
@@ -676,21 +676,6 @@ class InsertExpression(bases.BaseExpression):
         """Delegates SQL generation for the INSERT statement to the configured dialect."""
         return self.dialect.format_insert_statement(self)
 # endregion Insert Statement
-
-
-# region Explain Statement
-class ExplainExpression(bases.BaseExpression):
-    """Represents an EXPLAIN statement."""
-    def __init__(self, dialect: "SQLDialectBase",
-                 statement: Union[QueryExpression, InsertExpression, UpdateExpression, DeleteExpression],
-                 options: Optional["ExplainOptions"] = None):
-        super().__init__(dialect)
-        self.statement, self.options = statement, options
-
-    def to_sql(self) -> Tuple[str, tuple]:
-        """Delegates SQL generation for the EXPLAIN statement to the configured dialect."""
-        return self.dialect.format_explain_statement(self)
-# endregion Explain Statement
 
 # endregion DML and DQL Statements
 
