@@ -77,6 +77,9 @@ from .statements import (
     MergeExpression,
     SelectModifier,
     ForUpdateClause,
+    ExplainType,
+    ExplainFormat,
+    ExplainOptions,
     # Insert Abstractions
     InsertDataSource,
     ValuesSource,
@@ -126,6 +129,7 @@ __all__ = [
     "JSONTableColumn", "JSONTableExpression",
     "QueryExpression", "DeleteExpression", "UpdateExpression", "InsertExpression", "ExplainExpression",
     "MergeActionType", "MergeAction", "MergeExpression", "SelectModifier", "ForUpdateClause",
+    "ExplainType", "ExplainFormat", "ExplainOptions",
     "InsertDataSource", "ValuesSource", "SelectSource", "DefaultValuesSource", "OnConflictClause",
     "ColumnDefinition", "IndexDefinition", "CreateTableExpression", "DropTableExpression",
     "AlterTableAction", "AddColumn", "DropColumn", "AlterTableExpression",

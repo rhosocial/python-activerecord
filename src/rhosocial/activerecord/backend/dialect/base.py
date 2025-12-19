@@ -1559,6 +1559,20 @@ class BaseDialect(SQLDialectBase):
 
         return sql, tuple(all_params)
 
+    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+        """Default implementation for EXPLAIN statement formatting."""
+        statement_sql, statement_params = expr.statement.to_sql()
+
+        # For the basic case, just prepend EXPLAIN to the statement
+        # Different dialects will override this to handle their specific options
+        options = expr.options
+        if options is None:
+            return f"EXPLAIN {statement_sql}", statement_params
+        else:
+            # Base implementation returns basic EXPLAIN regardless of options
+            # Specific dialects will implement their option handling
+            return f"EXPLAIN {statement_sql}", statement_params
+
     def supports_offset_without_limit(self) -> bool:
         """Check if the dialect supports OFFSET clause without LIMIT clause."""
         # By default, assume the dialect does not support OFFSET without LIMIT

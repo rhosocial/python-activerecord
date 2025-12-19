@@ -395,17 +395,25 @@ class DummyDialect(
             return f"EXPLAIN {statement_sql}", statement_params
 
         parts = ["EXPLAIN"]
-        if options.type == ExplainType.ANALYZE: parts.append("ANALYZE")
-        elif options.type == ExplainType.QUERYPLAN: parts.append("QUERY PLAN")
-        parts.append(f"FORMAT {options.format.value.upper()}")
-        if options.costs: parts.append("COSTS ON")
-        if options.buffers: parts.append("BUFFERS")
-        if options.timing and options.type == ExplainType.ANALYZE: parts.append("TIMING ON")
-        if options.verbose: parts.append("VERBOSE")
-        if options.settings: parts.append("SETTINGS")
-        if options.wal: parts.append("WAL")
+        if options.analyze:
+            parts.append("ANALYZE")
+        if options.format:
+            parts.append(f"FORMAT {options.format.value.upper()}")
+        # Only show costs=False if it's explicitly set to False, since True is default
+        if not options.costs:
+            parts.append("COSTS OFF")
+        if options.buffers:
+            parts.append("BUFFERS")
+        if options.timing and options.analyze:
+            parts.append("TIMING ON")
+        if options.verbose:
+            parts.append("VERBOSE")
+        if options.enable_settings:
+            parts.append("SETTINGS")
+        if options.wal:
+            parts.append("WAL")
 
-        return f"{ ' '.join(parts)} {statement_sql}", statement_params
+        return f"{' '.join(parts)} {statement_sql}", statement_params
 
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         return f"CREATE TABLE {self.format_identifier(expr.table_name)} (...)", ()
