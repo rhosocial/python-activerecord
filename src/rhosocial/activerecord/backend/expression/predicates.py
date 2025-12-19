@@ -3,10 +3,10 @@
 Concrete implementations of SQL predicate expressions (e.g., WHERE clause conditions).
 """
 from typing import Tuple, Any, TYPE_CHECKING
-
 from . import bases
 from . import mixins
 from .core import Literal
+from .statements import QueryExpression
 
 # if TYPE_CHECKING:
 #     from .bases import BaseExpression, SQLValueExpression
@@ -24,6 +24,9 @@ class ComparisonPredicate(mixins.LogicalMixin, bases.SQLPredicate):
     def to_sql(self) -> Tuple[str, tuple]:
         left_sql, left_params = self.left.to_sql()
         right_sql, right_params = self.right.to_sql()
+        # If the right operand is a QueryExpression, wrap its SQL in parentheses
+        if isinstance(self.right, QueryExpression):
+            right_sql = f"({right_sql})"
         return self.dialect.format_comparison_predicate(self.op, left_sql, right_sql, left_params, right_params)
 
 

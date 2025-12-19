@@ -113,6 +113,7 @@ class JoinExpression(bases.BaseExpression):
         else:
             join_phrase = f"{join_type_upper} JOIN" # Fallback for custom/unrecognized types
 
+
         if self.natural:
             join_phrase = f"NATURAL {join_phrase}"
 

@@ -5,7 +5,7 @@ Dummy backend SQL dialect implementation.
 This dialect implements all protocols and supports all features.
 It is used for to_sql() testing and does not involve actual database connections.
 """
-from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
+from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import BaseDialect
 from rhosocial.activerecord.backend.dialect.options import ExplainType
@@ -16,8 +16,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
 )
 from rhosocial.activerecord.backend.expression.statements import (
-    MergeActionType, ValuesSource, SelectSource, DefaultValuesSource
+    MergeActionType, ValuesSource, SelectSource, DefaultValuesSource, QueryExpression, QueryExpression
 )
+from rhosocial.activerecord.backend.expression.bases import BaseExpression # Added this import
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.statements import (
@@ -25,7 +26,7 @@ if TYPE_CHECKING:
         MergeExpression, ExplainExpression, CreateTableExpression,
         DropTableExpression, AlterTableExpression, OnConflictClause
     )
-    from rhosocial.activerecord.backend.expression.bases import BaseExpression
+    # from rhosocial.activerecord.backend.expression.bases import BaseExpression # Removed, as it's now imported directly
 
 
 class DummyDialect(
@@ -86,7 +87,11 @@ class DummyDialect(
         select_sql = "SELECT " + ", ".join(select_parts)
         from_sql = ""
         if expr.from_:
-            from_expr_sql, from_expr_params = expr.from_.to_sql()
+            if isinstance(expr.from_, str):
+                from_expr_sql = self.format_identifier(expr.from_)
+                from_expr_params = []
+            else: # Assume it's a BaseExpression
+                from_expr_sql, from_expr_params = expr.from_.to_sql()
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
         where_sql = ""
@@ -177,20 +182,65 @@ class DummyDialect(
         return sql, tuple(all_params)
 
     def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
-        table_sql = self.format_identifier(expr.table)
-        assignment_parts, all_params = [], []
+        all_params: List[Any] = []
+
+        # Target table (expr.table is a TableExpression)
+        table_sql, table_params = expr.table.to_sql()
+        all_params.extend(table_params)
+
+        # Assignments (SET clause)
+        assignment_parts = []
         for col, e in expr.assignments.items():
-            col_sql = self.format_identifier(col)
+            col_sql = self.format_identifier(col) # Column name is still a string
             expr_sql, expr_params = e.to_sql()
             assignment_parts.append(f"{col_sql} = {expr_sql}")
             all_params.extend(expr_params)
         assignments_sql = ", ".join(assignment_parts)
-        sql = f"UPDATE {table_sql} SET {assignments_sql}"
+
+        # Build SQL parts
+        current_sql = f"UPDATE {table_sql} SET {assignments_sql}"
+
+        # FROM clause
+        if expr.from_:
+            from_sql_parts = []
+            from_params: List[Any] = []
+
+            # Helper to format a single FROM source
+            def _format_single_from_source(source: Union["BaseExpression", str]) -> Tuple[str, List[Any]]:
+                if isinstance(source, str):
+                    return self.format_identifier(source), []
+                if isinstance(source, QueryExpression):
+                    s_sql, s_params = source.to_sql() # Get bare SQL
+                    return f"({s_sql})", s_params # Add parentheses
+                if isinstance(source, BaseExpression): # Explicitly check for BaseExpression
+                    return source.to_sql()
+                raise TypeError(f"Unsupported FROM source type: {type(source)}")
+
+            if isinstance(expr.from_, list):
+                for source_item in expr.from_:
+                    item_sql, item_params = _format_single_from_source(source_item)
+                    from_sql_parts.append(item_sql)
+                    from_params.extend(item_params)
+                current_sql += f" FROM {', '.join(from_sql_parts)}" # Append directly with leading space
+                all_params.extend(from_params)
+            else:
+                from_expr_sql, from_expr_params = _format_single_from_source(expr.from_)
+                current_sql += f" FROM {from_expr_sql}" # Append directly with leading space
+                all_params.extend(from_expr_params)
+
+        # WHERE clause
         if expr.where:
             where_sql, where_params = expr.where.to_sql()
-            sql += f" WHERE {where_sql}"
+            current_sql += f" WHERE {where_sql}" # Append directly with leading space
             all_params.extend(where_params)
-        return sql, tuple(all_params)
+
+        # RETURNING clause
+        if expr.returning:
+            returning_sql, returning_params = self.format_returning_clause(expr.returning) # This returns "RETURNING col1, ..."
+            current_sql += f" {returning_sql}" # Append directly with leading space
+            all_params.extend(returning_params)
+
+        return current_sql, tuple(all_params)
 
     def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
         table_sql = self.format_identifier(expr.table)

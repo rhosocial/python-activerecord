@@ -103,10 +103,47 @@ class DeleteExpression(bases.BaseExpression):
 
 # region Update Statement
 class UpdateExpression(bases.BaseExpression):
-    """Represents an UPDATE statement."""
-    def __init__(self, dialect: "SQLDialectBase", table: str, assignments: Dict[str, "bases.BaseExpression"], where: Optional["bases.SQLPredicate"] = None):
+    """
+    Represents an SQL UPDATE statement, allowing modification of existing rows
+    in a table. It supports a target table, assignment of new values to columns,
+    an optional FROM clause for joining with other tables or subqueries (behavior
+    and supported sources may vary significantly across SQL dialects, e.g.,
+    PostgreSQL offers a more flexible FROM than SQLite's more restrictive syntax),
+    a WHERE clause for filtering rows, a RETURNING clause, and backend-specific options.
+    """
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        table: Union[str, "core.TableExpression"],
+        assignments: Dict[str, "bases.BaseExpression"],
+        *, # Enforce keyword-only arguments for optional parameters
+        from_: Optional[Union[ # Optional FROM clause, compatible with various SQL dialects.
+                               # SQLite's UPDATE FROM is more restrictive, typically allowing only
+                               # a comma-separated list of table-or-subquery or a single JOIN clause.
+                               # More advanced SQL dialects (e.g., PostgreSQL) allow richer FROM sources.
+            "core.TableExpression",
+            "core.Subquery",
+            "SetOperationExpression",
+            "JoinExpression",
+            List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
+        ]] = None,
+        where: Optional["bases.SQLPredicate"] = None,
+        returning: Optional[List["bases.BaseExpression"]] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(dialect)
-        self.table, self.assignments, self.where = table, assignments, where
+
+        # Normalize the target table to a TableExpression
+        self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
+        self.assignments = assignments
+        self.from_ = from_
+        self.where = where
+        self.returning = returning
+        self.dialect_options = dialect_options or {}
+
+        # Basic validation for assignments
+        if not self.assignments:
+            raise ValueError("Assignments cannot be empty for an UPDATE statement.")
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""
