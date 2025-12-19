@@ -71,49 +71,49 @@ class TestInsertStatements:
         [
             # --- Single row inserts ---
             # Basic insert with str table, columns, no returning, no conflict
-            ("users", ["name", "email"], None, None, 1,
+            pytest.param("users", ["name", "email"], None, None, 1,
              'INSERT INTO "users" ("name", "email") VALUES (?, ?)',
-             ("John Doe", "john@example.com")),
+             ("John Doe", "john@example.com"), id="single_row_basic_insert"),
             # Basic insert with TableExpression, columns, no returning, no conflict
-            (TableExpression(None, "products", alias="p"), ["product_name"], None, None, 1,
+            pytest.param(TableExpression(None, "products", alias="p"), ["product_name"], None, None, 1,
              'INSERT INTO "products" AS "p" ("product_name") VALUES (?)',
-             ("Laptop",)),
+             ("Laptop",), id="single_row_table_expr_insert"),
             # Insert with columns=None (valid for ValuesSource)
-            ("log_events", None, None, None, 1,
+            pytest.param("log_events", None, None, None, 1,
              'INSERT INTO "log_events"  VALUES (?)',
-             ("event_data",)),
+             ("event_data",), id="single_row_insert_columns_none"),
             # Insert with returning
-            ("orders", ["amount"], [Column(None, "id")], None, 1,
+            pytest.param("orders", ["amount"], [Column(None, "id")], None, 1,
              'INSERT INTO "orders" ("amount") VALUES (?) RETURNING "id"',
-             (100.50,)),
+             (100.50,), id="single_row_insert_returning"),
             # Insert with on_conflict DO NOTHING
-            ("items", ["item_id"], None,
+            pytest.param("items", ["item_id"], None,
              OnConflictClause(None, conflict_target=["item_id"], do_nothing=True), 1,
              'INSERT INTO "items" ("item_id") VALUES (?) ON CONFLICT ("item_id") DO NOTHING',
-             (10,)),
+             (10,), id="single_row_insert_on_conflict_do_nothing"),
             # Insert with on_conflict DO UPDATE
-            ("metrics", ["key", "value"], None,
+            pytest.param("metrics", ["key", "value"], None,
              OnConflictClause(None, conflict_target=["key"],
                               update_assignments={"value": Column(None, "value", "excluded")}), 1,
              'INSERT INTO "metrics" ("key", "value") VALUES (?, ?) ON CONFLICT ("key") DO UPDATE SET "value" = "excluded"."value"',
-             ("cpu_usage", 85.5)),
+             ("cpu_usage", 85.5), id="single_row_insert_on_conflict_do_update"),
 
             # --- Multi row inserts ---
             # Multi-row with str table, columns, no returning, no conflict
-            ("users", ["name", "email"], None, None, 2,
+            pytest.param("users", ["name", "email"], None, None, 2,
              'INSERT INTO "users" ("name", "email") VALUES (?, ?), (?, ?)',
-             ("Jane Doe", "jane@example.com", "Peter Pan", "peter@example.com")),
+             ("Jane Doe", "jane@example.com", "Peter Pan", "peter@example.com"), id="multi_row_basic_insert"),
             # Multi-row with TableExpression, columns, returning
-            (TableExpression(None, "transactions", alias="t"), ["txn_id", "status"], [Column(None, "id")], None, 2,
+            pytest.param(TableExpression(None, "transactions", alias="t"), ["txn_id", "status"], [Column(None, "id")], None, 2,
              'INSERT INTO "transactions" AS "t" ("txn_id", "status") VALUES (?, ?), (?, ?) RETURNING "id"',
-             ("TXN001", "success", "TXN002", "pending")),
+             ("TXN001", "success", "TXN002", "pending"), id="multi_row_table_expr_insert_returning"),
             # Multi-row with on_conflict DO UPDATE with WHERE
-            ("products", ["p_id", "qty"], None,
+            pytest.param("products", ["p_id", "qty"], None,
              OnConflictClause(None, conflict_target=["p_id"],
                               update_assignments={"qty": RawSQLExpression(None, "excluded.qty")},
                               update_where=Column(None, "qty", "products") < RawSQLExpression(None, "excluded.qty")), 2,
              'INSERT INTO "products" ("p_id", "qty") VALUES (?, ?), (?, ?) ON CONFLICT ("p_id") DO UPDATE SET "qty" = excluded.qty WHERE "products"."qty" < excluded.qty',
-             (1, 5, 2, 10)),
+             (1, 5, 2, 10), id="multi_row_insert_on_conflict_do_update_where"),
         ]
     )
     def test_insert_with_values_source_combinations(self, dummy_dialect: DummyDialect,
