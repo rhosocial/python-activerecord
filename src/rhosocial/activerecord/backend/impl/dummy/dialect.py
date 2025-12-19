@@ -26,6 +26,10 @@ if TYPE_CHECKING:
         MergeExpression, ExplainExpression, CreateTableExpression,
         DropTableExpression, AlterTableExpression, OnConflictClause
     )
+    from rhosocial.activerecord.backend.expression.advanced_functions import (
+        WindowFrameSpecification, WindowSpecification, WindowDefinition,
+        WindowClause, WindowFunctionCall
+    )
     # from rhosocial.activerecord.backend.expression.bases import BaseExpression # Removed, as it's now imported directly
 
 
@@ -79,12 +83,21 @@ class DummyDialect(
     # region Full Statement Formatting
     def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
         all_params: List[Any] = []
+
+        # SELECT clause with optional DISTINCT/ALL modifier
         select_parts = []
         for e in expr.select:
             expr_sql, expr_params = e.to_sql()
             select_parts.append(expr_sql)
             all_params.extend(expr_params)
-        select_sql = "SELECT " + ", ".join(select_parts)
+
+        # Add DISTINCT/ALL modifier if present
+        modifier_str = ""
+        if expr.select_modifier:
+            modifier_str = f" {expr.select_modifier.value}"
+
+        select_sql = f"SELECT{modifier_str} " + ", ".join(select_parts)
+
         from_sql = ""
         if expr.from_:
             if isinstance(expr.from_, str):
@@ -128,11 +141,17 @@ class DummyDialect(
             qualify_expr_sql, qualify_expr_params = expr.qualify.to_sql()
             qualify_sql = f" QUALIFY {qualify_expr_sql}"
             all_params.extend(qualify_expr_params)
+
+        # Build initial SQL without FOR UPDATE
         sql = f"{select_sql}{from_sql}{where_sql}{group_by_sql}{having_sql}{order_by_sql}{qualify_sql}"
-        if expr.for_update_options:
-            for_update_sql, for_update_params = self.format_for_update_clause(expr.for_update_options)
-            sql += f" {for_update_sql}"
-            all_params.extend(for_update_params)
+
+        # Add FOR UPDATE clause at the end (if present)
+        if expr.for_update:
+            for_update_sql, for_update_params = expr.for_update.to_sql()
+            if for_update_sql:
+                sql += f" {for_update_sql}"
+                all_params.extend(for_update_params)
+
         limit_offset_sql, limit_offset_params = self.format_limit_offset(expr.limit, expr.offset)
         if limit_offset_sql:
             sql += " " + limit_offset_sql
@@ -425,17 +444,140 @@ class DummyDialect(
     def format_qualify_clause(self, qualify_sql: str, qualify_params: tuple) -> Tuple[str, Tuple]:
         return f"QUALIFY {qualify_sql}", qualify_params
 
-    def format_for_update_clause(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
-        if not options: return "", ()
+    def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
+        all_params = []
         sql_parts = ["FOR UPDATE"]
-        if options.get("of"):
-            of_tables = ", ".join([self.format_identifier(t) for t in options["of"]])
-            sql_parts.append(f"OF {of_tables}")
-        if options.get("nowait"):
+
+        # Handle OF columns if specified
+        if clause.of_columns:
+            of_parts = []
+            for col in clause.of_columns:
+                if isinstance(col, str):
+                    of_parts.append(self.format_identifier(col))
+                elif hasattr(col, 'to_sql'):  # BaseExpression
+                    col_sql, col_params = col.to_sql()
+                    of_parts.append(col_sql)
+                    all_params.extend(col_params)
+            if of_parts:
+                sql_parts.append(f"OF {', '.join(of_parts)}")
+
+        # Handle NOWAIT/SKIP LOCKED options
+        if clause.nowait:
             sql_parts.append("NOWAIT")
-        elif options.get("skip_locked"):
+        elif clause.skip_locked:
             sql_parts.append("SKIP LOCKED")
-        return " ".join(sql_parts), tuple()
+
+        return " ".join(sql_parts), tuple(all_params)
+
+    def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
+        parts = [spec.frame_type]
+        if spec.end_frame:
+            parts.append(f"BETWEEN {spec.start_frame} AND {spec.end_frame}")
+        else:
+            parts.append(spec.start_frame)
+        return " ".join(parts), ()
+
+    def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
+        all_params = []
+
+        parts = []
+
+        # PARTITION BY
+        if spec.partition_by:
+            partition_parts = []
+            for part in spec.partition_by:
+                if isinstance(part, BaseExpression):
+                    part_sql, part_params = part.to_sql()
+                    partition_parts.append(part_sql)
+                    all_params.extend(part_params)
+                else:
+                    partition_parts.append(self.format_identifier(str(part)))
+            parts.append("PARTITION BY " + ", ".join(partition_parts))
+
+        # ORDER BY
+        if spec.order_by:
+            order_by_parts = []
+            for item in spec.order_by:
+                if isinstance(item, tuple):
+                    expr, direction = item
+                    if isinstance(expr, BaseExpression):
+                        expr_sql, expr_params = expr.to_sql()
+                        order_by_parts.append(f"{expr_sql} {direction.upper()}")
+                        all_params.extend(expr_params)
+                    else:
+                        order_by_parts.append(f"{self.format_identifier(str(expr))} {direction.upper()}")
+                else:
+                    if isinstance(item, BaseExpression):
+                        expr_sql, expr_params = item.to_sql()
+                        order_by_parts.append(expr_sql)
+                        all_params.extend(expr_params)
+                    else:
+                        order_by_parts.append(self.format_identifier(str(item)))
+            parts.append("ORDER BY " + ", ".join(order_by_parts))
+
+        # Frame
+        if spec.frame:
+            frame_sql, frame_params = self.format_window_frame_specification(spec.frame)
+            parts.append(frame_sql)
+            all_params.extend(frame_params)
+
+        return " ".join(parts) if parts else "", tuple(all_params)
+
+    def format_window_definition(self, spec: "WindowDefinition") -> Tuple[str, tuple]:
+        spec_sql, spec_params = self.format_window_specification(spec.specification)
+        window_def = f"{self.format_identifier(spec.name)} AS ({spec_sql})"
+        return window_def, spec_params
+
+    def format_window_clause(self, clause: "WindowClause") -> Tuple[str, tuple]:
+        all_params = []
+        def_parts = []
+
+        for defn in clause.definitions:
+            def_sql, def_params = self.format_window_definition(defn)
+            def_parts.append(def_sql)
+            all_params.extend(def_params)
+
+        if def_parts:
+            return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
+        else:
+            return "", tuple(all_params)
+
+    def format_window_function_call(self, call: "WindowFunctionCall") -> Tuple[str, tuple]:
+        all_params = []
+
+        # Format function arguments
+        arg_parts = []
+        for arg in call.args:
+            if isinstance(arg, BaseExpression):
+                arg_sql, arg_params = arg.to_sql()
+                arg_parts.append(arg_sql)
+                all_params.extend(arg_params)
+            else:
+                # Literal value
+                arg_parts.append(self.get_placeholder())
+                all_params.append(arg)
+
+        func_sql = f"{call.function_name}({', '.join(arg_parts)})"
+
+        if call.window_spec is None:
+            # No window specification
+            sql = func_sql
+        else:
+            if isinstance(call.window_spec, str):
+                # Reference to named window
+                window_part = self.format_identifier(call.window_spec)
+            else:
+                # Inline window specification
+                window_spec_sql, window_spec_params = self.format_window_specification(call.window_spec)
+                window_part = f"({window_spec_sql})" if window_spec_sql else "()"
+                all_params.extend(window_spec_params)
+
+            sql = f"{func_sql} OVER {window_part}"
+
+        if call.alias:
+            sql = f"{sql} AS {self.format_identifier(call.alias)}"
+
+        return sql, tuple(all_params)
 
     def format_match_clause(self, path_sql: List[str], path_params: tuple) -> Tuple[str, tuple]:
         return f"MATCH {' '.join(path_sql)}", path_params

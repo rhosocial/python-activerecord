@@ -3,7 +3,8 @@
 Advanced SQL functions and expressions like CASE, CAST, EXISTS, ANY/ALL, Window functions,
 JSON operations, and Array operations.
 """
-from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
+from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
+from dataclasses import dataclass
 
 from . import bases
 from . import mixins
@@ -104,56 +105,92 @@ class AllExpression(mixins.LogicalMixin, bases.SQLPredicate):
         return sql, tuple(list(expr_params) + list(array_params))
 
 
-class WindowExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    """Represents a window function call (e.g., ROW_NUMBER() OVER (PARTITION BY col ORDER BY col2))."""
+class WindowFrameSpecification(bases.BaseExpression):
+    """Window frame specification (frame_type [BETWEEN start_frame AND end_frame])"""
     def __init__(self, dialect: "SQLDialectBase",
-                 function_call: "core.FunctionCall",
-                 partition_by: Optional[List[Union["bases.BaseExpression", str]]] = None,
-                 order_by: Optional[List[Union["bases.BaseExpression", str]]] = None,
-                 frame_type: Optional[str] = None,
-                 frame_start: Optional[str] = None,
-                 frame_end: Optional[str] = None,
-                 alias: Optional[str] = None):
+                 frame_type: str,  # 'ROWS', 'RANGE', 'GROUPS'
+                 start_frame: str,  # 'UNBOUNDED PRECEDING', 'N PRECEDING', 'CURRENT ROW', etc.
+                 end_frame: Optional[str] = None,  # 'UNBOUNDED FOLLOWING', 'N FOLLOWING', etc.
+                 dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
-        self.function_call = function_call
-        self.partition_by = partition_by or []
-        self.order_by = order_by or []
         self.frame_type = frame_type
-        self.frame_start = frame_start
-        self.frame_end = frame_end
-        self.alias = alias
+        self.start_frame = start_frame
+        self.end_frame = end_frame
+        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
-        func_sql, func_params = self.function_call.to_sql()
-        over_parts, all_params = [], list(func_params)
-        if self.partition_by:
-            parts = []
-            for part in self.partition_by:
-                if isinstance(part, bases.BaseExpression):
-                    part_sql, part_param = part.to_sql(); parts.append(part_sql); all_params.extend(part_param)
-                else: parts.append(str(part))
-            over_parts.append("PARTITION BY " + ", ".join(parts))
-        if self.order_by:
-            order_by_parts = []
-            for item in self.order_by:
-                if isinstance(item, tuple):
-                    expr, direction = item
-                    expr_sql, expr_params = expr.to_sql()
-                    order_by_parts.append(f"{expr_sql} {direction.upper()}")
-                    all_params.extend(expr_params)
-                else:
-                    expr_sql, expr_params = item.to_sql()
-                    order_by_parts.append(expr_sql)
-                    all_params.extend(expr_params)
-            over_parts.append(f"ORDER BY {', '.join(order_by_parts)}")
-        if self.frame_type:
-            frame_parts = [self.frame_type]
-            if self.frame_start and self.frame_end: frame_parts.append(f"BETWEEN {self.frame_start} AND {self.frame_end}")
-            elif self.frame_start: frame_parts.append(self.frame_start)
-            over_parts.append(" ".join(frame_parts))
-        sql = f"{func_sql} OVER ({' '.join(over_parts)})"
-        if self.alias: sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
-        return sql, tuple(all_params)
+        """Delegate to dialect for window frame formatting"""
+        return self.dialect.format_window_frame_specification(self)
+
+
+class WindowSpecification(bases.BaseExpression):
+    """Window specification (PARTITION BY ..., ORDER BY ..., frame)"""
+    def __init__(self, dialect: "SQLDialectBase",
+                 partition_by: Optional[List[Union["bases.BaseExpression", str]]] = None,
+                 order_by: Optional[List[Union["bases.BaseExpression", str]]] = None,  # Each element can be (expr, direction) or expr
+                 frame: Optional[WindowFrameSpecification] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.partition_by = partition_by or []
+        self.order_by = order_by or []
+        self.frame = frame
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegate to dialect for window specification formatting"""
+        return self.dialect.format_window_specification(self)
+
+
+class WindowDefinition(bases.BaseExpression):
+    """Named window definition (name AS window_specification)"""
+    def __init__(self, dialect: "SQLDialectBase",
+                 name: str,
+                 specification: WindowSpecification,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.name = name
+        self.specification = specification
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegate to dialect for named window definition formatting"""
+        return self.dialect.format_window_definition(self)
+
+
+class WindowClause(bases.BaseExpression):
+    """Complete WINDOW clause"""
+    def __init__(self, dialect: "SQLDialectBase",
+                 definitions: List[WindowDefinition],
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.definitions = definitions
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegate to dialect for WINDOW clause formatting"""
+        return self.dialect.format_window_clause(self)
+
+
+class WindowFunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+    """
+    Window function call, supporting inline window specification or named window reference
+    """
+    def __init__(self, dialect: "SQLDialectBase",
+                 function_name: str,
+                 args: Optional[List[Union["bases.BaseExpression", Any]]] = None,
+                 window_spec: Optional[Union[WindowSpecification, str]] = None,  # Window spec or named window reference
+                 alias: Optional[str] = None,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.function_name = function_name
+        self.args = args or []
+        self.window_spec = window_spec  # Can be WindowSpecification object or str (named window reference)
+        self.alias = alias
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegate to dialect for window function call formatting"""
+        return self.dialect.format_window_function_call(self)
 
 
 class JSONExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):

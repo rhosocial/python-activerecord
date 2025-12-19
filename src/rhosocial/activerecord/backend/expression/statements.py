@@ -65,22 +65,84 @@ class MergeExpression(bases.BaseExpression):
 
 
 # region Query Statement
+class SelectModifier(Enum):
+    """SELECT modifier enum for DISTINCT and ALL keywords."""
+    DISTINCT = "DISTINCT"
+    ALL = "ALL"
+
+
+class ForUpdateClause(bases.BaseExpression):
+    """Represents FOR UPDATE clause, used to request row-level locking."""
+    def __init__(self, dialect: "SQLDialectBase",
+                 of_columns: Optional[List[Union[str, "bases.BaseExpression"]]] = None,  # Specify columns to lock
+                 nowait: bool = False,  # NOWAIT option
+                 skip_locked: bool = False,  # SKIP LOCKED option
+                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect specific options
+        super().__init__(dialect)
+        self.of_columns = of_columns or []
+        self.nowait = nowait
+        self.skip_locked = skip_locked
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegate to dialect for FOR UPDATE clause formatting."""
+        return self.dialect.format_for_update_clause(self)
+
+
 class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents a complete SELECT query expression with all clauses."""
     def __init__(self, dialect: "SQLDialectBase",
-                 select: List["bases.BaseExpression"],
-                 from_: Optional[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression", "bases.BaseExpression"]] = None,
-                 where: Optional["bases.SQLPredicate"] = None,
-                 group_by: Optional[List["bases.BaseExpression"]] = None,
-                 having: Optional["bases.SQLPredicate"] = None,
-                 order_by: Optional[List["bases.BaseExpression"]] = None,
-                 qualify: Optional["bases.SQLPredicate"] = None,
-                 limit: Optional[int] = None,
-                 offset: Optional[int] = None,
-                 for_update_options: Optional[Dict[str, Any]] = None):
+                 select: List["bases.BaseExpression"],  # SELECT clause - required, list of selected expressions
+                 from_: Optional[Union[  # FROM clause - optional, but determines the nature of the query
+                     "core.TableExpression",      # Single table
+                     "core.Subquery",             # Subquery
+                     "SetOperationExpression",    # Set operations (UNION, etc.)
+                     "JoinExpression",            # Join expression (treated as a single object)
+                     List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression"]],  # Multiple tables/subqueries
+                     "ValuesExpression",          # VALUES expression
+                     "TableFunctionExpression",   # Table function
+                     "LateralExpression"          # LATERAL expression
+                 ]] = None,
+                 where: Optional["bases.SQLPredicate"] = None,  # WHERE clause - optional, must be a predicate
+                 group_by: Optional[List["bases.BaseExpression"]] = None,  # GROUP BY clause - optional, list of expressions
+                 having: Optional["bases.SQLPredicate"] = None,  # HAVING clause - optional, only valid with GROUP BY, must be a predicate
+                 order_by: Optional[List[  # ORDER BY clause - optional, list of ordering specifications
+                     Union[
+                         "bases.BaseExpression",  # Expression ordering
+                         Tuple["bases.BaseExpression", str]  # (expression, ASC/DESC)
+                     ]
+                 ]] = None,
+                 qualify: Optional["bases.SQLPredicate"] = None,  # QUALIFY clause - optional
+                 limit: Optional[Union[int, "bases.BaseExpression"]] = None,  # LIMIT clause - optional
+                 offset: Optional[Union[int, "bases.BaseExpression"]] = None,  # OFFSET clause - requires LIMIT
+                 for_update: Optional["ForUpdateClause"] = None,  # FOR UPDATE clause - optional locking specification
+                 select_modifier: Optional[SelectModifier] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
+                 *,  # Force keyword arguments
+                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options - optional
         super().__init__(dialect)
-        self.select, self.from_, self.where, self.group_by, self.having = select or [], from_, where, group_by or [], having
-        self.order_by, self.qualify, self.limit, self.offset, self.for_update_options = order_by or [], qualify, limit, offset, for_update_options or {}
+
+        # Validate HAVING requires GROUP BY
+        if having is not None and not group_by:
+            raise ValueError("HAVING clause requires GROUP BY clause")
+
+        # Validate OFFSET requires LIMIT (some databases allow OFFSET alone, but this is database-specific behavior)
+        if offset is not None and limit is None:
+            # Decide whether to allow OFFSET without LIMIT based on dialect
+            if not dialect.supports_offset_without_limit():
+                raise ValueError("OFFSET clause requires LIMIT clause in this dialect")
+
+        self.select = select or []
+        self.from_ = from_
+        self.where = where  # Must be a bases.SQLPredicate type
+        self.group_by = group_by or []
+        self.having = having  # Must be a bases.SQLPredicate type
+        self.order_by = order_by or []
+        self.qualify = qualify
+        self.limit = limit
+        self.offset = offset
+        self.for_update = for_update  # FOR UPDATE clause object
+        self.select_modifier = select_modifier  # SELECT modifier, None means no modifier
+        self.dialect_options = dialect_options or {}  # Dialect-specific options, keep consistent pattern
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the entire SELECT statement to the configured dialect."""
