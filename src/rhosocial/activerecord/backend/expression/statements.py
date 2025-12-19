@@ -130,7 +130,29 @@ class InsertDataSource(abc.ABC):
 
 
 class ValuesSource(InsertDataSource):
-    """Represents a data source from a VALUES clause."""
+    """
+    Represents a data source from a VALUES clause, where values are provided
+    as explicit expressions for insertion into a table.
+
+    The `values_list` parameter defines the rows of data to be inserted.
+    Each element in `values_list` is itself a list, representing a single row,
+    and each element within a row list must be an expression.
+
+    Currently, the type hint for these expressions is `bases.BaseExpression`.
+    This generic type allows for various expression types (e.g., `Literal`, `Column`,
+    `RawSQLExpression`, scalar `QueryExpression` as subqueries) to be used as values.
+    It is a pragmatic choice given the current stage of framework development.
+
+    However, it's important to note that statement-level expressions (such as
+    `InsertExpression`, `UpdateExpression`, `DeleteExpression`, or non-scalar `QueryExpression`)
+    are *not* valid elements within `values_list`. These are complete SQL statements
+    and do not represent a single value or expression suitable for a `VALUES` clause.
+
+    In future iterations, as the framework matures, the type hint may be refined
+    to a more specific `Union` of supported `bases.BaseExpression` derived classes
+    (e.g., `Union[Literal, Column, ScalarSubquery]`) to provide stricter type checking
+    and clearer developer guidance on what constitutes a valid value expression.
+    """
     def __init__(self, dialect: "SQLDialectBase", values_list: List[List["bases.BaseExpression"]]):
         super().__init__(dialect)
         if not values_list or not all(isinstance(row, list) for row in values_list):

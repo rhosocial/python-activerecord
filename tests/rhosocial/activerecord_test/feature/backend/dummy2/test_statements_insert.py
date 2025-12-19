@@ -2,7 +2,8 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, QueryExpression, TableExpression,
-    InsertExpression, ValuesSource, SelectSource, DefaultValuesSource, OnConflictClause
+    InsertExpression, ValuesSource, SelectSource, DefaultValuesSource, OnConflictClause,
+    core
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.statements import InsertDataSource
@@ -424,3 +425,246 @@ class TestInsertStatements:
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "users" AS "u" ("name") VALUES (?)'
         assert params == ("test",)
+
+
+    # region Extreme Value Tests
+
+    @pytest.mark.parametrize(
+        "columns_param, values_data, expected_sql, expected_params",
+        [
+            pytest.param(
+                ["col1"], [[""]],
+                'INSERT INTO "test_table" ("col1") VALUES (?)',
+                ("",),
+                id="single_empty_string"
+            ),
+            pytest.param(
+                ["col1", "col2"], [["", ""]],
+                'INSERT INTO "test_table" ("col1", "col2") VALUES (?, ?)',
+                ("", ""),
+                id="multiple_empty_strings"
+            ),
+        ]
+    )
+    def test_insert_empty_string_values(self, dummy_dialect: DummyDialect,
+                                         columns_param, values_data, expected_sql, expected_params):
+        """Tests inserting empty string values."""
+        values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in values_data]
+        source = ValuesSource(dummy_dialect, values_list=values_list_expr)
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="test_table",
+            columns=columns_param,
+            source=source
+        )
+        sql, params = insert_expr.to_sql()
+        assert sql == expected_sql
+        assert params == expected_params
+
+    @pytest.mark.parametrize(
+        "columns_param, values_data, expected_sql, expected_params",
+        [
+            pytest.param(
+                ["col1"], [[None]],
+                'INSERT INTO "test_table" ("col1") VALUES (?)',
+                (None,),
+                id="single_null_value"
+            ),
+            pytest.param(
+                ["col1", "col2"], [[None, "test"]],
+                'INSERT INTO "test_table" ("col1", "col2") VALUES (?, ?)',
+                (None, "test"),
+                id="mixed_null_and_string"
+            ),
+            pytest.param(
+                ["col1", "col2"], [[None, None]],
+                'INSERT INTO "test_table" ("col1", "col2") VALUES (?, ?)',
+                (None, None),
+                id="multiple_null_values"
+            ),
+        ]
+    )
+    def test_insert_null_values(self, dummy_dialect: DummyDialect,
+                                 columns_param, values_data, expected_sql, expected_params):
+        """Tests inserting explicit NULL values."""
+        values_list_expr = [[Literal(dummy_dialect, val) for val in row] for row in values_data]
+        source = ValuesSource(dummy_dialect, values_list=values_list_expr)
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="test_table",
+            columns=columns_param,
+            source=source
+        )
+        sql, params = insert_expr.to_sql()
+        assert sql == expected_sql
+        assert params == expected_params
+
+    @pytest.mark.parametrize(
+        "num_columns",
+        [
+            pytest.param(50, id="50_columns"),
+            pytest.param(100, id="100_columns"),
+        ]
+    )
+    def test_insert_large_number_of_columns(self, dummy_dialect: DummyDialect, num_columns: int):
+        """Tests inserting into a large number of columns."""
+        columns = [f"col{i}" for i in range(num_columns)]
+        values = [f"value{i}" for i in range(num_columns)]
+        
+        values_list_expr = [[Literal(dummy_dialect, val) for val in values]]
+        source = ValuesSource(dummy_dialect, values_list=values_list_expr)
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="large_table",
+            columns=columns,
+            source=source
+        )
+        
+        expected_columns_sql = ", ".join([f'"{c}"' for c in columns])
+        expected_placeholders = ", ".join(["?" for _ in range(num_columns)])
+        expected_sql = f'INSERT INTO "large_table" ({expected_columns_sql}) VALUES ({expected_placeholders})'
+        expected_params = tuple(values)
+
+        sql, params = insert_expr.to_sql()
+        assert sql == expected_sql
+        assert params == expected_params
+
+    @pytest.mark.parametrize(
+        "string_length",
+        [
+            pytest.param(255, id="length_255"),
+            pytest.param(1024, id="length_1024"),
+            pytest.param(1024 * 10, id="length_10k"),
+        ]
+    )
+    def test_insert_very_long_string_value(self, dummy_dialect: DummyDialect, string_length: int):
+        """Tests inserting a very long string value."""
+        long_string = "a" * string_length
+        
+        values_list_expr = [[Literal(dummy_dialect, long_string)]]
+        source = ValuesSource(dummy_dialect, values_list=values_list_expr)
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="long_string_table",
+            columns=["text_col"],
+            source=source
+        )
+        
+        expected_sql = 'INSERT INTO "long_string_table" ("text_col") VALUES (?)'
+        expected_params = (long_string,)
+
+        sql, params = insert_expr.to_sql()
+        assert sql == expected_sql
+        assert params == expected_params
+    # endregion Extreme Value Tests
+
+
+    # region Advanced ON CONFLICT Tests
+
+    def test_on_conflict_multiple_columns_target(self, dummy_dialect: DummyDialect):
+        """Tests ON CONFLICT with multiple columns as conflict target: ON CONFLICT (col1, col2)."""
+        source = ValuesSource(dummy_dialect, values_list=[
+            [Literal(dummy_dialect, 1), Literal(dummy_dialect, "user@example.com"), Literal(dummy_dialect, "John")]
+        ])
+        on_conflict = OnConflictClause(
+            dummy_dialect,
+            conflict_target=["col1", "col2"],
+            do_nothing=True
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            columns=["id", "email", "name"],
+            source=source,
+            on_conflict=on_conflict
+        )
+        sql, params = insert_expr.to_sql()
+        expected_sql = ('INSERT INTO "users" ("id", "email", "name") VALUES (?, ?, ?) '
+                        'ON CONFLICT ("col1", "col2") DO NOTHING')
+        assert sql == expected_sql
+        assert params == (1, "user@example.com", "John")
+
+    def test_on_conflict_with_expression_target(self, dummy_dialect: DummyDialect):
+        """Tests ON CONFLICT with an expression as conflict target: ON CONFLICT ((lower(email)))."""
+        source = ValuesSource(dummy_dialect, values_list=[
+            [Literal(dummy_dialect, 1), Literal(dummy_dialect, "TEST@EXAMPLE.COM")]
+        ])
+        on_conflict = OnConflictClause(
+            dummy_dialect,
+            conflict_target=[RawSQLExpression(dummy_dialect, "lower(\"email\")")], # Using RawSQLExpression for the target
+            do_nothing=True
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            columns=["id", "email"],
+            source=source,
+            on_conflict=on_conflict
+        )
+        sql, params = insert_expr.to_sql()
+        # The dialect should format the expression target with parentheses if needed
+        expected_sql = ('INSERT INTO "users" ("id", "email") VALUES (?, ?) '
+                        'ON CONFLICT (lower("email")) DO NOTHING') # Dialect is expected to format raw SQL correctly
+        assert sql == expected_sql
+        assert params == (1, "TEST@EXAMPLE.COM")
+        
+    def test_on_conflict_update_multiple_columns_complex(self, dummy_dialect: DummyDialect):
+        """Tests DO UPDATE SET with mixed excluded and table references for multiple columns."""
+        source = ValuesSource(dummy_dialect, values_list=[
+            [Literal(dummy_dialect, 1), Literal(dummy_dialect, "new_name"), Literal(dummy_dialect, 5)]
+        ])
+        on_conflict = OnConflictClause(
+            dummy_dialect,
+            conflict_target=["id"],
+            update_assignments={
+                "name": Column(dummy_dialect, "name", "excluded"), # col1 = excluded.col1
+                "score": RawSQLExpression(dummy_dialect, f'{dummy_dialect.format_identifier("users")}.{dummy_dialect.format_identifier("score")} + {dummy_dialect.format_identifier("excluded")}.{dummy_dialect.format_identifier("new_score")}')
+            }
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            columns=["id", "name", "new_score"],
+            source=source,
+            on_conflict=on_conflict
+        )
+        sql, params = insert_expr.to_sql()
+        # Expecting score = users.score + excluded.new_score
+        expected_sql = ('INSERT INTO "users" ("id", "name", "new_score") VALUES (?, ?, ?) '
+                        'ON CONFLICT ("id") DO UPDATE SET "name" = "excluded"."name", "score" = "users"."score" + "excluded"."new_score"')
+        assert sql == expected_sql
+        assert params == (1, "new_name", 5)
+
+    def test_on_conflict_update_where_with_complex_predicate(self, dummy_dialect: DummyDialect):
+        """Tests DO UPDATE WHERE clause with a complex predicate."""
+        source = ValuesSource(dummy_dialect, values_list=[
+            [Literal(dummy_dialect, 1), Literal(dummy_dialect, "inactive"), Literal(dummy_dialect, 10)]
+        ])
+        on_conflict = OnConflictClause(
+            dummy_dialect,
+            conflict_target=["id"],
+            do_nothing=False, # Must be False to allow update_assignments
+            update_assignments={
+                "status": Column(dummy_dialect, "status", "excluded"),
+                "priority": Column(dummy_dialect, "priority", "excluded"),
+            },
+            update_where=(Column(dummy_dialect, "status", "users") == Literal(dummy_dialect, "active")) & \
+                         (Column(dummy_dialect, "priority", "excluded") > Column(dummy_dialect, "priority", "users"))
+        )
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            columns=["id", "status", "priority"],
+            source=source,
+            on_conflict=on_conflict
+        )
+        sql, params = insert_expr.to_sql()
+        expected_sql = (
+            'INSERT INTO "users" ("id", "status", "priority") VALUES (?, ?, ?) '
+            'ON CONFLICT ("id") DO UPDATE SET "status" = "excluded"."status", "priority" = "excluded"."priority" '
+            'WHERE "users"."status" = ? AND "excluded"."priority" > "users"."priority"'
+        )
+        assert sql == expected_sql
+        assert params == (1, "inactive", 10, "active")
+
+    # endregion Advanced ON CONFLICT Tests
