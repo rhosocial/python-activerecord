@@ -864,8 +864,22 @@ class DropTableExpression(bases.BaseExpression):
         return self.dialect.format_drop_table_statement(self)
 
 
+class AlterTableActionType(Enum):
+    """Type of action for ALTER TABLE statement."""
+    ADD_COLUMN = "ADD COLUMN"
+    DROP_COLUMN = "DROP COLUMN"
+    ALTER_COLUMN = "ALTER COLUMN"
+    ADD_CONSTRAINT = "ADD CONSTRAINT"
+    DROP_CONSTRAINT = "DROP CONSTRAINT"
+    RENAME_COLUMN = "RENAME COLUMN"
+    RENAME_TABLE = "RENAME TABLE"
+    ADD_INDEX = "ADD INDEX"
+    DROP_INDEX = "DROP INDEX"
+
+
 class AlterTableAction(abc.ABC):
     """Abstract base class for a single action within an ALTER TABLE statement."""
+    action_type: AlterTableActionType
     pass
 
 
@@ -873,23 +887,164 @@ class AlterTableAction(abc.ABC):
 class AddColumn(AlterTableAction):
     """Represents an 'ADD COLUMN' action."""
     column: ColumnDefinition
+    action_type: AlterTableActionType = AlterTableActionType.ADD_COLUMN
 
 
 @dataclass
 class DropColumn(AlterTableAction):
     """Represents a 'DROP COLUMN' action."""
     column_name: str
+    action_type: AlterTableActionType = AlterTableActionType.DROP_COLUMN
+
+
+@dataclass
+class AlterColumn(AlterTableAction):
+    """Represents an 'ALTER COLUMN' action to modify column properties."""
+    column_name: str
+    operation: str  # "SET DATA TYPE", "SET DEFAULT", "DROP DEFAULT", "SET NOT NULL", "DROP NOT NULL", etc.
+    action_type: AlterTableActionType = AlterTableActionType.ALTER_COLUMN
+    new_value: Any = None  # New type, default value, etc.
+    cascade: bool = False  # For constraint modifications
+
+
+@dataclass
+class AddConstraint(AlterTableAction):
+    """Represents an 'ADD CONSTRAINT' action."""
+    constraint: TableConstraint
+    action_type: AlterTableActionType = AlterTableActionType.ADD_CONSTRAINT
+
+
+@dataclass
+class DropConstraint(AlterTableAction):
+    """Represents a 'DROP CONSTRAINT' action."""
+    constraint_name: str
+    cascade: bool = False  # Whether to CASCADE the constraint drop
+    action_type: AlterTableActionType = AlterTableActionType.DROP_CONSTRAINT
+
+
+@dataclass
+class RenameObject(AlterTableAction):
+    """Represents a 'RENAME' action for columns or tables."""
+    old_name: str
+    new_name: str
+    action_type: AlterTableActionType = AlterTableActionType.RENAME_COLUMN
+    object_type: str = "COLUMN"  # "COLUMN", "TABLE", or "INDEX"
+
+
+@dataclass
+class AddIndex(AlterTableAction):
+    """Represents an 'ADD INDEX' action."""
+    index: IndexDefinition
+    action_type: AlterTableActionType = AlterTableActionType.ADD_INDEX
+
+
+@dataclass
+class DropIndex(AlterTableAction):
+    """Represents a 'DROP INDEX' action."""
+    index_name: str
+    if_exists: bool = False
+    action_type: AlterTableActionType = AlterTableActionType.DROP_INDEX
 
 
 class AlterTableExpression(bases.BaseExpression):
-    """Represents an ALTER TABLE statement."""
-    def __init__(self, dialect: "SQLDialectBase", table_name: str, actions: List[AlterTableAction]):
+    """
+    Represents a comprehensive ALTER TABLE statement supporting full SQL standard functionality.
+
+    The ALTER TABLE statement allows for modification of an existing table's structure,
+    including adding/dropping columns, altering column properties, managing constraints
+    and indexes, and renaming objects. Different SQL databases support different subsets
+    of ALTER TABLE functionality, with significant variations in syntax.
+
+    This class collects all ALTER TABLE parameters and delegates the actual SQL generation
+    to a backend-specific dialect for database-specific syntax.
+
+    Examples:
+        # Add column
+        alter_expr = AlterTableExpression(
+            dialect,
+            table_name="users",
+            actions=[AddColumn(ColumnDefinition(dialect, "email", "VARCHAR(100)"))]
+        )
+
+        # Drop column
+        alter_expr = AlterTableExpression(
+            dialect,
+            table_name="products",
+            actions=[DropColumn("description")]
+        )
+
+        # Multiple actions in one statement
+        alter_expr = AlterTableExpression(
+            dialect,
+            table_name="orders",
+            actions=[
+                AddColumn(ColumnDefinition(dialect, "status", "VARCHAR(20)")),
+                RenameObject("id", "order_id", object_type="COLUMN")
+            ]
+        )
+
+        # Add constraint
+        alter_expr = AlterTableExpression(
+            dialect,
+            table_name="users",
+            actions=[
+                AddConstraint(
+                    TableConstraint(
+                        constraint_type=TableConstraintType.CHECK,
+                        check_condition=Column(dialect, "age") > Literal(dialect, 0)
+                    )
+                )
+            ]
+        )
+
+        # Alter column properties
+        alter_expr = AlterTableExpression(
+            dialect,
+            table_name="products",
+            actions=[
+                AlterColumn(
+                    "price",
+                    operation="SET DATA TYPE",
+                    new_value="NUMERIC(10,2)"
+                )
+            ]
+        )
+    """
+    def __init__(self, dialect: "SQLDialectBase",
+                 table_name: str,
+                 actions: List[AlterTableAction],
+                 *,  # Force keyword arguments
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        """
+        Initialize an ALTER TABLE expression with the specified modifications.
+
+        Args:
+            dialect: The SQL dialect instance that determines query generation rules
+            table_name: Name of the table to alter
+            actions: List of actions to perform on the table
+            dialect_options: Additional database-specific parameters
+
+        Raises:
+            ValueError: If required parameters are missing or invalid
+        """
         super().__init__(dialect)
         self.table_name = table_name
         self.actions = actions
+        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
-        """Delegates SQL generation for the ALTER TABLE statement to the configured dialect."""
+        """
+        Generate the SQL string and parameters for this ALTER TABLE expression.
+
+        This method delegates the SQL generation to the configured dialect, allowing for
+        database-specific variations in ALTER TABLE syntax. The generated SQL follows
+        the structure: ALTER TABLE table_name action1, action2, ...
+
+        Returns:
+            A tuple containing:
+            - str: The complete ALTER TABLE SQL string
+            - tuple: The parameter values for prepared statement execution
+        """
         return self.dialect.format_alter_table_statement(self)
 
 # endregion DDL Expressions

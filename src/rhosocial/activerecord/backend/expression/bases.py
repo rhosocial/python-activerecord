@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/bases.py
+# src/rhosocial/activerecord/backend/expression/bases.py
 """
 Core abstract base classes for the SQL expression engine.
 

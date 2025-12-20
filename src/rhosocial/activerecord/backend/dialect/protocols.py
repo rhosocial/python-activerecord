@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/dialect/protocol.py
+# src/rhosocial/activerecord/backend/dialect/protocols.py
 """
 SQL dialect protocol definitions.
 

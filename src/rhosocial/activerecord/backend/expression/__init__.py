@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/__init__.py
+# src/rhosocial/activerecord/backend/expression/__init__.py
 """
 SQL Expression building blocks.
 """
@@ -133,7 +133,7 @@ __all__ = [
     "ExplainType", "ExplainFormat", "ExplainOptions", "ReturningClause",
     "InsertDataSource", "ValuesSource", "SelectSource", "DefaultValuesSource", "OnConflictClause",
     "ColumnDefinition", "IndexDefinition", "CreateTableExpression", "DropTableExpression",
-    "AlterTableAction", "AddColumn", "DropColumn", "AlterTableExpression",
+    "AlterTableAction", "AddColumn", "DropColumn", "AlterColumn", "AddConstraint", "DropConstraint", "RenameObject", "AddIndex", "DropIndex", "AlterTableExpression",
     "GraphEdgeDirection", "GraphVertex", "GraphEdge", "MatchClause",
     "count", "sum_", "avg", "min_", "max_", "lower", "upper", "concat", "coalesce",
 ]

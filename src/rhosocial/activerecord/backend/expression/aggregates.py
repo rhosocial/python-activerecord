@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/aggregates.py
+# src/rhosocial/activerecord/backend/expression/aggregates.py
 """
 Expressions related to SQL aggregation, including aggregate function calls
 and the base class for expressions that support filtering.

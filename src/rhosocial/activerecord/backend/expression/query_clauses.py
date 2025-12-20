@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/query_clauses.py
+# src/rhosocial/activerecord/backend/expression/query_clauses.py
 """
 Expressions related to SQL query clauses such as SET operations, GROUPING, JOINs, and CTEs.
 """

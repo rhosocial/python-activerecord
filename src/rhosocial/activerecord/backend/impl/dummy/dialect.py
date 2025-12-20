@@ -563,7 +563,189 @@ class DummyDialect(
         return sql.strip(), ()
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
-        return f"ALTER TABLE {self.format_identifier(expr.table_name)} ...", ()
+        """Format ALTER TABLE statement with comprehensive support for different actions."""
+        all_params = []
+
+        # Basic statement
+        parts = [f"ALTER TABLE {self.format_identifier(expr.table_name)}"]
+
+        # Process each action
+        action_parts = []
+        for action in expr.actions:
+            action_part, action_params = self._format_alter_table_action(action)
+            action_parts.append(action_part)
+            all_params.extend(action_params)
+
+        if action_parts:
+            # Join actions with commas (some databases support multiple actions per ALTER TABLE)
+            parts.append(" " + ", ".join(action_parts))
+
+        return " ".join(parts), tuple(all_params)
+
+    def _format_alter_table_action(self, action: "AlterTableAction") -> Tuple[str, tuple]:
+        """Format individual alter table action."""
+        from rhosocial.activerecord.backend.expression.statements import (
+            AddColumn, DropColumn, AlterColumn, AddConstraint, DropConstraint,
+            RenameObject, AddIndex, DropIndex
+        )
+
+        all_params = []
+
+        if isinstance(action, AddColumn):
+            # Format ADD COLUMN action
+            column_sql, column_params = self.format_column_definition(action.column)
+            all_params.extend(column_params)
+            return f"ADD COLUMN {column_sql}", tuple(all_params)
+
+        elif isinstance(action, DropColumn):
+            # Format DROP COLUMN action
+            return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
+
+        elif isinstance(action, AlterColumn):
+            # Format ALTER COLUMN action
+            column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {action.operation}"
+            if hasattr(action, 'new_value') and action.new_value is not None:
+                # Handle different types of new_value based on operation
+                if action.operation == "SET DATA TYPE":
+                    # For SET DATA TYPE, new_value is a type specification, not a parameter
+                    column_part += f" {action.new_value}"
+                elif isinstance(action.new_value, str):
+                    # Handle literal strings
+                    column_part += f" {self.get_placeholder()}"
+                    all_params.append(action.new_value)
+                elif hasattr(action.new_value, 'to_sql'):
+                    # If it's an expression (like FunctionCall), format it
+                    value_sql, value_params = action.new_value.to_sql()
+                    column_part += f" {value_sql}"
+                    all_params.extend(value_params)
+                else:
+                    # Handle other literal values
+                    column_part += f" {self.get_placeholder()}"
+                    all_params.append(action.new_value)
+            # Add cascade if specified
+            if hasattr(action, 'cascade') and action.cascade:
+                column_part += " CASCADE"
+            return column_part, tuple(all_params)
+
+        elif isinstance(action, AddConstraint):
+            # Format ADD CONSTRAINT action (would delegate to constraint formatting)
+            # For a table-level constraint, format it appropriately
+            from rhosocial.activerecord.backend.expression.statements import TableConstraintType
+
+            parts = []
+            if action.constraint.name:
+                parts.append(f"CONSTRAINT {self.format_identifier(action.constraint.name)}")
+
+            # Add the constraint type and details based on the constraint type
+            if action.constraint.constraint_type == TableConstraintType.PRIMARY_KEY:
+                if action.constraint.columns:
+                    cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                    parts.append(f"PRIMARY KEY ({cols_str})")
+                else:
+                    parts.append("PRIMARY KEY")
+            elif action.constraint.constraint_type == TableConstraintType.UNIQUE:
+                if action.constraint.columns:
+                    cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                    parts.append(f"UNIQUE ({cols_str})")
+                else:
+                    parts.append("UNIQUE")
+            elif action.constraint.constraint_type == TableConstraintType.CHECK and action.constraint.check_condition:
+                check_sql, check_params = action.constraint.check_condition.to_sql()
+                parts.append(f"CHECK ({check_sql})")
+                all_params.extend(check_params)
+            elif action.constraint.constraint_type == TableConstraintType.FOREIGN_KEY:
+                if action.constraint.columns and action.constraint.foreign_key_table:
+                    cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                    ref_table = self.format_identifier(action.constraint.foreign_key_table)
+                    ref_cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns) if action.constraint.foreign_key_columns else ""
+                    if ref_cols_str:
+                        parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
+                    else:
+                        parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}")
+                else:
+                    parts.append("FOREIGN KEY")
+
+            return f"ADD {' '.join(parts)}", tuple(all_params)
+
+        elif isinstance(action, DropConstraint):
+            # Format DROP CONSTRAINT action
+            result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
+            if hasattr(action, 'cascade') and action.cascade:
+                result += " CASCADE"
+            return result, tuple(all_params)
+
+        elif isinstance(action, RenameObject):
+            # Format RENAME action based on object type
+            if hasattr(action, 'object_type') and action.object_type.upper() == "COLUMN":
+                return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
+            elif hasattr(action, 'object_type') and action.object_type.upper() == "TABLE":
+                # Though this wouldn't typically be used in ALTER TABLE context
+                return f"RENAME TO {self.format_identifier(action.new_name)}", ()
+            else:
+                return f"RENAME {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
+
+        elif isinstance(action, AddIndex):
+            # Format ADD INDEX action
+            # This is usually done separately from ALTER TABLE in most dialects
+            # But we include it for completeness
+            return f"ADD INDEX {self.format_identifier(action.index.name)}", ()
+
+        elif isinstance(action, DropIndex):
+            # Format DROP INDEX action
+            cmd = f"DROP INDEX {self.format_identifier(action.index_name)}"
+            if hasattr(action, 'if_exists') and action.if_exists:
+                cmd = f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}"
+            return cmd, ()
+
+        else:
+            # Handle unknown action types
+            return f"PROCESS {type(action).__name__}", ()
+
+    def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
+        """Format a column definition for use in ADD COLUMN clauses."""
+        all_params = []
+
+        # Basic column definition: name data_type
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+
+        # Handle nullable flag
+        if col_def.nullable is False:
+            col_sql += " NOT NULL"
+        elif col_def.nullable is True:
+            col_sql += " NULL"  # Explicitly allow NULL (though redundant in most cases)
+
+        # Handle constraints
+        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
+        for constraint in col_def.constraints:
+            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
+                col_sql += " PRIMARY KEY"
+            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
+                col_sql += " NOT NULL"
+            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
+                col_sql += " UNIQUE"
+            elif constraint.constraint_type == ColumnConstraintType.DEFAULT and constraint.default_value is not None:
+                if isinstance(constraint.default_value, bases.BaseExpression):
+                    default_sql, default_params = constraint.default_value.to_sql()
+                    col_sql += f" DEFAULT {default_sql}"
+                    all_params.extend(default_params)
+                else:
+                    col_sql += f" DEFAULT {self.get_placeholder()}"
+                    all_params.append(constraint.default_value)
+            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
+                check_sql, check_params = constraint.check_condition.to_sql()
+                col_sql += f" CHECK ({check_sql})"
+                all_params.extend(check_params)
+            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY and constraint.foreign_key_reference is not None:
+                referenced_table, referenced_columns = constraint.foreign_key_reference
+                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+
+        # Add comment if present
+        if col_def.comment:
+            col_sql += f" COMMENT '{col_def.comment}'"
+
+        return col_sql, tuple(all_params)
     # endregion
 
     # region Clause Formatting

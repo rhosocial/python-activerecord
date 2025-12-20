@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/operators.py
+# src/rhosocial/activerecord/backend/expression/operators.py
 """
 SQL operations like binary, unary, and arithmetic expressions.
 """

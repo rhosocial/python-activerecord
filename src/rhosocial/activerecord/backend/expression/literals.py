@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/literals.py
+# src/rhosocial/activerecord/backend/expression/literals.py
 """
 Literal identifiers in SQL expressions.
 """

@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/predicates.py
+# src/rhosocial/activerecord/backend/expression/predicates.py
 """
 Concrete implementations of SQL predicate expressions (e.g., WHERE clause conditions).
 """

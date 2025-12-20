@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/mixins.py
+# src/rhosocial/activerecord/backend/expression/mixins.py
 """
 Mixin classes that provide operator-overloading capabilities to expression classes.
 

@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/advanced_functions.py
+# src/rhosocial/activerecord/backend/expression/advanced_functions.py
 """
 Advanced SQL functions and expressions like CASE, CAST, EXISTS, ANY/ALL, Window functions,
 JSON operations, and Array operations.

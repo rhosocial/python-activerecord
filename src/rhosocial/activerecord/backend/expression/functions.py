@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/functions.py
+# src/rhosocial/activerecord/backend/expression/functions.py
 """
 Standalone factory functions for creating SQL expression objects.
 """

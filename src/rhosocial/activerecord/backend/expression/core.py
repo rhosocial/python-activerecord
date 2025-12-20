@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/core.py
+# src/rhosocial/activerecord/backend/expression/core.py
 """
 Core SQL expression components like columns, literals, function calls, and subqueries.
 """

@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/expression_/graph.py
+# src/rhosocial/activerecord/backend/expression/graph.py
 """
 SQL Graph Query (MATCH) expression building blocks.
 """
