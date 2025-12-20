@@ -58,6 +58,9 @@ from .query_clauses import (
     GroupingExpression,
     GroupExpression,
     JoinExpression,
+)
+
+from .query_clauses import (
     CTEExpression,
     WithQueryExpression,
     ValuesExpression,
@@ -92,6 +95,10 @@ from .statements import (
     IndexDefinition,
     CreateTableExpression,
     DropTableExpression,
+    CreateViewExpression,
+    DropViewExpression,
+    ViewOptions,
+    ViewCheckOption,
     AlterTableAction,
     AddColumn,
     DropColumn,
@@ -133,6 +140,7 @@ __all__ = [
     "ExplainType", "ExplainFormat", "ExplainOptions", "ReturningClause",
     "InsertDataSource", "ValuesSource", "SelectSource", "DefaultValuesSource", "OnConflictClause",
     "ColumnDefinition", "IndexDefinition", "CreateTableExpression", "DropTableExpression",
+    "CreateViewExpression", "DropViewExpression", "ViewOptions", "ViewCheckOption",
     "AlterTableAction", "AddColumn", "DropColumn", "AlterColumn", "AddConstraint", "DropConstraint", "RenameObject", "AddIndex", "DropIndex", "AlterTableExpression",
     "GraphEdgeDirection", "GraphVertex", "GraphEdge", "MatchClause",
     "count", "sum_", "avg", "min_", "max_", "lower", "upper", "concat", "coalesce",

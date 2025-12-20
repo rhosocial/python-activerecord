@@ -17,8 +17,9 @@ if TYPE_CHECKING:
         MergeExpression, ExplainExpression, CreateTableExpression,
         DropTableExpression, AlterTableExpression, OnConflictClause, ForUpdateClause,
         ExplainOptions,  # Updated import to reference ExplainOptions from expression module
-        ReturningClause, ColumnConstraintType, TableConstraintType  # Added ReturningClause import
-)
+        ReturningClause, ColumnConstraintType, TableConstraintType,  # Added ReturningClause import
+        CreateViewExpression, DropViewExpression, ViewCheckOption, ViewOptions  # View-related imports
+    )
     from ..expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,
         WindowClause, WindowFunctionCall
@@ -121,6 +122,16 @@ class SQLDialectBase(ABC):
     @abstractmethod
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Formats an ALTER TABLE statement from an AlterTableExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
+        """Formats a CREATE VIEW statement from a CreateViewExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
+        """Formats a DROP VIEW statement from a DropViewExpression object."""
         raise NotImplementedError
     # endregion Full Statement Formatting
 
@@ -1765,6 +1776,172 @@ class BaseDialect(SQLDialectBase):
         if_exists_part = "IF EXISTS " if expr.if_exists else ""
         sql = f"DROP TABLE {if_exists_part}{self.format_identifier(expr.table_name)}"
         return sql, ()
+
+    def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
+        """Default implementation for ALTER TABLE statement with various actions."""
+        all_params = []
+
+        # Basic statement
+        parts = [f"ALTER TABLE {self.format_identifier(expr.table_name)}"]
+
+        # Process each action
+        action_parts = []
+        for action in expr.actions:
+            action_part, action_params = self._format_alter_table_action(action)
+            action_parts.append(action_part)
+            all_params.extend(action_params)
+
+        if action_parts:
+            # Join actions with commas (some databases support multiple actions per ALTER TABLE)
+            parts.append(" " + ", ".join(action_parts))
+
+        return " ".join(parts), tuple(all_params)
+
+    def _format_alter_table_action(self, action: "AlterTableAction") -> Tuple[str, tuple]:
+        """Helper method to format individual ALTER TABLE actions."""
+        all_params = []
+
+        # Import here to avoid circular imports
+        from ..expression.statements import (
+            AddColumn, DropColumn, AlterColumn, AddConstraint, DropConstraint,
+            RenameObject, AddIndex, DropIndex
+        )
+
+        if isinstance(action, AddColumn):
+            # Format ADD COLUMN action
+            column_sql, column_params = self._format_column_definition(action.column)
+            all_params.extend(column_params)
+            return f"ADD COLUMN {column_sql}", tuple(all_params)
+        elif isinstance(action, DropColumn):
+            # Format DROP COLUMN action
+            return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
+        elif isinstance(action, AlterColumn):
+            # Format ALTER COLUMN action
+            col_part = f"ALTER COLUMN {self.format_identifier(action.column_name)}"
+            if action.operation:
+                col_part += f" {action.operation}"
+                if action.new_value is not None:
+                    if isinstance(action.new_value, str):
+                        col_part += f" {self.get_placeholder()}"
+                        all_params.append(action.new_value)
+                    elif hasattr(action.new_value, 'to_sql'):
+                        value_sql, value_params = action.new_value.to_sql()
+                        col_part += f" {value_sql}"
+                        all_params.extend(value_params)
+                    else:
+                        col_part += f" {self.get_placeholder()}"
+                        all_params.append(action.new_value)
+            if hasattr(action, 'cascade') and action.cascade:
+                col_part += " CASCADE"
+            return col_part, tuple(all_params)
+        elif isinstance(action, AddConstraint):
+            # Format ADD CONSTRAINT action
+            from ..expression.statements import TableConstraintType
+            constraint_parts = []
+            if action.constraint.name:
+                constraint_parts.append(f"CONSTRAINT {self.format_identifier(action.constraint.name)}")
+
+            if action.constraint.constraint_type == TableConstraintType.PRIMARY_KEY:
+                if action.constraint.columns:
+                    cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                    constraint_parts.append(f"PRIMARY KEY ({cols_str})")
+                else:
+                    constraint_parts.append("PRIMARY KEY")
+            elif action.constraint.constraint_type == TableConstraintType.UNIQUE:
+                if action.constraint.columns:
+                    cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                    constraint_parts.append(f"UNIQUE ({cols_str})")
+                else:
+                    constraint_parts.append("UNIQUE")
+            elif action.constraint.constraint_type == TableConstraintType.CHECK and action.constraint.check_condition:
+                check_sql, check_params = action.constraint.check_condition.to_sql()
+                constraint_parts.append(f"CHECK ({check_sql})")
+                all_params.extend(check_params)
+            elif action.constraint.constraint_type == TableConstraintType.FOREIGN_KEY:
+                if (action.constraint.columns and
+                    action.constraint.foreign_key_table and
+                    action.constraint.foreign_key_columns):
+                    cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                    ref_table = self.format_identifier(action.constraint.foreign_key_table)
+                    ref_cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns)
+                    constraint_parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
+
+                return f"ADD {' '.join(constraint_parts)}", tuple(all_params)
+        elif isinstance(action, DropConstraint):
+            # Format DROP CONSTRAINT action
+            result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
+            if hasattr(action, 'cascade') and action.cascade:
+                result += " CASCADE"
+            return result, tuple(all_params)
+        elif isinstance(action, RenameObject):
+            # Format RENAME action based on object type
+            if action.object_type == "COLUMN":
+                return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
+            else:
+                return f"RENAME TO {self.format_identifier(action.new_name)}", ()
+        elif isinstance(action, AddIndex):
+            # Format ADD INDEX action
+            return f"ADD INDEX {self.format_identifier(action.index.name)}", ()
+        elif isinstance(action, DropIndex):
+            # Format DROP INDEX action
+            if_exists_part = "IF EXISTS " if hasattr(action, 'if_exists') and action.if_exists else ""
+            return f"DROP INDEX {if_exists_part}{self.format_identifier(action.index_name)}", ()
+        else:
+            # Unknown action type
+            return f"UNKNOWN_ACTION_{type(action).__name__}", ()
+
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
+        """Default implementation for CREATE VIEW statement."""
+        all_params = []
+
+        # Build the basic statement with flags
+        replace_part = "OR REPLACE " if expr.replace else ""
+        temp_part = "TEMPORARY " if expr.temporary else ""
+
+        sql_parts = [f"CREATE {replace_part}{temp_part}VIEW {self.format_identifier(expr.view_name)}"]
+
+        # Add column aliases if provided
+        if expr.column_aliases:
+            alias_parts = []
+            for alias in expr.column_aliases:
+                if isinstance(alias, str):
+                    alias_parts.append(self.format_identifier(alias))
+                else:  # ColumnAlias object
+                    alias_parts.append(self.format_identifier(alias.alias or alias.name))
+            sql_parts.append(f"({', '.join(alias_parts)})")
+
+        # Add AS keyword and the query
+        query_sql, query_params = expr.query.to_sql()
+        sql_parts.append(f" AS ({query_sql})")
+        all_params.extend(query_params)
+
+        # Handle additional options based on database-specific settings
+        options = expr.options or ViewOptions()
+        if options.algorithm:
+            # MySQL-style ALGORITHM option (would be handled by specific dialects)
+            pass
+        if options.definer:
+            # MySQL-style DEFINER option
+            pass
+        if options.security:
+            # MySQL-style SQL SECURITY option
+            pass
+        if options.check_option:
+            # WITH CHECK OPTION variant
+            if options.check_option == ViewCheckOption.LOCAL:
+                sql_parts.append(" WITH LOCAL CHECK OPTION")
+            elif options.check_option == ViewCheckOption.CASCADED:
+                sql_parts.append(" WITH CASCADED CHECK OPTION")
+
+        return " ".join(sql_parts), tuple(all_params)
+
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
+        """Default implementation for DROP VIEW statement."""
+        if_exists_part = "IF EXISTS " if expr.if_exists else ""
+        cascade_part = " CASCADE" if expr.cascade else ""
+
+        sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
+        return sql.strip(), ()
 
     def format_explain(
         self,
