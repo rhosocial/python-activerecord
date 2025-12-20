@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression, UpdateExpression, ValuesSource, SelectSource,
     DefaultValuesSource, OnConflictClause, core,
     JoinExpression,
-    LogicalPredicate
+    LogicalPredicate, ReturningClause
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import bases # For set_dialect_recursive
@@ -139,10 +139,9 @@ class TestUpdateStatements:
         # Apply dialect recursively to returning_param
         dialect_returning_param = None
         if returning_param:
-            dialect_returning_param = []
             for item in returning_param:
                 set_dialect_recursive(item, dummy_dialect)
-                dialect_returning_param.append(item)
+            dialect_returning_param = ReturningClause(dummy_dialect, expressions=returning_param)
 
         update_expr = UpdateExpression(
             dummy_dialect,

@@ -16,15 +16,18 @@ from rhosocial.activerecord.backend.dialect.protocols import (
 )
 from rhosocial.activerecord.backend.expression.statements import (
     MergeActionType, ValuesSource, SelectSource, DefaultValuesSource, QueryExpression,
-    ExplainType, ExplainFormat, ExplainOptions  # For handling EXPLAIN functionality
+    ExplainType, ExplainFormat, ExplainOptions,  # For handling EXPLAIN functionality
+    ColumnConstraintType, TableConstraintType, ForUpdateClause  # For handling new features
 )
+from rhosocial.activerecord.backend.expression import bases
 from rhosocial.activerecord.backend.expression.bases import BaseExpression # Added this import
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression.statements import (
         QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
         MergeExpression, ExplainExpression, CreateTableExpression,
-        DropTableExpression, AlterTableExpression, OnConflictClause
+        DropTableExpression, AlterTableExpression, OnConflictClause,
+        ReturningClause  # Added ReturningClause import
     )
     from rhosocial.activerecord.backend.expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,
@@ -418,7 +421,141 @@ class DummyDialect(
         return f"{' '.join(parts)} {statement_sql}", statement_params
 
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
-        return f"CREATE TABLE {self.format_identifier(expr.table_name)} (...)", ()
+        """
+        Format CREATE TABLE statement with all supported features.
+
+        This implementation handles all the features of the new CreateTableExpression:
+        - Column definitions with data types and constraints
+        - Table constraints
+        - Temporary table flag
+        - IF NOT EXISTS clause
+        - Storage options, tablespace, partitioning
+        - CREATE TABLE AS queries
+        """
+        all_params = []
+
+        # Build the basic statement with flags
+        parts = []
+        temp_part = "TEMPORARY " if expr.temporary else ""
+        not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
+
+        table_part = f"CREATE {temp_part}TABLE {not_exists_part}{self.format_identifier(expr.table_name)} "
+
+        # Build column definitions
+        column_parts = []
+        for col_def in expr.columns:
+            # Basic column: name type
+            col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+
+            # Add column constraints
+            constraint_parts = []
+            for constraint in col_def.constraints:
+                if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
+                    constraint_parts.append("PRIMARY KEY")
+                elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
+                    constraint_parts.append("NOT NULL")
+                elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
+                    constraint_parts.append("UNIQUE")
+                elif constraint.constraint_type == ColumnConstraintType.DEFAULT and constraint.default_value is not None:
+                    if isinstance(constraint.default_value, bases.BaseExpression):
+                        default_sql, default_params = constraint.default_value.to_sql()
+                        constraint_parts.append(f"DEFAULT {default_sql}")
+                        all_params.extend(default_params)
+                    else:
+                        constraint_parts.append("DEFAULT ?")
+                        all_params.append(constraint.default_value)
+                elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
+                    check_sql, check_params = constraint.check_condition.to_sql()
+                    constraint_parts.append(f"CHECK ({check_sql})")
+                    all_params.extend(check_params)
+                elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY and constraint.foreign_key_reference is not None:
+                    referenced_table, referenced_columns = constraint.foreign_key_reference
+                    ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+                    constraint_parts.append(f"REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})")
+
+            if constraint_parts:
+                col_sql += " " + " ".join(constraint_parts)
+
+            # Handle the nullable field separately from constraints
+            if col_def.nullable is False:
+                col_sql += " NOT NULL"  # Explicitly not null
+            elif col_def.nullable is True:
+                col_sql += " NULL"     # Explicitly allow null (though this is usually redundant)
+
+            if col_def.comment:
+                col_sql += f" COMMENT '{col_def.comment}'"
+
+            column_parts.append(col_sql)
+
+        # Combine column definitions
+        full_column_def = "(" + ", ".join(column_parts) + ")"
+
+        # Add table constraints
+        table_constraint_parts = []
+        for t_const in expr.table_constraints:
+            const_parts = []
+            if t_const.name:
+                const_parts.append(f"CONSTRAINT {self.format_identifier(t_const.name)}")
+
+            if t_const.constraint_type == TableConstraintType.PRIMARY_KEY and t_const.columns:
+                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+                const_parts.append(f"PRIMARY KEY ({cols_str})")
+            elif t_const.constraint_type == TableConstraintType.UNIQUE and t_const.columns:
+                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+                const_parts.append(f"UNIQUE ({cols_str})")
+            elif t_const.constraint_type == TableConstraintType.CHECK and t_const.check_condition is not None:
+                check_sql, check_params = t_const.check_condition.to_sql()
+                const_parts.append(f"CHECK ({check_sql})")
+                all_params.extend(check_params)
+            elif t_const.constraint_type == TableConstraintType.FOREIGN_KEY and t_const.foreign_key_table and t_const.foreign_key_columns and t_const.columns:
+                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+                ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
+                const_parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})")
+
+            if const_parts:
+                table_constraint_parts.append(" ".join(const_parts))
+
+        if table_constraint_parts:
+            full_column_def += ", " + ", ".join(table_constraint_parts)
+
+        parts.append(table_part + full_column_def)
+
+        # Add storage options if present
+        if expr.storage_options:
+            storage_parts = []
+            for key, value in expr.storage_options.items():
+                if isinstance(value, str):
+                    storage_parts.append(f"{key.upper()} = '{value}'")
+                elif isinstance(value, (int, float)):
+                    storage_parts.append(f"{key.upper()} = {value}")
+                else:
+                    storage_parts.append(f"{key.upper()} = ?")
+                    all_params.append(value)
+            if storage_parts:
+                parts.append(" WITH (" + ", ".join(storage_parts) + ")")
+
+        # Add tablespace if present
+        if expr.tablespace:
+            parts.append(f" TABLESPACE {self.format_identifier(expr.tablespace)}")
+
+        # Add inherit clause if present (PostgreSQL specific)
+        if expr.inherits:
+            inherits_str = ", ".join(self.format_identifier(table) for table in expr.inherits)
+            parts.append(f" INHERITS ({inherits_str})")
+
+        # Add partition clause if present
+        if expr.partition_by:
+            partition_type, partition_cols = expr.partition_by
+            cols_str = ", ".join(self.format_identifier(col) for col in partition_cols)
+            parts.append(f" PARTITION BY {partition_type.upper()} ({cols_str})")
+
+        # Add AS clause if present
+        if expr.as_query:
+            query_sql, query_params = expr.as_query.to_sql()
+            parts.append(f" AS ({query_sql})")
+            all_params.extend(query_params)
+
+        return "".join(parts), tuple(all_params)
 
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
         return f"DROP TABLE {self.format_identifier(expr.table_name)}", ()
@@ -460,14 +597,23 @@ class DummyDialect(
 
         return " ".join(parts), tuple(all_params)
 
-    def format_returning_clause(self, expressions: List["BaseExpression"]) -> Tuple[str, tuple]:
+    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, tuple]:
+        """Formats a RETURNING clause with the provided expressions."""
         all_params: List[Any] = []
-        cols_sql = []
-        for expr in expressions:
+        expr_parts = []
+
+        for expr in clause.expressions:
             sql, params = expr.to_sql()
-            cols_sql.append(sql)
+            expr_parts.append(sql)
             all_params.extend(params)
-        return f"RETURNING {', '.join(cols_sql)}", tuple(all_params)
+
+        returning_sql = f"RETURNING {', '.join(expr_parts)}"
+
+        # Add alias if provided
+        if clause.alias:
+            returning_sql += f" AS {self.format_identifier(clause.alias)}"
+
+        return returning_sql, tuple(all_params)
 
     def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
         return f"FILTER (WHERE {condition_sql})", condition_params

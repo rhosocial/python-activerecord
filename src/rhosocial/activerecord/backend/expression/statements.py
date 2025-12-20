@@ -458,6 +458,56 @@ class ExplainExpression(bases.BaseExpression):
 # endregion Explain Statement
 
 
+class ReturningClause(bases.BaseExpression):
+    """
+    Represents a RETURNING clause used in INSERT, UPDATE, and DELETE statements.
+
+    The RETURNING clause allows retrieval of values from modified rows during
+    DML operations, which is useful for obtaining auto-generated values, or
+    for audit trails. The specific syntax and supported expressions may vary
+    significantly between different SQL databases.
+
+    This class follows the framework pattern of collecting parameters and
+    delegating SQL generation to the specific dialect.
+
+    Example Usage:
+        # Basic RETURNING clause with columns
+        returning_clause = ReturningClause(
+            dialect,
+            expressions=[Column(dialect, "id"), Column(dialect, "created_at")]
+        )
+
+        # RETURNING clause with computed expressions
+        returning_clause = ReturningClause(
+            dialect,
+            expressions=[
+                Column(dialect, "id"),
+                FunctionCall(dialect, "NOW"),
+                Literal(dialect, "updated")  # Constant value
+            ],
+            alias="modified_rows"
+        )
+
+        # RETURNING * to return all columns
+        returning_clause = ReturningClause(
+            dialect,
+            expressions=[RawSQLExpression(dialect, "*")]  # Use RawSQL for asterisk
+        )
+    """
+    def __init__(self, dialect: "SQLDialectBase",
+                 expressions: List["bases.BaseExpression"],  # List of expressions to return
+                 alias: Optional[str] = None,                # Optional alias for the returning result
+                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
+        super().__init__(dialect)
+        self.expressions = expressions or []
+        self.alias = alias  # Optional alias for the returning clause
+        self.dialect_options = dialect_options or {}  # Dialect-specific options
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegates to dialect for RETURNING clause SQL generation."""
+        return self.dialect.format_returning_clause(self)
+
+
 # region Delete Statement
 class DeleteExpression(bases.BaseExpression):
     """
@@ -480,7 +530,7 @@ class DeleteExpression(bases.BaseExpression):
             List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
         ]] = None,
         where: Optional["bases.SQLPredicate"] = None,
-        returning: Optional[List["bases.BaseExpression"]] = None,
+        returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
@@ -489,7 +539,7 @@ class DeleteExpression(bases.BaseExpression):
         self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
         self.from_ = from_
         self.where = where
-        self.returning = returning
+        self.returning = returning  # ReturningClause object or None
         self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
@@ -525,7 +575,7 @@ class UpdateExpression(bases.BaseExpression):
             List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
         ]] = None,
         where: Optional["bases.SQLPredicate"] = None,
-        returning: Optional[List["bases.BaseExpression"]] = None,
+        returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
@@ -535,7 +585,7 @@ class UpdateExpression(bases.BaseExpression):
         self.assignments = assignments
         self.from_ = from_
         self.where = where
-        self.returning = returning
+        self.returning = returning  # ReturningClause object or None
         self.dialect_options = dialect_options or {}
 
         # Basic validation for assignments
@@ -651,7 +701,7 @@ class InsertExpression(bases.BaseExpression):
         columns: Optional[List[str]] = None,
         *,
         on_conflict: Optional[OnConflictClause] = None,
-        returning: Optional[List["bases.BaseExpression"]] = None,
+        returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
@@ -660,7 +710,7 @@ class InsertExpression(bases.BaseExpression):
         self.source = source
         self.columns = columns
         self.on_conflict = on_conflict
-        self.returning = returning
+        self.returning = returning  # ReturningClause object or None
         self.dialect_options = dialect_options or {}
 
         # Perform validation
@@ -682,36 +732,120 @@ class InsertExpression(bases.BaseExpression):
 
 # region DDL Expressions
 
+class ColumnConstraintType(Enum):
+    """Types of column constraints."""
+    PRIMARY_KEY = "PRIMARY KEY"
+    NOT_NULL = "NOT NULL"
+    UNIQUE = "UNIQUE"
+    CHECK = "CHECK"
+    FOREIGN_KEY = "FOREIGN KEY"
+    DEFAULT = "DEFAULT"
+
+
+@dataclass
+class ColumnConstraint:
+    """Represents a column constraint (PRIMARY KEY, NOT NULL, UNIQUE, etc.)"""
+    constraint_type: ColumnConstraintType
+    name: Optional[str] = None  # Optional constraint name
+    check_condition: Optional["bases.SQLPredicate"] = None  # For CHECK constraints
+    foreign_key_reference: Optional[Tuple[str, List[str]]] = None  # (referenced_table, referenced_columns)
+    default_value: Any = None  # For DEFAULT constraints
+    is_auto_increment: bool = False  # For AUTO_INCREMENT/IDENTITY columns
+    comment: Optional[str] = None  # Column comment (optional)
+    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+
+
 @dataclass
 class ColumnDefinition:
     """Represents a column's definition within a CREATE/ALTER TABLE statement."""
     name: str
-    data_type: str
-    nullable: Optional[bool] = None
-    primary_key: bool = False
-    default: Any = None
-    # Future constraints can be added here, e.g., unique, check.
+    data_type: str  # e.g. "VARCHAR(255)", "INTEGER", "DECIMAL(10,2)", "CHARACTER VARYING(255)"
+    nullable: Optional[bool] = None  # None = database default, True = NULL permitted, False = NOT NULL
+    constraints: List[ColumnConstraint] = field(default_factory=list)  # Column constraints
+    comment: Optional[str] = None  # Column comment
+    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+
+
+class TableConstraintType(Enum):
+    """Types of table constraints supported by SQL."""
+    PRIMARY_KEY = "PRIMARY KEY"
+    UNIQUE = "UNIQUE"
+    FOREIGN_KEY = "FOREIGN KEY"
+    CHECK = "CHECK"
+    EXCLUDE = "EXCLUDE"
+
+
+class ReferentialAction(Enum):
+    """Actions for referential integrity constraints."""
+    CASCADE = "CASCADE"
+    RESTRICT = "RESTRICT"
+    SET_NULL = "SET NULL"
+    SET_DEFAULT = "SET DEFAULT"
+    NO_ACTION = "NO ACTION"
+
+
+@dataclass
+class TableConstraint:
+    """Represents a table-level constraint."""
+    constraint_type: TableConstraintType
+    name: Optional[str] = None  # Optional constraint name
+    columns: Optional[List[str]] = None  # For PK, UK constraints
+    check_condition: Optional["bases.SQLPredicate"] = None  # For CHECK constraints
+    foreign_key_table: Optional[str] = None  # For FK constraints
+    foreign_key_columns: Optional[List[str]] = None  # For FK constraints
+    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+
+
+@dataclass
+class ForeignKeyConstraint(TableConstraint):
+    """Specialized table constraint for foreign keys with additional options."""
+    constraint_type: TableConstraintType = TableConstraintType.FOREIGN_KEY
+    on_delete: ReferentialAction = ReferentialAction.NO_ACTION
+    on_update: ReferentialAction = ReferentialAction.NO_ACTION
+    match_type: Optional[str] = None  # "SIMPLE", "PARTIAL", "FULL" for foreign key matching
 
 
 @dataclass
 class IndexDefinition:
     """Represents an index definition for a table."""
     name: str
-    columns: List[str]
-    unique: bool = False
+    columns: List[str]  # List of column names to index
+    unique: bool = False  # Whether the index enforces uniqueness
+    type: Optional[str] = None  # Index type: BTREE, HASH, GIN, etc.
+    partial_condition: Optional["bases.SQLPredicate"] = None  # For partial indexes (PostgreSQL)
+    include_columns: Optional[List[str]] = None  # Included columns (non-key columns in index, SQL Server/PostgreSQL)
+    dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
 class CreateTableExpression(bases.BaseExpression):
-    """Represents a CREATE TABLE statement."""
-    def __init__(self, dialect: "SQLDialectBase", table_name: str,
-                 columns: List[ColumnDefinition],
-                 indexes: Optional[List[IndexDefinition]] = None,
-                 if_not_exists: bool = False):
+    """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 table_name: str,
+                 columns: List[ColumnDefinition],  # List of column definitions with constraints
+                 indexes: Optional[List[IndexDefinition]] = None,  # Table indexes
+                 table_constraints: Optional[List[TableConstraint]] = None,  # Table-level constraints
+                 temporary: bool = False,  # TEMPORARY table flag
+                 if_not_exists: bool = False,  # IF NOT EXISTS flag
+                 inherits: Optional[List[str]] = None,  # PostgreSQL INHERITS clause
+                 tablespace: Optional[str] = None,  # Table tablespace (PostgreSQL/Oracle)
+                 storage_options: Optional[Dict[str, Any]] = None,  # Storage parameters (PostgreSQL WITH options, MySQL ENGINE options)
+                 partition_by: Optional[Tuple[str, List[str]]] = None,  # Partitioning specification (partition_type, partition_columns)
+                 as_query: Optional["QueryExpression"] = None,  # Create table AS query result
+                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
         super().__init__(dialect)
         self.table_name = table_name
-        self.columns = columns
-        self.indexes = indexes or []
-        self.if_not_exists = if_not_exists
+        self.columns = columns  # List of column definitions with embedded constraints
+        self.indexes = indexes or []  # List of indexes to create
+        self.table_constraints = table_constraints or []  # List of table-level constraints
+        self.temporary = temporary  # Temporary table flag
+        self.if_not_exists = if_not_exists  # IF NOT EXISTS flag
+        self.inherits = inherits or []  # Tables to inherit from (PostgreSQL-specific)
+        self.tablespace = tablespace  # Tablespace specification
+        self.storage_options = storage_options or {}  # Storage-related options
+        self.partition_by = partition_by  # Partitioning specification
+        self.as_query = as_query  # Query to base table on (for CREATE TABLE AS)
+        self.dialect_options = dialect_options or {}  # Dialect-specific options
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the CREATE TABLE statement to the configured dialect."""

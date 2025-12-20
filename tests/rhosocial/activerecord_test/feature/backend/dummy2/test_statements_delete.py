@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, QueryExpression, TableExpression,
     DeleteExpression,
     JoinExpression,
-    LogicalPredicate
+    LogicalPredicate, ReturningClause
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression import bases # For set_dialect_recursive
@@ -179,10 +179,9 @@ class TestDeleteStatements:
         # Apply dialect recursively to returning_param
         dialect_returning_param = None
         if returning_param:
-            dialect_returning_param = []
             for item in returning_param:
                 self.set_dialect_recursive(item, dummy_dialect)
-                dialect_returning_param.append(item)
+            dialect_returning_param = ReturningClause(dummy_dialect, expressions=returning_param)
 
         delete_expr = DeleteExpression(
             dummy_dialect,

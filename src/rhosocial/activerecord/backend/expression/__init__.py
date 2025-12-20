@@ -80,6 +80,7 @@ from .statements import (
     ExplainType,
     ExplainFormat,
     ExplainOptions,
+    ReturningClause,
     # Insert Abstractions
     InsertDataSource,
     ValuesSource,
@@ -129,7 +130,7 @@ __all__ = [
     "JSONTableColumn", "JSONTableExpression",
     "QueryExpression", "DeleteExpression", "UpdateExpression", "InsertExpression", "ExplainExpression",
     "MergeActionType", "MergeAction", "MergeExpression", "SelectModifier", "ForUpdateClause",
-    "ExplainType", "ExplainFormat", "ExplainOptions",
+    "ExplainType", "ExplainFormat", "ExplainOptions", "ReturningClause",
     "InsertDataSource", "ValuesSource", "SelectSource", "DefaultValuesSource", "OnConflictClause",
     "ColumnDefinition", "IndexDefinition", "CreateTableExpression", "DropTableExpression",
     "AlterTableAction", "AddColumn", "DropColumn", "AlterTableExpression",

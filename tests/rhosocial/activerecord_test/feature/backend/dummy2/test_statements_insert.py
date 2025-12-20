@@ -3,7 +3,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, QueryExpression, TableExpression,
     InsertExpression, ValuesSource, SelectSource, DefaultValuesSource, OnConflictClause,
-    core
+    core, ComparisonPredicate, FunctionCall, ReturningClause
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.statements import InsertDataSource
@@ -190,10 +190,10 @@ class TestInsertStatements:
         # returning parameter
         returning_expr = None
         if returning_param:
-            returning_expr = []
+            # Convert list of expressions to ReturningClause
             for item in returning_param:
                 set_dialect_recursive(item, dummy_dialect) # Apply recursively to returning items
-                returning_expr.append(item)
+            returning_expr = ReturningClause(dummy_dialect, expressions=returning_param)
 
         # on_conflict parameter
         on_conflict_expr = None
@@ -311,12 +311,16 @@ class TestInsertStatements:
     def test_insert_with_returning_clause(self, dummy_dialect: DummyDialect):
         """Tests an INSERT statement with a RETURNING clause."""
         source = ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        returning_clause = ReturningClause(
+            dummy_dialect,
+            expressions=[Column(dummy_dialect, "id"), RawSQLExpression(dummy_dialect, "created_at")]
+        )
         insert_expr = InsertExpression(
             dummy_dialect,
             into="users",
             columns=["name"],
             source=source,
-            returning=[Column(dummy_dialect, "id"), RawSQLExpression(dummy_dialect, "created_at")]
+            returning=returning_clause
         )
         sql, params = insert_expr.to_sql()
         assert sql == 'INSERT INTO "users" ("name") VALUES (?) RETURNING "id", created_at'
