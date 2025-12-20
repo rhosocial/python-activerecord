@@ -14,6 +14,9 @@ from rhosocial.activerecord.backend.expression import (
     # Additional classes needed
     Subquery,
 )
+from rhosocial.activerecord.backend.expression.query_parts import (
+    WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause, ForUpdateClause
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -52,7 +55,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            for_update=for_update_clause
+            for_update_clause=for_update_clause
         )
         sql, params = query.to_sql()
         assert 'SELECT "id", "name" FROM "users" FOR UPDATE OF "id", "name" SKIP LOCKED' == sql
@@ -70,7 +73,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "locks"),
-            for_update=for_update_clause
+            for_update_clause=for_update_clause
         )
         sql, params = query.to_sql()
         assert 'SELECT "id" FROM "locks" FOR UPDATE OF "id" NOWAIT' == sql
@@ -322,14 +325,14 @@ class TestQueryStatements:
 
     # --- QueryExpression validation tests ---
     def test_query_expression_having_without_group_by_raises_error(self, dummy_dialect: DummyDialect):
-        """Tests that QueryExpression raises ValueError when HAVING is used without GROUP BY."""
+        """Tests that QueryExpression with GroupByHavingClause raises ValueError when HAVING is used without GROUP BY."""
         having_condition = ComparisonPredicate(dummy_dialect, ">", FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")), Literal(dummy_dialect, 5))
-        
+
+        # The validation should happen in the GroupByHavingClause constructor itself, not in QueryExpression
         with pytest.raises(ValueError, match="HAVING clause requires GROUP BY clause"):
-            QueryExpression(
+            group_by_having = GroupByHavingClause(
                 dummy_dialect,
-                select=[Column(dummy_dialect, "category")],
-                from_=TableExpression(dummy_dialect, "products"),
+                group_by=None,  # No group_by specified
                 having=having_condition  # HAVING without GROUP BY should raise error
             )
 
@@ -340,12 +343,15 @@ class TestQueryStatements:
             return True
         monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
         
+        # Create a limit clause with just offset (some dialects support this)
+        limit_offset_clause = LimitOffsetClause(dummy_dialect, offset=10)
+
         # This should not raise an error since dialect supports offset without limit
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "users"),
-            offset=10  # OFFSET without LIMIT
+            limit_offset_clause=limit_offset_clause  # Use limit/offset clause object with just offset
         )
         sql, params = query.to_sql()
         assert "OFFSET ?" in sql
@@ -358,24 +364,27 @@ class TestQueryStatements:
             return False
         monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
         
+        # Creating the LimitOffsetClause with offset only should raise error when dialect doesn't support it
+        # The validation happens in the LimitOffsetClause constructor
         with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in this dialect"):
-            QueryExpression(
-                dummy_dialect,
-                select=[Column(dummy_dialect, "id")],
-                from_=TableExpression(dummy_dialect, "users"),
-                offset=10  # OFFSET without LIMIT, dialect doesn't support it
-            )
+            limit_offset_clause = LimitOffsetClause(dummy_dialect, offset=10)
 
     def test_query_expression_order_by_simple_expressions(self, dummy_dialect: DummyDialect):
         """Tests QueryExpression with ORDER BY using simple expressions without directions."""
+        # Create the ORDER BY clause object with simple expressions
+        order_by_clause = OrderByClause(
+            dummy_dialect,
+            expressions=[
+                Column(dummy_dialect, "name"),
+                Column(dummy_dialect, "id")
+            ]
+        )
+
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            order_by=[  # Simple expressions, no tuples
-                Column(dummy_dialect, "name"),
-                Column(dummy_dialect, "id")
-            ]
+            order_by_clause=order_by_clause
         )
         sql, params = query.to_sql()
         assert 'ORDER BY "name", "id"' in sql
@@ -383,15 +392,33 @@ class TestQueryStatements:
 
     def test_query_expression_with_qualify_clause(self, dummy_dialect: DummyDialect):
         """Tests QueryExpression with QUALIFY clause."""
-        qualify_condition = ComparisonPredicate(dummy_dialect, ">",
-                                              FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
-                                              Literal(dummy_dialect, 5))
+        # Create the qualifying condition
+        qualify_condition = ComparisonPredicate(
+            dummy_dialect,
+            ">",
+            FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
+            Literal(dummy_dialect, 5)
+        )
+
+        # Create GROUP BY/HAVING clause (even if just GROUP BY)
+        group_by_having = GroupByHavingClause(
+            dummy_dialect,
+            group_by=[Column(dummy_dialect, "category")],
+            having=None  # No HAVING clause here
+        )
+
+        # Create QUALIFY clause
+        qualify_clause = QualifyClause(
+            dummy_dialect,
+            condition=qualify_condition
+        )
+
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "category"), FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"))],
             from_=TableExpression(dummy_dialect, "products"),
-            group_by=[Column(dummy_dialect, "category")],
-            qualify=qualify_condition  # QUALIFY clause
+            group_by_having=group_by_having,  # Use new GROUP BY/HAVING clause object
+            qualify_clause=qualify_clause   # Use new QUALIFY clause object
         )
         sql, params = query.to_sql()
         assert 'QUALIFY COUNT("id") > ?' in sql

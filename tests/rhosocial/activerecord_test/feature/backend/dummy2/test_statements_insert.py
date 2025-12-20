@@ -5,6 +5,7 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression, ValuesSource, SelectSource, DefaultValuesSource, OnConflictClause,
     core, ComparisonPredicate, FunctionCall, ReturningClause
 )
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.statements import InsertDataSource
 
@@ -278,11 +279,15 @@ class TestInsertStatements:
 
     def test_insert_with_select_source(self, dummy_dialect: DummyDialect):
         """Tests INSERT ... SELECT ... using SelectSource."""
+        where_clause = WhereClause(
+            dummy_dialect,
+            condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
         select_query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
             from_=TableExpression(dummy_dialect, "old_users"),
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            where_clause=where_clause
         )
         source = SelectSource(dummy_dialect, select_query=select_query)
         insert_expr = InsertExpression(

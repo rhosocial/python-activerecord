@@ -69,6 +69,14 @@ from .query_clauses import (
     JSONTableColumn,
     JSONTableExpression,
 )
+from .query_parts import (
+    WhereClause,
+    GroupByHavingClause,
+    LimitOffsetClause,
+    OrderByClause,
+    QualifyClause,
+    ForUpdateClause  # Added ForUpdateClause which was mentioned in statements.py
+)
 from .statements import (
     QueryExpression,
     DeleteExpression,
@@ -135,6 +143,7 @@ __all__ = [
     "SetOperationExpression", "GroupingExpression", "GroupExpression", "JoinExpression", "CTEExpression",
     "WithQueryExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression",
     "JSONTableColumn", "JSONTableExpression",
+    "WhereClause", "GroupByHavingClause", "LimitOffsetClause",
     "QueryExpression", "DeleteExpression", "UpdateExpression", "InsertExpression", "ExplainExpression",
     "MergeActionType", "MergeAction", "MergeExpression", "SelectModifier", "ForUpdateClause",
     "ExplainType", "ExplainFormat", "ExplainOptions", "ReturningClause",

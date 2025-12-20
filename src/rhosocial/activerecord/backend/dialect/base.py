@@ -20,6 +20,9 @@ if TYPE_CHECKING:
         ReturningClause, ColumnConstraintType, TableConstraintType,  # Added ReturningClause import
         CreateViewExpression, DropViewExpression, ViewCheckOption, ViewOptions  # View-related imports
     )
+    from ..expression.query_parts import (
+        WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
+    )
     from ..expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,
         WindowClause, WindowFunctionCall
@@ -228,6 +231,58 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
         pass
+
+    @abstractmethod
+    def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
+        """
+        Formats a WHERE clause.
+
+        Args:
+            clause: WhereClause object containing the filtering condition.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
+        """
+        Formats combined GROUP BY and HAVING clauses.
+
+        Args:
+            clause: GroupByHavingClause object containing the grouping expressions and optional HAVING condition.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clauses.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
+        """
+        Formats an ORDER BY clause.
+
+        Args:
+            clause: OrderByClause object containing the ordering specifications.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_limit_offset_clause(self, clause: "LimitOffsetClause") -> Tuple[str, tuple]:
+        """
+        Formats LIMIT and OFFSET clauses.
+
+        Args:
+            clause: LimitOffsetClause object containing the limit and offset specifications.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clauses.
+        """
+        raise NotImplementedError
 
     @abstractmethod
     def format_limit_offset(
@@ -1942,6 +1997,83 @@ class BaseDialect(SQLDialectBase):
 
         sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
         return sql.strip(), ()
+
+    def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
+        """Default implementation for WHERE clause formatting."""
+        condition_sql, condition_params = clause.condition.to_sql()
+        return f"WHERE {condition_sql}", condition_params
+
+    def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
+        """Default implementation for combined GROUP BY and HAVING clause formatting."""
+        all_params = []
+
+        # Process GROUP BY expressions
+        group_parts = []
+        for expr in clause.group_by:
+            expr_sql, expr_params = expr.to_sql()
+            group_parts.append(expr_sql)
+            all_params.extend(expr_params)
+
+        sql_parts = []
+        if group_parts:
+            sql_parts.append(f"GROUP BY {', '.join(group_parts)}")
+
+        # Process HAVING condition
+        if clause.having:
+            having_sql, having_params = clause.having.to_sql()
+            sql_parts.append(f"HAVING {having_sql}")
+            all_params.extend(having_params)
+
+        return " ".join(sql_parts), tuple(all_params)
+
+    def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
+        """Default implementation for ORDER BY clause formatting."""
+        all_params = []
+
+        expr_parts = []
+        for item in clause.expressions:
+            if isinstance(item, tuple):
+                # (expression, direction) format
+                expr, direction = item
+                expr_sql, expr_params = expr.to_sql()
+                expr_parts.append(f"{expr_sql} {direction.upper()}")
+                all_params.extend(expr_params)
+            else:
+                # Just expression (defaults to ASC)
+                expr_sql, expr_params = item.to_sql()
+                expr_parts.append(expr_sql)
+                all_params.extend(expr_params)
+
+        order_sql = f"ORDER BY {', '.join(expr_parts)}"
+        return order_sql, tuple(all_params)
+
+    def format_limit_offset_clause(self, clause: "LimitOffsetClause") -> Tuple[str, tuple]:
+        """Default implementation for LIMIT and OFFSET clause formatting."""
+        all_params = []
+
+        parts = []
+
+        if clause.limit is not None:
+            # Handle limit value - might be int or expression
+            if hasattr(clause.limit, 'to_sql'):
+                limit_sql, limit_params = clause.limit.to_sql()
+                parts.append(f"LIMIT {limit_sql}")
+                all_params.extend(limit_params)
+            else:
+                parts.append(f"LIMIT {self.get_placeholder()}")
+                all_params.append(clause.limit)
+
+        if clause.offset is not None:
+            # Handle offset value - might be int or expression
+            if hasattr(clause.offset, 'to_sql'):
+                offset_sql, offset_params = clause.offset.to_sql()
+                parts.append(f"OFFSET {offset_sql}")
+                all_params.extend(offset_params)
+            else:
+                parts.append(f"OFFSET {self.get_placeholder()}")
+                all_params.append(clause.offset)
+
+        return " ".join(parts), tuple(all_params)
 
     def format_explain(
         self,

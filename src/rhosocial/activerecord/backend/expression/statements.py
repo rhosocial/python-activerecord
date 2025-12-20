@@ -15,11 +15,13 @@ from dataclasses import dataclass, field
 from . import bases
 from . import core
 from . import mixins
+from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, QualifyClause, LimitOffsetClause, ForUpdateClause
 
 # if TYPE_CHECKING:
 #     from ..dialect import SQLDialectBase, ExplainOptions
 #     from .query_clauses import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
 #     from .advanced_functions import WindowFunctionCall, WindowSpecification, WindowFrameSpecification
+#     from .query_parts import WhereClause, GroupByClause, HavingClause, OrderByClause, LimitOffsetClause
 
 
 # region DML and DQL Statements
@@ -265,76 +267,142 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                      "TableFunctionExpression",   # Table function
                      "LateralExpression"          # LATERAL expression
                  ]] = None,
-                 where: Optional["bases.SQLPredicate"] = None,  # WHERE clause - optional, must be a predicate
-                 group_by: Optional[List["bases.BaseExpression"]] = None,  # GROUP BY clause - optional, list of expressions
-                 having: Optional["bases.SQLPredicate"] = None,  # HAVING clause - optional, only valid with GROUP BY, must be a predicate
-                 order_by: Optional[List[  # ORDER BY clause - optional, list of ordering specifications
-                     Union[
-                         "bases.BaseExpression",  # Expression ordering (assumes ASC direction)
-                         Tuple["bases.BaseExpression", str]  # (expression, ASC/DESC direction)
-                     ]
-                 ]] = None,
-                 qualify: Optional["bases.SQLPredicate"] = None,  # QUALIFY clause - optional, for filtering window function results
-                 limit: Optional[Union[int, "bases.BaseExpression"]] = None,  # LIMIT clause - optional, for limiting result count
-                 offset: Optional[Union[int, "bases.BaseExpression"]] = None,  # OFFSET clause - requires LIMIT, for skipping rows
-                 for_update: Optional["ForUpdateClause"] = None,  # FOR UPDATE clause - optional locking specification
+                 where: Optional["bases.SQLPredicate"] = None,  # Old-style WHERE condition (deprecated in favor of where_clause)
+                 where_clause: Optional["WhereClause"] = None,  # WHERE clause object (preferred over 'where' parameter)
+                 group_by: Optional[List["bases.BaseExpression"]] = None,  # Old-style GROUP BY expressions (deprecated in favor of group_by_having)
+                 having: Optional["bases.SQLPredicate"] = None,  # Old-style HAVING condition (deprecated in favor of group_by_having)
+                 group_by_having: Optional["GroupByHavingClause"] = None,  # Combined GROUP BY/HAVING clause object (preferred)
+                 order_by: Optional[List[Union["bases.BaseExpression", Tuple["bases.BaseExpression", str]]]] = None,  # Old-style ORDER BY expressions (deprecated in favor of order_by_clause)
+                 order_by_clause: Optional["OrderByClause"] = None,  # ORDER BY clause object (preferred over 'order_by' parameter)
+                 qualify: Optional["bases.SQLPredicate"] = None,  # Old-style QUALIFY condition (deprecated in favor of qualify_clause)
+                 qualify_clause: Optional["QualifyClause"] = None,  # QUALIFY clause object (preferred over 'qualify' parameter)
+                 limit: Optional[Union[int, "bases.BaseExpression"]] = None,  # Old-style LIMIT value (deprecated in favor of limit_offset_clause)
+                 offset: Optional[Union[int, "bases.BaseExpression"]] = None,  # Old-style OFFSET value (must use with LIMIT, deprecated in favor of limit_offset_clause)
+                 limit_offset_clause: Optional["LimitOffsetClause"] = None,  # Combined LIMIT/OFFSET clause object (preferred)
+                 for_update: Optional["ForUpdateClause"] = None,  # Old-style FOR UPDATE clause (deprecated in favor of for_update_clause)
+                 for_update_clause: Optional["ForUpdateClause"] = None,  # FOR UPDATE clause object (preferred over 'for_update' parameter)
                  select_modifier: Optional[SelectModifier] = None,  # SELECT modifier - DISTINCT|ALL, None means no modifier
                  *,  # Force keyword arguments
                  dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options - optional
         """
         Initialize a QueryExpression instance with the specified query components.
 
+        This class provides a comprehensive implementation of SQL SELECT statements with support for
+        all major SQL clauses through dedicated clause objects. This approach allows for better
+        encapsulation and validation of clause-specific requirements (e.g. HAVING requiring GROUP BY).
+
         Args:
             dialect: The SQL dialect instance that determines query generation rules
             select: List of expressions to select (required). At least one expression must be provided.
             from_: Source of data for the query (optional). Can be a table, subquery, join, etc.
-            where: Filtering condition applied to rows (optional). Must be a predicate.
-            group_by: List of expressions to group by (optional). Used with aggregate functions.
-            having: Group filtering condition (optional). Can only be used with GROUP BY. Must be a predicate.
-            order_by: List of ordering specifications (optional). Each can be an expression
-                     (defaults to ASC) or a tuple of (expression, direction).
-            qualify: Filtering condition for window function results (optional). Available in some dialects.
-            limit: Maximum number of rows to return (optional). Can be int or expression.
-            offset: Number of rows to skip before returning results (optional). Requires LIMIT.
-            for_update: Row locking specification (optional). Used for concurrent access control.
+            where_clause: WHERE clause object with the filtering condition (optional).
+            group_by_having: Combined GROUP BY/HAVING clause object (optional). Handles validation
+                           that HAVING requires GROUP BY within the clause object.
+            order_by_clause: ORDER BY clause object with the ordering specifications (optional).
+            qualify_clause: QUALIFY clause object with the filtering condition for window functions (optional).
+            limit_offset_clause: Combined LIMIT/OFFSET clause object (optional). Handles validation
+                                that OFFSET requires LIMIT within the clause object.
+            for_update_clause: FOR UPDATE clause object with the locking specification (optional).
             select_modifier: Modifier for the SELECT clause (optional). Options: DISTINCT, ALL.
             dialect_options: Additional database-specific parameters (optional).
 
         Raises:
-            ValueError: If HAVING is provided without GROUP BY
-                      If OFFSET is provided without LIMIT (depending on dialect support)
+            ValueError: If HAVING is provided without GROUP BY (validated within GroupByHavingClause)
+                      If OFFSET is provided without LIMIT (validated by dialect supports_offset_without_limit)
                       If assignments are empty (though not applicable to QueryExpression)
 
         Note:
-            - The HAVING clause requires a GROUP BY clause to be present
-            - OFFSET without LIMIT behavior depends on dialect support
-            - ORDER BY items can include either expressions (defaulting to ASC) or tuples of (expression, direction)
+            - Clause objects handle their own validation (e.g. GroupByHavingClause validates HAVING/GROUP BY dependency)
             - The select_modifier controls duplicate inclusion (DISTINCT removes duplicates, ALL keeps all rows)
+            - All SQL clauses are represented by dedicated clause objects for better encapsulation
         """
         super().__init__(dialect)
 
-        # Validate HAVING requires GROUP BY
+        # Validate HAVING requires GROUP BY (for old-style parameters)
         if having is not None and not group_by:
-            raise ValueError("HAVING clause requires GROUP BY clause")
+            raise ValueError("HAVING condition requires GROUP BY expressions")
 
-        # Validate OFFSET requires LIMIT (some databases allow OFFSET alone, but this is database-specific behavior)
+        # Validate OFFSET requires LIMIT (for old-style parameters)
         if offset is not None and limit is None:
-            # Decide whether to allow OFFSET without LIMIT based on dialect
             if not dialect.supports_offset_without_limit():
                 raise ValueError("OFFSET clause requires LIMIT clause in this dialect")
 
+        # Handle both old-style parameters and new clause objects for backward compatibility
+        # If both are provided, prefer the clause objects
+        self.where_clause = where_clause or (WhereClause(dialect, condition=where) if where is not None else None)
+        self.group_by_having = group_by_having or (GroupByHavingClause(dialect, group_by=group_by or [], having=having) if (group_by or having) else None)
+        self.order_by_clause = order_by_clause or (OrderByClause(dialect, expressions=order_by or []) if order_by is not None else None)
+        self.qualify_clause = qualify_clause or (QualifyClause(dialect, condition=qualify) if qualify is not None else None)
+
+        # Handle limit/offset either as separate parameters or as a combined clause
+        if limit_offset_clause:
+            self.limit_offset_clause = limit_offset_clause
+        elif limit is not None or offset is not None:
+            self.limit_offset_clause = LimitOffsetClause(dialect, limit=limit, offset=offset)
+        else:
+            self.limit_offset_clause = None
+
+        self.for_update_clause = for_update_clause or for_update  # Use either parameter name
+
+        # Store basic parameters
         self.select = select or []  # List of expressions to be selected
         self.from_ = from_  # Source of query data (optional)
-        self.where = where  # Filter condition (predicate), optional
-        self.group_by = group_by or []  # Grouping expressions, optional
-        self.having = having  # Group filter condition (predicate), optional, requires GROUP BY
-        self.order_by = order_by or []  # Ordering specifications, optional
-        self.qualify = qualify  # Window function filter condition, optional
-        self.limit = limit  # Result limit, optional
-        self.offset = offset  # Row skip count, optional, requires LIMIT
-        self.for_update = for_update  # FOR UPDATE clause object, optional
         self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
         self.dialect_options = dialect_options or {}  # Dialect-specific options
+
+    @property
+    def where(self) -> Optional["bases.SQLPredicate"]:
+        """Backward compatibility property for accessing WHERE condition."""
+        if self.where_clause:
+            return self.where_clause.condition
+        return None
+
+    @property
+    def group_by(self) -> List["bases.BaseExpression"]:
+        """Backward compatibility property for accessing GROUP BY expressions."""
+        if self.group_by_having and self.group_by_having.group_by:
+            return self.group_by_having.group_by
+        return []
+
+    @property
+    def having(self) -> Optional["bases.SQLPredicate"]:
+        """Backward compatibility property for accessing HAVING condition."""
+        if self.group_by_having:
+            return self.group_by_having.having
+        return None
+
+    @property
+    def order_by(self) -> List[Union["bases.BaseExpression", Tuple["bases.BaseExpression", str]]]:
+        """Backward compatibility property for accessing ORDER BY expressions."""
+        if self.order_by_clause and self.order_by_clause.expressions:
+            return self.order_by_clause.expressions
+        return []
+
+    @property
+    def qualify(self) -> Optional["bases.SQLPredicate"]:
+        """Backward compatibility property for accessing QUALIFY condition."""
+        if self.qualify_clause:
+            return self.qualify_clause.condition
+        return None
+
+    @property
+    def limit(self) -> Optional[Union[int, "bases.BaseExpression"]]:
+        """Backward compatibility property for accessing LIMIT value."""
+        if self.limit_offset_clause:
+            return self.limit_offset_clause.limit
+        return None
+
+    @property
+    def offset(self) -> Optional[Union[int, "bases.BaseExpression"]]:
+        """Backward compatibility property for accessing OFFSET value."""
+        if self.limit_offset_clause:
+            return self.limit_offset_clause.offset
+        return None
+
+    @property
+    def for_update(self) -> Optional["ForUpdateClause"]:
+        """Backward compatibility property for accessing FOR UPDATE clause."""
+        return self.for_update_clause
 
     def to_sql(self) -> Tuple[str, tuple]:
         """
@@ -529,8 +597,9 @@ class DeleteExpression(bases.BaseExpression):
             "JoinExpression",
             List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
         ]] = None,
-        where: Optional["bases.SQLPredicate"] = None,
-        returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
+        where: Optional["bases.SQLPredicate"] = None,  # Old-style WHERE condition (deprecated in favor of where_clause)
+        where_clause: Optional["WhereClause"] = None,  # WHERE clause object (preferred over 'where' parameter)
+        returning: Optional["ReturningClause"] = None,  # RETURNING clause object
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
@@ -538,8 +607,9 @@ class DeleteExpression(bases.BaseExpression):
         # Normalize the target table to a TableExpression
         self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
         self.from_ = from_
-        self.where = where
-        self.returning = returning  # ReturningClause object or None
+        # Handle both old-style 'where' and new-style 'where_clause' for backward compatibility
+        self.where_clause = where_clause or (WhereClause(dialect, condition=where) if where is not None else None)
+        self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
@@ -574,23 +644,25 @@ class UpdateExpression(bases.BaseExpression):
             "JoinExpression",
             List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
         ]] = None,
-        where: Optional["bases.SQLPredicate"] = None,
-        returning: Optional["ReturningClause"] = None,  # Using ReturningClause instead of list of expressions
+        where: Optional["bases.SQLPredicate"] = None,  # Old-style WHERE condition (deprecated in favor of where_clause)
+        where_clause: Optional["WhereClause"] = None,  # WHERE clause object (preferred over 'where' parameter)
+        returning: Optional["ReturningClause"] = None,  # RETURNING clause object
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
+
+        # Validate assignments
+        if not assignments:
+            raise ValueError("Assignments cannot be empty for an UPDATE statement.")
 
         # Normalize the target table to a TableExpression
         self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
         self.assignments = assignments
         self.from_ = from_
-        self.where = where
-        self.returning = returning  # ReturningClause object or None
+        # Handle both old-style 'where' and new-style 'where_clause' for backward compatibility
+        self.where_clause = where_clause or (WhereClause(dialect, condition=where) if where is not None else None)
+        self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
-
-        # Basic validation for assignments
-        if not self.assignments:
-            raise ValueError("Assignments cannot be empty for an UPDATE statement.")
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""

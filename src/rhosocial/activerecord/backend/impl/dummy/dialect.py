@@ -27,7 +27,11 @@ if TYPE_CHECKING:
         QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
         MergeExpression, ExplainExpression, CreateTableExpression,
         DropTableExpression, AlterTableExpression, OnConflictClause,
-        ReturningClause  # Added ReturningClause import
+        ReturningClause,  # Added ReturningClause import
+        CreateViewExpression, DropViewExpression, ViewCheckOption, ViewOptions  # View-related imports
+    )
+    from rhosocial.activerecord.backend.expression.query_parts import (
+        WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause, ForUpdateClause
     )
     from rhosocial.activerecord.backend.expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,
@@ -111,54 +115,43 @@ class DummyDialect(
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
         where_sql = ""
-        if expr.where:
-            where_expr_sql, where_expr_params = expr.where.to_sql()
-            where_sql = f" WHERE {where_expr_sql}"
+        if expr.where_clause:
+            where_expr_sql, where_expr_params = expr.where_clause.to_sql()
+            where_sql = f" {where_expr_sql}"
             all_params.extend(where_expr_params)
-        group_by_sql = ""
-        if expr.group_by:
-            group_by_parts = [e.to_sql()[0] for e in expr.group_by]
-            all_params.extend([p for e in expr.group_by for p in e.to_sql()[1]])
-            group_by_sql = f" GROUP BY {', '.join(group_by_parts)}"
-        having_sql = ""
-        if expr.having:
-            having_expr_sql, having_expr_params = expr.having.to_sql()
-            having_sql = f" HAVING {having_expr_sql}"
-            all_params.extend(having_expr_params)
+        # Handle group_by_having clause which combines GROUP BY and HAVING
+        group_by_having_sql = ""
+        if expr.group_by_having:
+            gbh_expr_sql, gbh_expr_params = expr.group_by_having.to_sql()
+            group_by_having_sql = f" {gbh_expr_sql}"
+            all_params.extend(gbh_expr_params)
         order_by_sql = ""
-        if expr.order_by:
-            order_by_parts = []
-            for item in expr.order_by:
-                if isinstance(item, tuple):
-                    e, direction = item
-                    expr_sql, expr_params = e.to_sql()
-                    order_by_parts.append(f"{expr_sql} {direction.upper()}")
-                    all_params.extend(expr_params)
-                else:
-                    expr_sql, expr_params = item.to_sql()
-                    order_by_parts.append(expr_sql)
-                    all_params.extend(expr_params)
-            order_by_sql = f" ORDER BY {', '.join(order_by_parts)}"
+        if expr.order_by_clause:
+            order_by_expr_sql, order_by_expr_params = expr.order_by_clause.to_sql()
+            order_by_sql = f" {order_by_expr_sql}"
+            all_params.extend(order_by_expr_params)
         qualify_sql = ""
-        if expr.qualify:
-            qualify_expr_sql, qualify_expr_params = expr.qualify.to_sql()
+        if expr.qualify_clause:
+            qualify_expr_sql, qualify_expr_params = expr.qualify_clause.to_sql()
             qualify_sql = f" QUALIFY {qualify_expr_sql}"
             all_params.extend(qualify_expr_params)
 
         # Build initial SQL without FOR UPDATE
-        sql = f"{select_sql}{from_sql}{where_sql}{group_by_sql}{having_sql}{order_by_sql}{qualify_sql}"
+        sql = f"{select_sql}{from_sql}{where_sql}{group_by_having_sql}{order_by_sql}{qualify_sql}"
 
         # Add FOR UPDATE clause at the end (if present)
-        if expr.for_update:
-            for_update_sql, for_update_params = expr.for_update.to_sql()
+        if expr.for_update_clause:
+            for_update_sql, for_update_params = expr.for_update_clause.to_sql()
             if for_update_sql:
                 sql += f" {for_update_sql}"
                 all_params.extend(for_update_params)
 
-        limit_offset_sql, limit_offset_params = self.format_limit_offset(expr.limit, expr.offset)
-        if limit_offset_sql:
-            sql += " " + limit_offset_sql
-            all_params.extend(limit_offset_params)
+        # Add LIMIT/OFFSET clause at the end (if present)
+        if expr.limit_offset_clause:
+            limit_offset_sql, limit_offset_params = expr.limit_offset_clause.to_sql()
+            if limit_offset_sql:
+                sql += f" {limit_offset_sql}"
+                all_params.extend(limit_offset_params)
         return sql, tuple(all_params)
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
@@ -251,9 +244,10 @@ class DummyDialect(
                 all_params.extend(from_expr_params)
 
         # WHERE clause
-        if expr.where:
-            where_sql, where_params = expr.where.to_sql()
-            current_sql += f" WHERE {where_sql}" # Append directly with leading space
+        if expr.where_clause:
+            where_sql, where_params = expr.where_clause.to_sql()
+            # The WhereClause.to_sql() returns "WHERE condition", so just append it
+            current_sql += f" {where_sql}" # Append directly with leading space
             all_params.extend(where_params)
 
         # RETURNING clause
@@ -302,9 +296,10 @@ class DummyDialect(
                 all_params.extend(from_expr_params)
 
         # WHERE clause
-        if expr.where:
-            where_sql, where_params = expr.where.to_sql()
-            current_sql += f" WHERE {where_sql}"
+        if expr.where_clause:
+            where_sql, where_params = expr.where_clause.to_sql()
+            # The WhereClause.to_sql() returns "WHERE condition", so just append it
+            current_sql += f" {where_sql}"
             all_params.extend(where_params)
 
         # RETURNING clause
@@ -946,6 +941,170 @@ class DummyDialect(
     def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
         if not options: return "", ()
         sql_parts, params = ["FOR SYSTEM_TIME"], []
+
+    # region View and Query Part Formatting Methods
+
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
+        """Format CREATE VIEW statement with comprehensive support for different options."""
+        all_params = []
+
+        # Build the basic statement with options
+        parts = ["CREATE"]
+
+        # Add replace if needed
+        if expr.replace:
+            parts.append("OR REPLACE")
+
+        # Add temporary if needed
+        if expr.temporary:
+            parts.append("TEMPORARY")
+
+        parts.append("VIEW")
+        parts.append(self.format_identifier(expr.view_name))
+
+        # Add column aliases if specified
+        if expr.column_aliases:
+            alias_parts = []
+            for alias in expr.column_aliases:
+                if isinstance(alias, str):
+                    alias_parts.append(self.format_identifier(alias))
+                else:  # ColumnAlias object
+                    alias_parts.append(self.format_identifier(alias.alias or alias.name))
+            parts.append(f"({', '.join(alias_parts)})")
+
+        # Add AS and the query
+        query_sql, query_params = expr.query.to_sql()
+        parts.append(f" AS ({query_sql})")
+        all_params.extend(query_params)
+
+        # Handle view-specific options
+        from rhosocial.activerecord.backend.expression.statements import ViewCheckOption
+        options = expr.options
+        if options.check_option:
+            # Handle check option based on enum value
+            if options.check_option == ViewCheckOption.LOCAL:
+                parts.append(" WITH LOCAL CHECK OPTION")
+            elif options.check_option == ViewCheckOption.CASCADED:
+                parts.append(" WITH CASCADED CHECK OPTION")
+
+        return " ".join(parts), tuple(all_params)
+
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
+        """Format DROP VIEW statement with IF EXISTS and CASCADE options."""
+        if_exists_part = "IF EXISTS " if expr.if_exists else ""
+        cascade_part = " CASCADE" if expr.cascade else ""
+
+        sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
+        return sql.strip(), ()
+
+    def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
+        """Format WHERE clause with condition."""
+        condition_sql, condition_params = clause.condition.to_sql()
+        return f"WHERE {condition_sql}", condition_params
+
+    def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
+        """Format combined GROUP BY and HAVING clauses."""
+        all_params = []
+
+        # Process GROUP BY expressions
+        group_parts = []
+        for expr in clause.group_by:
+            expr_sql, expr_params = expr.to_sql()
+            group_parts.append(expr_sql)
+            all_params.extend(expr_params)
+
+        sql_parts = []
+        if group_parts:
+            sql_parts.append(f"GROUP BY {', '.join(group_parts)}")
+
+        # Process HAVING condition
+        if clause.having:
+            having_sql, having_params = clause.having.to_sql()
+            sql_parts.append(f"HAVING {having_sql}")
+            all_params.extend(having_params)
+
+        return " ".join(sql_parts), tuple(all_params)
+
+    def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
+        """Format ORDER BY clause with expressions and directions."""
+        all_params = []
+
+        expr_parts = []
+        for item in clause.expressions:
+            if isinstance(item, tuple):
+                # (expression, direction) format
+                expr, direction = item
+                expr_sql, expr_params = expr.to_sql()
+                expr_parts.append(f"{expr_sql} {direction.upper()}")
+                all_params.extend(expr_params)
+            else:
+                # Just expression (defaults to ASC)
+                expr_sql, expr_params = item.to_sql()
+                expr_parts.append(expr_sql)
+                all_params.extend(expr_params)
+
+        order_sql = f"ORDER BY {', '.join(expr_parts)}"
+        return order_sql, tuple(all_params)
+
+    def format_limit_offset_clause(self, clause: "LimitOffsetClause") -> Tuple[str, tuple]:
+        """Format LIMIT and OFFSET clauses."""
+        all_params = []
+
+        parts = []
+
+        if clause.limit is not None:
+            # Handle limit value - might be int or expression
+            if hasattr(clause.limit, 'to_sql'):
+                limit_sql, limit_params = clause.limit.to_sql()
+                parts.append(f"LIMIT {limit_sql}")
+                all_params.extend(limit_params)
+            else:
+                parts.append(f"LIMIT {self.get_placeholder()}")
+                all_params.append(clause.limit)
+
+        if clause.offset is not None:
+            # Handle offset value - might be int or expression
+            if hasattr(clause.offset, 'to_sql'):
+                offset_sql, offset_params = clause.offset.to_sql()
+                parts.append(f"OFFSET {offset_sql}")
+                all_params.extend(offset_params)
+            else:
+                parts.append(f"OFFSET {self.get_placeholder()}")
+                all_params.append(clause.offset)
+
+        return " ".join(parts), tuple(all_params)
+
+    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
+        """Format QUALIFY clause with condition (available in some SQL dialects like Snowflake)."""
+        condition_sql, condition_params = clause.condition.to_sql()
+        return f"QUALIFY {condition_sql}", condition_params
+
+    def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
+        """Format FOR UPDATE clause with optional column specification and options."""
+        parts = ["FOR UPDATE"]
+        all_params = []
+
+        # Handle 'OF' columns if specified
+        if clause.of_columns:
+            of_parts = []
+            for col in clause.of_columns:
+                if isinstance(col, str):
+                    of_parts.append(self.format_identifier(col))
+                elif hasattr(col, 'to_sql'):  # BaseExpression
+                    col_sql, col_params = col.to_sql()
+                    of_parts.append(col_sql)
+                    all_params.extend(col_params)
+            if of_parts:
+                parts.append(f"OF {', '.join(of_parts)}")
+
+        # Handle NOWAIT/SKIP LOCKED options
+        if clause.nowait:
+            parts.append("NOWAIT")
+        elif clause.skip_locked:
+            parts.append("SKIP LOCKED")
+
+        return " ".join(parts), tuple(all_params)
+    # endregion View and Query Part Formatting Methods
         if "as_of" in options:
             sql_parts.append("AS OF ?")
             params.append(options["as_of"])

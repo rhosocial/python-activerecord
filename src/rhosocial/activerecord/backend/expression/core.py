@@ -29,33 +29,43 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
 
 class Column(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
     """Represents a column in a SQL query."""
-    def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None):
+    def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias_name: Optional[str] = None):
         super().__init__(dialect)
         self.name = name
         self.table = table
-        self.alias = alias
+        self.alias_name = alias_name  # Changed from 'alias' to 'alias_name' to avoid conflict with mixin method
 
     def to_sql(self) -> Tuple[str, tuple]:
-        return self.dialect.format_column(self.name, self.table, self.alias)
+        return self.dialect.format_column(self.name, self.table, self.alias_name)
+
+    @property
+    def alias(self) -> Optional[str]:
+        """Property to access the alias_name for compatibility with dialect methods."""
+        return self.alias_name
 
 
 class FunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
     """Represents a scalar SQL function call, such as LOWER, CONCAT, etc."""
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression",
-                 is_distinct: bool = False, alias: Optional[str] = None):
+                 is_distinct: bool = False, alias_name: Optional[str] = None):
         super().__init__(dialect)
         self.func_name = func_name
         self.args = list(args)
         self.is_distinct = is_distinct
-        self.alias = alias
+        self.alias_name = alias_name  # Changed from 'alias' to 'alias_name' to avoid conflict with mixin method
 
     def to_sql(self) -> Tuple[str, tuple]:
         formatted_args_sql = [arg.to_sql()[0] for arg in self.args]
         args_params = [arg.to_sql()[1] for arg in self.args]
         return self.dialect.format_function_call(
-            self.func_name, formatted_args_sql, args_params, self.is_distinct, self.alias,
+            self.func_name, formatted_args_sql, args_params, self.is_distinct, self.alias_name,
             filter_sql=None, filter_params=None
         )
+
+    @property
+    def alias(self) -> Optional[str]:
+        """Property to access the alias_name for compatibility with dialect methods."""
+        return self.alias_name
 
 
 class Subquery(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):

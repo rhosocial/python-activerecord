@@ -9,6 +9,7 @@ from rhosocial.activerecord.backend.expression.statements import (
     ReferentialAction, ForeignKeyConstraint, ColumnConstraint, ColumnConstraintType,
     QueryExpression, ForUpdateClause, SelectModifier
 )
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -271,11 +272,15 @@ class TestCreateTableStatements:
 
     def test_create_table_as_query_result(self, dummy_dialect: DummyDialect):
         """Tests CREATE TABLE AS with a query result."""
+        where_clause = WhereClause(
+            dummy_dialect,
+            condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
         query = QueryExpression(
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            where_clause=where_clause
         )
         
         columns = [  # For CREATE TABLE AS, columns list may be empty since they're defined by the query
