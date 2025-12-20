@@ -558,7 +558,9 @@ class DummyDialect(
         return "".join(parts), tuple(all_params)
 
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
-        return f"DROP TABLE {self.format_identifier(expr.table_name)}", ()
+        if_exists_part = "IF EXISTS " if expr.if_exists else ""
+        sql = f"DROP TABLE {if_exists_part}{self.format_identifier(expr.table_name)}"
+        return sql.strip(), ()
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         return f"ALTER TABLE {self.format_identifier(expr.table_name)} ...", ()
