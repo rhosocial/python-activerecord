@@ -5,7 +5,9 @@ These mixins are designed to be composed into StorageBackend classes.
 """
 from typing import Optional, Union, List, Dict, Tuple, Type
 
-from ..dialect import ReturningOptions
+from ..expression.statements import ReturningClause
+from ..expression import Column, Literal
+from typing import List, Optional, Union
 from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions
 from ..result import QueryResult
 from ..schema import StatementType

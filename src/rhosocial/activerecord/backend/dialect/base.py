@@ -17,8 +17,8 @@ if TYPE_CHECKING:
         MergeExpression, ExplainExpression, CreateTableExpression,
         DropTableExpression, AlterTableExpression, OnConflictClause, ForUpdateClause,
         ExplainOptions,  # Updated import to reference ExplainOptions from expression module
-        ReturningClause  # Added ReturningClause import
-    )
+        ReturningClause, ColumnConstraintType, TableConstraintType  # Added ReturningClause import
+)
     from ..expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,
         WindowClause, WindowFunctionCall

@@ -53,10 +53,6 @@ from .protocols import (
     LockingSupport,
     GraphSupport,
 )
-from .options import (
-    ReturningType,
-    ReturningOptions,
-)
 
 __all__ = [
     # Base classes
@@ -85,7 +81,4 @@ __all__ = [
     'LockingSupport',
     'GraphSupport',
 
-    # Options and enums
-    'ReturningType',
-    'ReturningOptions',
 ]
