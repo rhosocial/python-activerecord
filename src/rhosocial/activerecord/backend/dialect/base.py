@@ -588,7 +588,8 @@ class SQLDialectBase(ABC):
         value_params: Optional[tuple],
         conditions_results: List[Tuple[str, str, tuple, tuple]],
         else_result_sql: Optional[str],
-        else_result_params: Optional[tuple]
+        else_result_params: Optional[tuple],
+        alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """
         Format CASE expression.
@@ -599,6 +600,7 @@ class SQLDialectBase(ABC):
             conditions_results: List of (condition_sql, result_sql, condition_params, result_params)
             else_result_sql: Optional ELSE result SQL
             else_result_params: ELSE result parameters
+            alias: Optional alias for the CASE expression
 
         Returns:
             Tuple of (SQL string, parameters tuple)

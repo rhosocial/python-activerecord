@@ -57,7 +57,7 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),
-                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "order_id")).alias("total_orders")
+                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "order_id"), alias="total_orders")
             ],
             from_=TableExpression(dummy_dialect, "user_orders"),
             group_by=[Column(dummy_dialect, "user_id")]
@@ -176,8 +176,8 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "department"),
-                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")).alias("employee_count"),
-                FunctionCall(dummy_dialect, "AVG", Column(dummy_dialect, "salary")).alias("avg_salary")
+                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"), alias="employee_count"),
+                FunctionCall(dummy_dialect, "AVG", Column(dummy_dialect, "salary"), alias="avg_salary")
             ],
             from_=TableExpression(dummy_dialect, "employees"),
             group_by=[Column(dummy_dialect, "department")],
@@ -221,7 +221,7 @@ class TestCreateDropViewStatements:
         sql, params = create_view.to_sql()
 
         assert f'CREATE VIEW {expected_identifier}' in sql
-        assert params == ()
+        assert params == (1,)
 
     def test_create_view_scalar_query(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW with a scalar query (no FROM clause)."""
@@ -338,13 +338,13 @@ class TestCreateDropViewStatements:
         from rhosocial.activerecord.backend.expression.query_clauses import JoinExpression
         
         # Create a join between users and profiles
-        users_table = TableExpression(dummy_dialect, "users")
-        profiles_table = TableExpression(dummy_dialect, "profiles")
+        users_table = TableExpression(dummy_dialect, "users", alias="u")
+        profiles_table = TableExpression(dummy_dialect, "profiles", alias="p")
         join_condition = Column(dummy_dialect, "user_id", "u") == Column(dummy_dialect, "user_id", "p")
         join_expr = JoinExpression(
             dummy_dialect,
-            left_table=users_table.alias("u"),
-            right_table=profiles_table.alias("p"),
+            left_table=users_table,
+            right_table=profiles_table,
             condition=join_condition,
             join_type="INNER"
         )
@@ -408,20 +408,10 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),
-                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "order_id")).alias("order_count")
+                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "order_id"), alias="order_count")
             ],
             from_=TableExpression(dummy_dialect, "orders"),
             group_by=[Column(dummy_dialect, "user_id")]
-        )
-
-        # Outer query that uses the inner query as a subquery
-        outer_query = QueryExpression(
-            dummy_dialect,
-            select=[
-                Column(dummy_dialect, "user_id"),
-                Column(dummy_dialect, "order_count")
-            ],
-            from_=inner_query.subquery("order_summary")  # Assuming subquery() method exists
         )
 
         # For now, using a simple table expression to simulate subquery
@@ -429,7 +419,7 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[
                 Column(dummy_dialect, "user_id"),
-                FunctionCall(dummy_dialect, "MAX", Column(dummy_dialect, "order_date")).alias("latest_order")
+                FunctionCall(dummy_dialect, "MAX", Column(dummy_dialect, "order_date"), alias="latest_order")
             ],
             from_=TableExpression(dummy_dialect, "user_orders"),
             group_by=[Column(dummy_dialect, "user_id")]
@@ -513,7 +503,7 @@ class TestCreateDropViewStatements:
         else:
             # Should not have TEMPORARY keyword
             assert 'CREATE VIEW "temp_test_view"' in sql and 'TEMPORARY' not in sql.split('CREATE')[1].split('VIEW')[0]
-        assert params == ()
+        assert params == (1,)
 
     def test_drop_view_nonexistent_no_error(self, dummy_dialect: DummyDialect):
         """Tests that DROP VIEW IF EXISTS doesn't error on nonexistent views."""

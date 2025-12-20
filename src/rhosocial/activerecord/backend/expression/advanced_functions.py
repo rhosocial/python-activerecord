@@ -19,11 +19,13 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
     def __init__(self, dialect: "SQLDialectBase",
                  value: Optional["bases.BaseExpression"] = None,
                  cases: Optional[list] = None,
-                 else_result: Optional["bases.BaseExpression"] = None):
+                 else_result: Optional["bases.BaseExpression"] = None,
+                 alias: Optional[str] = None):
         super().__init__(dialect)
         self.value = value
         self.cases = cases or []
         self.else_result = else_result
+        self.alias = alias
 
     def to_sql(self) -> Tuple[str, tuple]:
         value_sql, value_params = self.value.to_sql() if self.value else (None, None)
@@ -38,7 +40,7 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         else_sql, else_params = self.else_result.to_sql() if self.else_result else (None, None)
         if else_params:
             all_params.extend(else_params)
-        return self.dialect.format_case_expression(value_sql, value_params, conditions_results, else_sql, else_params)
+        return self.dialect.format_case_expression(value_sql, value_params, conditions_results, else_sql, else_params, self.alias)
 
 
 class CastExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):

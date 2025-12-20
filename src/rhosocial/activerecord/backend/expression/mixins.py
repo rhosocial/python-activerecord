@@ -121,22 +121,6 @@ class ArithmeticMixin:
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return BinaryArithmeticExpression(self.dialect, "%", self, other_expr)
 
-    def alias(self: "SQLValueExpression", alias_name: str) -> "SQLValueExpression":
-        """
-        Creates a copy of the expression with an alias applied.
-
-        Args:
-            alias_name: The alias to apply to the expression
-
-        Returns:
-            A new instance of the same expression type with the alias set
-        """
-        # Create a new instance of the same type with the same attributes but with the alias updated
-        import copy
-        new_instance = copy.copy(self)
-        new_instance.alias = alias_name
-        return new_instance
-
 
 class LogicalMixin:
     """Provides logical operators (&, |, ~)."""

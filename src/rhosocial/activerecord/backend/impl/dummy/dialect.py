@@ -1124,6 +1124,42 @@ class DummyDialect(
         sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias)}"
         return sql, params
 
+    def format_case_expression(
+        self,
+        value_sql: Optional[str],
+        value_params: Optional[tuple],
+        conditions_results: List[Tuple[str, str, tuple, tuple]],
+        else_result_sql: Optional[str],
+        else_result_params: Optional[tuple],
+        alias: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """Format CASE expression with optional alias."""
+        all_params = list(value_params) if value_params else []
+
+        # Build the CASE expression
+        parts = ["CASE"]
+        if value_sql:
+            parts.append(value_sql)
+
+        for condition_sql, result_sql, condition_params, result_params in conditions_results:
+            parts.append(f"WHEN {condition_sql} THEN {result_sql}")
+            all_params.extend(condition_params)
+            all_params.extend(result_params)
+
+        if else_result_sql:
+            parts.append(f"ELSE {else_result_sql}")
+            all_params.extend(else_result_params)
+
+        parts.append("END")
+
+        case_sql = " ".join(parts)
+
+        # Add alias if provided
+        if alias:
+            case_sql = f"{case_sql} AS {self.format_identifier(alias)}"
+
+        return case_sql, tuple(all_params)
+
     def format_ordered_set_aggregation(self, func_name: str, func_args_sql: List[str], func_args_params: tuple, order_by_sql: List[str], order_by_params: tuple, alias: Optional[str] = None) -> Tuple[str, Tuple]:
         all_params = list(func_args_params) + list(order_by_params)
         func_part = f"{func_name.upper()}({', '.join(func_args_sql)})"
