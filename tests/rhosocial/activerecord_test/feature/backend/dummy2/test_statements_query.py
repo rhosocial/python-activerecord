@@ -55,7 +55,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            for_update_clause=for_update_clause
+            for_update=for_update_clause
         )
         sql, params = query.to_sql()
         assert 'SELECT "id", "name" FROM "users" FOR UPDATE OF "id", "name" SKIP LOCKED' == sql
@@ -73,7 +73,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "locks"),
-            for_update_clause=for_update_clause
+            for_update=for_update_clause
         )
         sql, params = query.to_sql()
         assert 'SELECT "id" FROM "locks" FOR UPDATE OF "id" NOWAIT' == sql
@@ -351,7 +351,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "users"),
-            limit_offset_clause=limit_offset_clause  # Use limit/offset clause object with just offset
+            limit_offset=limit_offset_clause  # Use limit/offset clause object with just offset
         )
         sql, params = query.to_sql()
         assert "OFFSET ?" in sql
@@ -384,7 +384,7 @@ class TestQueryStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            order_by_clause=order_by_clause
+            order_by=order_by_clause
         )
         sql, params = query.to_sql()
         assert 'ORDER BY "name", "id"' in sql
@@ -418,7 +418,7 @@ class TestQueryStatements:
             select=[Column(dummy_dialect, "category"), FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"))],
             from_=TableExpression(dummy_dialect, "products"),
             group_by_having=group_by_having,  # Use new GROUP BY/HAVING clause object
-            qualify_clause=qualify_clause   # Use new QUALIFY clause object
+            qualify=qualify_clause   # Use new QUALIFY clause object
         )
         sql, params = query.to_sql()
         assert 'QUALIFY COUNT("id") > ?' in sql

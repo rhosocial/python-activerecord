@@ -280,7 +280,7 @@ class TestCreateTableStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            where_clause=where_clause
+            where=where_clause
         )
         
         columns = [  # For CREATE TABLE AS, columns list may be empty since they're defined by the query

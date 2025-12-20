@@ -287,7 +287,7 @@ class TestInsertStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
             from_=TableExpression(dummy_dialect, "old_users"),
-            where_clause=where_clause
+            where=where_clause
         )
         source = SelectSource(dummy_dialect, select_query=select_query)
         insert_expr = InsertExpression(

@@ -10,6 +10,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 )
 from rhosocial.activerecord.backend.expression.statements import ValuesSource
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 
 
 class TestExplainStatements:
@@ -47,7 +48,7 @@ class TestExplainStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "products"),
-            where=Column(dummy_dialect, "price") > Literal(dummy_dialect, 100)
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "price") > Literal(dummy_dialect, 100))
         )
 
         # Create EXPLAIN options
@@ -98,7 +99,7 @@ class TestExplainStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "total")],
             from_=TableExpression(dummy_dialect, "orders"),
-            where=Column(dummy_dialect, "order_date") > Literal(dummy_dialect, "2024-01-01")
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "order_date") > Literal(dummy_dialect, "2024-01-01"))
         )
 
         # Create EXPLAIN options with ANALYZE and JSON format

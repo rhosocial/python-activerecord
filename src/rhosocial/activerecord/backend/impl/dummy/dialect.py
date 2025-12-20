@@ -115,8 +115,8 @@ class DummyDialect(
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
         where_sql = ""
-        if expr.where_clause:
-            where_expr_sql, where_expr_params = expr.where_clause.to_sql()
+        if expr.where:
+            where_expr_sql, where_expr_params = expr.where.to_sql()
             where_sql = f" {where_expr_sql}"
             all_params.extend(where_expr_params)
         # Handle group_by_having clause which combines GROUP BY and HAVING
@@ -126,13 +126,13 @@ class DummyDialect(
             group_by_having_sql = f" {gbh_expr_sql}"
             all_params.extend(gbh_expr_params)
         order_by_sql = ""
-        if expr.order_by_clause:
-            order_by_expr_sql, order_by_expr_params = expr.order_by_clause.to_sql()
+        if expr.order_by:
+            order_by_expr_sql, order_by_expr_params = expr.order_by.to_sql()
             order_by_sql = f" {order_by_expr_sql}"
             all_params.extend(order_by_expr_params)
         qualify_sql = ""
-        if expr.qualify_clause:
-            qualify_expr_sql, qualify_expr_params = expr.qualify_clause.to_sql()
+        if expr.qualify:
+            qualify_expr_sql, qualify_expr_params = expr.qualify.to_sql()
             qualify_sql = f" QUALIFY {qualify_expr_sql}"
             all_params.extend(qualify_expr_params)
 
@@ -140,15 +140,15 @@ class DummyDialect(
         sql = f"{select_sql}{from_sql}{where_sql}{group_by_having_sql}{order_by_sql}{qualify_sql}"
 
         # Add FOR UPDATE clause at the end (if present)
-        if expr.for_update_clause:
-            for_update_sql, for_update_params = expr.for_update_clause.to_sql()
+        if expr.for_update:
+            for_update_sql, for_update_params = expr.for_update.to_sql()
             if for_update_sql:
                 sql += f" {for_update_sql}"
                 all_params.extend(for_update_params)
 
         # Add LIMIT/OFFSET clause at the end (if present)
-        if expr.limit_offset_clause:
-            limit_offset_sql, limit_offset_params = expr.limit_offset_clause.to_sql()
+        if expr.limit_offset:
+            limit_offset_sql, limit_offset_params = expr.limit_offset.to_sql()
             if limit_offset_sql:
                 sql += f" {limit_offset_sql}"
                 all_params.extend(limit_offset_params)

@@ -12,6 +12,9 @@ from rhosocial.activerecord.backend.expression import (
     WindowFrameSpecification, WindowSpecification, WindowDefinition,
     WindowClause, WindowFunctionCall
 )
+from rhosocial.activerecord.backend.expression.query_parts import (
+    WhereClause
+)
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -116,7 +119,7 @@ class TestAdvancedFunctionWindow:
             dummy_dialect,
             select=[Column(dummy_dialect, "id")],
             from_=TableExpression(dummy_dialect, "orders"),
-            where=Column(dummy_dialect, "user_id") == Column(dummy_dialect, "id", "u")
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "user_id") == Column(dummy_dialect, "id", "u"))
         )
         exists_expr = ExistsExpression(dummy_dialect, subquery)
         sql, params = exists_expr.to_sql()

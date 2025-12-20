@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     CreateViewExpression, DropViewExpression
 )
 from rhosocial.activerecord.backend.expression.statements import ViewOptions, ViewCheckOption
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause, GroupByHavingClause, LimitOffsetClause
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
@@ -36,7 +36,7 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"))],
             from_=TableExpression(dummy_dialect, "orders"),
-            group_by=[Column(dummy_dialect, "user_id")]
+            group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")])
         )
 
         create_view = CreateViewExpression(
@@ -60,7 +60,7 @@ class TestCreateDropViewStatements:
                 FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "order_id"), alias="total_orders")
             ],
             from_=TableExpression(dummy_dialect, "user_orders"),
-            group_by=[Column(dummy_dialect, "user_id")]
+            group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")])
         )
 
         create_view = CreateViewExpression(
@@ -106,7 +106,7 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "status")],
             from_=TableExpression(dummy_dialect, "entities"),
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"))
         )
 
         options = ViewOptions(check_option=check_option)
@@ -180,8 +180,11 @@ class TestCreateDropViewStatements:
                 FunctionCall(dummy_dialect, "AVG", Column(dummy_dialect, "salary"), alias="avg_salary")
             ],
             from_=TableExpression(dummy_dialect, "employees"),
-            group_by=[Column(dummy_dialect, "department")],
-            having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 5)
+            group_by_having=GroupByHavingClause(
+                dummy_dialect,
+                group_by=[Column(dummy_dialect, "department")],
+                having=FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")) > Literal(dummy_dialect, 5)
+            )
         )
 
         create_view = CreateViewExpression(
@@ -255,7 +258,7 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
             from_=TableExpression(dummy_dialect, "users"),
-            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")  # Using overloaded operator
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"))  # Using overloaded operator
         )
 
         create_view = CreateViewExpression(
@@ -276,8 +279,8 @@ class TestCreateDropViewStatements:
             dummy_dialect,
             select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "created_at")],
             from_=TableExpression(dummy_dialect, "recent_items"),
-            order_by=[(Column(dummy_dialect, "created_at"), "DESC")],
-            limit=10
+            order_by=OrderByClause(dummy_dialect, expressions=[(Column(dummy_dialect, "created_at"), "DESC")]),
+            limit_offset=LimitOffsetClause(dummy_dialect, limit=10)
         )
 
         create_view = CreateViewExpression(
@@ -411,7 +414,7 @@ class TestCreateDropViewStatements:
                 FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "order_id"), alias="order_count")
             ],
             from_=TableExpression(dummy_dialect, "orders"),
-            group_by=[Column(dummy_dialect, "user_id")]
+            group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")])
         )
 
         # For now, using a simple table expression to simulate subquery
@@ -422,7 +425,7 @@ class TestCreateDropViewStatements:
                 FunctionCall(dummy_dialect, "MAX", Column(dummy_dialect, "order_date"), alias="latest_order")
             ],
             from_=TableExpression(dummy_dialect, "user_orders"),
-            group_by=[Column(dummy_dialect, "user_id")]
+            group_by_having=GroupByHavingClause(dummy_dialect, group_by=[Column(dummy_dialect, "user_id")])
         )
 
         create_view = CreateViewExpression(
