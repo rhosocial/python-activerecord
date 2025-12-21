@@ -36,29 +36,38 @@ class TestFunctionExpressions:
         assert sql == expected_sql
         assert params == expected_params
 
-    @pytest.mark.parametrize("agg_func, arg_data, alias, is_distinct, expected_sql, expected_params", [
-        (count, "*", None, False, "COUNT(*)", ()),
-        (count, ("Column", "id"), "total", False, 'COUNT(*) AS "total"', ()),
-        (sum_, ("Column", "amount"), None, False, 'SUM("amount")', ()),
-        (avg, ("Column", "score"), "avg_score", True, 'AVG(DISTINCT "score") AS "avg_score"', ()),
-    ])
-    def test_aggregate_function_factories(self, dummy_dialect: DummyDialect, agg_func, arg_data, alias, is_distinct, expected_sql, expected_params):
-        """Tests aggregate function factories (count, sum_, avg) with various configurations."""
-        if isinstance(arg_data, tuple) and arg_data[0] == "Column":
-            arg_expr = Column(dummy_dialect, arg_data[1])
-        else:
-            arg_expr = Literal(dummy_dialect, arg_data)
-
-        # Create the aggregate function using the factory
-        agg_call = agg_func(dummy_dialect, arg_expr, alias=alias, is_distinct=is_distinct)
+    def test_count_star(self, dummy_dialect: DummyDialect):
+        """Test COUNT(*) function."""
+        agg_call = count(dummy_dialect, "*")
         sql, params = agg_call.to_sql()
-        assert sql == expected_sql
-        assert params == expected_params
+        assert sql == "COUNT(*)"
+        assert params == ()
+
+    def test_count_column_with_alias(self, dummy_dialect: DummyDialect):
+        """Test COUNT(column) with alias."""
+        agg_call = count(dummy_dialect, Column(dummy_dialect, "id"), alias="total")
+        sql, params = agg_call.to_sql()
+        assert sql == 'COUNT("id") AS "total"'
+        assert params == ()
+
+    def test_sum_column(self, dummy_dialect: DummyDialect):
+        """Test SUM(column) function."""
+        agg_call = sum_(dummy_dialect, Column(dummy_dialect, "amount"))
+        sql, params = agg_call.to_sql()
+        assert sql == 'SUM("amount")'
+        assert params == ()
+
+    def test_avg_distinct_with_alias(self, dummy_dialect: DummyDialect):
+        """Test AVG(DISTINCT column) with alias."""
+        agg_call = avg(dummy_dialect, Column(dummy_dialect, "score"), is_distinct=True, alias="avg_score")
+        sql, params = agg_call.to_sql()
+        assert sql == 'AVG(DISTINCT "score") AS "avg_score"'
+        assert params == ()
 
     def test_aggregate_function_with_filter_clause(self, dummy_dialect: DummyDialect):
         """Tests an aggregate function with a FILTER (WHERE ...) clause."""
         # COUNT with a single filter
-        active_count = count(dummy_dialect, Literal(dummy_dialect, "*"), alias="active_count").filter(
+        active_count = count(dummy_dialect, "*", alias="active_count").filter(
             Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         )
         sql, params = active_count.to_sql()

@@ -69,6 +69,31 @@ from .query_sources import (
     JSONTableColumn,
     JSONTableExpression,
 )
+
+# Import all function factories
+from .functions import (
+    # Aggregate function factories
+    count, sum_, avg, min_, max_,
+    # Scalar function factories
+    lower, upper, concat, coalesce,
+    # String function factories
+    length, substring, trim, replace, initcap, left, right, lpad, rpad, reverse, strpos,
+    # Math function factories
+    abs_, round_, ceil, floor, sqrt, power, exp, log, sin, cos, tan,
+    # Date/Time function factories
+    now, current_date, current_time, year, month, day, hour, minute, second,
+    date_part, date_trunc,
+    # Conditional function factories
+    case, nullif, greatest, least,
+    # Window function factories
+    row_number, rank, dense_rank, lag, lead, first_value, last_value, nth_value,
+    # JSON function factories
+    json_extract, json_extract_text, json_build_object, json_array_elements,
+    # Array function factories
+    array_agg, unnest, array_length,
+    # Type conversion function factories
+    cast, to_char, to_number, to_date,
+)
 from .query_parts import (
     WhereClause,
     GroupByHavingClause,

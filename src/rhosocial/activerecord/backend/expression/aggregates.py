@@ -53,20 +53,20 @@ class AggregateFunctionCall(AggregatableExpression):
         Generates the SQL string and parameters for this aggregate function call,
         including any attached FILTER clause.
         """
-        # Special handling for COUNT(*)
-        if self.func_name.upper() == "COUNT" and len(self.args) == 1:
-            if isinstance(self.args[0], operators.RawSQLExpression) and self.args[0].expression == "*":
-                args_sql = ["*"]
-                args_params = []
-            else:
-                args_sql = [arg.to_sql()[0] for arg in self.args]
-                args_params = [p for arg_tuple in [arg.to_sql()[1] for arg in self.args] for p in arg_tuple]
+        # Handle arguments - special case for COUNT(*) to preserve the asterisk without parameters
+        if self.func_name.upper() == "COUNT" and len(self.args) == 1 and \
+           isinstance(self.args[0], operators.RawSQLExpression) and self.args[0].expression == "*":
+            args_sql = ["*"]
+            args_params = []
         else:
-            args_sql = [arg.to_sql()[0] for arg in self.args]
-            args_params = [p for arg_tuple in [arg.to_sql()[1] for arg in self.args] for p in arg_tuple]
+            args_sql = []
+            args_params = []
+            for arg in self.args:
+                arg_sql, arg_params = arg.to_sql()
+                args_sql.append(arg_sql)
+                args_params.extend(arg_params)
 
-
-
+        # Handle filter predicate if present
         filter_sql, filter_params = None, None
         if self._filter_predicate:
             filter_sql, filter_params = self._filter_predicate.to_sql()
@@ -74,7 +74,7 @@ class AggregateFunctionCall(AggregatableExpression):
         return self.dialect.format_function_call(
             self.func_name,
             args_sql,
-            args_params,
+            tuple(args_params),
             self.is_distinct,
             self.alias,
             filter_sql=filter_sql,
