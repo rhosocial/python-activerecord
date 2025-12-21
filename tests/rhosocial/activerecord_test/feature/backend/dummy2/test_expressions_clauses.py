@@ -40,6 +40,27 @@ class TestClauseExpressions:
         assert sql == expected_sql
         assert params == expected_params
 
+    def test_join_expression_validation_both_condition_and_using(self, dummy_dialect: DummyDialect):
+        """Test that JoinExpression raises ValueError when both condition and using are provided."""
+        left_table = TableExpression(dummy_dialect, "users")
+        right_table = TableExpression(dummy_dialect, "profiles")
+        condition = ComparisonPredicate(
+            dummy_dialect,
+            "=",
+            Column(dummy_dialect, "id", table="users"),
+            Column(dummy_dialect, "user_id", table="profiles")
+        )
+
+        with pytest.raises(ValueError, match="Cannot specify both 'condition' \\(ON\\) and 'using' \\(USING\\) clauses in a JOIN"):
+            JoinExpression(
+                dummy_dialect,
+                left_table,
+                right_table,
+                join_type="INNER",
+                condition=condition,
+                using=["user_id"]
+            )
+
     # --- CTEExpression ---
     def test_basic_cte_expression(self, dummy_dialect: DummyDialect):
         """Tests a basic Common Table Expression (CTE)."""
