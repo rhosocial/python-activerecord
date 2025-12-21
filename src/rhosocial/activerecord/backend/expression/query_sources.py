@@ -5,7 +5,7 @@ These expression classes represent different types of data sources that can be u
 in the FROM clause of a query, including constructed values, table-valued functions,
 lateral expressions, and common table expressions.
 """
-from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING
+from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
 from dataclasses import dataclass
 
 from . import bases
@@ -40,26 +40,50 @@ class CTEExpression(bases.BaseExpression):
     """Represents a Common Table Expression (CTE) expression (WITH ... AS ...)."""
     def __init__(self, dialect: "SQLDialectBase", name: str,
                  query: Union["core.Subquery", "bases.BaseExpression", Tuple[str, List[Any]]],
-                 columns: Optional[List[str]] = None, recursive: bool = False, materialized: Optional[bool] = None):
+                 columns: Optional[List[str]] = None, recursive: bool = False,
+                 materialized: Optional[bool] = None, dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
-        self.name, self.query, self.columns, self.recursive, self.materialized = name, query, columns, recursive, materialized
+        self.name = name
+        self.query = query
+        self.columns = columns
+        self.recursive = recursive
+        self.materialized = materialized
+        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
+        # Handle different query types that may be stored in self.query:
         if isinstance(self.query, bases.BaseExpression):
+            # When query is a BaseExpression (e.g., Subquery, QueryExpression),
+            # call its to_sql() method to get SQL and parameters
             query_sql, query_params = self.query.to_sql()
         elif isinstance(self.query, tuple):
+            # When query is a tuple of format (sql_string, params_list),
+            # extract SQL and parameters directly from the tuple
             query_sql, query_params = self.query[0], tuple(self.query[1])
         else:
+            # When query is a raw string or other type that can be converted to string,
+            # convert to string and no parameters are associated
             query_sql, query_params = str(self.query), ()
-        sql = self.dialect.format_cte(name=self.name, query_sql=query_sql, columns=self.columns, recursive=self.recursive, materialized=self.materialized)
+
+        sql = self.dialect.format_cte(
+            name=self.name,
+            query_sql=query_sql,
+            columns=self.columns,
+            recursive=self.recursive,
+            materialized=self.materialized,
+            dialect_options=self.dialect_options
+        )
         return sql, query_params
 
 
 class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents a query with Common Table Expressions (WITH clause)."""
-    def __init__(self, dialect: "SQLDialectBase", ctes: List[CTEExpression], main_query: "bases.BaseExpression"):
+    def __init__(self, dialect: "SQLDialectBase", ctes: List[CTEExpression],
+                 main_query: "bases.BaseExpression", dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
-        self.ctes, self.main_query = ctes, main_query
+        self.ctes = ctes
+        self.main_query = main_query
+        self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
         all_params: List[Any] = []
@@ -68,10 +92,14 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
             cte_sql, cte_params = cte.to_sql()
             cte_sql_parts.append(cte_sql)
             all_params.extend(cte_params)
-        with_clause_sql = self.dialect.format_with_clause(cte_sql_parts)
         main_sql, main_params = self.main_query.to_sql()
         all_params.extend(main_params)
-        sql = f"{with_clause_sql} {main_sql}" if with_clause_sql else main_sql
+
+        sql = self.dialect.format_with_query(
+            cte_sql_parts=cte_sql_parts,
+            main_query_sql=main_sql,
+            dialect_options=self.dialect_options
+        )
         return sql, tuple(all_params)
 
 

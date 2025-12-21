@@ -140,7 +140,7 @@ __all__ = [
     "CaseExpression", "CastExpression", "ExistsExpression", "AnyExpression", "AllExpression",
     "WindowFrameSpecification", "WindowSpecification", "WindowDefinition", "WindowClause", "WindowFunctionCall",
     "JSONExpression", "ArrayExpression", "OrderedSetAggregation",
-    "SetOperationExpression", "GroupingExpression", "GroupExpression", "JoinExpression", "CTEExpression",
+    "SetOperationExpression", "GroupingExpression", "JoinExpression", "CTEExpression",
     "WithQueryExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression",
     "JSONTableColumn", "JSONTableExpression",
     "WhereClause", "GroupByHavingClause", "LimitOffsetClause",

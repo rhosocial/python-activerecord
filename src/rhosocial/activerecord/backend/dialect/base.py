@@ -140,26 +140,14 @@ class SQLDialectBase(ABC):
 
     # region Clause Formatting
     @abstractmethod
-    def format_with_clause(self, ctes_sql: List[str]) -> str:
-        """
-        Format complete WITH clause from list of CTE definitions.
-
-        Args:
-            ctes_sql: List of formatted CTE definition strings
-
-        Returns:
-            Complete WITH clause string
-        """
-        pass
-
-    @abstractmethod
     def format_cte(
         self,
         name: str,
         query_sql: str,
         columns: Optional[List[str]] = None,
         recursive: bool = False,
-        materialized: Optional[bool] = None
+        materialized: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None
     ) -> str:
         """
         Format a single CTE definition.
@@ -170,9 +158,30 @@ class SQLDialectBase(ABC):
             columns: Optional column names
             recursive: Whether CTE is recursive
             materialized: Optional materialization hint
+            dialect_options: Dialect-specific options
 
         Returns:
             Formatted CTE definition string
+        """
+        pass
+
+    @abstractmethod
+    def format_with_query(
+        self,
+        cte_sql_parts: List[str],
+        main_query_sql: str,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """
+        Format a complete query with WITH clause.
+
+        Args:
+            cte_sql_parts: List of formatted CTE definition strings
+            main_query_sql: Main query SQL
+            dialect_options: Dialect-specific options
+
+        Returns:
+            Complete query with WITH clause string
         """
         pass
 
@@ -1321,7 +1330,8 @@ class BaseDialect(SQLDialectBase):
         query_sql: str,
         columns: Optional[List[str]] = None,
         recursive: bool = False,
-        materialized: Optional[bool] = None
+        materialized: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None
     ) -> str:
         """Format a single CTE definition."""
         recursive_str = "RECURSIVE " if recursive else ""
@@ -1333,8 +1343,21 @@ class BaseDialect(SQLDialectBase):
         columns_part = f" ({', '.join(self.format_identifier(c) for c in columns)})" if columns else ""
         return f"{recursive_str}{name_part}{columns_part} AS {materialized_hint}({query_sql})"
 
-    def format_with_clause(self, ctes_sql: List[str]) -> str:
-        """Format complete WITH clause from list of CTE definitions."""
+
+    def format_with_query(
+        self,
+        cte_sql_parts: List[str],
+        main_query_sql: str,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Format a complete query with WITH clause."""
+        if not cte_sql_parts:
+            return main_query_sql
+        with_clause = self._format_with_clause(cte_sql_parts)
+        return f"{with_clause} {main_query_sql}"
+
+    def _format_with_clause(self, ctes_sql: List[str]) -> str:
+        """Helper to format complete WITH clause from list of CTE definitions."""
         if not ctes_sql:
             return ""
         return f"WITH {', '.join(ctes_sql)}"
