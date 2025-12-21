@@ -123,55 +123,6 @@ class SelectModifier(Enum):
     ALL = "ALL"
 
 
-class ForUpdateClause(bases.BaseExpression):
-    """
-    Represents the FOR UPDATE clause used for row-level locking in SELECT statements.
-
-    The FOR UPDATE clause locks selected rows preventing other transactions from
-    modifying them until the current transaction is committed or rolled back.
-
-    Example Usage:
-        # Basic FOR UPDATE
-        ForUpdateClause(dialect)
-
-        # FOR UPDATE with specific columns
-        ForUpdateClause(dialect, of_columns=[Column(dialect, "id"), "name"])
-
-        # FOR UPDATE with NOWAIT
-        ForUpdateClause(dialect, nowait=True)
-
-        # FOR UPDATE with SKIP LOCKED
-        ForUpdateClause(dialect, skip_locked=True)
-    """
-    def __init__(self, dialect: "SQLDialectBase",
-                 of_columns: Optional[List[Union[str, "bases.BaseExpression"]]] = None,  # Specify columns to lock
-                 nowait: bool = False,  # NOWAIT option - fail immediately if locked
-                 skip_locked: bool = False,  # SKIP LOCKED option - skip locked rows
-                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
-        super().__init__(dialect)
-        self.of_columns = of_columns or []  # Columns to apply the lock to
-        self.nowait = nowait  # If True, fail immediately if rows are locked
-        self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting
-        self.dialect_options = dialect_options or {}  # Additional dialect-specific options
-
-    def to_sql(self) -> Tuple[str, tuple]:
-        """
-        Generate the SQL representation of the FOR UPDATE clause.
-
-        This method delegates the actual SQL generation to the configured dialect,
-        allowing for database-specific variations in the FOR UPDATE syntax.
-
-        Args:
-            None - All data is contained within the object instance
-
-        Returns:
-            Tuple containing:
-            - SQL string fragment for the FOR UPDATE clause
-            - Tuple of parameter values for prepared statements
-        """
-        return self.dialect.format_for_update_clause(self)
-
-
 class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """
     Represents a complete SELECT query expression with all clauses supported by the framework.
@@ -189,7 +140,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
             from_=TableExpression(dialect, "users"),
-            where_clause=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "active"))
+            where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "active"))
         )
 
         # Scalar SELECT query - selecting constants or function results without FROM
@@ -208,11 +159,11 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             dialect,
             select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
             from_=TableExpression(dialect, "products"),
-            where_clause=WhereClause(dialect, condition=Column(dialect, "price") > Literal(dialect, 100)),
+            where=WhereClause(dialect, condition=Column(dialect, "price") > Literal(dialect, 100)),
             group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "category")],
                                                having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 5)),
-            order_by_clause=OrderByClause(dialect, expressions=[(Column(dialect, "category"), "ASC")]),
-            limit_offset_clause=LimitOffsetClause(dialect, limit=10),
+            order_by=OrderByClause(dialect, expressions=[(Column(dialect, "category"), "ASC")]),
+            limit_offset=LimitOffsetClause(dialect, limit=10),
             select_modifier=SelectModifier.DISTINCT
         )
 
@@ -252,7 +203,20 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                 window_func  # Window function call
             ],
             from_=TableExpression(dialect, "employees"),
-            order_by_clause=OrderByClause(dialect, expressions=[Column(dialect, "department"), (Column(dialect, "row_num"), "ASC")])
+            order_by=OrderByClause(dialect, expressions=[Column(dialect, "department"), (Column(dialect, "row_num"), "ASC")])
+        )
+
+        # Query with FOR UPDATE clause
+        lock_query = QueryExpression(
+            dialect,
+            select=[Column(dialect, "id"), Column(dialect, "status")],
+            from_=TableExpression(dialect, "orders"),
+            where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "pending")),
+            for_update=ForUpdateClause(
+                dialect,
+                of_columns=[Column(dialect, "id")],
+                nowait=True
+            )
         )
     """
     def __init__(self, dialect: "SQLDialectBase",
@@ -323,6 +287,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         self.from_ = from_  # Source of query data (optional)
         self.select_modifier = select_modifier  # SELECT modifier (DISTINCT/ALL), optional
         self.dialect_options = dialect_options or {}  # Dialect-specific options
+
 
     def to_sql(self) -> Tuple[str, tuple]:
         """
