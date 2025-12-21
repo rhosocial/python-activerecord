@@ -5,7 +5,7 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression, UpdateExpression, ValuesSource, SelectSource,
     DefaultValuesSource, OnConflictClause, core,
     JoinExpression,
-    LogicalPredicate, ReturningClause
+    LogicalPredicate, ReturningClause, ComparisonPredicate
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -200,7 +200,7 @@ class TestUpdateStatements:
                 JoinExpression(None, TableExpression(None, "user_data", alias="ud"), TableExpression(None, "users", alias="u"), condition=Column(None, "user_id", "ud") == Column(None, "id", "u")),
                 {"value": Literal(None, 123)},
                 Column(None, "id", "ud") == Column(None, "id", "u"), # Example WHERE, effectively part of JOIN
-                'FROM "user_data" AS "ud" INNER JOIN "users" AS "u" ON "ud"."user_id" = "u"."id"',
+                'FROM "user_data" AS "ud" JOIN "users" AS "u" ON "ud"."user_id" = "u"."id"',
                 'UPDATE "user_data" SET "value" = ? %s WHERE "ud"."id" = "u"."id"',
                 (123,),
                 "from_join_expr",
@@ -328,3 +328,47 @@ class TestUpdateStatements:
                 where=where
             )
             update_expr.to_sql()
+
+    def test_update_expression_without_where_clause(self, dummy_dialect: DummyDialect):
+        """Test UpdateExpression with no WHERE clause to cover the else branch where where=None."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        # Create an UpdateExpression without a WHERE clause
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={
+                "status": Literal(dummy_dialect, "updated")
+            }  # No where clause provided
+        )
+        sql, params = update_expr.to_sql()
+
+        # Should generate a basic UPDATE statement without WHERE
+        assert sql == 'UPDATE "users" SET "status" = ?'
+        assert params == ("updated",)
+
+    def test_update_expression_with_where_clause_object(self, dummy_dialect: DummyDialect):
+        """Test UpdateExpression with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+
+        # Create a WhereClause object using comparison operator
+        where_clause_obj = WhereClause(
+            dummy_dialect,
+            condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
+
+        # Create an UpdateExpression with the WhereClause object
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            assignments={
+                "last_updated": Literal(dummy_dialect, "2023-01-01")
+            },
+            where=where_clause_obj  # Pass WhereClause object directly
+        )
+        sql, params = update_expr.to_sql()
+
+        # Should generate an UPDATE statement with WHERE clause
+        assert 'UPDATE "users" SET "last_updated" = ? WHERE "status" = ?' == sql
+        assert params == ("2023-01-01", "active")

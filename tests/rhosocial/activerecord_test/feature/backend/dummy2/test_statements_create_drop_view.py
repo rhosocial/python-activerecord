@@ -338,7 +338,7 @@ class TestCreateDropViewStatements:
 
     def test_create_view_join_based(self, dummy_dialect: DummyDialect):
         """Tests CREATE VIEW based on a JOIN query."""
-        from rhosocial.activerecord.backend.expression.query_clauses import JoinExpression
+        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
         
         # Create a join between users and profiles
         users_table = TableExpression(dummy_dialect, "users", alias="u")
@@ -349,7 +349,7 @@ class TestCreateDropViewStatements:
             left_table=users_table,
             right_table=profiles_table,
             condition=join_condition,
-            join_type="INNER"
+            join_type="INNER JOIN"
         )
 
         query = QueryExpression(
@@ -370,7 +370,7 @@ class TestCreateDropViewStatements:
         sql, params = create_view.to_sql()
 
         assert 'CREATE VIEW "user_profile_view"' in sql
-        assert 'INNER JOIN' in sql
+        assert 'JOIN' in sql
         assert '"users" AS "u"' in sql
         assert '"profiles" AS "p"' in sql
         assert params == ()

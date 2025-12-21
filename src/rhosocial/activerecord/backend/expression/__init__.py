@@ -53,14 +53,14 @@ from .advanced_functions import (
     ArrayExpression,
     OrderedSetAggregation,
 )
-from .query_clauses import (
-    SetOperationExpression,
+from .query_parts import (
     GroupingExpression,
-    GroupExpression,
     JoinExpression,
+    JoinType,
 )
 
-from .query_clauses import (
+from .query_sources import (
+    SetOperationExpression,
     CTEExpression,
     WithQueryExpression,
     ValuesExpression,

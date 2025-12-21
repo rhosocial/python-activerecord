@@ -1170,5 +1170,42 @@ class DummyDialect(
         return sql, tuple(all_params)
     # endregion
 
+    def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
+        """Format JOIN expression with left table, right table, type, condition, and options."""
+        all_params = []
+
+        # Format left and right tables
+        left_sql, left_params = join_expr.left_table.to_sql()
+        right_sql, right_params = join_expr.right_table.to_sql()
+        all_params.extend(left_params)
+        all_params.extend(right_params)
+
+        # Use the join type string directly
+        join_clause = join_expr.join_type
+
+        # Add NATURAL if specified
+        if join_expr.natural:
+            join_clause = f"NATURAL {join_clause}"
+
+        # Build the JOIN expression
+        if join_expr.using:
+            # USING clause
+            using_cols = [self.format_identifier(col) for col in join_expr.using]
+            join_sql = f"{left_sql} {join_clause} {right_sql} USING ({', '.join(using_cols)})"
+        elif join_expr.condition:
+            # ON condition
+            condition_sql, condition_params = join_expr.condition.to_sql()
+            join_sql = f"{left_sql} {join_clause} {right_sql} ON {condition_sql}"
+            all_params.extend(condition_params)
+        else:
+            # No condition (e.g., CROSS JOIN)
+            join_sql = f"{left_sql} {join_clause} {right_sql}"
+
+        # Add alias if specified
+        if join_expr.alias:
+            join_sql = f"({join_sql}) AS {self.format_identifier(join_expr.alias)}"
+
+        return join_sql, tuple(all_params)
+
 
 

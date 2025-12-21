@@ -6,10 +6,28 @@ These expression classes collect parameters for specific SQL clauses
 and delegate SQL generation to backend-specific dialects.
 """
 from typing import Tuple, List, Union, Optional, Any, Dict
+from enum import Enum
 from dataclasses import dataclass
 from . import bases
 from . import core
 from . import mixins
+
+
+class JoinType(Enum):
+    """Enumeration of SQL JOIN types."""
+    INNER = "INNER JOIN"        # INNER JOIN
+    JOIN = "JOIN"               # JOIN (equivalent to INNER JOIN)
+    LEFT = "LEFT JOIN"          # LEFT JOIN
+    LEFT_OUTER = "LEFT OUTER JOIN"  # LEFT OUTER JOIN
+    RIGHT = "RIGHT JOIN"        # RIGHT JOIN
+    RIGHT_OUTER = "RIGHT OUTER JOIN"  # RIGHT OUTER JOIN
+    FULL = "FULL JOIN"          # FULL JOIN
+    FULL_OUTER = "FULL OUTER JOIN"    # FULL OUTER JOIN
+    CROSS = "CROSS JOIN"        # CROSS JOIN
+    # Additional types could be added if needed
+    # MySQL-specific
+    STRAIGHT = "STRAIGHT JOIN"  # MySQL STRAIGHT_JOIN
+    # Other database-specific types could be added here
 
 # if TYPE_CHECKING:
 #     from ..dialect import SQLDialectBase
@@ -258,3 +276,111 @@ class ForUpdateClause(bases.BaseExpression):
             - Tuple of parameter values for prepared statements
         """
         return self.dialect.format_for_update_clause(self)
+
+
+class GroupingExpression(bases.BaseExpression):
+    """Represents grouping operations like ROLLUP, CUBE, and GROUPING SETS."""
+    def __init__(self, dialect: "SQLDialectBase",
+                 operation: str,
+                 expressions: List["bases.BaseExpression"]):
+        super().__init__(dialect)
+        self.operation = operation
+        self.expressions = expressions
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        op, all_params = self.operation.upper(), []
+        if op == "ROLLUP": self.dialect.check_feature_support('supports_rollup', 'ROLLUP')
+        elif op == "CUBE": self.dialect.check_feature_support('supports_cube', 'CUBE')
+        elif op == "GROUPING SETS": self.dialect.check_feature_support('supports_grouping_sets', 'GROUPING SETS')
+
+        if op == "GROUPING SETS":
+            sets_parts = []
+            for expr_list in self.expressions:
+                expr_parts = []
+                for expr in expr_list:
+                    expr_sql, expr_params = expr.to_sql()
+                    expr_parts.append(expr_sql)
+                    all_params.extend(expr_params)
+                sets_parts.append(f"({', '.join(expr_parts)})")
+            inner_expr = ", ".join(sets_parts)
+            sql = f"{op}({inner_expr})"
+        else:
+            expr_parts = []
+            for expr in self.expressions:
+                expr_sql, expr_params = expr.to_sql()
+                expr_parts.append(expr_sql)
+                all_params.extend(expr_params)
+            inner_expr = ", ".join(expr_parts)
+            sql = f"{op}({inner_expr})"
+
+        return sql, tuple(all_params)
+
+
+class JoinExpression(bases.BaseExpression):
+    """
+    Represents a JOIN expression (e.g., table1 JOIN table2 ON condition).
+
+    This class collects all parameters for a JOIN operation and delegates
+    the SQL generation to the configured dialect for database-specific syntax.
+
+    Example Usage:
+        # Basic INNER JOIN with ON condition
+        join_expr = JoinExpression(
+            dialect,
+            left_table=TableExpression(dialect, "users", alias="u"),
+            right_table=TableExpression(dialect, "orders", alias="o"),
+            join_type=JoinType.INNER,
+            condition=Column(dialect, "user_id", "u") == Column(dialect, "user_id", "o")
+        )
+
+        # LEFT JOIN with USING clause
+        join_expr = JoinExpression(
+            dialect,
+            left_table=TableExpression(dialect, "employees", alias="e"),
+            right_table=TableExpression(dialect, "departments", alias="d"),
+            join_type=JoinType.LEFT,
+            using=["dept_id"]
+        )
+
+        # NATURAL JOIN
+        join_expr = JoinExpression(
+            dialect,
+            left_table=TableExpression(dialect, "table1"),
+            right_table=TableExpression(dialect, "table2"),
+            join_type=JoinType.INNER,
+            natural=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 left_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression"],
+                 right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression"],
+                 join_type: str = "JOIN",
+                 condition: Optional["bases.SQLPredicate"] = None,  # ON condition (mutually exclusive with 'using')
+                 using: Optional[List[str]] = None,  # USING clause columns (mutually exclusive with 'condition')
+                 natural: bool = False,  # NATURAL join flag
+                 alias: Optional[str] = None,  # Alias for the joined result
+                 dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
+        super().__init__(dialect)
+
+        # Normalize table inputs
+        self.left_table = left_table if isinstance(left_table, (core.TableExpression, core.Subquery)) else core.TableExpression(dialect, str(left_table))
+        self.right_table = right_table if isinstance(right_table, (core.TableExpression, core.Subquery)) else core.TableExpression(dialect, str(right_table))
+
+        # Store join_type as string
+        self.join_type = join_type
+
+        # Validate mutual exclusivity of condition and using
+        if condition is not None and using is not None:
+            raise ValueError("Cannot specify both 'condition' (ON) and 'using' (USING) clauses in a JOIN")
+
+        # Store other parameters
+        self.condition = condition  # ON condition
+        self.using = using  # USING columns
+        self.natural = natural  # NATURAL join flag
+        self.alias = alias  # Alias for the join result
+        self.dialect_options = dialect_options or {}  # Dialect-specific options
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegates SQL generation for the JOIN expression to the configured dialect."""
+        return self.dialect.format_join_expression(self)

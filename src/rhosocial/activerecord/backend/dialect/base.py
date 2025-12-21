@@ -1029,6 +1029,18 @@ class BaseDialect(SQLDialectBase):
             return f"{col_sql} AS {self.format_identifier(alias)}", ()
         return col_sql, ()
 
+    def supports_explicit_inner_join(self) -> bool:
+        """
+        Determines whether the dialect should explicitly use 'INNER JOIN' instead of just 'JOIN'.
+
+        Most SQL dialects treat 'JOIN' and 'INNER JOIN' as equivalent, but some users or
+        specific database configurations may prefer explicit 'INNER' keyword.
+
+        Returns:
+            bool: True if the dialect should use 'INNER JOIN', False for just 'JOIN' (default)
+        """
+        return False  # Default to minimal form: JOIN instead of INNER JOIN
+
     def format_table(
         self,
         table_name: str,

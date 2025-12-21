@@ -14,13 +14,13 @@ class TestClauseExpressions:
 
     # --- JoinExpression ---
     @pytest.mark.parametrize("left_data, right_data, join_type, condition_data, using, expected_sql, expected_params", [
-        (("users", "u"), ("orders", "o"), "INNER", ("=", ("id", "u"), ("user_id", "o")), None,
+        (("users", "u"), ("orders", "o"), "INNER JOIN", ("=", ("id", "u"), ("user_id", "o")), None,
          '"users" AS "u" INNER JOIN "orders" AS "o" ON "u"."id" = "o"."user_id"', ()),
-        (("products", "p"), ("categories", "c"), "LEFT", ("=", ("category_id", "p"), ("id", "c")), None,
-         '"products" AS "p" LEFT OUTER JOIN "categories" AS "c" ON "p"."category_id" = "c"."id"', ()),
-        (("customers", None), ("addresses", None), "FULL", None, ["customer_id"],
-         '"customers" FULL OUTER JOIN "addresses" USING ("customer_id")', ()),
-        (("tbl1", None), ("tbl2", None), "CROSS", None, None,
+        (("products", "p"), ("categories", "c"), "LEFT JOIN", ("=", ("category_id", "p"), ("id", "c")), None,
+         '"products" AS "p" LEFT JOIN "categories" AS "c" ON "p"."category_id" = "c"."id"', ()),
+        (("customers", None), ("addresses", None), "FULL JOIN", None, ["customer_id"],
+         '"customers" FULL JOIN "addresses" USING ("customer_id")', ()),
+        (("tbl1", None), ("tbl2", None), "CROSS JOIN", None, None,
          '"tbl1" CROSS JOIN "tbl2"', ()),
     ])
     def test_join_expression(self, dummy_dialect: DummyDialect, left_data, right_data, join_type, condition_data, using, expected_sql, expected_params):

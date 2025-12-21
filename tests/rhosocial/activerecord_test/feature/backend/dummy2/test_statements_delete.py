@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, QueryExpression, TableExpression,
     DeleteExpression,
     JoinExpression,
-    LogicalPredicate, ReturningClause
+    LogicalPredicate, ReturningClause, ComparisonPredicate
 )
 from rhosocial.activerecord.backend.expression import ComparisonPredicate, InPredicate, IsNullPredicate, BetweenPredicate, LikePredicate
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -145,7 +145,7 @@ class TestDeleteStatements:
                 JoinExpression(None, TableExpression(None, "join_table", alias="jt"), TableExpression(None, "lookup_table", alias="lt"), condition=Column(None, "key", "jt") == Column(None, "id", "lt")),
                 Column(None, "id", "main_table") == Column(None, "main_id", "jt") ,
                 None,
-                'DELETE FROM "main_table" FROM "join_table" AS "jt" INNER JOIN "lookup_table" AS "lt" ON "jt"."key" = "lt"."id" WHERE "main_table"."id" = "jt"."main_id"',
+                'DELETE FROM "main_table" FROM "join_table" AS "jt" JOIN "lookup_table" AS "lt" ON "jt"."key" = "lt"."id" WHERE "main_table"."id" = "jt"."main_id"',
                 (),
                 "delete_from_join_expr",
                 id="delete_from_join_expr"
@@ -394,3 +394,41 @@ class TestDeleteStatements:
         assert 'DELETE FROM "users" WHERE' in sql
         assert "OR" in sql  # Should have OR connecting the conditions
         assert params == (65, "retired", "2023-01-01")
+
+    def test_delete_expression_without_where_clause(self, dummy_dialect: DummyDialect):
+        """Test DeleteExpression with no WHERE clause to cover the else branch where where=None."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        # Create a DeleteExpression without a WHERE clause
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users")  # No where clause provided
+        )
+        sql, params = delete_expr.to_sql()
+
+        # Should generate a basic DELETE statement without WHERE
+        assert sql == 'DELETE FROM "users"'
+        assert params == ()
+
+    def test_delete_expression_with_where_clause_object(self, dummy_dialect: DummyDialect):
+        """Test DeleteExpression with a WhereClause object to cover the isinstance(where, WhereClause) branch."""
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+
+        # Create a WhereClause object using comparison operator
+        where_clause_obj = WhereClause(
+            dummy_dialect,
+            condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "inactive")
+        )
+
+        # Create a DeleteExpression with the WhereClause object
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table=TableExpression(dummy_dialect, "users"),
+            where=where_clause_obj  # Pass WhereClause object directly
+        )
+        sql, params = delete_expr.to_sql()
+
+        # Should generate a DELETE statement with WHERE clause
+        assert 'DELETE FROM "users" WHERE "status" = ?' == sql
+        assert params == ("inactive",)
