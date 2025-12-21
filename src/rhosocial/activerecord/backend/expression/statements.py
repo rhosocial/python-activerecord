@@ -482,8 +482,7 @@ class DeleteExpression(bases.BaseExpression):
             "JoinExpression",
             List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
         ]] = None,
-        where: Optional["bases.SQLPredicate"] = None,  # Old-style WHERE condition (deprecated in favor of where_clause)
-        where_clause: Optional["WhereClause"] = None,  # WHERE clause object (preferred over 'where' parameter)
+        where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -492,8 +491,17 @@ class DeleteExpression(bases.BaseExpression):
         # Normalize the target table to a TableExpression
         self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
         self.from_ = from_
-        # Handle both old-style 'where' and new-style 'where_clause' for backward compatibility
-        self.where_clause = where_clause or (WhereClause(dialect, condition=where) if where is not None else None)
+
+        # Handle where parameter: accept either a predicate or a WhereClause object
+        if where is not None:
+            if isinstance(where, WhereClause):
+                self.where = where  # Already a WhereClause object
+            else:
+                # Wrap a predicate in a WhereClause object
+                self.where = WhereClause(dialect, condition=where)
+        else:
+            self.where = None
+
         self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 
@@ -529,8 +537,7 @@ class UpdateExpression(bases.BaseExpression):
             "JoinExpression",
             List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression", "JoinExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"]]
         ]] = None,
-        where: Optional["bases.SQLPredicate"] = None,  # Old-style WHERE condition (deprecated in favor of where_clause)
-        where_clause: Optional["WhereClause"] = None,  # WHERE clause object (preferred over 'where' parameter)
+        where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -544,8 +551,17 @@ class UpdateExpression(bases.BaseExpression):
         self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
         self.assignments = assignments
         self.from_ = from_
-        # Handle both old-style 'where' and new-style 'where_clause' for backward compatibility
-        self.where_clause = where_clause or (WhereClause(dialect, condition=where) if where is not None else None)
+
+        # Handle where parameter: accept either a predicate or a WhereClause object
+        if where is not None:
+            if isinstance(where, WhereClause):
+                self.where = where  # Already a WhereClause object
+            else:
+                # Wrap a predicate in a WhereClause object
+                self.where = WhereClause(dialect, condition=where)
+        else:
+            self.where = None
+
         self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 

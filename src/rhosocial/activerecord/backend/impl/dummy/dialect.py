@@ -244,8 +244,8 @@ class DummyDialect(
                 all_params.extend(from_expr_params)
 
         # WHERE clause
-        if expr.where_clause:
-            where_sql, where_params = expr.where_clause.to_sql()
+        if expr.where:
+            where_sql, where_params = expr.where.to_sql()
             # The WhereClause.to_sql() returns "WHERE condition", so just append it
             current_sql += f" {where_sql}" # Append directly with leading space
             all_params.extend(where_params)
@@ -296,8 +296,8 @@ class DummyDialect(
                 all_params.extend(from_expr_params)
 
         # WHERE clause
-        if expr.where_clause:
-            where_sql, where_params = expr.where_clause.to_sql()
+        if expr.where:
+            where_sql, where_params = expr.where.to_sql()
             # The WhereClause.to_sql() returns "WHERE condition", so just append it
             current_sql += f" {where_sql}"
             all_params.extend(where_params)

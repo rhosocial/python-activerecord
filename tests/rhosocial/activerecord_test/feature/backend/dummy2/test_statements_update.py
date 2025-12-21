@@ -153,7 +153,7 @@ class TestUpdateStatements:
             dummy_dialect,
             table=dialect_table_param,
             assignments=dialect_assignments,
-            where_clause=where_clause_param,
+            where=where_clause_param,
             returning=dialect_returning_param
         )
         sql, params = update_expr.to_sql()
@@ -302,7 +302,7 @@ class TestUpdateStatements:
             table="users" if test_id not in ["from_join_expr"] else "user_data", # Target table for the update
             assignments=dialect_assignments,
             from_=dialect_from_param,
-            where_clause=where_clause_param
+            where=where_clause_param
         )
         sql, params = update_expr.to_sql()
         
