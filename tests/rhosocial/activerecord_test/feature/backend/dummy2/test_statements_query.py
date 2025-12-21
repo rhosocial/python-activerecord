@@ -14,6 +14,10 @@ from rhosocial.activerecord.backend.expression import (
     # Additional classes needed
     Subquery,
 )
+from rhosocial.activerecord.backend.expression.predicates import (
+    BetweenPredicate, IsNullPredicate
+)
+from rhosocial.activerecord.backend.expression.operators import BinaryExpression
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause, ForUpdateClause
 )
@@ -423,3 +427,142 @@ class TestQueryStatements:
         sql, params = query.to_sql()
         assert 'QUALIFY COUNT("id") > ?' in sql
         assert params == (5,)
+
+    def test_comparison_mixin_methods(self, dummy_dialect: DummyDialect):
+        """Test ComparisonMixin methods that are not directly tested elsewhere."""
+        col = Column(dummy_dialect, "status")
+
+        # Test is_null method
+        is_null_pred = col.is_null()
+        sql, params = is_null_pred.to_sql()
+        assert "IS NULL" in sql.upper()
+        assert params == ()
+
+        # Test is_not_null method
+        is_not_null_pred = col.is_not_null()
+        sql, params = is_not_null_pred.to_sql()
+        assert "IS NOT NULL" in sql.upper()
+        assert params == ()
+
+        # Test in_ method
+        in_pred = col.in_(['active', 'pending'])
+        sql, params = in_pred.to_sql()
+        assert "IN (" in sql
+        assert params == ('active', 'pending')
+
+        # Test not_in method
+        not_in_pred = col.not_in(['deleted', 'banned'])
+        sql, params = not_in_pred.to_sql()
+        assert "NOT" in sql.upper()
+        assert "IN (" in sql.upper()
+        assert params == ('deleted', 'banned')
+
+        # Test between method
+        age_col = Column(dummy_dialect, "age")
+        between_pred = age_col.between(18, 65)
+        sql, params = between_pred.to_sql()
+        assert "BETWEEN" in sql.upper()
+        assert params == (18, 65)
+
+    def test_arithmetic_mixin_methods(self, dummy_dialect: DummyDialect):
+        """Test ArithmeticMixin methods."""
+        price_col = Column(dummy_dialect, "price")
+        tax_rate = Literal(dummy_dialect, 0.1)
+
+        # Test arithmetic operations
+        total = price_col + (price_col * tax_rate)  # Addition and multiplication
+        sql, params = total.to_sql()
+        assert "+" in sql and "*" in sql
+        assert params == (0.1,)
+
+        discount = price_col - Literal(dummy_dialect, 5)  # Subtraction
+        sql, params = discount.to_sql()
+        assert "-" in sql
+        assert params == (5,)
+
+        division = price_col / Literal(dummy_dialect, 2)  # Division
+        sql, params = division.to_sql()
+        assert "/" in sql
+        assert params == (2,)
+
+        modulo = price_col % Literal(dummy_dialect, 10)  # Modulo
+        sql, params = modulo.to_sql()
+        assert "%" in sql
+        assert params == (10,)
+
+    def test_logical_mixin_methods(self, dummy_dialect: DummyDialect):
+        """Test LogicalMixin methods."""
+        # Test logical AND using & operator
+        cond1 = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        cond2 = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        logical_and = cond1 & cond2
+        sql, params = logical_and.to_sql()
+        assert "AND" in sql.upper()
+        assert params == (18, "active")
+
+        # Test logical OR using | operator
+        cond3 = Column(dummy_dialect, "score") < Literal(dummy_dialect, 50)
+        cond4 = Column(dummy_dialect, "category") == Literal(dummy_dialect, "low_priority")
+        logical_or = cond3 | cond4
+        sql, params = logical_or.to_sql()
+        assert "OR" in sql.upper()
+        assert params == (50, "low_priority")
+
+        # Test logical NOT using ~ operator
+        status_col = Column(dummy_dialect, "status")
+        not_active = ~(status_col == Literal(dummy_dialect, "inactive"))
+        sql, params = not_active.to_sql()
+        assert "NOT" in sql.upper()
+        assert params == ("inactive",)
+
+    def test_string_mixin_methods(self, dummy_dialect: DummyDialect):
+        """Test StringMixin methods."""
+        name_col = Column(dummy_dialect, "name")
+
+        # Test LIKE operation
+        like_pred = name_col.like("John%")
+        sql, params = like_pred.to_sql()
+        assert "LIKE" in sql.upper()
+        assert params == ("John%",)
+
+        # Test ILIKE operation (case-insensitive LIKE)
+        ilike_pred = name_col.ilike("%smith%")
+        sql, params = ilike_pred.to_sql()
+        assert "ILIKE" in sql.upper()
+        assert params == ("%smith%",)
+
+    def test_comparison_operators_direct_usage(self, dummy_dialect: DummyDialect):
+        """Test direct usage of comparison operators that may not be covered elsewhere."""
+        age_col = Column(dummy_dialect, "age")
+        value = Literal(dummy_dialect, 25)
+
+        # Test all comparison operators
+        eq_pred = age_col == value  # __eq__
+        sql, params = eq_pred.to_sql()
+        assert "=" in sql
+        assert params == (25,)
+
+        neq_pred = age_col != value  # __ne__
+        sql, params = neq_pred.to_sql()
+        assert "!=" in sql or "<>" in sql
+        assert params == (25,)
+
+        gt_pred = age_col > value  # __gt__
+        sql, params = gt_pred.to_sql()
+        assert ">" in sql
+        assert params == (25,)
+
+        gte_pred = age_col >= value  # __ge__
+        sql, params = gte_pred.to_sql()
+        assert ">=" in sql
+        assert params == (25,)
+
+        lt_pred = age_col < value  # __lt__
+        sql, params = lt_pred.to_sql()
+        assert "<" in sql
+        assert params == (25,)
+
+        lte_pred = age_col <= value  # __le__
+        sql, params = lte_pred.to_sql()
+        assert "<=" in sql
+        assert params == (25,)
