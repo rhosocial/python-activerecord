@@ -4,6 +4,9 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall, ComparisonPredicate,
     WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
 )
+from rhosocial.activerecord.backend.expression.predicates import (
+    InPredicate, BetweenPredicate, IsNullPredicate, LikePredicate, LogicalPredicate
+)
 from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.expression.statements import (
@@ -30,13 +33,130 @@ class TestQueryParts:
             Column(dummy_dialect, "status") == Literal(dummy_dialect, "verified")
         )
         where_clause = WhereClause(dummy_dialect, condition=condition)
-        
+
         sql, params = where_clause.to_sql()
-        
+
         assert "WHERE" in sql
         assert '"age" > ?' in sql
         assert '"status" = ?' in sql
         assert params == (18, "verified")
+
+    def test_comparison_predicate_with_query_expression(self, dummy_dialect: DummyDialect):
+        """Test ComparisonPredicate when right operand is QueryExpression (covers the isinstance check)."""
+        from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+        # Create a subquery as the right operand
+        subquery = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "other_table"),
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active"))
+        )
+
+        # Create a comparison predicate with the subquery as right operand
+        comparison = ComparisonPredicate(
+            dummy_dialect,
+            ">",
+            Column(dummy_dialect, "user_id"),
+            subquery
+        )
+
+        sql, params = comparison.to_sql()
+
+        # The subquery should be wrapped in parentheses
+        assert "(" in sql and ")" in sql
+        assert "other_table" in sql
+        assert params == ("active",)
+
+    def test_in_predicate_with_empty_list(self, dummy_dialect: DummyDialect):
+        """Test InPredicate with empty list (covers the empty list handling branch)."""
+        in_pred = InPredicate(
+            dummy_dialect,
+            Column(dummy_dialect, "status"),
+            Literal(dummy_dialect, [])  # Empty list
+        )
+
+        sql, params = in_pred.to_sql()
+
+        # Should handle empty list case correctly
+        assert "IN ()" in sql or "IN EMPTY" in sql  # Expecting empty list handling
+        assert params == ()
+
+    def test_in_predicate_with_list_values(self, dummy_dialect: DummyDialect):
+        """Test InPredicate with list values (covers the list expansion branch)."""
+        in_pred = InPredicate(
+            dummy_dialect,
+            Column(dummy_dialect, "status"),
+            Literal(dummy_dialect, ["active", "pending", "draft"])  # List of values
+        )
+
+        sql, params = in_pred.to_sql()
+
+        # Should expand the list to placeholders
+        assert "IN (" in sql
+        assert "?" in sql  # Should have placeholders
+        assert params == ("active", "pending", "draft")
+
+    def test_in_predicate_with_non_literal(self, dummy_dialect: DummyDialect):
+        """Test InPredicate with non-Literal values (covers the else branch)."""
+        from rhosocial.activerecord.backend.expression import Subquery
+
+        # Use a subquery instead of a literal
+        subquery = Subquery(
+            dummy_dialect,
+            "SELECT category_id FROM categories WHERE active = ?",
+            (True,)
+        )
+
+        in_pred = InPredicate(
+            dummy_dialect,
+            Column(dummy_dialect, "category_id"),
+            subquery
+        )
+
+        sql, params = in_pred.to_sql()
+
+        assert "IN (" in sql
+        assert "categories" in sql
+        assert params == (True,)
+
+    def test_between_predicate(self, dummy_dialect: DummyDialect):
+        """Test BetweenPredicate (covers the BetweenPredicate.to_sql method)."""
+        between_pred = BetweenPredicate(
+            dummy_dialect,
+            Column(dummy_dialect, "age"),
+            Literal(dummy_dialect, 18),
+            Literal(dummy_dialect, 65)
+        )
+
+        sql, params = between_pred.to_sql()
+
+        assert "BETWEEN" in sql.upper()
+        assert params == (18, 65)
+
+    def test_is_null_predicate(self, dummy_dialect: DummyDialect):
+        """Test IsNullPredicate (covers the IsNullPredicate.to_sql method)."""
+        is_null_pred = IsNullPredicate(
+            dummy_dialect,
+            Column(dummy_dialect, "description")
+        )
+
+        sql, params = is_null_pred.to_sql()
+
+        assert "IS NULL" in sql.upper()
+        assert params == ()
+
+    def test_is_not_null_predicate(self, dummy_dialect: DummyDialect):
+        """Test IsNullPredicate with is_not=True."""
+        is_not_null_pred = IsNullPredicate(
+            dummy_dialect,
+            Column(dummy_dialect, "name"),
+            is_not=True
+        )
+
+        sql, params = is_not_null_pred.to_sql()
+
+        assert "IS NOT NULL" in sql.upper()
+        assert params == ()
 
     def test_group_by_having_clause_with_group_by_only(self, dummy_dialect: DummyDialect):
         """Test GROUP BY/HAVING clause with only GROUP BY."""
