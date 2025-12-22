@@ -94,6 +94,8 @@ from .functions import (
     array_agg, unnest, array_length,
     # Type conversion function factories
     cast, to_char, to_number, to_date,
+    # Grouping function factories
+    grouping_sets, rollup, cube,
 )
 from .query_parts import (
     WhereClause,

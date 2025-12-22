@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.expression import (
     json_extract, json_extract_text, json_build_object, json_array_elements,
     json_objectagg, json_arrayagg,  # Added these new JSON aggregation functions
     array_agg, unnest, array_length, cast, to_char, to_number, to_date,
-    trim
+    trim, grouping_sets, rollup, cube  # Added grouping functions
 )
 from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -576,6 +576,56 @@ class TestTypeConversionFunctionFactories:
         sql, params = func.to_sql()
         assert "TO_DATE(" in sql
         assert params == ()
+
+
+class TestGroupingFunctionFactories:
+    """Tests for grouping function factories (ROLLUP, CUBE, GROUPING SETS)."""
+
+    def test_rollup_function(self, dummy_dialect: DummyDialect):
+        """Test ROLLUP function."""
+        func = rollup(dummy_dialect, "department", "region")
+        sql, params = func.to_sql()
+        assert "ROLLUP(" in sql
+        # Parameters should be empty since we're passing column names
+        assert params == ()
+
+    def test_rollup_function_with_columns(self, dummy_dialect: DummyDialect):
+        """Test ROLLUP function with Column objects."""
+        col1 = Column(dummy_dialect, "department")
+        col2 = Column(dummy_dialect, "region")
+        func = rollup(dummy_dialect, col1, col2)
+        sql, params = func.to_sql()
+        assert "ROLLUP(" in sql
+
+    def test_cube_function(self, dummy_dialect: DummyDialect):
+        """Test CUBE function."""
+        func = cube(dummy_dialect, "department", "region")
+        sql, params = func.to_sql()
+        assert "CUBE(" in sql
+        # Parameters should be empty since we're passing column names
+        assert params == ()
+
+    def test_cube_function_with_columns(self, dummy_dialect: DummyDialect):
+        """Test CUBE function with Column objects."""
+        col1 = Column(dummy_dialect, "department")
+        col2 = Column(dummy_dialect, "region")
+        func = cube(dummy_dialect, col1, col2)
+        sql, params = func.to_sql()
+        assert "CUBE(" in sql
+
+    def test_grouping_sets_function(self, dummy_dialect: DummyDialect):
+        """Test GROUPING SETS function."""
+        func = grouping_sets(dummy_dialect, ["department"], ["region"], ["department", "region"])
+        sql, params = func.to_sql()
+        assert "GROUPING SETS" in sql
+
+    def test_grouping_sets_function_with_columns(self, dummy_dialect: DummyDialect):
+        """Test GROUPING SETS function with Column objects."""
+        col1 = Column(dummy_dialect, "department")
+        col2 = Column(dummy_dialect, "region")
+        func = grouping_sets(dummy_dialect, [col1], [col2], [col1, col2])
+        sql, params = func.to_sql()
+        assert "GROUPING SETS" in sql
 
 
 class TestMathFunctionFactoriesExtended:
