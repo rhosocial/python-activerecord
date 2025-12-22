@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
-from ..expression import bases, JoinExpression
+from ..expression import bases, JoinExpression, ColumnDefinition, AlterTableAction
 
 if TYPE_CHECKING:
     from ..expression.statements import (
@@ -2139,9 +2139,22 @@ class BaseDialect(SQLDialectBase):
     def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
         return f"FILTER (WHERE {condition_sql})", condition_params
 
-    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
-        condition_sql, condition_params = clause.condition.to_sql()
-        return f"QUALIFY {condition_sql}", condition_params
+    def format_qualify_clause(
+        self,
+        qualify_sql: str,
+        qualify_params: tuple
+    ) -> Tuple[str, tuple]:
+        """
+        Format QUALIFY clause with condition SQL and parameters.
+
+        Args:
+            qualify_sql: SQL string for the QUALIFY condition
+            qualify_params: Parameters for the QUALIFY condition
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        return f"QUALIFY {qualify_sql}", qualify_params
 
     # This is a duplicate implementation of format_for_update_clause
     # Kept the implementation at line ~1280 for consistency
