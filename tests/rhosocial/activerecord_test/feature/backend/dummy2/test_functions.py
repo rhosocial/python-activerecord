@@ -4,13 +4,14 @@ Tests for the SQL function factory functions in functions.py
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, count, sum_, avg, min_, max_,
-    lower, upper, concat, coalesce, length, substring, 
+    lower, upper, concat, coalesce, length, substring,
     replace, initcap, left, right, lpad, rpad, reverse, strpos,
     abs_, round_, ceil, floor, sqrt, power, exp, log, sin, cos, tan,
     now, current_date, current_time, year, month, day, hour, minute, second,
     date_part, date_trunc, nullif, greatest, least, case,
     row_number, rank, dense_rank, lag, lead, first_value, last_value, nth_value,
     json_extract, json_extract_text, json_build_object, json_array_elements,
+    json_objectagg, json_arrayagg,  # Added these new JSON aggregation functions
     array_agg, unnest, array_length, cast, to_char, to_number, to_date,
     trim
 )
@@ -804,3 +805,16 @@ class TestJsonFunctionFactoriesExtended:
         assert "JSON_ARRAY_ELEMENTS(" in sql
         # When passing "json_array" as string, it's treated as a column name, so no parameters
         assert params == ()
+
+    def test_json_objectagg_function(self, dummy_dialect: DummyDialect):
+        """Test JSON_OBJECTAGG function."""
+        func = json_objectagg(dummy_dialect, "key_col", "value_col")
+        sql, params = func.to_sql()
+        assert "JSON_OBJECTAGG(" in sql
+
+    def test_json_arrayagg_function(self, dummy_dialect: DummyDialect):
+        """Test JSON_ARRAYAGG function."""
+        func = json_arrayagg(dummy_dialect, "json_col", is_distinct=True, alias="agg_json")
+        sql, params = func.to_sql()
+        assert "JSON_ARRAYAGG(" in sql
+        assert "AS" in sql

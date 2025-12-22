@@ -89,6 +89,7 @@ from .functions import (
     row_number, rank, dense_rank, lag, lead, first_value, last_value, nth_value,
     # JSON function factories
     json_extract, json_extract_text, json_build_object, json_array_elements,
+    json_objectagg, json_arrayagg,
     # Array function factories
     array_agg, unnest, array_length,
     # Type conversion function factories

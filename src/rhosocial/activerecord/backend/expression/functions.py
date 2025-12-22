@@ -1184,6 +1184,19 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseE
     target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr)
     return core.FunctionCall(dialect, "JSON_ARRAY_ELEMENTS", target_expr)
 
+def json_objectagg(dialect: "SQLDialectBase", key_expr: Union[str, "bases.BaseExpression"],
+                   value_expr: Union[str, "bases.BaseExpression"]) -> "aggregates.AggregateFunctionCall":
+    """Creates a JSON_OBJECTAGG aggregate function call."""
+    key_target = key_expr if isinstance(key_expr, bases.BaseExpression) else core.Column(dialect, key_expr)
+    value_target = value_expr if isinstance(value_expr, bases.BaseExpression) else core.Column(dialect, value_expr)
+    return aggregates.AggregateFunctionCall(dialect, "JSON_OBJECTAGG", key_target, value_target)
+
+def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
+                  is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall":
+    """Creates a JSON_ARRAYAGG aggregate function call."""
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr)
+    return aggregates.AggregateFunctionCall(dialect, "JSON_ARRAYAGG", target_expr, is_distinct=is_distinct, alias=alias)
+
 
 # --- Array Function Factories ---
 
