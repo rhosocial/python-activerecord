@@ -226,6 +226,13 @@ class TestStringFunctionFactories:
         sql, params = func.to_sql()
         assert "RPAD(" in sql
         assert params == ("text", 10, "0")
+
+    def test_rpad_function_without_pad(self, dummy_dialect: DummyDialect):
+        """Test RPAD function without pad character."""
+        func = rpad(dummy_dialect, "text", 10)
+        sql, params = func.to_sql()
+        assert "RPAD(" in sql
+        assert params == ("text", 10)
     
     def test_reverse_function(self, dummy_dialect: DummyDialect):
         """Test REVERSE function."""
