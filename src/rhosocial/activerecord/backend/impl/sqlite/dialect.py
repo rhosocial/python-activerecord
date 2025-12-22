@@ -26,6 +26,7 @@ from rhosocial.activerecord.backend.expression.statements import MergeActionType
 from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation # Add for OrderedSetAggregation demo
 from rhosocial.activerecord.backend.expression.graph import GraphVertex, GraphEdge, MatchClause, GraphEdgeDirection # Add for Graph demo
 from rhosocial.activerecord.backend.expression.query_clauses import JSONTableColumn, JSONTableExpression # Add for JSON_TABLE demo
+from rhosocial.activerecord.backend.expression.query_parts import LimitOffsetClause  # Add for LIMIT/OFFSET handling
 
 
 class SQLiteDialect(
@@ -134,11 +135,10 @@ class SQLiteDialect(
         """
         return f"FILTER (WHERE {condition_sql})", condition_params
 
-    def format_limit_offset(
+    def format_limit_offset_clause(
         self,
-        limit: Optional[int] = None,
-        offset: Optional[int] = None
-    ) -> Tuple[Optional[str], List[Any]]:
+        clause: "LimitOffsetClause"
+    ) -> Tuple[str, tuple]:
         """
         Format LIMIT/OFFSET clause with SQLite-specific handling.
 
@@ -146,15 +146,16 @@ class SQLiteDialect(
         to indicate "no limit" when only OFFSET is specified.
 
         Args:
-            limit: Optional row limit
-            offset: Optional row offset
+            clause: LimitOffsetClause object containing the limit and offset specifications.
 
         Returns:
-            Tuple of (SQL string or None, parameters list)
+            Tuple of (SQL string, parameters tuple)
         """
-        if offset is not None and limit is None:
-            return "LIMIT -1 OFFSET ?", [offset]
-        return super().format_limit_offset(limit, offset)
+        # Check if we have offset but no limit, which needs special handling in SQLite
+        if clause.offset is not None and clause.limit is None:
+            return "LIMIT -1 OFFSET ?", (clause.offset,)
+        # Otherwise, use the parent implementation
+        return super().format_limit_offset_clause(clause)
 
 
     def supports_json_table(self) -> bool:
