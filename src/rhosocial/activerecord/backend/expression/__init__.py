@@ -136,6 +136,12 @@ from .statements import (
     AlterTableAction,
     AddColumn,
     DropColumn,
+    AlterColumn,
+    AddConstraint,
+    DropConstraint,
+    RenameObject,
+    AddIndex,
+    DropIndex,
     AlterTableExpression,
 )
 from .graph import (
