@@ -54,11 +54,19 @@ class GraphEdge(bases.BaseExpression):
         if self.direction in [GraphEdgeDirection.RIGHT, GraphEdgeDirection.ANY]:
             right_arrow = ">"
 
-        # For NONE direction (undirected), no arrows
-        if self.direction == GraphEdgeDirection.NONE:
+        # For different directions, construct the correct syntax
+        if self.direction == GraphEdgeDirection.RIGHT:
+            # Right-directed: -[var IS table]->
+            return f"-[{self.variable} IS {self.dialect.format_identifier(self.table)}]->", ()
+        elif self.direction == GraphEdgeDirection.LEFT:
+            # Left-directed: <-[var IS table]-
+            return f"<-[{self.variable} IS {self.dialect.format_identifier(self.table)}]-", ()
+        elif self.direction == GraphEdgeDirection.ANY:
+            # Bidirectional: <-[var IS table]->
+            return f"<-[{self.variable} IS {self.dialect.format_identifier(self.table)}]->", ()
+        else:  # GraphEdgeDirection.NONE (undirected)
+            # Undirected: -[var IS table]-
             return f"-[{self.variable} IS {self.dialect.format_identifier(self.table)}]-", ()
-        else:
-            return f"{left_arrow}-[{self.variable} IS {self.dialect.format_identifier(self.table)}]{right_arrow}-", ()
 
 
 class MatchClause(bases.BaseExpression):
