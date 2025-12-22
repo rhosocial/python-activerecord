@@ -86,7 +86,9 @@ class TableExpression(bases.BaseExpression):
     def to_sql(self) -> Tuple[str, tuple]:
         table_sql, params = self.dialect.format_table(self.name, self.alias)
         if self.temporal_options:
-            temporal_sql, temporal_params = self.dialect.format_temporal_options(self.temporal_options)
-            table_sql = f"{table_sql} {temporal_sql}"
-            params += temporal_params
+            result = self.dialect.format_temporal_options(self.temporal_options)
+            if result is not None:
+                temporal_sql, temporal_params = result
+                table_sql = f"{table_sql} {temporal_sql}"
+                params += temporal_params
         return table_sql, params

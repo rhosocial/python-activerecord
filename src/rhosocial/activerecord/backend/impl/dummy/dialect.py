@@ -939,8 +939,14 @@ class DummyDialect(
         return f"MATCH {' '.join(path_sql)}", path_params
 
     def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
-        if not options: return "", ()
+        if not options:
+            return "", ()
         sql_parts, params = ["FOR SYSTEM_TIME"], []
+        # Add temporal options to SQL parts based on the options provided
+        for key, value in options.items():
+            sql_parts.append(f"{key.upper()} ?")
+            params.append(value)
+        return " ".join(sql_parts), tuple(params)
 
     # region View and Query Part Formatting Methods
 
