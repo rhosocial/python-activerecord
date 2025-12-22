@@ -975,6 +975,15 @@ class BaseDialect(SQLDialectBase):
     for dialect-specific behavior.
     """
 
+    def get_placeholder(self) -> str:
+        """
+        Get parameter placeholder format.
+
+        Returns:
+            Placeholder string ('?')
+        """
+        return "?"
+
     def get_parameter_placeholder(self, position: int) -> str:
         """
         Get parameter placeholder with position.
@@ -2364,26 +2373,6 @@ class BaseDialect(SQLDialectBase):
 
         order_sql = f"ORDER BY {', '.join(expr_parts)}"
         return order_sql, tuple(all_params)
-
-    # This is a duplicate implementation - both should be the same
-    # Keeping the implementation at the earlier location (around line 2087)
-    # This is intentionally left blank to avoid duplication
-
-    # This is a duplicate implementation of format_for_update_clause
-    # Kept the implementation at line ~1280 for consistency
-    # See format_for_update_clause implementation at line ~1280
-    # endregion View and Query Part Formatting Methods
-        if "as_of" in options:
-            sql_parts.append("AS OF ?")
-            params.append(options["as_of"])
-        elif "from" in options and "to" in options:
-            sql_parts.append("FROM ? TO ?")
-            params.extend([options["from"], options["to"]])
-        elif "between" in options and "and" in options:
-            sql_parts.append("BETWEEN ? AND ?")
-            params.extend([options["between"], options["and"]])
-        return " ".join(sql_parts), tuple(params)
-    # endregion
 
     # region Expression & Predicate Formatting
     def format_json_table_expression(self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: str, params: tuple) -> Tuple[str, Tuple]:
