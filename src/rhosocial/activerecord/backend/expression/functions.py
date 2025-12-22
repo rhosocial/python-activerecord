@@ -133,45 +133,6 @@ def max_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], al
     return aggregates.AggregateFunctionCall(dialect, "MAX", target_expr, alias=alias)
 
 
-# --- Scalar Function Factories ---
-
-def lower(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
-    """
-    Creates a LOWER scalar function call.
-
-    Usage rules:
-    - To generate LOWER(column), pass a Column object: lower(dialect, Column(dialect, "column_name"))
-    - To generate LOWER(?), pass a literal value: lower(dialect, "literal_value")
-
-    Args:
-        dialect: The SQL dialect instance
-        expr: The expression to convert to lowercase. If a string is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
-
-    Returns:
-        A FunctionCall instance representing the LOWER function
-    """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    return core.FunctionCall(dialect, "LOWER", target_expr)
-
-def upper(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
-    """
-    Creates an UPPER scalar function call.
-
-    Usage rules:
-    - To generate UPPER(column), pass a Column object: upper(dialect, Column(dialect, "column_name"))
-    - To generate UPPER(?), pass a literal value: upper(dialect, "literal_value")
-
-    Args:
-        dialect: The SQL dialect instance
-        expr: The expression to convert to uppercase. If a string is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
-
-    Returns:
-        A FunctionCall instance representing the UPPER function
-    """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
-    return core.FunctionCall(dialect, "UPPER", target_expr)
 
 def concat(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
     """

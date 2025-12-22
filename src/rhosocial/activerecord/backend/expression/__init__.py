@@ -75,7 +75,7 @@ from .functions import (
     # Aggregate function factories
     count, sum_, avg, min_, max_,
     # Scalar function factories
-    lower, upper, concat, coalesce,
+    concat, coalesce,
     # String function factories
     length, substring, trim, replace, initcap, left, right, lpad, rpad, reverse, strpos,
     # Math function factories

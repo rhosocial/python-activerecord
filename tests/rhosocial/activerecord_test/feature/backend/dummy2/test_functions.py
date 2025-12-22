@@ -547,6 +547,13 @@ class TestTypeConversionFunctionFactories:
         sql, params = func.to_sql()
         assert "TO_NUMBER(" in sql
         assert params == ("9999",)
+
+    def test_to_number_function_without_format(self, dummy_dialect: DummyDialect):
+        """Test TO_NUMBER function without format."""
+        func = to_number(dummy_dialect, "value")
+        sql, params = func.to_sql()
+        assert "TO_NUMBER(" in sql
+        assert params == ()
     
     def test_to_date_function(self, dummy_dialect: DummyDialect):
         """Test TO_DATE function."""
@@ -554,3 +561,239 @@ class TestTypeConversionFunctionFactories:
         sql, params = func.to_sql()
         assert "TO_DATE(" in sql
         assert params == ("YYYY-MM-DD",)
+
+    def test_to_date_function_without_format(self, dummy_dialect: DummyDialect):
+        """Test TO_DATE function without format."""
+        func = to_date(dummy_dialect, "value")
+        sql, params = func.to_sql()
+        assert "TO_DATE(" in sql
+        assert params == ()
+
+
+class TestMathFunctionFactoriesExtended:
+    """Additional tests for math function factories."""
+
+    def test_sin_function(self, dummy_dialect: DummyDialect):
+        """Test SIN function."""
+        func = sin(dummy_dialect, "angle")
+        sql, params = func.to_sql()
+        assert "SIN(" in sql
+        # When passing string to sin, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_cos_function(self, dummy_dialect: DummyDialect):
+        """Test COS function."""
+        func = cos(dummy_dialect, "angle")
+        sql, params = func.to_sql()
+        assert "COS(" in sql
+        # When passing string to cos, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_tan_function(self, dummy_dialect: DummyDialect):
+        """Test TAN function."""
+        func = tan(dummy_dialect, "angle")
+        sql, params = func.to_sql()
+        assert "TAN(" in sql
+        # When passing string to tan, it's treated as a column name, so no parameters
+        assert params == ()
+
+
+class TestDateTimeFunctionFactoriesExtended:
+    """Additional tests for date/time function factories."""
+
+    def test_year_function(self, dummy_dialect: DummyDialect):
+        """Test YEAR function."""
+        func = year(dummy_dialect, "created_at")
+        sql, params = func.to_sql()
+        assert "YEAR(" in sql
+        # When passing string to year, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_month_function(self, dummy_dialect: DummyDialect):
+        """Test MONTH function."""
+        func = month(dummy_dialect, "created_at")
+        sql, params = func.to_sql()
+        assert "MONTH(" in sql
+        # When passing string to month, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_day_function(self, dummy_dialect: DummyDialect):
+        """Test DAY function."""
+        func = day(dummy_dialect, "created_at")
+        sql, params = func.to_sql()
+        assert "DAY(" in sql
+        # When passing string to day, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_hour_function(self, dummy_dialect: DummyDialect):
+        """Test HOUR function."""
+        func = hour(dummy_dialect, "created_at")
+        sql, params = func.to_sql()
+        assert "HOUR(" in sql
+        # When passing string to hour, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_minute_function(self, dummy_dialect: DummyDialect):
+        """Test MINUTE function."""
+        func = minute(dummy_dialect, "created_at")
+        sql, params = func.to_sql()
+        assert "MINUTE(" in sql
+        # When passing string to minute, it's treated as a column name, so no parameters
+        assert params == ()
+
+    def test_second_function(self, dummy_dialect: DummyDialect):
+        """Test SECOND function."""
+        func = second(dummy_dialect, "created_at")
+        sql, params = func.to_sql()
+        assert "SECOND(" in sql
+        # When passing string to second, it's treated as a column name, so no parameters
+        assert params == ()
+
+
+class TestConditionalFunctionFactoriesExtended:
+    """Additional tests for conditional function factories."""
+
+    def test_nullif_function(self, dummy_dialect: DummyDialect):
+        """Test NULLIF function."""
+        func = nullif(dummy_dialect, "value", "null_value")
+        sql, params = func.to_sql()
+        assert "NULLIF(" in sql
+        assert params == ("value", "null_value")
+
+    def test_greatest_function(self, dummy_dialect: DummyDialect):
+        """Test GREATEST function."""
+        func = greatest(dummy_dialect, "a", "b", "c")
+        sql, params = func.to_sql()
+        assert "GREATEST(" in sql
+        assert params == ("a", "b", "c")
+
+    def test_least_function(self, dummy_dialect: DummyDialect):
+        """Test LEAST function."""
+        func = least(dummy_dialect, "a", "b", "c")
+        sql, params = func.to_sql()
+        assert "LEAST(" in sql
+        assert params == ("a", "b", "c")
+
+
+class TestWindowFunctionFactoriesExtended:
+    """Additional tests for window function factories."""
+
+    def test_row_number_with_alias(self, dummy_dialect: DummyDialect):
+        """Test ROW_NUMBER function with alias."""
+        func = row_number(dummy_dialect, alias="row_num")
+        sql, params = func.to_sql()
+        assert "ROW_NUMBER(" in sql
+        assert "AS" in sql
+
+    def test_rank_with_alias(self, dummy_dialect: DummyDialect):
+        """Test RANK function with alias."""
+        func = rank(dummy_dialect, alias="rank_val")
+        sql, params = func.to_sql()
+        assert "RANK(" in sql
+        assert "AS" in sql
+
+    def test_dense_rank_with_alias(self, dummy_dialect: DummyDialect):
+        """Test DENSE_RANK function with alias."""
+        func = dense_rank(dummy_dialect, alias="dense_rank_val")
+        sql, params = func.to_sql()
+        assert "DENSE_RANK(" in sql
+        assert "AS" in sql
+
+    def test_lag_function_with_offset_and_default(self, dummy_dialect: DummyDialect):
+        """Test LAG function with offset and default value."""
+        func = lag(dummy_dialect, "value", 2, "default")
+        sql, params = func.to_sql()
+        assert "LAG(" in sql
+        # When passing "value" as string, it's treated as column, but 2 and "default" are literals
+        # So parameters should be (2, "default")
+        assert params == (2, "default")
+
+    def test_lag_function_without_default(self, dummy_dialect: DummyDialect):
+        """Test LAG function without default value."""
+        func = lag(dummy_dialect, "value", 1)  # No default provided
+        sql, params = func.to_sql()
+        assert "LAG(" in sql
+        # When passing "value" as string, it's treated as column, but only 1 is literal
+        # So parameters should be (1,)
+        assert params == (1,)
+
+    def test_lead_function_with_offset_and_default(self, dummy_dialect: DummyDialect):
+        """Test LEAD function with offset and default value."""
+        func = lead(dummy_dialect, "value", 2, "default")
+        sql, params = func.to_sql()
+        assert "LEAD(" in sql
+        # When passing "value" as string, it's treated as column, but 2 and "default" are literals
+        # So parameters should be (2, "default")
+        assert params == (2, "default")
+
+    def test_lead_function_without_default(self, dummy_dialect: DummyDialect):
+        """Test LEAD function without default value."""
+        func = lead(dummy_dialect, "value", 1)  # No default provided
+        sql, params = func.to_sql()
+        assert "LEAD(" in sql
+        # When passing "value" as string, it's treated as column, but only 1 is literal
+        # So parameters should be (1,)
+        assert params == (1,)
+
+    def test_first_value_function(self, dummy_dialect: DummyDialect):
+        """Test FIRST_VALUE function."""
+        func = first_value(dummy_dialect, "value", alias="first_val")
+        sql, params = func.to_sql()
+        assert "FIRST_VALUE(" in sql
+        assert "AS" in sql
+        # When passing "value" as string, it's treated as column, so no parameters
+        assert params == ()
+
+    def test_last_value_function(self, dummy_dialect: DummyDialect):
+        """Test LAST_VALUE function."""
+        func = last_value(dummy_dialect, "value", alias="last_val")
+        sql, params = func.to_sql()
+        assert "LAST_VALUE(" in sql
+        assert "AS" in sql
+        # When passing "value" as string, it's treated as column, so no parameters
+        assert params == ()
+
+    def test_nth_value_function(self, dummy_dialect: DummyDialect):
+        """Test NTH_VALUE function."""
+        func = nth_value(dummy_dialect, "value", 3, alias="nth_val")
+        sql, params = func.to_sql()
+        assert "NTH_VALUE(" in sql
+        assert "AS" in sql
+        # When passing "value" as string, it's treated as column, but 3 is literal
+        # So parameters should be (3,)
+        assert params == (3,)
+
+
+class TestJsonFunctionFactoriesExtended:
+    """Additional tests for JSON function factories."""
+
+    def test_json_extract_function(self, dummy_dialect: DummyDialect):
+        """Test JSON extract function."""
+        col = Column(dummy_dialect, "json_col")
+        func = json_extract(dummy_dialect, col, "$.name")
+        sql, params = func.to_sql()
+        assert func.operation == "->"
+        assert '"json_col"' in sql or "json_col" in sql
+
+    def test_json_extract_text_function(self, dummy_dialect: DummyDialect):
+        """Test JSON extract text function."""
+        col = Column(dummy_dialect, "json_col")
+        func = json_extract_text(dummy_dialect, col, "$.name")
+        sql, params = func.to_sql()
+        assert func.operation == "->>"
+        assert '"json_col"' in sql or "json_col" in sql
+
+    def test_json_build_object_function(self, dummy_dialect: DummyDialect):
+        """Test JSON_BUILD_OBJECT function."""
+        func = json_build_object(dummy_dialect, "key1", "value1", "key2", "value2")
+        sql, params = func.to_sql()
+        assert "JSON_BUILD_OBJECT(" in sql
+        assert params == ("key1", "value1", "key2", "value2")
+
+    def test_json_array_elements_function(self, dummy_dialect: DummyDialect):
+        """Test JSON_ARRAY_ELEMENTS function."""
+        func = json_array_elements(dummy_dialect, "json_array")
+        sql, params = func.to_sql()
+        assert "JSON_ARRAY_ELEMENTS(" in sql
+        # When passing "json_array" as string, it's treated as a column name, so no parameters
+        assert params == ()
