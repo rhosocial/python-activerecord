@@ -16,6 +16,14 @@ from typing import Tuple, Protocol, TYPE_CHECKING
 class ToSQLProtocol(Protocol):
     """
     Protocol for objects that can be converted into a SQL string and a tuple of parameters.
+
+    Security Notice:
+    1. For backend developers: Any code involving database interfaces or SQL formatting
+       must strictly follow this protocol by separating SQL fragments and parameters
+       to prevent SQL injection attacks.
+    2. For application developers: When interacting with the database, always pass
+       query parameters through the designated parameter mechanisms rather than
+       directly concatenating values into SQL strings to prevent SQL injection.
     """
     def to_sql(self) -> Tuple[str, tuple]:
         """
