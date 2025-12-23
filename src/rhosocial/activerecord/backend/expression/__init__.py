@@ -1,6 +1,14 @@
 # src/rhosocial/activerecord/backend/expression/__init__.py
 """
 SQL Expression building blocks.
+
+Architecture Principles:
+- Expression classes implement the ToSQLProtocol and define how to generate SQL
+- Each expression class must call its dialect's format_* methods instead of self-formatting
+- Dialect classes are responsible for the actual SQL formatting and parameter handling
+- Expression classes should never directly concatenate SQL strings; they should delegate to dialect
+- This pattern ensures each dialect can customize formatting behavior while maintaining security
+- The relationship: Expression.to_sql() -> Dialect.format_*() -> SQL string and parameters
 """
 
 from .bases import (
