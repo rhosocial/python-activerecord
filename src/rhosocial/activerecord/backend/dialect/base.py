@@ -677,6 +677,66 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def format_in_predicate_with_literal_values(
+        self,
+        expr_sql: str,
+        literal_values: tuple,
+        expr_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Format IN predicate with literal values (e.g., IN (?, ?, ?)).
+
+        Args:
+            expr_sql: Expression SQL
+            literal_values: Tuple of literal values
+            expr_params: Expression parameters
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_any_expression(
+        self,
+        expr: "bases.BaseExpression",
+        op: str,
+        array_expr: "bases.BaseExpression"
+    ) -> Tuple[str, Tuple]:
+        """
+        Format ANY expression.
+
+        Args:
+            expr: Left side expression
+            op: Comparison operator
+            array_expr: Array or subquery expression
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_all_expression(
+        self,
+        expr: "bases.BaseExpression",
+        op: str,
+        array_expr: "bases.BaseExpression"
+    ) -> Tuple[str, Tuple]:
+        """
+        Format ALL expression.
+
+        Args:
+            expr: Left side expression
+            op: Comparison operator
+            array_expr: Array or subquery expression
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
     def format_between_predicate(
         self,
         expr_sql: str,
@@ -716,6 +776,24 @@ class SQLDialectBase(ABC):
             expr_sql: Expression SQL
             is_not: Whether to use IS NOT NULL
             expr_params: Expression parameters
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_exists_expression(
+        self,
+        subquery: "core.Subquery",
+        is_not: bool
+    ) -> Tuple[str, Tuple]:
+        """
+        Format EXISTS predicate.
+
+        Args:
+            subquery: Subquery expression
+            is_not: Whether to use NOT EXISTS
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -917,6 +995,66 @@ class SQLDialectBase(ABC):
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        pass
+
+    @abstractmethod
+    def format_grouping_expression(
+        self,
+        operation: str,
+        expressions: List["bases.BaseExpression"]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
+
+        Args:
+            operation: The grouping operation ('ROLLUP', 'CUBE', or 'GROUPING SETS').
+            expressions: List of expressions to group by.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        pass
+
+    @abstractmethod
+    def format_json_expression(
+        self,
+        column: Union["bases.BaseExpression", str],
+        path: str,
+        operation: str
+    ) -> Tuple[str, Tuple]:
+        """
+        Format JSON expression.
+
+        Args:
+            column: Column expression or identifier
+            path: JSON path
+            operation: JSON operation (e.g., '->', '->>')
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_array_expression(
+        self,
+        operation: str,
+        elements: Optional[List["bases.BaseExpression"]],
+        base_expr: Optional["bases.BaseExpression"],
+        index_expr: Optional["bases.BaseExpression"]
+    ) -> Tuple[str, Tuple]:
+        """
+        Format array expression.
+
+        Args:
+            operation: Array operation type ('CONSTRUCTOR', 'ACCESS', etc.)
+            elements: List of elements for array constructor
+            base_expr: Base expression for array access
+            index_expr: Index expression for array access
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
         """
         pass
 
@@ -1192,6 +1330,59 @@ class BaseDialect(SQLDialectBase):
         sql = f"{expr_sql} IN {values_sql}"
         return sql, expr_params + values_params
 
+    def format_in_predicate_with_literal_values(
+        self,
+        expr_sql: str,
+        literal_values: tuple,
+        expr_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """Format IN predicate with literal values."""
+        if not literal_values:  # Handle empty list case for IN ()
+            values_sql = "()"
+            values_params = ()
+        else:
+            placeholders = ", ".join([self.get_placeholder()] * len(literal_values))
+            values_sql = f"({placeholders})"
+            values_params = tuple(literal_values)  # Convert to tuple to ensure correct type
+        sql = f"{expr_sql} IN {values_sql}"
+        return sql, expr_params + values_params
+
+    def format_any_expression(
+        self,
+        expr: "bases.BaseExpression",
+        op: str,
+        array_expr: "bases.BaseExpression"
+    ) -> Tuple[str, Tuple]:
+        """Format ANY expression."""
+        expr_sql, expr_params = expr.to_sql()
+        # Check if array_expr is a Literal with list/tuple value by checking for 'value' attribute
+        if (hasattr(array_expr, 'value') and
+            isinstance(array_expr.value, (list, tuple))):
+            array_sql = self.get_placeholder()
+            array_params = (tuple(array_expr.value),)
+        else:
+            array_sql, array_params = array_expr.to_sql()
+        sql = f"({expr_sql} {op} ANY{array_sql})"
+        return sql, tuple(list(expr_params) + list(array_params))
+
+    def format_all_expression(
+        self,
+        expr: "bases.BaseExpression",
+        op: str,
+        array_expr: "bases.BaseExpression"
+    ) -> Tuple[str, Tuple]:
+        """Format ALL expression."""
+        expr_sql, expr_params = expr.to_sql()
+        # Check if array_expr is a Literal with list/tuple value by checking for 'value' attribute
+        if (hasattr(array_expr, 'value') and
+            isinstance(array_expr.value, (list, tuple))):
+            array_sql = self.get_placeholder()
+            array_params = (tuple(array_expr.value),)
+        else:
+            array_sql, array_params = array_expr.to_sql()
+        sql = f"({expr_sql} {op} ALL{array_sql})"
+        return sql, tuple(list(expr_params) + list(array_params))
+
     def format_between_predicate(
         self,
         expr_sql: str,
@@ -1215,6 +1406,17 @@ class BaseDialect(SQLDialectBase):
         not_str = " NOT" if is_not else ""
         sql = f"{expr_sql} IS{not_str} NULL"
         return sql, expr_params
+
+    def format_exists_expression(
+        self,
+        subquery: "bases.BaseExpression",
+        is_not: bool
+    ) -> Tuple[str, Tuple]:
+        """Format EXISTS predicate."""
+        subquery_sql, subquery_params = subquery.to_sql()
+        exists_clause = "NOT EXISTS" if is_not else "EXISTS"
+        sql = f"{exists_clause} {subquery_sql}"
+        return sql, subquery_params
 
     def format_like_predicate(
         self,
@@ -2427,6 +2629,20 @@ class BaseDialect(SQLDialectBase):
         sql = f"({variable} IS {self.format_identifier(table)})"
         return sql, ()
 
+    def format_json_expression(
+        self,
+        column: Union["bases.BaseExpression", str],
+        path: str,
+        operation: str
+    ) -> Tuple[str, Tuple]:
+        """Format JSON expression."""
+        if isinstance(column, bases.BaseExpression):
+            col_sql, col_params = column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(column)), ()
+        sql = f"({col_sql} {operation} ?)"
+        return sql, col_params + (path,)
+
     def format_graph_edge(
         self,
         variable: str,
@@ -2454,11 +2670,73 @@ class BaseDialect(SQLDialectBase):
 
         return sql, ()
 
+    def format_grouping_expression(
+        self,
+        operation: str,
+        expressions: List["bases.BaseExpression"]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
+        """
+        # Check feature support based on operation type
+        if operation.upper() == "ROLLUP":
+            self.check_feature_support('supports_rollup', 'ROLLUP')
+        elif operation.upper() == "CUBE":
+            self.check_feature_support('supports_cube', 'CUBE')
+        elif operation.upper() == "GROUPING SETS":
+            self.check_feature_support('supports_grouping_sets', 'GROUPING SETS')
+
+        all_params = []
+        if operation.upper() == "GROUPING SETS":
+            # For GROUPING SETS, expressions is a list of lists
+            sets_parts = []
+            for expr_list in expressions:
+                expr_parts = []
+                for expr in expr_list:
+                    expr_sql, expr_params = expr.to_sql()
+                    expr_parts.append(expr_sql)
+                    all_params.extend(expr_params)
+                sets_parts.append(f"({', '.join(expr_parts)})")
+            inner_expr = ", ".join(sets_parts)
+            sql = f"{operation.upper()}({inner_expr})"
+        else:
+            # For ROLLUP and CUBE, expressions is a simple list
+            expr_parts = []
+            for expr in expressions:
+                expr_sql, expr_params = expr.to_sql()
+                expr_parts.append(expr_sql)
+                all_params.extend(expr_params)
+            inner_expr = ", ".join(expr_parts)
+            sql = f"{operation.upper()}({inner_expr})"
+
+        return sql, tuple(all_params)
+
     def format_json_table_expression(self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: str, params: tuple) -> Tuple[str, Tuple]:
         cols_defs = [f"{col['name']} {col['type']} PATH '{col['path']}'" for col in columns]
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"
         sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias)}"
         return sql, params
+
+    def format_array_expression(
+        self,
+        operation: str,
+        elements: Optional[List["bases.BaseExpression"]],
+        base_expr: Optional["bases.BaseExpression"],
+        index_expr: Optional["bases.BaseExpression"]
+    ) -> Tuple[str, Tuple]:
+        """Format array expression."""
+        if operation.upper() == "CONSTRUCTOR" and elements is not None:
+            element_parts, all_params = [], []
+            for elem in elements:
+                elem_sql, elem_params = elem.to_sql()
+                element_parts.append(elem_sql)
+                all_params.extend(elem_params)
+            return f"ARRAY[{', '.join(element_parts)}]", tuple(all_params)
+        elif operation.upper() == "ACCESS" and base_expr and index_expr:
+            base_sql, base_params = base_expr.to_sql()
+            index_sql, index_params = index_expr.to_sql()
+            return f"({base_sql}[{index_sql}])", base_params + index_params
+        return "ARRAY[]", ()
 
     def format_case_expression(
         self,

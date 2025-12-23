@@ -55,6 +55,23 @@ class AdvancedGroupingSupport(Protocol):
         """Whether GROUPING SETS are supported."""
         ...
 
+    def format_grouping_expression(
+        self,
+        operation: str,
+        expressions: List["bases.BaseExpression"]
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
+
+        Args:
+            operation: The grouping operation ('ROLLUP', 'CUBE', or 'GROUPING SETS').
+            expressions: List of expressions to group by.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...
+
 
 @runtime_checkable
 class ReturningSupport(Protocol):

@@ -63,10 +63,8 @@ class ExistsExpression(mixins.LogicalMixin, bases.SQLPredicate):
         self.is_not = is_not
 
     def to_sql(self) -> Tuple[str, tuple]:
-        subquery_sql, subquery_params = self.subquery.to_sql()
-        exists_clause = "NOT EXISTS" if self.is_not else "EXISTS"
-        sql = f"{exists_clause} {subquery_sql}"
-        return sql, subquery_params
+        # Delegate to the dialect's format_exists_expression method
+        return self.dialect.format_exists_expression(self.subquery, self.is_not)
 
 
 class AnyExpression(mixins.LogicalMixin, bases.SQLPredicate):
@@ -78,14 +76,8 @@ class AnyExpression(mixins.LogicalMixin, bases.SQLPredicate):
         self.array_expr = array_expr
 
     def to_sql(self) -> Tuple[str, tuple]:
-        expr_sql, expr_params = self.expr.to_sql()
-        if isinstance(self.array_expr, core.Literal) and isinstance(self.array_expr.value, (list, tuple)):
-            array_sql = self.dialect.get_placeholder()
-            array_params = (tuple(self.array_expr.value),)
-        else:
-            array_sql, array_params = self.array_expr.to_sql()
-        sql = f"({expr_sql} {self.op} ANY{array_sql})"
-        return sql, tuple(list(expr_params) + list(array_params))
+        # Delegate to the dialect's format_any_expression method
+        return self.dialect.format_any_expression(self.expr, self.op, self.array_expr)
 
 
 class AllExpression(mixins.LogicalMixin, bases.SQLPredicate):
@@ -97,14 +89,8 @@ class AllExpression(mixins.LogicalMixin, bases.SQLPredicate):
         self.array_expr = array_expr
 
     def to_sql(self) -> Tuple[str, tuple]:
-        expr_sql, expr_params = self.expr.to_sql()
-        if isinstance(self.array_expr, core.Literal) and isinstance(self.array_expr.value, (list, tuple)):
-            array_sql = self.dialect.get_placeholder()
-            array_params = (tuple(self.array_expr.value),)
-        else:
-            array_sql, array_params = self.array_expr.to_sql()
-        sql = f"({expr_sql} {self.op} ALL{array_sql})"
-        return sql, tuple(list(expr_params) + list(array_params))
+        # Delegate to the dialect's format_all_expression method
+        return self.dialect.format_all_expression(self.expr, self.op, self.array_expr)
 
 
 class WindowFrameSpecification(bases.BaseExpression):
@@ -207,12 +193,8 @@ class JSONExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.Stri
         self.operation = operation
 
     def to_sql(self) -> Tuple[str, tuple]:
-        if isinstance(self.column, bases.BaseExpression):
-            col_sql, col_params = self.column.to_sql()
-        else:
-            col_sql, col_params = self.dialect.format_identifier(str(self.column)), ()
-        sql = f"({col_sql} {self.operation} ?)"
-        return sql, col_params + (self.path,)
+        # Delegate to the dialect's format_json_expression method
+        return self.dialect.format_json_expression(self.column, self.path, self.operation)
 
 
 class ArrayExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
@@ -229,18 +211,8 @@ class ArrayExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         self.elements = elements
 
     def to_sql(self) -> Tuple[str, tuple]:
-        if self.operation.upper() == "CONSTRUCTOR" and self.elements is not None:
-            element_parts, all_params = [], []
-            for elem in self.elements:
-                elem_sql, elem_params = elem.to_sql()
-                element_parts.append(elem_sql)
-                all_params.extend(elem_params)
-            return f"ARRAY[{', '.join(element_parts)}]", tuple(all_params)
-        elif self.operation.upper() == "ACCESS" and self.base_expr and self.index_expr:
-            base_sql, base_params = self.base_expr.to_sql()
-            index_sql, index_params = self.index_expr.to_sql()
-            return f"({base_sql}[{index_sql}])", base_params + index_params
-        return "ARRAY[]", ()
+        # Delegate to the dialect's format_array_expression method
+        return self.dialect.format_array_expression(self.operation, self.elements, self.base_expr, self.index_expr)
 
 
 class OrderedSetAggregation(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):

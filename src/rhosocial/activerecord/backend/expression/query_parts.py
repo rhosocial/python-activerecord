@@ -288,32 +288,8 @@ class GroupingExpression(bases.BaseExpression):
         self.expressions = expressions
 
     def to_sql(self) -> Tuple[str, tuple]:
-        op, all_params = self.operation.upper(), []
-        if op == "ROLLUP": self.dialect.check_feature_support('supports_rollup', 'ROLLUP')
-        elif op == "CUBE": self.dialect.check_feature_support('supports_cube', 'CUBE')
-        elif op == "GROUPING SETS": self.dialect.check_feature_support('supports_grouping_sets', 'GROUPING SETS')
-
-        if op == "GROUPING SETS":
-            sets_parts = []
-            for expr_list in self.expressions:
-                expr_parts = []
-                for expr in expr_list:
-                    expr_sql, expr_params = expr.to_sql()
-                    expr_parts.append(expr_sql)
-                    all_params.extend(expr_params)
-                sets_parts.append(f"({', '.join(expr_parts)})")
-            inner_expr = ", ".join(sets_parts)
-            sql = f"{op}({inner_expr})"
-        else:
-            expr_parts = []
-            for expr in self.expressions:
-                expr_sql, expr_params = expr.to_sql()
-                expr_parts.append(expr_sql)
-                all_params.extend(expr_params)
-            inner_expr = ", ".join(expr_parts)
-            sql = f"{op}({inner_expr})"
-
-        return sql, tuple(all_params)
+        # Delegate to the dialect's format_grouping_expression method
+        return self.dialect.format_grouping_expression(self.operation, self.expressions)
 
 
 class JoinExpression(bases.BaseExpression):

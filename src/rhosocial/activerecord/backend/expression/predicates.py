@@ -65,20 +65,14 @@ class InPredicate(mixins.LogicalMixin, bases.SQLPredicate):
 
     def to_sql(self) -> Tuple[str, tuple]:
         expr_sql, expr_params = self.expr.to_sql()
-        
-        # Check if values is a Literal containing a collection and expand it
+
+        # Check if values is a Literal containing a collection and delegate to dialect
         if isinstance(self.values, Literal) and isinstance(self.values.value, (list, tuple, set)):
-            if not self.values.value: # Handle empty list case for IN ()
-                values_sql = "()"
-                values_params = ()
-            else:
-                placeholders = ", ".join([self.dialect.get_placeholder()] * len(self.values.value))
-                values_sql = f"({placeholders})"
-                values_params = tuple(self.values.value)
+            # Delegate to dialect's format_in_predicate with the literal values
+            return self.dialect.format_in_predicate_with_literal_values(expr_sql, self.values.value, expr_params)
         else:
             values_sql, values_params = self.values.to_sql()
-            
-        return self.dialect.format_in_predicate(expr_sql, values_sql, expr_params, values_params)
+            return self.dialect.format_in_predicate(expr_sql, values_sql, expr_params, values_params)
 
 
 class BetweenPredicate(mixins.LogicalMixin, bases.SQLPredicate):
