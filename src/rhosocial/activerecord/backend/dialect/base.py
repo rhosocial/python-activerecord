@@ -196,6 +196,32 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, tuple]:
+        """
+        Format RENAME COLUMN action for ALTER TABLE statement per SQL standard.
+
+        Args:
+            action: RenameColumn action object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, tuple]:
+        """
+        Format RENAME TABLE action for ALTER TABLE statement per SQL standard.
+
+        Args:
+            action: RenameTable action object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
     def format_add_index_action(self, action: "AddIndex") -> Tuple[str, tuple]:
         """
         Format ADD INDEX action for ALTER TABLE statement.

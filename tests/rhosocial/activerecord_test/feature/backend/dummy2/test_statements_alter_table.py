@@ -9,7 +9,8 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.statements import (
     AlterColumn, AddConstraint, DropConstraint, RenameObject, AddIndex, DropIndex,
-    TableConstraint, TableConstraintType, AlterTableActionType
+    TableConstraint, TableConstraintType, AlterTableActionType, AddTableConstraint,
+    DropTableConstraint, RenameColumn, RenameTable, ColumnAlterOperation
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -544,3 +545,156 @@ class TestAlterTableStatements:
         # Attempting to call to_sql should raise an error
         with pytest.raises(AttributeError, match="Dialect not set for AlterTableAction"):
             add_action.to_sql()
+
+    def test_rename_column_action_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with RENAME COLUMN action per SQL standard."""
+        rename_action = RenameColumn(
+            old_name="user_name",
+            new_name="username"
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="users",
+            actions=[rename_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # Verify basic structure
+        assert 'ALTER TABLE "users"' in sql
+        assert 'RENAME COLUMN "user_name" TO "username"' in sql
+        assert params == ()
+
+    def test_rename_table_action_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with RENAME TABLE action per SQL standard."""
+        rename_action = RenameTable(
+            old_name="old_table_name",
+            new_name="new_table_name"
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="old_table_name",
+            actions=[rename_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # Verify basic structure
+        assert 'ALTER TABLE "old_table_name"' in sql
+        assert 'RENAME TO "new_table_name"' in sql
+        assert params == ()
+
+    def test_alter_column_set_default_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with ALTER COLUMN SET DEFAULT action per SQL standard."""
+        alter_action = AlterColumn(
+            column_name="status",
+            operation=ColumnAlterOperation.SET_DEFAULT,
+            new_value="active"
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="users",
+            actions=[alter_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        assert 'ALTER TABLE "users"' in sql
+        assert 'ALTER COLUMN "status" SET DEFAULT' in sql
+        assert params == ("active",)
+
+    def test_alter_column_drop_default_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with ALTER COLUMN DROP DEFAULT action per SQL standard."""
+        alter_action = AlterColumn(
+            column_name="status",
+            operation=ColumnAlterOperation.DROP_DEFAULT
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="users",
+            actions=[alter_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        assert 'ALTER TABLE "users"' in sql
+        assert 'ALTER COLUMN "status" DROP DEFAULT' in sql
+        assert params == ()
+
+    def test_add_table_constraint_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with ADD CONSTRAINT action per SQL standard."""
+        check_condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 0)
+        constraint = TableConstraint(
+            constraint_type=TableConstraintType.CHECK,
+            check_condition=check_condition,
+            name="chk_positive_age"
+        )
+        add_constraint_action = AddTableConstraint(constraint=constraint)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="employees",
+            actions=[add_constraint_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # Verify basic structure
+        assert 'ALTER TABLE "employees"' in sql
+        assert 'ADD CONSTRAINT "chk_positive_age" CHECK' in sql
+        assert params == (0,)
+
+    def test_drop_table_constraint_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with DROP CONSTRAINT action per SQL standard."""
+        drop_constraint_action = DropTableConstraint(
+            constraint_name="old_constraint",
+            cascade=False
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            actions=[drop_constraint_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # Verify basic structure
+        assert 'ALTER TABLE "orders"' in sql
+        assert 'DROP CONSTRAINT "old_constraint"' in sql
+        assert params == ()
+
+    def test_drop_table_constraint_with_cascade_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with DROP CONSTRAINT CASCADE per SQL standard."""
+        drop_constraint_action = DropTableConstraint(
+            constraint_name="fk_orders_user_id",
+            cascade=True
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            actions=[drop_constraint_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        assert 'ALTER TABLE "orders"' in sql
+        assert 'DROP CONSTRAINT "fk_orders_user_id" CASCADE' in sql
+        assert params == ()
+
+    def test_drop_column_if_exists_standard(self, dummy_dialect: DummyDialect):
+        """Tests ALTER TABLE with DROP COLUMN IF EXISTS per SQL standard."""
+        drop_action = DropColumn(
+            column_name="old_column",
+            if_exists=True
+        )
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="legacy_table",
+            actions=[drop_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # Verify basic structure
+        assert 'ALTER TABLE "legacy_table"' in sql
+        assert 'DROP COLUMN IF EXISTS "old_column"' in sql
+        assert params == ()
