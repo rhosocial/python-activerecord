@@ -191,6 +191,66 @@ class ExplainSupport(Protocol):
 
 
 @runtime_checkable
+class GraphSupport(Protocol):
+    """Protocol for graph query (MATCH) support."""
+
+    def supports_graph_match(self) -> bool:
+        """Whether graph query MATCH clause is supported."""
+        ...
+
+    def format_graph_vertex(
+        self,
+        variable: str,
+        table: str
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a graph vertex expression.
+
+        Args:
+            variable: The vertex variable name.
+            table: The vertex table name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...
+
+    def format_graph_edge(
+        self,
+        variable: str,
+        table: str,
+        direction: "GraphEdgeDirection"
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a graph edge expression.
+
+        Args:
+            variable: The edge variable name.
+            table: The edge table name.
+            direction: The edge direction.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...
+
+    def format_match_clause(
+        self,
+        clause: "MatchClause"
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a MATCH clause.
+
+        Args:
+            clause: MatchClause object containing the match expression
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        ...
+
+
+@runtime_checkable
 class FilterClauseSupport(Protocol):
     """Protocol for aggregate FILTER clause support."""
 
@@ -355,27 +415,3 @@ class LockingSupport(Protocol):
         ...
 
 
-@runtime_checkable
-class GraphSupport(Protocol):
-    """Protocol for graph query (MATCH) support."""
-
-    def supports_graph_match(self) -> bool:
-        """Whether graph query MATCH clause is supported."""
-        ...
-
-    def format_match_clause(
-        self,
-        path_sql: List[str],
-        path_params: tuple
-    ) -> Tuple[str, tuple]:
-        """
-        Formats a MATCH clause.
-
-        Args:
-            path_sql: List of SQL strings for each part of the path.
-            path_params: All parameters for the path.
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
-        """
-        ...

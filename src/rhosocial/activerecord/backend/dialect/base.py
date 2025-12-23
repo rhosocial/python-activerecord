@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
-from ..expression import bases, JoinExpression, ColumnDefinition, AlterTableAction
+from ..expression import bases, JoinExpression, ColumnDefinition, AlterTableAction, MatchClause
 
 if TYPE_CHECKING:
     from ..expression.statements import (
@@ -294,15 +294,13 @@ class SQLDialectBase(ABC):
     @abstractmethod
     def format_qualify_clause(
         self,
-        qualify_sql: str,
-        qualify_params: tuple
+        clause: "QualifyClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a QUALIFY clause.
 
         Args:
-            qualify_sql: SQL string for the QUALIFY condition.
-            qualify_params: Parameters for the QUALIFY condition.
+            clause: QualifyClause object
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
@@ -312,15 +310,13 @@ class SQLDialectBase(ABC):
     @abstractmethod
     def format_match_clause(
         self,
-        path_sql: List[str],
-        path_params: tuple
+        clause: "MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.
 
         Args:
-            path_sql: List of SQL strings for each part of the path.
-            path_params: All parameters for the path.
+            clause: MatchClause object containing the match expression
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
@@ -883,6 +879,44 @@ class SQLDialectBase(ABC):
 
         Returns:
             Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_graph_vertex(
+        self,
+        variable: str,
+        table: str
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a graph vertex expression.
+
+        Args:
+            variable: The vertex variable name.
+            table: The vertex table name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        pass
+
+    @abstractmethod
+    def format_graph_edge(
+        self,
+        variable: str,
+        table: str,
+        direction: "GraphEdgeDirection"
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a graph edge expression.
+
+        Args:
+            variable: The edge variable name.
+            table: The edge table name.
+            direction: The edge direction.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         pass
 
@@ -2139,26 +2173,9 @@ class BaseDialect(SQLDialectBase):
     def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
         return f"FILTER (WHERE {condition_sql})", condition_params
 
-    def format_qualify_clause(
-        self,
-        qualify_sql: str,
-        qualify_params: tuple
-    ) -> Tuple[str, tuple]:
-        """
-        Format QUALIFY clause with condition SQL and parameters.
-
-        Args:
-            qualify_sql: SQL string for the QUALIFY condition
-            qualify_params: Parameters for the QUALIFY condition
-
-        Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted clause.
-        """
-        return f"QUALIFY {qualify_sql}", qualify_params
-
-    # This is a duplicate implementation of format_for_update_clause
-    # Kept the implementation at line ~1280 for consistency
-    # See format_for_update_clause implementation at line ~1280
+    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
+        condition_sql, condition_params = clause.condition.to_sql()
+        return f"QUALIFY {condition_sql}", condition_params
 
     def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
         parts = [spec.frame_type]
@@ -2270,8 +2287,18 @@ class BaseDialect(SQLDialectBase):
 
         return sql, tuple(all_params)
 
-    def format_match_clause(self, path_sql: List[str], path_params: tuple) -> Tuple[str, tuple]:
-        return f"MATCH {' '.join(path_sql)}", path_params
+    def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
+        """Format MATCH clause with expression."""
+        # This method is called from MatchClause.to_sql(), so we need to format the MATCH clause
+        # with the path components from the clause
+        path_sql, all_params = [], []
+        for part in clause.path:
+            sql, params = part.to_sql()
+            path_sql.append(sql)
+            all_params.extend(params)
+
+        match_sql = f"MATCH {' '.join(path_sql)}"
+        return match_sql, tuple(all_params)
 
     def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
         if not options:
@@ -2388,6 +2415,45 @@ class BaseDialect(SQLDialectBase):
         return order_sql, tuple(all_params)
 
     # region Expression & Predicate Formatting
+    def format_graph_vertex(
+        self,
+        variable: str,
+        table: str
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a graph vertex expression according to SQL 2023 standard.
+        The syntax is (variable IS table).
+        """
+        sql = f"({variable} IS {self.format_identifier(table)})"
+        return sql, ()
+
+    def format_graph_edge(
+        self,
+        variable: str,
+        table: str,
+        direction: "GraphEdgeDirection"
+    ) -> Tuple[str, tuple]:
+        """
+        Formats a graph edge expression according to SQL 2023 standard.
+        """
+        from ..expression.graph import GraphEdgeDirection  # Import here to avoid circular import
+
+        # For different directions, construct the correct syntax
+        if direction == GraphEdgeDirection.RIGHT:
+            # Right-directed: -[var IS table]->
+            sql = f"-[{variable} IS {self.format_identifier(table)}]->"
+        elif direction == GraphEdgeDirection.LEFT:
+            # Left-directed: <-[var IS table]-
+            sql = f"<-[{variable} IS {self.format_identifier(table)}]-"
+        elif direction == GraphEdgeDirection.ANY:
+            # Bidirectional: <-[var IS table]->
+            sql = f"<-[{variable} IS {self.format_identifier(table)}]->"
+        else:  # GraphEdgeDirection.NONE (undirected)
+            # Undirected: -[var IS table]-
+            sql = f"-[{variable} IS {self.format_identifier(table)}]-"
+
+        return sql, ()
+
     def format_json_table_expression(self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: str, params: tuple) -> Tuple[str, Tuple]:
         cols_defs = [f"{col['name']} {col['type']} PATH '{col['path']}'" for col in columns]
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"

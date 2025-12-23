@@ -31,7 +31,8 @@ class GraphVertex(bases.BaseExpression):
 
     def to_sql(self) -> Tuple[str, tuple]:
         # According to SQL 2023 (ISO/IEC 9075-16), vertex syntax is (variable IS table)
-        return f"({self.variable} IS {self.dialect.format_identifier(self.table)})", ()
+        # Use the dialect's format_graph_vertex method for proper formatting
+        return self.dialect.format_graph_vertex(self.variable, self.table)
 
 
 class GraphEdge(bases.BaseExpression):
@@ -44,29 +45,8 @@ class GraphEdge(bases.BaseExpression):
 
     def to_sql(self) -> Tuple[str, tuple]:
         # According to SQL 2023 (ISO/IEC 9075-16), the edge syntax is:
-        # -[variable IS table]-> for right-directed edges
-        # <-[variable IS table]- for left-directed edges
-        # -[variable IS table]- for undirected edges (NONE)
-        # <-[variable IS table]-> for bidirectional edges (ANY)
-        left_arrow, right_arrow = "", ""
-        if self.direction in [GraphEdgeDirection.LEFT, GraphEdgeDirection.ANY]:
-            left_arrow = "<"
-        if self.direction in [GraphEdgeDirection.RIGHT, GraphEdgeDirection.ANY]:
-            right_arrow = ">"
-
-        # For different directions, construct the correct syntax
-        if self.direction == GraphEdgeDirection.RIGHT:
-            # Right-directed: -[var IS table]->
-            return f"-[{self.variable} IS {self.dialect.format_identifier(self.table)}]->", ()
-        elif self.direction == GraphEdgeDirection.LEFT:
-            # Left-directed: <-[var IS table]-
-            return f"<-[{self.variable} IS {self.dialect.format_identifier(self.table)}]-", ()
-        elif self.direction == GraphEdgeDirection.ANY:
-            # Bidirectional: <-[var IS table]->
-            return f"<-[{self.variable} IS {self.dialect.format_identifier(self.table)}]->", ()
-        else:  # GraphEdgeDirection.NONE (undirected)
-            # Undirected: -[var IS table]-
-            return f"-[{self.variable} IS {self.dialect.format_identifier(self.table)}]-", ()
+        # Use the dialect's format_graph_edge method for proper formatting
+        return self.dialect.format_graph_edge(self.variable, self.table, self.direction)
 
 
 class MatchClause(bases.BaseExpression):
@@ -80,11 +60,5 @@ class MatchClause(bases.BaseExpression):
         Generates SQL for the MATCH clause according to SQL 2023 standard.
         The actual formatting depends on the dialect's implementation of format_match_clause.
         """
-        path_sql, all_params = [], []
-        for part in self.path:
-            sql, params = part.to_sql()
-            path_sql.append(sql)
-            all_params.extend(params)
-
-        match_sql, match_params = self.dialect.format_match_clause(path_sql, tuple(all_params))
-        return match_sql, match_params
+        # Call format_match_clause with self to allow dialect-specific formatting
+        return self.dialect.format_match_clause(self)
