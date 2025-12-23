@@ -22,12 +22,8 @@ class ComparisonPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         self.right = right
 
     def to_sql(self) -> Tuple[str, tuple]:
-        left_sql, left_params = self.left.to_sql()
-        right_sql, right_params = self.right.to_sql()
-        # If the right operand is a QueryExpression, wrap its SQL in parentheses
-        if isinstance(self.right, QueryExpression):
-            right_sql = f"({right_sql})"
-        return self.dialect.format_comparison_predicate(self.op, left_sql, right_sql, left_params, right_params)
+        # Delegate to the dialect's format_comparison_predicate method with the whole expression
+        return self.dialect.format_comparison_predicate(self.op, self.left, self.right)
 
 
 class LogicalPredicate(mixins.LogicalMixin, bases.SQLPredicate):
@@ -38,8 +34,8 @@ class LogicalPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         self.predicates = list(predicates)
 
     def to_sql(self) -> Tuple[str, tuple]:
-        predicates_sql_and_params = [(p.to_sql()) for p in self.predicates]
-        return self.dialect.format_logical_predicate(self.op, *predicates_sql_and_params)
+        # Delegate to the dialect's format_logical_predicate method with the whole expression
+        return self.dialect.format_logical_predicate(self.op, *self.predicates)
 
 
 class LikePredicate(mixins.LogicalMixin, bases.SQLPredicate):
@@ -51,9 +47,8 @@ class LikePredicate(mixins.LogicalMixin, bases.SQLPredicate):
         self.pattern = pattern
 
     def to_sql(self) -> Tuple[str, tuple]:
-        expr_sql, expr_params = self.expr.to_sql()
-        pattern_sql, pattern_params = self.pattern.to_sql()
-        return self.dialect.format_like_predicate(self.op, expr_sql, pattern_sql, expr_params, pattern_params)
+        # Delegate to the dialect's format_like_predicate method with the whole expression
+        return self.dialect.format_like_predicate(self.op, self.expr, self.pattern)
 
 
 class InPredicate(mixins.LogicalMixin, bases.SQLPredicate):
@@ -64,15 +59,13 @@ class InPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         self.values = values
 
     def to_sql(self) -> Tuple[str, tuple]:
-        expr_sql, expr_params = self.expr.to_sql()
-
         # Check if values is a Literal containing a collection and delegate to dialect
         if isinstance(self.values, Literal) and isinstance(self.values.value, (list, tuple, set)):
-            # Delegate to dialect's format_in_predicate with the literal values
-            return self.dialect.format_in_predicate_with_literal_values(expr_sql, self.values.value, expr_params)
+            # Delegate to dialect's format_in_predicate_with_literal_values with the whole expression
+            return self.dialect.format_in_predicate_with_literal_values(self.expr, self.values.value)
         else:
-            values_sql, values_params = self.values.to_sql()
-            return self.dialect.format_in_predicate(expr_sql, values_sql, expr_params, values_params)
+            # Delegate to dialect's format_in_predicate with the whole expression
+            return self.dialect.format_in_predicate(self.expr, self.values)
 
 
 class BetweenPredicate(mixins.LogicalMixin, bases.SQLPredicate):
@@ -84,10 +77,8 @@ class BetweenPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         self.high = high
 
     def to_sql(self) -> Tuple[str, tuple]:
-        expr_sql, expr_params = self.expr.to_sql()
-        low_sql, low_params = self.low.to_sql()
-        high_sql, high_params = self.high.to_sql()
-        return self.dialect.format_between_predicate(expr_sql, low_sql, high_sql, expr_params, low_params, high_params)
+        # Delegate to the dialect's format_between_predicate method with the whole expression
+        return self.dialect.format_between_predicate(self.expr, self.low, self.high)
 
 
 class IsNullPredicate(mixins.LogicalMixin, bases.SQLPredicate):
@@ -98,5 +89,5 @@ class IsNullPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         self.is_not = is_not
 
     def to_sql(self) -> Tuple[str, tuple]:
-        expr_sql, expr_params = self.expr.to_sql()
-        return self.dialect.format_is_null_predicate(expr_sql, self.is_not, expr_params)
+        # Delegate to the dialect's format_is_null_predicate method with the whole expression
+        return self.dialect.format_is_null_predicate(self.expr, self.is_not)

@@ -5,12 +5,11 @@ SQL query clause expressions like WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, etc.
 These expression classes collect parameters for specific SQL clauses 
 and delegate SQL generation to backend-specific dialects.
 """
-from typing import Tuple, List, Union, Optional, Any, Dict
 from enum import Enum
-from dataclasses import dataclass
+from typing import Tuple, List, Union, Optional, Any, Dict
+
 from . import bases
 from . import core
-from . import mixins
 
 
 class JoinType(Enum):

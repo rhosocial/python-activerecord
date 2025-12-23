@@ -362,15 +362,179 @@ class TestAlterTableStatements:
             operation="SET DEFAULT",
             new_value=FunctionCall(dummy_dialect, "NOW")  # Use function call as default
         )
-        
+
         alter_expr = AlterTableExpression(
             dummy_dialect,
             table_name="entities",
             actions=[alter_action]
         )
         sql, params = alter_expr.to_sql()
-        
+
         assert 'ALTER TABLE "entities"' in sql
         assert 'ALTER COLUMN' in sql
         assert '"updated_at"' in sql
         assert params == ()
+
+    def test_add_column_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct ADD COLUMN action creation and formatting."""
+        column_def = ColumnDefinition(
+            "phone",
+            "VARCHAR(20)",
+            comment="User's phone number"
+        )
+        add_action = AddColumn(column=column_def)
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [add_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "ADD COLUMN" in sql
+        assert '"phone"' in sql
+        assert "VARCHAR(20)" in sql
+        assert params == ()
+
+    def test_drop_column_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct DROP COLUMN action creation and formatting."""
+        drop_action = DropColumn(column_name="old_phone")
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [drop_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "DROP COLUMN" in sql
+        assert '"old_phone"' in sql
+        assert params == ()
+
+    def test_alter_column_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct ALTER COLUMN action creation and formatting."""
+        alter_action = AlterColumn(
+            column_name="description",
+            operation="SET DEFAULT",
+            new_value="default_value"
+        )
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [alter_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "ALTER COLUMN" in sql
+        assert '"description"' in sql
+        assert "SET DEFAULT" in sql
+        assert params == ("default_value",)
+
+    def test_add_constraint_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct ADD CONSTRAINT action creation and formatting."""
+        check_condition = Column(dummy_dialect, "balance") >= Literal(dummy_dialect, 0)
+        constraint = TableConstraint(
+            constraint_type=TableConstraintType.CHECK,
+            check_condition=check_condition,
+            name="chk_balance_positive"
+        )
+        add_constraint_action = AddConstraint(constraint=constraint)
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [add_constraint_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "ADD CONSTRAINT" in sql
+        assert '"chk_balance_positive"' in sql
+        assert params == (0,)  # From the literal value
+
+    def test_drop_constraint_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct DROP CONSTRAINT action creation and formatting."""
+        drop_constraint_action = DropConstraint(
+            constraint_name="fk_old_constraint",
+            cascade=True
+        )
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [drop_constraint_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "DROP CONSTRAINT" in sql
+        assert '"fk_old_constraint"' in sql
+        assert "CASCADE" in sql
+        assert params == ()
+
+    def test_rename_column_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct RENAME COLUMN action creation and formatting."""
+        rename_action = RenameObject(
+            old_name="old_name",
+            new_name="new_name",
+            object_type="COLUMN"
+        )
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [rename_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "RENAME COLUMN" in sql
+        assert '"old_name"' in sql
+        assert '"new_name"' in sql
+        assert params == ()
+
+    def test_add_index_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct ADD INDEX action creation and formatting."""
+        index_def = IndexDefinition(
+            name="idx_new_index",
+            columns=["status"],
+            unique=False
+        )
+        add_index_action = AddIndex(index=index_def)
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [add_index_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "ADD INDEX" in sql
+        assert '"idx_new_index"' in sql
+        assert params == ()
+
+    def test_drop_index_action_direct(self, dummy_dialect: DummyDialect):
+        """Tests direct DROP INDEX action creation and formatting."""
+        drop_index_action = DropIndex(
+            index_name="old_index",
+            if_exists=True
+        )
+        # Since action doesn't have dialect yet, we need to create a full expression
+        alter_expr = AlterTableExpression(dummy_dialect, "test_table", [drop_index_action])
+        # Get the action from the expression (which now has dialect injected)
+        processed_action = alter_expr.actions[0]
+        sql, params = processed_action.to_sql()
+
+        assert "DROP INDEX IF EXISTS" in sql
+        assert '"old_index"' in sql
+        assert params == ()
+
+    def test_unknown_action_type(self, dummy_dialect: DummyDialect):
+        """Tests handling of unknown action types."""
+        # Create a custom action with unknown action type
+        class UnknownAction(AddColumn):
+            def __init__(self):
+                # Skip the normal initialization to avoid required parameters
+                pass
+
+        unknown_action = UnknownAction()
+        unknown_action.action_type = "UNKNOWN_ACTION_TYPE"  # Custom unknown type
+        # Manually inject dialect to test the else branch
+        unknown_action._dialect = dummy_dialect
+
+        sql, params = unknown_action.to_sql()
+        assert "PROCESS" in sql
+        assert params == ()
+
+    def test_action_without_dialect(self):
+        """Tests handling of action without dialect set."""
+        # Create an action without dialect
+        add_action = AddColumn(column=ColumnDefinition("test", "VARCHAR(100)"))
+
+        # Attempting to call to_sql should raise an error
+        with pytest.raises(AttributeError, match="Dialect not set for AlterTableAction"):
+            add_action.to_sql()

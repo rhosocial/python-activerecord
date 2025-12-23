@@ -853,7 +853,34 @@ class AlterTableActionType(Enum):
 class AlterTableAction(abc.ABC):
     """Abstract base class for a single action within an ALTER TABLE statement."""
     action_type: AlterTableActionType
-    pass
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Delegate to the dialect's format_* method based on action type."""
+        # Access dialect from the object's __dict__ which is set by AlterTableExpression
+        if hasattr(self, '_dialect'):
+            dialect = self._dialect
+            if self.action_type == AlterTableActionType.ADD_COLUMN:
+                return dialect.format_add_column_action(self)
+            elif self.action_type == AlterTableActionType.DROP_COLUMN:
+                return dialect.format_drop_column_action(self)
+            elif self.action_type == AlterTableActionType.ALTER_COLUMN:
+                return dialect.format_alter_column_action(self)
+            elif self.action_type == AlterTableActionType.ADD_CONSTRAINT:
+                return dialect.format_add_constraint_action(self)
+            elif self.action_type == AlterTableActionType.DROP_CONSTRAINT:
+                return dialect.format_drop_constraint_action(self)
+            elif self.action_type == AlterTableActionType.RENAME_COLUMN:
+                return dialect.format_rename_object_action(self)
+            elif self.action_type == AlterTableActionType.ADD_INDEX:
+                return dialect.format_add_index_action(self)
+            elif self.action_type == AlterTableActionType.DROP_INDEX:
+                return dialect.format_drop_index_action(self)
+            else:
+                # Handle unknown action types
+                return f"PROCESS {type(self).__name__}", ()
+        else:
+            raise AttributeError("Dialect not set for AlterTableAction. "
+                               "It should be set by the parent AlterTableExpression.")
 
 
 @dataclass
@@ -1143,7 +1170,11 @@ class AlterTableExpression(bases.BaseExpression):
         """
         super().__init__(dialect)
         self.table_name = table_name
-        self.actions = actions
+        # Inject dialect to all actions for ToSQLProtocol compliance
+        self.actions = []
+        for action in actions:
+            action._dialect = dialect
+            self.actions.append(action)
         self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
