@@ -867,9 +867,17 @@ class AlterTableAction(abc.ABC):
             elif self.action_type == AlterTableActionType.ALTER_COLUMN:
                 return dialect.format_alter_column_action(self)
             elif self.action_type == AlterTableActionType.ADD_CONSTRAINT:
-                return dialect.format_add_constraint_action(self)
+                # Check if this is the new AddTableConstraint or old AddConstraint
+                if self.__class__.__name__ == "AddTableConstraint":
+                    return dialect.format_add_table_constraint_action(self)
+                else:
+                    return dialect.format_add_constraint_action(self)
             elif self.action_type == AlterTableActionType.DROP_CONSTRAINT:
-                return dialect.format_drop_constraint_action(self)
+                # Check if this is the new DropTableConstraint or old DropConstraint
+                if self.__class__.__name__ == "DropTableConstraint":
+                    return dialect.format_drop_table_constraint_action(self)
+                else:
+                    return dialect.format_drop_constraint_action(self)
             elif self.action_type == AlterTableActionType.RENAME_COLUMN:
                 return dialect.format_rename_column_action(self)
             elif self.action_type == AlterTableActionType.RENAME_TABLE:
