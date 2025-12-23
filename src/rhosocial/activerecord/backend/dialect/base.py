@@ -202,6 +202,30 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def format_set_operation_expression(
+        self,
+        left: "bases.BaseExpression",
+        right: "bases.BaseExpression",
+        operation: str,
+        alias: str,
+        all: bool
+    ) -> Tuple[str, Tuple]:
+        """
+        Format set operation expression (UNION, INTERSECT, EXCEPT).
+
+        Args:
+            left: Left query expression
+            right: Right query expression
+            operation: Set operation type ('UNION', 'INTERSECT', 'EXCEPT')
+            alias: Alias for the result
+            all: Whether to use ALL modifier
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """
         Formats an ON CONFLICT clause for upsert operations.
@@ -2820,3 +2844,19 @@ class BaseDialect(SQLDialectBase):
             join_sql = f"({join_sql}) AS {self.format_identifier(join_expr.alias)}"
 
         return join_sql, tuple(all_params)
+
+    def format_set_operation_expression(
+        self,
+        left: "bases.BaseExpression",
+        right: "bases.BaseExpression",
+        operation: str,
+        alias: str,
+        all: bool
+    ) -> Tuple[str, Tuple]:
+        """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
+        left_sql, left_params = left.to_sql()
+        right_sql, right_params = right.to_sql()
+        all_str = " ALL" if all else ""
+        sql = f"{left_sql} {operation}{all_str} {right_sql}"
+        params = left_params + right_params
+        return f"({sql}) AS {self.format_identifier(alias)}", tuple(params)

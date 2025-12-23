@@ -28,12 +28,8 @@ class SetOperationExpression(bases.BaseExpression):
         self.all = all
 
     def to_sql(self) -> Tuple[str, tuple]:
-        left_sql, left_params = self.left.to_sql()
-        right_sql, right_params = self.right.to_sql()
-        all_str = " ALL" if self.all else ""
-        sql = f"{left_sql} {self.operation}{all_str} {right_sql}"
-        params = left_params + right_params
-        return f"({sql}) AS {self.dialect.format_identifier(self.alias)}", tuple(params)
+        # Delegate to the dialect's format_set_operation_expression method
+        return self.dialect.format_set_operation_expression(self.left, self.right, self.operation, self.alias, self.all)
 
 
 class CTEExpression(bases.BaseExpression):
