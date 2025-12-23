@@ -26,6 +26,7 @@ class SQLDialectBase(ABC):
     2. No database-specific functionality in the base class
     3. Subclasses declare additional capabilities via Protocols
     """
+
     # region Core & General
     def __init__(self) -> None:
         """Initialize SQL dialect."""
@@ -66,6 +67,7 @@ class SQLDialectBase(ABC):
     # endregion Core & General
 
     # region Full Statement Formatting
+    # region DML Statements
     @abstractmethod
     def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
         """Formats a complete SELECT statement from a QueryExpression object."""
@@ -90,12 +92,15 @@ class SQLDialectBase(ABC):
     def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
         """Formats a complete MERGE statement from a MergeExpression object."""
         raise NotImplementedError
+    # endregion DML Statements
 
+    # region DDL Statements
     @abstractmethod
     def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
         """Formats an EXPLAIN statement from an ExplainExpression object."""
         raise NotImplementedError
 
+    # region Table Operations
     @abstractmethod
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Formats a CREATE TABLE statement from a CreateTableExpression object."""
@@ -111,16 +116,7 @@ class SQLDialectBase(ABC):
         """Formats an ALTER TABLE statement from an AlterTableExpression object."""
         raise NotImplementedError
 
-    @abstractmethod
-    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
-        """Formats a CREATE VIEW statement from a CreateViewExpression object."""
-        raise NotImplementedError
-
-    @abstractmethod
-    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
-        """Formats a DROP VIEW statement from a DropViewExpression object."""
-        raise NotImplementedError
-
+    # region Alter Table Actions
     @abstractmethod
     def format_add_column_action(self, action: "AddColumn") -> Tuple[str, tuple]:
         """
@@ -224,9 +220,25 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple)
         """
         pass
+    # endregion Alter Table Actions
+    # endregion Table Operations
+
+    # region View Operations
+    @abstractmethod
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
+        """Formats a CREATE VIEW statement from a CreateViewExpression object."""
+        raise NotImplementedError
+
+    @abstractmethod
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
+        """Formats a DROP VIEW statement from a DropViewExpression object."""
+        raise NotImplementedError
+    # endregion View Operations
+    # endregion DDL Statements
     # endregion Full Statement Formatting
 
     # region Clause Formatting
+    # region Data Source Clauses
     @abstractmethod
     def format_cte(
         self,
@@ -312,7 +324,9 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple)
         """
         pass
+    # endregion Data Source Clauses
 
+    # region DML Clauses
     @abstractmethod
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """
@@ -450,7 +464,9 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
         pass
+    # endregion DML Clauses
 
+    # region Window Function Clauses
     @abstractmethod
     def format_window_frame_specification(
         self,
@@ -530,9 +546,11 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple) for the formatted call.
         """
         pass
+    # endregion Window Function Clauses
     # endregion Clause Formatting
 
     # region Expression & Predicate Formatting
+    # region Basic Expression Formatting
     @abstractmethod
     def format_identifier(self, identifier: str) -> str:
         """
@@ -623,7 +641,9 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple)
         """
         pass
+    # endregion Basic Expression Formatting
 
+    # region Function & Advanced Expression Formatting
     @abstractmethod
     def format_function_call(
         self,
@@ -723,7 +743,9 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple)
         """
         pass
+    # endregion Function & Advanced Expression Formatting
 
+    # region Predicate Formatting
     @abstractmethod
     def format_comparison_predicate(
         self,
@@ -2760,21 +2782,21 @@ class BaseDialect(SQLDialectBase):
         if join_expr.using:
             # USING clause
             using_cols = [self.format_identifier(col) for col in join_expr.using]
-            join_sql = f"{left_sql} {join_clause} {right_sql} USING ({', '.join(using_cols)})"
+            sql = f"{left_sql} {join_clause} {right_sql} USING ({', '.join(using_cols)})"
         elif join_expr.condition:
             # ON condition
             condition_sql, condition_params = join_expr.condition.to_sql()
-            join_sql = f"{left_sql} {join_clause} {right_sql} ON {condition_sql}"
+            sql = f"{left_sql} {join_clause} {right_sql} ON {condition_sql}"
             all_params.extend(condition_params)
         else:
             # No condition (e.g., CROSS JOIN)
-            join_sql = f"{left_sql} {join_clause} {right_sql}"
+            sql = f"{left_sql} {join_clause} {right_sql}"
 
         # Add alias if specified
         if join_expr.alias:
-            join_sql = f"({join_sql}) AS {self.format_identifier(join_expr.alias)}"
+            sql = f"({sql}) AS {self.format_identifier(join_expr.alias)}"
 
-        return join_sql, tuple(all_params)
+        return sql, tuple(all_params)
 
     def format_json_table_expression(
         self,

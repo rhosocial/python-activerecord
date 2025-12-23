@@ -513,22 +513,28 @@ class TestAlterTableStatements:
         assert '"old_index"' in sql
         assert params == ()
 
-    def test_unknown_action_type(self, dummy_dialect: DummyDialect):
-        """Tests handling of unknown action types."""
-        # Create a custom action with unknown action type
+    def test_action_with_unknown_action_type(self, dummy_dialect: DummyDialect):
+        """Tests handling of action with unknown action type."""
+        # Create a custom action with an unknown action type
         class UnknownAction(AddColumn):
-            def __init__(self):
-                # Skip the normal initialization to avoid required parameters
-                pass
+            def __init__(self, column):
+                # Initialize with a column but set an unknown action type
+                self.column = column
+                self.action_type = "UNKNOWN_ACTION_TYPE"  # Use an unknown action type
 
-        unknown_action = UnknownAction()
-        unknown_action.action_type = "UNKNOWN_ACTION_TYPE"  # Custom unknown type
-        # Manually inject dialect to test the else branch
+        column_def = ColumnDefinition(
+            "test_col",
+            "VARCHAR(50)"
+        )
+        unknown_action = UnknownAction(column_def)
+        # Manually inject dialect to test the else branch in to_sql
         unknown_action._dialect = dummy_dialect
 
         sql, params = unknown_action.to_sql()
         assert "PROCESS" in sql
+        assert "UnknownAction" in sql  # Should contain the class name
         assert params == ()
+
 
     def test_action_without_dialect(self):
         """Tests handling of action without dialect set."""
