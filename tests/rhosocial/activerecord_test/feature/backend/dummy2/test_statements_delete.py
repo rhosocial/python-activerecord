@@ -332,6 +332,54 @@ class TestDeleteStatements:
             assert len(params) >= expected_placeholders
             assert list(params[:len(values_list)]) == values_list
 
+    @pytest.mark.parametrize("op, pattern, expected_sql_part", [
+        ("LIKE", "John%", '"name" LIKE ?'),
+        ("ILIKE", "JOHN%", '"name" ILIKE ?'),  # Case-insensitive like
+        ("LIKE", "%admin%", '"name" LIKE ?'),  # Contains pattern
+    ])
+    def test_delete_with_like_condition(self, dummy_dialect: DummyDialect, op, pattern, expected_sql_part):
+        """Tests DELETE with LIKE/ILIKE conditions."""
+        name_col = Column(dummy_dialect, "name")
+        if op == "LIKE":
+            like_condition = name_col.like(pattern)
+        elif op == "ILIKE":
+            like_condition = name_col.ilike(pattern)
+        else:
+            raise ValueError(f"Unsupported LIKE operation: {op}")
+
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=like_condition
+        )
+        sql, params = delete_expr.to_sql()
+
+        expected_sql = f'DELETE FROM "users" WHERE {expected_sql_part}'
+        assert sql == expected_sql
+        assert params == (pattern,)
+
+    def test_delete_with_combined_like_and_other_conditions(self, dummy_dialect: DummyDialect):
+        """Tests DELETE with LIKE condition combined with other conditions."""
+        name_col = Column(dummy_dialect, "name")
+        age_col = Column(dummy_dialect, "age")
+
+        # Combine LIKE with comparison condition
+        like_condition = name_col.like("John%")
+        age_condition = age_col > Literal(dummy_dialect, 18)
+        combined_condition = like_condition & age_condition
+
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=combined_condition
+        )
+        sql, params = delete_expr.to_sql()
+
+        assert 'DELETE FROM "users" WHERE' in sql
+        assert 'LIKE ?' in sql
+        assert '> ?' in sql
+        assert params == ("John%", 18)
+
     def test_delete_with_range_condition(self, dummy_dialect: DummyDialect):
         """Tests DELETE with BETWEEN range condition."""
         between_condition = BetweenPredicate(

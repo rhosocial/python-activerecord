@@ -566,3 +566,55 @@ class TestQueryStatements:
         sql, params = lte_pred.to_sql()
         assert "<=" in sql
         assert params == (25,)
+
+    @pytest.mark.parametrize("op, pattern, expected_sql_part", [
+        ("LIKE", "John%", '"name" LIKE ?'),
+        ("ILIKE", "JOHN%", '"name" ILIKE ?'),  # Case-insensitive like
+        ("LIKE", "%admin%", '"name" LIKE ?'),  # Contains pattern
+        ("LIKE", "test___", '"name" LIKE ?'),  # Pattern with wildcards
+    ])
+    def test_query_with_like_condition(self, dummy_dialect: DummyDialect, op, pattern, expected_sql_part):
+        """Tests query with LIKE/ILIKE conditions."""
+        name_col = Column(dummy_dialect, "name")
+        if op == "LIKE":
+            like_condition = name_col.like(pattern)
+        elif op == "ILIKE":
+            like_condition = name_col.ilike(pattern)
+        else:
+            raise ValueError(f"Unsupported LIKE operation: {op}")
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[name_col],
+            from_="users",
+            where=like_condition
+        )
+        sql, params = query.to_sql()
+
+        # The actual SQL will be: SELECT "name" FROM "users" WHERE "name" LIKE ?
+        expected_sql = f'SELECT "name" FROM "users" WHERE {expected_sql_part}'
+        assert sql == expected_sql
+        assert params == (pattern,)
+
+    def test_query_with_combined_like_and_other_conditions(self, dummy_dialect: DummyDialect):
+        """Tests query with LIKE condition combined with other conditions."""
+        name_col = Column(dummy_dialect, "name")
+        age_col = Column(dummy_dialect, "age")
+
+        # Combine LIKE with comparison condition
+        like_condition = name_col.like("John%")
+        age_condition = age_col > Literal(dummy_dialect, 18)
+        combined_condition = like_condition & age_condition
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[name_col, age_col],
+            from_="users",
+            where=combined_condition
+        )
+        sql, params = query.to_sql()
+
+        assert 'SELECT "name", "age" FROM "users" WHERE' in sql
+        assert 'LIKE ?' in sql
+        assert '> ?' in sql
+        assert params == ("John%", 18)

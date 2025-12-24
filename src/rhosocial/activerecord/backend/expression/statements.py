@@ -231,7 +231,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                      "TableFunctionExpression",   # Table function
                      "LateralExpression"          # LATERAL expression
                  ]] = None,
-                 where: Optional["WhereClause"] = None,  # WHERE clause object
+                 where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
                  group_by_having: Optional["GroupByHavingClause"] = None,  # Combined GROUP BY/HAVING clause object
                  order_by: Optional["OrderByClause"] = None,  # ORDER BY clause object
                  qualify: Optional["QualifyClause"] = None,  # QUALIFY clause object
@@ -274,8 +274,17 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         """
         super().__init__(dialect)
 
-        # Store clause objects directly
-        self.where = where
+        # Handle where parameter: accept either a predicate or a WhereClause object
+        if where is not None:
+            if isinstance(where, WhereClause):
+                self.where = where  # Already a WhereClause object
+            else:
+                # Wrap a predicate in a WhereClause object
+                self.where = WhereClause(dialect, condition=where)
+        else:
+            self.where = None
+
+        # Store other clause objects directly
         self.group_by_having = group_by_having
         self.order_by = order_by
         self.qualify = qualify
