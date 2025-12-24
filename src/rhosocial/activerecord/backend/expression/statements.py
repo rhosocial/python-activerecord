@@ -298,18 +298,18 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
 
-    def validate(self, strict: bool = True) -> bool:
+    def validate(self, strict: bool = True) -> None:
         """Validate QueryExpression parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
                    If False, skip validation for performance optimization.
 
-        Returns:
-            True if validation passes, raises exception if validation fails
+        Raises:
+            TypeError: If validation fails with incorrect parameter types
         """
         if not strict:
-            return True
+            return
 
         # Validate select parameter
         if not isinstance(self.select, list):
@@ -354,8 +354,6 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         # Validate select_modifier parameter
         if self.select_modifier is not None and not isinstance(self.select_modifier, SelectModifier):
             raise TypeError(f"select_modifier must be SelectModifier, got {type(self.select_modifier)}")
-
-        return True
 
 
     def to_sql(self) -> Tuple[str, tuple]:
@@ -574,18 +572,18 @@ class DeleteExpression(bases.BaseExpression):
         self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 
-    def validate(self, strict: bool = True) -> bool:
+    def validate(self, strict: bool = True) -> None:
         """Validate DeleteExpression parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
                    If False, skip validation for performance optimization.
 
-        Returns:
-            True if validation passes, raises exception if validation fails
+        Raises:
+            TypeError: If validation fails with incorrect parameter types
         """
         if not strict:
-            return True
+            return
 
         # Validate table parameter
         if not isinstance(self.table, (str, core.TableExpression)):
@@ -610,8 +608,6 @@ class DeleteExpression(bases.BaseExpression):
         # Validate returning parameter
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
-
-        return True
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the DELETE statement to the configured dialect."""
@@ -673,18 +669,18 @@ class UpdateExpression(bases.BaseExpression):
         self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 
-    def validate(self, strict: bool = True) -> bool:
+    def validate(self, strict: bool = True) -> None:
         """Validate UpdateExpression parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
                    If False, skip validation for performance optimization.
 
-        Returns:
-            True if validation passes, raises exception if validation fails
+        Raises:
+            TypeError: If validation fails with incorrect parameter types
         """
         if not strict:
-            return True
+            return
 
         # Validate table parameter
         if not isinstance(self.table, (str, core.TableExpression)):
@@ -713,8 +709,6 @@ class UpdateExpression(bases.BaseExpression):
         # Validate returning parameter
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
-
-        return True
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""
@@ -846,18 +840,18 @@ class InsertExpression(bases.BaseExpression):
         if isinstance(source, DefaultValuesSource) and columns:
             raise ValueError("'DEFAULT VALUES' source cannot be used with 'columns'.")
 
-    def validate(self, strict: bool = True) -> bool:
+    def validate(self, strict: bool = True) -> None:
         """Validate InsertExpression parameters according to SQL standard.
 
         Args:
             strict: If True, perform strict validation that may impact performance.
                    If False, skip validation for performance optimization.
 
-        Returns:
-            True if validation passes, raises exception if validation fails
+        Raises:
+            TypeError: If validation fails with incorrect parameter types
         """
         if not strict:
-            return True
+            return
 
         # Validate into parameter
         if not isinstance(self.into, (str, core.TableExpression)):
@@ -878,8 +872,6 @@ class InsertExpression(bases.BaseExpression):
         # Validate returning parameter
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
-
-        return True
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the INSERT statement to the configured dialect."""
