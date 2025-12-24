@@ -311,6 +311,11 @@ class SQLDialectBase(ABC):
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Formats a DROP VIEW statement from a DropViewExpression object."""
         raise NotImplementedError
+
+    @abstractmethod
+    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
+        """Formats a TRUNCATE statement from a TruncateExpression object."""
+        raise NotImplementedError
     # endregion View Operations
     # endregion DDL Statements
     # endregion Full Statement Formatting
@@ -2715,6 +2720,19 @@ class BaseDialect(SQLDialectBase):
         cascade_part = " CASCADE" if expr.cascade else ""
         sql = f"DROP VIEW {if_exists_part}{self.format_identifier(expr.view_name)}{cascade_part}"
         return sql.strip(), ()
+
+    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
+        """Format TRUNCATE statement."""
+        # Basic TRUNCATE statement
+        sql = f"TRUNCATE TABLE {self.format_identifier(expr.table_name)}"
+
+        # Add PostgreSQL-specific options if present
+        if expr.restart_identity:
+            sql += " RESTART IDENTITY"
+        if expr.cascade:
+            sql += " CASCADE"
+
+        return sql, ()
 
     def format_graph_edge(
         self,

@@ -153,6 +153,7 @@ from .statements import (
     AddIndex,
     DropIndex,
     AlterTableExpression,
+    TruncateExpression,
 )
 from .graph import (
     GraphEdgeDirection,
@@ -194,5 +195,6 @@ __all__ = [
     "CreateViewExpression", "DropViewExpression", "ViewOptions", "ViewCheckOption",
     "AlterTableAction", "AddColumn", "DropColumn", "AlterColumn", "AddConstraint", "DropConstraint", "RenameObject", "AddIndex", "DropIndex", "AlterTableExpression",
     "GraphEdgeDirection", "GraphVertex", "GraphEdge", "MatchClause",
+    "TruncateExpression",
     "count", "sum_", "avg", "min_", "max_", "lower", "upper", "concat", "coalesce",
 ]
