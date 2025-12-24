@@ -5,8 +5,8 @@ These expression classes represent different types of data sources that can be u
 in the FROM clause of a query, including constructed values, table-valued functions,
 lateral expressions, and common table expressions.
 """
-from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
 from dataclasses import dataclass
+from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
 
 from . import bases
 from . import core
@@ -14,7 +14,6 @@ from . import mixins
 
 if TYPE_CHECKING:
     from ..dialect import SQLDialectBase
-    from .statements import QueryExpression
 
 
 class SetOperationExpression(bases.BaseExpression):

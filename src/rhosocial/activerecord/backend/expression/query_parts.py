@@ -30,8 +30,6 @@ class JoinType(Enum):
 
 if TYPE_CHECKING:
     from ..dialect import SQLDialectBase
-    from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate, LikePredicate
-    from .bases import BaseExpression, SQLPredicate, SQLValueExpression
     from .statements import QueryExpression
 
 

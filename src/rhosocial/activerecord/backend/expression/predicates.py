@@ -2,14 +2,14 @@
 """
 Concrete implementations of SQL predicate expressions (e.g., WHERE clause conditions).
 """
-from typing import Tuple, Any, TYPE_CHECKING
+from typing import Tuple, TYPE_CHECKING
+
 from . import bases
 from . import mixins
 from .core import Literal
-from .statements import QueryExpression
 
 if TYPE_CHECKING:
-    from .bases import BaseExpression, SQLValueExpression
+    from .bases import SQLValueExpression
     from ..dialect import SQLDialectBase
 
 

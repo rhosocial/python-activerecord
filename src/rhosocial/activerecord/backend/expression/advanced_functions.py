@@ -4,11 +4,10 @@ Advanced SQL functions and expressions like CASE, CAST, EXISTS, ANY/ALL, Window 
 JSON operations, and Array operations.
 """
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
-from dataclasses import dataclass
 
 from . import bases
-from . import mixins
 from . import core
+from . import mixins
 
 if TYPE_CHECKING:
     from ..dialect import SQLDialectBase

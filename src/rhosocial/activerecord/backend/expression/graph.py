@@ -6,7 +6,7 @@ Implements SQL/PGQ (Property Graph Query) standard as defined in
 SQL 2023 (ISO/IEC 9075-16:2023) for querying property graphs.
 """
 from enum import Enum
-from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Tuple, Union, TYPE_CHECKING
 
 from . import bases
 

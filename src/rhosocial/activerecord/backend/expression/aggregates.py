@@ -3,11 +3,11 @@
 Expressions related to SQL aggregation, including aggregate function calls
 and the base class for expressions that support filtering.
 """
-from typing import Optional, Tuple, TYPE_CHECKING, List
+from typing import Optional, Tuple, TYPE_CHECKING
 
 from . import bases
 from . import mixins
-from . import operators # Added this import
+from . import operators  # Added this import
 
 if TYPE_CHECKING:
     from .bases import SQLPredicate

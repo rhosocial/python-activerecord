@@ -8,19 +8,19 @@ for a given SQL statement and delegating the actual SQL string generation
 to a backend-specific dialect.
 """
 import abc
-from typing import Tuple, Any, List, Optional, Dict, Union, TYPE_CHECKING
-from enum import Enum
 from dataclasses import dataclass, field
+from enum import Enum
+from typing import Tuple, Any, List, Optional, Dict, Union, TYPE_CHECKING
 
 from . import bases
 from . import core
 from . import mixins
-from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, QualifyClause, LimitOffsetClause, ForUpdateClause
+from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, QualifyClause, LimitOffsetClause, \
+    ForUpdateClause
 
 if TYPE_CHECKING:
     from ..dialect import SQLDialectBase, ExplainOptions
     from .query_sources import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
-    from .advanced_functions import WindowFunctionCall, WindowSpecification, WindowFrameSpecification
     from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause, ForUpdateClause
 
 
@@ -911,7 +911,7 @@ class DropColumn(AlterTableAction):
     dialect_options: Optional[Dict[str, Any]] = None  # dialect-specific options
 
 
-from enum import Enum, auto
+from enum import Enum
 
 
 class ColumnAlterOperation(Enum):
