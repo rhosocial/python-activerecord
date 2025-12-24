@@ -9,7 +9,7 @@ to prevent circular imports.
 import abc
 from typing import Tuple, Protocol, TYPE_CHECKING
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 

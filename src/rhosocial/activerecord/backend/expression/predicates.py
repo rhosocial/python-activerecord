@@ -8,7 +8,7 @@ from . import bases
 from . import mixins
 from .core import Literal
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression
     from ..dialect import SQLDialectBase
 

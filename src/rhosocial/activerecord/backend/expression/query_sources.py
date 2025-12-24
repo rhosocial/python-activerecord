@@ -12,7 +12,7 @@ from . import bases
 from . import core
 from . import mixins
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 

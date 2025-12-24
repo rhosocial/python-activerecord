@@ -18,7 +18,7 @@ from . import mixins
 from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, QualifyClause, LimitOffsetClause, \
     ForUpdateClause
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase, ExplainOptions
     from .query_sources import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
     from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause, ForUpdateClause

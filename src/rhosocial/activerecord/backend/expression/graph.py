@@ -10,7 +10,7 @@ from typing import Tuple, Union, TYPE_CHECKING
 
 from . import bases
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 

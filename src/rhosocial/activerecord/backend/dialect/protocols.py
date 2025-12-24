@@ -9,7 +9,7 @@ detection and graceful error handling.
 from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..expression import bases, core
     from ..expression.statements import OnConflictClause, ReturningClause
     from ..expression.query_parts import LimitOffsetClause, ForUpdateClause

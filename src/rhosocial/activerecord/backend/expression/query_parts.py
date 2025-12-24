@@ -28,7 +28,7 @@ class JoinType(Enum):
     STRAIGHT = "STRAIGHT JOIN"  # MySQL STRAIGHT_JOIN
     # Other database-specific types could be added here
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .statements import QueryExpression
 

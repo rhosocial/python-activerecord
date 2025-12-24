@@ -9,7 +9,7 @@ from . import bases
 from . import mixins
 from . import operators  # Added this import
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLPredicate
     from ..dialect import SQLDialectBase
 

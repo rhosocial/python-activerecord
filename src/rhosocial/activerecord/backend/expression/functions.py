@@ -17,7 +17,7 @@ from . import core
 from . import operators
 from . import advanced_functions
 
-if TYPE_CHECKING:
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
