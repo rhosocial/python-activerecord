@@ -9,6 +9,8 @@ to prevent circular imports.
 import abc
 from typing import Tuple, Protocol, TYPE_CHECKING
 
+from . import mixins
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
@@ -54,7 +56,7 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         raise NotImplementedError
 
 
-class SQLPredicate(BaseExpression):
+class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     """
     Abstract base class for SQL expressions that return a boolean value (predicates).
     """

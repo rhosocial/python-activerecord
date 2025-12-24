@@ -13,7 +13,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class ComparisonPredicate(mixins.LogicalMixin, bases.SQLPredicate):
+class ComparisonPredicate(bases.SQLPredicate):
     """Represents a comparison predicate (e.g., expr1 = expr2, expr1 > expr2)."""
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"):
         super().__init__(dialect)
@@ -26,7 +26,7 @@ class ComparisonPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         return self.dialect.format_comparison_predicate(self.op, self.left, self.right)
 
 
-class LogicalPredicate(mixins.LogicalMixin, bases.SQLPredicate):
+class LogicalPredicate(bases.SQLPredicate):
     """Represents a logical predicate (e.g., pred1 AND pred2, NOT pred)."""
     def __init__(self, dialect: "SQLDialectBase", op: str, *predicates: "bases.SQLPredicate"):
         super().__init__(dialect)
@@ -38,7 +38,7 @@ class LogicalPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         return self.dialect.format_logical_predicate(self.op, *self.predicates)
 
 
-class LikePredicate(mixins.LogicalMixin, bases.SQLPredicate):
+class LikePredicate(bases.SQLPredicate):
     """Represents a LIKE or ILIKE predicate."""
     def __init__(self, dialect: "SQLDialectBase", op: str, expr: "SQLValueExpression", pattern: "SQLValueExpression"):
         super().__init__(dialect)
@@ -51,7 +51,7 @@ class LikePredicate(mixins.LogicalMixin, bases.SQLPredicate):
         return self.dialect.format_like_predicate(self.op, self.expr, self.pattern)
 
 
-class InPredicate(mixins.LogicalMixin, bases.SQLPredicate):
+class InPredicate(bases.SQLPredicate):
     """Represents an IN predicate (e.g., expr IN (val1, val2) or expr IN (subquery))."""
     def __init__(self, dialect: "SQLDialectBase", expr: "SQLValueExpression", values: "bases.BaseExpression"):
         super().__init__(dialect)
@@ -68,7 +68,7 @@ class InPredicate(mixins.LogicalMixin, bases.SQLPredicate):
             return self.dialect.format_in_predicate(self.expr, self.values)
 
 
-class BetweenPredicate(mixins.LogicalMixin, bases.SQLPredicate):
+class BetweenPredicate(bases.SQLPredicate):
     """Represents a BETWEEN predicate (e.g., expr BETWEEN low AND high)."""
     def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", low: "bases.BaseExpression", high: "bases.BaseExpression"):
         super().__init__(dialect)
@@ -81,7 +81,7 @@ class BetweenPredicate(mixins.LogicalMixin, bases.SQLPredicate):
         return self.dialect.format_between_predicate(self.expr, self.low, self.high)
 
 
-class IsNullPredicate(mixins.LogicalMixin, bases.SQLPredicate):
+class IsNullPredicate(bases.SQLPredicate):
     """Represents an IS NULL or IS NOT NULL predicate."""
     def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", is_not: bool = False):
         super().__init__(dialect)

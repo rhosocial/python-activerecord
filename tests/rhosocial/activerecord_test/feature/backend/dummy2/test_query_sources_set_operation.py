@@ -39,7 +39,7 @@ class TestSetOperationExpression:
             right=right_query,
             operation="UNION",
             alias="union_all_results",
-            all=True  # This should add ALL to the operation
+            all_=True  # This should add ALL to the operation
         )
         
         sql, params = set_op.to_sql()
@@ -228,7 +228,7 @@ class TestSetOperationExpression:
                 right=query2,
                 operation=op,
                 alias=f"test_{op.lower()}_all",
-                all=True
+                all_=True
             )
             
             sql_all, params_all = set_op_all.to_sql()

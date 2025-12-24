@@ -54,7 +54,7 @@ class CastExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         return self.dialect.format_cast_expression(expr_sql, self.target_type, expr_params)
 
 
-class ExistsExpression(mixins.LogicalMixin, bases.SQLPredicate):
+class ExistsExpression(bases.SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
     def __init__(self, dialect: "SQLDialectBase", subquery: "core.Subquery", is_not: bool = False):
         super().__init__(dialect)
@@ -66,7 +66,7 @@ class ExistsExpression(mixins.LogicalMixin, bases.SQLPredicate):
         return self.dialect.format_exists_expression(self.subquery, self.is_not)
 
 
-class AnyExpression(mixins.LogicalMixin, bases.SQLPredicate):
+class AnyExpression(bases.SQLPredicate):
     """Represents an ANY predicate (e.g., expr = ANY(array_expr) or expr > ANY(subquery))."""
     def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"):
         super().__init__(dialect)
@@ -79,7 +79,7 @@ class AnyExpression(mixins.LogicalMixin, bases.SQLPredicate):
         return self.dialect.format_any_expression(self.expr, self.op, self.array_expr)
 
 
-class AllExpression(mixins.LogicalMixin, bases.SQLPredicate):
+class AllExpression(bases.SQLPredicate):
     """Represents an ALL predicate (e.g., expr > ALL(array_expr) or expr = ALL(subquery))."""
     def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"):
         super().__init__(dialect)
