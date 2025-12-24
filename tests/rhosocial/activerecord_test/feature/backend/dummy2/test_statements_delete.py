@@ -203,7 +203,7 @@ class TestDeleteStatements:
 
         where = Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
 
-        with pytest.raises(TypeError, match=r"Unsupported FROM source type: <class 'int'>"):
+        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
             delete_expr = DeleteExpression(
                 dummy_dialect,
                 table="users",

@@ -2403,7 +2403,9 @@ class BaseDialect(SQLDialectBase):
                     return f"({s_sql})", s_params # Add parentheses
                 if isinstance(source, bases.BaseExpression):
                     return source.to_sql()
-                raise TypeError(f"Unsupported FROM source type: {type(source)}")
+                # As a fallback, try to convert to string representation
+                # This acts as a safety net in case validation didn't catch all cases
+                return str(source), []
 
             if isinstance(expr.from_, list):
                 for source_item in expr.from_:
