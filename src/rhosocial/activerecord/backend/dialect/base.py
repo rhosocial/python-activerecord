@@ -6,11 +6,49 @@ This module defines the core dialect interfaces and provides default
 implementations for standard SQL features.
 """
 from abc import ABC, abstractmethod
-from typing import Any, List, Optional, Tuple, Dict, Union
+from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..expression import bases, JoinExpression, ColumnDefinition, AlterTableAction, MatchClause
 from ..expression.statements import QueryExpression
+
+if TYPE_CHECKING:
+    from ..expression.statements import (
+        # DML Statements
+        QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
+        MergeExpression, ExplainExpression, CreateTableExpression, DropTableExpression,
+        AlterTableExpression, OnConflictClause, ForUpdateClause, ReturningClause,
+        CreateViewExpression, DropViewExpression,
+        # Alter Table Actions
+        AddColumn, DropColumn, AlterColumn, AddConstraint, DropConstraint,
+        RenameObject, AddIndex, DropIndex, AddTableConstraint, DropTableConstraint,
+        RenameColumn, RenameTable,
+        # Constraints
+        TableConstraint, TableConstraintType
+    )
+    from ..expression.query_parts import (
+        WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
+    )
+    from ..expression.query_sources import (
+        JoinExpression as JoinExpr, SetOperationExpression
+    )
+    from ..expression.predicates import (
+        WhereClause as WherePred, ComparisonPredicate, LogicalPredicate, LikePredicate,
+        InPredicate, BetweenPredicate, IsNullPredicate, ExistsExpression as ExistsPred
+    )
+    from ..expression.advanced_functions import (
+        WindowFrameSpecification, WindowSpecification, WindowDefinition,
+        WindowClause, WindowFunctionCall, CaseExpression, CastExpression
+    )
+    from ..expression.core import (
+        Column, Literal, FunctionCall, Subquery, TableExpression, ColumnDefinition as ColDef
+    )
+    from ..expression.graph import (
+        GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause as MatchCls
+    )
+    from ..expression.aggregates import (
+        AggregateFunctionCall
+    )
 
 
 class SQLDialectBase(ABC):
@@ -1643,6 +1681,8 @@ class BaseDialect(SQLDialectBase):
         action: "DropColumn"
     ) -> Tuple[str, tuple]:
         """Format DROP COLUMN action."""
+        if hasattr(action, 'if_exists') and action.if_exists:
+            return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
         return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
 
     def format_alter_column_action(
@@ -2104,32 +2144,6 @@ class BaseDialect(SQLDialectBase):
         """Format LATERAL expression."""
         sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
         return sql, expr_params
-
-    def format_add_column_action(self, action: "AddColumn") -> Tuple[str, tuple]:
-        """Format ADD COLUMN action for ALTER TABLE statement."""
-        column_sql, column_params = self.format_column_definition(action.column)
-        all_params = list(column_params)
-        return f"ADD COLUMN {column_sql}", tuple(all_params)
-
-    def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, tuple]:
-        """Format DROP COLUMN action for ALTER TABLE statement."""
-        if action.if_exists:
-            return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
-        return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
-
-        """Format RENAME TABLE action for ALTER TABLE statement per SQL standard."""
-        return f"RENAME TO {self.format_identifier(action.new_name)}", ()
-
-    def format_add_index_action(self, action: "AddIndex") -> Tuple[str, tuple]:
-        """Format ADD INDEX action for ALTER TABLE statement."""
-        return f"ADD INDEX {self.format_identifier(action.index.name)}", ()
-
-    def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, tuple]:
-        """Format DROP INDEX action for ALTER TABLE statement."""
-        cmd = f"DROP INDEX {self.format_identifier(action.index_name)}"
-        if action.if_exists:
-            cmd = f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}"
-        return cmd, ()
 
     def supports_offset_without_limit(self) -> bool:
         """Check if the dialect supports OFFSET clause without LIMIT clause."""
