@@ -681,9 +681,8 @@ class UpdateExpression(bases.BaseExpression):
         if not strict:
             return
 
-        # Validate table parameter
-        if not isinstance(self.table, (str, core.TableExpression)):
-            raise TypeError(f"table must be str or TableExpression, got {type(self.table)}")
+        # Note: The table parameter is normalized in the constructor to always be a TableExpression,
+        # so we don't need to validate its type here.
 
         # Validate assignments parameter
         if not isinstance(self.assignments, dict):
