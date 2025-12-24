@@ -333,8 +333,9 @@ class TestDeleteStatements:
             assert list(params[:len(values_list)]) == values_list
 
     # --- Validation failure tests ---
-    # Note: table and from_ parameters are automatically converted in the constructor,
-    # so we focus on parameters that are not automatically converted
+    # Note: table parameter is automatically converted in the constructor,
+    # so we don't validate its type in the expression validation.
+    # from_ parameter is also converted but we can still test the converted value
 
     def test_delete_expression_invalid_where_type_after_construction(self, dummy_dialect: DummyDialect):
         """Tests that DeleteExpression raises TypeError for invalid where parameter type after construction."""

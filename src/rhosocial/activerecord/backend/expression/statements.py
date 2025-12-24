@@ -585,9 +585,8 @@ class DeleteExpression(bases.BaseExpression):
         if not strict:
             return
 
-        # Validate table parameter
-        if not isinstance(self.table, (str, core.TableExpression)):
-            raise TypeError(f"table must be str or TableExpression, got {type(self.table)}")
+        # Note: The table parameter is normalized in the constructor to always be a TableExpression,
+        # so we don't need to validate its type here.
 
         # Validate from_ parameter
         if self.from_ is not None:
