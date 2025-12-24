@@ -9,8 +9,8 @@ to prevent circular imports.
 import abc
 from typing import Tuple, Protocol, TYPE_CHECKING
 
-# if TYPE_CHECKING:
-#     from ..dialect import SQLDialectBase
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
 
 
 class ToSQLProtocol(Protocol):

@@ -6,8 +6,8 @@ from typing import Any, Tuple, List, TYPE_CHECKING
 from . import bases
 from . import mixins
 
-# if TYPE_CHECKING:
-#     from ..dialect import SQLDialectBase
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
 
 
 class SQLOperation(bases.BaseExpression):

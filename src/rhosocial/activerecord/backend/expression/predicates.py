@@ -8,9 +8,9 @@ from . import mixins
 from .core import Literal
 from .statements import QueryExpression
 
-# if TYPE_CHECKING:
-#     from .bases import BaseExpression, SQLValueExpression
-#     from ..dialect import SQLDialectBase
+if TYPE_CHECKING:
+    from .bases import BaseExpression, SQLValueExpression
+    from ..dialect import SQLDialectBase
 
 
 class ComparisonPredicate(mixins.LogicalMixin, bases.SQLPredicate):

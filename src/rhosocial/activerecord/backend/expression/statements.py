@@ -17,11 +17,11 @@ from . import core
 from . import mixins
 from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, QualifyClause, LimitOffsetClause, ForUpdateClause
 
-# if TYPE_CHECKING:
-#     from ..dialect import SQLDialectBase, ExplainOptions
-#     from .query_clauses import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
-#     from .advanced_functions import WindowFunctionCall, WindowSpecification, WindowFrameSpecification
-#     from .query_parts import WhereClause, GroupByClause, HavingClause, OrderByClause, LimitOffsetClause
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase, ExplainOptions
+    from .query_sources import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
+    from .advanced_functions import WindowFunctionCall, WindowSpecification, WindowFrameSpecification
+    from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause, ForUpdateClause
 
 
 # region DML and DQL Statements

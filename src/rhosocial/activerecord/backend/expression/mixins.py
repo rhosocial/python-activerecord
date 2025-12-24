@@ -8,11 +8,11 @@ classes (like `ComparisonPredicate`) which in turn depend on the base classes.
 """
 from typing import Any, Union, List, TYPE_CHECKING
 
-# if TYPE_CHECKING:
-#     from .bases import SQLValueExpression, SQLPredicate
-#     from .core import Literal
-#     from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate
-#     from .operators import BinaryArithmeticExpression, BinaryExpression
+if TYPE_CHECKING:
+    from .bases import SQLValueExpression, SQLPredicate
+    from .core import Literal
+    from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate
+    from .operators import BinaryArithmeticExpression, BinaryExpression
 
 
 class ComparisonMixin:

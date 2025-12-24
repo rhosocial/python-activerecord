@@ -6,7 +6,14 @@ This module defines protocol interfaces that dialects can implement to declare
 support for advanced database features. Protocols enable fine-grained feature
 detection and graceful error handling.
 """
-from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
+
+
+if TYPE_CHECKING:
+    from ..expression import bases, core
+    from ..expression.statements import OnConflictClause, ReturningClause
+    from ..expression.query_parts import LimitOffsetClause, ForUpdateClause
+    from ..expression.graph import GraphEdgeDirection
 
 
 @runtime_checkable

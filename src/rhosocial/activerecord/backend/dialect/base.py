@@ -9,8 +9,9 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
-from ..expression import bases, JoinExpression, ColumnDefinition, AlterTableAction, MatchClause
-from ..expression.statements import QueryExpression
+from ..expression import bases, AlterTableAction, MatchClause
+from ..expression.query_parts import JoinExpression
+from ..expression.statements import QueryExpression, ColumnDefinition
 
 if TYPE_CHECKING:
     from ..expression.statements import (
@@ -102,6 +103,15 @@ class SQLDialectBase(ABC):
             Positional placeholder string
         """
         pass
+
+    def supports_offset_without_limit(self) -> bool:
+        """
+        Check if the dialect supports OFFSET clause without LIMIT clause.
+
+        Returns:
+            True if OFFSET without LIMIT is supported, False otherwise
+        """
+        return False
     # endregion Core & General
 
     # region Full Statement Formatting
@@ -991,7 +1001,7 @@ class SQLDialectBase(ABC):
     @abstractmethod
     def format_exists_expression(
         self,
-        subquery: "core.Subquery",
+        subquery: "bases.BaseExpression",
         is_not: bool
     ) -> Tuple[str, Tuple]:
         """
@@ -1364,13 +1374,22 @@ class SQLDialectBase(ABC):
         is_supported = False
         if hasattr(self, check_method):
             is_supported = getattr(self, check_method)()
-        
+
         if not is_supported:
             raise UnsupportedFeatureError(
                 dialect_name=self.name,
                 feature_name=feature_name,
                 suggestion=suggestion
             )
+
+    def supports_offset_without_limit(self) -> bool:
+        """
+        Check if the dialect supports OFFSET clause without LIMIT clause.
+
+        Returns:
+            True if OFFSET without LIMIT is supported, False otherwise
+        """
+        return False
     # endregion Utilities
 
 

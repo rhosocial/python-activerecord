@@ -12,9 +12,9 @@ from . import bases
 from . import core
 from . import mixins
 
-# if TYPE_CHECKING:
-#     from ..dialect import SQLDialectBase
-#     from .statements import QueryExpression
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
+    from .statements import QueryExpression
 
 
 class SetOperationExpression(bases.BaseExpression):

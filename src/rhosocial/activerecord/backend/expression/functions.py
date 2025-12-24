@@ -17,8 +17,8 @@ from . import core
 from . import operators
 from . import advanced_functions
 
-# if TYPE_CHECKING:
-#     from ..dialect import SQLDialectBase
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
 
 
 # --- Aggregate Function Factories ---

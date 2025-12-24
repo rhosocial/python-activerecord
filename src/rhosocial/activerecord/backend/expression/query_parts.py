@@ -6,7 +6,7 @@ These expression classes collect parameters for specific SQL clauses
 and delegate SQL generation to backend-specific dialects.
 """
 from enum import Enum
-from typing import Tuple, List, Union, Optional, Any, Dict
+from typing import Tuple, List, Union, Optional, Any, Dict, TYPE_CHECKING
 
 from . import bases
 from . import core
@@ -28,10 +28,11 @@ class JoinType(Enum):
     STRAIGHT = "STRAIGHT JOIN"  # MySQL STRAIGHT_JOIN
     # Other database-specific types could be added here
 
-# if TYPE_CHECKING:
-#     from ..dialect import SQLDialectBase
-#     from .predicates import SQLPredicate
-#     from .bases import BaseExpression
+if TYPE_CHECKING:
+    from ..dialect import SQLDialectBase
+    from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate, LikePredicate
+    from .bases import BaseExpression, SQLPredicate, SQLValueExpression
+    from .statements import QueryExpression
 
 
 class WhereClause(bases.BaseExpression):

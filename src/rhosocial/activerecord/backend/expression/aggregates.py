@@ -9,9 +9,9 @@ from . import bases
 from . import mixins
 from . import operators # Added this import
 
-# if TYPE_CHECKING:
-#     from .bases import SQLPredicate
-#     from ..dialect import SQLDialectBase
+if TYPE_CHECKING:
+    from .bases import SQLPredicate
+    from ..dialect import SQLDialectBase
 
 
 class AggregatableExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
