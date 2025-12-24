@@ -25,7 +25,7 @@ class ToSQLProtocol(Protocol):
        query parameters through the designated parameter mechanisms rather than
        directly concatenating values into SQL strings to prevent SQL injection.
     """
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> Tuple[str, tuple]: # pragma: no cover
         """
         Converts the object into a SQL string and a tuple of parameters.
         """

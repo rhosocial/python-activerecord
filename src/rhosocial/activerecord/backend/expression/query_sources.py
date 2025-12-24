@@ -18,13 +18,13 @@ if TYPE_CHECKING:  # pragma: no cover
 
 class SetOperationExpression(bases.BaseExpression):
     """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries."""
-    def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: str, all: bool = False):
+    def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: str, all_: bool = False):
         super().__init__(dialect)
         self.left = left
         self.right = right
         self.operation = operation
         self.alias = alias
-        self.all = all
+        self.all = all_
 
     def to_sql(self) -> Tuple[str, tuple]:
         # Delegate to the dialect's format_set_operation_expression method

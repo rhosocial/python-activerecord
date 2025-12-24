@@ -9,7 +9,7 @@ from abc import ABC, abstractmethod
 from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
-from ..expression import bases, AlterTableAction, MatchClause
+from ..expression import bases, MatchClause
 from ..expression.query_parts import JoinExpression
 from ..expression.statements import QueryExpression, ColumnDefinition
 
@@ -25,30 +25,17 @@ if TYPE_CHECKING:
         RenameObject, AddIndex, DropIndex, AddTableConstraint, DropTableConstraint,
         RenameColumn, RenameTable,
         # Constraints
-        TableConstraint, TableConstraintType
+        TableConstraintType
     )
     from ..expression.query_parts import (
         WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
     )
-    from ..expression.query_sources import (
-        JoinExpression as JoinExpr, SetOperationExpression
-    )
-    from ..expression.predicates import (
-        WhereClause as WherePred, ComparisonPredicate, LogicalPredicate, LikePredicate,
-        InPredicate, BetweenPredicate, IsNullPredicate, ExistsExpression as ExistsPred
-    )
     from ..expression.advanced_functions import (
         WindowFrameSpecification, WindowSpecification, WindowDefinition,
-        WindowClause, WindowFunctionCall, CaseExpression, CastExpression
-    )
-    from ..expression.core import (
-        Column, Literal, FunctionCall, Subquery, TableExpression, ColumnDefinition as ColDef
+        WindowClause, WindowFunctionCall
     )
     from ..expression.graph import (
-        GraphVertex, GraphEdge, GraphEdgeDirection, MatchClause as MatchCls
-    )
-    from ..expression.aggregates import (
-        AggregateFunctionCall
+        GraphEdgeDirection
     )
 
 
@@ -103,15 +90,6 @@ class SQLDialectBase(ABC):
             Positional placeholder string
         """
         pass
-
-    def supports_offset_without_limit(self) -> bool:
-        """
-        Check if the dialect supports OFFSET clause without LIMIT clause.
-
-        Returns:
-            True if OFFSET without LIMIT is supported, False otherwise
-        """
-        return False
     # endregion Core & General
 
     # region Full Statement Formatting
@@ -408,7 +386,7 @@ class SQLDialectBase(ABC):
         right: "bases.BaseExpression",
         operation: str,
         alias: str,
-        all: bool
+        all_: bool
     ) -> Tuple[str, Tuple]:
         """
         Format set operation expression (UNION, INTERSECT, EXCEPT).
@@ -418,7 +396,7 @@ class SQLDialectBase(ABC):
             right: Right query expression
             operation: Set operation type ('UNION', 'INTERSECT', 'EXCEPT')
             alias: Alias for the result
-            all: Whether to use ALL modifier
+            all_: Whether to use ALL modifier
 
         Returns:
             Tuple of (SQL string, parameters tuple)
@@ -1607,42 +1585,6 @@ class BaseDialect(SQLDialectBase):
             values_params = tuple(literal_values)  # Convert to tuple to ensure correct type
         sql = f"{expr_sql} IN {values_sql}"
         return sql, expr_params + values_params
-
-    def format_any_expression(
-        self,
-        expr: "bases.BaseExpression",
-        op: str,
-        array_expr: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
-        """Format ANY expression."""
-        expr_sql, expr_params = expr.to_sql()
-        # Check if array_expr is a Literal with list/tuple value by checking for 'value' attribute
-        if (hasattr(array_expr, 'value') and
-            isinstance(array_expr.value, (list, tuple))):
-            array_sql = self.get_placeholder()
-            array_params = (tuple(array_expr.value),)
-        else:
-            array_sql, array_params = array_expr.to_sql()
-        sql = f"({expr_sql} {op} ANY{array_sql})"
-        return sql, tuple(list(expr_params) + list(array_params))
-
-    def format_all_expression(
-        self,
-        expr: "bases.BaseExpression",
-        op: str,
-        array_expr: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
-        """Format ALL expression."""
-        expr_sql, expr_params = expr.to_sql()
-        # Check if array_expr is a Literal with list/tuple value by checking for 'value' attribute
-        if (hasattr(array_expr, 'value') and
-            isinstance(array_expr.value, (list, tuple))):
-            array_sql = self.get_placeholder()
-            array_params = (tuple(array_expr.value),)
-        else:
-            array_sql, array_params = array_expr.to_sql()
-        sql = f"({expr_sql} {op} ALL{array_sql})"
-        return sql, tuple(list(expr_params) + list(array_params))
 
     def format_between_predicate(
         self,
@@ -3042,12 +2984,12 @@ class BaseDialect(SQLDialectBase):
         right: "bases.BaseExpression",
         operation: str,
         alias: str,
-        all: bool
+        all_: bool
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
         left_sql, left_params = left.to_sql()
         right_sql, right_params = right.to_sql()
-        all_str = " ALL" if all else ""
+        all_str = " ALL" if all_ else ""
         sql = f"({left_sql} {operation}{all_str} {right_sql}) AS {self.format_identifier(alias)}"
         return sql, left_params + right_params
 

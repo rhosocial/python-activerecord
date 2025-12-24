@@ -19,9 +19,9 @@ from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, Qualif
     ForUpdateClause
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..dialect import SQLDialectBase, ExplainOptions
-    from .query_sources import SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression
-    from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause, ForUpdateClause
+    from ..dialect import SQLDialectBase
+    from .query_sources import SetOperationExpression, ValuesExpression, TableFunctionExpression, LateralExpression
+    from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause, ForUpdateClause, JoinExpression
 
 
 # region DML and DQL Statements
