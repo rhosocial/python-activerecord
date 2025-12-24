@@ -143,10 +143,10 @@ class StringMixin:
 
     def like(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
         from .core import Literal
-        from .operators import BinaryExpression
-        return BinaryExpression(self.dialect, "LIKE", self, Literal(self.dialect, pattern))
+        from .predicates import LikePredicate
+        return LikePredicate(self.dialect, "LIKE", self, Literal(self.dialect, pattern))
 
     def ilike(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
         from .core import Literal
-        from .operators import BinaryExpression
-        return BinaryExpression(self.dialect, "ILIKE", self, Literal(self.dialect, pattern))
+        from .predicates import LikePredicate
+        return LikePredicate(self.dialect, "ILIKE", self, Literal(self.dialect, pattern))

@@ -5,7 +5,6 @@ Concrete implementations of SQL predicate expressions (e.g., WHERE clause condit
 from typing import Tuple, TYPE_CHECKING
 
 from . import bases
-from . import mixins
 from .core import Literal
 
 if TYPE_CHECKING:  # pragma: no cover
