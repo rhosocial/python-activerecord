@@ -298,6 +298,66 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
 
+    def validate(self, strict: bool = True) -> bool:
+        """Validate QueryExpression parameters according to SQL standard.
+
+        Args:
+            strict: If True, perform strict validation that may impact performance.
+                   If False, skip validation for performance optimization.
+
+        Returns:
+            True if validation passes, raises exception if validation fails
+        """
+        if not strict:
+            return True
+
+        # Validate select parameter
+        if not isinstance(self.select, list):
+            raise TypeError(f"select must be a list of expressions, got {type(self.select)}")
+
+        # Validate from_ parameter - should be one of the allowed types
+        if self.from_ is not None:
+            # Check if it's one of the valid types using isinstance with type names
+            valid_types = (str, core.TableExpression, core.Subquery)
+            if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
+                # For complex types, check their type names
+                from_type_name = type(self.from_).__name__
+                valid_type_names = ['SetOperationExpression', 'JoinExpression', 'ValuesExpression',
+                                  'TableFunctionExpression', 'LateralExpression']
+                if from_type_name not in valid_type_names:
+                    raise TypeError(f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}")
+
+        # Validate where parameter
+        if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):
+            raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
+
+        # Validate group_by_having parameter
+        if self.group_by_having is not None and not isinstance(self.group_by_having, GroupByHavingClause):
+            raise TypeError(f"group_by_having must be GroupByHavingClause, got {type(self.group_by_having)}")
+
+        # Validate order_by parameter
+        if self.order_by is not None and not isinstance(self.order_by, OrderByClause):
+            raise TypeError(f"order_by must be OrderByClause, got {type(self.order_by)}")
+
+        # Validate qualify parameter
+        if self.qualify is not None and not isinstance(self.qualify, QualifyClause):
+            raise TypeError(f"qualify must be QualifyClause, got {type(self.qualify)}")
+
+        # Validate limit_offset parameter
+        if self.limit_offset is not None and not isinstance(self.limit_offset, LimitOffsetClause):
+            raise TypeError(f"limit_offset must be LimitOffsetClause, got {type(self.limit_offset)}")
+
+        # Validate for_update parameter
+        if self.for_update is not None and not isinstance(self.for_update, ForUpdateClause):
+            raise TypeError(f"for_update must be ForUpdateClause, got {type(self.for_update)}")
+
+        # Validate select_modifier parameter
+        if self.select_modifier is not None and not isinstance(self.select_modifier, SelectModifier):
+            raise TypeError(f"select_modifier must be SelectModifier, got {type(self.select_modifier)}")
+
+        return True
+
+
     def to_sql(self) -> Tuple[str, tuple]:
         """
         Generate the SQL string and parameters for this query expression.
@@ -574,6 +634,49 @@ class UpdateExpression(bases.BaseExpression):
         self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 
+    def validate(self, strict: bool = True) -> bool:
+        """Validate UpdateExpression parameters according to SQL standard.
+
+        Args:
+            strict: If True, perform strict validation that may impact performance.
+                   If False, skip validation for performance optimization.
+
+        Returns:
+            True if validation passes, raises exception if validation fails
+        """
+        if not strict:
+            return True
+
+        # Validate table parameter
+        if not isinstance(self.table, (str, core.TableExpression)):
+            raise TypeError(f"table must be str or TableExpression, got {type(self.table)}")
+
+        # Validate assignments parameter
+        if not isinstance(self.assignments, dict):
+            raise TypeError(f"assignments must be dict, got {type(self.assignments)}")
+
+        # Validate from_ parameter
+        if self.from_ is not None:
+            # Check if it's one of the valid types using isinstance with type names
+            valid_types = (str, core.TableExpression, core.Subquery)
+            if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
+                # For complex types, check their type names
+                from_type_name = type(self.from_).__name__
+                valid_type_names = ['SetOperationExpression', 'JoinExpression', 'ValuesExpression',
+                                  'TableFunctionExpression', 'LateralExpression']
+                if from_type_name not in valid_type_names:
+                    raise TypeError(f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}")
+
+        # Validate where parameter
+        if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):
+            raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
+
+        # Validate returning parameter
+        if self.returning is not None and not isinstance(self.returning, ReturningClause):
+            raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
+
+        return True
+
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""
         return self.dialect.format_update_statement(self)
@@ -703,6 +806,41 @@ class InsertExpression(bases.BaseExpression):
         # 2. Then, check for other misuses of DefaultValuesSource
         if isinstance(source, DefaultValuesSource) and columns:
             raise ValueError("'DEFAULT VALUES' source cannot be used with 'columns'.")
+
+    def validate(self, strict: bool = True) -> bool:
+        """Validate InsertExpression parameters according to SQL standard.
+
+        Args:
+            strict: If True, perform strict validation that may impact performance.
+                   If False, skip validation for performance optimization.
+
+        Returns:
+            True if validation passes, raises exception if validation fails
+        """
+        if not strict:
+            return True
+
+        # Validate into parameter
+        if not isinstance(self.into, (str, core.TableExpression)):
+            raise TypeError(f"into must be str or TableExpression, got {type(self.into)}")
+
+        # Validate source parameter
+        if not isinstance(self.source, InsertDataSource):
+            raise TypeError(f"source must be InsertDataSource, got {type(self.source)}")
+
+        # Validate columns parameter
+        if self.columns is not None and not isinstance(self.columns, list):
+            raise TypeError(f"columns must be list of strings or None, got {type(self.columns)}")
+
+        # Validate on_conflict parameter
+        if self.on_conflict is not None and not isinstance(self.on_conflict, OnConflictClause):
+            raise TypeError(f"on_conflict must be OnConflictClause, got {type(self.on_conflict)}")
+
+        # Validate returning parameter
+        if self.returning is not None and not isinstance(self.returning, ReturningClause):
+            raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
+
+        return True
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the INSERT statement to the configured dialect."""

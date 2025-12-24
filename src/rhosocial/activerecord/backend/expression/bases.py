@@ -48,6 +48,21 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
     def dialect(self) -> "SQLDialectBase":
         return self._dialect
 
+    def validate(self, strict: bool = True) -> bool:
+        """Validate expression parameters according to SQL standard.
+
+        Args:
+            strict: If True, perform strict validation that may impact performance.
+                   If False, skip validation for performance optimization.
+
+        Returns:
+            True if validation passes, raises exception if validation fails
+        """
+        if not strict:
+            return True
+        # Default validation - can be overridden by subclasses
+        return True
+
     @abc.abstractmethod
     def to_sql(self) -> Tuple[str, tuple]:
         """

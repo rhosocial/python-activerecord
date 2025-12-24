@@ -56,7 +56,8 @@ class SQLDialectBase(ABC):
     # region Core & General
     def __init__(self) -> None:
         """Initialize SQL dialect."""
-        pass
+        # Add strict validation flag with default as True for safety
+        self.strict_validation = True
 
     @property
     def name(self) -> str:
@@ -101,12 +102,32 @@ class SQLDialectBase(ABC):
 
     @abstractmethod
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
-        """Formats a complete INSERT statement from an InsertExpression object."""
+        """Formats a complete INSERT statement from an InsertExpression object.
+
+        This method performs strict parameter validation for SQL standard compliance
+        by default. To bypass validation for performance optimization, set strict_validation=False
+        on the dialect instance.
+        """
+        # Perform strict parameter validation for SQL standard compliance
+        # This validation may impact performance. If performance is critical,
+        # dialect implementations can set strict_validation=False.
+        if self.strict_validation:
+            expr.validate(strict=True)
         raise NotImplementedError
 
     @abstractmethod
     def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
-        """Formats a complete UPDATE statement from an UpdateExpression object."""
+        """Formats a complete UPDATE statement from an UpdateExpression object.
+
+        This method performs strict parameter validation for SQL standard compliance
+        by default. To bypass validation for performance optimization, set strict_validation=False
+        on the dialect instance.
+        """
+        # Perform strict parameter validation for SQL standard compliance
+        # This validation may impact performance. If performance is critical,
+        # dialect implementations can set strict_validation=False.
+        if self.strict_validation:
+            expr.validate(strict=True)
         raise NotImplementedError
 
     @abstractmethod
@@ -2148,6 +2169,18 @@ class BaseDialect(SQLDialectBase):
 
     # region Full Statement Formatting
     def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
+        """Format a complete SELECT statement from a QueryExpression object.
+
+        This method performs strict parameter validation for SQL standard compliance
+        by default. To bypass validation for performance optimization, set strict_validation=False
+        on the dialect instance.
+        """
+        # Perform strict parameter validation for SQL standard compliance
+        # This validation may impact performance. If performance is critical,
+        # dialect implementations can set strict_validation=False.
+        if self.strict_validation:
+            expr.validate(strict=True)
+
         all_params: List[Any] = []
 
         # SELECT clause with optional DISTINCT/ALL modifier
@@ -2214,6 +2247,18 @@ class BaseDialect(SQLDialectBase):
         return sql, tuple(all_params)
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+        """Format INSERT statement.
+
+        This method performs strict parameter validation for SQL standard compliance
+        by default. To bypass validation for performance optimization, set strict_validation=False
+        on the dialect instance.
+        """
+        # Perform strict parameter validation for SQL standard compliance
+        # This validation may impact performance. If performance is critical,
+        # dialect implementations can set strict_validation=False.
+        if self.strict_validation:
+            expr.validate(strict=True)
+
         all_params: List[Any] = []
         table_sql, table_params = expr.into.to_sql()
         all_params.extend(table_params)
