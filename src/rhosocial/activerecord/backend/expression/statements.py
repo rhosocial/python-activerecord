@@ -574,6 +574,45 @@ class DeleteExpression(bases.BaseExpression):
         self.returning = returning  # RETURNING clause object
         self.dialect_options = dialect_options or {}
 
+    def validate(self, strict: bool = True) -> bool:
+        """Validate DeleteExpression parameters according to SQL standard.
+
+        Args:
+            strict: If True, perform strict validation that may impact performance.
+                   If False, skip validation for performance optimization.
+
+        Returns:
+            True if validation passes, raises exception if validation fails
+        """
+        if not strict:
+            return True
+
+        # Validate table parameter
+        if not isinstance(self.table, (str, core.TableExpression)):
+            raise TypeError(f"table must be str or TableExpression, got {type(self.table)}")
+
+        # Validate from_ parameter
+        if self.from_ is not None:
+            # Check if it's one of the valid types using isinstance with type names
+            valid_types = (str, core.TableExpression, core.Subquery)
+            if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
+                # For complex types, check their type names
+                from_type_name = type(self.from_).__name__
+                valid_type_names = ['SetOperationExpression', 'JoinExpression', 'ValuesExpression',
+                                  'TableFunctionExpression', 'LateralExpression']
+                if from_type_name not in valid_type_names:
+                    raise TypeError(f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}")
+
+        # Validate where parameter
+        if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):
+            raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
+
+        # Validate returning parameter
+        if self.returning is not None and not isinstance(self.returning, ReturningClause):
+            raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
+
+        return True
+
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the DELETE statement to the configured dialect."""
         return self.dialect.format_delete_statement(self)

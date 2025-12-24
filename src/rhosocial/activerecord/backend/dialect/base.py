@@ -2367,6 +2367,18 @@ class BaseDialect(SQLDialectBase):
         return current_sql, tuple(all_params)
 
     def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
+        """Format DELETE statement.
+
+        This method performs strict parameter validation for SQL standard compliance
+        by default. To bypass validation for performance optimization, set strict_validation=False
+        on the dialect instance.
+        """
+        # Perform strict parameter validation for SQL standard compliance
+        # This validation may impact performance. If performance is critical,
+        # dialect implementations can set strict_validation=False.
+        if self.strict_validation:
+            expr.validate(strict=True)
+
         all_params: List[Any] = []
 
         # Target table (expr.table is a TableExpression)
