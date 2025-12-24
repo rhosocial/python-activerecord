@@ -390,6 +390,28 @@ class TestDeleteStatements:
         with pytest.raises(TypeError, match=r"returning must be ReturningClause, got <class 'int'>"):
             delete_expr.validate(strict=True)
 
+    def test_delete_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
+        """Tests that DeleteExpression.validate with strict=False skips validation."""
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        )
+        # Manually assign invalid type that would normally cause an error
+        delete_expr.where = 999  # Invalid type - should be WhereClause or SQLPredicate
+
+        # With strict=False, validation should pass without raising an error
+        delete_expr.validate(strict=False)  # Should not raise any exception
+
+        # Also test with valid parameters and strict=False
+        delete_expr_valid = DeleteExpression(
+            dummy_dialect,
+            table="products",
+            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
+        delete_expr_valid.validate(strict=False)  # Should not raise any exception
+        assert True  # Just to ensure the test passes
+
     @pytest.mark.parametrize("op, pattern, expected_sql_part", [
         ("LIKE", "John%", '"name" LIKE ?'),
         ("ILIKE", "JOHN%", '"name" ILIKE ?'),  # Case-insensitive like

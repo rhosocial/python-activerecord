@@ -739,3 +739,26 @@ class TestQueryStatements:
 
         with pytest.raises(TypeError, match=r"select_modifier must be SelectModifier, got <class 'str'>"):
             query.validate(strict=True)
+
+    def test_query_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression.validate with strict=False skips validation."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type that would normally cause an error
+        query.where = 999  # Invalid type - should be WhereClause or SQLPredicate
+
+        # With strict=False, validation should pass without raising an error
+        query.validate(strict=False)  # Should not raise any exception
+
+        # Also test with valid parameters and strict=False
+        query_valid = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "name"), Column(dummy_dialect, "email")],
+            from_=TableExpression(dummy_dialect, "customers"),
+            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
+        query_valid.validate(strict=False)  # Should not raise any exception
+        assert True  # Just to ensure the test passes

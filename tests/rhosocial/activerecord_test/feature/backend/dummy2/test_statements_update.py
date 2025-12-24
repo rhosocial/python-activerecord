@@ -422,3 +422,92 @@ class TestUpdateStatements:
         assert 'LIKE ?' in sql
         assert '> ?' in sql
         assert params == ("2023-01-01", "John%", 18)
+
+    # --- Validation failure tests ---
+    def test_update_expression_invalid_table_type_after_construction(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression raises TypeError for invalid table parameter type."""
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",  # Valid initial value
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+        # Manually assign invalid type to trigger validation error
+        update_expr.table = 123  # Invalid type - should be str or TableExpression
+
+        with pytest.raises(TypeError, match=r"table must be str or TableExpression, got <class 'int'>"):
+            update_expr.validate(strict=True)
+
+    def test_update_expression_invalid_assignments_type(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression raises TypeError for invalid assignments parameter type."""
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+        # Manually assign invalid type to trigger validation error
+        update_expr.assignments = "invalid"  # Invalid type - should be dict
+
+        with pytest.raises(TypeError, match=r"assignments must be dict, got <class 'str'>"):
+            update_expr.validate(strict=True)
+
+    def test_update_expression_invalid_from_type(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression raises TypeError for invalid from_ parameter type."""
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+        # Manually assign invalid type to trigger validation error
+        update_expr.from_ = 456  # Invalid type
+
+        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+            update_expr.validate(strict=True)
+
+    def test_update_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression raises TypeError for invalid where parameter type."""
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+        # Manually assign invalid type to trigger validation error
+        update_expr.where = 789  # Invalid type - should be WhereClause or SQLPredicate
+
+        with pytest.raises(TypeError, match=r"where must be WhereClause or SQLPredicate, got <class 'int'>"):
+            update_expr.validate(strict=True)
+
+    def test_update_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression raises TypeError for invalid returning parameter type."""
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+        # Manually assign invalid type to trigger validation error
+        update_expr.returning = 999  # Invalid type - should be ReturningClause
+
+        with pytest.raises(TypeError, match=r"returning must be ReturningClause, got <class 'int'>"):
+            update_expr.validate(strict=True)
+
+    def test_update_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
+        """Tests that UpdateExpression.validate with strict=False skips validation."""
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+        # Manually assign invalid type that would normally cause an error
+        update_expr.where = 999  # Invalid type - should be WhereClause or SQLPredicate
+
+        # With strict=False, validation should pass without raising an error
+        update_expr.validate(strict=False)  # Should not raise any exception
+
+        # Also test with valid parameters and strict=False
+        update_expr_valid = UpdateExpression(
+            dummy_dialect,
+            table="products",
+            assignments={"price": Literal(dummy_dialect, 19.99)},
+            where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        )
+        update_expr_valid.validate(strict=False)  # Should not raise any exception
+        assert True  # Just to ensure the test passes

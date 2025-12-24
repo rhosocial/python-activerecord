@@ -747,3 +747,25 @@ class TestInsertStatements:
 
         with pytest.raises(TypeError, match=r"returning must be ReturningClause, got <class 'int'>"):
             insert_expr.validate(strict=True)
+
+    def test_insert_expression_validate_with_strict_false(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression.validate with strict=False skips validation."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        )
+        # Manually assign invalid type that would normally cause an error
+        insert_expr.source = 999  # Invalid type - should be InsertDataSource
+
+        # With strict=False, validation should pass without raising an error
+        insert_expr.validate(strict=False)  # Should not raise any exception
+
+        # Also test with valid parameters and strict=False
+        insert_expr_valid = InsertExpression(
+            dummy_dialect,
+            into="products",
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "widget")]])
+        )
+        insert_expr_valid.validate(strict=False)  # Should not raise any exception
+        assert True  # Just to ensure the test passes
