@@ -762,3 +762,20 @@ class TestQueryStatements:
         )
         query_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes
+
+    def test_query_expression_from_invalid_type_with_strict_false(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression.from_ parameter validation respects strict=False setting."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")  # Valid initial value
+        )
+        # Manually assign invalid type that would normally cause an error
+        query.from_ = 999  # Invalid type - should be str, TableExpression, etc.
+
+        # With strict=False, validation should pass without raising an error
+        query.validate(strict=False)  # Should not raise any exception
+
+        # Verify that strict=True would raise an error for the same invalid parameter
+        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+            query.validate(strict=True)
