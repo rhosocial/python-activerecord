@@ -677,3 +677,73 @@ class TestInsertStatements:
         assert params == (1, "inactive", 10, "active")
 
     # endregion Advanced ON CONFLICT Tests
+
+    # --- Validation failure tests ---
+    # Note: into parameter is automatically converted in the constructor,
+    # so we focus on parameters that are not automatically converted
+
+    def test_insert_expression_invalid_into_type_after_construction(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError for invalid into parameter type after construction."""
+        # Since 'into' is converted in constructor, we need to manually assign invalid type after construction
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",  # Valid initial value
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        )
+        # Manually assign invalid type to trigger validation error
+        insert_expr.into = 123  # Invalid type - should be str or TableExpression
+
+        with pytest.raises(TypeError, match=r"into must be str or TableExpression, got <class 'int'>"):
+            insert_expr.validate(strict=True)
+
+    def test_insert_expression_invalid_source_type(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError for invalid source parameter type."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        )
+        # Manually assign invalid type to trigger validation error
+        insert_expr.source = 456  # Invalid type - should be InsertDataSource
+
+        with pytest.raises(TypeError, match=r"source must be InsertDataSource, got <class 'int'>"):
+            insert_expr.validate(strict=True)
+
+    def test_insert_expression_invalid_columns_type(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError for invalid columns parameter type."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        )
+        # Manually assign invalid type to trigger validation error
+        insert_expr.columns = "invalid"  # Invalid type - should be list or None
+
+        with pytest.raises(TypeError, match=r"columns must be list of strings or None, got <class 'str'>"):
+            insert_expr.validate(strict=True)
+
+    def test_insert_expression_invalid_on_conflict_type(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError for invalid on_conflict parameter type."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        )
+        # Manually assign invalid type to trigger validation error
+        insert_expr.on_conflict = 789  # Invalid type - should be OnConflictClause
+
+        with pytest.raises(TypeError, match=r"on_conflict must be OnConflictClause, got <class 'int'>"):
+            insert_expr.validate(strict=True)
+
+    def test_insert_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
+        """Tests that InsertExpression raises TypeError for invalid returning parameter type."""
+        insert_expr = InsertExpression(
+            dummy_dialect,
+            into="users",
+            source=ValuesSource(dummy_dialect, values_list=[[Literal(dummy_dialect, "test")]])
+        )
+        # Manually assign invalid type to trigger validation error
+        insert_expr.returning = 999  # Invalid type - should be ReturningClause
+
+        with pytest.raises(TypeError, match=r"returning must be ReturningClause, got <class 'int'>"):
+            insert_expr.validate(strict=True)

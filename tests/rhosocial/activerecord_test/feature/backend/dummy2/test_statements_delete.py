@@ -332,6 +332,64 @@ class TestDeleteStatements:
             assert len(params) >= expected_placeholders
             assert list(params[:len(values_list)]) == values_list
 
+    # --- Validation failure tests ---
+    # Note: table and from_ parameters are automatically converted in the constructor,
+    # so we focus on parameters that are not automatically converted
+
+    def test_delete_expression_invalid_where_type_after_construction(self, dummy_dialect: DummyDialect):
+        """Tests that DeleteExpression raises TypeError for invalid where parameter type after construction."""
+        # Manually set an invalid type after construction to test validation
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        )
+        # Manually assign invalid type to trigger validation error
+        delete_expr.where = 123  # Invalid type - should be WhereClause or SQLPredicate
+
+        with pytest.raises(TypeError, match=r"where must be WhereClause or SQLPredicate, got <class 'int'>"):
+            delete_expr.validate(strict=True)
+
+    def test_delete_expression_invalid_from_type_after_construction(self, dummy_dialect: DummyDialect):
+        """Tests that DeleteExpression raises TypeError for invalid from_ parameter type."""
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        )
+        # Manually assign invalid type to trigger validation error
+        delete_expr.from_ = 456  # Invalid type
+
+        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+            delete_expr.validate(strict=True)
+
+    def test_delete_expression_invalid_where_type_initial(self, dummy_dialect: DummyDialect):
+        """Tests that DeleteExpression raises TypeError for invalid where parameter type (initial case)."""
+        # This tests the case where an invalid type is passed initially
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        )
+        # Manually assign invalid type to trigger validation error
+        delete_expr.where = 789  # Invalid type - should be WhereClause or SQLPredicate
+
+        with pytest.raises(TypeError, match=r"where must be WhereClause or SQLPredicate, got <class 'int'>"):
+            delete_expr.validate(strict=True)
+
+    def test_delete_expression_invalid_returning_type(self, dummy_dialect: DummyDialect):
+        """Tests that DeleteExpression raises TypeError for invalid returning parameter type."""
+        delete_expr = DeleteExpression(
+            dummy_dialect,
+            table="users",
+            where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
+        )
+        # Manually assign invalid type to trigger validation error
+        delete_expr.returning = 999  # Invalid type - should be ReturningClause
+
+        with pytest.raises(TypeError, match=r"returning must be ReturningClause, got <class 'int'>"):
+            delete_expr.validate(strict=True)
+
     @pytest.mark.parametrize("op, pattern, expected_sql_part", [
         ("LIKE", "John%", '"name" LIKE ?'),
         ("ILIKE", "JOHN%", '"name" ILIKE ?'),  # Case-insensitive like

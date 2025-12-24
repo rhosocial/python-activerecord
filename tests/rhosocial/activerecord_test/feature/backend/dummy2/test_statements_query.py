@@ -618,3 +618,124 @@ class TestQueryStatements:
         assert 'LIKE ?' in sql
         assert '> ?' in sql
         assert params == ("John%", 18)
+
+    # --- Validation failure tests ---
+    # Note: select and from_ parameters are automatically handled in the constructor,
+    # so we focus on parameters that are not automatically converted
+
+    def test_query_expression_invalid_select_type_after_construction(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid select parameter type after construction."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],  # Valid initial value
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.select = "invalid"  # Invalid type - should be list
+
+        with pytest.raises(TypeError, match=r"select must be a list of expressions, got <class 'str'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_from_type_after_construction(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid from_ parameter type after construction."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")  # Valid initial value
+        )
+        # Manually assign invalid type to trigger validation error
+        query.from_ = 123  # Invalid type
+
+        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_where_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid where parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.where = 456  # Invalid type - should be WhereClause or SQLPredicate
+
+        with pytest.raises(TypeError, match=r"where must be WhereClause or SQLPredicate, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_group_by_having_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid group_by_having parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.group_by_having = 789  # Invalid type - should be GroupByHavingClause
+
+        with pytest.raises(TypeError, match=r"group_by_having must be GroupByHavingClause, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_order_by_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid order_by parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.order_by = 999  # Invalid type - should be OrderByClause
+
+        with pytest.raises(TypeError, match=r"order_by must be OrderByClause, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_qualify_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid qualify parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.qualify = 111  # Invalid type - should be QualifyClause
+
+        with pytest.raises(TypeError, match=r"qualify must be QualifyClause, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_limit_offset_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid limit_offset parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.limit_offset = 222  # Invalid type - should be LimitOffsetClause
+
+        with pytest.raises(TypeError, match=r"limit_offset must be LimitOffsetClause, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_for_update_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid for_update parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.for_update = 333  # Invalid type - should be ForUpdateClause
+
+        with pytest.raises(TypeError, match=r"for_update must be ForUpdateClause, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_invalid_select_modifier_type(self, dummy_dialect: DummyDialect):
+        """Tests that QueryExpression raises TypeError for invalid select_modifier parameter type."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        # Manually assign invalid type to trigger validation error
+        query.select_modifier = "invalid"  # Invalid type - should be SelectModifier
+
+        with pytest.raises(TypeError, match=r"select_modifier must be SelectModifier, got <class 'str'>"):
+            query.validate(strict=True)
