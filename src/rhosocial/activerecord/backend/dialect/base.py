@@ -246,6 +246,32 @@ class SQLDialectBase(ABC):
             Tuple of (SQL string, parameters tuple)
         """
         pass
+
+    @abstractmethod
+    def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, tuple]:
+        """
+        Format ADD CONSTRAINT action for ALTER TABLE statement per SQL standard.
+
+        Args:
+            action: AddTableConstraint action object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
+
+    @abstractmethod
+    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
+        """
+        Format DROP CONSTRAINT action for ALTER TABLE statement per SQL standard.
+
+        Args:
+            action: DropTableConstraint action object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        pass
     # endregion Alter Table Actions
     # endregion Table Operations
 
@@ -943,6 +969,40 @@ class SQLDialectBase(ABC):
         pass
 
     @abstractmethod
+    def format_filter_clause(
+        self,
+        condition_sql: str,
+        condition_params: tuple
+    ) -> Tuple[str, Tuple]:
+        """
+        Format a FILTER (WHERE ...) clause.
+
+        Args:
+            condition_sql: SQL string for the WHERE condition
+            condition_params: Parameters for the WHERE condition
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        pass
+
+    @abstractmethod
+    def format_column_definition(
+        self,
+        col_def: "ColumnDefinition"
+    ) -> Tuple[str, tuple]:
+        """
+        Format a column definition for use in ADD COLUMN clauses.
+
+        Args:
+            col_def: ColumnDefinition object containing the column specification
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted definition.
+        """
+        pass
+
+    @abstractmethod
     def format_like_predicate(
         self,
         op: str,
@@ -1591,17 +1651,24 @@ class BaseDialect(SQLDialectBase):
     ) -> Tuple[str, tuple]:
         """Format ALTER COLUMN action."""
         all_params = []
-        column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {action.operation}"
+        # Handle operation that might be an enum by getting its string value
+        operation_str = str(action.operation)
+        if hasattr(action.operation, 'value'):
+            operation_str = action.operation.value
+        elif hasattr(action.operation, '__str__'):
+            operation_str = str(action.operation)
+
+        column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
         if hasattr(action, 'new_value') and action.new_value is not None:
             # Handle different types of new_value based on operation
-            if action.operation == "SET DATA TYPE":
+            if operation_str == "SET DATA TYPE":
                 # For SET DATA TYPE, new_value is a type specification, not a parameter
                 column_part += f" {action.new_value}"
             elif isinstance(action.new_value, str):
                 # Handle literal strings
                 column_part += f" {self.get_placeholder()}"
                 all_params.append(action.new_value)
-            elif hasattr(action.new_value, 'to_sql') or isinstance(action.new_value, bases.ToSQLProtocol):
+            elif hasattr(action.new_value, 'to_sql') and callable(getattr(action.new_value, 'to_sql')):
                 # If it's an expression (like FunctionCall), format it
                 value_sql, value_params = action.new_value.to_sql()
                 column_part += f" {value_sql}"
@@ -1700,6 +1767,74 @@ class BaseDialect(SQLDialectBase):
         if hasattr(action, 'if_exists') and action.if_exists:
             cmd = f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}"
         return cmd, ()
+
+    def format_add_table_constraint_action(
+        self,
+        action: "AddTableConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format ADD CONSTRAINT action per SQL standard."""
+        from ..expression.statements import TableConstraintType
+
+        all_params = []
+        parts = []
+        if hasattr(action, 'constraint') and action.constraint.name:
+            parts.append(f"CONSTRAINT {self.format_identifier(action.constraint.name)}")
+
+        # Add the constraint type and details based on the constraint type
+        if hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.PRIMARY_KEY:
+            if hasattr(action, 'constraint') and action.constraint.columns:
+                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                parts.append(f"PRIMARY KEY ({cols_str})")
+            else:
+                parts.append("PRIMARY KEY")
+        elif hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.UNIQUE:
+            if hasattr(action, 'constraint') and action.constraint.columns:
+                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                parts.append(f"UNIQUE ({cols_str})")
+            else:
+                parts.append("UNIQUE")
+        elif hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.CHECK and hasattr(action.constraint, 'check_condition') and action.constraint.check_condition:
+            check_sql, check_params = action.constraint.check_condition.to_sql()
+            parts.append(f"CHECK ({check_sql})")
+            all_params.extend(check_params)
+        elif hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.FOREIGN_KEY:
+            if (hasattr(action, 'constraint') and
+                hasattr(action.constraint, 'columns') and action.constraint.columns and
+                hasattr(action.constraint, 'foreign_key_table') and action.constraint.foreign_key_table):
+                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
+                ref_table = self.format_identifier(action.constraint.foreign_key_table)
+                ref_cols_str = (", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns)
+                                if hasattr(action.constraint, 'foreign_key_columns') and action.constraint.foreign_key_columns else "")
+                if ref_cols_str:
+                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
+                else:
+                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}")
+            else:
+                parts.append("FOREIGN KEY")
+        else:
+            # For unknown constraint types, just add the name
+            parts.append("UNKNOWN CONSTRAINT")
+
+        return f"ADD {' '.join(parts)}", tuple(all_params)
+
+    def format_drop_table_constraint_action(
+        self,
+        action: "DropTableConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format DROP CONSTRAINT action per SQL standard."""
+        result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
+        if hasattr(action, 'cascade') and action.cascade:
+            result += " CASCADE"
+        return result, ()
+
+
+    def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, tuple]:
+        """Format RENAME COLUMN action per SQL standard."""
+        return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
+
+    def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, tuple]:
+        """Format RENAME TABLE action per SQL standard."""
+        return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
     def format_any_expression(
         self,
@@ -1982,144 +2117,6 @@ class BaseDialect(SQLDialectBase):
             return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
         return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
 
-    def format_alter_column_action(self, action: "AlterColumn") -> Tuple[str, tuple]:
-        """Format ALTER COLUMN action for ALTER TABLE statement."""
-        all_params = []
-        # Handle enum values properly - get the string value instead of the enum representation
-        operation_str = action.operation.value if hasattr(action.operation, 'value') else str(action.operation)
-        column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
-        if action.new_value is not None:
-            # Handle different types of new_value based on operation
-            if operation_str == "SET DATA TYPE":
-                # For SET DATA TYPE, new_value is a type specification, not a parameter
-                column_part += f" {action.new_value}"
-            elif isinstance(action.new_value, str):
-                # Handle literal strings
-                column_part += f" {self.get_placeholder()}"
-                all_params.append(action.new_value)
-            elif hasattr(action.new_value, 'to_sql'):
-                # If it's an expression (like FunctionCall), format it
-                value_sql, value_params = action.new_value.to_sql()
-                column_part += f" {value_sql}"
-                all_params.extend(value_params)
-            else:
-                # Handle other literal values
-                column_part += f" {self.get_placeholder()}"
-                all_params.append(action.new_value)
-        # Add cascade if specified
-        if action.cascade:
-            column_part += " CASCADE"
-        return column_part, tuple(all_params)
-
-    def format_add_constraint_action(self, action: "AddConstraint") -> Tuple[str, tuple]:
-        """Format ADD CONSTRAINT action for ALTER TABLE statement."""
-        from ..expression.statements import TableConstraintType
-
-        all_params = []
-        parts = []
-        if action.constraint.name:
-            parts.append(f"CONSTRAINT {self.format_identifier(action.constraint.name)}")
-
-        # Add the constraint type and details based on the constraint type
-        if action.constraint.constraint_type == TableConstraintType.PRIMARY_KEY:
-            if action.constraint.columns:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                parts.append(f"PRIMARY KEY ({cols_str})")
-            else:
-                parts.append("PRIMARY KEY")
-        elif action.constraint.constraint_type == TableConstraintType.UNIQUE:
-            if action.constraint.columns:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                parts.append(f"UNIQUE ({cols_str})")
-            else:
-                parts.append("UNIQUE")
-        elif action.constraint.constraint_type == TableConstraintType.CHECK and action.constraint.check_condition:
-            check_sql, check_params = action.constraint.check_condition.to_sql()
-            parts.append(f"CHECK ({check_sql})")
-            all_params.extend(list(check_params))
-        elif action.constraint.constraint_type == TableConstraintType.FOREIGN_KEY:
-            if action.constraint.columns and action.constraint.foreign_key_table:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                ref_table = self.format_identifier(action.constraint.foreign_key_table)
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns) if action.constraint.foreign_key_columns else ""
-                if ref_cols_str:
-                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
-                else:
-                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}")
-            else:
-                parts.append("FOREIGN KEY")
-        else:
-            # For unknown constraint types, just add the name
-            parts.append("UNKNOWN CONSTRAINT")
-
-        return f"ADD {' '.join(parts)}", tuple(all_params)
-
-    def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, tuple]:
-        """Format ADD CONSTRAINT action for ALTER TABLE statement per SQL standard."""
-        from ..expression.statements import TableConstraintType
-
-        all_params = []
-        parts = []
-        if action.constraint.name:
-            parts.append(f"CONSTRAINT {self.format_identifier(action.constraint.name)}")
-
-        if action.constraint.constraint_type == TableConstraintType.PRIMARY_KEY:
-            if action.constraint.columns:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                parts.append(f"PRIMARY KEY ({cols_str})")
-            else:
-                parts.append("PRIMARY KEY")
-        elif action.constraint.constraint_type == TableConstraintType.UNIQUE:
-            if action.constraint.columns:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                parts.append(f"UNIQUE ({cols_str})")
-            else:
-                parts.append("UNIQUE")
-        elif action.constraint.constraint_type == TableConstraintType.CHECK and action.constraint.check_condition:
-            check_sql, check_params = action.constraint.check_condition.to_sql()
-            parts.append(f"CHECK ({check_sql})")
-            all_params.extend(check_params)
-        elif action.constraint.constraint_type == TableConstraintType.FOREIGN_KEY:
-            if action.constraint.columns and action.constraint.foreign_key_table:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                ref_table = self.format_identifier(action.constraint.foreign_key_table)
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns) if action.constraint.foreign_key_columns else ""
-                if ref_cols_str:
-                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
-                else:
-                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}")
-
-        return f"ADD {' '.join(parts)}", tuple(all_params)
-
-    def format_drop_constraint_action(self, action: "DropConstraint") -> Tuple[str, tuple]:
-        """Format DROP CONSTRAINT action for ALTER TABLE statement."""
-        result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
-        if action.cascade:
-            result += " CASCADE"
-        return result, tuple()
-
-    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
-        """Format DROP CONSTRAINT action for ALTER TABLE statement per SQL standard."""
-        result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
-        if action.cascade:
-            result += " CASCADE"
-        return result, ()
-
-    def format_rename_object_action(self, action: "RenameObject") -> Tuple[str, tuple]:
-        """Format RENAME action for ALTER TABLE statement."""
-        if action.object_type.upper() == "COLUMN":
-            return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
-        elif action.object_type.upper() == "TABLE":
-            # Though this wouldn't typically be used in ALTER TABLE context
-            return f"RENAME TO {self.format_identifier(action.new_name)}", ()
-        else:
-            return f"RENAME {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
-
-    def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, tuple]:
-        """Format RENAME COLUMN action for ALTER TABLE statement per SQL standard."""
-        return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
-
-    def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, tuple]:
         """Format RENAME TABLE action for ALTER TABLE statement per SQL standard."""
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
