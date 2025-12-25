@@ -56,9 +56,18 @@ class CastExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
 
 class ExistsExpression(bases.SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
-    def __init__(self, dialect: "SQLDialectBase", subquery: "core.Subquery", is_not: bool = False):
+    def __init__(self, dialect: "SQLDialectBase",
+                 subquery: Union["core.Subquery", "bases.BaseExpression"],
+                 is_not: bool = False):
         super().__init__(dialect)
-        self.subquery = subquery
+        # Automatically wrap BaseExpression in Subquery if needed
+        if isinstance(subquery, core.Subquery):
+            self.subquery = subquery
+        elif hasattr(subquery, 'to_sql'):
+            # Create a Subquery from BaseExpression
+            self.subquery = core.Subquery(dialect, subquery)
+        else:
+            raise TypeError(f"subquery must be Subquery or BaseExpression, got {type(subquery)}")
         self.is_not = is_not
 
     def to_sql(self) -> Tuple[str, tuple]:

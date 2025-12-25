@@ -1,13 +1,14 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expressions_advanced.py
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, RawSQLExpression, Subquery, FunctionCall,
-    ComparisonPredicate, LogicalPredicate,
-    CaseExpression, CastExpression, ExistsExpression, AnyExpression, AllExpression,
+    Column, Literal, Subquery, ComparisonPredicate, CaseExpression, CastExpression, ExistsExpression, AnyExpression,
+    AllExpression,
     WindowFunctionCall, WindowSpecification, WindowFrameSpecification, JSONExpression, ArrayExpression,
     BinaryArithmeticExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
 
 class TestAdvancedExpressions:
     """Tests for advanced SQL expression types."""

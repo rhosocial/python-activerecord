@@ -1,10 +1,8 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_advanced_function_window.py
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, RawSQLExpression, TableExpression, FunctionCall,
-    ComparisonPredicate, LogicalPredicate, InPredicate,
-    QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
-    BinaryArithmeticExpression,
+    Column, Literal, TableExpression, QueryExpression, BinaryArithmeticExpression,
     # Import new classes for window functions and advanced features
     CaseExpression, CastExpression, ExistsExpression, AnyExpression, AllExpression,
     SelectModifier, ForUpdateClause,
@@ -123,9 +121,21 @@ class TestAdvancedFunctionWindow:
         )
         exists_expr = ExistsExpression(dummy_dialect, subquery)
         sql, params = exists_expr.to_sql()
-        expected = 'EXISTS SELECT "id" FROM "orders" WHERE "user_id" = "u"."id"'
+        expected = 'EXISTS (SELECT "id" FROM "orders" WHERE "user_id" = "u"."id")'
         assert sql == expected
         assert params == ()
+
+    def test_exists_expression_invalid_subquery_type_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that ExistsExpression raises TypeError for invalid subquery parameter type."""
+        # Create an object that is neither Subquery nor BaseExpression (doesn't have to_sql method)
+        class InvalidObject:
+            pass
+
+        invalid_obj = InvalidObject()
+
+        # This should raise TypeError because the object is neither Subquery nor BaseExpression
+        with pytest.raises(TypeError, match=r"subquery must be Subquery or BaseExpression, got <class '.*InvalidObject'>"):
+            ExistsExpression(dummy_dialect, invalid_obj)
 
     def test_any_all_expressions(self, dummy_dialect: DummyDialect):
         """Tests ANY and ALL expressions."""

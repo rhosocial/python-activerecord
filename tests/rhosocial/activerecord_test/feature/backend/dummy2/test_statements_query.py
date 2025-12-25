@@ -780,3 +780,21 @@ class TestQueryStatements:
         with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
             query.validate(strict=True)
 
+    def test_query_expression_with_count_distinct(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with COUNT(DISTINCT column_name) function."""
+        from rhosocial.activerecord.backend.expression.functions import count
+
+        # Create a COUNT(DISTINCT column) expression
+        count_distinct_expr = count(dummy_dialect, Column(dummy_dialect, "category"), is_distinct=True)
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[count_distinct_expr],
+            from_=TableExpression(dummy_dialect, "products")
+        )
+        sql, params = query.to_sql()
+
+        # The SQL should contain COUNT(DISTINCT "column_name")
+        assert 'SELECT COUNT(DISTINCT "category") FROM "products"' == sql
+        assert params == ()
+

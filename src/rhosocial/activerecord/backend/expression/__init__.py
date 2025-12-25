@@ -43,7 +43,6 @@ from .predicates import (
     IsNullPredicate,
 )
 from .aggregates import (
-    AggregatableExpression,
     AggregateFunctionCall,
 )
 from .advanced_functions import (
@@ -179,7 +178,7 @@ __all__ = [
     "SQLOperation", "BinaryExpression", "UnaryExpression", "RawSQLExpression", "BinaryArithmeticExpression",
     "Column", "FunctionCall", "Subquery", "TableExpression", "Literal",
     "ComparisonPredicate", "LogicalPredicate", "LikePredicate", "InPredicate", "BetweenPredicate", "IsNullPredicate",
-    "AggregatableExpression", "AggregateFunctionCall",
+    "AggregateFunctionCall",
     "CaseExpression", "CastExpression", "ExistsExpression", "AnyExpression", "AllExpression",
     "WindowFrameSpecification", "WindowSpecification", "WindowDefinition", "WindowClause", "WindowFunctionCall",
     "JSONExpression", "ArrayExpression", "OrderedSetAggregation",

@@ -16,12 +16,34 @@ from . import aggregates
 from . import core
 from . import operators
 from . import advanced_functions
+from . import query_parts
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-# --- Aggregate Function Factories ---
+def _convert_to_expression(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
+                          handle_numeric_literals: bool = True) -> "bases.BaseExpression":
+    """
+    Helper function to convert an input value to an appropriate BaseExpression.
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The expression to convert. Can be a BaseExpression, string, or numeric value
+        handle_numeric_literals: Whether to treat numeric values as literals (True) or as column names (False)
+
+    Returns:
+        A BaseExpression instance (BaseExpression, Literal, or Column)
+    """
+    if isinstance(expr, bases.BaseExpression):
+        return expr
+    elif handle_numeric_literals and isinstance(expr, (int, float)):
+        return core.Literal(dialect, expr)
+    else:
+        return core.Column(dialect, expr)
+
+
+# region Aggregate Function Factories
 
 def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall":
     """
@@ -173,7 +195,9 @@ def coalesce(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression
     return core.FunctionCall(dialect, "COALESCE", *target_exprs)
 
 
-# --- String Function Factories ---
+# endregion Aggregate Function Factories
+
+# region String Function Factories
 
 def length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
     """
@@ -252,10 +276,10 @@ def trim(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
         # Combine parameters
         all_params = target_params + chars_params
         # For now, return a RawSQLExpression; in a real implementation, the dialect would handle this
-        return operators.RawSQLExpression(dialect, formatted_sql)
+        return operators.RawSQLExpression(dialect, formatted_sql, all_params)
     else:
         formatted_sql = f"TRIM({direction} FROM {target_sql})"
-        return operators.RawSQLExpression(dialect, formatted_sql)
+        return operators.RawSQLExpression(dialect, formatted_sql, target_params)
 
 def replace(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
             pattern: Union[str, "bases.BaseExpression"],
@@ -475,7 +499,9 @@ def strpos(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
     return core.FunctionCall(dialect, "STRPOS", target_expr, substr_expr)
 
 
-# --- Math Function Factories ---
+# endregion String Function Factories
+
+# region Math Function Factories
 
 def abs_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
     """
@@ -493,7 +519,7 @@ def abs_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the ABS function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "ABS", target_expr)
 
 def round_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
@@ -514,7 +540,7 @@ def round_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
     Returns:
         A FunctionCall instance representing the ROUND function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     if decimals is not None:
         decimals_expr = core.Literal(dialect, decimals)
         return core.FunctionCall(dialect, "ROUND", target_expr, decimals_expr)
@@ -536,7 +562,7 @@ def ceil(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the CEIL function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "CEIL", target_expr)
 
 def floor(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -555,7 +581,7 @@ def floor(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the FLOOR function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "FLOOR", target_expr)
 
 def sqrt(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -574,7 +600,7 @@ def sqrt(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the SQRT function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "SQRT", target_expr)
 
 def power(dialect: "SQLDialectBase", base: Union[str, "bases.BaseExpression"],
@@ -596,8 +622,8 @@ def power(dialect: "SQLDialectBase", base: Union[str, "bases.BaseExpression"],
     Returns:
         A FunctionCall instance representing the POWER function
     """
-    base_expr = base if isinstance(base, bases.BaseExpression) else (core.Literal(dialect, base) if isinstance(base, (int, float)) else core.Column(dialect, base))
-    exp_expr = exponent if isinstance(exponent, bases.BaseExpression) else (core.Literal(dialect, exponent) if isinstance(exponent, (int, float)) else core.Column(dialect, exponent))
+    base_expr = _convert_to_expression(dialect, base, handle_numeric_literals=True)
+    exp_expr = _convert_to_expression(dialect, exponent, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "POWER", base_expr, exp_expr)
 
 def exp(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -616,7 +642,7 @@ def exp(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
     Returns:
         A FunctionCall instance representing the EXP function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "EXP", target_expr)
 
 def log(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
@@ -637,9 +663,9 @@ def log(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
     Returns:
         A FunctionCall instance representing the LOG function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     if base is not None:
-        base_expr = base if isinstance(base, bases.BaseExpression) else (core.Literal(dialect, base) if isinstance(base, (int, float)) else core.Column(dialect, base))
+        base_expr = _convert_to_expression(dialect, base, handle_numeric_literals=True)
         return core.FunctionCall(dialect, "LOG", target_expr, base_expr)
     return core.FunctionCall(dialect, "LOG", target_expr)
 
@@ -659,7 +685,7 @@ def sin(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
     Returns:
         A FunctionCall instance representing the SIN function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "SIN", target_expr)
 
 def cos(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -678,7 +704,7 @@ def cos(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
     Returns:
         A FunctionCall instance representing the COS function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "COS", target_expr)
 
 def tan(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -697,11 +723,13 @@ def tan(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
     Returns:
         A FunctionCall instance representing the TAN function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "TAN", target_expr)
 
 
-# --- Date/Time Function Factories ---
+# endregion Math Function Factories
+
+# region Date/Time Function Factories
 
 def now(dialect: "SQLDialectBase") -> "core.FunctionCall":
     """
@@ -755,7 +783,7 @@ def year(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the YEAR function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "YEAR", target_expr)
 
 def month(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -774,7 +802,7 @@ def month(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
     Returns:
         A FunctionCall instance representing the MONTH function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "MONTH", target_expr)
 
 def day(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -793,7 +821,7 @@ def day(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
     Returns:
         A FunctionCall instance representing the DAY function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "DAY", target_expr)
 
 def hour(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -812,7 +840,7 @@ def hour(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
     Returns:
         A FunctionCall instance representing the HOUR function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "HOUR", target_expr)
 
 def minute(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -831,7 +859,7 @@ def minute(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
     Returns:
         A FunctionCall instance representing the MINUTE function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "MINUTE", target_expr)
 
 def second(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -850,7 +878,7 @@ def second(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
     Returns:
         A FunctionCall instance representing the SECOND function
     """
-    target_expr = expr if isinstance(expr, bases.BaseExpression) else (core.Literal(dialect, expr) if isinstance(expr, (int, float)) else core.Column(dialect, expr))
+    target_expr = _convert_to_expression(dialect, expr, handle_numeric_literals=True)
     return core.FunctionCall(dialect, "SECOND", target_expr)
 
 def date_part(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
@@ -894,7 +922,9 @@ def date_trunc(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.Ba
     return core.FunctionCall(dialect, "DATE_TRUNC", field_expr, target_expr)
 
 
-# --- Conditional Function Factories ---
+# endregion Date/Time Function Factories
+
+# region Conditional Function Factories
 
 def case(dialect: "SQLDialectBase",
          value: Optional["bases.BaseExpression"] = None,
@@ -974,7 +1004,9 @@ def least(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"])
     return core.FunctionCall(dialect, "LEAST", *target_exprs)
 
 
-# --- Window Function Factories ---
+# endregion Conditional Function Factories
+
+# region Window Function Factories
 
 def row_number(dialect: "SQLDialectBase", alias: Optional[str] = None) -> "advanced_functions.WindowFunctionCall":
     """Creates a ROW_NUMBER window function call."""
@@ -1103,7 +1135,9 @@ def nth_value(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"
     return advanced_functions.WindowFunctionCall(dialect, "NTH_VALUE", args=[target_expr, n_expr], alias=alias)
 
 
-# --- JSON Function Factories ---
+# endregion Window Function Factories
+
+# region JSON Function Factories
 
 def json_extract(dialect: "SQLDialectBase", column: Union[str, "bases.BaseExpression"],
                  path: str) -> "advanced_functions.JSONExpression":
@@ -1198,7 +1232,9 @@ def json_arrayagg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpress
     return aggregates.AggregateFunctionCall(dialect, "JSON_ARRAYAGG", target_expr, is_distinct=is_distinct, alias=alias)
 
 
-# --- Array Function Factories ---
+# endregion JSON Function Factories
+
+# region Array Function Factories
 
 def array_agg(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
               is_distinct: bool = False, alias: Optional[str] = None) -> "aggregates.AggregateFunctionCall":
@@ -1219,7 +1255,9 @@ def array_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpressi
     return core.FunctionCall(dialect, "ARRAY_LENGTH", target_expr, dimension_expr)
 
 
-# --- Type Conversion Function Factories ---
+# endregion Array Function Factories
+
+# region Type Conversion Function Factories
 
 def cast(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
          target_type: str) -> "advanced_functions.CastExpression":
@@ -1314,7 +1352,9 @@ def to_date(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
     return core.FunctionCall(dialect, "TO_DATE", target_expr)
 
 
-# --- Grouping Function Factories ---
+# endregion Type Conversion Function Factories
+
+# region Grouping Function Factories
 
 def grouping_sets(dialect: "SQLDialectBase", *grouping_lists: List[Union[str, "bases.BaseExpression"]]) -> "query_parts.GroupingExpression":
     """
@@ -1375,3 +1415,4 @@ def cube(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) 
     from . import query_parts
     processed_exprs = [expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr) for expr in exprs]
     return query_parts.GroupingExpression(dialect, "CUBE", processed_exprs)
+# endregion Grouping Function Factories

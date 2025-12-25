@@ -139,6 +139,52 @@ class TestSubquery:
         assert "(" in sql
         assert "SELECT id FROM users" in sql
 
+    def test_subquery_from_string(self, dummy_dialect: DummyDialect):
+        """Test Subquery initialization with string input."""
+        subquery = Subquery(dummy_dialect, "SELECT * FROM products WHERE price > ?", (100,))
+        sql, params = subquery.to_sql()
+        assert sql == '(SELECT * FROM products WHERE price > ?)'
+        assert params == (100,)
+
+    def test_subquery_from_existing_subquery(self, dummy_dialect: DummyDialect):
+        """Test Subquery initialization with existing Subquery object."""
+        original_subquery = Subquery(dummy_dialect, "SELECT id FROM users WHERE active = ?", (True,), alias="active_users")
+        new_subquery = Subquery(dummy_dialect, original_subquery)
+        sql, params = new_subquery.to_sql()
+        assert sql == '(SELECT id FROM users WHERE active = ?) AS "active_users"'
+        assert params == (True,)
+
+    def test_subquery_from_base_expression(self, dummy_dialect: DummyDialect):
+        """Test Subquery initialization with BaseExpression (has to_sql method)."""
+        from rhosocial.activerecord.backend.expression.statements import QueryExpression
+        from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+
+        # Create a simple query expression to use as base expression
+        query_expr = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "orders"),
+            where=WhereClause(dummy_dialect, condition=Column(dummy_dialect, "status") == Literal(dummy_dialect, "pending"))
+        )
+
+        subquery = Subquery(dummy_dialect, query_expr)
+        sql, params = subquery.to_sql()
+        assert sql == '(SELECT "id" FROM "orders" WHERE "status" = ?)'
+        assert params == ("pending",)
+
+    def test_subquery_from_non_expression_object(self, dummy_dialect: DummyDialect):
+        """Test Subquery initialization with non-expression object (defaults to string conversion)."""
+        # Use an arbitrary object that doesn't have to_sql method
+        class CustomObject:
+            def __str__(self):
+                return "CUSTOM SQL STRING"
+
+        obj = CustomObject()
+        subquery = Subquery(dummy_dialect, obj)
+        sql, params = subquery.to_sql()
+        assert sql == '(CUSTOM SQL STRING)'
+        assert params == ()
+
 
 class TestTableExpression:
     """Tests for TableExpression class."""

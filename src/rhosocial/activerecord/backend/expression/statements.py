@@ -757,7 +757,7 @@ class ValuesSource(InsertDataSource):
         super().__init__(dialect)
         if not values_list or not all(isinstance(row, list) for row in values_list):
             raise ValueError("'values_list' must be a non-empty list of lists.")
-        if len(set(len(row) for row in values_list)) > 1:
+        if len({len(row) for row in values_list}) > 1:
             raise ValueError("All rows in 'values_list' must have the same number of columns.")
         self.values_list = values_list
 
@@ -982,6 +982,7 @@ class CreateTableExpression(bases.BaseExpression):
                  storage_options: Optional[Dict[str, Any]] = None,  # Storage parameters (PostgreSQL WITH options, MySQL ENGINE options)
                  partition_by: Optional[Tuple[str, List[str]]] = None,  # Partitioning specification (partition_type, partition_columns)
                  as_query: Optional["QueryExpression"] = None,  # Create table AS query result
+                 *,  # Force keyword arguments
                  dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
         super().__init__(dialect)
         self.table_name = table_name

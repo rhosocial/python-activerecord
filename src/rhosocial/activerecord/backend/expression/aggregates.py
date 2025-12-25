@@ -14,29 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class AggregatableExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    """
-    An abstract base class for expressions that can be aggregated and
-    can have a FILTER (WHERE ...) clause attached.
-    Inherits comparison and arithmetic capabilities from mixins.
-    """
-    def __init__(self, dialect: "SQLDialectBase"):
-        super().__init__(dialect)
-        self._filter_predicate: Optional["SQLPredicate"] = None
-
-    def filter(self, predicate: "SQLPredicate") -> 'AggregatableExpression':
-        """
-        Applies a FILTER (WHERE ...) clause to the aggregate expression.
-        If a filter already exists, it will be combined with the new one using AND.
-        """
-        if self._filter_predicate:
-            self._filter_predicate = self._filter_predicate & predicate
-        else:
-            self._filter_predicate = predicate
-        return self
-
-
-class AggregateFunctionCall(AggregatableExpression):
+class AggregateFunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """
     Represents a call to a SQL aggregate function, such as COUNT, SUM, AVG.
     This class supports attaching a FILTER clause.
@@ -47,6 +25,18 @@ class AggregateFunctionCall(AggregatableExpression):
         self.args = list(args)
         self.is_distinct = is_distinct
         self.alias = alias
+        self._filter_predicate: Optional["SQLPredicate"] = None
+
+    def filter(self, predicate: "SQLPredicate") -> 'AggregateFunctionCall':
+        """
+        Applies a FILTER (WHERE ...) clause to the aggregate expression.
+        If a filter already exists, it will be combined with the new one using AND.
+        """
+        if self._filter_predicate:
+            self._filter_predicate = self._filter_predicate & predicate
+        else:
+            self._filter_predicate = predicate
+        return self
 
     def to_sql(self) -> Tuple[str, tuple]:
         """
@@ -74,7 +64,7 @@ class AggregateFunctionCall(AggregatableExpression):
         return self.dialect.format_function_call(
             self.func_name,
             args_sql,
-            tuple(args_params),
+            args_params,
             self.is_distinct,
             self.alias,
             filter_sql=filter_sql,

@@ -12,7 +12,6 @@ if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
     from .core import Literal
     from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate
-    from .operators import BinaryArithmeticExpression, BinaryExpression
 
 
 class ComparisonMixin:

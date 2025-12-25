@@ -59,12 +59,13 @@ class UnaryExpression(bases.BaseExpression):
 
 class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
     """Represents a raw SQL expression string that is directly embedded."""
-    def __init__(self, dialect: "SQLDialectBase", expression: str):
+    def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
+        self.params = params
 
     def to_sql(self) -> Tuple[str, tuple]:
-        return self.expression, ()
+        return self.expression, self.params
 
 
 class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):

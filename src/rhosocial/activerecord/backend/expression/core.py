@@ -2,7 +2,7 @@
 """
 Core SQL expression components like columns, literals, function calls, and subqueries.
 """
-from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING
+from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from . import bases
 from . import mixins
@@ -60,12 +60,29 @@ class FunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.String
 
 class Subquery(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents a subquery in a SQL expression."""
-    def __init__(self, dialect: "SQLDialectBase", query_sql: str, query_params: Tuple[Any, ...],
+    def __init__(self, dialect: "SQLDialectBase",
+                 query_input: Union[str, "bases.BaseExpression", "Subquery"],
+                 query_params: Optional[Tuple[Any, ...]] = None,
                  alias: Optional[str] = None):
         super().__init__(dialect)
-        self.query_sql = query_sql
-        self.query_params = query_params
-        self.alias = alias
+        self.alias = alias  # Store alias as an instance attribute
+        # Handle different input types
+        if isinstance(query_input, str):
+            # If input is a string, use it directly with provided params
+            self.query_sql = query_input
+            self.query_params = query_params or ()
+        elif isinstance(query_input, Subquery):
+            # If input is already a Subquery, copy its attributes
+            self.query_sql = query_input.query_sql
+            self.query_params = query_input.query_params
+            self.alias = query_input.alias or alias
+        elif hasattr(query_input, 'to_sql'):
+            # If input is a BaseExpression, call its to_sql method
+            self.query_sql, self.query_params = query_input.to_sql()
+        else:
+            # Default: treat as string
+            self.query_sql = str(query_input)
+            self.query_params = query_params or ()
 
     def to_sql(self) -> Tuple[str, tuple]:
         subquery_sql = f"({self.query_sql})"
