@@ -779,3 +779,4 @@ class TestQueryStatements:
         # Verify that strict=True would raise an error for the same invalid parameter
         with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
             query.validate(strict=True)
+

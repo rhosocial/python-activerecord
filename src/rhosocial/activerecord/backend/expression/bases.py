@@ -51,17 +51,20 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
     def validate(self, strict: bool = True) -> None:
         """Validate expression parameters according to SQL standard.
 
+        The correct usage of this function is to catch whether it raises an error.
+        If no error is raised, it indicates that the validation has passed.
+        Users can use this to quickly determine if the input parameters are appropriate.
+        The error type is generally TypeError, but we do not enforce this,
+        so users should be aware of all possible error types.
+
         Args:
             strict: If True, perform strict validation that may impact performance.
                    If False, skip validation for performance optimization.
 
         Raises:
-            TypeError: If validation fails with incorrect parameter types
+            Exception: Subclasses may raise various exceptions to indicate validation failure
         """
-        if not strict:
-            return
-        # Default validation - can be overridden by subclasses
-        # Validation passes if no exceptions are raised
+        pass  # pragma: no cover
 
     @abc.abstractmethod
     def to_sql(self) -> Tuple[str, tuple]:

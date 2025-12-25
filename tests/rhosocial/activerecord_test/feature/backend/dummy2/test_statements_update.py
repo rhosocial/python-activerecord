@@ -501,3 +501,110 @@ class TestUpdateStatements:
         )
         update_expr_valid.validate(strict=False)  # Should not raise any exception
         assert True  # Just to ensure the test passes
+
+    def test_update_expression_from_complex_type_validation_branches(self, dummy_dialect: DummyDialect):
+        """Tests UpdateExpression.from_ parameter validation to cover all branches in the validate method.
+
+        This test covers the complex validation logic in UpdateExpression.validate() where:
+        1. self.from_ is not None
+        2. not isinstance(self.from_, valid_types) and not isinstance(self.from_, list) is True
+        3. The type name check 'from_type_name not in valid_type_names' occurs
+        """
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+
+        # Create a mock object that is not in valid_types, not a list, and has a type name not in valid_type_names
+        class MockInvalidType:
+            pass
+
+        # This should trigger the complex validation branch:
+        # - self.from_ is not None (True)
+        # - not isinstance(self.from_, valid_types) (True, since MockInvalidType is not str/TableExpression/Subquery)
+        # - not isinstance(self.from_, list) (True, since MockInvalidType is not list)
+        # - from_type_name not in valid_type_names (True, since "MockInvalidType" is not in the list)
+        update_expr.from_ = MockInvalidType()
+
+        with pytest.raises(TypeError, match=r"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*MockInvalidType'>"):
+            update_expr.validate(strict=True)
+
+    def test_update_expression_from_valid_complex_type_validation(self, dummy_dialect: DummyDialect):
+        """Tests UpdateExpression.from_ parameter validation for valid complex types.
+
+        This test covers the case where:
+        1. self.from_ is not None
+        2. not isinstance(self.from_, valid_types) and not isinstance(self.from_, list) is True
+        3. The type name check 'from_type_name not in valid_type_names' is False (type name IS in the list)
+        """
+        # Create an update expression with valid parameters
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+
+        # Create a mock SetOperationExpression-like class that has a name in valid_type_names
+        class SetOperationExpression:
+            pass
+
+        # This should not raise an error because the type name "SetOperationExpression" is in valid_type_names
+        update_expr.from_ = SetOperationExpression()
+
+        # This should pass validation since the type name is in the valid list
+        update_expr.validate(strict=True)  # Should not raise any exception
+
+    def test_update_expression_from_none_validation(self, dummy_dialect: DummyDialect):
+        """Tests UpdateExpression.from_ parameter validation when from_ is None.
+
+        This covers the case where:
+        1. self.from_ is None (outer condition is False, so inner validation is skipped)
+        """
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")},
+            from_=None  # Set from_ to None
+        )
+
+        # This should pass validation since from_ is None, so the complex validation is skipped
+        update_expr.validate(strict=True)  # Should not raise any exception
+
+    def test_update_expression_from_valid_type_validation(self, dummy_dialect: DummyDialect):
+        """Tests UpdateExpression.from_ parameter validation with valid types.
+
+        This covers the case where:
+        1. self.from_ is not None
+        2. isinstance(self.from_, valid_types) is True (so AND expression short-circuits)
+        """
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+
+        # Change from_ to a valid type (str)
+        update_expr.from_ = "valid_table_name"
+
+        # This should pass validation since it's a valid type, so the complex validation is skipped
+        update_expr.validate(strict=True)  # Should not raise any exception
+
+    def test_update_expression_from_list_validation(self, dummy_dialect: DummyDialect):
+        """Tests UpdateExpression.from_ parameter validation with list type.
+
+        This covers the case where:
+        1. self.from_ is not None
+        2. isinstance(self.from_, valid_types) is False AND isinstance(self.from_, list) is True
+        """
+        update_expr = UpdateExpression(
+            dummy_dialect,
+            table="users",
+            assignments={"name": Literal(dummy_dialect, "test")}
+        )
+
+        # Change from_ to a list (which is valid)
+        update_expr.from_ = [TableExpression(dummy_dialect, "table1"), TableExpression(dummy_dialect, "table2")]
+
+        # This should pass validation since it's a list, so the complex validation is skipped
+        update_expr.validate(strict=True)  # Should not raise any exception
