@@ -77,7 +77,7 @@ class SQLDialectBase(ABC):
         Returns:
             Placeholder string ('?', '%s', '$', etc.)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def get_parameter_placeholder(self, position: int) -> str:
@@ -90,7 +90,7 @@ class SQLDialectBase(ABC):
         Returns:
             Positional placeholder string
         """
-        pass
+        pass # pragma: no cover
     # endregion Core & General
 
     # region Full Statement Formatting
@@ -98,70 +98,70 @@ class SQLDialectBase(ABC):
     @abstractmethod
     def format_query_statement(self, expr: "QueryExpression") -> Tuple[str, tuple]:
         """Formats a complete SELECT statement from a QueryExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
         """Formats a complete INSERT statement from an InsertExpression object.
 
         This method performs strict parameter validation for SQL standard compliance
-        by default. To bypass validation for performance optimization, set strict_validation=False
+        by default. To bypass # pragma: no cover validation for performance optimization, set strict_validation=False
         on the dialect instance.
         """
         # Perform strict parameter validation for SQL standard compliance
         # This validation may impact performance. If performance is critical,
         # dialect implementations can set strict_validation=False.
-        if self.strict_validation:
-            expr.validate(strict=True)
-        raise NotImplementedError
+        # if self.strict_validation:
+        #     expr.validate(strict=True)
+        pass # pragma: no cover
 
     @abstractmethod
     def format_update_statement(self, expr: "UpdateExpression") -> Tuple[str, tuple]:
         """Formats a complete UPDATE statement from an UpdateExpression object.
 
         This method performs strict parameter validation for SQL standard compliance
-        by default. To bypass validation for performance optimization, set strict_validation=False
+        by default. To bypass # pragma: no cover validation for performance optimization, set strict_validation=False
         on the dialect instance.
         """
         # Perform strict parameter validation for SQL standard compliance
         # This validation may impact performance. If performance is critical,
         # dialect implementations can set strict_validation=False.
-        if self.strict_validation:
-            expr.validate(strict=True)
-        raise NotImplementedError
+        # if self.strict_validation:
+        #     expr.validate(strict=True)
+        pass # pragma: no cover
 
     @abstractmethod
     def format_delete_statement(self, expr: "DeleteExpression") -> Tuple[str, tuple]:
         """Formats a complete DELETE statement from a DeleteExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
         """Formats a complete MERGE statement from a MergeExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
     # endregion DML Statements
 
     # region DDL Statements
     @abstractmethod
     def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
         """Formats an EXPLAIN statement from an ExplainExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     # region Table Operations
     @abstractmethod
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Formats a CREATE TABLE statement from a CreateTableExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
         """Formats a DROP TABLE statement from a DropTableExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Formats an ALTER TABLE statement from an AlterTableExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     # region Alter Table Actions
     @abstractmethod
@@ -175,7 +175,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, tuple]:
@@ -188,7 +188,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_alter_column_action(self, action: "AlterColumn") -> Tuple[str, tuple]:
@@ -201,7 +201,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_add_constraint_action(self, action: "AddConstraint") -> Tuple[str, tuple]:
@@ -214,7 +214,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_drop_constraint_action(self, action: "DropConstraint") -> Tuple[str, tuple]:
@@ -227,7 +227,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_rename_object_action(self, action: "RenameObject") -> Tuple[str, tuple]:
@@ -240,7 +240,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, tuple]:
@@ -253,7 +253,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, tuple]:
@@ -266,7 +266,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_add_index_action(self, action: "AddIndex") -> Tuple[str, tuple]:
@@ -279,7 +279,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, tuple]:
@@ -292,7 +292,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, tuple]:
@@ -305,7 +305,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
@@ -318,7 +318,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
     # endregion Alter Table Actions
     # endregion Table Operations
 
@@ -326,17 +326,17 @@ class SQLDialectBase(ABC):
     @abstractmethod
     def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Formats a CREATE VIEW statement from a CreateViewExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Formats a DROP VIEW statement from a DropViewExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """Formats a TRUNCATE statement from a TruncateExpression object."""
-        raise NotImplementedError
+        pass # pragma: no cover
     # endregion View Operations
     # endregion DDL Statements
     # endregion Full Statement Formatting
@@ -367,7 +367,7 @@ class SQLDialectBase(ABC):
         Returns:
             Formatted CTE definition string
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_with_query(
@@ -387,7 +387,7 @@ class SQLDialectBase(ABC):
         Returns:
             Complete query with WITH clause string
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_join_expression(
@@ -403,7 +403,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_set_operation_expression(
@@ -427,7 +427,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
     # endregion Data Source Clauses
 
     # region DML Clauses
@@ -438,7 +438,7 @@ class SQLDialectBase(ABC):
         This should be implemented by dialects that support it, e.g., PostgreSQL's
         ON CONFLICT or MySQL's ON DUPLICATE KEY UPDATE.
         """
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, tuple]:
@@ -451,7 +451,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_for_update_clause(
@@ -467,7 +467,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
@@ -480,7 +480,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_group_by_having_clause(self, clause: "GroupByHavingClause") -> Tuple[str, tuple]:
@@ -493,7 +493,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clauses.
         """
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
@@ -506,7 +506,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_limit_offset_clause(self, clause: "LimitOffsetClause") -> Tuple[str, tuple]:
@@ -519,7 +519,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clauses.
         """
-        raise NotImplementedError
+        pass # pragma: no cover
 
     @abstractmethod
     def format_qualify_clause(
@@ -535,7 +535,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_match_clause(
@@ -551,7 +551,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_temporal_options(
@@ -567,7 +567,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        pass
+        pass # pragma: no cover
     # endregion DML Clauses
 
     # region Window Function Clauses
@@ -585,7 +585,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted specification.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_window_specification(
@@ -601,7 +601,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted specification.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_window_definition(
@@ -617,7 +617,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted definition.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_window_clause(
@@ -633,7 +633,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_window_function_call(
@@ -649,7 +649,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted call.
         """
-        pass
+        pass # pragma: no cover
     # endregion Window Function Clauses
     # endregion Clause Formatting
 
@@ -666,7 +666,7 @@ class SQLDialectBase(ABC):
         Returns:
             Quoted identifier
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_column(
@@ -686,7 +686,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_table(
@@ -704,7 +704,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_alias(
@@ -724,7 +724,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_subquery(
@@ -744,7 +744,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
     # endregion Basic Expression Formatting
 
     # region Function & Advanced Expression Formatting
@@ -774,7 +774,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_ordered_set_aggregation(
@@ -800,7 +800,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_case_expression(
@@ -826,7 +826,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_cast_expression(
@@ -846,7 +846,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
     # endregion Function & Advanced Expression Formatting
 
     # region Predicate Formatting
@@ -868,7 +868,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_logical_predicate(
@@ -886,7 +886,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_in_predicate(
@@ -904,7 +904,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_in_predicate_with_literal_values(
@@ -922,7 +922,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_any_expression(
@@ -942,7 +942,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_all_expression(
@@ -962,7 +962,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_between_predicate(
@@ -982,7 +982,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_is_null_predicate(
@@ -1000,7 +1000,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_exists_expression(
@@ -1018,7 +1018,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_filter_clause(
@@ -1036,7 +1036,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_column_definition(
@@ -1052,7 +1052,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted definition.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_like_predicate(
@@ -1072,7 +1072,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_binary_operator(
@@ -1096,7 +1096,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_unary_operator(
@@ -1118,7 +1118,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_binary_arithmetic_expression(
@@ -1142,7 +1142,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_values_expression(
@@ -1162,7 +1162,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_table_function_expression(
@@ -1186,7 +1186,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_lateral_expression(
@@ -1208,7 +1208,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_graph_vertex(
@@ -1226,7 +1226,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_graph_edge(
@@ -1246,7 +1246,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_grouping_expression(
@@ -1264,7 +1264,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_json_expression(
@@ -1284,7 +1284,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_array_expression(
@@ -1306,7 +1306,7 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        pass
+        pass # pragma: no cover
 
     @abstractmethod
     def format_json_table_expression(
@@ -1330,7 +1330,8 @@ class SQLDialectBase(ABC):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        pass
+        pass # pragma: no cover
+    # endregion Predicate Formatting
     # endregion Expression & Predicate Formatting
 
     # region Utilities
@@ -1457,8 +1458,10 @@ class BaseDialect(SQLDialectBase):
     def supports_qualify_clause(self) -> bool: return False
     def supports_for_update_skip_locked(self) -> bool: return False
     def supports_graph_match(self) -> bool: return False
-    # endregion
+    # endregion Protocol Support Checks
 
+    # region Full Statement Formatting
+    # region DML Statements
     def format_identifier(self, identifier: str) -> str:
         """
         Format identifier using SQL standard double quotes.
@@ -2172,7 +2175,7 @@ class BaseDialect(SQLDialectBase):
         """Format a complete SELECT statement from a QueryExpression object.
 
         This method performs strict parameter validation for SQL standard compliance
-        by default. To bypass validation for performance optimization, set strict_validation=False
+        by default. To bypass # pragma: no cover validation for performance optimization, set strict_validation=False
         on the dialect instance.
         """
         # Perform strict parameter validation for SQL standard compliance
@@ -2250,7 +2253,7 @@ class BaseDialect(SQLDialectBase):
         """Format INSERT statement.
 
         This method performs strict parameter validation for SQL standard compliance
-        by default. To bypass validation for performance optimization, set strict_validation=False
+        by default. To bypass # pragma: no cover validation for performance optimization, set strict_validation=False
         on the dialect instance.
         """
         # Perform strict parameter validation for SQL standard compliance
@@ -2370,7 +2373,7 @@ class BaseDialect(SQLDialectBase):
         """Format DELETE statement.
 
         This method performs strict parameter validation for SQL standard compliance
-        by default. To bypass validation for performance optimization, set strict_validation=False
+        by default. To bypass # pragma: no cover validation for performance optimization, set strict_validation=False
         on the dialect instance.
         """
         # Perform strict parameter validation for SQL standard compliance
@@ -3285,6 +3288,8 @@ class BaseDialect(SQLDialectBase):
             col_sql += f" COMMENT '{col_def.comment}'"
 
         return col_sql, tuple(all_params)
+
+    # endregion Full Statement Formatting
 
 
 
