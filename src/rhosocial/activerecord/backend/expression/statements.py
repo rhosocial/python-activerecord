@@ -906,6 +906,7 @@ class ColumnConstraintType(Enum):
     """Types of column constraints."""
     PRIMARY_KEY = "PRIMARY KEY"
     NOT_NULL = "NOT NULL"
+    NULL = "NULL"          # Explicitly allow NULL (usually redundant but sometimes needed for clarity)
     UNIQUE = "UNIQUE"
     CHECK = "CHECK"
     FOREIGN_KEY = "FOREIGN KEY"
@@ -921,7 +922,6 @@ class ColumnConstraint:
     foreign_key_reference: Optional[Tuple[str, List[str]]] = None  # (referenced_table, referenced_columns)
     default_value: Any = None  # For DEFAULT constraints
     is_auto_increment: bool = False  # For AUTO_INCREMENT/IDENTITY columns
-    comment: Optional[str] = None  # Column comment (optional)
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
@@ -930,7 +930,6 @@ class ColumnDefinition:
     """Represents a column's definition within a CREATE/ALTER TABLE statement."""
     name: str
     data_type: str  # e.g. "VARCHAR(255)", "INTEGER", "DECIMAL(10,2)", "CHARACTER VARYING(255)"
-    nullable: Optional[bool] = None  # None = database default, True = NULL permitted, False = NOT NULL
     constraints: List[ColumnConstraint] = field(default_factory=list)  # Column constraints
     comment: Optional[str] = None  # Column comment
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
@@ -1064,17 +1063,9 @@ class AlterTableAction(abc.ABC):
             elif self.action_type == AlterTableActionType.ALTER_COLUMN:
                 return dialect.format_alter_column_action(self)
             elif self.action_type == AlterTableActionType.ADD_CONSTRAINT:
-                # Check if this is the new AddTableConstraint or old AddConstraint
-                if self.__class__.__name__ == "AddTableConstraint":
-                    return dialect.format_add_table_constraint_action(self)
-                else:
-                    return dialect.format_add_constraint_action(self)
+                return dialect.format_add_table_constraint_action(self)
             elif self.action_type == AlterTableActionType.DROP_CONSTRAINT:
-                # Check if this is the new DropTableConstraint or old DropConstraint
-                if self.__class__.__name__ == "DropTableConstraint":
-                    return dialect.format_drop_table_constraint_action(self)
-                else:
-                    return dialect.format_drop_constraint_action(self)
+                return dialect.format_drop_table_constraint_action(self)
             elif self.action_type == AlterTableActionType.RENAME_COLUMN:
                 return dialect.format_rename_column_action(self)
             elif self.action_type == AlterTableActionType.RENAME_TABLE:

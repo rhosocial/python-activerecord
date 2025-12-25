@@ -698,3 +698,266 @@ class TestAlterTableStatements:
         assert 'ALTER TABLE "legacy_table"' in sql
         assert 'DROP COLUMN IF EXISTS "old_column"' in sql
         assert params == ()
+
+    def test_add_column_action_with_not_null_constraint(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with NOT NULL constraint (replacing the nullable=False functionality)."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="username",
+            data_type="VARCHAR(50)",
+            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)],  # Use constraint instead of nullable flag
+            comment="Username (cannot be null)"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="users",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"username"' in sql
+        assert "VARCHAR(50)" in sql
+        # Check that NOT NULL was added due to the constraint
+        assert "NOT NULL" in sql
+        assert params == ()
+
+    def test_add_column_action_with_null_constraint(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with explicit NULL constraint (replacing the nullable=True functionality)."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="description",
+            data_type="TEXT",
+            constraints=[ColumnConstraint(ColumnConstraintType.NULL)],  # Explicitly allow NULL
+            comment="Description field"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="products",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"description"' in sql
+        assert "TEXT" in sql
+        # Check that NULL was added due to the constraint
+        assert " NULL" in sql  # Should have explicit NULL
+        assert params == ()
+
+    def test_add_column_action_with_default_constraint_literal(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with DEFAULT constraint using a literal value."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="status",
+            data_type="VARCHAR(20)",
+            constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="active")],  # Default value
+            comment="Status field with default value"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="users",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"status"' in sql
+        assert "VARCHAR(20)" in sql
+        # Check that DEFAULT was added due to the constraint
+        assert "DEFAULT" in sql
+        assert params == ("active",)  # Should have the default value as parameter
+
+    def test_add_column_action_with_default_constraint_expression(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with DEFAULT constraint using an expression."""
+        from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        # Create a function call as default value
+        now_func = FunctionCall(dummy_dialect, "NOW")
+
+        column_def = ColumnDefinition(
+            name="created_at",
+            data_type="TIMESTAMP",
+            constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=now_func)],  # Default function
+            comment="Timestamp with default function"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="logs",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"created_at"' in sql
+        assert "TIMESTAMP" in sql
+        # Check that DEFAULT was added with the function call
+        assert "DEFAULT" in sql
+        assert "NOW()" in sql
+        assert params == ()  # Function calls don't have parameters
+
+    def test_add_column_action_with_check_constraint(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with CHECK constraint."""
+        from rhosocial.activerecord.backend.expression import Column as ExprColumn, Literal, ComparisonPredicate
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        # Create a check condition: age > 0
+        check_condition = ComparisonPredicate(
+            dummy_dialect,
+            ">",
+            ExprColumn(dummy_dialect, "age"),
+            Literal(dummy_dialect, 0)
+        )
+
+        column_def = ColumnDefinition(
+            name="age",
+            data_type="INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.CHECK, check_condition=check_condition)],  # Check constraint
+            comment="Age must be positive"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="people",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"age"' in sql
+        assert "INTEGER" in sql
+        # Check that CHECK was added due to the constraint
+        assert "CHECK" in sql
+        assert params == (0,)  # Should have the check value as parameter
+
+    def test_add_column_action_with_primary_key_constraint(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with PRIMARY KEY constraint."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="id",
+            data_type="INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)],  # Primary key constraint
+            comment="Primary key column"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="new_table",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"id"' in sql
+        assert "INTEGER" in sql
+        # Check that PRIMARY KEY was added due to the constraint
+        assert "PRIMARY KEY" in sql
+        assert params == ()
+
+    def test_add_column_action_with_unique_constraint(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with UNIQUE constraint."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="email",
+            data_type="VARCHAR(100)",
+            constraints=[ColumnConstraint(ColumnConstraintType.UNIQUE)],  # Unique constraint
+            comment="Unique email address"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="users",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"email"' in sql
+        assert "VARCHAR(100)" in sql
+        # Check that UNIQUE was added due to the constraint
+        assert "UNIQUE" in sql
+        assert params == ()
+
+    def test_add_column_action_with_foreign_key_constraint(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with FOREIGN KEY constraint."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="user_id",
+            data_type="INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.FOREIGN_KEY, foreign_key_reference=("users", ["id"]))],  # Foreign key constraint
+            comment="Reference to users table"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            actions=[add_action]
+        )
+        sql, params = alter_expr.to_sql()
+
+        # The exact format depends on the dialect's implementation of format_column_definition
+        assert "ADD COLUMN" in sql
+        assert '"user_id"' in sql
+        assert "INTEGER" in sql
+        # Check that REFERENCES was added due to the foreign key constraint
+        assert "REFERENCES" in sql
+        assert '"users"' in sql
+        assert '"id"' in sql
+        assert params == ()
+
+    def test_add_column_action_with_foreign_key_constraint_missing_reference(self, dummy_dialect: DummyDialect):
+        """Tests ADD COLUMN with FOREIGN KEY constraint but missing foreign_key_reference should raise ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+        from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
+
+        column_def = ColumnDefinition(
+            name="user_id",
+            data_type="INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.FOREIGN_KEY)],  # Foreign key constraint without reference
+            comment="Reference to users table"
+        )
+        add_action = AddColumn(column=column_def)
+
+        alter_expr = AlterTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            actions=[add_action]
+        )
+
+        # Should raise ValueError when to_sql() is called
+        with pytest.raises(ValueError, match=r"Foreign key constraint must have a foreign_key_reference specified."):
+            alter_expr.to_sql()

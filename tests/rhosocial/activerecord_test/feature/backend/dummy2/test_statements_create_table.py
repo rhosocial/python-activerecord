@@ -342,19 +342,23 @@ class TestCreateTableStatements:
         columns = [
             ColumnDefinition("id", "INTEGER",
                            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
-            ColumnDefinition("name", "VARCHAR(100)", nullable=False),  # Explicitly NOT NULL
-            ColumnDefinition("description", "TEXT", nullable=True),    # Explicitly allow NULLs
-            ColumnDefinition("age", "INTEGER", nullable=None)          # Database default
+            ColumnDefinition("name", "VARCHAR(100)",
+                           constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),  # Explicitly NOT NULL using constraint
+            ColumnDefinition("description", "TEXT",
+                           constraints=[ColumnConstraint(ColumnConstraintType.NULL)]),      # Explicitly allow NULLs using constraint
+            ColumnDefinition("age", "INTEGER")  # No constraints - uses database default
         ]
-        
+
         create_table_expr = CreateTableExpression(
             dummy_dialect,
             table_name="profiles",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
-        
+
         assert '"profiles"' in sql
+        assert "NOT NULL" in sql  # Should have NOT NULL from NOT_NULL constraint
+        assert " NULL" in sql     # Should have explicit NULL from NULL constraint
         assert params == ()
 
     def test_create_table_with_comment(self, dummy_dialect: DummyDialect):
@@ -442,9 +446,9 @@ class TestCreateTableStatements:
                            ]),
             ColumnDefinition("status", "VARCHAR(20)",
                            constraints=[
-                               ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="pending")
-                           ],
-                           nullable=False),
+                               ColumnConstraint(ColumnConstraintType.DEFAULT, default_value="pending"),
+                               ColumnConstraint(ColumnConstraintType.NOT_NULL)  # Use constraint instead of nullable flag
+                           ]),
             ColumnDefinition("created_at", "TIMESTAMP",
                            constraints=[
                                ColumnConstraint(ColumnConstraintType.DEFAULT,

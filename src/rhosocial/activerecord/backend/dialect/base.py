@@ -203,44 +203,6 @@ class SQLDialectBase(ABC):
         """
         pass # pragma: no cover
 
-    @abstractmethod
-    def format_add_constraint_action(self, action: "AddConstraint") -> Tuple[str, tuple]:
-        """
-        Format ADD CONSTRAINT action for ALTER TABLE statement.
-
-        Args:
-            action: AddConstraint action object
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass # pragma: no cover
-
-    @abstractmethod
-    def format_drop_constraint_action(self, action: "DropConstraint") -> Tuple[str, tuple]:
-        """
-        Format DROP CONSTRAINT action for ALTER TABLE statement.
-
-        Args:
-            action: DropConstraint action object
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass # pragma: no cover
-
-    @abstractmethod
-    def format_rename_object_action(self, action: "RenameObject") -> Tuple[str, tuple]:
-        """
-        Format RENAME action for ALTER TABLE statement.
-
-        Args:
-            action: RenameObject action object
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        pass # pragma: no cover
 
     @abstractmethod
     def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, tuple]:
@@ -1712,11 +1674,11 @@ class BaseDialect(SQLDialectBase):
             column_part += " CASCADE"
         return column_part, tuple(all_params)
 
-    def format_add_constraint_action(
+    def format_add_table_constraint_action(
         self,
-        action: "AddConstraint"
+        action: "AddTableConstraint"
     ) -> Tuple[str, tuple]:
-        """Format ADD CONSTRAINT action."""
+        """Format ADD CONSTRAINT action per SQL standard."""
         from ..expression.statements import TableConstraintType
 
         all_params = []
@@ -1758,28 +1720,6 @@ class BaseDialect(SQLDialectBase):
 
         return f"ADD {' '.join(parts)}", tuple(all_params)
 
-    def format_drop_constraint_action(
-        self,
-        action: "DropConstraint"
-    ) -> Tuple[str, tuple]:
-        """Format DROP CONSTRAINT action."""
-        result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
-        if hasattr(action, 'cascade') and action.cascade:
-            result += " CASCADE"
-        return result, ()
-
-    def format_rename_object_action(
-        self,
-        action: "RenameObject"
-    ) -> Tuple[str, tuple]:
-        """Format RENAME action."""
-        if hasattr(action, 'object_type') and action.object_type.upper() == "COLUMN":
-            return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
-        elif hasattr(action, 'object_type') and action.object_type.upper() == "TABLE":
-            # Though this wouldn't typically be used in ALTER TABLE context
-            return f"RENAME TO {self.format_identifier(action.new_name)}", ()
-        else:
-            return f"RENAME {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
 
     def format_add_index_action(
         self,
@@ -1797,55 +1737,6 @@ class BaseDialect(SQLDialectBase):
         if hasattr(action, 'if_exists') and action.if_exists:
             cmd = f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}"
         return cmd, ()
-
-    def format_add_table_constraint_action(
-        self,
-        action: "AddTableConstraint"
-    ) -> Tuple[str, tuple]:
-        """Format ADD CONSTRAINT action per SQL standard."""
-        from ..expression.statements import TableConstraintType
-
-        all_params = []
-        parts = []
-        if hasattr(action, 'constraint') and action.constraint.name:
-            parts.append(f"CONSTRAINT {self.format_identifier(action.constraint.name)}")
-
-        # Add the constraint type and details based on the constraint type
-        if hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.PRIMARY_KEY:
-            if hasattr(action, 'constraint') and action.constraint.columns:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                parts.append(f"PRIMARY KEY ({cols_str})")
-            else:
-                parts.append("PRIMARY KEY")
-        elif hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.UNIQUE:
-            if hasattr(action, 'constraint') and action.constraint.columns:
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                parts.append(f"UNIQUE ({cols_str})")
-            else:
-                parts.append("UNIQUE")
-        elif hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.CHECK and hasattr(action.constraint, 'check_condition') and action.constraint.check_condition:
-            check_sql, check_params = action.constraint.check_condition.to_sql()
-            parts.append(f"CHECK ({check_sql})")
-            all_params.extend(check_params)
-        elif hasattr(action, 'constraint') and action.constraint.constraint_type == TableConstraintType.FOREIGN_KEY:
-            if (hasattr(action, 'constraint') and
-                hasattr(action.constraint, 'columns') and action.constraint.columns and
-                hasattr(action.constraint, 'foreign_key_table') and action.constraint.foreign_key_table):
-                cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
-                ref_table = self.format_identifier(action.constraint.foreign_key_table)
-                ref_cols_str = (", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns)
-                                if hasattr(action.constraint, 'foreign_key_columns') and action.constraint.foreign_key_columns else "")
-                if ref_cols_str:
-                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
-                else:
-                    parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}")
-            else:
-                parts.append("FOREIGN KEY")
-        else:
-            # For unknown constraint types, just add the name
-            parts.append("UNKNOWN CONSTRAINT")
-
-        return f"ADD {' '.join(parts)}", tuple(all_params)
 
     def format_drop_table_constraint_action(
         self,
@@ -2619,12 +2510,6 @@ class BaseDialect(SQLDialectBase):
             if constraint_parts:
                 col_sql += " " + " ".join(constraint_parts)
 
-            # Handle the nullable field separately from constraints
-            if col_def.nullable is False:
-                col_sql += " NOT NULL"  # Explicitly not null
-            elif col_def.nullable is True:
-                col_sql += " NULL"     # Explicitly allow null (though this is usually redundant)
-
             if col_def.comment:
                 col_sql += f" COMMENT '{col_def.comment}'"
 
@@ -3263,12 +3148,6 @@ class BaseDialect(SQLDialectBase):
         # Basic column definition: name data_type
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
 
-        # Handle nullable flag
-        if col_def.nullable is False:
-            col_sql += " NOT NULL"
-        elif col_def.nullable is True:
-            col_sql += " NULL"  # Explicitly allow NULL (though redundant in most cases)
-
         # Handle constraints
         from ..expression.statements import ColumnConstraintType
 
@@ -3277,6 +3156,8 @@ class BaseDialect(SQLDialectBase):
                 col_sql += " PRIMARY KEY"
             elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
                 col_sql += " NOT NULL"
+            elif constraint.constraint_type == ColumnConstraintType.NULL:
+                col_sql += " NULL"  # Explicitly allow NULL (though redundant in most cases)
             elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
                 col_sql += " UNIQUE"
             elif constraint.constraint_type == ColumnConstraintType.DEFAULT and constraint.default_value is not None:
@@ -3291,7 +3172,9 @@ class BaseDialect(SQLDialectBase):
                 check_sql, check_params = constraint.check_condition.to_sql()
                 col_sql += f" CHECK ({check_sql})"
                 all_params.extend(check_params)
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY and constraint.foreign_key_reference is not None:
+            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
+                if constraint.foreign_key_reference is None:
+                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
                 referenced_table, referenced_columns = constraint.foreign_key_reference
                 ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
                 col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
