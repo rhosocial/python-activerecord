@@ -540,9 +540,9 @@ class DeleteExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "core.TableExpression"],
+        table: Union[str, "core.TableExpression", List[Union[str, "core.TableExpression"]]],
         *, # Enforce keyword-only arguments for optional parameters
-        from_: Optional[Union[
+        using: Optional[Union[
             "core.TableExpression",
             "core.Subquery",
             "SetOperationExpression",
@@ -555,9 +555,22 @@ class DeleteExpression(bases.BaseExpression):
     ):
         super().__init__(dialect)
 
-        # Normalize the target table to a TableExpression
-        self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
-        self.from_ = from_
+        # Normalize the target table(s) to a list of TableExpression objects
+        if isinstance(table, list):
+            if not table:
+                raise ValueError("Table list cannot be empty for a DELETE statement.")
+            self.tables = []
+            for t in table:
+                if isinstance(t, core.TableExpression):
+                    self.tables.append(t)
+                else:
+                    self.tables.append(core.TableExpression(dialect, str(t)))
+        else:
+            # Single table
+            single_table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
+            self.tables = [single_table]
+
+        self.using = using
 
         # Handle where parameter: accept either a predicate or a WhereClause object
         if where is not None:
@@ -581,24 +594,31 @@ class DeleteExpression(bases.BaseExpression):
 
         Raises:
             TypeError: If validation fails with incorrect parameter types
+            ValueError: If validation fails with invalid values
         """
         if not strict:
             return
 
-        # Note: The table parameter is normalized in the constructor to always be a TableExpression,
-        # so we don't need to validate its type here.
+        # Validate tables parameter (already normalized in constructor)
+        if not isinstance(self.tables, list):
+            raise TypeError(f"tables must be a list of tables, got {type(self.tables)}")
+        if not self.tables:
+            raise ValueError("Tables cannot be empty for a DELETE statement.")
+        for i, table in enumerate(self.tables):
+            if not isinstance(table, core.TableExpression):
+                raise TypeError(f"tables[{i}] must be TableExpression, got {type(table)}")
 
-        # Validate from_ parameter
-        if self.from_ is not None:
+        # Validate using parameter
+        if self.using is not None:
             # Check if it's one of the valid types using isinstance with type names
             valid_types = (str, core.TableExpression, core.Subquery)
-            if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
+            if not isinstance(self.using, valid_types) and not isinstance(self.using, list):
                 # For complex types, check their type names
-                from_type_name = type(self.from_).__name__
+                using_type_name = type(self.using).__name__
                 valid_type_names = ['SetOperationExpression', 'JoinExpression', 'ValuesExpression',
-                                  'TableFunctionExpression', 'LateralExpression']
-                if from_type_name not in valid_type_names:
-                    raise TypeError(f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}")
+                                  'TableFunctionExpression', 'LateralExpression', 'QueryExpression']
+                if using_type_name not in valid_type_names:
+                    raise TypeError(f"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got {type(self.using)}")
 
         # Validate where parameter
         if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):

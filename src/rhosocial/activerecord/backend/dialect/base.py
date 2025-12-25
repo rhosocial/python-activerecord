@@ -2337,9 +2337,12 @@ class BaseDialect(SQLDialectBase):
                 from ..expression.statements import QueryExpression
                 if isinstance(source, QueryExpression):
                     s_sql, s_params = source.to_sql() # Get bare SQL
-                    return f"({s_sql})", s_params # Add parentheses
+                    # Convert tuple to list to match return type
+                    return f"({s_sql})", list(s_params) # Add parentheses
                 if isinstance(source, bases.BaseExpression): # Explicitly check for BaseExpression
-                    return source.to_sql()
+                    s_sql, s_params = source.to_sql()
+                    # Convert tuple to list to match return type
+                    return s_sql, list(s_params)
                 raise TypeError(f"Unsupported FROM source type: {type(source)}")
 
             if isinstance(expr.from_, list):
@@ -2384,43 +2387,53 @@ class BaseDialect(SQLDialectBase):
 
         all_params: List[Any] = []
 
-        # Target table (expr.table is a TableExpression)
-        table_sql, table_params = expr.table.to_sql()
-        all_params.extend(table_params)
+        # Target tables (expr.tables is a list of TableExpression)
+        table_sql_parts = []
+        for table_expr in expr.tables:
+            table_sql, table_params = table_expr.to_sql()
+            table_sql_parts.append(table_sql)
+            all_params.extend(table_params)
 
-        current_sql = f"DELETE FROM {table_sql}"
+        # Join the table names for the DELETE statement
+        tables_sql = ", ".join(table_sql_parts)
+        current_sql = f"DELETE FROM {tables_sql}"
 
-        # FROM clause (for multi-table delete or joins)
-        if expr.from_:
-            from_sql_parts = []
-            from_params: List[Any] = []
+        # USING clause (for multi-table delete or joins)
+        # Note: Different databases use different keywords (USING for PostgreSQL, FROM for MySQL)
+        # The default is USING for SQL standard compliance
+        if expr.using:
+            using_sql_parts = []
+            using_params: List[Any] = []
 
-            # Helper to format a single FROM source (copied from format_update_statement)
-            def _format_single_from_source(source: Union[str, "bases.BaseExpression"]) -> Tuple[str, List[Any]]:
+            # Helper to format a single USING source (copied from format_update_statement)
+            def _format_single_using_source(source: Union[str, "bases.BaseExpression"]) -> Tuple[str, List[Any]]:
                 if isinstance(source, str):
                     return self.format_identifier(source), []
                 # Import here to avoid circular imports
                 from ..expression.statements import QueryExpression
                 if isinstance(source, QueryExpression):
                     s_sql, s_params = source.to_sql() # Get bare SQL
-                    return f"({s_sql})", s_params # Add parentheses
+                    # Convert tuple to list to match return type
+                    return f"({s_sql})", list(s_params) # Add parentheses
                 if isinstance(source, bases.BaseExpression):
-                    return source.to_sql()
+                    s_sql, s_params = source.to_sql()
+                    # Convert tuple to list to match return type
+                    return s_sql, list(s_params)
                 # As a fallback, try to convert to string representation
                 # This acts as a safety net in case validation didn't catch all cases
                 return str(source), []
 
-            if isinstance(expr.from_, list):
-                for source_item in expr.from_:
-                    item_sql, item_params = _format_single_from_source(source_item)
-                    from_sql_parts.append(item_sql)
-                    from_params.extend(item_params)
-                current_sql += f" FROM {', '.join(from_sql_parts)}"
-                all_params.extend(from_params)
+            if isinstance(expr.using, list):
+                for source_item in expr.using:
+                    item_sql, item_params = _format_single_using_source(source_item)
+                    using_sql_parts.append(item_sql)
+                    using_params.extend(item_params)
+                current_sql += f" USING {', '.join(using_sql_parts)}"
+                all_params.extend(using_params)
             else:
-                from_expr_sql, from_expr_params = _format_single_from_source(expr.from_)
-                current_sql += f" FROM {from_expr_sql}"
-                all_params.extend(from_params)
+                using_expr_sql, using_expr_params = _format_single_using_source(expr.using)
+                current_sql += f" USING {using_expr_sql}"
+                all_params.extend(using_params)
 
         # WHERE clause
         if expr.where:
@@ -3290,9 +3303,3 @@ class BaseDialect(SQLDialectBase):
         return col_sql, tuple(all_params)
 
     # endregion Full Statement Formatting
-
-
-
-
-
-

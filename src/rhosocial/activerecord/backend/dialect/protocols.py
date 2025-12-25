@@ -10,9 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..expression import bases, core
-    from ..expression.statements import OnConflictClause, ReturningClause
-    from ..expression.query_parts import LimitOffsetClause, ForUpdateClause
+    from ..expression import bases, graph
     from ..expression.graph import GraphEdgeDirection
 
 
@@ -22,11 +20,11 @@ class WindowFunctionSupport(Protocol):
 
     def supports_window_functions(self) -> bool:
         """Whether window functions are supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_window_frame_clause(self) -> bool:
         """Whether window frame clauses (ROWS/RANGE) are supported."""
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -35,15 +33,15 @@ class CTESupport(Protocol):
 
     def supports_basic_cte(self) -> bool:
         """Whether basic CTEs are supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_recursive_cte(self) -> bool:
         """Whether recursive CTEs are supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_materialized_cte(self) -> bool:
         """Whether MATERIALIZED hint is supported."""
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -52,15 +50,15 @@ class AdvancedGroupingSupport(Protocol):
 
     def supports_rollup(self) -> bool:
         """Whether ROLLUP is supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_cube(self) -> bool:
         """Whether CUBE is supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_grouping_sets(self) -> bool:
         """Whether GROUPING SETS are supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_grouping_expression(
         self,
@@ -77,7 +75,7 @@ class AdvancedGroupingSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -86,7 +84,7 @@ class ReturningSupport(Protocol):
 
     def supports_returning_clause(self) -> bool:
         """Whether RETURNING clause is supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_returning_clause(
             self,
@@ -101,7 +99,7 @@ class ReturningSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -110,7 +108,7 @@ class UpsertSupport(Protocol):
 
     def supports_upsert(self) -> bool:
         """Whether UPSERT is supported."""
-        ...
+        ...  # pragma: no cover
 
     def get_upsert_syntax_type(self) -> str:
         """
@@ -119,7 +117,7 @@ class UpsertSupport(Protocol):
         Returns:
             'ON CONFLICT' (PostgreSQL) or 'ON DUPLICATE KEY' (MySQL)
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -128,7 +126,7 @@ class LateralJoinSupport(Protocol):
 
     def supports_lateral_join(self) -> bool:
         """Whether LATERAL joins are supported."""
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -137,15 +135,15 @@ class ArraySupport(Protocol):
 
     def supports_array_type(self) -> bool:
         """Whether array types are supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_array_constructor(self) -> bool:
         """Whether ARRAY constructor is supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_array_access(self) -> bool:
         """Whether array subscript access is supported."""
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -154,7 +152,7 @@ class JSONSupport(Protocol):
 
     def supports_json_type(self) -> bool:
         """Whether JSON type is supported."""
-        ...
+        ...  # pragma: no cover
 
     def get_json_access_operator(self) -> str:
         """
@@ -163,11 +161,11 @@ class JSONSupport(Protocol):
         Returns:
             '->' (PostgreSQL/MySQL/SQLite) or other dialect-specific operator
         """
-        ...
-    
+        ...  # pragma: no cover
+
     def supports_json_table(self) -> bool:
         """Whether JSON_TABLE function is supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_json_table_expression(
         self,
@@ -190,7 +188,7 @@ class JSONSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -199,7 +197,7 @@ class ExplainSupport(Protocol):
 
     def supports_explain_analyze(self) -> bool:
         """Whether EXPLAIN ANALYZE is supported."""
-        ...
+        ...  # pragma: no cover
 
     def supports_explain_format(self, format_type: str) -> bool:
         """
@@ -211,7 +209,7 @@ class ExplainSupport(Protocol):
         Returns:
             True if format is supported
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -220,7 +218,7 @@ class GraphSupport(Protocol):
 
     def supports_graph_match(self) -> bool:
         """Whether graph query MATCH clause is supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_graph_vertex(
         self,
@@ -237,7 +235,7 @@ class GraphSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        ...
+        ...  # pragma: no cover
 
     def format_graph_edge(
         self,
@@ -256,11 +254,11 @@ class GraphSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        ...
+        ...  # pragma: no cover
 
     def format_match_clause(
         self,
-        clause: "MatchClause"
+        clause: "graph.MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.
@@ -271,7 +269,7 @@ class GraphSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -280,7 +278,7 @@ class FilterClauseSupport(Protocol):
 
     def supports_filter_clause(self) -> bool:
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
-        ...
+        ...  # pragma: no cover
 
     def format_filter_clause(
         self,
@@ -297,7 +295,7 @@ class FilterClauseSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -306,7 +304,7 @@ class OrderedSetAggregationSupport(Protocol):
 
     def supports_ordered_set_aggregation(self) -> bool:
         """Whether ordered-set aggregate functions are supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_ordered_set_aggregation(
         self,
@@ -331,7 +329,7 @@ class OrderedSetAggregationSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -340,7 +338,7 @@ class MergeSupport(Protocol):
 
     def supports_merge_statement(self) -> bool:
         """Whether MERGE statement is supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_merge_statement(
         self,
@@ -365,7 +363,7 @@ class MergeSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted MERGE statement.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -374,7 +372,7 @@ class TemporalTableSupport(Protocol):
 
     def supports_temporal_tables(self) -> bool:
         """Whether temporal table queries are supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_temporal_options(
         self,
@@ -386,7 +384,7 @@ class TemporalTableSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -395,7 +393,7 @@ class QualifyClauseSupport(Protocol):
 
     def supports_qualify_clause(self) -> bool:
         """Whether QUALIFY clause is supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_qualify_clause(
         self,
@@ -412,7 +410,7 @@ class QualifyClauseSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ...
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -421,7 +419,7 @@ class LockingSupport(Protocol):
 
     def supports_for_update_skip_locked(self) -> bool:
         """Whether FOR UPDATE SKIP LOCKED is supported."""
-        ...
+        ...  # pragma: no cover
 
     def format_for_update_clause(
         self,
@@ -436,6 +434,6 @@ class LockingSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ...
+        ...  # pragma: no cover
 
 
