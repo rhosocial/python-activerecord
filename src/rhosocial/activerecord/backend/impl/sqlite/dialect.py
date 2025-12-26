@@ -9,7 +9,7 @@ based on the SQLite version provided at initialization.
 from typing import Any, Dict, List, Optional, Tuple
 
 from rhosocial.activerecord.backend.dialect import UnsupportedFeatureError
-from rhosocial.activerecord.backend.dialect.base import BaseDialect
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
     CTESupport,
     ReturningSupport,
@@ -47,7 +47,7 @@ from rhosocial.activerecord.backend.expression.advanced_functions import WindowF
 
 
 class SQLiteDialect(
-    BaseDialect,
+    SQLDialectBase,
     CTESupport,
     ReturningSupport,
     JSONSupport,

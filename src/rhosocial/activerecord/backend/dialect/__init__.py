@@ -33,7 +33,7 @@ Usage:
         print(f"Feature not supported: {e}")
 """
 
-from .base import SQLDialectBase, BaseDialect
+from .base import SQLDialectBase
 from .exceptions import UnsupportedFeatureError, ProtocolNotImplementedError
 from .protocols import (
     WindowFunctionSupport,
@@ -53,11 +53,18 @@ from .protocols import (
     LockingSupport,
     GraphSupport,
 )
+from .options import (
+    ReturningOptions,
+    ExplainOptions,
+    ExplainType,
+    ExplainFormat,
+    ViewOptions,
+    ViewCheckOption,
+)
 
 __all__ = [
     # Base classes
     'SQLDialectBase',
-    'BaseDialect',
 
     # Exceptions
     'UnsupportedFeatureError',
@@ -81,4 +88,11 @@ __all__ = [
     'LockingSupport',
     'GraphSupport',
 
+    # Options
+    'ReturningOptions',
+    'ExplainOptions',
+    'ExplainType',
+    'ExplainFormat',
+    'ViewOptions',
+    'ViewCheckOption',
 ]

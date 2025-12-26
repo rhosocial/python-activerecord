@@ -2,8 +2,9 @@
 Tests for the SQL function factory functions in functions.py
 """
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, count, sum_, avg, min_, max_,
+    Column, count, sum_, avg, min_, max_,
     lower, upper, concat, coalesce, length, substring,
     replace, initcap, left, right, lpad, rpad, reverse, strpos,
     abs_, round_, ceil, floor, sqrt, power, exp, log, sin, cos, tan,
@@ -872,11 +873,10 @@ class TestJsonFunctionFactoriesExtended:
     def test_format_function_call_with_filter_clause_on_non_supporting_dialect_raises_error(self, dummy_dialect: DummyDialect):
         """Tests that format_function_call raises UnsupportedFeatureError when filter clause is used on non-supporting dialect."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-        from rhosocial.activerecord.backend.dialect.base import BaseDialect
-        from unittest.mock import MagicMock
+        from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 
         # Create a dialect that doesn't implement FilterClauseSupport protocol
-        class MockDialect(BaseDialect):
+        class MockDialect(SQLDialectBase):
             def get_placeholder(self) -> str:
                 return "?"
 

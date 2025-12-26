@@ -7,7 +7,7 @@ It is used for to_sql() testing and does not involve actual database connections
 """
 from typing import Tuple, Optional, List, Dict, Any
 
-from rhosocial.activerecord.backend.dialect.base import BaseDialect
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
 )
 
 class DummyDialect(
-    BaseDialect,
+    SQLDialectBase,
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
