@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
 """
 SQLite backend SQL dialect implementation.
 

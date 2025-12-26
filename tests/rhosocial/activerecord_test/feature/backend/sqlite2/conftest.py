@@ -1,5 +1,6 @@
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/conftest.py
 """
-Conftest for SQLite2 backend tests.
+Conftest for SQLite backend tests.
 
 This test suite for the 'expression-dialect' system tests SQLite dialects with different versions
 to verify version-specific feature support.
