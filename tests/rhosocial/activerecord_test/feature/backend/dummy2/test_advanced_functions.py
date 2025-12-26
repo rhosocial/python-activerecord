@@ -19,16 +19,26 @@ class TestCaseExpression:
 
     def test_case_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CASE expression functionality."""
-        case_expr = CaseExpression(dummy_dialect)
+        # Create a basic CASE expression with one condition-result pair
+        condition = Column(dummy_dialect, "age") > Literal(dummy_dialect, 18)
+        result = Literal(dummy_dialect, "adult")
+        case_expr = CaseExpression(dummy_dialect, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
+        assert "WHEN" in sql
+        assert "THEN" in sql
 
     def test_case_expression_with_value(self, dummy_dialect: DummyDialect):
         """Test CASE expression with value."""
         value_expr = Column(dummy_dialect, "status")
-        case_expr = CaseExpression(dummy_dialect, value=value_expr)
+        # Create a basic CASE expression with one condition-result pair
+        condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        result = Literal(dummy_dialect, "ACTIVE_USER")
+        case_expr = CaseExpression(dummy_dialect, value=value_expr, cases=[(condition, result)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
+        assert "WHEN" in sql
+        assert "THEN" in sql
 
     def test_case_expression_with_cases(self, dummy_dialect: DummyDialect):
         """Test CASE expression with cases."""

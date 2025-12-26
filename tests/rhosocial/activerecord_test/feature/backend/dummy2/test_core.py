@@ -236,3 +236,54 @@ class TestTableExpression:
 
         # Should still work but not include temporal options since dialect returned None
         assert '"users"' in sql
+
+    def test_format_join_expression_without_condition_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_join_expression raises ValueError for join types that require conditions."""
+        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        # Create a JoinExpression without using or condition (should raise error for non-CROSS joins)
+        left_table = TableExpression(dummy_dialect, "users")
+        right_table = TableExpression(dummy_dialect, "orders")
+
+        join_expr = JoinExpression(
+            dummy_dialect,
+            left_table=left_table,
+            right_table=right_table,
+            join_type="INNER JOIN",  # INNER JOIN requires a condition
+            condition=None,  # No condition provided
+            using=None  # No USING clause provided
+        )
+
+        with pytest.raises(ValueError, match=r"INNER JOIN requires a condition or USING clause. Got: INNER JOIN"):
+            dummy_dialect.format_join_expression(join_expr)
+
+    def test_format_join_expression_with_cross_join_without_condition_succeeds(self, dummy_dialect: DummyDialect):
+        """Tests that format_join_expression works for CROSS JOIN without condition."""
+        from rhosocial.activerecord.backend.expression.query_parts import JoinExpression
+        from rhosocial.activerecord.backend.expression.core import TableExpression
+
+        # Create a JoinExpression for CROSS JOIN (doesn't require a condition)
+        left_table = TableExpression(dummy_dialect, "users")
+        right_table = TableExpression(dummy_dialect, "orders")
+
+        join_expr = JoinExpression(
+            dummy_dialect,
+            left_table=left_table,
+            right_table=right_table,
+            join_type="CROSS JOIN",  # CROSS JOIN doesn't require a condition
+            condition=None,  # No condition provided
+            using=None  # No USING clause provided
+        )
+
+        sql, params = dummy_dialect.format_join_expression(join_expr)
+
+        assert "CROSS JOIN" in sql
+        assert '"users"' in sql
+        assert '"orders"' in sql
+        assert params == ()
+
+    def test_format_temporal_options_with_empty_options_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_temporal_options raises ValueError when called with empty options."""
+        with pytest.raises(ValueError, match=r"Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options."):
+            dummy_dialect.format_temporal_options({})

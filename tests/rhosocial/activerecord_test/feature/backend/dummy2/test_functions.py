@@ -868,3 +868,29 @@ class TestJsonFunctionFactoriesExtended:
         sql, params = func.to_sql()
         assert "JSON_ARRAYAGG(" in sql
         assert "AS" in sql
+
+    def test_format_function_call_with_filter_clause_on_non_supporting_dialect_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_function_call raises UnsupportedFeatureError when filter clause is used on non-supporting dialect."""
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+        from rhosocial.activerecord.backend.dialect.base import BaseDialect
+        from unittest.mock import MagicMock
+
+        # Create a dialect that doesn't implement FilterClauseSupport protocol
+        class MockDialect(BaseDialect):
+            def get_placeholder(self) -> str:
+                return "?"
+
+            def get_parameter_placeholder(self, position: int) -> str:
+                return f"${position}"
+
+        mock_dialect = MockDialect()
+
+        with pytest.raises(UnsupportedFeatureError, match=r".*FILTER clause in aggregate functions.*"):
+            mock_dialect.format_function_call(
+                func_name="COUNT",
+                args_sql=["id"],
+                args_params=[()],
+                is_distinct=False,
+                filter_sql="WHERE value > ?",  # Providing filter_sql should trigger the else branch
+                filter_params=(100,)
+            )

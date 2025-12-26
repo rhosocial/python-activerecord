@@ -482,3 +482,195 @@ class TestCreateTableStatements:
         assert '"status" VARCHAR(20) DEFAULT ? NOT NULL' in sql
         assert "UNIQUE (\"user_id\", \"created_at\")" in sql
         assert params == (0, "pending")
+
+    def test_create_table_with_default_constraint_missing_value_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with DEFAULT constraint but no value raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+
+        columns = [
+            ColumnDefinition(
+                "status", "VARCHAR(20)",
+                constraints=[ColumnConstraint(ColumnConstraintType.DEFAULT)]  # No default value provided
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="test_table",
+            columns=columns
+        )
+
+        with pytest.raises(ValueError, match=r"DEFAULT constraint must have a default value specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_check_constraint_missing_condition_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with CHECK constraint but no condition raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+
+        columns = [
+            ColumnDefinition(
+                "age", "INTEGER",
+                constraints=[ColumnConstraint(ColumnConstraintType.CHECK)]  # No check condition provided
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="test_table",
+            columns=columns
+        )
+
+        with pytest.raises(ValueError, match=r"CHECK constraint must have a check condition specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_foreign_key_constraint_missing_reference_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with FOREIGN KEY constraint but no reference raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+
+        columns = [
+            ColumnDefinition(
+                "user_id", "INTEGER",
+                constraints=[ColumnConstraint(ColumnConstraintType.FOREIGN_KEY)]  # No foreign key reference provided
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            columns=columns
+        )
+
+        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key reference specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_primary_key_table_constraint_missing_columns_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with PRIMARY KEY table constraint but no columns raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
+
+        table_constraints = [
+            TableConstraint(
+                constraint_type=TableConstraintType.PRIMARY_KEY,
+                # Missing columns parameter
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="test_table",
+            columns=[],
+            table_constraints=table_constraints
+        )
+
+        with pytest.raises(ValueError, match=r"PRIMARY KEY constraint must have at least one column specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_unique_table_constraint_missing_columns_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with UNIQUE table constraint but no columns raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
+
+        table_constraints = [
+            TableConstraint(
+                constraint_type=TableConstraintType.UNIQUE,
+                # Missing columns parameter
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="test_table",
+            columns=[],
+            table_constraints=table_constraints
+        )
+
+        with pytest.raises(ValueError, match=r"UNIQUE constraint must have at least one column specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_check_table_constraint_missing_condition_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with CHECK table constraint but no condition raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
+
+        table_constraints = [
+            TableConstraint(
+                constraint_type=TableConstraintType.CHECK,
+                # Missing check_condition parameter
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="test_table",
+            columns=[],
+            table_constraints=table_constraints
+        )
+
+        with pytest.raises(ValueError, match=r"CHECK constraint must have a check condition specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_foreign_key_table_constraint_missing_local_columns_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with FOREIGN KEY table constraint but no local columns raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
+
+        table_constraints = [
+            TableConstraint(
+                constraint_type=TableConstraintType.FOREIGN_KEY,
+                foreign_key_table="users",
+                foreign_key_columns=["id"],
+                # Missing local columns (columns parameter)
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            columns=[],
+            table_constraints=table_constraints
+        )
+
+        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have at least one local column specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_foreign_key_table_constraint_missing_foreign_columns_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with FOREIGN KEY table constraint but no foreign columns raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
+
+        table_constraints = [
+            TableConstraint(
+                constraint_type=TableConstraintType.FOREIGN_KEY,
+                columns=["user_id"],
+                foreign_key_table="users",
+                # Missing foreign_key_columns parameter
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            columns=[],
+            table_constraints=table_constraints
+        )
+
+        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have at least one foreign key column specified."):
+            create_table_expr.to_sql()
+
+    def test_create_table_with_foreign_key_table_constraint_missing_foreign_table_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CREATE TABLE with FOREIGN KEY table constraint but no foreign table raises ValueError."""
+        from rhosocial.activerecord.backend.expression.statements import TableConstraint, TableConstraintType
+
+        table_constraints = [
+            TableConstraint(
+                constraint_type=TableConstraintType.FOREIGN_KEY,
+                columns=["user_id"],
+                foreign_key_columns=["id"],
+                # Missing foreign_key_table parameter
+            )
+        ]
+
+        create_table_expr = CreateTableExpression(
+            dummy_dialect,
+            table_name="orders",
+            columns=[],
+            table_constraints=table_constraints
+        )
+
+        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key table specified."):
+            create_table_expr.to_sql()

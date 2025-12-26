@@ -2445,9 +2445,9 @@ class BaseDialect(SQLDialectBase):
         if options.verbose:
             parts.append("VERBOSE")
         if options.settings:
-            parts.append("SETTINGS")
+            parts.append("SETTINGS")  # PostgreSQL-specific option, not SQL standard
         if options.wal:
-            parts.append("WAL")
+            parts.append("WAL")  # PostgreSQL-specific option, not SQL standard
 
         return f"{' '.join(parts)} {statement_sql}", statement_params
 
@@ -2490,7 +2490,9 @@ class BaseDialect(SQLDialectBase):
                     constraint_parts.append("NOT NULL")
                 elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
                     constraint_parts.append("UNIQUE")
-                elif constraint.constraint_type == ColumnConstraintType.DEFAULT and constraint.default_value is not None:
+                elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
+                    if constraint.default_value is None:
+                        raise ValueError("DEFAULT constraint must have a default value specified.")
                     if isinstance(constraint.default_value, bases.BaseExpression):
                         default_sql, default_params = constraint.default_value.to_sql()
                         constraint_parts.append(f"DEFAULT {default_sql}")
@@ -2498,11 +2500,15 @@ class BaseDialect(SQLDialectBase):
                     else:
                         constraint_parts.append("DEFAULT ?")
                         all_params.append(constraint.default_value)
-                elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
+                elif constraint.constraint_type == ColumnConstraintType.CHECK:
+                    if constraint.check_condition is None:
+                        raise ValueError("CHECK constraint must have a check condition specified.")
                     check_sql, check_params = constraint.check_condition.to_sql()
                     constraint_parts.append(f"CHECK ({check_sql})")
                     all_params.extend(check_params)
-                elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY and constraint.foreign_key_reference is not None:
+                elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
+                    if constraint.foreign_key_reference is None:
+                        raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
                     referenced_table, referenced_columns = constraint.foreign_key_reference
                     ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
                     constraint_parts.append(f"REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})")
@@ -2525,17 +2531,29 @@ class BaseDialect(SQLDialectBase):
             if t_const.name:
                 const_parts.append(f"CONSTRAINT {self.format_identifier(t_const.name)}")
 
-            if t_const.constraint_type == TableConstraintType.PRIMARY_KEY and t_const.columns:
+            if t_const.constraint_type == TableConstraintType.PRIMARY_KEY:
+                if not t_const.columns:
+                    raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
                 cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
                 const_parts.append(f"PRIMARY KEY ({cols_str})")
-            elif t_const.constraint_type == TableConstraintType.UNIQUE and t_const.columns:
+            elif t_const.constraint_type == TableConstraintType.UNIQUE:
+                if not t_const.columns:
+                    raise ValueError("UNIQUE constraint must have at least one column specified.")
                 cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
                 const_parts.append(f"UNIQUE ({cols_str})")
-            elif t_const.constraint_type == TableConstraintType.CHECK and t_const.check_condition is not None:
+            elif t_const.constraint_type == TableConstraintType.CHECK:
+                if t_const.check_condition is None:
+                    raise ValueError("CHECK constraint must have a check condition specified.")
                 check_sql, check_params = t_const.check_condition.to_sql()
                 const_parts.append(f"CHECK ({check_sql})")
                 all_params.extend(check_params)
-            elif t_const.constraint_type == TableConstraintType.FOREIGN_KEY and t_const.foreign_key_table and t_const.foreign_key_columns and t_const.columns:
+            elif t_const.constraint_type == TableConstraintType.FOREIGN_KEY:
+                if not t_const.columns:
+                    raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
+                if not t_const.foreign_key_columns:
+                    raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
+                if not t_const.foreign_key_table:
+                    raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
                 cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
                 ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
                 const_parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})")
@@ -2621,6 +2639,10 @@ class BaseDialect(SQLDialectBase):
     ) -> Tuple[str, Tuple]:
         """Format CASE expression."""
         all_params = list(value_params) if value_params else []
+
+        # Validate that there is at least one condition-result pair for a valid CASE expression
+        if not conditions_results:
+            raise ValueError("CASE expression must have at least one WHEN/THEN condition-result pair.")
 
         # Build the CASE expression
         parts = ["CASE"]
@@ -2821,6 +2843,11 @@ class BaseDialect(SQLDialectBase):
             sql = f"{left_sql} {join_clause} {right_sql} ON {condition_sql}"
             all_params.extend(condition_params)
         else:
+            # For certain join types (like INNER JOIN, LEFT JOIN), a condition is required
+            # CROSS JOIN is the only join type that doesn't require a condition
+            join_type_upper = join_expr.join_type.upper()
+            if "CROSS" not in join_type_upper:
+                raise ValueError(f"{join_type_upper} requires a condition or USING clause. Got: {join_expr.join_type}")
             # No condition (e.g., CROSS JOIN)
             sql = f"{left_sql} {join_clause} {right_sql}"
 
@@ -2977,7 +3004,7 @@ class BaseDialect(SQLDialectBase):
     ) -> Tuple[str, tuple]:
         """Format temporal table options."""
         if not options:
-            return "", ()
+            raise ValueError("Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.")
         sql_parts, params = ["FOR SYSTEM_TIME"], []
         # Add temporal options to SQL parts based on the options provided
         for key, value in options.items():
@@ -2995,6 +3022,9 @@ class BaseDialect(SQLDialectBase):
         clause: "WindowClause"
     ) -> Tuple[str, tuple]:
         """Format complete WINDOW clause."""
+        if not clause.definitions:
+            raise ValueError("WindowClause must contain at least one window definition.")
+
         all_params = []
         def_parts = []
 
@@ -3003,10 +3033,7 @@ class BaseDialect(SQLDialectBase):
             def_parts.append(def_sql)
             all_params.extend(def_params)
 
-        if def_parts:
-            return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
-        else:
-            return "", tuple(all_params)
+        return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
 
     def format_window_definition(
         self,
@@ -3077,7 +3104,11 @@ class BaseDialect(SQLDialectBase):
             parts.append(frame_sql)
             all_params.extend(frame_params)
 
-        return " ".join(parts) if parts else "", tuple(all_params)
+        # If no window specification components are provided, raise an error
+        if not parts:
+            raise ValueError("Window specification must have at least one component: PARTITION BY, ORDER BY, or FRAME.")
+
+        return " ".join(parts), tuple(all_params)
 
     def format_window_function_call(
         self,
@@ -3160,7 +3191,9 @@ class BaseDialect(SQLDialectBase):
                 col_sql += " NULL"  # Explicitly allow NULL (though redundant in most cases)
             elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
                 col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT and constraint.default_value is not None:
+            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
+                if constraint.default_value is None:
+                    raise ValueError("DEFAULT constraint must have a default value specified.")
                 if isinstance(constraint.default_value, bases.BaseExpression):
                     default_sql, default_params = constraint.default_value.to_sql()
                     col_sql += f" DEFAULT {default_sql}"

@@ -30,6 +30,11 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         value_sql, value_params = self.value.to_sql() if self.value else (None, ())
         conditions_results = []
         all_params = list(value_params) if value_params else []
+
+        # Validate that there is at least one condition-result pair for a valid CASE expression
+        if not self.cases:
+            raise ValueError("CASE expression must have at least one WHEN/THEN condition-result pair.")
+
         for condition, result in self.cases:
             condition_sql, condition_params = condition.to_sql()
             result_sql, result_params = result.to_sql()

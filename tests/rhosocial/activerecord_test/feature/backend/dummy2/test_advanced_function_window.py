@@ -339,3 +339,48 @@ class TestAdvancedFunctionWindow:
         window_sql, window_params = window_clause.to_sql()
         assert 'WINDOW "dept_ranking" AS (PARTITION BY "department" ORDER BY "salary" DESC), "running_total" AS (PARTITION BY "category" ORDER BY "date" ROWS BETWEEN UNBOUNDED PRECEDING AND CURRENT ROW)' == window_sql
         assert window_params == ()
+
+    def test_window_function_call_with_literal_args(self, dummy_dialect: DummyDialect):
+        """Tests a window function call with literal arguments (covering the else branch for non-BaseExpression args)."""
+        from rhosocial.activerecord.backend.expression import (
+            WindowSpecification, WindowFunctionCall, Column, Literal
+        )
+
+        # Test with literal arguments that are not BaseExpression instances
+        window_spec = WindowSpecification(
+            dummy_dialect,
+            partition_by=[Column(dummy_dialect, "department")],
+            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+        )
+        # Pass literal values directly (not as BaseExpression objects) to trigger the else branch
+        window_func = WindowFunctionCall(
+            dummy_dialect,
+            function_name="RANK",
+            args=[1, "test", 3.14],  # Literal values, not BaseExpression instances
+            window_spec=window_spec,
+            alias="rank_val"
+        )
+
+        sql, params = window_func.to_sql()
+        # Should have placeholders for literal args
+        assert "RANK(?, ?, ?)" in sql
+        assert "OVER" in sql
+        assert "PARTITION BY" in sql
+        assert "ORDER BY" in sql
+        assert params == (1, "test", 3.14)  # Should have the literal values as params
+
+    def test_window_clause_with_empty_definitions_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that WindowClause with empty definitions raises ValueError."""
+        from rhosocial.activerecord.backend.expression import (
+            WindowClause
+        )
+
+        # Create a WindowClause with empty definitions list
+        window_clause = WindowClause(
+            dummy_dialect,
+            definitions=[]  # Empty list should raise an error
+        )
+
+        # Should raise ValueError when to_sql() is called
+        with pytest.raises(ValueError, match=r"WindowClause must contain at least one window definition."):
+            window_clause.to_sql()

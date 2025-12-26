@@ -676,3 +676,48 @@ class TestDeleteStatements:
         # Should generate a DELETE statement with WHERE clause
         assert 'DELETE FROM "users" WHERE "status" = ?' == sql
         assert params == ("inactive",)
+
+    def test_format_case_expression_with_empty_conditions_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_case_expression raises ValueError when called with empty conditions_results."""
+        with pytest.raises(ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."):
+            dummy_dialect.format_case_expression(
+                value_sql=None,
+                value_params=None,
+                conditions_results=[],  # Empty list should raise error
+                else_result_sql=None,
+                else_result_params=None
+            )
+
+    def test_format_window_specification_with_no_components_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_window_specification raises ValueError when called with no components."""
+        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
+
+        # Create a WindowSpecification with no components (empty)
+        window_spec = WindowSpecification(
+            dummy_dialect,
+            partition_by=[],  # Empty partition
+            order_by=[],      # Empty order by
+            frame=None        # No frame
+        )
+
+        with pytest.raises(ValueError, match=r"Window specification must have at least one component: PARTITION BY, ORDER BY, or FRAME."):
+            dummy_dialect.format_window_specification(window_spec)
+
+    def test_format_column_definition_with_default_constraint_but_no_value_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that format_column_definition raises ValueError when DEFAULT constraint has no value."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
+
+        # Create a ColumnDefinition with DEFAULT constraint but no value
+        col_def = ColumnDefinition(
+            name="test_col",
+            data_type="VARCHAR(255)",
+            constraints=[
+                ColumnConstraint(
+                    constraint_type=ColumnConstraintType.DEFAULT,
+                    default_value=None  # No default value provided but constraint type is DEFAULT
+                )
+            ]
+        )
+
+        with pytest.raises(ValueError, match=r"DEFAULT constraint must have a default value specified."):
+            dummy_dialect.format_column_definition(col_def)

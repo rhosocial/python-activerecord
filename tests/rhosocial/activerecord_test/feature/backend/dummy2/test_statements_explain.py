@@ -287,3 +287,49 @@ class TestExplainStatements:
         assert 'FORMAT TEXT' in sql
         assert 'SELECT "name" FROM "products"' in sql
         assert params == ()
+
+    def test_explain_with_settings_option(self, dummy_dialect: DummyDialect):
+        """Tests EXPLAIN with SETTINGS option."""
+        from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryExpression
+        from rhosocial.activerecord.backend.expression.core import TableExpression, Column
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+
+        explain_options = ExplainOptions(settings=True)
+        explain_expr = ExplainExpression(
+            dummy_dialect,
+            statement=query,
+            options=explain_options
+        )
+        sql, params = explain_expr.to_sql()
+
+        assert "EXPLAIN" in sql
+        assert "SETTINGS" in sql
+        assert params == ()
+
+    def test_explain_with_wal_option(self, dummy_dialect: DummyDialect):
+        """Tests EXPLAIN with WAL option."""
+        from rhosocial.activerecord.backend.expression.statements import ExplainOptions, QueryExpression
+        from rhosocial.activerecord.backend.expression.core import TableExpression, Column
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+
+        explain_options = ExplainOptions(wal=True)
+        explain_expr = ExplainExpression(
+            dummy_dialect,
+            statement=query,
+            options=explain_options
+        )
+        sql, params = explain_expr.to_sql()
+
+        assert "EXPLAIN" in sql
+        assert "WAL" in sql
+        assert params == ()
