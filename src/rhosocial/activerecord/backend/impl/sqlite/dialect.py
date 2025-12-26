@@ -265,15 +265,10 @@ class SQLiteDialect(
 
     def format_merge_statement(
         self,
-        target_sql: str,
-        source_sql: str,
-        on_sql: str,
-        when_matched: List[Dict[str, Any]],
-        when_not_matched: List[Dict[str, Any]],
-        all_params: tuple
-    ) -> Tuple[str, Tuple]:
+        expr: "MergeExpression"
+    ) -> Tuple[str, tuple]:
         """
-        Formats a MERGE statement.
+        Formats a complete MERGE statement from a MergeExpression object.
 
         SQLite does not support MERGE statements.
         """
@@ -300,9 +295,8 @@ class SQLiteDialect(
 
     def format_qualify_clause(
         self,
-        qualify_sql: str,
-        qualify_params: tuple
-    ) -> Tuple[str, Tuple]:
+        clause: "QualifyClause"
+    ) -> Tuple[str, tuple]:
         """
         Formats a QUALIFY clause.
 
@@ -769,8 +763,7 @@ class SQLiteDialect(
 
     def format_match_clause(
         self,
-        path_sql: List[str],
-        path_params: tuple
+        clause: "MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.

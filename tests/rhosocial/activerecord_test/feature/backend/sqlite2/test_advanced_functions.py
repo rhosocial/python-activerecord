@@ -161,28 +161,31 @@ class TestArrayExpression:
     """Tests for ArrayExpression class."""
 
     def test_array_constructor_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic array constructor functionality."""
-        # Array support may vary by dialect, just check that it doesn't crash
+        """Test that array constructor is not supported in SQLite."""
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
         array_expr = ArrayExpression(
             sqlite_dialect_3_8_0,
             "CONSTRUCTOR",
             elements=[Literal(sqlite_dialect_3_8_0, 1), Literal(sqlite_dialect_3_8_0, 2), Literal(sqlite_dialect_3_8_0, 3)]
         )
-        # Try to generate SQL - in SQLite this might be handled differently
-        sql, params = array_expr.to_sql()
-        assert sql  # Should generate some SQL
+        # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
+        with pytest.raises(UnsupportedFeatureError):
+            array_expr.to_sql()
 
     def test_array_access_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic array access functionality."""
+        """Test that array access is not supported in SQLite."""
+        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
         array_access = ArrayExpression(
             sqlite_dialect_3_8_0,
             "ACCESS",
             base_expr=Column(sqlite_dialect_3_8_0, "tags"),
             index_expr=Literal(sqlite_dialect_3_8_0, 1)
         )
-        # Try to generate SQL - in SQLite this might be handled differently
-        sql, params = array_access.to_sql()
-        assert sql  # Should generate some SQL
+        # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
+        with pytest.raises(UnsupportedFeatureError):
+            array_access.to_sql()
 
 
 class TestOrderedSetAggregation:

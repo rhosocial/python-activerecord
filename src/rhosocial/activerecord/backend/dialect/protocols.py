@@ -258,7 +258,7 @@ class GraphSupport(Protocol):
 
     def format_match_clause(
         self,
-        clause: "graph.MatchClause"
+        clause: "MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.
@@ -342,26 +342,16 @@ class MergeSupport(Protocol):
 
     def format_merge_statement(
         self,
-        target_sql: str,
-        source_sql: str,
-        on_sql: str,
-        when_matched: List[Dict[str, Any]],
-        when_not_matched: List[Dict[str, Any]],
-        all_params: tuple
-    ) -> Tuple[str, Tuple]:
+        expr: "MergeExpression"
+    ) -> Tuple[str, tuple]:
         """
-        Formats a MERGE statement.
+        Formats a complete MERGE statement from a MergeExpression object.
 
         Args:
-            target_sql: SQL for the target table.
-            source_sql: SQL for the source data.
-            on_sql: SQL for the ON condition.
-            when_matched: List of dictionaries describing WHEN MATCHED actions.
-            when_not_matched: List of dictionaries describing WHEN NOT MATCHED actions.
-            all_params: All parameters collected from expressions within the MERGE statement.
+            expr: MergeExpression object containing the merge specifications
 
         Returns:
-            Tuple of (SQL string, parameters tuple) for the formatted MERGE statement.
+            Tuple of (SQL string, parameters tuple) for the formatted statement.
         """
         ...  # pragma: no cover
 
@@ -397,15 +387,13 @@ class QualifyClauseSupport(Protocol):
 
     def format_qualify_clause(
         self,
-        qualify_sql: str,
-        qualify_params: tuple
+        clause: "QualifyClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a QUALIFY clause.
 
         Args:
-            qualify_sql: SQL string for the QUALIFY condition.
-            qualify_params: Parameters for the QUALIFY condition.
+            clause: QualifyClause object
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
