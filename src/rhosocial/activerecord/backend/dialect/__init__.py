@@ -53,6 +53,24 @@ from .protocols import (
     LockingSupport,
     GraphSupport,
 )
+from .mixins import (
+    WindowFunctionMixin,
+    CTEMixin,
+    AdvancedGroupingMixin,
+    ReturningMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    ArrayMixin,
+    JSONMixin,
+    ExplainMixin,
+    FilterClauseMixin,
+    OrderedSetAggregationMixin,
+    MergeMixin,
+    TemporalTableMixin,
+    QualifyClauseMixin,
+    LockingMixin,
+    GraphMixin,
+)
 
 __all__ = [
     # Base classes
@@ -79,4 +97,22 @@ __all__ = [
     'QualifyClauseSupport',
     'LockingSupport',
     'GraphSupport',
+
+    # Mixins
+    'WindowFunctionMixin',
+    'CTEMixin',
+    'AdvancedGroupingMixin',
+    'ReturningMixin',
+    'UpsertMixin',
+    'LateralJoinMixin',
+    'ArrayMixin',
+    'JSONMixin',
+    'ExplainMixin',
+    'FilterClauseMixin',
+    'OrderedSetAggregationMixin',
+    'MergeMixin',
+    'TemporalTableMixin',
+    'QualifyClauseMixin',
+    'LockingMixin',
+    'GraphMixin',
 ]
