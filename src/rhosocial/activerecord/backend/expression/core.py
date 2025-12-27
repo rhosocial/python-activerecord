@@ -21,7 +21,7 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
         # Always return a single placeholder and the value itself.
         # It's up to higher-level expressions (like InPredicate or ValuesExpression)
         # to decide if this value needs to be expanded or formatted differently.
-        return self.dialect.get_placeholder(), (self.value,)
+        return self.dialect.get_parameter_placeholder(), (self.value,)
 
     def __repr__(self) -> str:
         return f"Literal({self.value!r})"

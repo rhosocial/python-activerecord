@@ -26,10 +26,6 @@ class DummyDialect(
     Dummy dialect supporting all features for SQL generation testing.
     """
 
-    def get_placeholder(self) -> str:
-        """Use '?' placeholder for consistency."""
-        return "?"
-
     # region Protocol Support Checks
     def supports_window_functions(self) -> bool: return True
     def supports_window_frame_clause(self) -> bool: return True
