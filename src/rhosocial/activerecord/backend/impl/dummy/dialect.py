@@ -14,9 +14,20 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
 )
+from rhosocial.activerecord.backend.dialect.mixins import (
+    WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
+    UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
+    FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
+    TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
+)
 
 class DummyDialect(
     SQLDialectBase,
+    WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
+    UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
+    FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
+    TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
+    # Protocols for type checking
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,

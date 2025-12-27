@@ -53,14 +53,6 @@ from .protocols import (
     LockingSupport,
     GraphSupport,
 )
-from .options import (
-    ReturningOptions,
-    ExplainOptions,
-    ExplainType,
-    ExplainFormat,
-    ViewOptions,
-    ViewCheckOption,
-)
 
 __all__ = [
     # Base classes
@@ -87,12 +79,4 @@ __all__ = [
     'QualifyClauseSupport',
     'LockingSupport',
     'GraphSupport',
-
-    # Options
-    'ReturningOptions',
-    'ExplainOptions',
-    'ExplainType',
-    'ExplainFormat',
-    'ViewOptions',
-    'ViewCheckOption',
 ]

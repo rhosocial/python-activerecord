@@ -8,7 +8,7 @@ implementations for standard SQL features.
 from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
-from ..expression import bases, MatchClause
+from ..expression import bases
 from ..expression.query_parts import JoinExpression
 from ..expression.statements import QueryExpression, ColumnDefinition
 
@@ -17,8 +17,7 @@ if TYPE_CHECKING:
         # DML Statements
         QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
         MergeExpression, ExplainExpression, CreateTableExpression, DropTableExpression,
-        AlterTableExpression, OnConflictClause, ForUpdateClause, ReturningClause,
-        CreateViewExpression, DropViewExpression,
+        AlterTableExpression, OnConflictClause, ForUpdateClause, CreateViewExpression, DropViewExpression,
         # Alter Table Actions
         AddColumn, DropColumn, AlterColumn, AddIndex, DropIndex, AddTableConstraint, DropTableConstraint,
         RenameColumn, RenameTable,
@@ -26,11 +25,7 @@ if TYPE_CHECKING:
         TableConstraintType
     )
     from ..expression.query_parts import (
-        WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
-    )
-    from ..expression.advanced_functions import (
-        WindowFrameSpecification, WindowSpecification, WindowDefinition,
-        WindowClause, WindowFunctionCall
+        WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause
     )
     from ..expression.graph import (
         GraphEdgeDirection
@@ -84,14 +79,6 @@ class SQLDialectBase:
 
     # region Full Statement Formatting
     # region DML Statements
-    def format_filter_clause(
-        self,
-        condition_sql: str,
-        condition_params: tuple
-    ) -> Tuple[str, Tuple]:
-        """Format FILTER clause."""
-        return f"FILTER (WHERE {condition_sql})", condition_params
-
     def require_protocol(
         self,
         protocol_type: type,
@@ -210,8 +197,6 @@ class SQLDialectBase:
         filter_params: Optional[tuple] = None
     ) -> Tuple[str, Tuple]:
         """Format function call."""
-        from .protocols import FilterClauseSupport  # Local import to avoid circular dependency
-
         distinct = "DISTINCT " if is_distinct else ""
         args_sql_str = ", ".join(args_sql)
         func_call_sql = f"{func_name.upper()}({distinct}{args_sql_str})"
@@ -220,15 +205,34 @@ class SQLDialectBase:
         for param_tuple in args_params:
             all_params.extend(param_tuple)
 
-        # Handle FILTER clause
+        # Handle FILTER clause - this requires the FilterClauseMixin
         if filter_sql:
-            if isinstance(self, FilterClauseSupport) and self.supports_filter_clause():
-                # Ensure filter_params is a tuple, default to empty tuple if None
-                actual_filter_params = filter_params if filter_params is not None else ()
-                filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_sql, actual_filter_params)
-                func_call_sql += f" {filter_clause_sql}"
-                all_params.extend(filter_clause_params)
+            # Check if the dialect supports filter clause
+            from .protocols import FilterClauseSupport
+            if isinstance(self, FilterClauseSupport):
+                if hasattr(self, 'supports_filter_clause') and self.supports_filter_clause():
+                    # If the dialect supports filter clause, it should have the format_filter_clause method
+                    if hasattr(self, 'format_filter_clause'):
+                        # Ensure filter_params is a tuple, default to empty tuple if None
+                        actual_filter_params = filter_params if filter_params is not None else ()
+                        filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_sql, actual_filter_params)
+                        func_call_sql += f" {filter_clause_sql}"
+                        all_params.extend(filter_clause_params)
+                    else:
+                        # If the method doesn't exist despite protocol implementation, raise error
+                        raise UnsupportedFeatureError(
+                            self.name,
+                            "FILTER clause in aggregate functions",
+                            "Dialect implements FilterClauseSupport but missing format_filter_clause method."
+                        )
+                else:
+                    raise UnsupportedFeatureError(
+                        self.name,
+                        "FILTER clause in aggregate functions",
+                        "Use a CASE expression inside the aggregate function instead."
+                    )
             else:
+                # If the dialect doesn't implement FilterClauseSupport, raise error
                 raise UnsupportedFeatureError(
                     self.name,
                     "FILTER clause in aggregate functions",
@@ -1512,45 +1516,6 @@ class SQLDialectBase:
 
         return " ".join(sql_parts), tuple(all_params)
 
-    def format_grouping_expression(
-        self,
-        operation: str,
-        expressions: List["bases.BaseExpression"]
-    ) -> Tuple[str, tuple]:
-        """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
-        # Check feature support based on operation type
-        if operation.upper() == "ROLLUP":
-            self.check_feature_support('supports_rollup', 'ROLLUP')
-        elif operation.upper() == "CUBE":
-            self.check_feature_support('supports_cube', 'CUBE')
-        elif operation.upper() == "GROUPING SETS":
-            self.check_feature_support('supports_grouping_sets', 'GROUPING SETS')
-
-        all_params = []
-        if operation.upper() == "GROUPING SETS":
-            # For GROUPING SETS, expressions is a list of lists
-            sets_parts = []
-            for expr_list in expressions:
-                expr_parts = []
-                for expr in expr_list:
-                    expr_sql, expr_params = expr.to_sql()
-                    expr_parts.append(expr_sql)
-                    all_params.extend(expr_params)
-                sets_parts.append(f"({', '.join(expr_parts)})")
-            inner_expr = ", ".join(sets_parts)
-            sql = f"{operation.upper()}({inner_expr})"
-        else:
-            # For ROLLUP and CUBE, expressions is a simple list
-            expr_parts = []
-            for expr in expressions:
-                expr_sql, expr_params = expr.to_sql()
-                expr_parts.append(expr_sql)
-                all_params.extend(expr_params)
-            inner_expr = ", ".join(expr_parts)
-            sql = f"{operation.upper()}({inner_expr})"
-
-        return sql, tuple(all_params)
-
     def format_join_expression(
         self,
         join_expr: "JoinExpression"
@@ -1595,36 +1560,6 @@ class SQLDialectBase:
             sql = f"({sql}) AS {self.format_identifier(join_expr.alias)}"
 
         return sql, tuple(all_params)
-
-    def format_json_table_expression(
-        self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: str,
-        params: tuple
-    ) -> Tuple[str, Tuple]:
-        """Format JSON_TABLE expression."""
-        cols_defs = [f"{col['name']} {col['type']} PATH '{col['path']}'" for col in columns]
-        columns_sql = f"COLUMNS({', '.join(cols_defs)})"
-        sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias)}"
-        return sql, params
-
-    def format_match_clause(
-        self,
-        clause: "MatchClause"
-    ) -> Tuple[str, tuple]:
-        """Format MATCH clause with expression."""
-        # This method is called from MatchClause.to_sql(), so we need to format the MATCH clause
-        # with the path components from the clause
-        path_sql, all_params = [], []
-        for part in clause.path:
-            sql, params = part.to_sql()
-            path_sql.append(sql)
-            all_params.extend(params)
-
-        match_sql = f"MATCH {' '.join(path_sql)}"
-        return match_sql, tuple(all_params)
 
     def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """Format ON CONFLICT clause."""
@@ -1680,48 +1615,6 @@ class SQLDialectBase:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_ordered_set_aggregation(
-        self,
-        func_name: str,
-        func_args_sql: List[str],
-        func_args_params: tuple,
-        order_by_sql: List[str],
-        order_by_params: tuple,
-        alias: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
-        """Format ordered-set aggregation function call."""
-        args_str = ", ".join(func_args_sql)
-        order_by_str = ", ".join(order_by_sql)
-        sql = f"{func_name.upper()}({args_str}) WITHIN GROUP (ORDER BY {order_by_str})"
-        if alias:
-            sql = f"{sql} AS {self.format_identifier(alias)}"
-        return sql, func_args_params + order_by_params
-
-    def format_qualify_clause(
-        self,
-        clause: "QualifyClause"
-    ) -> Tuple[str, tuple]:
-        """Format QUALIFY clause."""
-        condition_sql, condition_params = clause.condition.to_sql()
-        return f"QUALIFY {condition_sql}", condition_params
-
-    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, tuple]:
-        """Format RETURNING clause."""
-        all_params = []
-        expr_parts = []
-        for expr in clause.expressions:
-            expr_sql, expr_params = expr.to_sql()
-            expr_parts.append(expr_sql)
-            all_params.extend(expr_params)
-
-        returning_sql = f"RETURNING {', '.join(expr_parts)}"
-
-        # Add alias if provided
-        if clause.alias:
-            returning_sql += f" AS {self.format_identifier(clause.alias)}"
-
-        return returning_sql, tuple(all_params)
-
     def format_set_operation_expression(
         self,
         left: "bases.BaseExpression",
@@ -1755,140 +1648,6 @@ class SQLDialectBase:
         """Format WHERE clause with condition."""
         condition_sql, condition_params = clause.condition.to_sql()
         return f"WHERE {condition_sql}", condition_params
-
-    def format_window_clause(
-        self,
-        clause: "WindowClause"
-    ) -> Tuple[str, tuple]:
-        """Format complete WINDOW clause."""
-        if not clause.definitions:
-            raise ValueError("WindowClause must contain at least one window definition.")
-
-        all_params = []
-        def_parts = []
-
-        for defn in clause.definitions:
-            def_sql, def_params = self.format_window_definition(defn)
-            def_parts.append(def_sql)
-            all_params.extend(def_params)
-
-        return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
-
-    def format_window_definition(
-        self,
-        spec: "WindowDefinition"
-    ) -> Tuple[str, tuple]:
-        """Format named window definition."""
-        spec_sql, spec_params = self.format_window_specification(spec.specification)
-        window_def = f"{self.format_identifier(spec.name)} AS ({spec_sql})"
-        return window_def, spec_params
-
-    def format_window_frame_specification(
-        self,
-        spec: "WindowFrameSpecification"
-    ) -> Tuple[str, tuple]:
-        """Format window frame specification."""
-        parts = [spec.frame_type]
-        if spec.end_frame:
-            parts.append(f"BETWEEN {spec.start_frame} AND {spec.end_frame}")
-        else:
-            parts.append(spec.start_frame)
-        return " ".join(parts), ()
-
-    def format_window_specification(
-        self,
-        spec: "WindowSpecification"
-    ) -> Tuple[str, tuple]:
-        """Format window specification."""
-        all_params = []
-
-        parts = []
-
-        # PARTITION BY
-        if spec.partition_by:
-            partition_parts = []
-            for part in spec.partition_by:
-                if isinstance(part, bases.BaseExpression):
-                    part_sql, part_params = part.to_sql()
-                    partition_parts.append(part_sql)
-                    all_params.extend(part_params)
-                else:
-                    partition_parts.append(self.format_identifier(str(part)))
-            parts.append("PARTITION BY " + ", ".join(partition_parts))
-
-        # ORDER BY
-        if spec.order_by:
-            order_by_parts = []
-            for item in spec.order_by:
-                if isinstance(item, tuple):
-                    expr, direction = item
-                    if isinstance(expr, bases.BaseExpression):
-                        expr_sql, expr_params = expr.to_sql()
-                        order_by_parts.append(f"{expr_sql} {direction.upper()}")
-                        all_params.extend(expr_params)
-                    else:
-                        order_by_parts.append(f"{self.format_identifier(str(expr))} {direction.upper()}")
-                else:
-                    if isinstance(item, bases.BaseExpression):
-                        expr_sql, expr_params = item.to_sql()
-                        order_by_parts.append(expr_sql)
-                        all_params.extend(expr_params)
-                    else:
-                        order_by_parts.append(self.format_identifier(str(item)))
-            parts.append("ORDER BY " + ", ".join(order_by_parts))
-
-        # Frame
-        if spec.frame:
-            frame_sql, frame_params = self.format_window_frame_specification(spec.frame)
-            parts.append(frame_sql)
-            all_params.extend(frame_params)
-
-        # If no window specification components are provided, raise an error
-        if not parts:
-            raise ValueError("Window specification must have at least one component: PARTITION BY, ORDER BY, or FRAME.")
-
-        return " ".join(parts), tuple(all_params)
-
-    def format_window_function_call(
-        self,
-        call: "WindowFunctionCall"
-    ) -> Tuple[str, tuple]:
-        """Format window function call."""
-        all_params = []
-
-        # Format function arguments
-        arg_parts = []
-        for arg in call.args:
-            if isinstance(arg, bases.BaseExpression):
-                arg_sql, arg_params = arg.to_sql()
-                arg_parts.append(arg_sql)
-                all_params.extend(arg_params)
-            else:
-                # Literal value
-                arg_parts.append(self.get_parameter_placeholder())
-                all_params.append(arg)
-
-        func_sql = f"{call.function_name}({', '.join(arg_parts)})"
-
-        if call.window_spec is None:
-            # No window specification
-            sql = func_sql
-        else:
-            if isinstance(call.window_spec, str):
-                # Reference to named window
-                window_part = self.format_identifier(call.window_spec)
-            else:
-                # Inline window specification
-                window_spec_sql, window_spec_params = self.format_window_specification(call.window_spec)
-                window_part = f"({window_spec_sql})" if window_spec_sql else "()"
-                all_params.extend(window_spec_params)
-
-            sql = f"{func_sql} OVER {window_part}"
-
-        if call.alias:
-            sql = f"{sql} AS {self.format_identifier(call.alias)}"
-
-        return sql, tuple(all_params)
 
     def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
         """Format ORDER BY clause with expressions and directions."""

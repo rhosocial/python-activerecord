@@ -384,3 +384,19 @@ class TestAdvancedFunctionWindow:
         # Should raise ValueError when to_sql() is called
         with pytest.raises(ValueError, match=r"WindowClause must contain at least one window definition."):
             window_clause.to_sql()
+
+    def test_case_expression_with_empty_cases_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that CaseExpression with empty cases list raises ValueError."""
+        from rhosocial.activerecord.backend.expression import (
+            CaseExpression
+        )
+
+        # Create a CaseExpression with empty cases list
+        case_expr = CaseExpression(
+            dummy_dialect,
+            cases=[]  # Empty list should raise an error
+        )
+
+        # Should raise ValueError when to_sql() is called
+        with pytest.raises(ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."):
+            case_expr.to_sql()
