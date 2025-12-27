@@ -143,15 +143,6 @@ class SQLDialectBase:
                 feature_name=feature_name,
                 suggestion=suggestion
             )
-
-    def supports_offset_without_limit(self) -> bool:
-        """
-        Check if the dialect supports OFFSET clause without LIMIT clause.
-
-        Returns:
-            True if OFFSET without LIMIT is supported, False otherwise
-        """
-        return False
     # endregion Utilities
 
     # region Full Statement Formatting
