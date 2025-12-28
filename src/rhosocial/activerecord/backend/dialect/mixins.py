@@ -7,7 +7,7 @@ defined in the protocol interfaces. This allows dialects to compose
 only the features they support, rather than inheriting all functionality
 from a base class.
 """
-from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
+from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import UnsupportedFeatureError
 from ..expression import bases
@@ -19,11 +19,9 @@ if TYPE_CHECKING:  # pragma: no cover
         WindowDefinition, WindowClause
     )
     from ..expression.query_parts import (
-        QualifyClause, MatchClause
+        QualifyClause
     )
-    from ..expression.graph import GraphEdgeDirection
-    from ..expression.functions import FunctionCall
-    from ..expression.literals import Literal
+    from ..expression.graph import GraphEdgeDirection, MatchClause
 
 
 class WindowFunctionMixin:
@@ -38,8 +36,8 @@ class WindowFunctionMixin:
         return False
 
     def format_window_function_call(
-        self,
-        call: "WindowFunctionCall"
+            self,
+            call: "WindowFunctionCall"
     ) -> Tuple[str, tuple]:
         """Format window function call."""
         if not self.supports_window_functions():
@@ -83,8 +81,8 @@ class WindowFunctionMixin:
         return sql, tuple(all_params)
 
     def format_window_specification(
-        self,
-        spec: "WindowSpecification"
+            self,
+            spec: "WindowSpecification"
     ) -> Tuple[str, tuple]:
         """Format window specification."""
         if not self.supports_window_functions():
@@ -141,8 +139,8 @@ class WindowFunctionMixin:
         return " ".join(parts), tuple(all_params)
 
     def format_window_frame_specification(
-        self,
-        spec: "WindowFrameSpecification"
+            self,
+            spec: "WindowFrameSpecification"
     ) -> Tuple[str, tuple]:
         """Format window frame specification."""
         if not self.supports_window_frame_clause():
@@ -156,8 +154,8 @@ class WindowFunctionMixin:
         return " ".join(parts), ()
 
     def format_window_clause(
-        self,
-        clause: "WindowClause"
+            self,
+            clause: "WindowClause"
     ) -> Tuple[str, tuple]:
         """Format complete WINDOW clause."""
         if not self.supports_window_functions():
@@ -177,8 +175,8 @@ class WindowFunctionMixin:
         return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
 
     def format_window_definition(
-        self,
-        spec: "WindowDefinition"
+            self,
+            spec: "WindowDefinition"
     ) -> Tuple[str, tuple]:
         """Format named window definition."""
         if not self.supports_window_functions():
@@ -191,7 +189,7 @@ class WindowFunctionMixin:
 
 class CTEMixin:
     """Mixin for Common Table Expression (CTE) support."""
-    
+
     def supports_basic_cte(self) -> bool:
         """Whether basic CTEs are supported."""
         return False
@@ -204,10 +202,47 @@ class CTEMixin:
         """Whether MATERIALIZED hint is supported."""
         return False
 
+    def format_cte(
+            self,
+            name: str,
+            query_sql: str,
+            columns: Optional[List[str]] = None,
+            recursive: bool = False,
+            materialized: Optional[bool] = None,
+            dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Format a single CTE definition."""
+        recursive_str = "RECURSIVE " if recursive else ""
+        materialized_hint = ""
+        if materialized is not None:
+            materialized_hint = "MATERIALIZED " if materialized else "NOT MATERIALIZED "
+
+        name_part = self.format_identifier(name)
+        columns_part = f" ({', '.join(self.format_identifier(c) for c in columns)})" if columns else ""
+        return f"{recursive_str}{name_part}{columns_part} AS {materialized_hint}({query_sql})"
+
+    def format_with_query(
+            self,
+            cte_sql_parts: List[str],
+            main_query_sql: str,
+            dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Format a complete query with WITH clause."""
+        if not cte_sql_parts:
+            return main_query_sql
+        with_clause = self._format_with_clause(cte_sql_parts)
+        return f"{with_clause} {main_query_sql}"
+
+    def _format_with_clause(self, ctes_sql: List[str]) -> str:
+        """Helper to format complete WITH clause from list of CTE definitions."""
+        if not ctes_sql:
+            return ""
+        return f"WITH {', '.join(ctes_sql)}"
+
 
 class AdvancedGroupingMixin:
     """Mixin for advanced grouping operations (ROLLUP, CUBE, GROUPING SETS)."""
-    
+
     def supports_rollup(self) -> bool:
         """Whether ROLLUP is supported."""
         return False
@@ -221,9 +256,9 @@ class AdvancedGroupingMixin:
         return False
 
     def format_grouping_expression(
-        self,
-        operation: str,
-        expressions: List["bases.BaseExpression"]
+            self,
+            operation: str,
+            expressions: List["bases.BaseExpression"]
     ) -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
@@ -274,7 +309,7 @@ class AdvancedGroupingMixin:
 
 class ReturningMixin:
     """Mixin for RETURNING clause support."""
-    
+
     def supports_returning_clause(self) -> bool:
         """Whether RETURNING clause is supported."""
         return False
@@ -313,7 +348,7 @@ class ReturningMixin:
 
 class UpsertMixin:
     """Mixin for UPSERT operation support."""
-    
+
     def supports_upsert(self) -> bool:
         """Whether UPSERT is supported."""
         return False
@@ -327,18 +362,101 @@ class UpsertMixin:
         """
         return "ON CONFLICT"
 
+    def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
+        """Format ON CONFLICT clause."""
+        all_params = []
+
+        # Start with ON CONFLICT
+        parts = ["ON CONFLICT"]
+
+        # Add conflict target if specified
+        if expr.conflict_target:
+            target_parts = []
+            for target in expr.conflict_target:
+                if isinstance(target, str):
+                    # Column name as string
+                    target_parts.append(self.format_identifier(target))
+                elif hasattr(target, 'to_sql'):
+                    # Column expression
+                    target_sql, target_params = target.to_sql()
+                    target_parts.append(target_sql)
+                    all_params.extend(target_params)
+                else:
+                    # Other types - format as identifier
+                    target_parts.append(self.format_identifier(str(target)))
+
+            if target_parts:
+                parts.append(f"({', '.join(target_parts)})")
+
+        # Add DO NOTHING or DO UPDATE
+        if expr.do_nothing:
+            parts.append("DO NOTHING")
+        elif expr.update_assignments:
+            # DO UPDATE SET assignments
+            update_parts = []
+            for col, expr_val in expr.update_assignments.items():
+                if isinstance(expr_val, bases.BaseExpression):
+                    val_sql, val_params = expr_val.to_sql()
+                    update_parts.append(f"{self.format_identifier(col)} = {val_sql}")
+                    all_params.extend(val_params)
+                else:
+                    update_parts.append(f"{self.format_identifier(col)} = {self.get_parameter_placeholder()}")
+                    all_params.append(expr_val)
+
+            parts.append(f"DO UPDATE SET {', '.join(update_parts)}")
+
+            # Add WHERE clause if specified
+            if expr.update_where:
+                where_sql, where_params = expr.update_where.to_sql()
+                parts.append(f"WHERE {where_sql}")
+                all_params.extend(where_params)
+        else:
+            # Default to DO NOTHING if no action specified
+            parts.append("DO NOTHING")
+
+        return " ".join(parts), tuple(all_params)
+
 
 class LateralJoinMixin:
     """Mixin for LATERAL join support."""
-    
+
     def supports_lateral_join(self) -> bool:
         """Whether LATERAL joins are supported."""
         return False
 
+    def format_lateral_expression(
+            self,
+            expr_sql: str,
+            expr_params: Tuple[Any, ...],
+            alias: str,
+            join_type: str
+    ) -> Tuple[str, Tuple]:
+        """Format LATERAL expression."""
+        sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
+        return sql, expr_params
+
+    def format_table_function_expression(
+            self,
+            func_name: str,
+            args_sql: List[str],
+            args_params: Tuple[Any, ...],
+            alias: str,
+            column_names: Optional[List[str]]
+    ) -> Tuple[str, Tuple]:
+        """Format table-valued function expression."""
+        args_str = ", ".join(args_sql)
+
+        cols_sql = ""
+        if column_names:
+            cols_sql = f"({', '.join(self.format_identifier(name) for name in column_names)})"
+
+        sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
+        return sql, args_params
+
 
 class ArrayMixin:
     """Mixin for array type support."""
-    
+
     def supports_array_type(self) -> bool:
         """Whether array types are supported."""
         return False
@@ -351,10 +469,31 @@ class ArrayMixin:
         """Whether array subscript access is supported."""
         return False
 
+    def format_array_expression(
+            self,
+            operation: str,
+            elements: Optional[List["bases.BaseExpression"]],
+            base_expr: Optional["bases.BaseExpression"],
+            index_expr: Optional["bases.BaseExpression"]
+    ) -> Tuple[str, Tuple]:
+        """Format array expression."""
+        if operation.upper() == "CONSTRUCTOR" and elements is not None:
+            element_parts, all_params = [], []
+            for elem in elements:
+                elem_sql, elem_params = elem.to_sql()
+                element_parts.append(elem_sql)
+                all_params.extend(elem_params)
+            return f"ARRAY[{', '.join(element_parts)}]", tuple(all_params)
+        elif operation.upper() == "ACCESS" and base_expr and index_expr:
+            base_sql, base_params = base_expr.to_sql()
+            index_sql, index_params = index_expr.to_sql()
+            return f"({base_sql}[{index_sql}])", base_params + index_params
+        return "ARRAY[]", ()
+
 
 class JSONMixin:
     """Mixin for JSON type support."""
-    
+
     def supports_json_type(self) -> bool:
         """Whether JSON type is supported."""
         return False
@@ -372,13 +511,27 @@ class JSONMixin:
         """Whether JSON_TABLE function is supported."""
         return False
 
+    def format_json_expression(
+            self,
+            column: Union["bases.BaseExpression", str],
+            path: str,
+            operation: str
+    ) -> Tuple[str, Tuple]:
+        """Format JSON expression."""
+        if isinstance(column, bases.BaseExpression):
+            col_sql, col_params = column.to_sql()
+        else:
+            col_sql, col_params = self.format_identifier(str(column)), ()
+        sql = f"({col_sql} {operation} ?)"
+        return sql, col_params + (path,)
+
     def format_json_table_expression(
-        self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: Optional[str],
-        params: tuple
+            self,
+            json_col_sql: str,
+            path: str,
+            columns: List[Dict[str, Any]],
+            alias: Optional[str],
+            params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Formats a JSON_TABLE expression.
@@ -395,7 +548,7 @@ class JSONMixin:
         """
         if not self.supports_json_table():
             raise UnsupportedFeatureError(self.name, "JSON_TABLE function")
-        
+
         cols_defs = [f"{col['name']} {col['type']} PATH '{col['path']}'" for col in columns]
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"
         sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias) if alias else alias}"
@@ -404,7 +557,7 @@ class JSONMixin:
 
 class ExplainMixin:
     """Mixin for EXPLAIN statement support."""
-    
+
     def supports_explain_analyze(self) -> bool:
         """Whether EXPLAIN ANALYZE is supported."""
         return False
@@ -421,18 +574,50 @@ class ExplainMixin:
         """
         return False
 
+    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+        """Format EXPLAIN statement."""
+        statement_sql, statement_params = expr.statement.to_sql()
+        options = expr.options
+        if options is None:
+            return f"EXPLAIN {statement_sql}", statement_params
+
+        parts = ["EXPLAIN"]
+        # Import here to avoid circular imports
+        from ..expression.statements import ExplainType
+        # Determine if ANALYZE should be included based on the type field
+        # If type is ANALYZE, or if the boolean analyze field is True
+        if (hasattr(options, 'type') and options.type == ExplainType.ANALYZE) or options.analyze:
+            parts.append("ANALYZE")
+        if options.format:
+            parts.append(f"FORMAT {options.format.value.upper()}")
+        # Only show costs=False if it's explicitly set to False, since True is default
+        if not options.costs:
+            parts.append("COSTS OFF")
+        if options.buffers:
+            parts.append("BUFFERS")
+        if options.timing and options.analyze:
+            parts.append("TIMING ON")
+        if options.verbose:
+            parts.append("VERBOSE")
+        if options.settings:
+            parts.append("SETTINGS")  # PostgreSQL-specific option, not SQL standard
+        if options.wal:
+            parts.append("WAL")  # PostgreSQL-specific option, not SQL standard
+
+        return f"{' '.join(parts)} {statement_sql}", statement_params
+
 
 class GraphMixin:
     """Mixin for graph query (MATCH) support."""
-    
+
     def supports_graph_match(self) -> bool:
         """Whether graph query MATCH clause is supported."""
         return False
 
     def format_graph_vertex(
-        self,
-        variable: str,
-        table: str
+            self,
+            variable: str,
+            table: str
     ) -> Tuple[str, tuple]:
         """
         Formats a graph vertex expression.
@@ -446,15 +631,15 @@ class GraphMixin:
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
-        
+
         sql = f"({variable} IS {self.format_identifier(table)})"
         return sql, ()
 
     def format_graph_edge(
-        self,
-        variable: str,
-        table: str,
-        direction: "GraphEdgeDirection"
+            self,
+            variable: str,
+            table: str,
+            direction: "GraphEdgeDirection"
     ) -> Tuple[str, tuple]:
         """
         Formats a graph edge expression.
@@ -469,7 +654,7 @@ class GraphMixin:
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
-        
+
         from ..expression.graph import GraphEdgeDirection  # Import here to avoid circular import
 
         # For different directions, construct the correct syntax
@@ -489,8 +674,8 @@ class GraphMixin:
         return sql, ()
 
     def format_match_clause(
-        self,
-        clause: "MatchClause"
+            self,
+            clause: "MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.
@@ -503,7 +688,7 @@ class GraphMixin:
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
-        
+
         # This method is called from MatchClause.to_sql(), so we need to format the MATCH clause
         # with the path components from the clause
         path_sql, all_params = [], []
@@ -518,15 +703,15 @@ class GraphMixin:
 
 class FilterClauseMixin:
     """Mixin for aggregate FILTER clause support."""
-    
+
     def supports_filter_clause(self) -> bool:
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         return False
 
     def format_filter_clause(
-        self,
-        condition_sql: str,
-        condition_params: tuple
+            self,
+            condition_sql: str,
+            condition_params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Format a FILTER (WHERE ...) clause.
@@ -540,25 +725,25 @@ class FilterClauseMixin:
         """
         if not self.supports_filter_clause():
             raise UnsupportedFeatureError(self.name, "FILTER clause in aggregate functions")
-        
+
         return f"FILTER (WHERE {condition_sql})", condition_params
 
 
 class OrderedSetAggregationMixin:
     """Mixin for ordered-set aggregate function support (WITHIN GROUP (ORDER BY ...))."""
-    
+
     def supports_ordered_set_aggregation(self) -> bool:
         """Whether ordered-set aggregate functions are supported."""
         return False
 
     def format_ordered_set_aggregation(
-        self,
-        func_name: str,
-        func_args_sql: List[str],
-        func_args_params: tuple,
-        order_by_sql: List[str],
-        order_by_params: tuple,
-        alias: Optional[str] = None
+            self,
+            func_name: str,
+            func_args_sql: List[str],
+            func_args_params: tuple,
+            order_by_sql: List[str],
+            order_by_params: tuple,
+            alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """
         Formats an ordered-set aggregate function call.
@@ -576,7 +761,7 @@ class OrderedSetAggregationMixin:
         """
         if not self.supports_ordered_set_aggregation():
             raise UnsupportedFeatureError(self.name, "ordered-set aggregate functions")
-        
+
         args_str = ", ".join(func_args_sql)
         order_by_str = ", ".join(order_by_sql)
         sql = f"{func_name.upper()}({args_str}) WITHIN GROUP (ORDER BY {order_by_str})"
@@ -587,18 +772,113 @@ class OrderedSetAggregationMixin:
 
 class MergeMixin:
     """Mixin for MERGE statement support."""
-    
+
     def supports_merge_statement(self) -> bool:
         """Whether MERGE statement is supported."""
         return False
 
+    def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
+        """Format MERGE statement."""
+        all_params: List[Any] = []
+        target_sql, target_params = expr.target_table.to_sql()
+        all_params.extend(target_params)
+        source_sql, source_params = expr.source.to_sql()
+        all_params.extend(source_params)
+        on_sql, on_params = expr.on_condition.to_sql()
+        all_params.extend(on_params)
+
+        merge_sql_parts = [f"MERGE INTO {target_sql}", f"USING {source_sql}", f"ON {on_sql}"]
+
+        # Import here to avoid circular imports
+        from ..expression.statements import MergeActionType
+
+        for action in expr.when_matched:
+            action_sql_parts = []
+            if action.condition:
+                cond_sql, cond_params = action.condition.to_sql()
+                action_sql_parts.append(f"WHEN MATCHED AND {cond_sql}")
+                all_params.extend(cond_params)
+            else:
+                action_sql_parts.append("WHEN MATCHED")
+
+            if action.action_type == MergeActionType.UPDATE:
+                assignments = []
+                for col, as_expr in action.assignments.items():
+                    as_sql, as_params = as_expr.to_sql()
+                    assignments.append(f"{self.format_identifier(col)} = {as_sql}")
+                    all_params.extend(as_params)
+                action_sql_parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
+            elif action.action_type == MergeActionType.DELETE:
+                action_sql_parts.append("THEN DELETE")
+            merge_sql_parts.append(" ".join(action_sql_parts))
+
+        for action in expr.when_not_matched:
+            action_sql_parts = []
+            if action.condition:
+                cond_sql, cond_params = action.condition.to_sql()
+                action_sql_parts.append(f"WHEN NOT MATCHED AND {cond_sql}")
+                all_params.extend(cond_params)
+            else:
+                action_sql_parts.append("WHEN NOT MATCHED")
+
+            if action.action_type == MergeActionType.INSERT:
+                insert_cols, insert_vals = [], []
+                for col, val_expr in action.assignments.items():
+                    insert_cols.append(self.format_identifier(col))
+                    val_sql, val_params = val_expr.to_sql()
+                    insert_vals.append(val_sql)
+                    all_params.extend(val_params)
+                if insert_cols:
+                    action_sql_parts.append(f"THEN INSERT ({', '.join(insert_cols)}) VALUES ({', '.join(insert_vals)})")
+                else:
+                    action_sql_parts.append("THEN INSERT DEFAULT VALUES")
+            merge_sql_parts.append(" ".join(action_sql_parts))
+
+        # Handle WHEN NOT MATCHED BY SOURCE clauses
+        for action in expr.when_not_matched_by_source:
+            action_sql_parts = []
+            if action.condition:
+                cond_sql, cond_params = action.condition.to_sql()
+                action_sql_parts.append(f"WHEN NOT MATCHED BY SOURCE AND {cond_sql}")
+                all_params.extend(cond_params)
+            else:
+                action_sql_parts.append("WHEN NOT MATCHED BY SOURCE")
+
+            if action.action_type == MergeActionType.UPDATE:
+                assignments = []
+                for col, as_expr in action.assignments.items():
+                    as_sql, as_params = as_expr.to_sql()
+                    assignments.append(f"{self.format_identifier(col)} = {as_sql}")
+                    all_params.extend(as_params)
+                action_sql_parts.append(f"THEN UPDATE SET {', '.join(assignments)}")
+            elif action.action_type == MergeActionType.DELETE:
+                action_sql_parts.append("THEN DELETE")
+            merge_sql_parts.append(" ".join(action_sql_parts))
+
+        return " ".join(merge_sql_parts), tuple(all_params)
+
 
 class TemporalTableMixin:
     """Mixin for temporal table support."""
-    
+
     def supports_temporal_tables(self) -> bool:
         """Whether temporal tables are supported."""
         return False
+
+    def format_temporal_options(
+            self,
+            options: Dict[str, Any]
+    ) -> Tuple[str, tuple]:
+        """Format temporal table options."""
+        if not options:
+            raise ValueError(
+                "Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.")
+        sql_parts, params = ["FOR SYSTEM_TIME"], []
+        # Add temporal options to SQL parts based on the options provided
+        for key, value in options.items():
+            sql_parts.append(f"{key.upper()} ?")
+            params.append(value)
+        return " ".join(sql_parts), tuple(params)
 
 
 class QualifyClauseMixin:
@@ -609,8 +889,8 @@ class QualifyClauseMixin:
         return False
 
     def format_qualify_clause(
-        self,
-        clause: "QualifyClause"
+            self,
+            clause: "QualifyClause"
     ) -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         if not self.supports_qualify_clause():
@@ -622,7 +902,36 @@ class QualifyClauseMixin:
 
 class LockingMixin:
     """Mixin for locking clause support."""
-    
+
     def supports_for_update_skip_locked(self) -> bool:
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         return False
+
+    def format_for_update_clause(
+            self,
+            clause: "ForUpdateClause"
+    ) -> Tuple[str, tuple]:
+        """Default implementation for FOR UPDATE clause."""
+        all_params = []
+        sql_parts = ["FOR UPDATE"]
+
+        # Handle OF columns if specified
+        if clause.of_columns:
+            of_parts = []
+            for col in clause.of_columns:
+                if isinstance(col, str):
+                    of_parts.append(self.format_identifier(col))
+                elif hasattr(col, 'to_sql'):  # BaseExpression
+                    col_sql, col_params = col.to_sql()
+                    of_parts.append(col_sql)
+                    all_params.extend(col_params)
+            if of_parts:
+                sql_parts.append(f"OF {', '.join(of_parts)}")
+
+        # Handle NOWAIT/SKIP LOCKED options
+        if clause.nowait:
+            sql_parts.append("NOWAIT")
+        elif clause.skip_locked:
+            sql_parts.append("SKIP LOCKED")
+
+        return " ".join(sql_parts), tuple(all_params)

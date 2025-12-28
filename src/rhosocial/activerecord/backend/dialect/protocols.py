@@ -10,8 +10,7 @@ from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..expression import bases, graph
-    from ..expression.graph import GraphEdgeDirection
+    from ..expression import bases, ExplainExpression, OnConflictClause, MergeExpression, MatchClause, QualifyClause, GraphEdgeDirection
 
 
 @runtime_checkable
@@ -41,6 +40,27 @@ class CTESupport(Protocol):
 
     def supports_materialized_cte(self) -> bool:
         """Whether MATERIALIZED hint is supported."""
+        ...  # pragma: no cover
+
+    def format_cte(
+        self,
+        name: str,
+        query_sql: str,
+        columns: Optional[List[str]] = None,
+        recursive: bool = False,
+        materialized: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Format a single CTE definition."""
+        ...  # pragma: no cover
+
+    def format_with_query(
+        self,
+        cte_sql_parts: List[str],
+        main_query_sql: str,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str:
+        """Format a complete query with WITH clause."""
         ...  # pragma: no cover
 
 
@@ -119,6 +139,21 @@ class UpsertSupport(Protocol):
         """
         ...  # pragma: no cover
 
+    def format_on_conflict_clause(
+        self,
+        expr: "OnConflictClause"
+    ) -> Tuple[str, tuple]:
+        """
+        Format ON CONFLICT clause.
+
+        Args:
+            expr: OnConflictClause object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted clause.
+        """
+        ...  # pragma: no cover
+
 
 @runtime_checkable
 class LateralJoinSupport(Protocol):
@@ -126,6 +161,27 @@ class LateralJoinSupport(Protocol):
 
     def supports_lateral_join(self) -> bool:
         """Whether LATERAL joins are supported."""
+        ...  # pragma: no cover
+
+    def format_lateral_expression(
+        self,
+        expr_sql: str,
+        expr_params: Tuple[Any, ...],
+        alias: str,
+        join_type: str
+    ) -> Tuple[str, Tuple]:
+        """Format LATERAL expression."""
+        ...  # pragma: no cover
+
+    def format_table_function_expression(
+        self,
+        func_name: str,
+        args_sql: List[str],
+        args_params: Tuple[Any, ...],
+        alias: str,
+        column_names: Optional[List[str]]
+    ) -> Tuple[str, Tuple]:
+        """Format table-valued function expression."""
         ...  # pragma: no cover
 
 
@@ -143,6 +199,16 @@ class ArraySupport(Protocol):
 
     def supports_array_access(self) -> bool:
         """Whether array subscript access is supported."""
+        ...  # pragma: no cover
+
+    def format_array_expression(
+        self,
+        operation: str,
+        elements: Optional[List["bases.BaseExpression"]],
+        base_expr: Optional["bases.BaseExpression"],
+        index_expr: Optional["bases.BaseExpression"]
+    ) -> Tuple[str, Tuple]:
+        """Format array expression."""
         ...  # pragma: no cover
 
 
@@ -165,6 +231,25 @@ class JSONSupport(Protocol):
 
     def supports_json_table(self) -> bool:
         """Whether JSON_TABLE function is supported."""
+        ...  # pragma: no cover
+
+    def format_json_expression(
+        self,
+        column: Any,
+        path: str,
+        operation: str
+    ) -> Tuple[str, Tuple]:
+        """
+        Format JSON expression.
+
+        Args:
+            column: Column expression or name
+            path: JSON path
+            operation: JSON operation (e.g., '->', '->>')
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
         ...  # pragma: no cover
 
     def format_json_table_expression(
@@ -208,6 +293,21 @@ class ExplainSupport(Protocol):
 
         Returns:
             True if format is supported
+        """
+        ...  # pragma: no cover
+
+    def format_explain_statement(
+        self,
+        expr: "ExplainExpression"
+    ) -> Tuple[str, tuple]:
+        """
+        Format EXPLAIN statement.
+
+        Args:
+            expr: ExplainExpression object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted statement.
         """
         ...  # pragma: no cover
 
@@ -423,5 +523,3 @@ class LockingSupport(Protocol):
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
         ...  # pragma: no cover
-
-
