@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_query_parts.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_query_parts.py
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall, ComparisonPredicate,

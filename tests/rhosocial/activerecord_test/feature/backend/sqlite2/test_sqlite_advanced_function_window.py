@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_advanced_function_window.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_advanced_function_window.py
 import pytest
 
 from rhosocial.activerecord.backend.expression import (

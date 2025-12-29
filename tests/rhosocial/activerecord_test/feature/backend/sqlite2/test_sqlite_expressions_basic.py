@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_expressions_basic.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_expressions_basic.py
 import pytest
 from rhosocial.activerecord.backend.expression import Literal, Column, Identifier, RawSQLExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect

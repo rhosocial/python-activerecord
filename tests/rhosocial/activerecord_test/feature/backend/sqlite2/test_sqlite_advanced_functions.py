@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_advanced_functions.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_advanced_functions.py
 """
 Tests for the advanced SQL function expression components in advanced_functions.py
 """

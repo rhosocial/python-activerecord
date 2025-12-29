@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_core.py
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_core.py
 """
 Tests for the core SQL expression components in core.py
 """
