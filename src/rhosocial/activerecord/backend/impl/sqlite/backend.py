@@ -35,11 +35,12 @@ from ...capabilities import (
     ALL_WINDOW_FUNCTIONS,
     ALL_RETURNING_FEATURES
 )
-from ...dialect import ReturningOptions
+from ...options import ExecutionOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
 from ...result import QueryResult
 from ...type_adapter import SQLTypeAdapter
+from ...expression.statements import ReturningClause
 
 
 class SQLiteBackend(StorageBackend):
@@ -471,7 +472,7 @@ class SQLiteBackend(StorageBackend):
         """
         return stmt_type in ("SELECT", "EXPLAIN", "PRAGMA", "ANALYZE")
 
-    def _check_returning_compatibility(self, options: ReturningOptions) -> None:
+    def _check_returning_compatibility(self, returning_clause: Optional['ReturningClause']) -> None:
         """
         Check compatibility issues with RETURNING clause in SQLite.
 
@@ -479,27 +480,25 @@ class SQLiteBackend(StorageBackend):
         affected_rows is always reported as 0.
 
         Args:
-            options: RETURNING options
+            returning_clause: ReturningClause object to check compatibility for
 
         Raises:
-            ReturningNotSupportedError: If compatibility issues found and not forced
+            ReturningNotSupportedError: If compatibility issues found
         """
         # Check SQLite version support
         version = sqlite3.sqlite_version_info
-        if version < (3, 35, 0) and not options.force:
+        if version < (3, 35, 0):
             error_msg = (
                 f"RETURNING clause requires SQLite 3.35.0+. Current version: {sqlite3.sqlite_version}. "
-                f"Use force=True to attempt anyway if your SQLite binary supports it."
             )
             self.log(logging.WARNING, error_msg)
             raise ReturningNotSupportedError(error_msg)
 
         # Check Python version compatibility
-        if sys.version_info < (3, 10) and not options.force:
+        if sys.version_info < (3, 10):
             error_msg = (
                 "RETURNING clause has known issues in Python < 3.10 with SQLite: "
-                "affected_rows always reports 0 regardless of actual rows affected. "
-                "Use force=True to use anyway if you understand these limitations."
+                "affected_rows always reports 0 regardless of actual rows affected."
             )
             self.log(logging.WARNING, error_msg)
             raise ReturningNotSupportedError(error_msg)

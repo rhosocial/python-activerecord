@@ -13,14 +13,11 @@ class ExecutionMixin:
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
             if not self._connection: self.connect()
-            stmt_type, is_select, is_dml = options.stmt_type, (options.stmt_type == StatementType.DQL), (options.stmt_type == StatementType.DML)
-            returning_options = self._process_returning_options(options.returning)
-            need_returning = bool(returning_options) and is_dml
-            if need_returning: sql = self._prepare_returning_clause(sql, returning_options, stmt_type)
+            stmt_type, is_select = options.stmt_type, (options.stmt_type == StatementType.DQL)
             cursor = self._get_cursor()
             final_sql, final_params = self._prepare_sql_and_params(sql, params)
             cursor = self._execute_query(cursor, final_sql, final_params)
-            data = self._process_result_set(cursor, is_select, need_returning, options.column_adapters, options.column_mapping)
+            data = self._process_result_set(cursor, is_select, options.column_adapters, options.column_mapping)
             duration = time.perf_counter() - start_time
             self._log_query_completion(stmt_type, cursor, data, duration)
             result = self._build_query_result(cursor, data, duration)
@@ -51,14 +48,11 @@ class AsyncExecutionMixin:
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
             if not self._connection: await self.connect()
-            stmt_type, is_select, is_dml = options.stmt_type, (options.stmt_type == StatementType.DQL), (options.stmt_type == StatementType.DML)
-            returning_options = self._process_returning_options(options.returning)
-            need_returning = bool(returning_options) and is_dml
-            if need_returning: sql = self._prepare_returning_clause(sql, returning_options, stmt_type)
+            stmt_type, is_select = options.stmt_type, (options.stmt_type == StatementType.DQL)
             cursor = await self._get_cursor()
             final_sql, final_params = self._prepare_sql_and_params(sql, params)
             cursor = await self._execute_query(cursor, final_sql, final_params)
-            data = await self._process_result_set(cursor, is_select, need_returning, options.column_adapters, options.column_mapping)
+            data = await self._process_result_set(cursor, is_select, options.column_adapters, options.column_mapping)
             duration = time.perf_counter() - start_time
             self._log_query_completion(stmt_type, cursor, data, duration)
             result = self._build_query_result(cursor, data, duration)

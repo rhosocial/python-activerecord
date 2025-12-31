@@ -6,7 +6,6 @@ extensible without introducing breaking changes.
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, Type, List, Union
 
-from .dialect import ReturningOptions
 from .expression import SQLPredicate
 from .schema import StatementType
 from .type_adapter import SQLTypeAdapter
@@ -22,10 +21,6 @@ class ExecutionOptions:
     # Essential: The type of SQL statement being executed (DQL, DML, etc.).
     # This dictates key backend behavior, such as result set processing.
     stmt_type: StatementType
-
-    # Options for the RETURNING clause (primarily for DML statements).
-    # Can be a boolean, a list of column names, or a full ReturningOptions object.
-    returning: Optional[Union[bool, List[str], ReturningOptions]] = None
 
     # A dictionary mapping database column names to type adapters.
     # Used to convert database-native types back into Python types during
@@ -46,7 +41,6 @@ class InsertOptions:
     data: Dict
 
     # See ExecutionOptions for details on these result-processing parameters.
-    returning: Optional[Union[bool, List[str], ReturningOptions]] = None
     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
     column_mapping: Optional[Dict[str, str]] = None
 
@@ -67,7 +61,6 @@ class UpdateOptions:
     where: SQLPredicate
 
     # See ExecutionOptions for details on these result-processing parameters.
-    returning: Optional[Union[bool, List[str], ReturningOptions]] = None
     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
     column_mapping: Optional[Dict[str, str]] = None
 
@@ -84,7 +77,6 @@ class DeleteOptions:
     where: SQLPredicate
 
     # See ExecutionOptions for details on these result-processing parameters.
-    returning: Optional[Union[bool, List[str], ReturningOptions]] = None
     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
     column_mapping: Optional[Dict[str, str]] = None
 

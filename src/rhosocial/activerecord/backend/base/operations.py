@@ -44,7 +44,6 @@ class SQLOperationsMixin:
 
         exec_options = ExecutionOptions(
             stmt_type=StatementType.DML,
-            returning=options.returning,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )
@@ -81,7 +80,6 @@ class SQLOperationsMixin:
 
         exec_options = ExecutionOptions(
             stmt_type=StatementType.DML,
-            returning=options.returning,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )
@@ -115,7 +113,6 @@ class SQLOperationsMixin:
 
         exec_options = ExecutionOptions(
             stmt_type=StatementType.DML,
-            returning=options.returning,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )
@@ -200,7 +197,6 @@ class AsyncSQLOperationsMixin:
 
         exec_options = ExecutionOptions(
             stmt_type=StatementType.DML,
-            returning=options.returning,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )
@@ -234,7 +230,6 @@ class AsyncSQLOperationsMixin:
 
         exec_options = ExecutionOptions(
             stmt_type=StatementType.DML,
-            returning=options.returning,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )
@@ -265,7 +260,6 @@ class AsyncSQLOperationsMixin:
 
         exec_options = ExecutionOptions(
             stmt_type=StatementType.DML,
-            returning=options.returning,
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )

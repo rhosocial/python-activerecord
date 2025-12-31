@@ -98,7 +98,7 @@ def get_provider(args):
         return CsvOutputProvider()
     if output_format == 'tsv':
         return TsvOutputProvider()
-    
+
     # Default provider
     return JsonOutputProvider()
 
@@ -108,13 +108,13 @@ def execute_query(sql_query: str, backend: SQLiteBackend, provider: 'OutputProvi
         backend.connect()
         # Since this backend is sync-only, is_async is always False
         provider.display_query(sql_query, is_async=False)
-        
+
         # Determine statement type for the CLI tool
         stmt_type = guess_statement_type(sql_query)
         exec_options = ExecutionOptions(stmt_type=stmt_type)
 
         result = backend.execute(sql_query, options=exec_options)
-        
+
         if not result:
             provider.display_no_result_object()
         else:
@@ -174,7 +174,7 @@ def main():
         raise ValueError(f'Invalid log level: {args.log_level}')
 
     provider = get_provider(args)
-    
+
     # Configure logging handlers based on provider
     # Force all logging to stderr to keep stdout clean for data piping
     if RICH_AVAILABLE and isinstance(provider, RichOutputProvider):

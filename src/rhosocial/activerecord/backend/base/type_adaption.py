@@ -58,8 +58,8 @@ class TypeAdaptionMixin:
             field_name = column_mapping.get(col_name, col_name)
             final_row[field_name] = value
         return final_row
-    def _process_result_set(self, cursor, is_select, need_returning, column_adapters=None, column_mapping=None) -> Optional[List[Dict]]:
-        if not (is_select or need_returning):
+    def _process_result_set(self, cursor, is_select, column_adapters=None, column_mapping=None) -> Optional[List[Dict]]:
+        if not is_select:
             return None
         try:
             rows = cursor.fetchall()
@@ -82,8 +82,8 @@ class TypeAdaptionMixin:
         pass
 
 class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
-    async def _process_result_set(self, cursor, is_select, need_returning, column_adapters=None, column_mapping=None) -> Optional[List[Dict]]:
-        if not (is_select or need_returning):
+    async def _process_result_set(self, cursor, is_select, column_adapters=None, column_mapping=None) -> Optional[List[Dict]]:
+        if not is_select:
             return None
         try:
             rows = await cursor.fetchall()
