@@ -32,12 +32,15 @@ class SQLOperationsMixin:
         """
         columns = list(options.data.keys())
         values = [Literal(self.dialect, v) for v in options.data.values()]
-        
+
+        # Create a ValuesSource to use as the data source for the InsertExpression
+        values_source = ValuesSource(self.dialect, [values])
+
         insert_expr = InsertExpression(
             dialect=self.dialect,
-            table=options.table,
-            columns=columns,
-            values=values
+            into=options.table,
+            source=values_source,
+            columns=columns
         )
         
         sql, params = insert_expr.to_sql()

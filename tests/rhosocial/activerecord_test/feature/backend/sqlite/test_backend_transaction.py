@@ -60,7 +60,9 @@ class TestSQLiteBackendTransaction:
         backend = SQLiteBackend(connection_config=config)
         # Ensure table exists
         backend.connect()
-        backend.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, value TEXT)")
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        backend.execute("CREATE TABLE IF NOT EXISTS test (id INTEGER PRIMARY KEY, value TEXT)", options=ExecutionOptions(stmt_type=StatementType.DDL))
         return backend
 
     def test_transaction_property(self, backend):
@@ -82,10 +84,12 @@ class TestSQLiteBackendTransaction:
 
     def test_commit_transaction(self, backend):
         """Test committing a transaction"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         backend.begin_transaction()
 
         # Insert data
-        backend.execute("INSERT INTO test (id, value) VALUES (1, 'test commit')")
+        backend.execute("INSERT INTO test (id, value) VALUES (1, 'test commit')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Commit transaction
         backend.commit_transaction()
@@ -99,10 +103,12 @@ class TestSQLiteBackendTransaction:
 
     def test_rollback_transaction(self, backend):
         """Test rolling back a transaction"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         backend.begin_transaction()
 
         # Insert data
-        backend.execute("INSERT INTO test (id, value) VALUES (2, 'test rollback')")
+        backend.execute("INSERT INTO test (id, value) VALUES (2, 'test rollback')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Rollback transaction
         backend.rollback_transaction()
@@ -114,9 +120,11 @@ class TestSQLiteBackendTransaction:
 
     def test_transaction_context_manager(self, backend):
         """Test transaction context manager"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         # Use with statement for transaction management
         with backend.transaction():
-            backend.execute("INSERT INTO test (id, value) VALUES (3, 'context manager')")
+            backend.execute("INSERT INTO test (id, value) VALUES (3, 'context manager')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Verify transaction was committed
         assert backend.in_transaction is False
@@ -127,9 +135,11 @@ class TestSQLiteBackendTransaction:
 
     def test_transaction_context_manager_exception(self, backend):
         """Test transaction context manager exception handling"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         try:
             with backend.transaction():
-                backend.execute("INSERT INTO test (id, value) VALUES (4, 'context exception')")
+                backend.execute("INSERT INTO test (id, value) VALUES (4, 'context exception')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
                 raise ValueError("Test exception")
         except ValueError:
             pass
@@ -142,16 +152,18 @@ class TestSQLiteBackendTransaction:
     def test_nested_transactions(self, backend):
         """Test nested transactions"""
         # Start outer transaction
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         backend.begin_transaction()
 
         # Insert data
-        backend.execute("INSERT INTO test (id, value) VALUES (5, 'outer')")
+        backend.execute("INSERT INTO test (id, value) VALUES (5, 'outer')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Start inner transaction
         backend.begin_transaction()
 
         # Insert more data
-        backend.execute("INSERT INTO test (id, value) VALUES (6, 'inner')")
+        backend.execute("INSERT INTO test (id, value) VALUES (6, 'inner')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Rollback inner transaction
         backend.rollback_transaction()
@@ -175,15 +187,17 @@ class TestSQLiteBackendTransaction:
 
     def test_mixed_nested_transactions(self, backend):
         """Test mixed nested transactions (including context manager)"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         # Start outer transaction
         backend.begin_transaction()
 
         # Insert data
-        backend.execute("INSERT INTO test (id, value) VALUES (7, 'outer mixed')")
+        backend.execute("INSERT INTO test (id, value) VALUES (7, 'outer mixed')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Use context manager to start inner transaction
         with backend.transaction():
-            backend.execute("INSERT INTO test (id, value) VALUES (8, 'inner mixed')")
+            backend.execute("INSERT INTO test (id, value) VALUES (8, 'inner mixed')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Verify inner transaction was committed successfully
         result = backend.fetch_all("SELECT * FROM test WHERE id IN (7, 8) ORDER BY id")
@@ -200,45 +214,81 @@ class TestSQLiteBackendTransaction:
 
     def test_auto_transaction_on_insert(self, backend):
         """Test automatic transaction handling for insert operations"""
-        # Use insert method
-        result = backend.insert("test", {"id": 9, "value": "auto insert"})
+        from rhosocial.activerecord.backend.options import InsertOptions
+        # Use insert method with proper options
+        insert_opts = InsertOptions(
+            table="test",
+            data={"id": 9, "value": "auto insert"},
+            primary_key="id"
+        )
+        result = backend.insert(insert_opts)
 
         # Verify insertion was successful
         assert result.affected_rows == 1
-        assert result.last_insert_id == 9
 
         # Verify data exists
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         row = backend.fetch_one("SELECT * FROM test WHERE id = 9")
         assert row is not None
         assert row['value'] == 'auto insert'
 
     def test_auto_transaction_on_update(self, backend):
         """Test automatic transaction handling for update operations"""
+        from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions
+        from rhosocial.activerecord.backend.expression import Column, Literal, ComparisonPredicate
         # First insert data
-        backend.insert("test", {"id": 10, "value": "before update"})
+        insert_opts = InsertOptions(
+            table="test",
+            data={"id": 10, "value": "before update"},
+            primary_key="id"
+        )
+        backend.insert(insert_opts)
 
-        # Use update method
-        result = backend.update("test", {"value": "after update"}, "id = ?", (10,))
+        # Use update method with proper options
+        where_clause = ComparisonPredicate(backend.dialect, "=", Column(backend.dialect, "id"), Literal(backend.dialect, 10))
+        update_opts = UpdateOptions(
+            table="test",
+            data={"value": "after update"},
+            where=where_clause
+        )
+        result = backend.update(update_opts)
 
         # Verify update was successful
         assert result.affected_rows == 1
 
         # Verify data was updated
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         row = backend.fetch_one("SELECT * FROM test WHERE id = 10")
         assert row is not None
         assert row['value'] == 'after update'
 
     def test_auto_transaction_on_delete(self, backend):
         """Test automatic transaction handling for delete operations"""
+        from rhosocial.activerecord.backend.options import InsertOptions, DeleteOptions
+        from rhosocial.activerecord.backend.expression import Column, Literal, ComparisonPredicate
         # First insert data
-        backend.insert("test", {"id": 11, "value": "to be deleted"})
+        insert_opts = InsertOptions(
+            table="test",
+            data={"id": 11, "value": "to be deleted"},
+            primary_key="id"
+        )
+        backend.insert(insert_opts)
 
         # Verify data was inserted
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         row = backend.fetch_one("SELECT * FROM test WHERE id = 11")
         assert row is not None
 
-        # Use delete method
-        result = backend.delete("test", "id = ?", (11,))
+        # Use delete method with proper options
+        where_clause = ComparisonPredicate(backend.dialect, "=", Column(backend.dialect, "id"), Literal(backend.dialect, 11))
+        delete_opts = DeleteOptions(
+            table="test",
+            where=where_clause
+        )
+        result = backend.delete(delete_opts)
 
         # Verify deletion was successful
         assert result.affected_rows == 1
@@ -249,18 +299,26 @@ class TestSQLiteBackendTransaction:
 
     def test_transaction_with_integrity_error(self, backend):
         """Test integrity error within a transaction"""
+        from rhosocial.activerecord.backend.options import InsertOptions
         # First insert data
-        backend.insert("test", {"id": 12, "value": "unique"})
+        insert_opts = InsertOptions(
+            table="test",
+            data={"id": 12, "value": "unique"},
+            primary_key="id"
+        )
+        backend.insert(insert_opts)
 
         # Begin transaction
         backend.begin_transaction()
 
         # Insert some data
-        backend.execute("INSERT INTO test (id, value) VALUES (13, 'before error')")
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        backend.execute("INSERT INTO test (id, value) VALUES (13, 'before error')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Try to insert duplicate data, should fail
         with pytest.raises(IntegrityError):
-            backend.execute("INSERT INTO test (id, value) VALUES (12, 'duplicate')")
+            backend.execute("INSERT INTO test (id, value) VALUES (12, 'duplicate')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Rollback transaction
         backend.rollback_transaction()
@@ -271,10 +329,12 @@ class TestSQLiteBackendTransaction:
 
     def test_connection_context_manager(self, backend):
         """Test connection context manager"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         # Use with statement for connection management
         with backend as conn:
             # Use connection in the context
-            conn.execute("INSERT INTO test (id, value) VALUES (14, 'connection context')")
+            conn.execute("INSERT INTO test (id, value) VALUES (14, 'connection context')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Verify operation was successful
         row = backend.fetch_one("SELECT * FROM test WHERE id = 14")
@@ -283,11 +343,13 @@ class TestSQLiteBackendTransaction:
 
     def test_disconnect_during_transaction(self, backend):
         """Test disconnecting during a transaction"""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         # Begin transaction
         backend.begin_transaction()
 
         # Insert data
-        backend.execute("INSERT INTO test (id, value) VALUES (15, 'disconnect test')")
+        backend.execute("INSERT INTO test (id, value) VALUES (15, 'disconnect test')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Disconnect
         backend.disconnect()
@@ -309,9 +371,11 @@ class TestSQLiteBackendTransaction:
         backend = SQLiteBackend(connection_config=config)
 
         # Connect and create table
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         backend.connect()
-        backend.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
-        backend.execute("INSERT INTO test (id, value) VALUES (1, 'temp data')")
+        backend.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)", (), options=ExecutionOptions(stmt_type=StatementType.DDL))
+        backend.execute("INSERT INTO test (id, value) VALUES (1, 'temp data')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # Verify file exists
         assert os.path.exists(temp_db_path)

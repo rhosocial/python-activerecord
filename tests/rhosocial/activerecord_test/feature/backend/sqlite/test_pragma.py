@@ -237,8 +237,10 @@ class TestSQLitePragma:
         assert backend.pragmas["case_sensitive_like"] == "ON"
 
         # Test with a sample table
-        backend.execute("CREATE TABLE test_case (text TEXT)")
-        backend.execute("INSERT INTO test_case VALUES ('ABC')")
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        backend.execute("CREATE TABLE test_case (text TEXT)", (), options=ExecutionOptions(stmt_type=StatementType.DDL))
+        backend.execute("INSERT INTO test_case VALUES ('ABC')", (), options=ExecutionOptions(stmt_type=StatementType.INSERT))
 
         # With case_sensitive_like ON, case-sensitive search shouldn't find lowercase
         result = backend.fetch_all("SELECT * FROM test_case WHERE text LIKE 'abc'")

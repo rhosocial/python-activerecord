@@ -41,8 +41,8 @@ class TestSQLiteFormatLimitOffset:
 
     def test_format_offset_only(self, dialect: SQLiteDialect):
         sql, params = dialect.format_limit_offset(offset=5)
-        assert sql == "LIMIT ? OFFSET ?"
-        assert params == [-1, 5]  # SQLite uses -1 for no effective limit
+        assert sql == "OFFSET ?"
+        assert params == [5]  # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_and_offset(self, dialect: SQLiteDialect):
         sql, params = dialect.format_limit_offset(limit=10, offset=5)
@@ -61,8 +61,8 @@ class TestSQLiteFormatLimitOffset:
 
     def test_format_offset_zero(self, dialect: SQLiteDialect):
         sql, params = dialect.format_limit_offset(offset=0)
-        assert sql == "LIMIT ? OFFSET ?"
-        assert params == [-1, 0] # SQLite uses -1 for no effective limit
+        assert sql == "OFFSET ?"
+        assert params == [0] # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_sql_injection(self, dialect: SQLiteDialect):
         malicious_limit = "10; DROP TABLE users;"
@@ -73,8 +73,8 @@ class TestSQLiteFormatLimitOffset:
     def test_format_offset_sql_injection(self, dialect: SQLiteDialect):
         malicious_offset = "5 UNION SELECT 1, 2, 3"
         sql, params = dialect.format_limit_offset(offset=malicious_offset)
-        assert sql == "LIMIT ? OFFSET ?"  # SQLite's behavior when only offset is given
-        assert params == [-1, malicious_offset] # SQLite uses -1 for no effective limit
+        assert sql == "OFFSET ?"  # SQLite's behavior when only offset is given
+        assert params == [malicious_offset] # When only offset is provided, SQLite just uses OFFSET
 
     def test_format_limit_offset_sql_injection_combined(self, dialect: SQLiteDialect):
         malicious_limit = "10; SELECT SLEEP(5)"

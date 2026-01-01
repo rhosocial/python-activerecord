@@ -1,10 +1,11 @@
+# src/rhosocial/activerecord/backend/options.py
 """
 This module defines classes for encapsulating execution options for the backend.
 Using the Options pattern keeps method signatures clean and makes the API
 extensible without introducing breaking changes.
 """
 from dataclasses import dataclass
-from typing import Optional, Dict, Tuple, Type, List, Union
+from typing import Optional, Dict, Tuple, Type
 
 from .expression import SQLPredicate
 from .schema import StatementType
