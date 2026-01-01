@@ -72,6 +72,13 @@ from .mixins import (
     GraphMixin,
 )
 
+# Import Explain types from expression module to make them available in dialect module
+from ..expression import (
+    ExplainType,
+    ExplainFormat,
+    ExplainOptions
+)
+
 __all__ = [
     # Base classes
     'SQLDialectBase',

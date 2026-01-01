@@ -537,7 +537,7 @@ class BaseQueryMixin(IQuery[ModelT]):
                             on_condition = (f"{self._format_identifier(f'{target_model.table_name()}.{relation.foreign_key}')} = "
                                             f"{self._format_identifier(f'{source_model.table_name()}.{source_model.primary_key()}')}")
                         break
-                
+
                 # 2. If not found, search relations on the target model
                 if not on_condition:
                     for relation in target_relations.values():
@@ -594,7 +594,7 @@ class BaseQueryMixin(IQuery[ModelT]):
                             left_formatted = self._format_on_condition_part(left_part, dialect)
                             right_formatted = self._format_on_condition_part(right_part, dialect)
                             formatted_condition = f" ON {left_formatted} = {right_formatted}"
-                    
+
                     formatted_joins.append(f"{join_prefix}{formatted_table}{formatted_condition}")
                 else:
                     formatted_joins.append(join_clause)
@@ -758,7 +758,7 @@ class BaseQueryMixin(IQuery[ModelT]):
             all_params.extend(limit_offset_params)
 
         raw_sql = " ".join(query_parts)
-        
+
         # Step 1: Perform type adaptation on all collected parameters, if _adapt_params is True.
         if hasattr(self, '_adapt_params') and self._adapt_params:
             # Get default type adapter suggestions from the backend.
@@ -783,7 +783,7 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         # Get the target database placeholder
         backend = self.model_class.backend()
-        placeholder = backend.dialect.get_placeholder()
+        placeholder = backend.dialect.get_parameter_placeholder()
 
         # Only replace if the placeholder is not a question mark
         if placeholder != '?':

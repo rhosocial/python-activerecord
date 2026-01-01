@@ -5,7 +5,7 @@ These mixins are designed to be composed into StorageBackend classes.
 """
 from typing import Optional, Union, List, Dict, Tuple, Type
 
-from ..expression.statements import ReturningClause
+from ..expression.statements import ReturningClause, ValuesSource
 from ..expression import Column, Literal
 from typing import List, Optional, Union
 from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions
@@ -186,11 +186,14 @@ class AsyncSQLOperationsMixin:
         columns = list(options.data.keys())
         values = [Literal(self.dialect, v) for v in options.data.values()]
 
+        # Create a ValuesSource to use as the data source for the InsertExpression
+        values_source = ValuesSource(self.dialect, [values])
+
         insert_expr = InsertExpression(
             dialect=self.dialect,
-            table=options.table,
-            columns=columns,
-            values=values
+            into=options.table,
+            source=values_source,
+            columns=columns
         )
         
         sql, params = insert_expr.to_sql()

@@ -348,7 +348,6 @@ class IActiveRecord(BaseModel, ABC):
             data=prepared_data,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
-            returning=False,
             primary_key=self.primary_key()
         )
         result = self.backend().insert(insert_options)
@@ -521,7 +520,7 @@ class IActiveRecord(BaseModel, ABC):
         backend = self.backend()
 
         # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_placeholder()
+        placeholder = backend.dialect.get_parameter_placeholder()
 
         # Combine base condition with additional conditions
         final_where_clause = " AND ".join(where_conditions_list)

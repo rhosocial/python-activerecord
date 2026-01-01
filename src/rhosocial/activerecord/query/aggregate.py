@@ -698,7 +698,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         self._log(logging.DEBUG, f"Executing scalar aggregate: {func}({column})", extra={"distinct": distinct},
                   offset=2)
-        
+
         # Temporarily clear order for scalar query
         self.order_clauses = []
 
@@ -717,7 +717,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
             self.order_clauses = original_orders
             self.limit_count = original_limit
             self.offset_count = original_offset
-            
+
             return result
 
         result = self.model_class.backend().fetch_one(sql, params)
@@ -772,7 +772,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
                 for expr in self._expressions
                 if hasattr(expr, 'alias') and expr.alias
             )
-            
+
             if col not in selected_columns and not col_exists_in_expr:
                 select_parts.append(dialect.format_identifier(col))
                 selected_columns.add(col)
@@ -901,7 +901,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
         if limit_offset_sql:
             query_parts.append(limit_offset_sql)
             all_raw_params.extend(limit_offset_params) # 将参数添加到参数列表中
-        
+
         raw_sql = " ".join(query_parts)
         # Step 1: Perform type adaptation on all collected raw parameters, if _adapt_params is True.
         if hasattr(self, '_adapt_params') and self._adapt_params:
@@ -927,7 +927,7 @@ class AggregateQueryMixin(BaseQueryMixin[ModelT]):
 
         # Get the target database placeholder
         backend = self.model_class.backend()
-        placeholder = backend.dialect.get_placeholder()
+        placeholder = backend.dialect.get_parameter_placeholder()
 
         # Only replace if the placeholder is not a question mark
         if placeholder != '?':

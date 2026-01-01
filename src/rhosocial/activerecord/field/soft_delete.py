@@ -57,7 +57,7 @@ class SoftDeleteMixin(IActiveRecord):
         backend = self.backend()
 
         # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_placeholder()
+        placeholder = backend.dialect.get_parameter_placeholder()
 
         # Create the condition with the standard question mark
         condition = f"{self.primary_key()} = ?"
