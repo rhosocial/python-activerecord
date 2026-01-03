@@ -13,4 +13,4 @@ def format_with_length(base_type: str, params: Dict[str, Any]) -> str:
         str: Formatted type string with length if specified
     """
     length = params.get('length')
-    return f"{base_type}({length})" if length else base_type
+    return f"{base_type}({length})" if length is not None else base_type
