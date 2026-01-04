@@ -591,21 +591,48 @@ def test_returning_fetchall_impact_comparison(mapped_table_backend):
         options=ExecutionOptions(stmt_type=StatementType.INSERT)
     )
 
-    # Test UPDATE with DML (will not process result set, so no fetchall)
+    # Test UPDATE with DML and process_result_set=False
     sql2 = "UPDATE mapped_users SET name = ? WHERE name = ? RETURNING user_id, name, email"
     params2 = ("No Fetchall Updated", "No Fetchall Test")
 
-    # Using DML will not process the result set, so data will be None
-    result_without_fetchall = backend.execute(
+    # Using DML with RETURNING clause but process_result_set=False will NOT process the result set
+    result_without_processing = backend.execute(
         sql2,
         params2,
         options=ExecutionOptions(
-            stmt_type=StatementType.DML  # This will not process result set
+            stmt_type=StatementType.DML,  # DML type
+            process_result_set=False      # Explicitly set to False to not process result set
         )
     )
 
-    # Verify that data is NOT returned when using DML (no result set processing)
-    assert result_without_fetchall.data is None
+    # Verify that data is NOT returned when process_result_set is False
+    assert result_without_processing.data is None
 
-    # Note: affected_rows behavior depends on Python version and whether fetchall is called
-    # This test demonstrates the difference in behavior
+    # Insert another record for the next test to ensure we have a record to update
+    backend.execute(
+        "INSERT INTO mapped_users (name, email, created_at) VALUES (?, ?, ?)",
+        ("Process Test", "processtest@example.com", now_str),
+        options=ExecutionOptions(stmt_type=StatementType.INSERT)
+    )
+
+    # Now test with process_result_set=True using a different record
+    sql3 = "UPDATE mapped_users SET name = ? WHERE name = ? RETURNING user_id, name, email"
+    params3 = ("Processed Updated", "Process Test")
+
+    result_with_processing = backend.execute(
+        sql3,
+        params3,
+        options=ExecutionOptions(
+            stmt_type=StatementType.DML,  # DML type
+            process_result_set=True       # Explicitly set to True to process result set
+        )
+    )
+
+    # Verify that data IS returned when process_result_set is True
+    assert result_with_processing.data is not None
+    assert len(result_with_processing.data) == 1
+    assert result_with_processing.data[0]["name"] == "Processed Updated"
+    assert result_with_processing.data[0]["email"] == "processtest@example.com"
+
+    # Note: This demonstrates the new behavior where process_result_set controls
+    # whether result sets are processed, regardless of StatementType

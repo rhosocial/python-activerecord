@@ -13,7 +13,13 @@ class ExecutionMixin:
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
             if not self._connection: self.connect()
-            stmt_type, is_select = options.stmt_type, (options.stmt_type == StatementType.DQL)
+            stmt_type = options.stmt_type
+            # Determine if result set should be processed based on statement type and process_result_set flag
+            # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
+            if options.process_result_set is not None:
+                is_select = options.process_result_set
+            else:
+                is_select = (options.stmt_type == StatementType.DQL)
             cursor = self._get_cursor()
             final_sql, final_params = self._prepare_sql_and_params(sql, params)
             cursor = self._execute_query(cursor, final_sql, final_params)
@@ -48,7 +54,13 @@ class AsyncExecutionMixin:
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
             if not self._connection: await self.connect()
-            stmt_type, is_select = options.stmt_type, (options.stmt_type == StatementType.DQL)
+            stmt_type = options.stmt_type
+            # Determine if result set should be processed based on statement type and process_result_set flag
+            # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
+            if options.process_result_set is not None:
+                is_select = options.process_result_set
+            else:
+                is_select = (options.stmt_type == StatementType.DQL)
             cursor = await self._get_cursor()
             final_sql, final_params = self._prepare_sql_and_params(sql, params)
             cursor = await self._execute_query(cursor, final_sql, final_params)

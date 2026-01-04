@@ -32,6 +32,10 @@ class ExecutionOptions:
     # to different field names in the final Python dictionary.
     column_mapping: Optional[Dict[str, str]] = None
 
+    # Flag to indicate whether result set should be processed even for DML statements
+    # This is useful for DML statements with RETURNING clauses
+    process_result_set: Optional[bool] = None
+
 
 @dataclass
 class InsertOptions:

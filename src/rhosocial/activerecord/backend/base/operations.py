@@ -54,9 +54,10 @@ class SQLOperationsMixin:
         sql, params = insert_expr.to_sql()
 
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DML,
+            stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
-            column_mapping=options.column_mapping
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -98,9 +99,10 @@ class SQLOperationsMixin:
         sql, params = update_expr.to_sql()
 
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DML,
+            stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
-            column_mapping=options.column_mapping
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -139,9 +141,10 @@ class SQLOperationsMixin:
         sql, params = delete_expr.to_sql()
 
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DML,
+            stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
-            column_mapping=options.column_mapping
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -234,9 +237,10 @@ class AsyncSQLOperationsMixin:
         sql, params = insert_expr.to_sql()
 
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DML,
+            stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
-            column_mapping=options.column_mapping
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -275,9 +279,10 @@ class AsyncSQLOperationsMixin:
         sql, params = update_expr.to_sql()
 
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DML,
+            stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
-            column_mapping=options.column_mapping
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -313,9 +318,10 @@ class AsyncSQLOperationsMixin:
         sql, params = delete_expr.to_sql()
 
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DML,
+            stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
-            column_mapping=options.column_mapping
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
         )
 
         result = await self.execute(sql, params, options=exec_options)
