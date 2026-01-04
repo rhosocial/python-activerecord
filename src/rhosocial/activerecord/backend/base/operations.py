@@ -36,13 +36,21 @@ class SQLOperationsMixin:
         # Create a ValuesSource to use as the data source for the InsertExpression
         values_source = ValuesSource(self.dialect, [values])
 
+        # Create ReturningClause if returning_columns is specified
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
         insert_expr = InsertExpression(
             dialect=self.dialect,
             into=options.table,
             source=values_source,
-            columns=columns
+            columns=columns,
+            returning=returning_clause
         )
-        
+
         sql, params = insert_expr.to_sql()
 
         exec_options = ExecutionOptions(
@@ -50,7 +58,7 @@ class SQLOperationsMixin:
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping
         )
-        
+
         result = self.execute(sql, params, options=exec_options)
 
         if options.auto_commit:
@@ -71,12 +79,20 @@ class SQLOperationsMixin:
             QueryResult: The result of the update operation.
         """
         assignments = {k: Literal(self.dialect, v) for k, v in options.data.items()}
-        
+
+        # Create ReturningClause if returning_columns is specified
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
         update_expr = UpdateExpression(
             dialect=self.dialect,
             table=options.table,
             assignments=assignments,
-            where=options.where
+            where=options.where,
+            returning=returning_clause
         )
 
         sql, params = update_expr.to_sql()
@@ -106,10 +122,18 @@ class SQLOperationsMixin:
         Returns:
             QueryResult: The result of the delete operation.
         """
+        # Create ReturningClause if returning_columns is specified
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
         delete_expr = DeleteExpression(
             dialect=self.dialect,
             table=options.table,
-            where=options.where
+            where=options.where,
+            returning=returning_clause
         )
 
         sql, params = delete_expr.to_sql()
@@ -180,7 +204,7 @@ class AsyncSQLOperationsMixin:
     async def insert(self, options: InsertOptions) -> QueryResult:
         """
         Inserts a record asynchronously into the database using encapsulated InsertOptions.
-        
+
         Args:
             options (InsertOptions): An object encapsulating all parameters for the insert operation.
         Returns:
@@ -192,13 +216,21 @@ class AsyncSQLOperationsMixin:
         # Create a ValuesSource to use as the data source for the InsertExpression
         values_source = ValuesSource(self.dialect, [values])
 
+        # Create ReturningClause if returning_columns is specified
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
         insert_expr = InsertExpression(
             dialect=self.dialect,
             into=options.table,
             source=values_source,
-            columns=columns
+            columns=columns,
+            returning=returning_clause
         )
-        
+
         sql, params = insert_expr.to_sql()
 
         exec_options = ExecutionOptions(
@@ -224,12 +256,20 @@ class AsyncSQLOperationsMixin:
             QueryResult: The result of the update operation.
         """
         assignments = {k: Literal(self.dialect, v) for k, v in options.data.items()}
-        
+
+        # Create ReturningClause if returning_columns is specified
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
         update_expr = UpdateExpression(
             dialect=self.dialect,
             table=options.table,
             assignments=assignments,
-            where=options.where
+            where=options.where,
+            returning=returning_clause
         )
 
         sql, params = update_expr.to_sql()
@@ -256,10 +296,18 @@ class AsyncSQLOperationsMixin:
         Returns:
             QueryResult: The result of the delete operation.
         """
+        # Create ReturningClause if returning_columns is specified
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
         delete_expr = DeleteExpression(
             dialect=self.dialect,
             table=options.table,
-            where=options.where
+            where=options.where,
+            returning=returning_clause
         )
 
         sql, params = delete_expr.to_sql()

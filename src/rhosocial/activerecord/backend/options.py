@@ -5,7 +5,7 @@ Using the Options pattern keeps method signatures clean and makes the API
 extensible without introducing breaking changes.
 """
 from dataclasses import dataclass
-from typing import Optional, Dict, Tuple, Type
+from typing import Optional, Dict, Tuple, Type, List
 
 from .expression import SQLPredicate
 from .schema import StatementType
@@ -49,6 +49,8 @@ class InsertOptions:
     auto_commit: Optional[bool] = True
     # The name of the primary key field. (Used by some backends for RETURNING emulation).
     primary_key: Optional[str] = None
+    # Columns to include in the RETURNING clause.
+    returning_columns: Optional[List[str]] = None
 
 
 @dataclass
@@ -67,6 +69,8 @@ class UpdateOptions:
 
     # If True, commits the transaction if not already active.
     auto_commit: bool = True
+    # Columns to include in the RETURNING clause.
+    returning_columns: Optional[List[str]] = None
 
 
 @dataclass
@@ -83,3 +87,5 @@ class DeleteOptions:
 
     # If True, commits the transaction if not already active.
     auto_commit: bool = True
+    # Columns to include in the RETURNING clause.
+    returning_columns: Optional[List[str]] = None

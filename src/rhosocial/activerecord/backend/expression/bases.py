@@ -67,7 +67,7 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         pass  # pragma: no cover
 
     @abc.abstractmethod
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> Tuple[str, tuple]: # pragma: no cover
         """
         Converts the expression into a SQL string and a tuple of parameters.
         """
