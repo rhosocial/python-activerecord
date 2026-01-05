@@ -1415,4 +1415,38 @@ def cube(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) 
     from . import query_parts
     processed_exprs = [expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr) for expr in exprs]
     return query_parts.GroupingExpression(dialect, "CUBE", processed_exprs)
+
+
+def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"]) -> "operators.BinaryExpression":
+    """
+    Creates a string concatenation operation using the || operator (SQL standard).
+
+    Usage rules:
+    - To generate column1 || column2, pass Column objects: concat_op(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
+    - To generate ? || ?, pass literal values: concat_op(dialect, "value1", "value2")
+    - To generate complex concatenations: concat_op(dialect, col1, lit1, col2, lit2)
+
+    Args:
+        dialect: The SQL dialect instance
+        *exprs: Variable number of expressions to concatenate using || operator
+
+    Returns:
+        A BinaryExpression instance representing the || concatenation operation
+    """
+    from . import operators, bases, core
+
+    if len(exprs) < 2:
+        raise ValueError("Concatenation operation requires at least 2 expressions")
+
+    # Convert all expressions to BaseExpression objects
+    target_exprs = [e if isinstance(e, bases.BaseExpression) else core.Literal(dialect, e) for e in exprs]
+
+    # Start with the first two expressions
+    result = operators.BinaryExpression(dialect, "||", target_exprs[0], target_exprs[1])
+
+    # Chain additional expressions using the || operator
+    for i in range(2, len(target_exprs)):
+        result = operators.BinaryExpression(dialect, "||", result, target_exprs[i])
+
+    return result
 # endregion Grouping Function Factories

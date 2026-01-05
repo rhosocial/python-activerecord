@@ -14,7 +14,8 @@ from rhosocial.activerecord.backend.expression import (
     json_extract, json_extract_text, json_build_object, json_array_elements,
     json_objectagg, json_arrayagg,  # Added these new JSON aggregation functions
     array_agg, unnest, array_length, cast, to_char, to_number, to_date,
-    trim, grouping_sets, rollup, cube  # Added grouping functions
+    trim, grouping_sets, rollup, cube,  # Added grouping functions
+    concat_op  # Added string concatenation operator function
 )
 from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -321,14 +322,58 @@ class TestMathFunctionFactories:
         sin_func = sin(dummy_dialect, 0)
         cos_func = cos(dummy_dialect, 0)
         tan_func = tan(dummy_dialect, 0)
-        
+
         sin_sql, sin_params = sin_func.to_sql()
         cos_sql, cos_params = cos_func.to_sql()
         tan_sql, tan_params = tan_func.to_sql()
-        
+
         assert "SIN(" in sin_sql
         assert "COS(" in cos_sql
         assert "TAN(" in tan_sql
+
+
+class TestConcatOpFunction:
+    """Tests for the concat_op function."""
+
+    def test_concat_op_two_literals(self, dummy_dialect: DummyDialect):
+        """Test concat_op with two literal values."""
+        result = concat_op(dummy_dialect, "Hello", "World")
+        sql, params = result.to_sql()
+        assert "||" in sql
+        assert params == ("Hello", "World")
+
+    def test_concat_op_two_columns(self, dummy_dialect: DummyDialect):
+        """Test concat_op with two columns."""
+        col1 = Column(dummy_dialect, "first_name")
+        col2 = Column(dummy_dialect, "last_name")
+        result = concat_op(dummy_dialect, col1, col2)
+        sql, params = result.to_sql()
+        assert "||" in sql
+        assert '"first_name"' in sql
+        assert '"last_name"' in sql
+        assert params == ()
+
+    def test_concat_op_mixed_args(self, dummy_dialect: DummyDialect):
+        """Test concat_op with mixed arguments."""
+        col = Column(dummy_dialect, "name")
+        result = concat_op(dummy_dialect, "Prefix_", col, "_Suffix")
+        sql, params = result.to_sql()
+        assert "||" in sql
+        assert params == ("Prefix_", "_Suffix")
+
+    def test_concat_op_three_strings(self, dummy_dialect: DummyDialect):
+        """Test concat_op with three strings."""
+        result = concat_op(dummy_dialect, "A", "B", "C")
+        sql, params = result.to_sql()
+        assert "||" in sql
+        assert params == ("A", "B", "C")
+        # Should have two || operators for three elements
+        assert sql.count("||") == 2
+
+    def test_concat_op_error_less_than_two_args(self, dummy_dialect: DummyDialect):
+        """Test concat_op raises error with less than two arguments."""
+        with pytest.raises(ValueError, match="requires at least 2 expressions"):
+            concat_op(dummy_dialect, "SingleArg")
 
 
 class TestDateTimeFunctionFactories:

@@ -158,6 +158,8 @@ from .functions import (
     grouping_sets, rollup, cube,
     # Additional functions
     lower, upper,
+    # String concatenation operator
+    concat_op,
 )
 
 __all__ = [
@@ -218,4 +220,5 @@ __all__ = [
     "array_agg", "unnest", "array_length",
     "cast", "to_char", "to_number", "to_date",
     "grouping_sets", "rollup", "cube",
+    "concat_op",
 ]
