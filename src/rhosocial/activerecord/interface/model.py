@@ -297,6 +297,27 @@ class IActiveRecord(BaseModel, ABC):
         return adapters_map
 
     def _insert_internal(self, data) -> Any:
+        """
+        Internal method for inserting a new record into the database.
+
+        This method handles the complete insertion process including:
+        1. Parameter preparation and type adaptation
+        2. Field name to column name mapping
+        3. Primary key retrieval using RETURNING clause if supported by the backend,
+           or falling back to last_insert_id mechanism
+        4. Result processing and instance state updates
+
+        The method intelligently uses RETURNING clauses when supported by the backend
+        to retrieve auto-generated primary key values, improving efficiency compared
+        to separate SELECT queries.
+
+        Args:
+            data: Dictionary containing field names and values to be inserted
+
+        Returns:
+            QueryResult: Result object containing affected rows, last insert ID,
+                        and returned data if RETURNING clause is used
+        """
         self.log(logging.DEBUG, f"1. Raw data for insert: {data}")
 
         # Step 2: Resolve parameter adapters with the new prioritized logic.
@@ -343,12 +364,25 @@ class IActiveRecord(BaseModel, ABC):
 
         # Step 7: Call `insert` with the prepared data, column mapping, and column adapters.
         # Step 7: Call `insert` with an InsertOptions object.
+
+        # Determine if backend supports RETURNING clause
+        supports_returning = self.backend().dialect.supports_returning_clause()
+
+        # If backend supports RETURNING and we need to retrieve the primary key,
+        # include the primary key column in returning_columns
+        returning_columns = None
+        if supports_returning:
+            # For insert operations, we typically want to return the primary key
+            # to get the auto-generated ID value
+            returning_columns = [self.primary_key()]
+
         insert_options = InsertOptions(
             table=self.table_name(),
             data=prepared_data,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
-            primary_key=self.primary_key()
+            primary_key=self.primary_key(),
+            returning_columns=returning_columns
         )
         result = self.backend().insert(insert_options)
 
@@ -406,17 +440,26 @@ class IActiveRecord(BaseModel, ABC):
         return result
 
     def _update_internal(self, data) -> Any:
-        """Internal method for updating an existing record with enhanced conditions and expressions.
+        """
+        Internal method for updating an existing record in the database.
 
-        This method handles the construction of the update query with all necessary conditions
-        and special expressions from model mixins. It properly converts placeholders to match
-        the database backend's requirements.
+        This method handles the complete update process including:
+        1. Parameter preparation and type adaptation
+        2. Field name to column name mapping
+        3. WHERE clause construction using primary key
+        4. Optional RETURNING clause usage if supported by the backend to retrieve
+           updated record data
+
+        The method intelligently uses RETURNING clauses when supported by the backend
+        to retrieve updated record data in a single operation, improving efficiency
+        compared to separate SELECT queries.
 
         Args:
-            data: The data dictionary to be updated
+            data: Dictionary containing field names and values to be updated
 
         Returns:
-            The result of the update operation
+            QueryResult: Result object containing affected rows and returned data
+                        if RETURNING clause is used
         """
         # Update existing record with enhanced conditions and expressions
         update_conditions = []
@@ -540,17 +583,46 @@ class IActiveRecord(BaseModel, ABC):
             backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
         )
 
+        # Determine if backend supports RETURNING clause
+        supports_returning = backend.dialect.supports_returning_clause()
+
+        # If backend supports RETURNING, include the primary key in returning_columns
+        # to get the updated record's information
+        returning_columns = None
+        if supports_returning:
+            # For update operations, we typically want to return the primary key
+            # and possibly other important fields
+            returning_columns = [self.primary_key()]
+
         update_options = UpdateOptions(
             table=self.table_name(),
             data=prepared_set_data, # mapped_set_data contains prepared and mapped data
             where=where_predicate,
             column_mapping=column_mapping,
-            column_adapters=column_adapters
+            column_adapters=column_adapters,
+            returning_columns=returning_columns
         )
         result = backend.update(update_options)
         return result
 
     def _save_internal(self) -> int:
+        """
+        Internal method for saving the record (either insert or update).
+
+        This method determines whether to perform an insert or update operation based on
+        whether this is a new record or an existing one. It handles the complete save
+        process including:
+        1. Data preparation with mixin processing
+        2. Conditional execution of insert or update based on record state
+        3. Post-save processing and event triggering
+        4. Tracking reset after successful save
+
+        For both insert and update operations, if the backend supports RETURNING clauses,
+        the methods will utilize them to retrieve relevant data efficiently.
+
+        Returns:
+            int: Number of affected rows from the underlying insert or update operation
+        """
         is_new = self.is_new_record
 
         # Prepare data for saving (including mixin processing)

@@ -16,6 +16,8 @@ from typing import Optional, Tuple, List, Any, Dict, Union, Type
 
 from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from .config import SQLiteConnectionConfig
+from ...options import InsertOptions, UpdateOptions, DeleteOptions
+from ...result import QueryResult
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from ...base import StorageBackend
@@ -452,9 +454,6 @@ class SQLiteBackend(StorageBackend):
             return False
 
     @property
-    def is_sqlite(self) -> bool:
-        """Flag to identify SQLite backend for compatibility checks"""
-        return True
 
 
 
@@ -696,12 +695,74 @@ class SQLiteBackend(StorageBackend):
             self._transaction_manager = SQLiteTransactionManager(self._connection, self.logger)
         return self._transaction_manager
 
-    @property
-    def supports_returning(self) -> bool:
-        """Check if SQLite version supports RETURNING clause"""
-        supported = tuple(map(int, sqlite3.sqlite_version.split('.'))) >= (3, 35, 0)
-        self.log(logging.DEBUG, f"RETURNING clause support: {supported}")
-        return supported
+    def insert(self, options: InsertOptions) -> QueryResult:
+        """
+        Insert a record with special handling for RETURNING clause behavior across Python versions.
+
+        In some Python versions (e.g., 3.8) with RETURNING clauses, cursor.rowcount may return 0
+        even when the operation is successful. This method ensures consistent behavior by
+        checking if data was returned when affected_rows is 0, and adjusting accordingly.
+        """
+        # Call the parent implementation
+        result = super().insert(options)
+
+        # Special handling for RETURNING clause: if affected_rows is 0 but we have returned data,
+        # this indicates the operation was successful despite cursor.rowcount behavior
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            # Adjust affected_rows to reflect the successful operation
+            result.affected_rows = len(result.data)
+
+        return result
+
+    def update(self, options: UpdateOptions) -> QueryResult:
+        """
+        Update records with special handling for RETURNING clause behavior across Python versions.
+
+        In some Python versions (e.g., 3.8) with RETURNING clauses, cursor.rowcount may return 0
+        even when the operation is successful. This method ensures consistent behavior by
+        checking if data was returned when affected_rows is 0, and adjusting accordingly.
+        """
+        # Call the parent implementation
+        result = super().update(options)
+
+        # Special handling for RETURNING clause: if affected_rows is 0 but we have returned data,
+        # this indicates the operation was successful despite cursor.rowcount behavior
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            # Adjust affected_rows to reflect the successful operation
+            result.affected_rows = len(result.data)
+
+        return result
+
+    def delete(self, options: DeleteOptions) -> QueryResult:
+        """
+        Delete records with special handling for RETURNING clause behavior across Python versions.
+
+        In some Python versions (e.g., 3.8) with RETURNING clauses, cursor.rowcount may return 0
+        even when the operation is successful. This method ensures consistent behavior by
+        checking if data was returned when affected_rows is 0, and adjusting accordingly.
+        """
+        # Call the parent implementation
+        result = super().delete(options)
+
+        # Special handling for RETURNING clause: if affected_rows is 0 but we have returned data,
+        # this indicates the operation was successful despite cursor.rowcount behavior
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            # Adjust affected_rows to reflect the successful operation
+            result.affected_rows = len(result.data)
+
+        return result
 
     def get_server_version(self) -> tuple:
         """Get SQLite version

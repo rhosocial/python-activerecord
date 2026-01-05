@@ -481,16 +481,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         """Get pragma settings"""
         return self.config.pragmas.copy()
 
-    @property
-    def is_sqlite(self) -> bool:
-        """Check if this is SQLite backend"""
-        return True
-
-    @property
-    def supports_returning(self) -> bool:
-        """Check if RETURNING clause is supported"""
-        version = self.get_server_version()
-        return version >= (3, 35, 0)
 
     @property
     def transaction_manager(self) -> AsyncTransactionManager:

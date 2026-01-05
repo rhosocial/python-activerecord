@@ -269,10 +269,22 @@ class BaseActiveRecord(IActiveRecord):
             raise DatabaseError(str(e)) from e
 
     def delete(self) -> int:
-        """Delete record.
+        """
+        Delete the record from the database.
+
+        This method handles the complete deletion process including:
+        1. Soft delete handling if the model implements prepare_delete method
+        2. Hard delete with proper WHERE clause construction using primary key
+        3. Optional RETURNING clause usage if supported by the backend to retrieve
+           deleted record data before removal
+        4. Post-deletion processing and event triggering
+
+        The method intelligently uses RETURNING clauses when supported by the backend
+        to retrieve deleted record data in a single operation, improving efficiency
+        compared to separate SELECT queries before deletion.
 
         Returns:
-            int: Number of affected rows
+            int: Number of affected rows from the delete operation
         """
         if not self.backend():
             raise DatabaseError("No backend configured")
@@ -305,9 +317,22 @@ class BaseActiveRecord(IActiveRecord):
             result = backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
+
+            # Determine if backend supports RETURNING clause
+            supports_returning = backend.dialect.supports_returning_clause()
+
+            # If backend supports RETURNING, include the primary key and other important columns
+            # in returning_columns to get the deleted record's information
+            returning_columns = None
+            if supports_returning:
+                # For delete operations, we typically want to return the primary key
+                # and possibly other important fields to confirm what was deleted
+                returning_columns = [self.primary_key()]
+
             delete_opts = DeleteOptions(
                 table=self.table_name(),
-                where=where_predicate
+                where=where_predicate,
+                returning_columns=returning_columns
             )
             result = backend.delete(delete_opts)
 

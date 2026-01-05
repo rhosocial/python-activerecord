@@ -340,19 +340,6 @@ class TestAsyncSQLiteBackendBasic:
             if await aiofiles.os.path.exists(path):
                 await aiofiles.os.remove(path)
 
-    @pytest.mark.asyncio
-    async def test_supports_returning(self, memory_backend):
-        """Test supports_returning property"""
-        # Check based on version
-        version = memory_backend.get_server_version()
-        expected = version >= (3, 35, 0)
-
-        assert memory_backend.supports_returning == expected
-
-    @pytest.mark.asyncio
-    async def test_is_sqlite_property(self, memory_backend):
-        """Test is_sqlite property"""
-        assert memory_backend.is_sqlite is True
 
     @pytest.mark.asyncio
     async def test_concurrent_operations(self, memory_backend):
@@ -1434,29 +1421,6 @@ class TestAsyncReturning:
         returned_ids = {row['id'] for row in result.data}
         assert returned_ids == {1, 2}
 
-    @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.35.0')
-    async def test_supports_returning_property_true(self):
-        """Test supports_returning is True for version 3.35.0+."""
-        # Reset cache to ensure patch is used
-        if hasattr(AsyncSQLiteBackend, '_sqlite_version_cache'):
-            del AsyncSQLiteBackend._sqlite_version_cache
-        
-        config = SQLiteConnectionConfig(database=":memory:")
-        backend = AsyncSQLiteBackend(connection_config=config)
-        assert backend.supports_returning is True
-
-    @pytest.mark.asyncio
-    @patch('aiosqlite.sqlite_version', '3.34.0')
-    async def test_supports_returning_property_false(self):
-        """Test supports_returning is False for version below 3.35.0."""
-        # Reset cache to ensure patch is used
-        if hasattr(AsyncSQLiteBackend, '_sqlite_version_cache'):
-            del AsyncSQLiteBackend._sqlite_version_cache
-
-        config = SQLiteConnectionConfig(database=":memory:")
-        backend = AsyncSQLiteBackend(connection_config=config)
-        assert backend.supports_returning is False
 
     @pytest.mark.asyncio
     @patch('aiosqlite.sqlite_version', '3.35.0')

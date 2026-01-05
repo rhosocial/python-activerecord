@@ -10,7 +10,6 @@ async def test_async_backend_initialization(async_sqlite_backend):
     """Test AsyncSQLiteBackend initialization."""
     assert async_sqlite_backend is not None
     assert async_sqlite_backend.is_connected()
-    assert async_sqlite_backend.is_sqlite is True
 
 
 @pytest.mark.asyncio

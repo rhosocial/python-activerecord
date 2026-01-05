@@ -204,11 +204,6 @@ class TestSQLiteBackendCoveragePart1:
 
         assert "Failed to connect" in str(exc_info.value)
 
-    def test_is_sqlite_property(self, temp_db_path):
-        """Test is_sqlite property"""
-        config = SQLiteConnectionConfig(database=temp_db_path)
-        backend = SQLiteBackend(connection_config=config)
-        assert backend.is_sqlite is True
 
     def test_ping_with_execute_error(self, temp_db_path):
         """Test ping() with execute error by corrupting the connection"""
