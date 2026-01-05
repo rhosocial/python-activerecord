@@ -17,7 +17,59 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class SetOperationExpression(bases.BaseExpression):
-    """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries."""
+    """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries.
+
+    This class is commonly used for:
+    1. Combining results from multiple queries
+    2. Creating recursive CTEs (with UNION ALL)
+    3. Removing duplicates (UNION) or keeping all rows (UNION ALL)
+    4. Finding common rows (INTERSECT) or differences (EXCEPT)
+
+    Example Usage:
+        # Basic UNION operation
+        union_expr = SetOperationExpression(
+            dialect,
+            left=QueryExpression(
+                dialect,
+                select=[Column(dialect, "id"), Column(dialect, "name")],
+                from_=TableExpression(dialect, "users")
+            ),
+            right=QueryExpression(
+                dialect,
+                select=[Column(dialect, "id"), Column(dialect, "name")],
+                from_=TableExpression(dialect, "customers")
+            ),
+            operation="UNION",
+            alias="combined_users"
+        )
+
+        # Recursive CTE with UNION ALL (essential for iterative algorithms like Sudoku solver)
+        initial_values = ValuesExpression(
+            dialect,
+            values=[('1', 1)],  # Starting value
+            alias="initial",
+            column_names=["value", "level"]
+        )
+
+        recursive_query = QueryExpression(
+            dialect,
+            select=[
+                FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
+                Column(dialect, "level") + Literal(dialect, 1)
+            ],
+            from_=[TableExpression(dialect, "counter")],  # Reference to CTE itself
+            where=(Column(dialect, "level") < Literal(dialect, 10))
+        )
+
+        # Combine initial and recursive parts with UNION ALL for recursive CTE
+        recursive_union = SetOperationExpression(
+            dialect,
+            left=initial_values,
+            right=recursive_query,
+            operation="UNION ALL",
+            alias="counter_recursive"
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: str, all_: bool = False):
         super().__init__(dialect)
         self.left = left
@@ -32,7 +84,61 @@ class SetOperationExpression(bases.BaseExpression):
 
 
 class CTEExpression(bases.BaseExpression):
-    """Represents a Common Table Expression (CTE) expression (WITH ... AS ...)."""
+    """Represents a Common Table Expression (CTE) expression (WITH ... AS ...).
+
+    Common Table Expressions (CTEs) allow defining temporary result sets that can be referenced
+    within a SELECT, INSERT, UPDATE, or DELETE statement. They are especially useful for
+    recursive queries and simplifying complex queries.
+
+    Example Usage:
+        # Basic CTE
+        cte = CTEExpression(
+            dialect,
+            name="monthly_sales",
+            query=QueryExpression(
+                dialect,
+                select=[Column(dialect, "month"), FunctionCall(dialect, "SUM", Column(dialect, "amount"))],
+                from_=TableExpression(dialect, "sales"),
+                group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "month")])
+            ),
+            columns=["month", "total_sales"]
+        )
+
+        # Recursive CTE (for hierarchical data or iterative algorithms like Sudoku solver)
+        initial_values = ValuesExpression(
+            dialect,
+            values=[('1', 1)],  # Starting value
+            alias="initial",
+            column_names=["value", "level"]
+        )
+
+        recursive_query = QueryExpression(
+            dialect,
+            select=[
+                FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
+                Column(dialect, "level") + Literal(dialect, 1)
+            ],
+            from_=[TableExpression(dialect, "counter")],  # Reference to CTE itself in recursive case
+            where=(Column(dialect, "level") < Literal(dialect, 10))
+        )
+
+        # Combine using SetOperationExpression for recursive CTE
+        combined_query = SetOperationExpression(
+            dialect,
+            left=initial_values,
+            right=recursive_query,
+            operation="UNION ALL",
+            alias="recursive_union"
+        )
+
+        recursive_cte = CTEExpression(
+            dialect,
+            name="counter",
+            query=combined_query,
+            columns=["next_value", "next_level"],
+            recursive=True
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase", name: str,
                  query: Union["core.Subquery", "bases.BaseExpression", Tuple[str, List[Any]]],
                  columns: Optional[List[str]] = None, recursive: bool = False,
@@ -72,7 +178,54 @@ class CTEExpression(bases.BaseExpression):
 
 
 class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    """Represents a query with Common Table Expressions (WITH clause)."""
+    """Represents a query with Common Table Expressions (WITH clause).
+
+    This class allows combining multiple CTEs with a main query. It's commonly used for:
+    1. Organizing complex queries with multiple temporary result sets
+    2. Creating recursive queries (with RECURSIVE keyword)
+    3. Improving query readability and maintainability
+
+    Example Usage:
+        # Create multiple CTEs
+        cte1 = CTEExpression(
+            dialect,
+            name="users_with_orders",
+            query=QueryExpression(
+                dialect,
+                select=[Column(dialect, "u.id"), Column(dialect, "u.name"), FunctionCall(dialect, "COUNT", Column(dialect, "o.id"))],
+                from_=[TableExpression(dialect, "users", alias="u")],
+                where=ComparisonPredicate(dialect, '>', FunctionCall(dialect, "COUNT", Column(dialect, "o.id")), Literal(dialect, 0))
+            ),
+            columns=["user_id", "user_name", "order_count"]
+        )
+
+        cte2 = CTEExpression(
+            dialect,
+            name="top_users",
+            query=QueryExpression(
+                dialect,
+                select=[Column(dialect, "user_id"), Column(dialect, "user_name")],
+                from_=[TableExpression(dialect, "users_with_orders")],
+                where=ComparisonPredicate(dialect, '>', Column(dialect, "order_count"), Literal(dialect, 5))
+            ),
+            columns=["user_id", "name"]
+        )
+
+        # Main query that uses the CTEs
+        main_query = QueryExpression(
+            dialect,
+            select=[Column(dialect, "tu.name"), Column(dialect, "uwo.order_count")],
+            from_=[TableExpression(dialect, "top_users", alias="tu")],
+            where=ComparisonPredicate(dialect, '=', Column(dialect, "tu.user_id"), Column(dialect, "uwo.user_id"))
+        )
+
+        # Combine everything with WithQueryExpression
+        with_query = WithQueryExpression(
+            dialect,
+            ctes=[cte1, cte2],
+            main_query=main_query
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase", ctes: List[CTEExpression],
                  main_query: "bases.BaseExpression", dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
@@ -99,7 +252,43 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
 
 
 class ValuesExpression(bases.BaseExpression):
-    """Represents a VALUES clause (row constructor) as a data source."""
+    """Represents a VALUES clause (row constructor) as a data source.
+
+    This class is commonly used for:
+    1. Providing inline data in queries
+    2. Creating temporary data sets for CTEs
+    3. Inserting multiple rows with specific values
+    4. Serving as input for recursive CTEs
+
+    Example Usage:
+        # Single row VALUES expression
+        values_expr = ValuesExpression(
+            dialect,
+            values=[(1, "John Doe", "john@example.com")],
+            alias="user_data",
+            column_names=["id", "name", "email"]
+        )
+
+        # Multiple rows VALUES expression
+        values_expr = ValuesExpression(
+            dialect,
+            values=[
+                (1, "John Doe", "john@example.com"),
+                (2, "Jane Smith", "jane@example.com"),
+                (3, "Bob Johnson", "bob@example.com")
+            ],
+            alias="users",
+            column_names=["id", "name", "email"]
+        )
+
+        # Using in a CTE (as initial data for recursive queries)
+        initial_values = ValuesExpression(
+            dialect,
+            values=[('1', 1)],  # Starting value for counter
+            alias="initial_counter",
+            column_names=["value", "level"]
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase", values: List[Tuple[Any, ...]], alias: str, column_names: List[str]):
         super().__init__(dialect)
         self.values, self.alias, self.column_names = values, alias, column_names

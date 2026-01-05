@@ -226,7 +226,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                      "core.Subquery",             # Subquery
                      "SetOperationExpression",    # Set operations (UNION, etc.)
                      "JoinExpression",            # Join expression (treated as a single object)
-                     List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression"]],  # Multiple tables/subqueries
+                     List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression"]],  # Multiple tables/subqueries - equivalent to comma-separated tables in FROM clause (implicit CROSS JOIN)
                      "ValuesExpression",          # VALUES expression
                      "TableFunctionExpression",   # Table function
                      "LateralExpression"          # LATERAL expression
@@ -251,6 +251,10 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             dialect: The SQL dialect instance that determines query generation rules
             select: List of expressions to select (required). At least one expression must be provided.
             from_: Source of data for the query (optional). Can be a table, subquery, join, etc.
+                   Note: When using a single source, pass the expression directly (e.g., TableExpression).
+                   When using multiple sources, you can either:
+                   1. Pass a list of expressions (equivalent to comma-separated tables in FROM clause, creates implicit CROSS JOIN)
+                   2. Use JoinExpression to explicitly define join conditions between tables
             where: WHERE clause object with the filtering condition (optional).
             group_by_having: Combined GROUP BY/HAVING clause object (optional). Handles validation
                            that HAVING requires GROUP BY within the clause object.
@@ -266,6 +270,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             ValueError: If HAVING is provided without GROUP BY (validated within GroupByHavingClause)
                       If OFFSET is provided without LIMIT (validated by dialect supports_offset_without_limit)
                       If assignments are empty (though not applicable to QueryExpression)
+            TypeError: If from_ parameter is not one of the supported types
 
         Note:
             - Clause objects handle their own validation (e.g. GroupByHavingClause validates HAVING/GROUP BY dependency)
