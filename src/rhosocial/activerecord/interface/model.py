@@ -15,9 +15,10 @@ from pydantic.fields import FieldInfo
 from .base import ModelEvent
 from ..backend.base import StorageBackend
 from ..backend.errors import DatabaseError, RecordNotFound
+from ..backend.expression import ComparisonPredicate, Column, Literal
 from ..backend.schema import DatabaseType
 from ..backend.config import ConnectionConfig
-from ..backend.options import InsertOptions, UpdateOptions # NEW IMPORTS
+from ..backend.options import InsertOptions, UpdateOptions
 
 if TYPE_CHECKING:
     from ..backend.type_adapter import SQLTypeAdapter
@@ -362,8 +363,7 @@ class IActiveRecord(BaseModel, ABC):
         column_adapters = self.get_column_adapters()
         self.log(logging.DEBUG, f"6. Column adapters map: {column_adapters}")
 
-        # Step 7: Call `insert` with the prepared data, column mapping, and column adapters.
-        # Step 7: Call `insert` with an InsertOptions object.
+        # Step 7: Call `insert` with an InsertOptions object that includes prepared data, column mapping, column adapters, and returning columns if supported.
 
         # Determine if backend supports RETURNING clause
         supports_returning = self.backend().dialect.supports_returning_clause()
