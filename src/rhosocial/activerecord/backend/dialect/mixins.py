@@ -207,7 +207,6 @@ class CTEMixin:
             name: str,
             query_sql: str,
             columns: Optional[List[str]] = None,
-            recursive: bool = False,  # Still accept the parameter for compatibility
             materialized: Optional[bool] = None,
             dialect_options: Optional[Dict[str, Any]] = None
     ) -> str:

@@ -1323,10 +1323,11 @@ class SQLDialectBase:
         left_sql, left_params = left.to_sql()
         right_sql, right_params = right.to_sql()
         all_str = " ALL" if all_ else ""
+        # Only add parentheses when alias is present, as per SQL standard
         if alias is not None:
             sql = f"({left_sql} {operation}{all_str} {right_sql}) AS {self.format_identifier(alias)}"
         else:
-            sql = f"({left_sql} {operation}{all_str} {right_sql})"
+            sql = f"{left_sql} {operation}{all_str} {right_sql}"
         return sql, left_params + right_params
 
     def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:

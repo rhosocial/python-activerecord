@@ -168,38 +168,165 @@ class TestBinaryArithmeticExpression:
         """Test basic binary arithmetic expression."""
         left = Column(dummy_dialect, "price")
         right = Literal(dummy_dialect, 1.1)
-        
-        arith_expr = BinaryArithmeticExpression(dummy_dialect, "*", left, right)
-        
+
+        # Use operator overloading instead of direct instantiation
+        arith_expr = left * right
+
         sql, params = arith_expr.to_sql()
-        
-        assert "*" in sql
+
+        assert sql == '"price" * ?'
         assert params == (1.1,)
 
     def test_binary_arithmetic_expression_with_functions(self, dummy_dialect: DummyDialect):
         """Test binary arithmetic with function calls."""
         left = FunctionCall(dummy_dialect, "SUM", Column(dummy_dialect, "amount"))
         right = Literal(dummy_dialect, 2)
-        
-        arith_expr = BinaryArithmeticExpression(dummy_dialect, "/", left, right)
-        
+
+        # Use operator overloading instead of direct instantiation
+        arith_expr = left / right
+
         sql, params = arith_expr.to_sql()
-        
-        assert "/" in sql
-        assert "SUM" in sql.upper()
+
+        assert sql == 'SUM("amount") / ?'
         assert params == (2,)
 
     def test_binary_arithmetic_different_operators(self, dummy_dialect: DummyDialect):
         """Test binary arithmetic with different operators."""
         left = Column(dummy_dialect, "quantity")
         right = Column(dummy_dialect, "unit_price")
-        
-        operators = ["+", "-", "*", "/", "%"]
-        
-        for op in operators:
-            arith_expr = BinaryArithmeticExpression(dummy_dialect, op, left, right)
-            
-            sql, params = arith_expr.to_sql()
-            
-            assert op in sql
-            assert params == ()
+
+        # Test using operator overloading
+        add_expr = left + right
+        sql, params = add_expr.to_sql()
+        assert sql == '"quantity" + "unit_price"'
+        assert params == ()
+
+        sub_expr = left - right
+        sql, params = sub_expr.to_sql()
+        assert sql == '"quantity" - "unit_price"'
+        assert params == ()
+
+        mul_expr = left * right
+        sql, params = mul_expr.to_sql()
+        assert sql == '"quantity" * "unit_price"'
+        assert params == ()
+
+        div_expr = left / right
+        sql, params = div_expr.to_sql()
+        assert sql == '"quantity" / "unit_price"'
+        assert params == ()
+
+        mod_expr = left % right
+        sql, params = mod_expr.to_sql()
+        assert sql == '"quantity" % "unit_price"'
+        assert params == ()
+
+
+class TestBinaryArithmeticExpressionPrecedence:
+    """Tests for BinaryArithmeticExpression operator precedence and parentheses handling."""
+
+    def test_multiplication_precedence_over_addition(self, dummy_dialect: DummyDialect):
+        """Test that multiplication has higher precedence than addition."""
+        # Expression: (a + b) * c should generate ("a + b") * c
+        left_add = Column(dummy_dialect, "a") + Column(dummy_dialect, "b")
+        right = Column(dummy_dialect, "c")
+        expr = left_add * right
+
+        sql, params = expr.to_sql()
+
+        # Multiplication has higher precedence than addition, so the addition part should be in parentheses
+        assert sql == '("a" + "b") * "c"'
+        assert params == ()
+
+    def test_addition_precedence_lower_than_multiplication(self, dummy_dialect: DummyDialect):
+        """Test that addition has lower precedence than multiplication."""
+        # Expression: a + (b * c) should generate "a + b * c" (no parentheses needed for multiplication)
+        left = Column(dummy_dialect, "a")
+        right_mult = Column(dummy_dialect, "b") * Column(dummy_dialect, "c")
+        expr = left + right_mult
+
+        sql, params = expr.to_sql()
+
+        # Addition has lower precedence than multiplication, so no parentheses needed for multiplication part
+        assert sql == '"a" + "b" * "c"'
+        assert params == ()
+
+    def test_multiplication_precedence_over_subtraction(self, dummy_dialect: DummyDialect):
+        """Test that multiplication has higher precedence than subtraction."""
+        # Expression: (a - b) * c should generate ("a - b") * c
+        left_sub = Column(dummy_dialect, "a") - Column(dummy_dialect, "b")
+        right = Column(dummy_dialect, "c")
+        expr = left_sub * right
+
+        sql, params = expr.to_sql()
+
+        # Multiplication has higher precedence than subtraction, so the subtraction part should be in parentheses
+        assert sql == '("a" - "b") * "c"'
+        assert params == ()
+
+    def test_division_precedence_over_addition(self, dummy_dialect: DummyDialect):
+        """Test that division has higher precedence than addition."""
+        # Expression: (a + b) / c should generate ("a + b") / c
+        left_add = Column(dummy_dialect, "a") + Column(dummy_dialect, "b")
+        right = Column(dummy_dialect, "c")
+        expr = left_add / right
+
+        sql, params = expr.to_sql()
+
+        # Division has higher precedence than addition, so the addition part should be in parentheses
+        assert sql == '("a" + "b") / "c"'
+        assert params == ()
+
+    def test_same_precedence_left_associative(self, dummy_dialect: DummyDialect):
+        """Test that operators with same precedence are left-associative."""
+        # Expression: (a * b) / c should generate "a * b / c" (no parentheses needed for left-associative)
+        left_mult = Column(dummy_dialect, "a") * Column(dummy_dialect, "b")
+        right = Column(dummy_dialect, "c")
+        expr = left_mult / right
+
+        sql, params = expr.to_sql()
+
+        # Both multiplication and division have same precedence, so no parentheses needed for left part
+        assert sql == '"a" * "b" / "c"'
+        assert params == ()
+
+    def test_addition_subtraction_same_precedence(self, dummy_dialect: DummyDialect):
+        """Test that addition and subtraction have same precedence."""
+        # Expression: (a - b) + c should generate "a - b + c" (no parentheses needed for left-associative)
+        left_sub = Column(dummy_dialect, "a") - Column(dummy_dialect, "b")
+        right = Column(dummy_dialect, "c")
+        expr = left_sub + right
+
+        sql, params = expr.to_sql()
+
+        # Both addition and subtraction have same precedence, so no parentheses needed
+        assert sql == '"a" - "b" + "c"'
+        assert params == ()
+
+    def test_right_operand_needs_parens_case(self, dummy_dialect: DummyDialect):
+        """Test the right operand needs parentheses case."""
+        # More specifically test right_needs_parens: when right operand has lower precedence than current operator
+        # Example: a * (b + c) where addition has lower precedence than multiplication
+        left = Column(dummy_dialect, "a")
+        right_add = Column(dummy_dialect, "b") + Column(dummy_dialect, "c")
+        expr = left * right_add
+
+        sql, params = expr.to_sql()
+
+        # Multiplication has higher precedence than addition, so the addition part should be in parentheses
+        assert sql == '"a" * ("b" + "c")'
+        assert params == ()
+
+    def test_right_operand_higher_precedence_than_current(self, dummy_dialect: DummyDialect):
+        """Test when right operand has higher precedence than current operator."""
+        # Expression: a + (b * c) where multiplication has higher precedence than addition
+        # In this case, the right operand (b * c) should NOT need parentheses since it has higher precedence
+        left = Column(dummy_dialect, "a")
+        right_mult = Column(dummy_dialect, "b") * Column(dummy_dialect, "c")
+        expr = left + right_mult
+
+        sql, params = expr.to_sql()
+
+        # Addition has lower precedence than multiplication, so no parentheses needed for multiplication part
+        assert sql == '"a" + "b" * "c"'
+        assert params == ()

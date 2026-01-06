@@ -95,6 +95,17 @@ class SetOperationExpression(bases.BaseExpression):
         )
     """
     def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: Optional[str] = None, all_: bool = False):
+        """
+        Initialize a SetOperationExpression.
+
+        Args:
+            dialect: The SQL dialect to use for formatting
+            left: The left-hand query expression
+            right: The right-hand query expression
+            operation: The set operation (e.g., "UNION", "INTERSECT", "EXCEPT")
+            alias: Optional alias for the set operation result
+            all_: Whether to use ALL variant of the operation (e.g., UNION ALL when operation="UNION")
+        """
         super().__init__(dialect)
         self.left = left
         self.right = right
@@ -194,7 +205,6 @@ class CTEExpression(bases.BaseExpression):
             name=self.name,
             query_sql=query_sql,
             columns=self.columns,
-            recursive=self.recursive,
             materialized=self.materialized,
             dialect_options=self.dialect_options
         )

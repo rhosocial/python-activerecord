@@ -3,9 +3,8 @@
 Sudoku solver SQL example test using SQLite dialect
 """
 import pytest
-import sys
 import sqlite3
-from datetime import datetime
+import sys
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -277,7 +276,7 @@ def test_sudoku_substring_function_expression(sqlite_backend):
     """
     Test SUBSTR function expression used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal
+    from rhosocial.activerecord.backend.expression import FunctionCall, Literal
 
     dialect = sqlite_backend.dialect
 
@@ -297,7 +296,7 @@ def test_sudoku_instr_function_expression(sqlite_backend):
     """
     Test INSTR function expression used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal
+    from rhosocial.activerecord.backend.expression import FunctionCall, Literal
 
     dialect = sqlite_backend.dialect
 
@@ -316,7 +315,7 @@ def test_sudoku_modulo_division_expression(sqlite_backend):
     """
     Test modulo and division expressions used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import Column, Literal, BinaryArithmeticExpression
+    from rhosocial.activerecord.backend.expression import Column, Literal
 
     dialect = sqlite_backend.dialect
 
@@ -342,7 +341,7 @@ def test_sudoku_complex_arithmetic_expression(sqlite_backend):
     """
     Test complex arithmetic expressions used in Sudoku solver
     """
-    from rhosocial.activerecord.backend.expression import Column, Literal, BinaryArithmeticExpression
+    from rhosocial.activerecord.backend.expression import Column, Literal
 
     dialect = sqlite_backend.dialect
 
@@ -399,7 +398,7 @@ def test_sudoku_not_exists_expression(sqlite_backend):
     Test NOT EXISTS expression used in Sudoku solver
     """
     from rhosocial.activerecord.backend.expression import (
-        Column, Literal, FunctionCall, QueryExpression, TableExpression, ExistsExpression, LogicalPredicate
+        Literal, QueryExpression, TableExpression, ExistsExpression, LogicalPredicate
     )
 
     dialect = sqlite_backend.dialect
@@ -485,8 +484,9 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         left=initial_digits_values,
         right=recursive_query,
-        operation="UNION ALL",
-        alias="digits_union"
+        operation="UNION",
+        all_=True,
+        alias=None
     )
 
     digits_cte = CTEExpression(
@@ -523,6 +523,51 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     # New instr call for the concatenated string
     new_instr_call = FunctionCall(dialect, "INSTR", new_string_expr, Literal(dialect, '.'))
 
+    # Build the NOT EXISTS subquery
+    from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression, Column, Literal, FunctionCall
+    from rhosocial.activerecord.backend.expression.advanced_functions import ExistsExpression
+
+    # Subquery for NOT EXISTS: SELECT 1 FROM digits AS lp WHERE ...
+    lp_table = TableExpression(dialect, "digits", alias="lp")
+    z_z_column = Column(dialect, "z", table="z")  # From outer query
+    s_column_outer = Column(dialect, "s", table="x")  # From outer query
+    ind_column_outer = Column(dialect, "ind", table="x")  # From outer query
+    lp_column_sub = Column(dialect, "lp", table="lp")  # From subquery
+
+    # Build the three conditions for the NOT EXISTS subquery
+    # Condition 1: z.z = substr(s, ((ind-1)/9)*9 + lp, 1)
+    cond1_calc1 = ((ind_column_outer - Literal(dialect, 1)) / Literal(dialect, 9)) * Literal(dialect, 9)
+    cond1_calc2 = cond1_calc1 + lp_column_sub
+    cond1 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond1_calc2, Literal(dialect, 1))
+
+    # Condition 2: z.z = substr(s, ((ind-1)%9) + (lp-1)*9 + 1, 1)
+    cond2_calc1 = (ind_column_outer - Literal(dialect, 1)) % Literal(dialect, 9)
+    cond2_calc2 = (lp_column_sub - Literal(dialect, 1)) * Literal(dialect, 9)
+    cond2_calc3 = cond2_calc1 + cond2_calc2 + Literal(dialect, 1)
+    cond2 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond2_calc3, Literal(dialect, 1))
+
+    # Condition 3: z.z = substr(s, (((ind-1)/3) % 3) * 3 + ((ind-1)/27) * 27 + lp + ((lp-1) / 3) * 6, 1)
+    cond3_calc1 = (((ind_column_outer - Literal(dialect, 1)) / Literal(dialect, 3)) % Literal(dialect, 3)) * Literal(dialect, 3)
+    cond3_calc2 = ((ind_column_outer - Literal(dialect, 1)) / Literal(dialect, 27)) * Literal(dialect, 27)
+    cond3_calc3 = (lp_column_sub - Literal(dialect, 1)) / Literal(dialect, 3)
+    cond3_calc4 = cond3_calc3 * Literal(dialect, 6)
+    cond3_calc5 = cond3_calc1 + cond3_calc2 + lp_column_sub + cond3_calc4
+    cond3 = z_z_column == FunctionCall(dialect, "SUBSTR", s_column_outer, cond3_calc5, Literal(dialect, 1))
+
+    # Combine conditions with OR
+    subquery_where = cond1 | cond2 | cond3
+
+    # Create the subquery for NOT EXISTS
+    not_exists_subquery = QueryExpression(
+        dialect=dialect,
+        select=[Literal(dialect, 1)],  # SELECT 1
+        from_=lp_table,
+        where=subquery_where
+    )
+
+    # Create the NOT EXISTS expression
+    not_exists_expr = ExistsExpression(dialect, not_exists_subquery, is_not=True)
+
     # FROM x, digits AS z (cross join using list)
     from_clause = [x_table, TableExpression(dialect, "digits", alias="z")]
 
@@ -530,7 +575,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         select=[new_string_expr, new_instr_call],
         from_=from_clause,  # Cross join
-        where=(ind_column > Literal(dialect, 0))
+        where=(ind_column > Literal(dialect, 0)) & not_exists_expr  # Add the NOT EXISTS constraint
     )
 
     # Use SetOperationExpression to build the UNION ALL for x CTE
@@ -538,8 +583,9 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         left=initial_x_query,
         right=recursive_x_query,
-        operation="UNION ALL",
-        alias="x_union"
+        operation="UNION",
+        all_=True,
+        alias=None
     )
 
     x_cte = CTEExpression(
@@ -583,6 +629,30 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     assert "CAST" in sql.upper()  # CAST function
 
     print("✓ Generated SQL has correct structure")
+
+    # Execute the generated SQL
+    print("\n--- Attempting to execute generated Sudoku SQL ---")
+    from rhosocial.activerecord.backend.options import ExecutionOptions
+    from rhosocial.activerecord.backend.schema import StatementType
+
+    result = backend.execute(
+        sql,
+        params=params,
+        options=ExecutionOptions(stmt_type=StatementType.DQL)  # Use DQL to ensure result set is processed
+    )
+
+    # Check if we got a result
+    assert result is not None
+    assert result.data is not None
+    assert len(result.data) >= 1
+
+    solution = result.data[0]['s']
+    print(f"Generated SQL Sudoku solution: {solution}")
+
+    # Verify the solution content
+    expected_solution = "534678912672195348198342567859761423426853791713924856961537284287419635345286179"
+    assert solution == expected_solution
+    print("✓ Generated SQL produced correct Sudoku solution")
 
     # For this test, we'll verify that the expression system can build the components
     # The full Sudoku logic is too complex to execute in a unit test
