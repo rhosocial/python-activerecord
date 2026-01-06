@@ -24,6 +24,19 @@ if TYPE_CHECKING:  # pragma: no cover
     from .query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause, ForUpdateClause, JoinExpression
 
 
+# Define type aliases for complex union types
+FromSourceType = Union[
+    str,                       # Table name as string
+    "core.TableExpression",      # Single table
+    "core.Subquery",             # Subquery
+    "SetOperationExpression",    # Set operations (UNION, etc.)
+    "JoinExpression",            # Join expression (treated as a single object)
+    "ValuesExpression",          # VALUES expression
+    "TableFunctionExpression",   # Table function
+    "LateralExpression",         # LATERAL expression
+]
+
+
 # region DML and DQL Statements
 
 # region Merge Statement
@@ -222,14 +235,9 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
     def __init__(self, dialect: "SQLDialectBase",
                  select: List["bases.BaseExpression"],  # SELECT clause - required, list of selected expressions
                  from_: Optional[Union[  # FROM clause - optional, but determines the nature of the query
-                     "core.TableExpression",      # Single table
-                     "core.Subquery",             # Subquery
-                     "SetOperationExpression",    # Set operations (UNION, etc.)
-                     "JoinExpression",            # Join expression (treated as a single object)
-                     List[Union["core.TableExpression", "core.Subquery", "SetOperationExpression"]],  # Multiple tables/subqueries - equivalent to comma-separated tables in FROM clause (implicit CROSS JOIN)
-                     "ValuesExpression",          # VALUES expression
-                     "TableFunctionExpression",   # Table function
-                     "LateralExpression"          # LATERAL expression
+                     FromSourceType,  # Single data source type
+                     # List of data source types (for comma-separated FROM clause - implicit CROSS JOIN)
+                     List[FromSourceType]
                  ]] = None,
                  where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
                  group_by_having: Optional["GroupByHavingClause"] = None,  # Combined GROUP BY/HAVING clause object
@@ -321,15 +329,24 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             raise TypeError(f"select must be a list of expressions, got {type(self.select)}")
 
         # Validate from_ parameter - should be one of the allowed types
+        def _is_valid_from_source(item):
+            """Check if an item is a valid FROM source type."""
+            # Check if it's one of the valid types: basic types or specific expression classes
+            return (isinstance(item, (str, core.TableExpression, core.Subquery)) or
+                    type(item).__name__ in [
+                        'SetOperationExpression', 'JoinExpression', 'ValuesExpression',
+                        'TableFunctionExpression', 'LateralExpression'
+                    ])
+
         if self.from_ is not None:
-            # Check if it's one of the valid types using isinstance with type names
-            valid_types = (str, core.TableExpression, core.Subquery)
-            if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
-                # For complex types, check their type names
-                from_type_name = type(self.from_).__name__
-                valid_type_names = ['SetOperationExpression', 'JoinExpression', 'ValuesExpression',
-                                  'TableFunctionExpression', 'LateralExpression']
-                if from_type_name not in valid_type_names:
+            if isinstance(self.from_, list):
+                # If it's a list, validate each element in the list
+                for i, item in enumerate(self.from_):
+                    if not _is_valid_from_source(item):
+                        raise TypeError(f"from_ list item at index {i} must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(item)}")
+            else:
+                # For single values, validate using the same helper
+                if not _is_valid_from_source(self.from_):
                     raise TypeError(f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}")
 
         # Validate where parameter

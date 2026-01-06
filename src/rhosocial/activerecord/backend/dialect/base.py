@@ -702,10 +702,33 @@ class SQLDialectBase:
         from_sql = ""
         if expr.from_:
             if isinstance(expr.from_, str):
+                # Handle string table name
                 from_expr_sql = self.format_identifier(expr.from_)
                 from_expr_params = []
-            else: # Assume it's a BaseExpression
+            elif isinstance(expr.from_, list):
+                # Handle list of FROM sources (comma-separated tables/subqueries - implicit CROSS JOIN)
+                from_parts = []
+                from_expr_params = []
+                for source in expr.from_:
+                    if isinstance(source, str):
+                        # String table name in list
+                        part_sql = self.format_identifier(source)
+                        part_params = []
+                    else:  # Assume it's a BaseExpression
+                        part_sql, part_params = source.to_sql()
+                        # For ValuesExpression used as FROM source in list, wrap in parentheses
+                        # This is required by SQL standard for VALUES in FROM clause
+                        if hasattr(source, '__class__') and source.__class__.__name__ == "ValuesExpression":
+                            part_sql = f"({part_sql})"
+                    from_parts.append(part_sql)
+                    from_expr_params.extend(part_params)
+                from_expr_sql = ", ".join(from_parts)
+            else: # Assume it's a single BaseExpression
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
+                # For ValuesExpression used as FROM source, wrap in parentheses
+                # This is required by SQL standard for VALUES in FROM clause
+                if hasattr(expr.from_, '__class__') and expr.from_.__class__.__name__ == "ValuesExpression":
+                    from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
         where_sql = ""

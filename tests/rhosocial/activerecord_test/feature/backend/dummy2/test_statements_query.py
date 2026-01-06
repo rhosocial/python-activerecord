@@ -798,3 +798,58 @@ class TestQueryStatements:
         assert 'SELECT COUNT(DISTINCT "category") FROM "products"' == sql
         assert params == ()
 
+    def test_query_expression_from_with_valid_list_types(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with valid types in from_ list."""
+        from rhosocial.activerecord.backend.expression import ValuesExpression
+
+        # Test with list containing valid types: string, TableExpression, ValuesExpression
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "col1"), Column(dummy_dialect, "col2")],
+            from_=[
+                "users",  # String table name
+                TableExpression(dummy_dialect, "orders", alias="o"),  # TableExpression with alias
+                ValuesExpression(dummy_dialect, [("test",)], "values_alias", ["val"])  # ValuesExpression
+            ]
+        )
+
+        sql, params = query.to_sql()
+
+        # Verify that the query was generated successfully
+        assert "SELECT" in sql
+        assert "FROM" in sql
+        assert '"users"' in sql
+        assert '"orders"' in sql
+        assert '"values_alias"' in sql
+        assert params == ("test",)
+
+    def test_query_expression_from_with_invalid_list_item_type(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression validation with invalid type in from_ list."""
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=[TableExpression(dummy_dialect, "users")]  # Valid initial value
+        )
+
+        # Manually assign a list with an invalid type to trigger validation error
+        query.from_ = ["users", 123]  # 123 is invalid type in list context
+
+        with pytest.raises(TypeError, match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class 'int'>"):
+            query.validate(strict=True)
+
+    def test_query_expression_from_with_invalid_list_item_type_complex(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression validation with complex invalid type in from_ list."""
+        from rhosocial.activerecord.backend.expression import FunctionCall
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=[TableExpression(dummy_dialect, "users")]  # Valid initial value
+        )
+
+        # Manually assign a list with an invalid FunctionCall type to trigger validation error
+        query.from_ = [TableExpression(dummy_dialect, "users"), FunctionCall(dummy_dialect, "NOW")]  # FunctionCall is invalid in FROM context
+
+        with pytest.raises(TypeError, match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*FunctionCall'>"):
+            query.validate(strict=True)
+
