@@ -23,8 +23,8 @@ def sqlite_backend():
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 11) or sqlite3.sqlite_version_info < (3, 35),
-    reason="Recursive CTEs require Python 3.11+ and SQLite 3.35+"
+    sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
+    reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+"
 )
 def test_sudoku_solver_raw_sql(sqlite_backend):
     """
@@ -109,8 +109,8 @@ SELECT s FROM x WHERE ind=0;
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 11) or sqlite3.sqlite_version_info < (3, 35),
-    reason="Recursive CTEs require Python 3.11+ and SQLite 3.35+"
+    sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
+    reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+"
 )
 def test_sudoku_solver_with_different_puzzle(sqlite_backend):
     """
@@ -173,8 +173,8 @@ SELECT s FROM x WHERE ind=0;
 
 
 @pytest.mark.skipif(
-    sys.version_info < (3, 11) or sqlite3.sqlite_version_info < (3, 35),
-    reason="Recursive CTEs require Python 3.11+ and SQLite 3.35+"
+    sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
+    reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+"
 )
 def test_sudoku_solver_validates_solution(sqlite_backend):
     """
@@ -660,6 +660,386 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     assert sql is not None
     assert params is not None
     assert len(sql) > 0  # Generated SQL should not be empty
+
+
+class TestMandelbrotSet:
+    """Tests for Mandelbrot Set generation using recursive CTEs."""
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
+        reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+"
+    )
+    def test_mandelbrot_set_raw_sql(self, sqlite_backend):
+        """
+        Test Mandelbrot Set generation using raw SQL.
+        This test executes the complete Mandelbrot Set SQL query to verify it produces the correct visualization.
+        """
+        backend = sqlite_backend
+
+        # Create a test table to ensure the backend is working
+        backend.execute(
+            "CREATE TABLE temp_test (id INTEGER PRIMARY KEY, name TEXT)",
+            options=ExecutionOptions(stmt_type=StatementType.DDL)
+        )
+
+        print("\n--- Building and Executing Mandelbrot Set SQL ---")
+
+        # Complete Mandelbrot Set SQL query
+        mandelbrot_sql = """
+WITH RECURSIVE
+  xaxis(x) AS (VALUES(-2.0) UNION ALL SELECT x+0.05 FROM xaxis WHERE x<1.2),
+  yaxis(y) AS (VALUES(-1.0) UNION ALL SELECT y+0.1 FROM yaxis WHERE y<1.0),
+  m(iter, cx, cy, x, y) AS (
+    SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
+    UNION ALL
+    SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m
+     WHERE (x*x + y*y) < 4.0 AND iter<28
+  ),
+  m2(iter, cx, cy) AS (
+    SELECT max(iter), cx, cy FROM m GROUP BY cx, cy
+  ),
+  a(t) AS (
+    SELECT group_concat( substr(' .+*#', 1+min(iter/7,4), 1), '')
+    FROM m2 GROUP BY cy
+  )
+SELECT group_concat(rtrim(t),x'0a') FROM a;
+    """
+
+        # Execute the Mandelbrot Set query
+        result = backend.execute(
+            mandelbrot_sql,
+            params=(),
+            options=ExecutionOptions(stmt_type=StatementType.DQL)  # Use DQL to ensure result set is processed
+        )
+
+        # Verify the result
+        assert result is not None
+        assert result.data is not None
+        assert len(result.data) >= 1  # Should return at least one row
+
+        visualization = result.data[0]
+        # The result should have a single column (the name varies by implementation)
+        # Get the first column value
+        mandelbrot_output = next(iter(visualization.values()))
+
+        assert mandelbrot_output is not None
+        print(f"Mandelbrot Set visualization:\n{mandelbrot_output}")
+
+        # Verify that the output contains Mandelbrot Set characteristics
+        # The output should contain ASCII art representation with chars ' ', '.', '+', '*', '#'
+        assert any(c in mandelbrot_output for c in [' ', '.', '+', '*', '#'])
+
+        # Should have multiple lines (rows in the visualization)
+        lines = mandelbrot_output.split('\n')
+        assert len(lines) > 1
+
+        print("✓ Mandelbrot Set visualization generated successfully")
+
+    @pytest.mark.skipif(
+        sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
+        reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+"
+    )
+    def test_mandelbrot_set_expression_system(self, sqlite_backend):
+        """
+        Test Mandelbrot Set generation using expression system.
+        This test builds the Mandelbrot Set SQL using the expression system and verifies it produces the same result as raw SQL.
+        """
+        from rhosocial.activerecord.backend.expression import (
+            Literal, ValuesExpression, QueryExpression, TableExpression, Column, FunctionCall,
+            CTEExpression, WithQueryExpression, SetOperationExpression, CastExpression, concat_op
+        )
+
+        backend = sqlite_backend
+
+        # Create a test table to ensure the backend is working
+        backend.execute(
+            "CREATE TABLE temp_test (id INTEGER PRIMARY KEY, name TEXT)",
+            options=ExecutionOptions(stmt_type=StatementType.DDL)
+        )
+
+        print("\n--- Building Mandelbrot Set SQL with Expression System ---")
+
+        dialect = backend.dialect
+
+        # Build the xaxis CTE: xaxis(x) AS (VALUES(-2.0) UNION ALL SELECT x+0.05 FROM xaxis WHERE x<1.2)
+        # Initial value part
+        initial_xaxis_values = ValuesExpression(
+            dialect=dialect,
+            values=[(-2.0,)],
+            alias=None,
+            column_names=None
+        )
+
+        # Recursive part
+        xaxis_table = TableExpression(dialect, "xaxis")
+        x_col = Column(dialect, "x", table="xaxis")
+
+        # SELECT x+0.05 FROM xaxis WHERE x<1.2
+        x_plus_increment = x_col + Literal(dialect, 0.05)
+
+        recursive_xaxis_query = QueryExpression(
+            dialect=dialect,
+            select=[x_plus_increment],
+            from_=xaxis_table,
+            where=(x_col < Literal(dialect, 1.2))
+        )
+
+        # Use SetOperationExpression to build the UNION ALL
+        xaxis_union = SetOperationExpression(
+            dialect=dialect,
+            left=initial_xaxis_values,
+            right=recursive_xaxis_query,
+            operation="UNION",
+            all_=True,
+            alias=None
+        )
+
+        xaxis_cte = CTEExpression(
+            dialect=dialect,
+            name="xaxis",
+            query=xaxis_union,
+            columns=["x"],
+            recursive=True
+        )
+
+        # Build the yaxis CTE: yaxis(y) AS (VALUES(-1.0) UNION ALL SELECT y+0.1 FROM yaxis WHERE y<1.0)
+        # Initial value part
+        initial_yaxis_values = ValuesExpression(
+            dialect=dialect,
+            values=[(-1.0,)],
+            alias=None,
+            column_names=None
+        )
+
+        # Recursive part
+        yaxis_table = TableExpression(dialect, "yaxis")
+        y_col = Column(dialect, "y", table="yaxis")
+
+        # SELECT y+0.1 FROM yaxis WHERE y<1.0
+        y_plus_increment = y_col + Literal(dialect, 0.1)
+
+        recursive_yaxis_query = QueryExpression(
+            dialect=dialect,
+            select=[y_plus_increment],
+            from_=yaxis_table,
+            where=(y_col < Literal(dialect, 1.0))
+        )
+
+        # Use SetOperationExpression to build the UNION ALL
+        yaxis_union = SetOperationExpression(
+            dialect=dialect,
+            left=initial_yaxis_values,
+            right=recursive_yaxis_query,
+            operation="UNION",
+            all_=True,
+            alias=None
+        )
+
+        yaxis_cte = CTEExpression(
+            dialect=dialect,
+            name="yaxis",
+            query=yaxis_union,
+            columns=["y"],
+            recursive=True
+        )
+
+        # Build the m CTE: m(iter, cx, cy, x, y) AS (
+        #   SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
+        #   UNION ALL
+        #   SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m
+        #    WHERE (x*x + y*y) < 4.0 AND iter<28
+        # )
+        # Initial part: SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
+        initial_m_query = QueryExpression(
+            dialect=dialect,
+            select=[
+                Literal(dialect, 0),  # iter
+                Column(dialect, "x", table="xaxis"),  # cx
+                Column(dialect, "y", table="yaxis"),  # cy
+                Literal(dialect, 0.0),  # x
+                Literal(dialect, 0.0)   # y
+            ],
+            from_=[TableExpression(dialect, "xaxis"), TableExpression(dialect, "yaxis")]  # Cross join
+        )
+
+        # Recursive part
+        m_table = TableExpression(dialect, "m")
+        iter_col = Column(dialect, "iter", table="m")
+        cx_col = Column(dialect, "cx", table="m")
+        cy_col = Column(dialect, "cy", table="m")
+        x_m_col = Column(dialect, "x", table="m")
+        y_m_col = Column(dialect, "y", table="m")
+
+        # SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m WHERE (x*x + y*y) < 4.0 AND iter<28
+        new_iter = iter_col + Literal(dialect, 1)
+        new_x = (x_m_col * x_m_col - y_m_col * y_m_col) + cx_col
+        new_y = Literal(dialect, 2.0) * x_m_col * y_m_col + cy_col
+
+        condition1 = (x_m_col * x_m_col + y_m_col * y_m_col) < Literal(dialect, 4.0)
+        condition2 = iter_col < Literal(dialect, 28)
+        where_condition = condition1 & condition2
+
+        recursive_m_query = QueryExpression(
+            dialect=dialect,
+            select=[new_iter, cx_col, cy_col, new_x, new_y],
+            from_=m_table,
+            where=where_condition
+        )
+
+        # Use SetOperationExpression to build the UNION ALL for m CTE
+        m_union = SetOperationExpression(
+            dialect=dialect,
+            left=initial_m_query,
+            right=recursive_m_query,
+            operation="UNION",
+            all_=True,
+            alias=None
+        )
+
+        m_cte = CTEExpression(
+            dialect=dialect,
+            name="m",
+            query=m_union,
+            columns=["iter", "cx", "cy", "x", "y"],
+            recursive=True
+        )
+
+        # Build the m2 CTE: m2(iter, cx, cy) AS (
+        #   SELECT max(iter), cx, cy FROM m GROUP BY cx, cy
+        # )
+        m2_from = TableExpression(dialect, "m")
+        max_iter = FunctionCall(dialect, "MAX", Column(dialect, "iter", table="m"))
+        m2_cx = Column(dialect, "cx", table="m")
+        m2_cy = Column(dialect, "cy", table="m")
+
+        from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause
+        m2_query = QueryExpression(
+            dialect=dialect,
+            select=[max_iter, m2_cx, m2_cy],
+            from_=m2_from,
+            group_by_having=GroupByHavingClause(
+                dialect=dialect,
+                group_by=[Column(dialect, "cx", table="m"), Column(dialect, "cy", table="m")],
+                having=None
+            )
+        )
+
+        m2_cte = CTEExpression(
+            dialect=dialect,
+            name="m2",
+            query=m2_query,
+            columns=["iter", "cx", "cy"],
+            recursive=False
+        )
+
+        # Build the a CTE: a(t) AS (
+        #   SELECT group_concat( substr(' .+*#', 1+min(iter/7,4), 1), '')
+        #   FROM m2 GROUP BY cy
+        # )
+        a_from = TableExpression(dialect, "m2")
+        # substr(' .+*#', 1+min(iter/7,4), 1)
+        substr_expr = FunctionCall(
+            dialect, "SUBSTR",
+            Literal(dialect, " .+*#"),
+            Literal(dialect, 1) + FunctionCall(dialect, "MIN", Column(dialect, "iter", table="m2") / Literal(dialect, 7), Literal(dialect, 4)),
+            Literal(dialect, 1)
+        )
+        group_concat_expr = FunctionCall(dialect, "GROUP_CONCAT", substr_expr, Literal(dialect, ''))
+
+        a_query = QueryExpression(
+            dialect=dialect,
+            select=[group_concat_expr],
+            from_=a_from,
+            group_by_having=GroupByHavingClause(
+                dialect=dialect,
+                group_by=[Column(dialect, "cy", table="m2")],
+                having=None
+            )
+        )
+
+        a_cte = CTEExpression(
+            dialect=dialect,
+            name="a",
+            query=a_query,
+            columns=["t"],
+            recursive=False
+        )
+
+        # Final query: SELECT group_concat(rtrim(t),x'0a') FROM a
+        final_from = TableExpression(dialect, "a")
+        rtrim_expr = FunctionCall(dialect, "RTRIM", Column(dialect, "t", table="a"))
+        final_group_concat = FunctionCall(dialect, "GROUP_CONCAT", rtrim_expr, Literal(dialect, "\n"))  # Using \n instead of x'0a'
+
+        final_query = QueryExpression(
+            dialect=dialect,
+            select=[final_group_concat],
+            from_=final_from
+        )
+
+        # Build the complete WITH query
+        with_query = WithQueryExpression(
+            dialect=dialect,
+            ctes=[xaxis_cte, yaxis_cte, m_cte, m2_cte, a_cte],
+            main_query=final_query
+        )
+
+        # Generate the final SQL
+        sql, params = with_query.to_sql()
+
+        print(f"Generated Mandelbrot SQL: {sql}")
+        print(f"Parameters: {params}")
+
+        # Execute the generated SQL
+        result = backend.execute(
+            sql,
+            params=params,
+            options=ExecutionOptions(stmt_type=StatementType.DQL)  # Use DQL to ensure result set is processed
+        )
+
+        # Verify the result
+        assert result is not None
+        assert result.data is not None
+        assert len(result.data) >= 1  # Should return at least one row
+
+        expression_result = result.data[0]
+        expression_output = next(iter(expression_result.values()))
+
+        print(f"Expression system Mandelbrot visualization:\n{expression_output}")
+
+        # Now execute the raw SQL for comparison
+        raw_mandelbrot_sql = """
+WITH RECURSIVE
+  xaxis(x) AS (VALUES(-2.0) UNION ALL SELECT x+0.05 FROM xaxis WHERE x<1.2),
+  yaxis(y) AS (VALUES(-1.0) UNION ALL SELECT y+0.1 FROM yaxis WHERE y<1.0),
+  m(iter, cx, cy, x, y) AS (
+    SELECT 0, x, y, 0.0, 0.0 FROM xaxis, yaxis
+    UNION ALL
+    SELECT iter+1, cx, cy, x*x-y*y + cx, 2.0*x*y + cy FROM m
+     WHERE (x*x + y*y) < 4.0 AND iter<28
+  ),
+  m2(iter, cx, cy) AS (
+    SELECT max(iter), cx, cy FROM m GROUP BY cx, cy
+  ),
+  a(t) AS (
+    SELECT group_concat( substr(' .+*#', 1+min(iter/7,4), 1), '')
+    FROM m2 GROUP BY cy
+  )
+SELECT group_concat(rtrim(t),x'0a') FROM a;
+    """
+
+        raw_result = backend.execute(
+            raw_mandelbrot_sql,
+            params=(),
+            options=ExecutionOptions(stmt_type=StatementType.DQL)
+        )
+
+        raw_visualization = raw_result.data[0]
+        raw_output = next(iter(raw_visualization.values()))
+
+        # Compare the results
+        assert expression_output == raw_output, f"Expression result differs from raw SQL:\nExpression: {expression_output}\nRaw SQL: {raw_output}"
+
+        print("✓ Expression system produced identical Mandelbrot visualization as raw SQL")
 
 
 if __name__ == "__main__":

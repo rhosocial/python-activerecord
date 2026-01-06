@@ -56,7 +56,6 @@ class TestSQLiteDialectComprehensive:
                 assert dialect.supports_json_type() == expected_value
 
     @pytest.mark.parametrize("method_name", [
-        "supports_materialized_cte",
         "supports_rollup",
         "supports_cube",
         "supports_grouping_sets",

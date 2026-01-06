@@ -71,7 +71,7 @@ class TestSQLiteDialectVersionSupport:
     def test_unsupported_features_always_false(self):
         """Test features that are always unsupported"""
         dialect = SQLiteDialect((3, 38, 0))
-        assert dialect.supports_materialized_cte() == False
+        # Note: supports_materialized_cte() is supported since SQLite 3.35.0
         assert dialect.supports_rollup() == False
         assert dialect.supports_cube() == False
         assert dialect.supports_grouping_sets() == False
@@ -111,15 +111,14 @@ class TestSQLiteDialectVersionSupport:
                 assert dialect.supports_json_type() == expected_value
 
     @pytest.mark.parametrize("method_name", [
-        "supports_materialized_cte",
-        "supports_rollup", 
+        "supports_rollup",
         "supports_cube",
         "supports_grouping_sets",
         "supports_array_type",
         "supports_array_constructor",
         "supports_array_access",
         "supports_graph_match",
-        "supports_merge_statement", 
+        "supports_merge_statement",
         "supports_temporal_tables",
         "supports_qualify_clause",
         "supports_ordered_set_aggregation",

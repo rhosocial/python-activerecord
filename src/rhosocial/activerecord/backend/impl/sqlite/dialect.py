@@ -124,8 +124,8 @@ class SQLiteDialect(
         return self.version >= (3, 8, 3)
 
     def supports_materialized_cte(self) -> bool:
-        """SQLite does not support MATERIALIZED hint."""
-        return False
+        """MATERIALIZED hint is supported since SQLite 3.35.0."""
+        return self.version >= (3, 35, 0)
 
     def supports_returning_clause(self) -> bool:
         """RETURNING clause is supported since SQLite 3.35.0."""
