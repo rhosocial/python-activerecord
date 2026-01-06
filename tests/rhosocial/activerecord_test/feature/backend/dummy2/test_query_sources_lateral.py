@@ -216,15 +216,38 @@ class TestLateralExpression:
     def test_lateral_with_alias_formatting(self, dummy_dialect: DummyDialect):
         """Test various alias formatting for lateral expressions."""
         lateral_query = Subquery(dummy_dialect, "SELECT NULL as empty", ())
-        
+
         lateral_expr = LateralExpression(
             dummy_dialect,
             expression=lateral_query,
             alias="formatted_alias"
         )
-        
+
         sql, params = lateral_expr.to_sql()
-        
+
         assert "LATERAL" in sql.upper()
         assert "formatted_alias" in sql
         assert params == ()
+
+    def test_lateral_without_alias(self, dummy_dialect: DummyDialect):
+        """Test LATERAL expression without alias."""
+        lateral_query = Subquery(
+            dummy_dialect,
+            "SELECT user_id, order_date FROM orders WHERE user_id = users.id LIMIT ?",
+            (5,)
+        )
+
+        # Create LateralExpression without alias
+        lateral_expr = LateralExpression(
+            dummy_dialect,
+            expression=lateral_query
+        )
+
+        sql, params = lateral_expr.to_sql()
+
+        # Verify that no alias is present in the SQL
+        assert "AS" not in sql.upper() or "AS " not in sql  # Check that alias is not in SQL
+        # Verify LATERAL is still present
+        assert "LATERAL" in sql.upper()
+        # Verify parameters are still handled
+        assert params == (5,)

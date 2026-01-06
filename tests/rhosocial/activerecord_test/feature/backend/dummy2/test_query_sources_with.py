@@ -52,8 +52,10 @@ class TestCTEAndWithQueryExpressions:
         )
         
         sql, params = cte.to_sql()
-        
-        assert "RECURSIVE" in sql.upper()
+
+        # The recursive flag is now handled at the WITH clause level, not individual CTE level
+        # So individual CTE should not have RECURSIVE in its own SQL
+        # But the CTE should still be marked as recursive for use in WithQueryExpression
         assert "tree_cte" in sql
         assert params == ()
 
@@ -254,9 +256,10 @@ class TestCTEAndWithQueryExpressions:
         )
         
         sql, params = cte.to_sql()
-        
+
         assert "test_cte" in sql
         assert "col1" in sql
-        assert "RECURSIVE" in sql.upper()
+        # The RECURSIVE keyword is now handled at the WITH clause level, not individual CTE level
+        # Individual CTEs don't contain RECURSIVE in their own SQL
         assert "NOT MATERIALIZED" in sql.upper()
         assert params == (123,)

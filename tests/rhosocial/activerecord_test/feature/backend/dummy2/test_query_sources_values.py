@@ -192,19 +192,42 @@ class TestValuesExpression:
     def test_values_expression_large_dataset(self, dummy_dialect: DummyDialect):
         """Test VALUES expression with larger dataset."""
         values_data = [(i, f"name_{i}", i * 10) for i in range(10)]
-        
+
         values_expr = ValuesExpression(
             dummy_dialect,
             values=values_data,
             alias="large_data",
             column_names=["id", "name", "value"]
         )
-        
+
         sql, params = values_expr.to_sql()
-        
+
         assert "large_data" in sql
         # Should have 10 rows * 3 columns = 30 parameters
         assert len(params) == 30
         # Check that first and last values are present
         assert params[0] == 0  # first id
         assert params[-3] == 9  # last id
+
+    def test_values_expression_without_alias(self, dummy_dialect: DummyDialect):
+        """Test VALUES expression without alias."""
+        values_data = [
+            (1, "Alice", 25),
+            (2, "Bob", 30)
+        ]
+
+        # Create ValuesExpression without alias
+        values_expr = ValuesExpression(
+            dummy_dialect,
+            values=values_data,
+            column_names=["id", "name", "age"]
+        )
+
+        sql, params = values_expr.to_sql()
+
+        # Verify that no alias is present in the SQL
+        assert "AS" not in sql.upper() or "AS " not in sql  # Check that alias is not in SQL
+        # Verify column names are still present
+        assert "id" in sql and "name" in sql and "age" in sql
+        # Verify values are still parameterized
+        assert params == (1, "Alice", 25, 2, "Bob", 30)

@@ -207,37 +207,38 @@ class CTEMixin:
             name: str,
             query_sql: str,
             columns: Optional[List[str]] = None,
-            recursive: bool = False,
+            recursive: bool = False,  # Still accept the parameter for compatibility
             materialized: Optional[bool] = None,
             dialect_options: Optional[Dict[str, Any]] = None
     ) -> str:
         """Format a single CTE definition."""
-        recursive_str = "RECURSIVE " if recursive else ""
         materialized_hint = ""
         if materialized is not None:
             materialized_hint = "MATERIALIZED " if materialized else "NOT MATERIALIZED "
 
         name_part = self.format_identifier(name)
         columns_part = f" ({', '.join(self.format_identifier(c) for c in columns)})" if columns else ""
-        return f"{recursive_str}{name_part}{columns_part} AS {materialized_hint}({query_sql})"
+        return f"{name_part}{columns_part} AS {materialized_hint}({query_sql})"
 
     def format_with_query(
             self,
             cte_sql_parts: List[str],
             main_query_sql: str,
-            dialect_options: Optional[Dict[str, Any]] = None
+            dialect_options: Optional[Dict[str, Any]] = None,
+            has_recursive: bool = False  # Added parameter to indicate if any CTE is recursive
     ) -> str:
         """Format a complete query with WITH clause."""
         if not cte_sql_parts:
             return main_query_sql
-        with_clause = self._format_with_clause(cte_sql_parts)
+        with_clause = self._format_with_clause(cte_sql_parts, has_recursive)
         return f"{with_clause} {main_query_sql}"
 
-    def _format_with_clause(self, ctes_sql: List[str]) -> str:
+    def _format_with_clause(self, ctes_sql: List[str], has_recursive: bool = False) -> str:
         """Helper to format complete WITH clause from list of CTE definitions."""
         if not ctes_sql:
             return ""
-        return f"WITH {', '.join(ctes_sql)}"
+        recursive_str = "RECURSIVE " if has_recursive else ""
+        return f"WITH {recursive_str}{', '.join(ctes_sql)}"
 
 
 class AdvancedGroupingMixin:
@@ -428,11 +429,14 @@ class LateralJoinMixin:
             self,
             expr_sql: str,
             expr_params: Tuple[Any, ...],
-            alias: str,
+            alias: Optional[str],
             join_type: str
     ) -> Tuple[str, Tuple]:
         """Format LATERAL expression."""
-        sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
+        if alias is not None:
+            sql = f"{join_type.upper()} JOIN LATERAL {expr_sql} AS {self.format_identifier(alias)}"
+        else:
+            sql = f"{join_type.upper()} JOIN LATERAL {expr_sql}"
         return sql, expr_params
 
     def format_table_function_expression(
@@ -440,7 +444,7 @@ class LateralJoinMixin:
             func_name: str,
             args_sql: List[str],
             args_params: Tuple[Any, ...],
-            alias: str,
+            alias: Optional[str],
             column_names: Optional[List[str]]
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""
@@ -450,7 +454,10 @@ class LateralJoinMixin:
         if column_names:
             cols_sql = f"({', '.join(self.format_identifier(name) for name in column_names)})"
 
-        sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
+        if alias is not None:
+            sql = f"{func_name.upper()}({args_str}) AS {self.format_identifier(alias)}{cols_sql}"
+        else:
+            sql = f"{func_name.upper()}({args_str}){cols_sql}"
         return sql, args_params
 
 
@@ -551,7 +558,10 @@ class JSONMixin:
 
         cols_defs = [f"{col['name']} {col['type']} PATH '{col['path']}'" for col in columns]
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"
-        sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias) if alias else alias}"
+        if alias is not None:
+            sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias)}"
+        else:
+            sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql})"
         return sql, params
 
 

@@ -204,9 +204,9 @@ class TestSetOperationExpression:
         """Test all operation variants with and without ALL."""
         query1 = Subquery(dummy_dialect, "SELECT id FROM t1 WHERE a = ?", (1,))
         query2 = Subquery(dummy_dialect, "SELECT id FROM t2 WHERE b = ?", (2,))
-        
+
         operations = ["UNION", "INTERSECT", "EXCEPT"]
-        
+
         for op in operations:
             # Test without ALL
             set_op = SetOperationExpression(
@@ -216,11 +216,11 @@ class TestSetOperationExpression:
                 operation=op,
                 alias=f"test_{op.lower()}"
             )
-            
+
             sql, params = set_op.to_sql()
             assert op in sql.upper()
             assert params == (1, 2)
-            
+
             # Test with ALL
             set_op_all = SetOperationExpression(
                 dummy_dialect,
@@ -230,7 +230,29 @@ class TestSetOperationExpression:
                 alias=f"test_{op.lower()}_all",
                 all_=True
             )
-            
+
             sql_all, params_all = set_op_all.to_sql()
             assert f"{op} ALL" in sql_all.upper()
             assert params_all == (1, 2)
+
+    def test_set_operation_without_alias(self, dummy_dialect: DummyDialect):
+        """Test set operation expression without alias."""
+        left_query = Subquery(dummy_dialect, "SELECT id, name FROM users WHERE age > ?", (18,))
+        right_query = Subquery(dummy_dialect, "SELECT id, name FROM customers WHERE status = ?", ("active",))
+
+        # Create SetOperationExpression without alias
+        set_op = SetOperationExpression(
+            dummy_dialect,
+            left=left_query,
+            right=right_query,
+            operation="UNION"
+        )
+
+        sql, params = set_op.to_sql()
+
+        # Verify that no alias is present in the SQL
+        assert "AS" not in sql.upper() or "AS " not in sql  # Check that alias is not in SQL
+        # Verify UNION is still present
+        assert "UNION" in sql.upper()
+        # Verify parameters are still handled
+        assert params == (18, "active")

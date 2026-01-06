@@ -167,7 +167,7 @@ class LateralJoinSupport(Protocol):
         self,
         expr_sql: str,
         expr_params: Tuple[Any, ...],
-        alias: str,
+        alias: Optional[str],
         join_type: str
     ) -> Tuple[str, Tuple]:
         """Format LATERAL expression."""
@@ -178,7 +178,7 @@ class LateralJoinSupport(Protocol):
         func_name: str,
         args_sql: List[str],
         args_params: Tuple[Any, ...],
-        alias: str,
+        alias: Optional[str],
         column_names: Optional[List[str]]
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""

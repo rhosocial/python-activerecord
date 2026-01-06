@@ -591,8 +591,8 @@ class SQLDialectBase:
     def format_values_expression(
         self,
         values: List[Tuple[Any, ...]],
-        alias: str,
-        column_names: List[str]
+        alias: Optional[str],
+        column_names: Optional[List[str]]
     ) -> Tuple[str, Tuple]:
         """Format VALUES expression as data source."""
         all_params: List[Any] = []
@@ -607,7 +607,13 @@ class SQLDialectBase:
         if column_names:
             cols_sql = f"({', '.join(self.format_identifier(name) for name in column_names)})"
 
-        sql = f"(VALUES {values_sql}) AS {self.format_identifier(alias)}{cols_sql}"
+        if alias is not None:
+            # Format with alias: (VALUES (...)) AS alias(...)
+            sql = f"(VALUES {values_sql}) AS {self.format_identifier(alias)}{cols_sql}"
+        else:
+            # Format without alias: VALUES (...)
+            sql = f"VALUES {values_sql}{cols_sql}"
+
         return sql, tuple(all_params)
 
     def supports_offset_without_limit(self) -> bool:
@@ -1310,14 +1316,17 @@ class SQLDialectBase:
         left: "bases.BaseExpression",
         right: "bases.BaseExpression",
         operation: str,
-        alias: str,
+        alias: Optional[str],
         all_: bool
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
         left_sql, left_params = left.to_sql()
         right_sql, right_params = right.to_sql()
         all_str = " ALL" if all_ else ""
-        sql = f"({left_sql} {operation}{all_str} {right_sql}) AS {self.format_identifier(alias)}"
+        if alias is not None:
+            sql = f"({left_sql} {operation}{all_str} {right_sql}) AS {self.format_identifier(alias)}"
+        else:
+            sql = f"({left_sql} {operation}{all_str} {right_sql})"
         return sql, left_params + right_params
 
     def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:

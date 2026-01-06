@@ -231,14 +231,14 @@ class TestJSONTableExpression:
     def test_json_table_column_attributes(self, dummy_dialect: DummyDialect):
         """Test that JSONTableColumn attributes are properly handled."""
         col = JSONTableColumn(name="test_col", data_type="VARCHAR(50)", path="$.test")
-        
+
         # Verify the dataclass attributes
         assert col.name == "test_col"
         assert col.data_type == "VARCHAR(50)"
         assert col.path == "$.test"
-        
+
         columns = [col]
-        
+
         json_table = JSONTableExpression(
             dummy_dialect,
             json_column="test_json",
@@ -246,9 +246,35 @@ class TestJSONTableExpression:
             columns=columns,
             alias="test_alias"
         )
-        
+
         sql, params = json_table.to_sql()
-        
+
         assert "JSON_TABLE" in sql.upper()
         assert "test_alias" in sql
+        assert params == ()
+
+    def test_json_table_without_alias(self, dummy_dialect: DummyDialect):
+        """Test JSON_TABLE expression without alias."""
+        columns = [
+            JSONTableColumn(name="id", data_type="INTEGER", path="$.id"),
+            JSONTableColumn(name="name", data_type="VARCHAR(255)", path="$.name")
+        ]
+
+        # Create JSONTableExpression without alias
+        json_table = JSONTableExpression(
+            dummy_dialect,
+            json_column="json_data",
+            path="$[*]",  # Path to extract all elements
+            columns=columns
+        )
+
+        sql, params = json_table.to_sql()
+
+        # Verify that no alias is present in the SQL
+        assert "AS" not in sql.upper() or "AS " not in sql  # Check that alias is not in SQL
+        # Verify JSON_TABLE is still present
+        assert "JSON_TABLE" in sql.upper()
+        # Verify column names are still present
+        assert "id" in sql and "name" in sql
+        # Verify parameters are still handled
         assert params == ()

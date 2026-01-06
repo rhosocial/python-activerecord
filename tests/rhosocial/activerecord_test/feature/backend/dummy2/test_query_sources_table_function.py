@@ -189,7 +189,7 @@ class TestTableFunctionExpression:
         """Test table function with complex nested arguments."""
         # Create a function call as argument
         inner_func = FunctionCall(dummy_dialect, "ARRAY_CONSTRUCT", Literal(dummy_dialect, "a"), Literal(dummy_dialect, "b"))
-        
+
         table_func = TableFunctionExpression(
             dummy_dialect,
             "FLATTEN",
@@ -197,10 +197,35 @@ class TestTableFunctionExpression:
             alias="complex_result",
             column_names=["path", "value", "type"]
         )
-        
+
         sql, params = table_func.to_sql()
-        
+
         assert "FLATTEN" in sql.upper()
         assert "complex_result" in sql
         # May contain references to the inner function
         assert params == ("a", "b")
+
+    def test_table_function_without_alias(self, dummy_dialect: DummyDialect):
+        """Test table function expression without alias."""
+        arg1 = Literal(dummy_dialect, "input_data")
+        arg2 = Literal(dummy_dialect, 42)
+
+        # Create TableFunctionExpression without alias
+        table_func = TableFunctionExpression(
+            dummy_dialect,
+            "UNNEST",
+            arg1,
+            arg2,
+            column_names=["value", "number"]
+        )
+
+        sql, params = table_func.to_sql()
+
+        # Verify that no alias is present in the SQL
+        assert "AS" not in sql.upper() or "AS " not in sql  # Check that alias is not in SQL
+        # Verify function name is still present
+        assert "UNNEST" in sql.upper()
+        # Verify column names are still present
+        assert "value" in sql and "number" in sql
+        # Verify values are still parameterized
+        assert params == ("input_data", 42)

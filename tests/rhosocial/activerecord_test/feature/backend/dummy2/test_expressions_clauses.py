@@ -76,7 +76,9 @@ class TestClauseExpressions:
         cte_query = RawSQLExpression(dummy_dialect, cte_query_sql) # Or Subquery
         cte_expr = CTEExpression(dummy_dialect, name="org_tree", query=cte_query, recursive=True)
         sql, params = cte_expr.to_sql()
-        assert sql == f'RECURSIVE "org_tree" AS ({cte_query_sql.strip()})'
+        # The recursive flag is now handled at the WITH clause level, not individual CTE level
+        # So the CTE itself should not have RECURSIVE keyword
+        assert sql == f'"org_tree" AS ({cte_query_sql.strip()})'
         assert params == ()
 
     def test_materialized_cte_expression(self, dummy_dialect: DummyDialect):

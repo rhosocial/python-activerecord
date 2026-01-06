@@ -43,6 +43,22 @@ class SetOperationExpression(bases.BaseExpression):
             alias="combined_users"
         )
 
+        # UNION operation without alias (alias is optional)
+        union_expr_no_alias = SetOperationExpression(
+            dialect,
+            left=QueryExpression(
+                dialect,
+                select=[Column(dialect, "id"), Column(dialect, "name")],
+                from_=TableExpression(dialect, "users")
+            ),
+            right=QueryExpression(
+                dialect,
+                select=[Column(dialect, "id"), Column(dialect, "name")],
+                from_=TableExpression(dialect, "customers")
+            ),
+            operation="UNION"
+        )
+
         # Recursive CTE with UNION ALL (essential for iterative algorithms like Sudoku solver)
         initial_values = ValuesExpression(
             dialect,
@@ -69,8 +85,16 @@ class SetOperationExpression(bases.BaseExpression):
             operation="UNION ALL",
             alias="counter_recursive"
         )
+
+        # Without alias (alias is optional)
+        recursive_union_no_alias = SetOperationExpression(
+            dialect,
+            left=initial_values,
+            right=recursive_query,
+            operation="UNION ALL"
+        )
     """
-    def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: str, all_: bool = False):
+    def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: Optional[str] = None, all_: bool = False):
         super().__init__(dialect)
         self.left = left
         self.right = right
@@ -243,10 +267,14 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         main_sql, main_params = self.main_query.to_sql()
         all_params.extend(main_params)
 
+        # Check if any CTE is recursive to determine if we need RECURSIVE keyword
+        has_recursive_cte = any(getattr(cte, 'recursive', False) for cte in self.ctes)
+
         sql = self.dialect.format_with_query(
             cte_sql_parts=cte_sql_parts,
             main_query_sql=main_sql,
-            dialect_options=self.dialect_options
+            dialect_options=self.dialect_options,
+            has_recursive=has_recursive_cte  # Pass recursive information to dialect
         )
         return sql, tuple(all_params)
 
@@ -288,8 +316,15 @@ class ValuesExpression(bases.BaseExpression):
             alias="initial_counter",
             column_names=["value", "level"]
         )
+
+        # Without alias (alias is optional)
+        values_expr = ValuesExpression(
+            dialect,
+            values=[(1, "John Doe", "john@example.com")],
+            column_names=["id", "name", "email"]
+        )
     """
-    def __init__(self, dialect: "SQLDialectBase", values: List[Tuple[Any, ...]], alias: str, column_names: List[str]):
+    def __init__(self, dialect: "SQLDialectBase", values: List[Tuple[Any, ...]], alias: Optional[str] = None, column_names: Optional[List[str]] = None):
         super().__init__(dialect)
         self.values, self.alias, self.column_names = values, alias, column_names
 
@@ -298,9 +333,28 @@ class ValuesExpression(bases.BaseExpression):
 
 
 class TableFunctionExpression(bases.BaseExpression):
-    """Represents a table-valued function or array expansion function (e.g., UNNEST, JSON_TABLE)."""
+    """Represents a table-valued function or array expansion function (e.g., UNNEST, JSON_TABLE).
+
+    Example Usage:
+        # With alias
+        table_func = TableFunctionExpression(
+            dialect,
+            "UNNEST",
+            ArrayExpression(dialect, [1, 2, 3]),
+            alias="numbers",
+            column_names=["num"]
+        )
+
+        # Without alias (alias is optional)
+        table_func = TableFunctionExpression(
+            dialect,
+            "UNNEST",
+            ArrayExpression(dialect, [1, 2, 3]),
+            column_names=["num"]
+        )
+    """
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression",
-                 alias: str, column_names: Optional[List[str]] = None):
+                 alias: Optional[str] = None, column_names: Optional[List[str]] = None):
         super().__init__(dialect)
         self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
 
@@ -311,8 +365,23 @@ class TableFunctionExpression(bases.BaseExpression):
 
 
 class LateralExpression(bases.BaseExpression):
-    """Represents a LATERAL subquery or table function call."""
-    def __init__(self, dialect: "SQLDialectBase", expression: Union["core.Subquery", "TableFunctionExpression"], alias: str, join_type: str = "CROSS"):
+    """Represents a LATERAL subquery or table function call.
+
+    Example Usage:
+        # With alias
+        lateral_expr = LateralExpression(
+            dialect,
+            Subquery(dialect, query_expr),
+            alias="lateral_data"
+        )
+
+        # Without alias (alias is optional)
+        lateral_expr = LateralExpression(
+            dialect,
+            Subquery(dialect, query_expr)
+        )
+    """
+    def __init__(self, dialect: "SQLDialectBase", expression: Union["core.Subquery", "TableFunctionExpression"], alias: Optional[str] = None, join_type: str = "CROSS"):
         super().__init__(dialect)
         self.expression, self.alias, self.join_type = expression, alias, join_type
 
@@ -329,8 +398,27 @@ class JSONTableColumn:
 
 
 class JSONTableExpression(core.TableExpression):
-    """Represents a JSON_TABLE function call."""
-    def __init__(self, dialect: "SQLDialectBase", json_column: Union[str, "bases.BaseExpression"], path: str, columns: List[JSONTableColumn], alias: str):
+    """Represents a JSON_TABLE function call.
+
+    Example Usage:
+        # With alias
+        json_table = JSONTableExpression(
+            dialect,
+            json_column="json_data",
+            path="$[*]",
+            columns=[JSONTableColumn("id", "INTEGER", "$.id"), JSONTableColumn("name", "TEXT", "$.name")],
+            alias="parsed_json"
+        )
+
+        # Without alias (alias is optional)
+        json_table = JSONTableExpression(
+            dialect,
+            json_column="json_data",
+            path="$[*]",
+            columns=[JSONTableColumn("id", "INTEGER", "$.id"), JSONTableColumn("name", "TEXT", "$.name")]
+        )
+    """
+    def __init__(self, dialect: "SQLDialectBase", json_column: Union[str, "bases.BaseExpression"], path: str, columns: List[JSONTableColumn], alias: Optional[str] = None):
         super().__init__(dialect, name="JSON_TABLE", alias=alias)
         self.json_column, self.path, self.columns = json_column, path, columns
 
