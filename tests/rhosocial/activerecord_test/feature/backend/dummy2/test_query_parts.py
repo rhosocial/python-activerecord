@@ -633,3 +633,61 @@ class TestQueryParts:
         sql, params = for_update_clause.to_sql()
         assert isinstance(sql, str)
         assert isinstance(params, tuple)
+
+    def test_where_clause_and_method_basic(self, dummy_dialect: DummyDialect):
+        """Test the and_() method of WhereClause for adding AND conditions."""
+        # Create initial condition
+        initial_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        where_clause = WhereClause(dummy_dialect, condition=initial_condition)
+
+        # Add another condition using and_()
+        additional_condition = Column(dummy_dialect, "age") >= Literal(dummy_dialect, 18)
+        result = where_clause.and_(additional_condition)
+
+        # Verify that the method returns self
+        assert result is where_clause
+
+        # Verify the combined condition
+        sql, params = where_clause.to_sql()
+        assert "WHERE" in sql
+        assert '"status" = ?' in sql
+        assert '"age" >= ?' in sql
+        assert params == ("active", 18)
+
+    def test_where_clause_and_method_chaining(self, dummy_dialect: DummyDialect):
+        """Test chaining multiple and_() calls."""
+        # Create initial condition
+        initial_condition = Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
+        where_clause = WhereClause(dummy_dialect, condition=initial_condition)
+
+        # Chain multiple and_() calls
+        where_clause.and_(Column(dummy_dialect, "age") >= Literal(dummy_dialect, 18))
+        where_clause.and_(Column(dummy_dialect, "balance") > Literal(dummy_dialect, 0))
+        where_clause.and_(Column(dummy_dialect, "verified") == Literal(dummy_dialect, True))
+
+        # Verify all conditions are present
+        sql, params = where_clause.to_sql()
+        assert "WHERE" in sql
+        assert '"status" = ?' in sql
+        assert '"age" >= ?' in sql
+        assert '"balance" > ?' in sql
+        assert '"verified" = ?' in sql
+        assert params == ("active", 18, 0, True)
+
+    def test_where_clause_and_method_complex_conditions(self, dummy_dialect: DummyDialect):
+        """Test and_() method with complex conditions."""
+        # Create initial complex condition
+        initial_condition = (Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")) & (
+            Column(dummy_dialect, "type") != Literal(dummy_dialect, "deleted")
+        )
+        where_clause = WhereClause(dummy_dialect, condition=initial_condition)
+
+        # Add another complex condition using and_()
+        additional_condition = FunctionCall(dummy_dialect, "LENGTH", Column(dummy_dialect, "name")) > Literal(dummy_dialect, 3)
+        where_clause.and_(additional_condition)
+
+        # Verify all conditions are combined with AND
+        sql, params = where_clause.to_sql()
+        assert "WHERE" in sql
+        # Should have all three conditions connected with AND
+        assert params == ("active", "deleted", 3)

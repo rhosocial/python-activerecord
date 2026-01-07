@@ -39,14 +39,14 @@ class WhereClause(bases.BaseExpression):
 
     The WHERE clause filters rows based on specified conditions, allowing only
     rows satisfying the predicate to be included in the result set.
-    
+
     Examples:
         # Basic WHERE clause
         where_clause = WhereClause(
             dialect,
             condition=ComparisonPredicate(dialect, "=", Column(dialect, "status"), Literal(dialect, "active"))
         )
-        
+
         # Complex WHERE with logical operators
         condition = (Column(dialect, "age") > Literal(dialect, 18)) & (Column(dialect, "status") == Literal(dialect, "active"))
         where_clause = WhereClause(dialect, condition=condition)
@@ -54,6 +54,20 @@ class WhereClause(bases.BaseExpression):
     def __init__(self, dialect: "SQLDialectBase", condition: "bases.SQLPredicate"):
         super().__init__(dialect)
         self.condition = condition  # The filtering condition (predicate)
+
+    def and_(self, predicate: "bases.SQLPredicate") -> 'WhereClause':
+        """
+        Add an AND condition to the existing WHERE clause.
+
+        Args:
+            predicate: A SQL predicate to be combined with the existing condition using AND
+
+        Returns:
+            Self for method chaining
+        """
+        # Combine the existing condition with the new predicate using AND
+        self.condition = self.condition & predicate
+        return self
 
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the WHERE clause to the configured dialect."""
