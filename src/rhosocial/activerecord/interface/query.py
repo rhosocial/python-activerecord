@@ -7,6 +7,8 @@ from threading import local
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
     ValuesView, Mapping
 
+from ..backend.expression.bases import ToSQLProtocol
+
 K = TypeVar('K')
 V = TypeVar('V')
 
@@ -174,7 +176,7 @@ class ThreadSafeDict(Dict[K, V]):
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
 
-class IQuery(Generic[ModelT], ABC):
+class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
     """Interface for building and executing database queries.
 
     Provides a fluent interface for constructing SQL queries with:
@@ -183,6 +185,9 @@ class IQuery(Generic[ModelT], ABC):
     - Grouping (GROUP BY)
     - Joins
     - Pagination (LIMIT/OFFSET)
+
+    Inherits from ToSQLProtocol to ensure consistent SQL generation interface
+    across all query components in the expression system.
     """
 
     def __init__(self, model_class: Type[ModelT]):
@@ -318,18 +323,6 @@ class IQuery(Generic[ModelT], ABC):
         """
         pass
 
-    @abstractmethod
-    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None) -> 'IDictQuery[ModelT]':
-        """Convert query results to dictionary format.
-
-        Args:
-            include: Optional set of fields to include
-            exclude: Optional set of fields to exclude
-
-        Returns:
-            DictQuery instance for dictionary results
-        """
-        pass
 
     @abstractmethod
     def one_or_fail(self) -> Optional[ModelT]:
@@ -536,11 +529,11 @@ class IQuery(Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def to_sql(self) -> Tuple[str, Tuple[Any, ...]]:
+    def to_sql(self) -> Tuple[str, tuple]:
         """Get complete SQL query with parameters.
 
         This method returns the full SQL statement with parameter values
-        ready for execution.
+        ready for execution, following the ToSQLProtocol from the expression system.
 
         Returns:
             Tuple of (sql_query, params) where:
@@ -555,10 +548,13 @@ class IQuery(Generic[ModelT], ABC):
         pass
 
 
-class IDictQuery(Generic[ModelT], ABC):
+class IDictQuery(ToSQLProtocol, Generic[ModelT], ABC):
     """Interface for queries that return dictionary results instead of model instances.
 
     Useful for operations that don't require full model instantiation.
+
+    Inherits from ToSQLProtocol to ensure consistent SQL generation interface
+    across all query components in the expression system.
     """
 
     @abstractmethod
@@ -576,5 +572,19 @@ class IDictQuery(Generic[ModelT], ABC):
 
         Returns:
             Dictionary containing record data or None if no match
+        """
+        pass
+
+    @abstractmethod
+    def to_sql(self) -> Tuple[str, tuple]:
+        """Get complete SQL query with parameters.
+
+        This method returns the full SQL statement with parameter values
+        ready for execution, following the ToSQLProtocol from the expression system.
+
+        Returns:
+            Tuple of (sql_query, params) where:
+            - sql_query: Complete SQL string with placeholders
+            - params: Tuple of parameter values
         """
         pass

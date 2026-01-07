@@ -1,139 +1,69 @@
 # src/rhosocial/activerecord/query/dict_query.py
-"""Dictionary query wrapper implementation."""
-import logging
-from typing import Generic, Any, List, Optional, Set, Dict, Tuple
+"""DictQueryMixin implementation."""
 
-from ..interface import ModelT, IQuery
+from typing import List, Optional, Set, Dict, Any, Tuple, Union
+from ..interface import ModelT
 
 
-class DictQuery(Generic[ModelT]):
-    """Wrapper for queries that return dictionary results instead of models.
+class DictQueryMixin:
+    """DictQueryMixin implementation for dictionary-based query results.
 
-    This class provides a way to execute queries and retrieve results as dictionaries
-    instead of model instances. It's particularly useful for:
+    This mixin provides to_dict functionality for ActiveQuery, allowing conversion
+    of model instances to dictionaries. It should only be mixed into ActiveQuery
+    and not used independently.
 
-    1. Retrieving only specific fields from a model
-    2. Working with JOIN queries that might return columns not defined in the model
-    3. Bypassing model validation when raw data access is needed
+    Note: For aggregation queries (both simple and complex), to_dict() calls are ineffective
+    as the results are already in dictionary format.
 
-    For JOIN queries or complex aggregate queries, use the direct_dict=True parameter
-    to bypass model instantiation entirely and get raw dictionary results directly
-    from the database.
+    This mixin is particularly useful when using select() with partial column lists
+    to retrieve specific data as dictionaries rather than full model instances,
+    avoiding object state inconsistency issues.
     """
 
-    def __init__(self, query: IQuery[ModelT],
-                 include: Optional[Set[str]] = None,
-                 exclude: Optional[Set[str]] = None,
-                 direct_dict: bool = False):
-        """Initialize a dictionary query wrapper.
+    # region Instance Attributes
+    model_class: type
+    _backend: Any
+    # Legacy attributes for backward compatibility, though not actively used
+    # since or_where, start_or_group, end_or_group methods have been removed
+    condition_groups: List[List[Tuple[str, tuple, str]]]
+    current_group: int
+    order_clauses: List[str]
+    join_clauses: List[Union[str, type]]
+    select_columns: Optional[List[str]]
+    limit_count: Optional[int]
+    offset_count: Optional[int]
+    _adapt_params: bool
+    _explain_enabled: bool
+    _explain_options: dict
+    _group_columns: List[str]
+    _having_conditions: List[Tuple[str, Tuple]]
+    _expressions: List[Any]
+    _window_definitions: Dict[str, Dict]
+    _grouping_sets: Optional[Any]
+    # endregion
 
-        Args:
-            query: The underlying query instance
-            include: Optional set of fields to include in results
-            exclude: Optional set of fields to exclude from results
-            direct_dict: If True, bypasses model instantiation entirely and returns
-                         raw dictionaries from the database. Use this for JOIN queries
-                         or when model validation would fail.
+    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None, direct_dict: bool = False):
+        """Convert query results to dictionary format.
+
+        Note: For aggregation queries (both simple and complex), to_dict() calls are ineffective
+        as aggregation results are already in dictionary format.
         """
-        self._query = query  # Underlying query instance
-        self._include = include  # Fields to include in result
-        self._exclude = exclude  # Fields to exclude from result
-        self._direct_dict = direct_dict  # Whether to bypass model instantiation
-
-    def _to_dict(self, record: ModelT) -> Dict[str, Any]:
-        """Convert model instance to dictionary.
-
-        Applies include/exclude filters if specified.
-        """
-        return record.model_dump(
-            include=self._include,
-            exclude=self._exclude
-        )
+        pass
 
     def all(self) -> List[Dict[str, Any]]:
         """Return dictionary list of all results.
 
-        If direct_dict=True was specified, retrieves results directly as dictionaries
-        from the database, bypassing model instantiation and validation.
-
-        Otherwise, instantiates models first, then converts them to dictionaries
-        with the specified include/exclude filters.
-
-        Returns:
-            List of dictionaries representing query results
-
-        Examples:
-            # Standard usage - instantiates models first
-            users = User.query().to_dict().all()
-
-            # For JOIN queries - bypass model instantiation
-            results = User.query()
-                .join("JOIN orders ON users.id = orders.user_id")
-                .select("users.id", "users.name", "orders.total")
-                .to_dict(direct_dict=True)
-                .all()
+        For aggregation queries (both simple and complex), the results are already in dictionary format,
+        so this method returns them directly without additional conversion.
         """
-        if self._direct_dict:
-            # Bypass model instantiation and get raw dictionaries
-            sql, params = self._query.build()
-            self._query._log(
-                logging.INFO,
-                f"Executing direct dictionary query: {sql}, parameters: {params}"
-            )
-            return self._query.model_class.backend().fetch_all(sql, params)
-        else:
-            # Regular path - instantiate models first
-            records = self._query.all()
-            return [self._to_dict(record) for record in records]
+        # This method overrides the BaseQueryMixin.all() method to return dictionaries instead of model instances
+        pass
 
     def one(self) -> Optional[Dict[str, Any]]:
         """Return dictionary of first result.
 
-        If direct_dict=True was specified, retrieves the result directly as a dictionary
-        from the database, bypassing model instantiation and validation.
-
-        Otherwise, instantiates a model first, then converts it to a dictionary
-        with the specified include/exclude filters.
-
-        Returns:
-            Dictionary representing the first result, or None if no results
-
-        Examples:
-            # Standard usage - instantiates model first
-            user = User.query().where("id = ?", (1,)).to_dict().one()
-
-            # For JOIN queries - bypass model instantiation
-            result = User.query()
-                .join("JOIN orders ON users.id = orders.user_id")
-                .select("users.id", "users.name", "orders.total")
-                .where("users.id = ?", (1,))
-                .to_dict(direct_dict=True)
-                .one()
+        For aggregation queries (both simple and complex), the result is already in dictionary format,
+        so this method returns it directly without additional conversion.
         """
-        if self._direct_dict:
-            # Bypass model instantiation and get raw dictionary
-            original_limit = self._query.limit_count
-            self._query.limit(1)
-
-            sql, params = self._query.build()
-            self._query._log(
-                logging.INFO,
-                f"Executing direct dictionary query: {sql}, parameters: {params}"
-            )
-
-            # Reset limit to original value
-            self._query.limit_count = original_limit
-
-            return self._query.model_class.backend().fetch_one(sql, params)
-        else:
-            # Regular path - instantiate model first
-            record = self._query.one()
-            return self._to_dict(record) if record else None
-
-    def to_sql(self) -> Tuple[str, tuple]:
-        """Get the SQL statement and parameters for this query."""
-        return self._query.to_sql()
-
-    def __getattr__(self, name: str) -> Any:
-        """Delegate other query methods to original query."""
-        return getattr(self._query, name)
+        # This method overrides the BaseQueryMixin.one() method to return a dictionary instead of a model instance
+        pass

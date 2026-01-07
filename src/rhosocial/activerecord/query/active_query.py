@@ -1,69 +1,54 @@
 # src/rhosocial/activerecord/query/active_query.py
-"""ActiveQuery implementation combining all query mixins."""
-from .cte import CTEQueryMixin
+"""ActiveQuery implementation."""
+
+from typing import List, Union, Tuple, Any, Optional, Set, Dict
+from .dict_query import DictQueryMixin
+from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
 
 
 class ActiveQuery(
-    CTEQueryMixin,
+    DictQueryMixin,
+    BaseQueryMixin,
     JoinQueryMixin,
     RelationalQueryMixin,
-    # AggregateQueryMixin,
     RangeQueryMixin,
 ):
-    """Complete ActiveQuery implementation.
+    """ActiveQuery implementation for model-based queries.
 
-    Combines all functionality:
-    - Common Table Expressions (CTEQueryMixin)
-    - Basic query operations (BaseQueryMixin via inheritance chain)
-    - Aggregate queries (AggregateQueryMixin via CTEQueryMixin)
-    - Join operations (JoinQueryMixin)
-    - Range-based queries (RangeQueryMixin)
-    - Relational queries (RelationalQueryMixin)
+    This class supports two types of aggregation:
+    1. Simple aggregation: Functions like count/avg/min/max/sum that return scalar values when
+       used at the end of a method chain
+    2. Complex aggregation: Queries using .aggregate() method for more complex aggregations
+    For aggregation states, to_dict() calls are ineffective.
 
-    Inheritance hierarchy:
-    - BaseQueryMixin
-      └── AggregateQueryMixin
-          └── CTEQueryMixin
+    For selective column retrieval, it's generally recommended to retrieve all columns
+    to maintain object consistency with the database state. Selective column retrieval
+    may result in incomplete model instances. The best practice is to use select() in
+    conjunction with to_dict() for retrieving partial data as dictionaries rather than
+    model instances, which avoids object state inconsistency issues.
 
-    Note on CTE operations:
-    - All CTE operations are handled by CTEQueryMixin
-    - Use with_cte() to define CTEs
-    - Use from_cte() to query from a CTE
-    - Both simple and recursive CTEs are supported
+    Important differences from CTEQuery:
+    - Requires a model_class parameter in __init__ as ActiveQuery operates on specific model instances
+    - Results are model instances by default (unless to_dict() is used)
+    - Supports relationship queries with model instantiation and association management
 
-    Usage notes:
-    - For simple queries on a single table, use .all() or .one() to retrieve model instances
-    - For JOIN queries that return columns not in the model schema, use .to_dict(direct_dict=True).all()
-      to bypass model validation
-    - For aggregate queries, use .aggregate() to retrieve results as dictionaries
+    Note: The select_expr() method has been removed. Its functionality is now provided
+    by the select() method, which accepts both column names (strings) and expression objects.
 
-    Examples:
-        # Simple query returning model instances
-        users = User.query().where('status = ?', ('active',)).all()
+    Note: The or_where(), start_or_group(), and end_or_group() methods have been removed.
+    Complex logical conditions should be handled using .where() with expression objects
+    that represent OR logic. The backend expression system provides better support for
+    complex logical predicates than the legacy group-based methods.
 
-        # JOIN query returning raw dictionaries (bypassing model validation)
-        results = User.query()\\
-            .join('JOIN orders ON users.id = orders.user_id')\\
-            .select('users.id', 'users.name', 'orders.total')\\
-            .to_dict(direct_dict=True)\\
-            .all()
+    Note: The query() method has been removed. Its functionality is now provided by the
+    .where() method, which offers more flexible condition building capabilities.
 
-        # Aggregate query
-        stats = User.query()\\
-            .group_by('status')\\
-            .count('id', 'user_count')\\
-            .aggregate()
-
-        # CTE example
-        query = User.query()\\
-            .with_cte(
-                "active_users",
-                "SELECT * FROM users WHERE status = 'active'"
-            )\\
-            .from_cte("active_users")\\
-            .order_by("created_at DESC")
+    Note: DictQueryMixin is now included as the highest priority mixin, providing
+    to_dict functionality and overriding all/one methods to support dictionary conversion.
     """
-    pass
+
+    def __init__(self, model_class: type):
+        pass
