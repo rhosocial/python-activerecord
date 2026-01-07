@@ -26,6 +26,7 @@ from .operators import (
     BinaryExpression,
     UnaryExpression,
     RawSQLExpression,
+    RawSQLPredicate,
     BinaryArithmeticExpression,
 )
 from .core import (
@@ -174,7 +175,7 @@ __all__ = [
     "Identifier",
     
     # Operators
-    "SQLOperation", "BinaryExpression", "UnaryExpression", "RawSQLExpression", "BinaryArithmeticExpression",
+    "SQLOperation", "BinaryExpression", "UnaryExpression", "RawSQLExpression", "RawSQLPredicate", "BinaryArithmeticExpression",
     
     # Core expressions
     "Column", "FunctionCall", "Subquery", "TableExpression", "Literal",

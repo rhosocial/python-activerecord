@@ -4,7 +4,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall, Subquery
 )
 from rhosocial.activerecord.backend.expression.operators import (
-    SQLOperation, BinaryExpression, UnaryExpression, RawSQLExpression, BinaryArithmeticExpression
+    SQLOperation, BinaryExpression, UnaryExpression, RawSQLExpression, RawSQLPredicate, BinaryArithmeticExpression
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -330,3 +330,52 @@ class TestBinaryArithmeticExpressionPrecedence:
         # Addition has lower precedence than multiplication, so no parentheses needed for multiplication part
         assert sql == '"a" + "b" * "c"'
         assert params == ()
+
+
+class TestRawSQLPredicate:
+    """Tests for RawSQLPredicate representing raw SQL predicate strings."""
+
+    def test_raw_sql_predicate_basic(self, dummy_dialect: DummyDialect):
+        """Test basic raw SQL predicate."""
+        raw_predicate = RawSQLPredicate(dummy_dialect, "age > 18")
+
+        sql, params = raw_predicate.to_sql()
+
+        assert sql == "age > 18"
+        assert params == ()
+
+    def test_raw_sql_predicate_with_complex_sql(self, dummy_dialect: DummyDialect):
+        """Test raw SQL predicate with complex SQL string."""
+        complex_predicate = "created_at > NOW() - INTERVAL 30 DAY AND status = 'active'"
+        raw_predicate = RawSQLPredicate(dummy_dialect, complex_predicate)
+
+        sql, params = raw_predicate.to_sql()
+
+        assert sql == complex_predicate
+        assert params == ()
+
+    def test_raw_sql_predicate_with_placeholders(self, dummy_dialect: DummyDialect):
+        """Test raw SQL predicate with parameter placeholders."""
+        predicate_with_placeholders = "col1 = ? AND col2 = ?"
+        raw_predicate = RawSQLPredicate(dummy_dialect, predicate_with_placeholders, (1, "value"))
+
+        sql, params = raw_predicate.to_sql()
+
+        assert sql == predicate_with_placeholders
+        assert params == (1, "value")
+
+    def test_raw_sql_predicate_empty_params(self, dummy_dialect: DummyDialect):
+        """Test raw SQL predicate with empty params."""
+        raw_predicate = RawSQLPredicate(dummy_dialect, "status = 'active'", ())
+
+        sql, params = raw_predicate.to_sql()
+
+        assert sql == "status = 'active'"
+        assert params == ()
+
+    def test_raw_sql_predicate_is_predicate_subclass(self, dummy_dialect: DummyDialect):
+        """Test that RawSQLPredicate is indeed a subclass of SQLPredicate."""
+        from rhosocial.activerecord.backend.expression.bases import SQLPredicate
+        raw_predicate = RawSQLPredicate(dummy_dialect, "age > 18")
+
+        assert isinstance(raw_predicate, SQLPredicate)

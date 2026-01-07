@@ -58,7 +58,42 @@ class UnaryExpression(bases.BaseExpression):
 
 
 class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    """Represents a raw SQL expression string that is directly embedded."""
+    """Represents a raw SQL expression string that is directly embedded.
+
+    Note: This class should be used with caution. It bypasses the normal expression
+    building mechanism and directly embeds raw SQL. This can lead to SQL injection
+    vulnerabilities if user input is not properly sanitized. It should only be used
+    when the expression is completely trusted or properly validated.
+
+    Difference from RawSQLPredicate:
+    - RawSQLExpression inherits from SQLValueExpression and represents a value expression
+      (e.g., column, function call, literal)
+    - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
+      (e.g., condition in WHERE clause)
+    """
+    def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
+        super().__init__(dialect)
+        self.expression = expression
+        self.params = params
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        return self.expression, self.params
+
+
+class RawSQLPredicate(bases.SQLPredicate):
+    """Represents a raw SQL predicate string that is directly embedded as a predicate.
+
+    Note: This class should be used with caution. It bypasses the normal expression
+    building mechanism and directly embeds raw SQL. This can lead to SQL injection
+    vulnerabilities if user input is not properly sanitized. It should only be used
+    when the predicate is completely trusted or properly validated.
+
+    Difference from RawSQLExpression:
+    - RawSQLExpression inherits from SQLValueExpression and represents a value expression
+      (e.g., column, function call, literal)
+    - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
+      (e.g., condition in WHERE clause)
+    """
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
