@@ -47,16 +47,17 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         return self.dialect.format_case_expression(value_sql, value_params, conditions_results, else_sql, else_params, self.alias)
 
 
-class CastExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class CastExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents a CAST expression (e.g., CAST(expr AS type))."""
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", target_type: str):
+    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", target_type: str, alias: Optional[str] = None):
         super().__init__(dialect)
         self.expr = expr
         self.target_type = target_type
+        self.alias = alias
 
     def to_sql(self) -> Tuple[str, tuple]:
         expr_sql, expr_params = self.expr.to_sql()
-        return self.dialect.format_cast_expression(expr_sql, self.target_type, expr_params)
+        return self.dialect.format_cast_expression(expr_sql, self.target_type, expr_params, self.alias)
 
 
 class ExistsExpression(bases.SQLPredicate):
@@ -172,7 +173,7 @@ class WindowClause(bases.BaseExpression):
         return self.dialect.format_window_clause(self)
 
 
-class WindowFunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class WindowFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """
     Window function call, supporting inline window specification or named window reference
     """
@@ -194,41 +195,45 @@ class WindowFunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.S
         return self.dialect.format_window_function_call(self)
 
 
-class JSONExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class JSONExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
     """Represents JSON operations like json->, json->>."""
     def __init__(self, dialect: "SQLDialectBase",
                  column: Union["bases.BaseExpression", str],
                  path: str,
-                 operation: str = "->"):
+                 operation: str = "->",
+                 alias: Optional[str] = None):
         super().__init__(dialect)
         self.column = column
         self.path = path
         self.operation = operation
+        self.alias = alias
 
     def to_sql(self) -> Tuple[str, tuple]:
         # Delegate to the dialect's format_json_expression method
-        return self.dialect.format_json_expression(self.column, self.path, self.operation)
+        return self.dialect.format_json_expression(self.column, self.path, self.operation, self.alias)
 
 
-class ArrayExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class ArrayExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents array operations like ANY, ALL, and array access."""
     def __init__(self, dialect: "SQLDialectBase",
                  operation: str,
                  base_expr: Optional["bases.BaseExpression"] = None,
                  index_expr: Optional["bases.BaseExpression"] = None,
-                 elements: Optional[List["bases.BaseExpression"]] = None):
+                 elements: Optional[List["bases.BaseExpression"]] = None,
+                 alias: Optional[str] = None):
         super().__init__(dialect)
         self.operation = operation
         self.base_expr = base_expr
         self.index_expr = index_expr
         self.elements = elements
+        self.alias = alias
 
     def to_sql(self) -> Tuple[str, tuple]:
         # Delegate to the dialect's format_array_expression method
-        return self.dialect.format_array_expression(self.operation, self.elements, self.base_expr, self.index_expr)
+        return self.dialect.format_array_expression(self.operation, self.elements, self.base_expr, self.index_expr, self.alias)
 
 
-class OrderedSetAggregation(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class OrderedSetAggregation(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents an ordered-set aggregate function call with WITHIN GROUP (ORDER BY ...)."""
     def __init__(self, dialect: "SQLDialectBase",
                  func_name: str,

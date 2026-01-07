@@ -6,12 +6,31 @@ This module uses deferred local imports within its methods to prevent
 circular dependency issues, as it needs to instantiate concrete expression
 classes (like `ComparisonPredicate`) which in turn depend on the base classes.
 """
-from typing import Any, Union, List, TYPE_CHECKING
+from typing import Any, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
     from .core import Literal
     from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate
+
+T = TypeVar('T')
+
+
+class AliasableMixin:
+    """Mixin class that provides aliasing capability to expressions."""
+
+    def as_(self: T, alias: str) -> T:
+        """
+        Set an alias for this expression.
+
+        Args:
+            alias: The alias name to assign
+
+        Returns:
+            Self with the alias applied
+        """
+        self.alias = alias
+        return self
 
 
 class ComparisonMixin:

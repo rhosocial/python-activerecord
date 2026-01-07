@@ -563,10 +563,13 @@ class SQLDialectBase:
         self,
         expr_sql: str,
         target_type: str,
-        expr_params: tuple
+        expr_params: tuple,
+        alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format CAST expression."""
         sql = f"CAST({expr_sql} AS {target_type})"
+        if alias:
+            sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, expr_params
 
     def format_subquery(

@@ -27,7 +27,7 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
         return f"Literal({self.value!r})"
 
 
-class Column(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
     """Represents a column in a SQL query."""
     def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None):
         super().__init__(dialect)
@@ -39,7 +39,7 @@ class Column(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin,
         return self.dialect.format_column(self.name, self.table, self.alias)
 
 
-class FunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
     """Represents a scalar SQL function call, such as LOWER, CONCAT, etc."""
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression",
                  is_distinct: bool = False, alias: Optional[str] = None):
@@ -58,7 +58,7 @@ class FunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.String
         )
 
 
-class Subquery(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents a subquery in a SQL expression."""
     def __init__(self, dialect: "SQLDialectBase",
                  query_input: Union[str, "bases.BaseExpression", "Subquery"],

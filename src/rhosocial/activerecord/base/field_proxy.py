@@ -20,14 +20,6 @@ if TYPE_CHECKING:
     from ..backend.dialect.base import SQLDialectBase
     from ..model import ActiveRecord
 
-# Add alias method to the existing Column class
-def _as_(self, alias: str):
-    """Set column alias"""
-    self.alias = alias
-    return self
-
-# Attach the as_ method to the Column class
-Column.as_ = _as_
 
 
 class FieldProxy:

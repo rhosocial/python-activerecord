@@ -17,6 +17,7 @@ from .bases import (
     SQLValueExpression,
     SQLPredicate,
 )
+from .mixins import AliasableMixin
 from .literals import (
     Identifier,
 )
@@ -165,7 +166,10 @@ from .functions import (
 __all__ = [
     # Base classes
     "ToSQLProtocol", "BaseExpression", "SQLValueExpression", "SQLPredicate",
-    
+
+    # Mixins
+    "AliasableMixin",
+
     # Literals
     "Identifier",
     

@@ -14,7 +14,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class AggregateFunctionCall(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class AggregateFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """
     Represents a call to a SQL aggregate function, such as COUNT, SUM, AVG.
     This class supports attaching a FILTER clause.

@@ -480,21 +480,34 @@ class ArrayMixin:
             operation: str,
             elements: Optional[List["bases.BaseExpression"]],
             base_expr: Optional["bases.BaseExpression"],
-            index_expr: Optional["bases.BaseExpression"]
+            index_expr: Optional["bases.BaseExpression"],
+            alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
+        all_params = ()
+
         if operation.upper() == "CONSTRUCTOR" and elements is not None:
-            element_parts, all_params = [], []
+            element_parts = []
+            all_params = []
             for elem in elements:
                 elem_sql, elem_params = elem.to_sql()
                 element_parts.append(elem_sql)
                 all_params.extend(elem_params)
-            return f"ARRAY[{', '.join(element_parts)}]", tuple(all_params)
+            sql = f"ARRAY[{', '.join(element_parts)}]"
+            all_params = tuple(all_params)
         elif operation.upper() == "ACCESS" and base_expr and index_expr:
             base_sql, base_params = base_expr.to_sql()
             index_sql, index_params = index_expr.to_sql()
-            return f"({base_sql}[{index_sql}])", base_params + index_params
-        return "ARRAY[]", ()
+            sql = f"({base_sql}[{index_sql}])"
+            all_params = base_params + index_params
+        else:
+            # Default case for unsupported operations
+            sql = "ARRAY[]"
+
+        if alias:
+            sql = f"{sql} AS {self.format_identifier(alias)}"
+
+        return sql, all_params
 
 
 class JSONMixin:
@@ -521,7 +534,8 @@ class JSONMixin:
             self,
             column: Union["bases.BaseExpression", str],
             path: str,
-            operation: str
+            operation: str,
+            alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format JSON expression."""
         if isinstance(column, bases.BaseExpression):
@@ -529,6 +543,8 @@ class JSONMixin:
         else:
             col_sql, col_params = self.format_identifier(str(column)), ()
         sql = f"({col_sql} {operation} ?)"
+        if alias:
+            sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, col_params + (path,)
 
     def format_json_table_expression(

@@ -1,6 +1,7 @@
+# tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_create_drop_view.py
 import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, FunctionCall, TableExpression, QueryExpression, 
+    Column, Literal, FunctionCall, TableExpression, QueryExpression,
     CreateViewExpression, DropViewExpression
 )
 from rhosocial.activerecord.backend.expression.statements import ViewOptions, ViewCheckOption

@@ -299,7 +299,8 @@ class SQLiteDialect(
         operation: str,
         elements: Optional[List["bases.BaseExpression"]],
         base_expr: Optional["bases.BaseExpression"],
-        index_expr: Optional["bases.BaseExpression"]
+        index_expr: Optional["bases.BaseExpression"],
+        alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
