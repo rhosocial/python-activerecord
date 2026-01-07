@@ -166,23 +166,34 @@ class CTEExpression(bases.BaseExpression):
             alias="recursive_union"
         )
 
-        recursive_cte = CTEExpression(
+        # To create a recursive CTE, use WithQueryExpression with recursive=True
+        cte = CTEExpression(
             dialect,
             name="counter",
             query=combined_query,
-            columns=["next_value", "next_level"],
+            columns=["next_value", "next_level"]
+        )
+
+        # Use WithQueryExpression to create the recursive query
+        recursive_query = WithQueryExpression(
+            dialect,
+            ctes=[cte],
+            main_query=QueryExpression(
+                dialect,
+                select=[Column(dialect, "next_value"), Column(dialect, "next_level")],
+                from_=TableExpression(dialect, "counter")
+            ),
             recursive=True
         )
     """
     def __init__(self, dialect: "SQLDialectBase", name: str,
                  query: Union["core.Subquery", "bases.BaseExpression", Tuple[str, List[Any]]],
-                 columns: Optional[List[str]] = None, recursive: bool = False,
+                 columns: Optional[List[str]] = None,
                  materialized: Optional[bool] = None, dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
         self.name = name
         self.query = query
         self.columns = columns
-        self.recursive = recursive
         self.materialized = materialized
         self.dialect_options = dialect_options or {}
 
@@ -261,10 +272,12 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         )
     """
     def __init__(self, dialect: "SQLDialectBase", ctes: List[CTEExpression],
-                 main_query: "bases.BaseExpression", dialect_options: Optional[Dict[str, Any]] = None):
+                 main_query: "bases.BaseExpression", recursive: bool = False,
+                 dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
         self.ctes = ctes
         self.main_query = main_query
+        self.recursive = recursive
         self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
@@ -277,14 +290,11 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         main_sql, main_params = self.main_query.to_sql()
         all_params.extend(main_params)
 
-        # Check if any CTE is recursive to determine if we need RECURSIVE keyword
-        has_recursive_cte = any(getattr(cte, 'recursive', False) for cte in self.ctes)
-
         sql = self.dialect.format_with_query(
             cte_sql_parts=cte_sql_parts,
             main_query_sql=main_sql,
             dialect_options=self.dialect_options,
-            has_recursive=has_recursive_cte  # Pass recursive information to dialect
+            has_recursive=self.recursive  # Pass recursive information to dialect
         )
         return sql, tuple(all_params)
 

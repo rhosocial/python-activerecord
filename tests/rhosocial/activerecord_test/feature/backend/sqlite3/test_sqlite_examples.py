@@ -451,8 +451,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
             alias=None,  # No alias to avoid extra parentheses
             column_names=None  # No column names in VALUES, but specified in CTE
         ),
-        columns=["sud"],
-        recursive=False
+        columns=["sud"]
     )
 
     # Build the digits CTE: digits(z, lp) AS (VALUES('1', 1) UNION ALL SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9)
@@ -493,8 +492,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         name="digits",
         query=digits_union,
-        columns=["z", "lp"],
-        recursive=True  # This is a recursive CTE
+        columns=["z", "lp"]
     )
 
     # Build the x CTE: x(s, ind) AS (SELECT sud, instr(sud, '.') FROM input UNION ALL ...)
@@ -592,8 +590,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
         dialect=dialect,
         name="x",
         query=x_union,
-        columns=["s", "ind"],
-        recursive=True  # This is also a recursive CTE
+        columns=["s", "ind"]
     )
 
     # Final query: SELECT s FROM x WHERE ind=0
@@ -608,7 +605,8 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     with_query = WithQueryExpression(
         dialect=dialect,
         ctes=[input_cte, digits_cte, x_cte],  # input, digits, and x CTEs
-        main_query=final_query
+        main_query=final_query,
+        recursive=True
     )
 
     # Generate the final SQL
@@ -798,8 +796,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect,
             name="xaxis",
             query=xaxis_union,
-            columns=["x"],
-            recursive=True
+            columns=["x"]
         )
 
         # Build the yaxis CTE: yaxis(y) AS (VALUES(-1.0) UNION ALL SELECT y+0.1 FROM yaxis WHERE y<1.0)
@@ -839,8 +836,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect,
             name="yaxis",
             query=yaxis_union,
-            columns=["y"],
-            recursive=True
+            columns=["y"]
         )
 
         # Build the m CTE: m(iter, cx, cy, x, y) AS (
@@ -900,8 +896,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect,
             name="m",
             query=m_union,
-            columns=["iter", "cx", "cy", "x", "y"],
-            recursive=True
+            columns=["iter", "cx", "cy", "x", "y"]
         )
 
         # Build the m2 CTE: m2(iter, cx, cy) AS (
@@ -928,8 +923,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect,
             name="m2",
             query=m2_query,
-            columns=["iter", "cx", "cy"],
-            recursive=False
+            columns=["iter", "cx", "cy"]
         )
 
         # Build the a CTE: a(t) AS (
@@ -961,8 +955,7 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
             dialect=dialect,
             name="a",
             query=a_query,
-            columns=["t"],
-            recursive=False
+            columns=["t"]
         )
 
         # Final query: SELECT group_concat(rtrim(t),x'0a') FROM a

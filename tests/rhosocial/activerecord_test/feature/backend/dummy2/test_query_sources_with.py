@@ -47,15 +47,27 @@ class TestCTEAndWithQueryExpressions:
         cte = CTEExpression(
             dummy_dialect,
             name="tree_cte",
-            query=query,
+            query=query
+        )
+
+        # Create a WithQueryExpression with recursive=True to test recursive functionality
+        main_query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id")],
+            from_=TableExpression(dummy_dialect, "tree_cte")
+        )
+
+        with_query = WithQueryExpression(
+            dummy_dialect,
+            ctes=[cte],
+            main_query=main_query,
             recursive=True
         )
-        
-        sql, params = cte.to_sql()
 
-        # The recursive flag is now handled at the WITH clause level, not individual CTE level
-        # So individual CTE should not have RECURSIVE in its own SQL
-        # But the CTE should still be marked as recursive for use in WithQueryExpression
+        sql, params = with_query.to_sql()
+
+        # The recursive flag is now handled at the WITH clause level
+        assert "WITH RECURSIVE" in sql.upper()
         assert "tree_cte" in sql
         assert params == ()
 
@@ -243,23 +255,20 @@ class TestCTEAndWithQueryExpressions:
 
     def test_cte_expression_parameter_validation(self, dummy_dialect: DummyDialect):
         """Test CTE expression with various parameter combinations."""
-        # Test with all parameters set
+        # Test with all parameters set (except recursive, which is now at WithQueryExpression level)
         query = Subquery(dummy_dialect, "SELECT col1, col2 FROM table WHERE id = ?", (123,))
         cte = CTEExpression(
             dummy_dialect,
             name="test_cte",
             query=query,
             columns=["col1", "col2"],
-            recursive=True,
             materialized=False,
             dialect_options={"hint": "value"}
         )
-        
+
         sql, params = cte.to_sql()
 
         assert "test_cte" in sql
         assert "col1" in sql
-        # The RECURSIVE keyword is now handled at the WITH clause level, not individual CTE level
-        # Individual CTEs don't contain RECURSIVE in their own SQL
         assert "NOT MATERIALIZED" in sql.upper()
         assert params == (123,)

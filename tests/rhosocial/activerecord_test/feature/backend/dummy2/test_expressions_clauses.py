@@ -74,7 +74,7 @@ class TestClauseExpressions:
         """Tests a recursive CTE."""
         cte_query_sql = """SELECT id, name, manager_id, 1 AS level FROM employees WHERE manager_id IS NULL UNION ALL SELECT e.id, e.name, e.manager_id, t.level + 1 FROM employees e INNER JOIN org_tree t ON e.manager_id = t.id"""
         cte_query = RawSQLExpression(dummy_dialect, cte_query_sql) # Or Subquery
-        cte_expr = CTEExpression(dummy_dialect, name="org_tree", query=cte_query, recursive=True)
+        cte_expr = CTEExpression(dummy_dialect, name="org_tree", query=cte_query)
         sql, params = cte_expr.to_sql()
         # The recursive flag is now handled at the WITH clause level, not individual CTE level
         # So the CTE itself should not have RECURSIVE keyword
