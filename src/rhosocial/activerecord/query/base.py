@@ -1,17 +1,23 @@
 # src/rhosocial/activerecord/query/base.py
 """BaseQueryMixin implementation."""
 
-import logging
-from typing import List, Tuple, Optional, Union, Dict, Any, overload, Type
+from typing import List, Tuple, Optional, Union, Any, overload, Type
 
-from ..backend.expression import functions
-from ..backend.expression import statements
-from ..backend.expression.bases import BaseExpression, SQLPredicate
-from ..backend.expression.core import Column, Literal, TableExpression
-from ..backend.expression.operators import RawSQLPredicate
-from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
+from ..backend.expression import (
+    functions,
+    statements,
+    BaseExpression,
+    SQLPredicate,
+    Column,
+    Literal,
+    TableExpression,
+    RawSQLPredicate,
+    WhereClause,
+    GroupByHavingClause,
+    OrderByClause,
+    LimitOffsetClause
+)
 from ..interface import ModelT, IQuery
-from ..interface.model import IActiveRecord
 
 
 class BaseQueryMixin:

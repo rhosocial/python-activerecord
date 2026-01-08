@@ -5,11 +5,19 @@ import logging
 from typing import List, Optional, Union, Any, Dict, Tuple, Type, Set, TYPE_CHECKING
 from ..interface import ModelT
 from ..interface.model import IActiveRecord
-from ..backend.expression.bases import BaseExpression
-from ..backend.expression.core import Column, Literal, TableExpression
-from ..backend.expression import aggregates, statements
-from ..backend.expression.operators import RawSQLPredicate
-from ..backend.expression.query_parts import WhereClause, OrderByClause, LimitOffsetClause, GroupByHavingClause
+from ..backend.expression import (
+    BaseExpression,
+    Column,
+    Literal,
+    TableExpression,
+    aggregates,
+    statements,
+    RawSQLPredicate,
+    WhereClause,
+    OrderByClause,
+    LimitOffsetClause,
+    GroupByHavingClause
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..interface.model import IActiveRecord

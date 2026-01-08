@@ -1,11 +1,12 @@
 # src/rhosocial/activerecord/query/join.py
 """JoinQueryMixin implementation."""
 
-from typing import List, Union, Tuple, Any
-from ..interface import ModelT, IQuery
+from typing import List, Union
+
+from ..interface import ModelT
 
 
-class JoinQueryMixin(IQuery[ModelT]):
+class JoinQueryMixin:
     """JoinQueryMixin implementation for JOIN operations.
 
     This mixin supports JOIN operations in both simple and complex aggregation contexts.

@@ -1,14 +1,17 @@
 # src/rhosocial/activerecord/query/aggregate.py
 """AggregateQueryMixin implementation for aggregation operations."""
+import logging
+from typing import List, Union, Any, Optional, Dict
 
-from typing import List, Union, Tuple, Any, Optional, Dict, overload
-from ..interface import ModelT
-from ..interface.model import IActiveRecord
-from ..backend.expression.bases import BaseExpression, SQLPredicate
-from ..backend.expression.core import Column, Literal, TableExpression
-from ..backend.expression import functions, statements
-from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 from .base import BaseQueryMixin
+from ..backend.expression import (
+    functions,
+    statements,
+    BaseExpression,
+    Literal,
+    TableExpression
+)
+
 
 class AggregateQueryMixin(BaseQueryMixin):
     """Query mixin for aggregation operations that access the database.

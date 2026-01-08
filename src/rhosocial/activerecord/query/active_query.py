@@ -1,13 +1,12 @@
 # src/rhosocial/activerecord/query/active_query.py
 """ActiveQuery implementation."""
 
-from typing import List, Union, Tuple, Any, Optional, Set, Dict
-from .base import BaseQueryMixin
-from .instance import InstanceQueryMixin
 from .aggregate import AggregateQueryMixin
+from .instance import InstanceQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
+from ..interface import ModelT, IQuery
 
 
 class ActiveQuery(

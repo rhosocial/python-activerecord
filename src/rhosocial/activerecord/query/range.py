@@ -2,10 +2,10 @@
 """RangeQueryMixin implementation."""
 
 from typing import List, Union, Tuple, Any
-from ..interface import ModelT, IQuery
+from ..interface import ModelT
 
 
-class RangeQueryMixin(IQuery[ModelT]):
+class RangeQueryMixin:
     """RangeQueryMixin implementation for range-based operations.
 
     This mixin supports range operations in both simple and complex aggregation contexts.

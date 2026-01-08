@@ -1,10 +1,12 @@
 # src/rhosocial/activerecord/query/cte_query.py
 """CTEQuery implementation."""
 
-from typing import List, Union, Tuple, Any, Optional, Dict
+from typing import List, Union, Tuple, Any, Optional
+
 from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
+from ..interface import ModelT, IQuery
 
 
 class CTEQuery(

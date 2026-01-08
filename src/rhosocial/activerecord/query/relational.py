@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Callable, Union, Type, Tuple
 
-from ..interface import ModelT, IQuery
+from ..interface import ModelT
 from ..interface.query import ThreadSafeDict
 
 
@@ -26,7 +26,7 @@ class RelationConfig:
     query_modifier: Optional[Callable] = None  # Query modification function
 
 
-class RelationalQueryMixin(IQuery[ModelT]):
+class RelationalQueryMixin:
     """Query methods for eager loading model relationships.
 
     This mixin adds the ability to eagerly load model relationships during queries.
