@@ -18,7 +18,7 @@ if TYPE_CHECKING:  # pragma: no cover
 
 from .base import BaseQueryMixin
 
-class InstanceQueryMixin(BaseQueryMixin[ModelT]):
+class InstanceQueryMixin(BaseQueryMixin):
     """Query mixin for methods that return ActiveRecord model instances.
 
     This mixin provides the all() and one() methods that return ActiveRecord model instances

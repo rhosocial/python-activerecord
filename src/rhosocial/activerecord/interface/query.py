@@ -5,7 +5,7 @@ Query building interfaces for ActiveRecord implementation.
 from abc import ABC, abstractmethod
 from threading import local
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
-    ValuesView, Mapping
+    ValuesView, Mapping, overload
 
 from ..backend.expression.bases import ToSQLProtocol
 from ..backend.base import StorageBackend
@@ -488,52 +488,6 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         """
         pass
 
-    @abstractmethod
-    def or_where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
-        """Add OR condition to the query.
-
-        Args:
-            condition: SQL condition string with placeholders
-            params: Parameter values for condition placeholders
-
-        Returns:
-            Query instance with OR condition added
-
-        Examples:
-            query.where('status = ?', [1]).or_where('status = ?', [2])
-            # Results in: WHERE status = 1 OR status = 2
-        """
-        pass
-
-    @abstractmethod
-    def start_or_group(self) -> 'IQuery[ModelT]':
-        """Start new OR condition group (with parentheses).
-
-        Used for complex OR logic combinations with AND conditions.
-
-        Returns:
-            Query instance with new OR group started
-
-        Examples:
-            query.where('status = ?', [1])\\
-                 .start_or_group()\\
-                 .where('type = ?', ['admin'])\\
-                 .or_where('type = ?', ['staff'])\\
-                 .end_or_group()
-            # Results in: WHERE status = 1 AND (type = 'admin' OR type = 'staff')
-        """
-        pass
-
-    @abstractmethod
-    def end_or_group(self) -> 'IQuery[ModelT]':
-        """End current OR condition group.
-
-        Must be called after start_or_group() to close the parentheses.
-
-        Returns:
-            Query instance with current OR group ended
-        """
-        pass
 
     @abstractmethod
     def between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':

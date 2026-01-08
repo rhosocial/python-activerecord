@@ -4,12 +4,14 @@
 from typing import List, Union, Tuple, Any, Optional, Set, Dict
 from .base import BaseQueryMixin
 from .instance import InstanceQueryMixin
+from .aggregate import AggregateQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
 
 
 class ActiveQuery(
+    AggregateQueryMixin,
     InstanceQueryMixin,
     JoinQueryMixin,
     RelationalQueryMixin,
@@ -38,4 +40,5 @@ class ActiveQuery(
     """
 
     def __init__(self, model_class: type):
-        pass
+        # Call the parent class __init__ to initialize all inherited attributes
+        super().__init__(model_class)
