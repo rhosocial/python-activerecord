@@ -51,6 +51,7 @@ def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = 
 
     Usage rules:
     - To generate COUNT(*), pass "*" as a string: count(dialect, "*")
+    - To generate COUNT(*), pass a WildcardExpression: count(dialect, WildcardExpression(dialect))
     - To generate COUNT(column), pass a Column object: count(dialect, Column(dialect, "column_name"))
     - To generate COUNT(?), pass a literal value: count(dialect, "literal_value")
 
@@ -65,9 +66,12 @@ def count(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"] = 
     Returns:
         An AggregateFunctionCall instance representing the COUNT function
     """
-    # 只检查是否传入的是字符串"*"
+    # Check if the passed expression is the string "*"
     if expr == '*' and isinstance(expr, str):
         target_expr = operators.RawSQLExpression(dialect, '*')
+    # Check if the passed expression is a WildcardExpression
+    elif isinstance(expr, core.WildcardExpression):
+        target_expr = expr
     else:
         target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr)
     return aggregates.AggregateFunctionCall(dialect, "COUNT", target_expr, is_distinct=is_distinct, alias=alias)

@@ -61,6 +61,56 @@ class TestLiteral:
 class TestColumn:
     """Tests for Column class."""
 
+
+class TestWildcard:
+    """Tests for WildcardExpression class."""
+
+    def test_wildcard_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test basic WildcardExpression functionality."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression
+
+        wildcard = WildcardExpression(sqlite_dialect_3_8_0)
+        sql, params = wildcard.to_sql()
+        assert sql == "*"
+        assert params == ()
+
+    def test_wildcard_with_table(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test WildcardExpression with table qualifier."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression
+
+        wildcard = WildcardExpression(sqlite_dialect_3_8_0, table="users")
+        sql, params = wildcard.to_sql()
+        assert sql == '"users".*'
+        assert params == ()
+
+    def test_wildcard_in_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test WildcardExpression used in a QueryExpression."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression, QueryExpression, TableExpression
+
+        wildcard = WildcardExpression(sqlite_dialect_3_8_0)
+        query = QueryExpression(
+            sqlite_dialect_3_8_0,
+            select=[wildcard],
+            from_=TableExpression(sqlite_dialect_3_8_0, "users")
+        )
+        sql, params = query.to_sql()
+        assert sql == 'SELECT * FROM "users"'
+        assert params == ()
+
+    def test_wildcard_with_table_in_query(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test qualified WildcardExpression used in a QueryExpression."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression, QueryExpression, TableExpression
+
+        wildcard = WildcardExpression(sqlite_dialect_3_8_0, table="users")
+        query = QueryExpression(
+            sqlite_dialect_3_8_0,
+            select=[wildcard],
+            from_=TableExpression(sqlite_dialect_3_8_0, "users")
+        )
+        sql, params = query.to_sql()
+        assert sql == 'SELECT "users".* FROM "users"'
+        assert params == ()
+
     def test_column_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic Column functionality."""
         column = Column(sqlite_dialect_3_8_0, "name")

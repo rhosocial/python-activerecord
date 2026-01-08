@@ -25,6 +25,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TemporalTableSupport,
     UpsertSupport,
     LateralJoinSupport,
+    WildcardSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -84,6 +85,7 @@ class SQLiteDialect(
     TemporalTableSupport,
     UpsertSupport,
     LateralJoinSupport,
+    WildcardSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -427,4 +429,16 @@ class SQLiteDialect(
             returning_sql += f" AS {self.format_identifier(clause.alias)}"
 
         return returning_sql, tuple(all_params)
+
+    def format_wildcard(
+        self,
+        table: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.*)."""
+        if table:
+            wildcard_sql = f'{self.format_identifier(table)}.*'
+        else:
+            wildcard_sql = '*'
+
+        return wildcard_sql, ()
     # endregion

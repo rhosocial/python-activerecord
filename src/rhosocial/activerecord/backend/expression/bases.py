@@ -8,6 +8,7 @@ to prevent circular imports.
 """
 import abc
 from typing import Tuple, Protocol, TYPE_CHECKING
+from typing import runtime_checkable
 
 from . import mixins
 
@@ -15,6 +16,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
+@runtime_checkable
 class ToSQLProtocol(Protocol):
     """
     Protocol for objects that can be converted into a SQL string and a tuple of parameters.

@@ -853,3 +853,87 @@ class TestQueryStatements:
         with pytest.raises(TypeError, match=r"from_ list item at index 1 must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got <class '.*FunctionCall'>"):
             query.validate(strict=True)
 
+    # --- Wildcard (SELECT *) tests ---
+    def test_query_expression_with_wildcard(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with wildcard (SELECT *)."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[WildcardExpression(dummy_dialect)],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        sql, params = query.to_sql()
+
+        assert sql == 'SELECT * FROM "users"'
+        assert params == ()
+
+    def test_query_expression_with_qualified_wildcard(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with qualified wildcard (SELECT table.*)."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[WildcardExpression(dummy_dialect, table="users")],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        sql, params = query.to_sql()
+
+        assert sql == 'SELECT "users".* FROM "users"'
+        assert params == ()
+
+    def test_query_expression_with_multiple_wildcards_and_columns(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with multiple wildcards and columns."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[
+                WildcardExpression(dummy_dialect, table="users"),
+                Column(dummy_dialect, "name", "profiles")
+            ],
+            from_=[
+                TableExpression(dummy_dialect, "users"),
+                TableExpression(dummy_dialect, "profiles")
+            ]
+        )
+        sql, params = query.to_sql()
+
+        assert sql == 'SELECT "users".*, "profiles"."name" FROM "users", "profiles"'
+        assert params == ()
+
+    def test_query_expression_with_count_wildcard(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with COUNT(*) using WildcardExpression."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression, count
+
+        # Test COUNT(*) using WildcardExpression
+        count_expr = count(dummy_dialect, WildcardExpression(dummy_dialect))
+        query = QueryExpression(
+            dummy_dialect,
+            select=[count_expr],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        sql, params = query.to_sql()
+
+        assert sql == 'SELECT COUNT(*) FROM "users"'
+        assert params == ()
+
+    def test_query_expression_with_count_qualified_wildcard(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with COUNT(table.*) using qualified WildcardExpression."""
+        from rhosocial.activerecord.backend.expression import WildcardExpression, count
+
+        # Test COUNT(table.*) using qualified WildcardExpression
+        qualified_wildcard = WildcardExpression(dummy_dialect, table="users")
+        count_expr = count(dummy_dialect, qualified_wildcard)
+        query = QueryExpression(
+            dummy_dialect,
+            select=[count_expr],
+            from_=TableExpression(dummy_dialect, "users")
+        )
+        sql, params = query.to_sql()
+
+        # Note: COUNT(users.*) is not standard SQL, but this tests the integration
+        # Standard SQL would use COUNT(*) or COUNT(column_name)
+        assert sql == 'SELECT COUNT(*) FROM "users"'
+        assert params == ()
+

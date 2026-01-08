@@ -8,6 +8,7 @@ from typing import Optional, Tuple, TYPE_CHECKING
 from . import bases
 from . import mixins
 from . import operators  # Added this import
+from . import core
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLPredicate
@@ -45,7 +46,9 @@ class AggregateFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixin
         """
         # Handle arguments - special case for COUNT(*) to preserve the asterisk without parameters
         if self.func_name.upper() == "COUNT" and len(self.args) == 1 and \
-           isinstance(self.args[0], operators.RawSQLExpression) and self.args[0].expression == "*":
+           ((isinstance(self.args[0], operators.RawSQLExpression) and self.args[0].expression == "*") or
+            isinstance(self.args[0], core.WildcardExpression)):
+            # For both RawSQLExpression("*") and WildcardExpression, use "*" as the SQL
             args_sql = ["*"]
             args_params = []
         else:

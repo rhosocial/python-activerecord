@@ -109,3 +109,13 @@ class TableExpression(bases.BaseExpression):
                 table_sql = f"{table_sql} {temporal_sql}"
                 params += temporal_params
         return table_sql, params
+
+
+class WildcardExpression(bases.SQLValueExpression):
+    """Represents a wildcard expression (SELECT *) in a SQL query."""
+    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None):
+        super().__init__(dialect)
+        self.table = table  # Optional table qualifier for SELECT table.*
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        return self.dialect.format_wildcard(self.table)

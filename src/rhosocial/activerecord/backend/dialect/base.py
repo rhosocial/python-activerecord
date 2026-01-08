@@ -160,6 +160,18 @@ class SQLDialectBase:
             return f"{col_sql} AS {self.format_identifier(alias)}", ()
         return col_sql, ()
 
+    def format_wildcard(
+        self,
+        table: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.*)."""
+        if table:
+            wildcard_sql = f'{self.format_identifier(table)}.*'
+        else:
+            wildcard_sql = '*'
+
+        return wildcard_sql, ()
+
     def supports_explicit_inner_join(self) -> bool:
         """
         Determines whether the dialect should explicitly use 'INNER JOIN' instead of just 'JOIN'.

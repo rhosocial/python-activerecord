@@ -35,6 +35,7 @@ from .core import (
     Subquery,
     TableExpression,
     Literal,
+    WildcardExpression,
 )
 from .predicates import (
     ComparisonPredicate,
@@ -178,7 +179,7 @@ __all__ = [
     "SQLOperation", "BinaryExpression", "UnaryExpression", "RawSQLExpression", "RawSQLPredicate", "BinaryArithmeticExpression",
     
     # Core expressions
-    "Column", "FunctionCall", "Subquery", "TableExpression", "Literal",
+    "Column", "FunctionCall", "Subquery", "TableExpression", "Literal", "WildcardExpression",
     
     # Predicates
     "ComparisonPredicate", "LogicalPredicate", "LikePredicate", "InPredicate", "BetweenPredicate", "IsNullPredicate",

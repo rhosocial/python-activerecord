@@ -60,7 +60,18 @@ class CTESupport(Protocol):
         main_query_sql: str,
         dialect_options: Optional[Dict[str, Any]] = None
     ) -> str:
-        """Format a complete query with WITH clause."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class WildcardSupport(Protocol):
+    """Protocol for wildcard expression support (SELECT *)."""
+
+    def format_wildcard(
+        self,
+        table: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.*)."""
         ...  # pragma: no cover
 
 
