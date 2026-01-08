@@ -1,73 +1,48 @@
 # src/rhosocial/activerecord/query/base.py
 """BaseQueryMixin implementation."""
 
-from typing import List, Tuple, Optional, Union, Set, Dict, Any, overload
-from ..interface import ModelT, IQuery
+import logging
+from typing import List, Tuple, Optional, Union, Dict, Any, overload, Type
+
+from ..backend.expression import functions
+from ..backend.expression import statements
 from ..backend.expression.bases import BaseExpression, SQLPredicate
-from ..backend.expression.core import Column, Literal
-from ..backend.expression.literals import Identifier
-from ..backend.expression.predicates import ComparisonPredicate
+from ..backend.expression.core import Column, Literal, TableExpression
 from ..backend.expression.operators import RawSQLPredicate
 from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
+from ..interface import ModelT, IQuery
+from ..interface.model import IActiveRecord
 
 
 class BaseQueryMixin(IQuery[ModelT]):
     """BaseQueryMixin implementation for basic and aggregate query operations.
 
-    This class unifies the functionality previously split between BaseQueryMixin and AggregateQueryMixin.
-    It supports two types of aggregation:
+    This class provides foundational query building capabilities including:
     1. Simple aggregation: Functions like count/avg/min/max/sum that return scalar values when
        used at the end of a method chain
     2. Complex aggregation: Queries using .aggregate() method for more complex aggregations
-    For aggregation states, to_dict() calls are ineffective.
 
-    The select() method accepts both column names (strings) and expression objects,
-    effectively replacing the need for a separate select_expr() method.
+    The select() method accepts both column names (strings) and expression objects.
 
     For complex logical conditions, use .where() with expression objects that represent
     OR logic. The backend expression system provides better support for complex logical
-    predicates than the legacy group-based methods (or_where, start_or_group, end_or_group).
+    predicates.
 
-    The query() method has been removed as its functionality is fully covered by the
-    more flexible .where() method.
+    The to_sql() method can be used at any time to inspect the constructed SQL query
+    and its parameters before execution.
+
+    Query endpoint methods and their return types:
+    1. Simple aggregation functions (count/sum_/avg/min_/max_): Return scalar values
+    2. aggregate(): Returns list of dictionaries
+    3. exists(): Returns boolean (based on count() > 0)
     """
 
-    # region Instance Attributes
-    model_class: type
-    _backend: Any
-    # Query clause attributes
-    where_clause: Optional[WhereClause]
-    order_clauses: List[str]
-    join_clauses: List[Union[str, type]]
-    select_columns: Optional[List[BaseExpression]]
-    limit_count: Optional[int]
-    offset_count: Optional[int]
-    _adapt_params: bool
-    _explain_enabled: bool
-    _explain_options: dict
-    _group_columns: List[str]
-    _having_conditions: List[Tuple[str, Tuple]]
-    _expressions: List[Any]
-    _window_definitions: Dict[str, Dict]
-    _grouping_sets: Optional[Any]
-    # endregion
-
-    def __init__(self, model_class: type):
-        self.model_class = model_class
-        self.where_clause = None
-        self.order_clauses = []
-        self.join_clauses = []
-        self.select_columns = None
-        self.limit_count = None
-        self.offset_count = None
-        self._adapt_params = True
-        self._explain_enabled = False
-        self._explain_options = {}
-        self._group_columns = []
-        self._having_conditions = []
-        self._expressions = []
-        self._window_definitions = {}
-        self._grouping_sets = None
+    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
+        """Log query-related messages using model's logger."""
+        if self.model_class:
+            if "offset" not in kwargs:
+                kwargs["offset"] = 1
+            self.model_class.log(level, msg, *args, **kwargs)
 
     # region Basic Query Methods
     @overload
@@ -116,6 +91,30 @@ class BaseQueryMixin(IQuery[ModelT]):
     def where(self, condition, params=None):
         """Add AND condition to the query.
 
+        Args:
+            condition: Condition expression. Can be:
+                      1. A predicate expression (e.g., User.c.age > 25, which is a SQLPredicate instance)
+                      2. A SQL placeholder string with parameters (e.g., "name = ? AND age > ?")
+            params: Query parameters for placeholder strings (not used with expression objects)
+
+        Returns:
+            Query instance for method chaining
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            User.query().where(User.c.status == 'active')
+            User.query().where(User.c.age >= 18)
+            User.query().where(User.c.name.like('%john%'))
+
+            2. Using complex expressions with ActiveRecord field proxy
+            User.query().where((User.c.age >= 18) & (User.c.status == 'active'))
+            User.query().where(User.c.created_at >= datetime.now() - timedelta(days=30))
+
+            3. Using raw SQL string with parameters (use with caution)
+            # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
+            User.query().where('status = ?', ('active',))
+            User.query().where('age >= ? AND status = ?', (18, 'active'))
+
         See overloaded method signatures for parameter details.
         """
         # Get backend instance from model class, then get dialect
@@ -158,6 +157,16 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         Returns:
             IQuery: Query instance for method chaining
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            User.query().select(User.c.id, User.c.name, User.c.email)
+            User.query().select(User.c.name).where(User.c.status == 'active')
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            User.query().select('id', 'name', 'email')
+            User.query().select('name').where('status = ?', ('active',))
         """
         # Get backend instance from model class, then get dialect
         backend = self.model_class.backend()
@@ -188,11 +197,81 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         Args:
             *clauses: Variable number of ordering specifications. Each can be:
+
                      1. A column name as string (e.g., "name")
                      2. An expression object (e.g., User.c.name, which is a BaseExpression instance)
                      3. A tuple of (expression, direction) where direction is "ASC" or "DESC"
+
+        Returns:
+            Query instance for method chaining
+
+        Note:
+            Unlike WHERE or HAVING clauses, ORDER BY clauses typically do not contain
+            parameter placeholders. The expressions used in ORDER BY are usually column
+            names, functions, or other deterministic expressions that define sort order.
+            Any parameters returned by expression.to_sql() are ignored in ORDER BY context.
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            User.query().order_by(User.c.name)
+            User.query().order_by(User.c.created_at, User.c.name)
+
+            2. Using expression objects with direction
+            User.query().order_by((User.c.name, "ASC"))
+            User.query().order_by((User.c.created_at, "DESC"), (User.c.name, "ASC"))
+
+            3. Using string column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            User.query().order_by("name")
+            User.query().order_by("created_at", "name")
+
+            4. With direction specification using tuples
+            User.query().order_by(("name", "ASC"))
+            User.query().order_by(("created_at", "DESC"), ("name", "ASC"))
+
+            5. Complex expressions
+            User.query().order_by(functions.upper(User.c.name))
+            User.query().order_by((functions.length(User.c.description), "DESC"))
         """
-        pass
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Convert clauses to the format expected by OrderByClause
+        order_expressions = []
+        for clause in clauses:
+            if isinstance(clause, str):
+                # Simple column name - default to ASC
+                order_expressions.append((Column(dialect, clause), "ASC"))
+            elif isinstance(clause, tuple) and len(clause) == 2:
+                # (expression, direction) tuple
+                expr, direction = clause
+                if isinstance(expr, str):
+                    expr_obj = Column(dialect, expr)
+                elif isinstance(expr, BaseExpression):
+                    expr_obj = expr
+                else:
+                    raise TypeError(f"Expression must be str or BaseExpression, got {type(expr)}")
+
+                # Validate direction
+                direction = direction.upper()
+                if direction not in ("ASC", "DESC"):
+                    raise ValueError(f"Order direction must be 'ASC' or 'DESC', got '{direction}'")
+
+                order_expressions.append((expr_obj, direction))
+            elif isinstance(clause, BaseExpression):
+                # Expression object with default direction
+                order_expressions.append((clause, "ASC"))
+            else:
+                raise TypeError(f"Order clause must be str, BaseExpression, or (expression, direction) tuple, got {type(clause)}")
+
+        # Create or update the OrderByClause
+        if self.order_by_clause:
+            # Extend existing expressions with new ones
+            self.order_by_clause.expressions.extend(order_expressions)
+        else:
+            self.order_by_clause = OrderByClause(dialect, order_expressions)
+
+        return self
 
     def limit(self, count: Union[int, BaseExpression]):
         """Add LIMIT clause to restrict the number of rows returned.
@@ -203,7 +282,17 @@ class BaseQueryMixin(IQuery[ModelT]):
         Returns:
             Query instance for method chaining
         """
-        pass
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Create or update the LimitOffsetClause
+        if self.limit_offset_clause:
+            # Update existing clause with new limit value
+            self.limit_offset_clause.limit = count
+        else:
+            self.limit_offset_clause = LimitOffsetClause(dialect, limit=count)
+
+        return self
 
     def offset(self, count: Union[int, BaseExpression]):
         """Add OFFSET clause to skip a specified number of rows.
@@ -214,7 +303,17 @@ class BaseQueryMixin(IQuery[ModelT]):
         Returns:
             Query instance for method chaining
         """
-        pass
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Create or update the LimitOffsetClause
+        if self.limit_offset_clause:
+            # Update existing clause with new offset value
+            self.limit_offset_clause.offset = count
+        else:
+            self.limit_offset_clause = LimitOffsetClause(dialect, offset=count)
+
+        return self
     # endregion
 
 
@@ -227,8 +326,44 @@ class BaseQueryMixin(IQuery[ModelT]):
 
         Returns:
             Query instance for method chaining
+
+        Note:
+            Unlike WHERE or HAVING clauses, GROUP BY clauses typically do not contain
+            parameter placeholders. The expressions used in GROUP BY are usually column
+            names, functions, or other deterministic expressions that define grouping.
+            Any parameters returned by expression.to_sql() are ignored in GROUP BY context.
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            User.query().group_by(User.c.department)
+            User.query().group_by(User.c.status, User.c.created_at)
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            User.query().group_by('department')
+            User.query().group_by('status', 'created_at')
         """
-        pass
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Convert string columns to Column objects
+        group_expressions = []
+        for col in columns:
+            if isinstance(col, str):
+                group_expressions.append(Column(dialect, col))
+            elif isinstance(col, BaseExpression):
+                group_expressions.append(col)
+            else:
+                raise TypeError(f"Column must be str or BaseExpression, got {type(col)}")
+
+        # Create or update the GroupByHavingClause
+        if self.group_by_having_clause:
+            # Extend existing group by expressions
+            self.group_by_having_clause.group_by.extend(group_expressions)
+        else:
+            self.group_by_having_clause = GroupByHavingClause(dialect, group_by=group_expressions)
+
+        return self
 
     @overload
     def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin[ModelT]':
@@ -276,51 +411,508 @@ class BaseQueryMixin(IQuery[ModelT]):
     def having(self, condition, params=None):
         """Add HAVING condition for complex aggregations.
 
+        Args:
+            condition: HAVING condition expression. Can be:
+                      1. A predicate expression (e.g., User.c.age > 25, which is a SQLPredicate instance)
+                      2. A SQL placeholder string with parameters (e.g., "COUNT(*) > ?")
+            params: Query parameters for placeholder strings (not used with expression objects)
+
+        Returns:
+            Query instance for method chaining
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            User.query().group_by(User.c.department).having(functions.count(User.c.id) > 5)
+
+            2. Using raw SQL string with parameters (use with caution)
+            # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
+            User.query().group_by('department').having('COUNT(*) > ?', (5,))
+
         See overloaded method signatures for parameter details.
         """
-        pass
+        # Get backend instance from model class, then get dialect
+        backend = self.model_class.backend()
+        dialect = backend.dialect
 
-    def count(self, column: str = "*", alias: Optional[str] = None, distinct: bool = False):
-        """Simple aggregation function that returns a scalar count value when used at the end of a method chain."""
-        pass
+        # Convert string condition to SQLPredicate
+        if isinstance(condition, str):
+            # Use the new RawSQLPredicate class to handle raw SQL string conditions
+            predicate = RawSQLPredicate(dialect, condition, tuple(params) if params else ())
+        elif isinstance(condition, SQLPredicate):
+            # Object that inherits from SQLPredicate, use directly
+            predicate = condition
+        else:
+            raise TypeError(f"Condition must be str or SQLPredicate, got {type(condition)}")
 
-    def sum(self, column: str, alias: Optional[str] = None):
-        """Simple aggregation function that returns a scalar sum value when used at the end of a method chain."""
-        pass
+        # Create or update the GroupByHavingClause with the having condition
+        if self.group_by_having_clause:
+            # Update existing clause with the having condition
+            self.group_by_having_clause.having = predicate
+        else:
+            # Create a new clause with the having condition
+            # Since having requires group by, we'll create an empty group by list
+            self.group_by_having_clause = GroupByHavingClause(dialect, group_by=[], having=predicate)
 
-    def avg(self, column: str, alias: Optional[str] = None):
-        """Simple aggregation function that returns a scalar average value when used at the end of a method chain."""
-        pass
+        return self
 
-    def min(self, column: str, alias: Optional[str] = None):
-        """Simple aggregation function that returns a scalar minimum value when used at the end of a method chain."""
-        pass
+    def count(self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None):
+        """Simple aggregation function that returns a scalar count value when used at the end of a method chain.
 
-    def max(self, column: str, alias: Optional[str] = None):
-        """Simple aggregation function that returns a scalar maximum value when used at the end of a method chain."""
-        pass
+        Args:
+            column: Column to count, defaults to "*" for COUNT(*). Can be a string column name or BaseExpression.
+            is_distinct: Whether to count distinct values
+            alias: Optional alias (ignored when returning scalar)
 
-    def aggregate(self):
-        """Complex aggregation method that returns a list of dictionaries representing aggregated results."""
-        pass
+        Returns:
+            Scalar count value
+
+        Note: Calling .explain() before .count() has no effect. To get execution plans for aggregation queries,
+        use .select() with .explain() and .aggregate() instead:
+        User.query().select(functions.count(User.c.id).as_('total')).explain().aggregate()
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            total_users = User.query().count()
+            active_users = User.query().where(User.c.status == 'active').count()
+            unique_emails = User.query().count(User.c.email, is_distinct=True)
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            total_users = User.query().count('*')
+            unique_emails = User.query().count('email', is_distinct=True)
+        """
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Use the factory function from functions.py to create the aggregation expression
+        agg_expr = functions.count(dialect, column, is_distinct=is_distinct, alias=alias)
+
+        # Store original select_columns to restore later
+        original_select_columns = self.select_columns
+
+        # Set the aggregation expression as the only selected column
+        self.select_columns = [agg_expr]
+
+        # Execute the query and return the scalar result
+        result = self.all()
+
+        # Restore original select_columns
+        self.select_columns = original_select_columns
+
+        if result and len(result) > 0:
+            # Get the aggregated value from the result dictionary
+            # The key will be the alias if provided, otherwise a default name
+            key = alias if alias else "agg_0"
+            return result[0].get(key)
+        return 0  # Default to 0 if no results
+
+    def sum_(self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None):
+        """Simple aggregation function that returns a scalar sum value when used at the end of a method chain.
+
+        Args:
+            column: Column to sum. Can be a string column name or BaseExpression.
+            is_distinct: Whether to sum distinct values
+            alias: Optional alias (ignored when returning scalar)
+
+        Returns:
+            Scalar sum value
+
+        Note: Calling .explain() before .sum_() has no effect. To get execution plans for aggregation queries,
+        use .select() with .explain() and .aggregate() instead:
+        User.query().select(functions.sum_(User.c.amount).as_('total')).explain().aggregate()
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            total_amount = Order.query().sum_(Order.c.amount)
+            total_discount = Order.query().where(Order.c.status == 'active').sum_(Order.c.discount)
+            unique_total = Order.query().sum_(Order.c.amount, is_distinct=True)
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            total_amount = Order.query().sum_('amount')
+            total_discount = Order.query().where('status = ?', ('active',)).sum_('discount')
+            unique_total = Order.query().sum_('amount', is_distinct=True)
+        """
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Use the factory function from functions.py to create the aggregation expression
+        agg_expr = functions.sum_(dialect, column, is_distinct=is_distinct, alias=alias)
+
+        # Store original select_columns to restore later
+        original_select_columns = self.select_columns
+
+        # Set the aggregation expression as the only selected column
+        self.select_columns = [agg_expr]
+
+        # Execute the query and return the scalar result
+        result = self.all()
+
+        # Restore original select_columns
+        self.select_columns = original_select_columns
+
+        if result and len(result) > 0:
+            # Get the aggregated value from the result dictionary
+            # The key will be the alias if provided, otherwise a default name
+            key = alias if alias else "agg_0"
+            return result[0].get(key)
+        return 0  # Default to 0 if no results
+
+    def avg(self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None):
+        """Simple aggregation function that returns a scalar average value when used at the end of a method chain.
+
+        Args:
+            column: Column to average. Can be a string column name or BaseExpression.
+            is_distinct: Whether to average distinct values
+            alias: Optional alias (ignored when returning scalar)
+
+        Returns:
+            Scalar average value
+
+        Note: Calling .explain() before .avg() has no effect. To get execution plans for aggregation queries,
+        use .select() with .explain() and .aggregate() instead:
+        User.query().select(functions.avg(User.c.age).as_('average_age')).explain().aggregate()
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            avg_score = Student.query().avg(Student.c.score)
+            avg_salary = Employee.query().where(Employee.c.department == 'IT').avg(Employee.c.salary)
+            unique_avg = Student.query().avg(Student.c.score, is_distinct=True)
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            avg_score = Student.query().avg('score')
+            avg_salary = Employee.query().where('department = ?', ('IT',)).avg('salary')
+            unique_avg = Student.query().avg('score', is_distinct=True)
+        """
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Use the factory function from functions.py to create the aggregation expression
+        agg_expr = functions.avg(dialect, column, is_distinct=is_distinct, alias=alias)
+
+        # Store original select_columns to restore later
+        original_select_columns = self.select_columns
+
+        # Set the aggregation expression as the only selected column
+        self.select_columns = [agg_expr]
+
+        # Execute the query and return the scalar result
+        result = self.all()
+
+        # Restore original select_columns
+        self.select_columns = original_select_columns
+
+        if result and len(result) > 0:
+            # Get the aggregated value from the result dictionary
+            # The key will be the alias if provided, otherwise a default name
+            key = alias if alias else "agg_0"
+            return result[0].get(key)
+        return None  # Return None if no results
+
+    def min_(self, column: Union[str, BaseExpression], alias: Optional[str] = None):
+        """Simple aggregation function that returns a scalar minimum value when used at the end of a method chain.
+
+        Args:
+            column: Column to find minimum of. Can be a string column name or BaseExpression.
+            alias: Optional alias (ignored when returning scalar)
+
+        Returns:
+            Scalar minimum value
+
+        Note: Calling .explain() before .min_() has no effect. To get execution plans for aggregation queries,
+        use .select() with .explain() and .aggregate() instead:
+        User.query().select(functions.min_(User.c.age).as_('min_age')).explain().aggregate()
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            min_price = Product.query().min_(Product.c.price)
+            min_age = User.query().where(User.c.status == 'active').min_(User.c.age)
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            min_price = Product.query().min_('price')
+            min_age = User.query().where('status = ?', ('active',)).min_('age')
+        """
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Use the factory function from functions.py to create the aggregation expression
+        agg_expr = functions.min_(dialect, column, alias=alias)
+
+        # Store original select_columns to restore later
+        original_select_columns = self.select_columns
+
+        # Set the aggregation expression as the only selected column
+        self.select_columns = [agg_expr]
+
+        # Execute the query and return the scalar result
+        result = self.all()
+
+        # Restore original select_columns
+        self.select_columns = original_select_columns
+
+        if result and len(result) > 0:
+            # Get the aggregated value from the result dictionary
+            # The key will be the alias if provided, otherwise a default name
+            key = alias if alias else "agg_0"
+            return result[0].get(key)
+        return None  # Return None if no results
+
+    def max_(self, column: Union[str, BaseExpression], alias: Optional[str] = None):
+        """Simple aggregation function that returns a scalar maximum value when used at the end of a method chain.
+
+        Args:
+            column: Column to find maximum of. Can be a string column name or BaseExpression.
+            alias: Optional alias (ignored when returning scalar)
+
+        Returns:
+            Scalar maximum value
+
+        Note: Calling .explain() before .max_() has no effect. To get execution plans for aggregation queries,
+        use .select() with .explain() and .aggregate() instead:
+        User.query().select(functions.max_(User.c.age).as_('max_age')).explain().aggregate()
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            max_price = Product.query().max_(Product.c.price)
+            max_age = User.query().where(User.c.status == 'active').max_(User.c.age)
+
+            2. Using raw column names (use with caution)
+            # Warning: When using raw column names as strings, ensure they match your database schema
+            max_price = Product.query().max_('price')
+            max_age = User.query().where('status = ?', ('active',)).max_('age')
+        """
+        backend = self.model_class.backend()
+        dialect = backend.dialect
+
+        # Use the factory function from functions.py to create the aggregation expression
+        agg_expr = functions.max_(dialect, column, alias=alias)
+
+        # Store original select_columns to restore later
+        original_select_columns = self.select_columns
+
+        # Set the aggregation expression as the only selected column
+        self.select_columns = [agg_expr]
+
+        # Execute the query and return the scalar result
+        result = self.all()
+
+        # Restore original select_columns
+        self.select_columns = original_select_columns
+
+        if result and len(result) > 0:
+            # Get the aggregated value from the result dictionary
+            # The key will be the alias if provided, otherwise a default name
+            key = alias if alias else "agg_0"
+            return result[0].get(key)
+        return None  # Return None if no results
+
+    def aggregate(self) -> List[Dict[str, Any]]:
+        """Execute aggregate query with all configured expressions and groupings.
+
+        Executes the query with all configured expressions and groupings.
+        Inherits WHERE conditions, ORDER BY, and LIMIT/OFFSET from base query.
+
+        Returns a list of result dictionaries. The list may contain a single item
+        or multiple items depending on the query definition (GROUP BY, etc.).
+
+        If explain() has been called on the query, this method will return
+        the execution plan instead of the actual results.
+
+        Returns:
+            List[Dict[str, Any]]: Results as a list of dictionaries
+            Union[str, List[Dict]]: Execution plan if explain is enabled
+
+        Examples:
+            1. With grouping (returns multiple rows)
+            result = User.query()\\
+                .group_by('department')\\
+                .select(functions.count(User.c.id).as_('total'))\\
+                .aggregate()
+
+            2. Scalar aggregate (returns a single row in a list)
+            result = User.query()\\
+                .select(functions.count(User.c.id).as_('total'))\\
+                .aggregate()
+            total = result[0]['total'] if result else 0
+
+            3. Multiple aggregations
+            result = User.query()\\
+                .group_by('status')\\
+                .select(
+                    functions.count(User.c.id).as_('count'),
+                    functions.avg(User.c.age).as_('average_age')
+                )\\
+                .aggregate()
+
+            4. With explain enabled
+            plan = User.query()\\
+                .group_by('department')\\
+                .select(functions.count(User.c.id).as_('total'))\\
+                .explain()\\
+                .aggregate()
+        """
+        # Handle explain if enabled
+        if self._explain_enabled:
+            # Get backend instance and dialect
+            backend = self.model_class.backend()
+            dialect = backend.dialect
+
+            # Create the underlying query expression
+            from_clause = TableExpression(dialect, self.model_class.table_name())
+
+            query_expr = statements.QueryExpression(
+                dialect,
+                select=self.select_columns or [Literal(dialect, "*")],  # Default to SELECT *
+                from_=from_clause,
+                where=self.where_clause,
+                group_by_having=self.group_by_having_clause,
+                order_by=self.order_by_clause,
+                limit_offset=self.limit_offset_clause
+            )
+
+            # Create ExplainExpression with the query and options
+            explain_options = statements.ExplainOptions(**self._explain_options)
+            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+
+            # Generate SQL for the EXPLAIN statement
+            explain_sql, explain_params = explain_expr.to_sql()
+
+            self._log(logging.INFO, f"Executing EXPLAIN aggregate query: {explain_sql}")
+
+            # Execute the EXPLAIN query using the backend
+            result = backend.execute_query(explain_sql, explain_params)
+
+            return result
+
+        # Get SQL and parameters using the existing to_sql method
+        sql, params = self.to_sql()
+        self._log(logging.INFO, f"Executing aggregate query: {sql}")
+
+        # Execute the aggregate query
+        backend = self.model_class.backend()
+        result = backend.fetch_all(sql, params)
+
+        # Always return a list, even if empty
+        return result
     # endregion
 
 
     # region Core Methods
     def to_sql(self) -> Tuple[str, tuple]:
-        pass
+        """Generate the SQL query string and parameters."""
+        # Get backend instance and dialect
+        backend = self.model_class.backend()
+        dialect = backend.dialect
 
-    def all(self) -> List[ModelT]:
-        pass
+        # Prepare the FROM clause - use the model's table
+        from_clause = TableExpression(dialect, self.model_class.table_name())
 
-    def one(self) -> Optional[ModelT]:
-        pass
+        # Create QueryExpression with all components
+        query_expr = statements.QueryExpression(
+            dialect,
+            select=self.select_columns or [Literal(dialect, "*")],  # Default to SELECT *
+            from_=from_clause,
+            where=self.where_clause,
+            group_by_having=self.group_by_having_clause,
+            order_by=self.order_by_clause,
+            limit_offset=self.limit_offset_clause
+        )
+
+        # Generate SQL using the QueryExpression
+        return query_expr.to_sql()
+
+    # endregion
 
     def exists(self) -> bool:
-        pass
+        """Check if any matching records exist.
+
+        This method executes a query to check if any records match the query conditions.
+        It's more efficient than fetching all records when only existence matters.
+
+        Note: Calling .explain() before .exists() has no effect. To get execution plans for existence queries,
+        use .select() with .explain() and .aggregate() instead:
+        User.query().select(functions.count(User.c.id).as_('total')).explain().aggregate()
+
+        Returns:
+            bool: True if at least one record matches, False otherwise
+
+        Examples:
+            1. Using ActiveRecord field proxy (recommended)
+            if User.query().where(User.c.email == email).exists():
+                print("User exists")
+            else:
+                print("User does not exist")
+
+            2. Check with complex conditions
+            has_active_admins = User.query()\\
+                .where(User.c.role == 'admin')\\
+                .where(User.c.status == 'active')\\
+                .exists()
+
+            3. Using raw SQL string with parameters (use with caution)
+            # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
+            if User.query().where('email = ?', (email,)).exists():
+                print("User exists")
+            else:
+                print("User does not exist")
+        """
+        return self.count() > 0
 
     def explain(self, **kwargs):
-        pass
+        """Enable EXPLAIN for the subsequent query execution.
+
+        This method configures the query to generate an execution plan when executed.
+        The explain will be performed when calling execution methods like all(), one(),
+        count(), etc.
+
+        The explain() method can be called at any point after query() and before
+        the final execution method (all/one/exists/count/etc.). It can also be called
+        multiple times, with the last call taking effect.
+
+        Args:
+            **kwargs: EXPLAIN options. These will be passed to ExplainOptions.
+
+        Returns:
+            IQuery[ModelT]: Query instance for method chaining
+
+        Examples:
+            1. Basic explain
+            User.query().explain().all()
+
+            2. With analysis and JSON output
+            User.query()\\
+                .explain(analyze=True, format=ExplainFormat.JSON)\\
+                .all()
+
+            3. PostgreSQL specific options
+            User.query()\\
+                .explain(buffers=True, settings=True)\\
+                .all()
+
+            4. Configure explain for aggregate query
+            plan = User.query()\\
+                .group_by(User.c.department)\\
+                .explain(format=ExplainFormat.TEXT)\\
+                .count(User.c.id)
+
+            5. Explain can be called at any point before execution
+            query = User.query().where(User.c.status == 'active')
+            query.explain()  # Enable explain
+            result = query.all()  # Will show execution plan
+
+            6. Multiple explain calls (last one takes effect)
+            User.query()\\
+                .where(User.c.status == 'active')\\
+                .explain(format=ExplainFormat.TEXT)\\  # First explain call
+                .explain(analyze=True)\\               # Second call overrides first
+                .all()                                # Will use analyze=True option
+        """
+        # Enable explain mode
+        self._explain_enabled = True
+        self._explain_options = kwargs
+        return self
 
     def adapt_params(self, adapt: bool = True):
         pass

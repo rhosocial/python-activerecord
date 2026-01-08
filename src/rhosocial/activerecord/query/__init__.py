@@ -3,8 +3,8 @@
 
 from .active_query import ActiveQuery
 from .cte_query import CTEQuery
-from .dict_query import DictQueryMixin
 from .base import BaseQueryMixin
+from .instance import InstanceQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
@@ -12,8 +12,8 @@ from .relational import RelationalQueryMixin
 __all__ = [
     'ActiveQuery',
     'CTEQuery',
-    'DictQueryMixin',
     'BaseQueryMixin',
+    'InstanceQueryMixin',
     'JoinQueryMixin',
     'RangeQueryMixin',
     'RelationalQueryMixin',
