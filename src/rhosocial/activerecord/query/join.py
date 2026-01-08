@@ -24,32 +24,32 @@ class JoinQueryMixin(IQuery[ModelT]):
     # endregion
 
     # region JOIN Methods
-    def join(self, join_clause: Union[str, type]):
+    def join(self, join_clause: Union[str, type]) -> 'IQuery[ModelT]':
         pass
 
-    def inner_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None):
+    def inner_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None) -> 'IQuery[ModelT]':
         pass
 
-    def left_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None, outer: bool = False):
+    def left_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None, outer: bool = False) -> 'IQuery[ModelT]':
         pass
 
-    def right_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None, outer: bool = False):
+    def right_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None, outer: bool = False) -> 'IQuery[ModelT]':
         pass
 
-    def full_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None, outer: bool = False):
+    def full_join(self, table: str, foreign_key: str, primary_key: str = None, alias: str = None, outer: bool = False) -> 'IQuery[ModelT]':
         pass
 
-    def cross_join(self, table: str, alias: str = None):
+    def cross_join(self, table: str, alias: str = None) -> 'IQuery[ModelT]':
         pass
 
-    def natural_join(self, table: str, alias: str = None):
+    def natural_join(self, table: str, alias: str = None) -> 'IQuery[ModelT]':
         pass
 
-    def join_on(self, table: str, condition: str, alias: str = None):
+    def join_on(self, table: str, condition: str, alias: str = None) -> 'IQuery[ModelT]':
         pass
 
-    def join_through(self, intermediate_table: str, left_key: str, right_key: str, alias: str = None):
+    def join_through(self, intermediate_table: str, left_key: str, right_key: str, alias: str = None) -> 'IQuery[ModelT]':
         pass
 
-    def join_relation(self, relation_name: str, alias: str = None):
+    def join_relation(self, relation_name: str, alias: str = None) -> 'IQuery[ModelT]':
         pass

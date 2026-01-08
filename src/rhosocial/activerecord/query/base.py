@@ -53,7 +53,7 @@ class BaseQueryMixin:
 
     # region Basic Query Methods
     @overload
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin[ModelT]':
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
         """Add AND condition to the query using a SQL placeholder string.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -76,7 +76,7 @@ class BaseQueryMixin:
         ...
 
     @overload
-    def where(self, condition: SQLPredicate, params: None = None) -> 'BaseQueryMixin[ModelT]':
+    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery[ModelT]':
         """Add AND condition to the query using a predicate expression.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -144,7 +144,7 @@ class BaseQueryMixin:
         return self
 
 
-    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'BaseQueryMixin[ModelT]':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery[ModelT]':
         """Select specific columns or expressions to retrieve from the query.
 
         For ActiveRecord queries, it's generally recommended to retrieve all columns
@@ -163,7 +163,7 @@ class BaseQueryMixin:
                    If False (default), replace existing selection.
 
         Returns:
-            BaseQueryMixin[ModelT]: Query instance for method chaining
+            IQuery[ModelT]: Query instance for method chaining
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)
@@ -199,7 +199,7 @@ class BaseQueryMixin:
 
         return self
 
-    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'BaseQueryMixin[ModelT]':
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery[ModelT]':
         """Add ORDER BY clauses to the query.
 
         Args:
@@ -210,7 +210,7 @@ class BaseQueryMixin:
                      3. A tuple of (expression, direction) where direction is "ASC" or "DESC"
 
         Returns:
-            BaseQueryMixin[ModelT]: Query instance for method chaining
+            IQuery[ModelT]: Query instance for method chaining
 
         Note:
             Unlike WHERE or HAVING clauses, ORDER BY clauses typically do not contain
@@ -280,14 +280,14 @@ class BaseQueryMixin:
 
         return self
 
-    def limit(self, count: Union[int, BaseExpression]) -> 'BaseQueryMixin[ModelT]':
+    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
         """Add LIMIT clause to restrict the number of rows returned.
 
         Args:
             count: Maximum number of rows to return, can be an integer or expression
 
         Returns:
-            BaseQueryMixin[ModelT]: Query instance for method chaining
+            IQuery[ModelT]: Query instance for method chaining
         """
         backend = self.model_class.backend()
         dialect = backend.dialect
@@ -301,14 +301,14 @@ class BaseQueryMixin:
 
         return self
 
-    def offset(self, count: Union[int, BaseExpression]) -> 'BaseQueryMixin[ModelT]':
+    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
         """Add OFFSET clause to skip a specified number of rows.
 
         Args:
             count: Number of rows to skip, can be an integer or expression
 
         Returns:
-            BaseQueryMixin[ModelT]: Query instance for method chaining
+            IQuery[ModelT]: Query instance for method chaining
         """
         backend = self.model_class.backend()
         dialect = backend.dialect
@@ -325,14 +325,14 @@ class BaseQueryMixin:
 
 
     # region Aggregate Methods
-    def group_by(self, *columns: Union[str, BaseExpression]) -> 'BaseQueryMixin[ModelT]':
+    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQuery[ModelT]':
         """Add GROUP BY columns for complex aggregations.
 
         Args:
             *columns: Variable number of column names (str) or expression objects (BaseExpression) to group by
 
         Returns:
-            BaseQueryMixin[ModelT]: Query instance for method chaining
+            IQuery[ModelT]: Query instance for method chaining
 
         Note:
             Unlike WHERE or HAVING clauses, GROUP BY clauses typically do not contain
@@ -373,7 +373,7 @@ class BaseQueryMixin:
         return self
 
     @overload
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin[ModelT]':
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
         """Add HAVING condition using a SQL placeholder string for complex aggregations.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -396,7 +396,7 @@ class BaseQueryMixin:
         ...
 
     @overload
-    def having(self, condition: SQLPredicate, params: None = None) -> 'BaseQueryMixin[ModelT]':
+    def having(self, condition: SQLPredicate, params: None = None) -> 'IQuery[ModelT]':
         """Add HAVING condition using a predicate expression for complex aggregations.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -488,7 +488,7 @@ class BaseQueryMixin:
 
     # endregion
 
-    def explain(self, **kwargs):
+    def explain(self, **kwargs) -> 'IQuery[ModelT]':
         """Enable EXPLAIN for the subsequent query execution.
 
         This method configures the query to generate an execution plan when executed.
@@ -542,6 +542,4 @@ class BaseQueryMixin:
         self._explain_options = kwargs
         return self
 
-    def adapt_params(self, adapt: bool = True) -> 'BaseQueryMixin[ModelT]':
-        pass
     # endregion

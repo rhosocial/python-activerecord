@@ -7,7 +7,8 @@ from threading import local
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
     ValuesView, Mapping, overload
 
-from ..backend.expression.bases import ToSQLProtocol
+from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
+from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 from ..backend.base import StorageBackend
 
 K = TypeVar('K')
@@ -193,14 +194,14 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
 
     # region Instance Attributes
     model_class: Type[ModelT]
-    _backend: 'StorageBackend'
+    _backend: StorageBackend
     # Query clause attributes
-    where_clause: Optional['WhereClause']
-    order_by_clause: Optional['OrderByClause']
+    where_clause: Optional[WhereClause]
+    order_by_clause: Optional[OrderByClause]
     join_clauses: List[Union[str, type]]
-    select_columns: Optional[List['BaseExpression']]
-    limit_offset_clause: Optional['LimitOffsetClause']
-    group_by_having_clause: Optional['GroupByHavingClause']
+    select_columns: Optional[List[BaseExpression]]
+    limit_offset_clause: Optional[LimitOffsetClause]
+    group_by_having_clause: Optional[GroupByHavingClause]
     _adapt_params: bool
     _explain_enabled: bool
     _explain_options: dict
@@ -237,7 +238,7 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         ...
 
     @overload
-    def where(self, condition: 'SQLPredicate', params: None = None) -> 'IQuery[ModelT]':
+    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery[ModelT]':
         """Add AND condition to the query using a predicate expression.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -289,7 +290,7 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def select(self, *columns: Union[str, 'BaseExpression'], append: bool = False) -> 'IQuery[ModelT]':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery[ModelT]':
         """Select specific columns or expressions to retrieve from the query.
 
         For ActiveRecord queries, it's generally recommended to retrieve all columns
@@ -323,7 +324,7 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def order_by(self, *clauses: Union[str, 'BaseExpression', Tuple[Union['BaseExpression', str], str]]) -> 'IQuery[ModelT]':
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery[ModelT]':
         """Add ORDER BY clauses to the query.
 
         Args:
@@ -367,7 +368,7 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def limit(self, count: Union[int, 'BaseExpression']) -> 'IQuery[ModelT]':
+    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
         """Add LIMIT clause to restrict the number of rows returned.
 
         Args:
@@ -379,7 +380,7 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def offset(self, count: Union[int, 'BaseExpression']) -> 'IQuery[ModelT]':
+    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
         """Add OFFSET clause to skip a specified number of rows.
 
         Args:

@@ -16,6 +16,7 @@ class ActiveQuery(
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
+    IQuery[ModelT],
 ):
     """ActiveQuery implementation for model-based queries.
 

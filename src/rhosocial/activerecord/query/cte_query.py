@@ -11,6 +11,7 @@ class CTEQuery(
     BaseQueryMixin,
     JoinQueryMixin,
     RangeQueryMixin,
+    IQuery[ModelT],
 ):
     """CTEQuery implementation for Common Table Expression queries.
 

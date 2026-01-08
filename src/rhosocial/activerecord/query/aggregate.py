@@ -10,7 +10,6 @@ from ..backend.expression import functions, statements
 from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 from .base import BaseQueryMixin
 
-
 class AggregateQueryMixin(BaseQueryMixin):
     """Query mixin for aggregation operations that access the database.
 
