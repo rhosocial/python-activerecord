@@ -6,7 +6,6 @@ from .active_query import ActiveQuery
 from .cte_query import CTEQuery
 from .base import BaseQueryMixin
 from .aggregate import AggregateQueryMixin
-from .instance import InstanceQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
@@ -17,7 +16,6 @@ __all__ = [
     'CTEQuery',
     'BaseQueryMixin',
     'AggregateQueryMixin',
-    'InstanceQueryMixin',
     'JoinQueryMixin',
     'RangeQueryMixin',
     'RelationalQueryMixin',

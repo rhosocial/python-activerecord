@@ -7,7 +7,8 @@ from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .set_operation_mixin import SetOperationMixin
-from ..interface import ModelT, IQuery
+from ..interface import ICTEQuery
+from ..backend.base import StorageBackend
 
 
 class CTEQuery(
@@ -15,7 +16,7 @@ class CTEQuery(
     JoinQueryMixin,
     RangeQueryMixin,
     SetOperationMixin,
-    IQuery[ModelT],
+    ICTEQuery,
 ):
     """CTEQuery implementation for Common Table Expression queries.
 
@@ -40,13 +41,22 @@ class CTEQuery(
     _recursive: bool
     # endregion
 
-    def __init__(self):
+    def __init__(self, backend: StorageBackend):
         """Initialize CTE Query.
 
-        Note: Unlike ActiveQuery, CTEQuery does not require a model_class parameter
-        because CTEs are temporary result sets, not tied to specific model schemas.
+        Args:
+            backend: The storage backend to use for this query
         """
-        pass
+        super().__init__(backend)  # Initialize BaseQueryMixin with backend
+        self._backend = backend
+        self._ctes = []
+        self._main_query = None
+        self._recursive = False
+
+    @property
+    def dialect(self):
+        """Get the dialect for this query."""
+        return self._backend.dialect
 
     # region CTE Methods
     def with_cte(self, name: str, 

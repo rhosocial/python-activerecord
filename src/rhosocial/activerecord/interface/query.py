@@ -4,14 +4,16 @@ Query building interfaces for ActiveRecord implementation.
 """
 from abc import ABC, abstractmethod
 from threading import local
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
+from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type, Iterator, ItemsView, KeysView, \
     ValuesView, Mapping, overload
 from typing import Protocol
+from typing_extensions import runtime_checkable
 
 from .model import IActiveRecord
+from ..backend.base import StorageBackend
+from ..backend.dialect import SQLDialectBase
 from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
 from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
-from ..backend.base import StorageBackend
 
 K = TypeVar('K')
 V = TypeVar('V')
@@ -29,6 +31,7 @@ class ThreadSafeDict(Dict[K, V]):
         - From iterable: ThreadSafeDict([('a', 1), ('b', 2)])
         - From kwargs: ThreadSafeDict(a=1, b=2)
         """
+        super().__init__(*args, **kwargs)
         self._local = local()
         if not hasattr(self._local, 'data'):
             self._local.data = {}
@@ -177,9 +180,7 @@ class ThreadSafeDict(Dict[K, V]):
         return [data.get(key, default) for key in keys]
 
 
-ModelT = TypeVar('ModelT', bound='IActiveRecord')
-
-
+@runtime_checkable
 class IDialect(Protocol):
     """Protocol that provides dialect access for query objects.
 
@@ -198,22 +199,16 @@ class IDialect(Protocol):
         ...
 
 
-class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
-    """Interface for building and executing database queries.
+@runtime_checkable
+class IQueryBuilding(Protocol):
+    """Protocol for query building operations.
 
-    Provides a fluent interface for constructing SQL queries with:
-    - Conditions (WHERE clauses)
-    - Sorting (ORDER BY)
-    - Grouping (GROUP BY)
-    - Joins
-    - Pagination (LIMIT/OFFSET)
-
-    Inherits from ToSQLProtocol to ensure consistent SQL generation interface
-    across all query components in the expression system.
+    This protocol defines the basic query building methods (WHERE, SELECT, ORDER BY, etc.)
+    without database access. It's designed to be mixed into query classes that need
+    query construction capabilities.
     """
 
     # region Instance Attributes
-    model_class: Type[ModelT]
     _backend: StorageBackend
     # Query clause attributes
     where_clause: Optional[WhereClause]
@@ -227,15 +222,84 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
     _explain_options: dict
     # endregion
 
-    def __init__(self, model_class: Type[ModelT]):
+    @overload
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQueryBuilding':
+        """Add AND condition to the query using a SQL placeholder string."""
+        ...
+
+    @overload
+    def where(self, condition: SQLPredicate, params: None = None) -> 'IQueryBuilding':
+        """Add AND condition to the query using a predicate expression."""
+        ...
+
+    def where(self, condition, params=None):
+        """Add AND condition to the query."""
         pass
 
-    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
-        """Internal logging helper"""
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQueryBuilding':
+        """Select specific columns or expressions to retrieve from the query."""
+        pass
+
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQueryBuilding':
+        """Add ORDER BY clauses to the query."""
+        pass
+
+    def limit(self, count: Union[int, BaseExpression]) -> 'IQueryBuilding':
+        """Add LIMIT clause to restrict the number of rows returned."""
+        pass
+
+    def offset(self, count: Union[int, BaseExpression]) -> 'IQueryBuilding':
+        """Add OFFSET clause to skip a specified number of rows."""
+        pass
+
+    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQueryBuilding':
+        """Add GROUP BY columns for complex aggregations."""
         pass
 
     @overload
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQueryBuilding':
+        """Add HAVING condition using a SQL placeholder string for complex aggregations."""
+        ...
+
+    @overload
+    def having(self, condition: SQLPredicate, params: None = None) -> 'IQueryBuilding':
+        """Add HAVING condition using a predicate expression for complex aggregations."""
+        ...
+
+    def having(self, condition, params=None) -> 'IQueryBuilding':
+        """Add HAVING condition for complex aggregations."""
+        pass
+
+    def explain(self, **kwargs) -> 'IQueryBuilding':
+        """Enable EXPLAIN for the subsequent query execution."""
+        pass
+
+
+class IQuery(IDialect, IQueryBuilding, ToSQLProtocol, ABC):
+    """Interface for building and executing database queries.
+
+    Provides a fluent interface for constructing SQL queries with:
+    - Conditions (WHERE clauses)
+    - Sorting (ORDER BY)
+    - Grouping (GROUP BY)
+    - Joins
+    - Pagination (LIMIT/OFFSET)
+
+    This is a general-purpose query interface that can be used for both
+    model-based queries and raw data queries.
+
+    Inherits from ToSQLProtocol to ensure consistent SQL generation interface
+    across all query components in the expression system.
+    """
+
+    _backend: StorageBackend
+
+    def __init__(self, backend: StorageBackend):
+        super().__init__()
+        self._backend = backend
+
+    @overload
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
         """Add AND condition to the query using a SQL placeholder string.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -258,7 +322,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         ...
 
     @overload
-    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery[ModelT]':
+    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery':
         """Add AND condition to the query using a predicate expression.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -310,12 +374,8 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery[ModelT]':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery':
         """Select specific columns or expressions to retrieve from the query.
-
-        For ActiveRecord queries, it's generally recommended to retrieve all columns
-        to maintain object consistency with the database state. Selective column
-        retrieval may result in incomplete model instances.
 
         This method accepts both column names (strings) and expression objects.
 
@@ -340,7 +400,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery[ModelT]':
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery':
         """Add ORDER BY clauses to the query.
 
         Args:
@@ -384,7 +444,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
+    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery':
         """Add LIMIT clause to restrict the number of rows returned.
 
         Args:
@@ -396,7 +456,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
+    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery':
         """Add OFFSET clause to skip a specified number of rows.
 
         Args:
@@ -407,65 +467,10 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         """
         pass
 
-    @abstractmethod
-    def all(self) -> List[ModelT]:
-        """Execute query and return all matching records as model instances.
-
-        This method executes the query and returns a list of model instances
-        representing all matching records. The returned list will be empty if
-        no records match the query conditions.
-
-        Note: Calling .explain() before .all() has no effect. To get execution plans,
-        use .explain() with .aggregate() instead: User.query().explain().aggregate()
-
-        Returns:
-            List[ModelT]: List of model instances (empty if no matches)
-
-        Examples:
-            1. Using ActiveRecord field proxy (recommended)
-            users = User.query().where(User.c.status == 'active').all()
-            users = User.query().select(User.c.id, User.c.name).where(User.c.status == 'active').all()
-
-            2. Using raw SQL string with parameters (use with caution)
-            # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
-            users = User.query().where('status = ?', ('active',)).all()
-            users = User.query().select('id', 'name').where('status = ?', ('active',)).all()
-        """
-        pass
-
-    @abstractmethod
-    def one(self) -> Optional[ModelT]:
-        """Execute query and return the first matching record as a model instance.
-
-        This method executes the query with a LIMIT 1 clause and returns either:
-        - A single model instance if a matching record is found
-        - None if no matching records exist
-
-        Note: Calling .explain() before .one() has no effect. To get execution plans,
-        use .limit(1).explain() with .aggregate() instead: User.query().limit(1).explain().aggregate()
-
-        Returns:
-            Optional[ModelT]: Single model instance or None
-
-        Examples:
-            1. Using ActiveRecord field proxy (recommended)
-            user = User.query().where(User.c.email == email).one()
-
-            2. Handle potential None result
-            if (user := User.query().where(User.c.email == email).one()):
-                print(f"Found user: {user.name}")
-            else:
-                print("User not found")
-
-            3. Using raw SQL string with parameters (use with caution)
-            # Warning: When using raw SQL strings, you must ensure the query is safe from SQL injection
-            user = User.query().where('email = ?', (email,)).one()
-        """
-        pass
 
     @abstractmethod
     def in_list(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
-                empty_result: bool = True) -> 'IQuery[ModelT]':
+                empty_result: bool = True) -> 'IQuery':
         """Add IN condition to the query.
 
         Args:
@@ -486,7 +491,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
 
     @abstractmethod
     def not_in(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
-               empty_result: bool = False) -> 'IQuery[ModelT]':
+               empty_result: bool = False) -> 'IQuery':
         """Add NOT IN condition to the query.
 
         Args:
@@ -507,7 +512,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
 
 
     @abstractmethod
-    def between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
+    def between(self, column: str, start: Any, end: Any) -> 'IQuery':
         """Add a BETWEEN condition to the query.
 
         Args:
@@ -525,7 +530,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def not_between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
+    def not_between(self, column: str, start: Any, end: Any) -> 'IQuery':
         """Add a NOT BETWEEN condition to the query.
 
         Args:
@@ -543,7 +548,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
+    def like(self, column: str, pattern: str) -> 'IQuery':
         """Add a LIKE condition to the query.
 
         Args:
@@ -560,7 +565,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def not_like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
+    def not_like(self, column: str, pattern: str) -> 'IQuery':
         """Add a NOT LIKE condition to the query.
 
         Args:
@@ -577,7 +582,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def is_null(self, column: str) -> 'IQuery[ModelT]':
+    def is_null(self, column: str) -> 'IQuery':
         """Add an IS NULL condition to the query.
 
         Args:
@@ -593,7 +598,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def is_not_null(self, column: str) -> 'IQuery[ModelT]':
+    def is_not_null(self, column: str) -> 'IQuery':
         """Add an IS NOT NULL condition to the query.
 
         Args:
@@ -664,7 +669,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
     @abstractmethod
-    def explain(self, **kwargs) -> 'IQuery[ModelT]':
+    def explain(self, **kwargs) -> 'IQuery':
         """Enable EXPLAIN for the subsequent query execution.
 
         This method configures the query to generate an execution plan when executed.
@@ -679,7 +684,7 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
             **kwargs: EXPLAIN options. These will be passed to ExplainOptions.
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
 
         Examples:
             1. Basic explain
@@ -716,8 +721,50 @@ class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
         pass
 
 
+# Define specialized interfaces for different query types
+class IActiveQuery(IQuery):
+    """Interface for model-based queries that return ActiveRecord instances.
 
-class ISetOperationQuery(IDialect):
+    This interface extends the general IQuery interface with model-specific
+    functionality, including the model_class attribute and methods that
+    return model instances instead of raw dictionaries.
+    """
+
+    model_class: Type['IActiveRecord']
+
+    def __init__(self, model_class: Type['IActiveRecord']):
+        super().__init__(model_class.backend())
+
+    @abstractmethod
+    def all(self) -> List['IActiveRecord']:
+        """Execute query and return all matching records as model instances.
+
+        Returns:
+            List[IActiveRecord]: List of model instances (empty if no matches)
+        """
+        pass
+
+    @abstractmethod
+    def one(self) -> Optional['IActiveRecord']:
+        """Execute query and return the first matching record as a model instance.
+
+        Returns:
+            Optional[IActiveRecord]: Single model instance or None
+        """
+        pass
+
+
+class ICTEQuery(IQuery):
+    """Interface for Common Table Expression queries.
+
+    CTE queries return raw data as dictionaries, not model instances.
+    """
+
+    def __init__(self, backend: StorageBackend):
+        super().__init__(backend)
+
+
+class ISetOperationQuery(IQuery):
     """Interface for set operation queries (UNION, INTERSECT, EXCEPT).
 
     This interface defines methods for performing set operations between queries.
@@ -725,6 +772,10 @@ class ISetOperationQuery(IDialect):
     and provide operator overloading for more Pythonic syntax.
     """
 
+    def __init__(self, backend: StorageBackend):
+        super().__init__(backend)
+
+    @abstractmethod
     def union(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
         """Perform a UNION operation with another query.
 
@@ -736,6 +787,7 @@ class ISetOperationQuery(IDialect):
         """
         ...
 
+    @abstractmethod
     def intersect(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
         """Perform an INTERSECT operation with another query.
 
@@ -747,6 +799,7 @@ class ISetOperationQuery(IDialect):
         """
         ...
 
+    @abstractmethod
     def except_(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
         """Perform an EXCEPT operation with another query.
 

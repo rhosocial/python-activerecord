@@ -17,7 +17,8 @@ from ..backend.expression import (
     OrderByClause,
     LimitOffsetClause
 )
-from ..interface import ModelT, IQuery
+from ..interface import IQuery, IQueryBuilding
+from ..backend.base import StorageBackend
 
 
 class BaseQueryMixin:
@@ -38,8 +39,8 @@ class BaseQueryMixin:
     and AggregateQueryMixin.
     """
 
-    def __init__(self, model_class: Type[ModelT]):
-        self.model_class = model_class
+    def __init__(self, backend: StorageBackend):
+        self._backend = backend
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
@@ -51,15 +52,18 @@ class BaseQueryMixin:
         self._explain_options = {}
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
-        """Log query-related messages using model's logger."""
-        if self.model_class:
-            if "offset" not in kwargs:
-                kwargs["offset"] = 1
-            self.model_class.log(level, msg, *args, **kwargs)
+        """Log query-related messages using backend's logger."""
+        # Log using backend's logger if available
+        if hasattr(self._backend, 'logger'):
+            self._backend.logger.log(level, msg, *args, **kwargs)
+        else:
+            # Fallback logging
+            import logging
+            logging.log(level, msg, *args, **kwargs)
 
     # region Basic Query Methods
     @overload
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
         """Add AND condition to the query using a SQL placeholder string.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -82,7 +86,7 @@ class BaseQueryMixin:
         ...
 
     @overload
-    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery[ModelT]':
+    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery':
         """Add AND condition to the query using a predicate expression.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -130,9 +134,8 @@ class BaseQueryMixin:
 
         See overloaded method signatures for parameter details.
         """
-        # Get backend instance from model class, then get dialect
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        # Get dialect from backend
+        dialect = self._backend.dialect
 
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
@@ -150,12 +153,8 @@ class BaseQueryMixin:
         return self
 
 
-    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery[ModelT]':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery':
         """Select specific columns or expressions to retrieve from the query.
-
-        For ActiveRecord queries, it's generally recommended to retrieve all columns
-        to maintain object consistency with the database state. Selective column
-        retrieval may result in incomplete model instances.
 
         This method accepts both column names (strings) and expression objects.
 
@@ -165,7 +164,7 @@ class BaseQueryMixin:
                    If False (default), replace existing selection.
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)
@@ -177,9 +176,8 @@ class BaseQueryMixin:
             User.query().select('id', 'name', 'email')
             User.query().select('name').where('status = ?', ('active',))
         """
-        # Get backend instance from model class, then get dialect
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        # Get dialect from backend
+        dialect = self._backend.dialect
 
         # Convert string column names to Column objects
         converted_columns = []
@@ -201,7 +199,7 @@ class BaseQueryMixin:
 
         return self
 
-    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery[ModelT]':
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery':
         """Add ORDER BY clauses to the query.
 
         Args:
@@ -212,7 +210,7 @@ class BaseQueryMixin:
                      3. A tuple of (expression, direction) where direction is "ASC" or "DESC"
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
 
         Note:
             Unlike WHERE or HAVING clauses, ORDER BY clauses typically do not contain
@@ -242,8 +240,7 @@ class BaseQueryMixin:
             User.query().order_by(functions.upper(User.c.name))
             User.query().order_by((functions.length(User.c.description), "DESC"))
         """
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = self._backend.dialect
 
         # Convert clauses to the format expected by OrderByClause
         order_expressions = []
@@ -282,17 +279,16 @@ class BaseQueryMixin:
 
         return self
 
-    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
+    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery':
         """Add LIMIT clause to restrict the number of rows returned.
 
         Args:
             count: Maximum number of rows to return, can be an integer or expression
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
         """
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = self._backend.dialect
 
         # Create or update the LimitOffsetClause
         if self.limit_offset_clause:
@@ -303,17 +299,16 @@ class BaseQueryMixin:
 
         return self
 
-    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery[ModelT]':
+    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery':
         """Add OFFSET clause to skip a specified number of rows.
 
         Args:
             count: Number of rows to skip, can be an integer or expression
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
         """
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = self._backend.dialect
 
         # Create or update the LimitOffsetClause
         if self.limit_offset_clause:
@@ -327,14 +322,14 @@ class BaseQueryMixin:
 
 
     # region Aggregate Methods
-    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQuery[ModelT]':
+    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQuery':
         """Add GROUP BY columns for complex aggregations.
 
         Args:
-            *columns: Variable number of column names (str) or expression objects (BaseExpression) to group by
+            *columns: Variable of column names (str) or expression objects (BaseExpression) to group by
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
 
         Note:
             Unlike WHERE or HAVING clauses, GROUP BY clauses typically do not contain
@@ -352,8 +347,7 @@ class BaseQueryMixin:
             User.query().group_by('department')
             User.query().group_by('status', 'created_at')
         """
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = self._backend.dialect
 
         # Convert string columns to Column objects
         group_expressions = []
@@ -375,7 +369,7 @@ class BaseQueryMixin:
         return self
 
     @overload
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
         """Add HAVING condition using a SQL placeholder string for complex aggregations.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -398,7 +392,7 @@ class BaseQueryMixin:
         ...
 
     @overload
-    def having(self, condition: SQLPredicate, params: None = None) -> 'IQuery[ModelT]':
+    def having(self, condition: SQLPredicate, params: None = None) -> 'IQuery':
         """Add HAVING condition using a predicate expression for complex aggregations.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -417,7 +411,7 @@ class BaseQueryMixin:
         """
         ...
 
-    def having(self, condition, params=None) -> 'BaseQueryMixin[ModelT]':
+    def having(self, condition, params=None) -> 'BaseQueryMixin':
         """Add HAVING condition for complex aggregations.
 
         Args:
@@ -427,7 +421,7 @@ class BaseQueryMixin:
             params: Query parameters for placeholder strings (not used with expression objects)
 
         Returns:
-            BaseQueryMixin[ModelT]: Query instance for method chaining
+            BaseQueryMixin: Query instance for method chaining
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)
@@ -439,9 +433,8 @@ class BaseQueryMixin:
 
         See overloaded method signatures for parameter details.
         """
-        # Get backend instance from model class, then get dialect
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        # Get dialect from backend
+        dialect = self._backend.dialect
 
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
@@ -467,12 +460,12 @@ class BaseQueryMixin:
     # region Core Methods
     def to_sql(self) -> Tuple[str, tuple]:
         """Generate the SQL query string and parameters."""
-        # Get backend instance and dialect
-        backend = self.model_class.backend()
-        dialect = backend.dialect
+        # Get dialect from backend
+        dialect = self._backend.dialect
 
-        # Prepare the FROM clause - use the model's table
-        from_clause = TableExpression(dialect, self.model_class.table_name())
+        # Prepare the FROM clause - for generic queries, we might need to handle this differently
+        # For now, we'll use a placeholder that should be overridden by subclasses
+        from_clause = TableExpression(dialect, "placeholder_table")
 
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(
@@ -490,7 +483,7 @@ class BaseQueryMixin:
 
     # endregion
 
-    def explain(self, **kwargs) -> 'IQuery[ModelT]':
+    def explain(self, **kwargs) -> 'IQuery':
         """Enable EXPLAIN for the subsequent query execution.
 
         This method configures the query to generate an execution plan when executed.
@@ -505,7 +498,7 @@ class BaseQueryMixin:
             **kwargs: EXPLAIN options. These will be passed to ExplainOptions.
 
         Returns:
-            IQuery[ModelT]: Query instance for method chaining
+            IQuery: Query instance for method chaining
 
         Examples:
             1. Basic explain

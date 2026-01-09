@@ -1,8 +1,12 @@
 # src/rhosocial/activerecord/base/query_mixin.py
 """QueryMixin class providing query functionality for ActiveRecord."""
 
-from ..interface import IActiveRecord
+from typing import TYPE_CHECKING
+from ..interface import IActiveRecord, IActiveQuery
 from ..query import ActiveQuery
+
+if TYPE_CHECKING:
+    from ..query import ActiveQuery
 
 
 class QueryMixin(IActiveRecord):
@@ -16,10 +20,10 @@ class QueryMixin(IActiveRecord):
     __query_class__ = ActiveQuery
 
     @classmethod
-    def query(cls) -> 'ActiveQuery':
+    def query(cls) -> 'IActiveQuery':
         """Create a new query instance for this model.
 
         Returns:
-            ActiveQuery: New query instance configured for this model
+            IActiveQuery: New query instance configured for this model
         """
         return cls.__query_class__(cls)
