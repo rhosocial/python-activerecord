@@ -6,6 +6,7 @@ from typing import List, Union, Tuple, Any, Optional
 from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
+from .set_operation_mixin import SetOperationMixin
 from ..interface import ModelT, IQuery
 
 
@@ -13,6 +14,7 @@ class CTEQuery(
     BaseQueryMixin,
     JoinQueryMixin,
     RangeQueryMixin,
+    SetOperationMixin,
     IQuery[ModelT],
 ):
     """CTEQuery implementation for Common Table Expression queries.
@@ -21,7 +23,6 @@ class CTEQuery(
     1. Simple aggregation: Functions like count/avg/min/max/sum that return scalar values when
        used at the end of a method chain
     2. Complex aggregation: Queries using .aggregate() method for more complex aggregations
-    For aggregation states, to_dict() calls are ineffective.
 
     CTEQuery results are always returned as dictionaries since CTEs are temporary result sets,
     not model instances. This makes it ideal for complex analytical queries and reporting.
@@ -31,16 +32,6 @@ class CTEQuery(
     - to_sql() method has different implementation logic compared to BaseQueryMixin, specifically handling WITH clause construction
     - Results are always dictionaries, no model instantiation occurs
 
-    Note: The select_expr() method has been removed. Its functionality is now provided
-    by the select() method, which accepts both column names (strings) and expression objects.
-
-    Note: The or_where(), start_or_group(), and end_or_group() methods have been removed.
-    Complex logical conditions should be handled using .where() with expression objects
-    that represent OR logic. The backend expression system provides better support for
-    complex logical predicates than the legacy group-based methods.
-
-    Note: The query() method has been removed. Its functionality is now provided by the
-    .where() method, which offers more flexible condition building capabilities.
     """
 
     # region Instance Attributes

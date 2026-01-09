@@ -157,10 +157,6 @@ class BaseQueryMixin:
         to maintain object consistency with the database state. Selective column
         retrieval may result in incomplete model instances.
 
-        The best practice is to use this method in conjunction with to_dict() for
-        retrieving partial data as dictionaries rather than model instances, which
-        avoids object state inconsistency issues.
-
         This method accepts both column names (strings) and expression objects.
 
         Args:

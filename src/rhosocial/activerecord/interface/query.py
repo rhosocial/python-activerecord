@@ -6,7 +6,9 @@ from abc import ABC, abstractmethod
 from threading import local
 from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
     ValuesView, Mapping, overload
+from typing import Protocol
 
+from .model import IActiveRecord
 from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
 from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 from ..backend.base import StorageBackend
@@ -178,7 +180,25 @@ class ThreadSafeDict(Dict[K, V]):
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
 
-class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
+class IDialect(Protocol):
+    """Protocol that provides dialect access for query objects.
+
+    This protocol defines a property for accessing the SQL dialect
+    associated with a query object, which is necessary for consistent
+    SQL generation across different database backends.
+    """
+
+    @property
+    def dialect(self) -> 'SQLDialectBase':
+        """Get the SQL dialect for this query.
+
+        Returns:
+            SQLDialectBase: The dialect instance for this query's backend
+        """
+        ...
+
+
+class IQuery(IDialect, ToSQLProtocol, Generic[ModelT], ABC):
     """Interface for building and executing database queries.
 
     Provides a fluent interface for constructing SQL queries with:
@@ -296,10 +316,6 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         For ActiveRecord queries, it's generally recommended to retrieve all columns
         to maintain object consistency with the database state. Selective column
         retrieval may result in incomplete model instances.
-
-        The best practice is to use this method in conjunction with to_dict() for
-        retrieving partial data as dictionaries rather than model instances, which
-        avoids object state inconsistency issues.
 
         This method accepts both column names (strings) and expression objects.
 
@@ -548,7 +564,7 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
         """Add a NOT LIKE condition to the query.
 
         Args:
-            column: Column name  
+            column: Column name
             pattern: LIKE pattern (can include % and _ wildcards)
 
         Returns:
@@ -633,9 +649,9 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
                 print("User does not exist")
 
             2. Check with complex conditions
-            has_active_admins = User.query()\\
-                .where(User.c.role == 'admin')\\
-                .where(User.c.status == 'active')\\
+            has_active_admins = User.query()\
+                .where(User.c.role == 'admin')\
+                .where(User.c.status == 'active')\
                 .exists()
 
             3. Using raw SQL string with parameters (use with caution)
@@ -670,19 +686,19 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
             User.query().explain().all()
 
             2. With analysis and JSON output
-            User.query()\\
-                .explain(analyze=True, format=ExplainFormat.JSON)\\
+            User.query()\
+                .explain(analyze=True, format=ExplainFormat.JSON)\
                 .all()
 
             3. PostgreSQL specific options
-            User.query()\\
-                .explain(buffers=True, settings=True)\\
+            User.query()\
+                .explain(buffers=True, settings=True)\
                 .all()
 
             4. Configure explain for aggregate query
-            plan = User.query()\\
-                .group_by(User.c.department)\\
-                .explain(format=ExplainFormat.TEXT)\\
+            plan = User.query()\
+                .group_by(User.c.department)\
+                .explain(format=ExplainFormat.TEXT)\
                 .count(User.c.id)
 
             5. Explain can be called at any point before execution
@@ -691,12 +707,65 @@ class IQuery(ToSQLProtocol, Generic[ModelT], ABC):
             result = query.all()  # Will show execution plan
 
             6. Multiple explain calls (last one takes effect)
-            User.query()\\
-                .where(User.c.status == 'active')\\
-                .explain(format=ExplainFormat.TEXT)\\  # First explain call
-                .explain(analyze=True)\\               # Second call overrides first
+            User.query()\
+                .where(User.c.status == 'active')\
+                .explain(format=ExplainFormat.TEXT)\  # First explain call
+                .explain(analyze=True)\               # Second call overrides first
                 .all()                                # Will use analyze=True option
         """
         pass
 
 
+
+class ISetOperationQuery(IDialect):
+    """Interface for set operation queries (UNION, INTERSECT, EXCEPT).
+
+    This interface defines methods for performing set operations between queries.
+    Classes implementing this interface should support chaining set operations
+    and provide operator overloading for more Pythonic syntax.
+    """
+
+    def union(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """Perform a UNION operation with another query.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery)
+
+        Returns:
+            A new ISetOperationQuery instance representing the UNION
+        """
+        ...
+
+    def intersect(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """Perform an INTERSECT operation with another query.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery)
+
+        Returns:
+            A new ISetOperationQuery instance representing the INTERSECT
+        """
+        ...
+
+    def except_(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """Perform an EXCEPT operation with another query.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery)
+
+        Returns:
+            A new ISetOperationQuery instance representing the EXCEPT
+        """
+        ...
+
+    def __or__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """Implement the | operator for UNION."""
+        return self.union(other)
+
+    def __and__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """Implement the & operator for INTERSECT."""
+        return self.intersect(other)
+
+    def __sub__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """Implement the - operator for EXCEPT."""
+        return self.except_(other)

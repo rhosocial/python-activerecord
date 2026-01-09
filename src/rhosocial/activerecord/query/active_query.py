@@ -6,6 +6,7 @@ from .instance import InstanceQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
+from .set_operation_mixin import SetOperationMixin
 from ..interface import ModelT, IQuery
 
 
@@ -15,6 +16,7 @@ class ActiveQuery(
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
+    SetOperationMixin,
     IQuery[ModelT],
 ):
     """ActiveQuery implementation for model-based queries.
@@ -26,13 +28,11 @@ class ActiveQuery(
 
     For selective column retrieval, it's generally recommended to retrieve all columns
     to maintain object consistency with the database state. Selective column retrieval
-    may result in incomplete model instances. The best practice is to use select() in
-    conjunction with to_dict() for retrieving partial data as dictionaries rather than
-    model instances, which avoids object state inconsistency issues.
+    may result in incomplete model instances.
 
     Important differences from CTEQuery:
     - Requires a model_class parameter in __init__ as ActiveQuery operates on specific model instances
-    - Results are model instances by default (unless to_dict() is used)
+    - Results are model instances by default
     - Supports relationship queries with model instantiation and association management
 
     InstanceQueryMixin is included as the highest priority mixin, providing
@@ -42,3 +42,8 @@ class ActiveQuery(
     def __init__(self, model_class: type):
         # Call the parent class __init__ to initialize all inherited attributes
         super().__init__(model_class)
+
+    @property
+    def dialect(self):
+        """Get the dialect for this query."""
+        return self.model_class.backend().dialect

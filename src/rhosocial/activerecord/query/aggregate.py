@@ -23,7 +23,6 @@ class AggregateQueryMixin(BaseQueryMixin):
     1. Simple aggregation: Functions like count/avg/min/max/sum that return scalar values when
        used at the end of a method chain
     2. Complex aggregation: Queries using .aggregate() method for more complex aggregations
-    For aggregation states, to_dict() calls are ineffective.
 
     For selective column retrieval in aggregation queries, it's generally recommended to use
     specific aggregation functions rather than general column selection to maintain

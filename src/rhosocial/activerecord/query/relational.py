@@ -39,13 +39,6 @@ class RelationalQueryMixin:
     When using with partial column selection (select()), be aware that missing relation
     foreign keys in the selected columns may cause issues with relation loading.
 
-    Note: The or_where(), start_or_group(), and end_or_group() methods have been removed.
-    Complex logical conditions should be handled using .where() with expression objects
-    that represent OR logic. The backend expression system provides better support for
-    complex logical predicates than the legacy group-based methods.
-
-    Note: The query() method has been removed. Its functionality is now provided by the
-    .where() method, which offers more flexible condition building capabilities.
     """
 
     def __init__(self, *args, **kwargs):

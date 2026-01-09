@@ -10,6 +10,7 @@ from .instance import InstanceQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
+from .set_operation import SetOperationQuery
 
 __all__ = [
     'ActiveQuery',
@@ -20,4 +21,5 @@ __all__ = [
     'JoinQueryMixin',
     'RangeQueryMixin',
     'RelationalQueryMixin',
+    'SetOperationQuery',
 ]
