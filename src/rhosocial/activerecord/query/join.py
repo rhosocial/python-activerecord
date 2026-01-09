@@ -13,6 +13,10 @@ class JoinQueryMixin:
     This mixin is designed to be used by a query builder class. It manages
     a chainable `join_clause` expression that represents the entire FROM and JOIN
     part of a SQL query.
+
+    Note: The availability and specific behavior of certain JOIN types (e.g., NATURAL JOIN,
+    RIGHT JOIN, FULL JOIN) can vary significantly across different database backends.
+    Always consult your specific database's documentation for full compatibility details.
     """
 
     # The `_base_table_expression` always stores the initial TableExpression for the model.
@@ -145,5 +149,20 @@ class JoinQueryMixin:
                      alias: Optional[str] = None) -> 'IQuery[ModelT]':
         """
         Adds a NATURAL JOIN clause to the query.
+
+        Note:
+            NATURAL JOIN implicitly joins tables on all columns that have the same name in both tables.
+            This can lead to unexpected results if column names change or do not align as expected.
+            It is generally recommended to use explicit `ON` or `USING` clauses for clarity and safety.
+            Support for NATURAL JOIN may also vary across different database backends.
+
+        Args:
+            right: The right-hand side of the join. Can be a table name (str), a ModelT class,
+                   or a TableExpression.
+            join_type: The type of join to perform (e.g., "JOIN", "INNER JOIN"). Defaults to "JOIN".
+            alias: An optional alias for the joined result.
+
+        Returns:
+            Query instance for method chaining.
         """
         return self._perform_join(join_type, right, None, alias, natural=True)
