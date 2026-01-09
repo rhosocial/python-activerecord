@@ -1,10 +1,10 @@
 # src/rhosocial/activerecord/query/base.py
 """BaseQueryMixin implementation."""
 
-from typing import List, Tuple, Optional, Union, Any, overload, Type
+from typing import List, Tuple, Optional, Union, Any, overload
 
+from ..backend.base import StorageBackend
 from ..backend.expression import (
-    functions,
     statements,
     BaseExpression,
     SQLPredicate,
@@ -17,8 +17,7 @@ from ..backend.expression import (
     OrderByClause,
     LimitOffsetClause
 )
-from ..interface import IQuery, IQueryBuilding
-from ..backend.base import StorageBackend
+from ..interface import IQuery
 
 
 class BaseQueryMixin:

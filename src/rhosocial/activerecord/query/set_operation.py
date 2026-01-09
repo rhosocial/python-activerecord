@@ -2,6 +2,7 @@
 """SetOperationQuery implementation for building UNION, INTERSECT, and EXCEPT queries."""
 
 from typing import Union
+
 from ..backend.expression import BaseExpression, SetOperationExpression
 from ..interface import IQuery, ISetOperationQuery
 
@@ -26,8 +27,8 @@ class SetOperationQuery(ISetOperationQuery):
         self.operation = operation
 
         # Check backend consistency between left and right operands
-        left_dialect = left.dialect
-        right_dialect = right.dialect
+        left_dialect = left.backend.dialect
+        right_dialect = right.backend.dialect
         if left_dialect is not right_dialect:
             raise ValueError(f"Different backends for left ({type(left_dialect)}) and right ({type(right_dialect)}) operands")
 
@@ -38,6 +39,9 @@ class SetOperationQuery(ISetOperationQuery):
             right=self._get_query_expression(right),
             operation=operation
         )
+
+        # Call parent constructor with the left's backend since it's validated to be the same as right's
+        super().__init__(left.backend)
 
     def _get_query_expression(self, query: Union[ISetOperationQuery, IQuery]) -> BaseExpression:
         """Convert a query object to a BaseExpression."""
@@ -74,21 +78,8 @@ class SetOperationQuery(ISetOperationQuery):
         """Perform an EXCEPT operation with another query."""
         return SetOperationQuery(self, other, "EXCEPT")
 
-    # Operator overloading for more Pythonic syntax
-    def __or__(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
-        """Implement the | operator for UNION."""
-        return self.union(other)
-
-    def __and__(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
-        """Implement the & operator for INTERSECT."""
-        return self.intersect(other)
-
-    def __sub__(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
-        """Implement the - operator for EXCEPT."""
-        return self.except_(other)
-
     @property
-    def dialect(self):
-        """Get the dialect for this query."""
-        # Return the dialect of the left operand, as it's used for the SetOperationExpression
-        return self.left.dialect
+    def backend(self):
+        """Get the backend for this query."""
+        # Return the backend of the left operand, as it's used for the SetOperationExpression
+        return self.left.backend

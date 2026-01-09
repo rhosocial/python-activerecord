@@ -70,9 +70,9 @@ class ActiveQuery(
         self._backend = model_class.backend()
 
     @property
-    def dialect(self):
-        """Get the dialect for this query."""
-        return self.model_class.backend().dialect
+    def backend(self):
+        """Get the backend for this query."""
+        return self.model_class.backend()
 
     def all(self) -> List[IActiveRecord]:
         """Execute query and return all matching records as model instances.

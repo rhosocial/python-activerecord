@@ -691,7 +691,7 @@ def test_json_arrow_operators(json_fixtures):
     user.save()
 
     # Test if the database supports arrow operators
-    dialect: SQLDialectBase = JsonUser.backend().dialect
+    dialect: SQLDialectBase = JsonUser.backend().backend
     if not dialect.json_operation_handler.supports_json_arrows:
         pytest.skip("Database doesn't support -> and ->> operators")
 

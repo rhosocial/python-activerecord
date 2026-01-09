@@ -6,7 +6,6 @@ from typing import List, Union, Tuple, Any, Optional
 from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
-from .set_operation_mixin import SetOperationMixin
 from ..interface import ICTEQuery
 from ..backend.base import StorageBackend
 
@@ -15,7 +14,6 @@ class CTEQuery(
     BaseQueryMixin,
     JoinQueryMixin,
     RangeQueryMixin,
-    SetOperationMixin,
     ICTEQuery,
 ):
     """CTEQuery implementation for Common Table Expression queries.
@@ -54,9 +52,9 @@ class CTEQuery(
         self._recursive = False
 
     @property
-    def dialect(self):
-        """Get the dialect for this query."""
-        return self._backend.dialect
+    def backend(self):
+        """Get the backend for this query."""
+        return self._backend
 
     # region CTE Methods
     def with_cte(self, name: str, 

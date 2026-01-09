@@ -33,7 +33,7 @@ def skip_if_unsupported():
     def test_explain_row_number(order_fixtures, skip_if_unsupported):
         """Test explain with ROW_NUMBER() window function"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect # Add this line
+        dialect = Order.query().backend().backend # Add this line
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -76,7 +76,7 @@ def skip_if_unsupported():
     def test_explain_window_with_partition(order_fixtures, skip_if_unsupported):
         """Test explain with window function and PARTITION BY"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -124,7 +124,7 @@ def skip_if_unsupported():
     def test_explain_multiple_window_functions(order_fixtures, skip_if_unsupported):
         """Test explain with multiple window functions"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -179,7 +179,7 @@ def skip_if_unsupported():
     def test_explain_window_with_frame(order_fixtures, skip_if_unsupported):
         """Test explain with window function frame specifications"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -226,7 +226,7 @@ def skip_if_unsupported():
     def test_explain_window_with_joins(order_fixtures, skip_if_unsupported):
         """Test explain with window functions and joins"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -281,7 +281,7 @@ def skip_if_unsupported():
     def test_explain_window_with_filter(order_fixtures, skip_if_unsupported):
         """Test explain with window functions and filters"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -333,7 +333,7 @@ def skip_if_unsupported():
     def test_explain_window_with_grouping(order_fixtures, skip_if_unsupported):
         """Test explain with window functions and grouping"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     for i in range(2):
         user = User(
@@ -406,7 +406,7 @@ def skip_if_unsupported():
     def test_explain_named_windows(order_fixtures, skip_if_unsupported):
         """Test explain with named window definitions"""
         User, Order, OrderItem = order_fixtures
-        dialect = Order.query().backend().dialect
+        dialect = Order.query().backend().backend
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()

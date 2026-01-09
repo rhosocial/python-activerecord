@@ -57,7 +57,7 @@ class AggregateQueryMixin(BaseQueryMixin):
             unique_emails = User.query().count('email', is_distinct=True)
         """
         backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = backend.backend
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.count(dialect, column, is_distinct=is_distinct, alias=alias)
@@ -109,7 +109,7 @@ class AggregateQueryMixin(BaseQueryMixin):
             unique_total = Order.query().sum_('amount', is_distinct=True)
         """
         backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = backend.backend
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.sum_(dialect, column, is_distinct=is_distinct, alias=alias)
@@ -161,7 +161,7 @@ class AggregateQueryMixin(BaseQueryMixin):
             unique_avg = Student.query().avg('score', is_distinct=True)
         """
         backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = backend.backend
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.avg(dialect, column, is_distinct=is_distinct, alias=alias)
@@ -210,7 +210,7 @@ class AggregateQueryMixin(BaseQueryMixin):
             min_age = User.query().where('status = ?', ('active',)).min_('age')
         """
         backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = backend.backend
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.min_(dialect, column, alias=alias)
@@ -259,7 +259,7 @@ class AggregateQueryMixin(BaseQueryMixin):
             max_age = User.query().where('status = ?', ('active',)).max_('age')
         """
         backend = self.model_class.backend()
-        dialect = backend.dialect
+        dialect = backend.backend
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.max_(dialect, column, alias=alias)
@@ -332,7 +332,7 @@ class AggregateQueryMixin(BaseQueryMixin):
         if self._explain_enabled:
             # Get backend instance and dialect
             backend = self.model_class.backend()
-            dialect = backend.dialect
+            dialect = backend.backend
 
             # Create the underlying query expression
             from_clause = TableExpression(dialect, self.model_class.table_name())

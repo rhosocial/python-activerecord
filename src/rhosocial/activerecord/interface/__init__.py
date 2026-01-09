@@ -4,16 +4,17 @@ Package interface provides core interfaces for ActiveRecord implementation.
 """
 from .base import ModelEvent, ModelT, DictT, QueryT
 from .model import IActiveRecord
-from .query import IQuery, IActiveQuery, ICTEQuery, ISetOperationQuery, IDialect
+from .query import IQuery, IActiveQuery, ICTEQuery, ISetOperationQuery, IBackend, IQueryBuilding
 from .update import IUpdateBehavior
 
 __all__ = [
     'IActiveRecord',
     'IUpdateBehavior',
     'ISetOperationQuery',
-    'IDialect',
+    'IBackend',
     'IActiveQuery',
     'ICTEQuery',
+    'IQueryBuilding',
     'ModelEvent',
     'IQuery',
     'ModelT',
