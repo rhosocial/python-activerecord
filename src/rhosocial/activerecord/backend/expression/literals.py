@@ -19,7 +19,7 @@ class Identifier(mixins.ComparisonMixin, bases.SQLValueExpression):
         super().__init__(dialect)
         self.name = name
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         return self.dialect.format_identifier(self.name), ()
 
     def __repr__(self) -> str:

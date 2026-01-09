@@ -12,6 +12,31 @@ from typing import runtime_checkable
 
 from . import mixins
 
+# Type alias for the return type of to_sql() method
+# This alias represents the standard return format for all SQL expression objects:
+# a tuple containing the SQL string and a tuple of parameters for prepared statements.
+# Using this alias improves code readability and maintainability by providing
+# a consistent type definition across the entire expression system.
+SQLQueryAndParams = Tuple[str, tuple]
+
+
+def is_sql_query_and_params(obj):
+    """Check if an object is of type SQLQueryAndParams (Tuple[str, tuple]).
+
+    Args:
+        obj: The object to check
+
+    Returns:
+        bool: True if the object is a SQLQueryAndParams tuple, False otherwise
+    """
+    return (
+        isinstance(obj, tuple) and
+        len(obj) == 2 and
+        isinstance(obj[0], str) and
+        (isinstance(obj[1], tuple) or obj[1] is None)
+    )
+
+
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
@@ -21,6 +46,10 @@ class ToSQLProtocol(Protocol):
     """
     Protocol for objects that can be converted into a SQL string and a tuple of parameters.
 
+    This protocol follows the DB-API 2.0 specification (PEP 249) requirement for separating
+    SQL statements from parameters to prevent SQL injection attacks.
+    See: https://peps.python.org/pep-0249/
+
     Security Notice:
     1. For backend developers: Any code involving database interfaces or SQL formatting
        must strictly follow this protocol by separating SQL fragments and parameters
@@ -29,7 +58,7 @@ class ToSQLProtocol(Protocol):
        query parameters through the designated parameter mechanisms rather than
        directly concatenating values into SQL strings to prevent SQL injection.
     """
-    def to_sql(self) -> Tuple[str, tuple]: # pragma: no cover
+    def to_sql(self) -> 'SQLQueryAndParams': # pragma: no cover
         """
         Converts the object into a SQL string and a tuple of parameters.
         """
@@ -69,9 +98,14 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         pass  # pragma: no cover
 
     @abc.abstractmethod
-    def to_sql(self) -> Tuple[str, tuple]: # pragma: no cover
+    def to_sql(self) -> 'SQLQueryAndParams': # pragma: no cover
         """
         Converts the expression into a SQL string and a tuple of parameters.
+
+        Returns:
+            A tuple containing:
+            - str: The SQL string
+            - tuple: The parameter values for prepared statement execution
         """
         raise NotImplementedError
 

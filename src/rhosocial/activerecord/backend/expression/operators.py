@@ -17,7 +17,7 @@ class SQLOperation(bases.BaseExpression):
         self.op = op
         self.operands = list(operands)
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         formatted_operands_sql = []
         params: List[Any] = []
         for operand in self.operands:
@@ -38,7 +38,7 @@ class BinaryExpression(bases.BaseExpression):
         self.left = left
         self.right = right
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         left_sql, left_params = self.left.to_sql()
         right_sql, right_params = self.right.to_sql()
         return self.dialect.format_binary_operator(self.op, left_sql, right_sql, left_params, right_params)
@@ -52,7 +52,7 @@ class UnaryExpression(bases.BaseExpression):
         self.operand = operand
         self.pos = pos
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         operand_sql, operand_params = self.operand.to_sql()
         return self.dialect.format_unary_operator(self.op, operand_sql, self.pos, operand_params)
 
@@ -76,7 +76,7 @@ class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.St
         self.expression = expression
         self.params = params
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         return self.expression, self.params
 
 
@@ -99,7 +99,7 @@ class RawSQLPredicate(bases.SQLPredicate):
         self.expression = expression
         self.params = params
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         return self.expression, self.params
 
 

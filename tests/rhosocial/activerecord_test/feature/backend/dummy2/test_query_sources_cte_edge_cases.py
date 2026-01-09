@@ -28,19 +28,22 @@ class TestCTEExpressionEdgeCases:
     def test_cte_expression_with_tuple_query(self, dummy_dialect: DummyDialect):
         """Test CTEExpression when query is a tuple (covers elif branch)."""
         # This tests the elif branch: query is a tuple
+        # Note: Although we pass a list [123] as params, CTEExpression will convert it to a tuple (123,)
+        # This is done for compatibility, but users should provide tuples directly for best practice
         query_tuple = ("SELECT id FROM table WHERE col = ?", [123])
-        
+
         cte = CTEExpression(
             dummy_dialect,
             name="tuple_cte",
             query=query_tuple,  # Tuple (sql, params)
             columns=["id"]
         )
-        
+
         sql, params = cte.to_sql()
-        
+
         assert "tuple_cte" in sql
         assert "SELECT id FROM table WHERE col = ?" in sql
+        # The list [123] is converted to tuple (123,) internally
         assert params == (123,)
 
     def test_cte_expression_with_base_expression_query(self, dummy_dialect: DummyDialect):

@@ -9,13 +9,15 @@ from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
+from .set_operation import SetOperationQuery
 from ..backend.expression import (
     Literal,
     TableExpression,
     statements,
-    LimitOffsetClause
+    LimitOffsetClause,
+    bases
 )
-from ..interface import IActiveQuery
+from ..interface import IActiveQuery, ISetOperationQuery
 from ..interface.model import IActiveRecord
 
 
@@ -26,6 +28,7 @@ class ActiveQuery(
     RelationalQueryMixin,
     RangeQueryMixin,
     IActiveQuery,
+    ISetOperationQuery,
 ):
     """ActiveQuery implementation for model-based queries.
 
@@ -166,6 +169,68 @@ class ActiveQuery(
         record = self.model_class.create_from_database(field_data)
 
         return record
+
+    def union(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
+        """Perform a UNION operation with another query.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery)
+
+        Returns:
+            A new SetOperationQuery instance representing the UNION
+        """
+        return SetOperationQuery(self, other, "UNION")
+
+    def intersect(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
+        """Perform an INTERSECT operation with another query.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery)
+
+        Returns:
+            A new SetOperationQuery instance representing the INTERSECT
+        """
+        return SetOperationQuery(self, other, "INTERSECT")
+
+    def except_(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
+        """Perform an EXCEPT operation with another query.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery)
+
+        Returns:
+            A new SetOperationQuery instance representing the EXCEPT
+        """
+        return SetOperationQuery(self, other, "EXCEPT")
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        """Generate the SQL query string and parameters for ActiveQuery.
+
+        This method overrides the base implementation to use the model's table name
+        instead of a placeholder.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        # Get dialect from backend
+        dialect = self.backend.dialect
+
+        # Use the model's actual table name
+        from_clause = TableExpression(dialect, self.model_class.table_name())
+
+        # Create QueryExpression with all components
+        query_expr = statements.QueryExpression(
+            dialect,
+            select=self.select_columns or [Literal(dialect, "*")],  # Default to SELECT *
+            from_=from_clause,
+            where=self.where_clause,
+            group_by_having=self.group_by_having_clause,
+            order_by=self.order_by_clause,
+            limit_offset=self.limit_offset_clause
+        )
+
+        # Generate SQL using the QueryExpression
+        return query_expr.to_sql()
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""

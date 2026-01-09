@@ -117,7 +117,7 @@ class MergeExpression(bases.BaseExpression):
         self.when_not_matched = when_not_matched or []
         self.when_not_matched_by_source = when_not_matched_by_source or []
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the MERGE statement to the configured dialect."""
         return self.dialect.format_merge_statement(self)
 # endregion Merge Statement
@@ -378,7 +378,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             raise TypeError(f"select_modifier must be SelectModifier, got {type(self.select_modifier)}")
 
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """
         Generate the SQL string and parameters for this query expression.
 
@@ -650,7 +650,7 @@ class DeleteExpression(bases.BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the DELETE statement to the configured dialect."""
         return self.dialect.format_delete_statement(self)
 # endregion Delete Statement
@@ -750,7 +750,7 @@ class UpdateExpression(bases.BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""
         return self.dialect.format_update_statement(self)
 # endregion Update Statement
@@ -841,7 +841,7 @@ class OnConflictClause(bases.BaseExpression):
         self.update_assignments = update_assignments
         self.update_where = update_where
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates formatting of the ON CONFLICT clause to the configured dialect."""
         return self.dialect.format_on_conflict_clause(self)
 
@@ -913,7 +913,7 @@ class InsertExpression(bases.BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the INSERT statement to the configured dialect."""
         return self.dialect.format_insert_statement(self)
 # endregion Insert Statement
@@ -1039,7 +1039,7 @@ class CreateTableExpression(bases.BaseExpression):
         self.as_query = as_query  # Query to base table on (for CREATE TABLE AS)
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the CREATE TABLE statement to the configured dialect."""
         return self.dialect.format_create_table_statement(self)
 
@@ -1051,7 +1051,7 @@ class DropTableExpression(bases.BaseExpression):
         self.table_name = table_name
         self.if_exists = if_exists
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the DROP TABLE statement to the configured dialect."""
         return self.dialect.format_drop_table_statement(self)
 
@@ -1315,7 +1315,7 @@ class CreateViewExpression(bases.BaseExpression):
         self.temporary = temporary  # Whether to create a temporary view
         self.options = options or ViewOptions()
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the CREATE VIEW statement to the configured dialect."""
         return self.dialect.format_create_view_statement(self)
 
@@ -1354,7 +1354,7 @@ class DropViewExpression(bases.BaseExpression):
         self.if_exists = if_exists
         self.cascade = cascade
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the DROP VIEW statement to the configured dialect."""
         return self.dialect.format_drop_view_statement(self)
 
@@ -1411,7 +1411,7 @@ class TruncateExpression(bases.BaseExpression):
         self.cascade = cascade  # For PostgreSQL-style CASCADE
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """
         Generate the SQL string and parameters for this TRUNCATE expression.
 
@@ -1517,7 +1517,7 @@ class AlterTableExpression(bases.BaseExpression):
             self.actions.append(action)
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """
         Generate the SQL string and parameters for this ALTER TABLE expression per SQL standard.
 

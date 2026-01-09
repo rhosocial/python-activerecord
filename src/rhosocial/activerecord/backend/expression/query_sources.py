@@ -113,7 +113,7 @@ class SetOperationExpression(bases.BaseExpression):
         self.alias = alias
         self.all = all_
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_set_operation_expression method
         return self.dialect.format_set_operation_expression(self.left, self.right, self.operation, self.alias, self.all)
 
@@ -187,9 +187,23 @@ class CTEExpression(bases.BaseExpression):
         )
     """
     def __init__(self, dialect: "SQLDialectBase", name: str,
-                 query: Union["core.Subquery", "bases.BaseExpression", Tuple[str, List[Any]]],
+                 query: Union["bases.BaseExpression", "bases.SQLQueryAndParams"],
                  columns: Optional[List[str]] = None,
                  materialized: Optional[bool] = None, dialect_options: Optional[Dict[str, Any]] = None):
+        """
+        Initialize a CTEExpression.
+
+        Args:
+            dialect: The SQL dialect to use for formatting
+            name: The name of the CTE
+            query: The query that defines the CTE. Can be:
+                   - A BaseExpression instance (e.g., QueryExpression, Subquery)
+                   - A tuple of (sql_string, params) where params can be a list or tuple,
+                     though using a tuple is preferred (params will be converted to tuple if list)
+            columns: Optional list of column names for the CTE
+            materialized: Whether the CTE should be materialized (for databases that support it)
+            dialect_options: Additional dialect-specific options
+        """
         super().__init__(dialect)
         self.name = name
         self.query = query
@@ -198,15 +212,32 @@ class CTEExpression(bases.BaseExpression):
         self.dialect_options = dialect_options or {}
 
     def to_sql(self) -> Tuple[str, tuple]:
+        """
+        Generate SQL for this CTE expression.
+
+        Returns:
+            A tuple containing:
+            - str: The formatted SQL string
+            - tuple: The parameter values for prepared statement execution
+
+        Note:
+            When the query parameter was initialized with a list of parameters,
+            it will be automatically converted to a tuple to conform to the
+            SQLQueryAndParams protocol. However, for best practice, users should
+            provide parameters as tuples directly.
+        """
         # Handle different query types that may be stored in self.query:
         if isinstance(self.query, bases.BaseExpression):
             # When query is a BaseExpression (e.g., Subquery, QueryExpression),
             # call its to_sql() method to get SQL and parameters
             query_sql, query_params = self.query.to_sql()
-        elif isinstance(self.query, tuple):
-            # When query is a tuple of format (sql_string, params_list),
-            # extract SQL and parameters directly from the tuple
-            query_sql, query_params = self.query[0], tuple(self.query[1])
+        elif isinstance(self.query, tuple) and len(self.query) == 2:
+            # When query is a tuple of format (sql_string, params_list_or_tuple) matching SQLQueryAndParams,
+            # extract SQL and parameters directly from the tuple and ensure params is a tuple
+            query_sql = self.query[0]
+            params_input = self.query[1]
+            # Ensure the parameters are in tuple format
+            query_params = tuple(params_input) if isinstance(params_input, list) else params_input
         else:
             # When query is a raw string or other type that can be converted to string,
             # convert to string and no parameters are associated
@@ -280,7 +311,7 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         self.recursive = recursive
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         all_params: List[Any] = []
         cte_sql_parts = []
         for cte in self.ctes:
@@ -348,7 +379,7 @@ class ValuesExpression(bases.BaseExpression):
         super().__init__(dialect)
         self.values, self.alias, self.column_names = values, alias, column_names
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         return self.dialect.format_values_expression(self.values, self.alias, self.column_names)
 
 
@@ -378,7 +409,7 @@ class TableFunctionExpression(bases.BaseExpression):
         super().__init__(dialect)
         self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         formatted_args_sql = [arg.to_sql()[0] for arg in self.args]
         all_params = [p for arg in self.args for p in arg.to_sql()[1]]
         return self.dialect.format_table_function_expression(self.func_name, formatted_args_sql, tuple(all_params), self.alias, self.column_names)
@@ -405,7 +436,7 @@ class LateralExpression(bases.BaseExpression):
         super().__init__(dialect)
         self.expression, self.alias, self.join_type = expression, alias, join_type
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         expr_sql, expr_params = self.expression.to_sql()
         return self.dialect.format_lateral_expression(expr_sql, expr_params, self.alias, self.join_type)
 
@@ -442,7 +473,7 @@ class JSONTableExpression(core.TableExpression):
         super().__init__(dialect, name="JSON_TABLE", alias=alias)
         self.json_column, self.path, self.columns = json_column, path, columns
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         if isinstance(self.json_column, bases.BaseExpression):
             json_col_sql, json_col_params = self.json_column.to_sql()
         else:

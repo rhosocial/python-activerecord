@@ -69,7 +69,7 @@ class WhereClause(bases.BaseExpression):
         self.condition = self.condition & predicate
         return self
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the WHERE clause to the configured dialect."""
         return self.dialect.format_where_clause(self)
 
@@ -119,7 +119,7 @@ class GroupByHavingClause(bases.BaseExpression):
         if having is not None and not self.group_by:
             raise ValueError("HAVING clause requires GROUP BY clause")
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the GROUP BY/HAVING clause combination to the configured dialect."""
         return self.dialect.format_group_by_having_clause(self)
 
@@ -163,7 +163,7 @@ class OrderByClause(bases.BaseExpression):
         super().__init__(dialect)
         self.expressions = expressions  # List of ordering specifications
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the ORDER BY clause to the configured dialect."""
         return self.dialect.format_order_by_clause(self)
 
@@ -199,7 +199,7 @@ class LimitOffsetClause(bases.BaseExpression):
         self.limit = limit  # Maximum number of rows to return (optional)
         self.offset = offset  # Number of rows to skip (optional, requires LIMIT in most dialects)
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the LIMIT/OFFSET clauses to the configured dialect."""
         return self.dialect.format_limit_offset_clause(self)
 
@@ -233,7 +233,7 @@ class QualifyClause(bases.BaseExpression):
         super().__init__(dialect)
         self.condition = condition  # The window function filter condition (predicate)
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the QUALIFY clause to the configured dialect."""
         return self.dialect.format_qualify_clause(self)
 
@@ -272,7 +272,7 @@ class ForUpdateClause(bases.BaseExpression):
         self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting
         self.dialect_options = dialect_options or {}  # Additional dialect-specific options
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """
         Generate the SQL representation of the FOR UPDATE clause.
 
@@ -386,7 +386,7 @@ class JoinExpression(bases.BaseExpression):
         self.alias = alias  # Alias for the join result
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegates SQL generation for the JOIN expression to the configured dialect."""
         return self.dialect.format_join_expression(self)
 

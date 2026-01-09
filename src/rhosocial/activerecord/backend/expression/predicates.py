@@ -20,7 +20,7 @@ class ComparisonPredicate(bases.SQLPredicate):
         self.left = left
         self.right = right
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_comparison_predicate method with the whole expression
         return self.dialect.format_comparison_predicate(self.op, self.left, self.right)
 
@@ -32,7 +32,7 @@ class LogicalPredicate(bases.SQLPredicate):
         self.op = op
         self.predicates = list(predicates)
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_logical_predicate method with the whole expression
         return self.dialect.format_logical_predicate(self.op, *self.predicates)
 
@@ -45,7 +45,7 @@ class LikePredicate(bases.SQLPredicate):
         self.expr = expr
         self.pattern = pattern
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_like_predicate method with the whole expression
         return self.dialect.format_like_predicate(self.op, self.expr, self.pattern)
 
@@ -57,7 +57,7 @@ class InPredicate(bases.SQLPredicate):
         self.expr = expr
         self.values = values
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Check if values is a Literal containing a collection and delegate to dialect
         if isinstance(self.values, Literal) and isinstance(self.values.value, (list, tuple, set)):
             # Delegate to dialect's format_in_predicate_with_literal_values with the whole expression
@@ -75,7 +75,7 @@ class BetweenPredicate(bases.SQLPredicate):
         self.low = low
         self.high = high
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_between_predicate method with the whole expression
         return self.dialect.format_between_predicate(self.expr, self.low, self.high)
 
@@ -87,6 +87,6 @@ class IsNullPredicate(bases.SQLPredicate):
         self.expr = expr
         self.is_not = is_not
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_is_null_predicate method with the whole expression
         return self.dialect.format_is_null_predicate(self.expr, self.is_not)

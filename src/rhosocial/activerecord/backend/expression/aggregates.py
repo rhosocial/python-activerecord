@@ -39,7 +39,7 @@ class AggregateFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixin
             self._filter_predicate = predicate
         return self
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """
         Generates the SQL string and parameters for this aggregate function call,
         including any attached FILTER clause.

@@ -3,7 +3,7 @@
 
 from typing import Union
 
-from ..backend.expression import BaseExpression, SetOperationExpression
+from ..backend.expression import BaseExpression, SetOperationExpression, bases
 from ..interface import IQuery, ISetOperationQuery
 
 
@@ -48,20 +48,19 @@ class SetOperationQuery(ISetOperationQuery):
         # If the query is a SetOperationQuery, use its _set_op_expr
         if isinstance(query, SetOperationQuery):
             return query._set_op_expr
-        # Otherwise, assume it's an IQuery instance that can be converted to a BaseExpression
-        # This is a simplified approach, a more robust solution might be needed
-        # depending on how IQuery instances are expected to be converted to SQL expressions
+        # If the query implements IQuery, we need to convert it to a BaseExpression
+        # This would typically involve creating a Subquery expression from the IQuery
         elif isinstance(query, IQuery):
-            # If the query is an IQuery instance, it should have a to_sql method
-            # For now, we'll assume it's a valid expression that can be used directly
-            # This is a placeholder - actual implementation depends on IQuery's structure
-            return query
+            # Import here to avoid circular imports
+            from ..backend.expression.core import Subquery
+            # Create a Subquery expression from the IQuery instance
+            return Subquery(query.backend.dialect, query)
         else:
             # Fallback: This case might indicate a design issue or missing functionality
             # in how different query types are handled
             raise TypeError(f"Query type {type(query)} is not supported in set operations")
 
-    def to_sql(self):
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Convert the set operation query to SQL and parameters."""
         # Use the SetOperationExpression's to_sql method
         return self._set_op_expr.to_sql()

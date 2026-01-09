@@ -16,6 +16,8 @@ from .bases import (
     BaseExpression,
     SQLValueExpression,
     SQLPredicate,
+    SQLQueryAndParams,
+    is_sql_query_and_params,
 )
 from .mixins import AliasableMixin
 from .literals import (
@@ -166,8 +168,8 @@ from .functions import (
 )
 
 __all__ = [
-    # Base classes
-    "ToSQLProtocol", "BaseExpression", "SQLValueExpression", "SQLPredicate",
+    # Base classes and type aliases
+    "ToSQLProtocol", "BaseExpression", "SQLValueExpression", "SQLPredicate", "SQLQueryAndParams", "is_sql_query_and_params",
 
     # Mixins
     "AliasableMixin",

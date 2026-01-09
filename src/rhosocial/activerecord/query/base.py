@@ -456,30 +456,6 @@ class BaseQueryMixin(IActiveQuery):
 
         return self
 
-    # region Core Methods
-    def to_sql(self) -> Tuple[str, tuple]:
-        """Generate the SQL query string and parameters."""
-        # Get dialect from backend
-        dialect = self._backend.dialect
-
-        # Prepare the FROM clause - for generic queries, we might need to handle this differently
-        # For now, we'll use a placeholder that should be overridden by subclasses
-        from_clause = TableExpression(dialect, "placeholder_table")
-
-        # Create QueryExpression with all components
-        query_expr = statements.QueryExpression(
-            dialect,
-            select=self.select_columns or [Literal(dialect, "*")],  # Default to SELECT *
-            from_=from_clause,
-            where=self.where_clause,
-            group_by_having=self.group_by_having_clause,
-            order_by=self.order_by_clause,
-            limit_offset=self.limit_offset_clause
-        )
-
-        # Generate SQL using the QueryExpression
-        return query_expr.to_sql()
-
     # endregion
 
     def explain(self, **kwargs) -> 'BaseQueryMixin':

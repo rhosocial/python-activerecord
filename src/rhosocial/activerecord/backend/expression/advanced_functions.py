@@ -26,7 +26,7 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         self.else_result = else_result
         self.alias = alias
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         value_sql, value_params = self.value.to_sql() if self.value else (None, ())
         conditions_results = []
         all_params = list(value_params) if value_params else []
@@ -55,7 +55,7 @@ class CastExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.Compa
         self.target_type = target_type
         self.alias = alias
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         expr_sql, expr_params = self.expr.to_sql()
         return self.dialect.format_cast_expression(expr_sql, self.target_type, expr_params, self.alias)
 
@@ -76,7 +76,7 @@ class ExistsExpression(bases.SQLPredicate):
             raise TypeError(f"subquery must be Subquery or BaseExpression, got {type(subquery)}")
         self.is_not = is_not
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_exists_expression method
         return self.dialect.format_exists_expression(self.subquery, self.is_not)
 
@@ -89,7 +89,7 @@ class AnyExpression(bases.SQLPredicate):
         self.op = op
         self.array_expr = array_expr
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_any_expression method
         return self.dialect.format_any_expression(self.expr, self.op, self.array_expr)
 
@@ -102,7 +102,7 @@ class AllExpression(bases.SQLPredicate):
         self.op = op
         self.array_expr = array_expr
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_all_expression method
         return self.dialect.format_all_expression(self.expr, self.op, self.array_expr)
 
@@ -120,7 +120,7 @@ class WindowFrameSpecification(bases.BaseExpression):
         self.end_frame = end_frame
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegate to dialect for window frame formatting"""
         return self.dialect.format_window_frame_specification(self)
 
@@ -138,7 +138,7 @@ class WindowSpecification(bases.BaseExpression):
         self.frame = frame
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegate to dialect for window specification formatting"""
         return self.dialect.format_window_specification(self)
 
@@ -154,7 +154,7 @@ class WindowDefinition(bases.BaseExpression):
         self.specification = specification
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegate to dialect for named window definition formatting"""
         return self.dialect.format_window_definition(self)
 
@@ -168,7 +168,7 @@ class WindowClause(bases.BaseExpression):
         self.definitions = definitions
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegate to dialect for WINDOW clause formatting"""
         return self.dialect.format_window_clause(self)
 
@@ -190,7 +190,7 @@ class WindowFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.C
         self.alias = alias
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Delegate to dialect for window function call formatting"""
         return self.dialect.format_window_function_call(self)
 
@@ -208,7 +208,7 @@ class JSONExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.Compa
         self.operation = operation
         self.alias = alias
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_json_expression method
         return self.dialect.format_json_expression(self.column, self.path, self.operation, self.alias)
 
@@ -228,7 +228,7 @@ class ArrayExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.Comp
         self.elements = elements
         self.alias = alias
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_array_expression method
         return self.dialect.format_array_expression(self.operation, self.elements, self.base_expr, self.index_expr, self.alias)
 
@@ -246,7 +246,7 @@ class OrderedSetAggregation(mixins.AliasableMixin, mixins.ArithmeticMixin, mixin
         self.order_by = order_by
         self.alias = alias
 
-    def to_sql(self) -> Tuple[str, tuple]:
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
         func_args_sql, func_args_params = [], []
         for arg in self.args:
             arg_sql, arg_params = arg.to_sql()
