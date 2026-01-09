@@ -4,10 +4,9 @@
 from typing import Union
 from ..backend.expression import BaseExpression, SetOperationExpression
 from ..interface import IQuery, ISetOperationQuery
-from .set_operation_mixin import SetOperationMixin
 
 
-class SetOperationQuery(SetOperationMixin, ISetOperationQuery):
+class SetOperationQuery(ISetOperationQuery):
     """SetOperationQuery implementation for UNION, INTERSECT, and EXCEPT queries.
 
     This class allows combining results from multiple queries using set operations.
@@ -62,6 +61,31 @@ class SetOperationQuery(SetOperationMixin, ISetOperationQuery):
         """Convert the set operation query to SQL and parameters."""
         # Use the SetOperationExpression's to_sql method
         return self._set_op_expr.to_sql()
+
+    def union(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+        """Perform a UNION operation with another query."""
+        return SetOperationQuery(self, other, "UNION")
+
+    def intersect(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+        """Perform an INTERSECT operation with another query."""
+        return SetOperationQuery(self, other, "INTERSECT")
+
+    def except_(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+        """Perform an EXCEPT operation with another query."""
+        return SetOperationQuery(self, other, "EXCEPT")
+
+    # Operator overloading for more Pythonic syntax
+    def __or__(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+        """Implement the | operator for UNION."""
+        return self.union(other)
+
+    def __and__(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+        """Implement the & operator for INTERSECT."""
+        return self.intersect(other)
+
+    def __sub__(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+        """Implement the - operator for EXCEPT."""
+        return self.except_(other)
 
     @property
     def dialect(self):

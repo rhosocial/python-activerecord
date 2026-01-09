@@ -8,7 +8,7 @@ from .aggregate import AggregateQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
-from .set_operation_mixin import SetOperationMixin
+from .set_operation import SetOperationQuery
 from .base import BaseQueryMixin
 from ..interface import IActiveQuery
 from ..backend.expression import (
@@ -31,7 +31,6 @@ class ActiveQuery(
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
-    SetOperationMixin,
     IActiveQuery,
 ):
     """ActiveQuery implementation for model-based queries.
