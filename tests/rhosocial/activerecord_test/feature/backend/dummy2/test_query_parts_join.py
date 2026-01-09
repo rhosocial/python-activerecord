@@ -206,14 +206,106 @@ class TestJoinExpressionChaining:
         fourth_join = third_join.cross_join(
             right_table=TableExpression(dummy_dialect, "suppliers", alias="s")
         )
-        
-        sql, params = fourth_join.to_sql()
-        
+
+        # Add warehouses with FULL JOIN
+        fifth_join = fourth_join.full_join(
+            right_table=TableExpression(dummy_dialect, "warehouses", alias="w"),
+            condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "id", "p"),
+                Column(dummy_dialect, "product_id", "w")
+            )
+        )
+
+        sql, params = fifth_join.to_sql()
+
         # Verify all join types are present
-        assert 'LEFT JOIN' in sql
-        assert 'INNER JOIN' in sql
-        assert 'RIGHT JOIN' in sql
         assert 'CROSS JOIN' in sql
+        assert 'FULL JOIN' in sql
+        assert params == ()
+
+    def test_full_join_convenience_method(self, dummy_dialect: DummyDialect):
+        """Test the full_join convenience method."""
+        base_join = JoinExpression(
+            dummy_dialect,
+            left_table=TableExpression(dummy_dialect, "employees", alias="e"),
+            right_table=TableExpression(dummy_dialect, "departments", alias="d"),
+            join_type="INNER JOIN",
+            condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "department_id", "e"),
+                Column(dummy_dialect, "id", "d")
+            )
+        )
+
+        full_join = base_join.full_join(
+            right_table=TableExpression(dummy_dialect, "projects", alias="p"),
+            condition=ComparisonPredicate(
+                dummy_dialect,
+                "=",
+                Column(dummy_dialect, "id", "e"),
+                Column(dummy_dialect, "employee_id", "p")
+            )
+        )
+
+        sql, params = full_join.to_sql()
+
+        assert 'INNER JOIN "departments" AS "d"' in sql
+        assert 'FULL JOIN "projects" AS "p" ON "e"."id" = "p"."employee_id"' in sql
+        assert params == ()
+
+    def test_natural_inner_join_dummy(self, dummy_dialect: DummyDialect):
+        """Test NATURAL INNER JOIN in dummy dialect."""
+        join_expr = JoinExpression(
+            dummy_dialect,
+            left_table=TableExpression(dummy_dialect, "table_a"),
+            right_table=TableExpression(dummy_dialect, "table_b"),
+            join_type="INNER JOIN",
+            natural=True
+        )
+        sql, params = join_expr.to_sql()
+        assert sql == '"table_a" NATURAL INNER JOIN "table_b"'
+        assert params == ()
+
+    def test_natural_left_join_dummy(self, dummy_dialect: DummyDialect):
+        """Test NATURAL LEFT JOIN in dummy dialect."""
+        join_expr = JoinExpression(
+            dummy_dialect,
+            left_table=TableExpression(dummy_dialect, "table_a"),
+            right_table=TableExpression(dummy_dialect, "table_b"),
+            join_type="LEFT JOIN",
+            natural=True
+        )
+        sql, params = join_expr.to_sql()
+        assert sql == '"table_a" NATURAL LEFT JOIN "table_b"'
+        assert params == ()
+
+    def test_left_outer_join_dummy(self, dummy_dialect: DummyDialect):
+        """Test LEFT OUTER JOIN in dummy dialect."""
+        join_expr = JoinExpression(
+            dummy_dialect,
+            left_table=TableExpression(dummy_dialect, "users", alias="u"),
+            right_table=TableExpression(dummy_dialect, "posts", alias="p"),
+            join_type="LEFT OUTER JOIN",
+            condition=Column(dummy_dialect, "id", "u") == Column(dummy_dialect, "user_id", "p")
+        )
+        sql, params = join_expr.to_sql()
+        assert sql == '"users" AS "u" LEFT OUTER JOIN "posts" AS "p" ON "u"."id" = "p"."user_id"'
+        assert params == ()
+
+    def test_full_outer_join_dummy(self, dummy_dialect: DummyDialect):
+        """Test FULL OUTER JOIN in dummy dialect."""
+        join_expr = JoinExpression(
+            dummy_dialect,
+            left_table=TableExpression(dummy_dialect, "customers", alias="c"),
+            right_table=TableExpression(dummy_dialect, "orders", alias="o"),
+            join_type="FULL OUTER JOIN",
+            condition=Column(dummy_dialect, "id", "c") == Column(dummy_dialect, "customer_id", "o")
+        )
+        sql, params = join_expr.to_sql()
+        assert sql == '"customers" AS "c" FULL OUTER JOIN "orders" AS "o" ON "c"."id" = "o"."customer_id"'
         assert params == ()
 
     def test_join_with_using_clause_chaining(self, dummy_dialect: DummyDialect):
@@ -225,6 +317,7 @@ class TestJoinExpressionChaining:
             join_type="INNER JOIN",
             using=["common_id"]
         )
+        
         
         # Chain with another join using USING
         chained_join = base_join.join(

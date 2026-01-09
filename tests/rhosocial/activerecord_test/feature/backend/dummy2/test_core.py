@@ -256,7 +256,7 @@ class TestTableExpression:
             using=None  # No USING clause provided
         )
 
-        with pytest.raises(ValueError, match=r"INNER JOIN requires a condition or USING clause. Got: INNER JOIN"):
+        with pytest.raises(ValueError, match=r"INNER JOIN requires a condition or USING clause."):
             dummy_dialect.format_join_expression(join_expr)
 
     def test_format_join_expression_with_cross_join_without_condition_succeeds(self, dummy_dialect: DummyDialect):

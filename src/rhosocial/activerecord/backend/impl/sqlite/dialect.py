@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TemporalTableSupport,
     UpsertSupport,
     LateralJoinSupport,
-    WildcardSupport,
+    WildcardSupport, JoinSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -43,7 +43,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     QualifyClauseMixin,
     TemporalTableMixin,
     UpsertMixin,
-    LateralJoinMixin,
+    LateralJoinMixin, JoinMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -68,6 +68,7 @@ class SQLiteDialect(
     TemporalTableMixin,
     UpsertMixin,
     LateralJoinMixin,
+    JoinMixin,
     # Protocols for type checking
     CTESupport,
     FilterClauseSupport,
@@ -86,6 +87,7 @@ class SQLiteDialect(
     UpsertSupport,
     LateralJoinSupport,
     WildcardSupport,
+    JoinSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -171,27 +173,6 @@ class SQLiteDialect(
         """
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
-
-    def format_join_expression(
-        self,
-        join_expr: "JoinExpression"
-    ) -> Tuple[str, Tuple]:
-        """
-        Format JOIN expression with SQLite-specific limitations.
-
-        SQLite does not support RIGHT JOIN or FULL OUTER JOIN.
-        """
-        # Check if the join type is supported by SQLite
-        join_type_upper = join_expr.join_type.upper()
-        if "RIGHT" in join_type_upper or "FULL" in join_type_upper:
-            raise UnsupportedFeatureError(
-                self.name,
-                join_expr.join_type,
-                "SQLite does not support RIGHT JOIN or FULL OUTER JOIN"
-            )
-
-        # Delegate to parent implementation (from mixin) for supported joins
-        return super().format_join_expression(join_expr)
 
     # Additional protocol support methods for features SQLite doesn't support
     def supports_rollup(self) -> bool:

@@ -10,7 +10,12 @@ from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from ..expression import bases, ExplainExpression, OnConflictClause, MergeExpression, MatchClause, QualifyClause, GraphEdgeDirection
+    from ..expression import (
+        bases, ExplainExpression, OnConflictClause, MergeExpression, MatchClause, QualifyClause, GraphEdgeDirection,
+        JoinExpression,
+        WindowFunctionCall, WindowSpecification, WindowFrameSpecification,
+        WindowDefinition, WindowClause
+    )
 
 
 @runtime_checkable
@@ -23,6 +28,41 @@ class WindowFunctionSupport(Protocol):
 
     def supports_window_frame_clause(self) -> bool:
         """Whether window frame clauses (ROWS/RANGE) are supported."""
+        ...  # pragma: no cover
+
+    def format_window_function_call(
+            self,
+            call: "WindowFunctionCall"
+    ) -> Tuple[str, tuple]:
+        """Format window function call."""
+        ...  # pragma: no cover
+
+    def format_window_specification(
+            self,
+            spec: "WindowSpecification"
+    ) -> Tuple[str, tuple]:
+        """Format window specification."""
+        ...  # pragma: no cover
+
+    def format_window_frame_specification(
+            self,
+            spec: "WindowFrameSpecification"
+    ) -> Tuple[str, tuple]:
+        """Format window frame specification."""
+        ...  # pragma: no cover
+
+    def format_window_clause(
+            self,
+            clause: "WindowClause"
+    ) -> Tuple[str, tuple]:
+        """Format complete WINDOW clause."""
+        ...  # pragma: no cover
+
+    def format_window_definition(
+            self,
+            spec: "WindowDefinition"
+    ) -> Tuple[str, tuple]:
+        """Format named window definition."""
         ...  # pragma: no cover
 
 
@@ -193,6 +233,50 @@ class LateralJoinSupport(Protocol):
         column_names: Optional[List[str]]
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class JoinSupport(Protocol):
+    """Protocol for JOIN clause support."""
+
+    def supports_inner_join(self) -> bool:
+        """Whether INNER JOIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_left_join(self) -> bool:
+        """Whether LEFT JOIN and LEFT OUTER JOIN are supported."""
+        ...  # pragma: no cover
+
+    def supports_right_join(self) -> bool:
+        """Whether RIGHT JOIN and RIGHT OUTER JOIN are supported."""
+        ...  # pragma: no cover
+
+    def supports_full_join(self) -> bool:
+        """Whether FULL JOIN and FULL OUTER JOIN are supported."""
+        ...  # pragma: no cover
+
+    def supports_cross_join(self) -> bool:
+        """Whether CROSS JOIN is supported."""
+        ...  # pragma: no cover
+
+    def supports_natural_join(self) -> bool:
+        """Whether NATURAL JOIN is supported."""
+        ...  # pragma: no cover
+
+    def format_join_expression(
+        self,
+        join_expr: "JoinExpression"
+    ) -> Tuple[str, Tuple]:
+        """
+        Formats a JOIN expression.
+
+        Args:
+            join_expr: JoinExpression object.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
         ...  # pragma: no cover
 
 

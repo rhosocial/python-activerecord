@@ -13,12 +13,13 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
+    JoinSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
     UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
-    TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
+    TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin, JoinMixin,
 )
 
 class DummyDialect(
@@ -27,11 +28,13 @@ class DummyDialect(
     UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
+    JoinMixin,
     # Protocols for type checking
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
+    JoinSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -65,6 +68,12 @@ class DummyDialect(
     def supports_qualify_clause(self) -> bool: return True
     def supports_for_update_skip_locked(self) -> bool: return True
     def supports_graph_match(self) -> bool: return True
+    def supports_inner_join(self) -> bool: return True
+    def supports_left_join(self) -> bool: return True
+    def supports_right_join(self) -> bool: return True
+    def supports_full_join(self) -> bool: return True
+    def supports_cross_join(self) -> bool: return True
+    def supports_natural_join(self) -> bool: return True
     # endregion
 
 

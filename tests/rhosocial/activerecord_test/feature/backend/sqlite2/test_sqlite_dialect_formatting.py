@@ -42,11 +42,8 @@ class TestSQLiteDialectFormatting:
         mock_join_expr = Mock()
         mock_join_expr.join_type = "RIGHT JOIN"
 
-        with pytest.raises(UnsupportedFeatureError) as exc_info:
+        with pytest.raises(UnsupportedFeatureError, match="does not support RIGHT JOIN"):
             dialect.format_join_expression(mock_join_expr)
-
-        assert "RIGHT JOIN" in str(exc_info.value)
-        assert "SQLite does not support RIGHT JOIN or FULL OUTER JOIN" in str(exc_info.value)
 
     def test_format_join_expression_full_join_error(self):
         """Test FULL OUTER JOIN formatting error"""
@@ -54,11 +51,8 @@ class TestSQLiteDialectFormatting:
         mock_join_expr = Mock()
         mock_join_expr.join_type = "FULL OUTER JOIN"
 
-        with pytest.raises(UnsupportedFeatureError) as exc_info:
+        with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
             dialect.format_join_expression(mock_join_expr)
-
-        assert "FULL OUTER JOIN" in str(exc_info.value)
-        assert "SQLite does not support RIGHT JOIN or FULL OUTER JOIN" in str(exc_info.value)
 
     def test_format_join_expression_full_outer_join_error(self):
         """Test FULL OUTER JOIN formatting error (alternative form)"""
@@ -66,10 +60,8 @@ class TestSQLiteDialectFormatting:
         mock_join_expr = Mock()
         mock_join_expr.join_type = "FULL OUTER JOIN"
 
-        with pytest.raises(UnsupportedFeatureError) as exc_info:
+        with pytest.raises(UnsupportedFeatureError, match="does not support FULL JOIN"):
             dialect.format_join_expression(mock_join_expr)
-
-        assert "FULL OUTER JOIN" in str(exc_info.value)
 
     @pytest.mark.parametrize("join_type", ["RIGHT JOIN", "FULL OUTER JOIN", "FULL JOIN"])
     def test_format_join_expression_unsupported_joins(self, join_type):
@@ -81,7 +73,8 @@ class TestSQLiteDialectFormatting:
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_join_expression(mock_join_expr)
 
-        assert join_type in str(exc_info.value)
+        expected_keyword = join_type.upper().split()[0]
+        assert expected_keyword in str(exc_info.value)
 
     def test_format_grouping_expression_rollup_error(self):
         """Test ROLLUP formatting error"""

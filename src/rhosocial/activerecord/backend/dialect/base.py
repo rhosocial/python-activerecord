@@ -1281,56 +1281,6 @@ class SQLDialectBase:
 
         return " ".join(sql_parts), tuple(all_params)
 
-    def format_join_expression(
-        self,
-        join_expr: "JoinExpression"
-    ) -> Tuple[str, Tuple]:
-        """Format JOIN expression."""
-        from ..expression.statements import QueryExpression
-        all_params = []
-
-        # Format left and right tables
-        left_sql, left_params = join_expr.left_table.to_sql()
-        if isinstance(join_expr.left_table, QueryExpression):
-            left_sql = f"({left_sql})"
-        right_sql, right_params = join_expr.right_table.to_sql()
-        if isinstance(join_expr.right_table, QueryExpression):
-            right_sql = f"({right_sql})"
-        all_params.extend(left_params)
-        all_params.extend(right_params)
-
-        # Use the join type string directly
-        join_clause = join_expr.join_type
-
-        # Add NATURAL if specified
-        if join_expr.natural:
-            join_clause = f"NATURAL {join_clause}"
-
-        # Build the JOIN expression
-        if join_expr.using:
-            # USING clause
-            using_cols = [self.format_identifier(col) for col in join_expr.using]
-            sql = f"{left_sql} {join_clause} {right_sql} USING ({', '.join(using_cols)})"
-        elif join_expr.condition:
-            # ON condition
-            condition_sql, condition_params = join_expr.condition.to_sql()
-            sql = f"{left_sql} {join_clause} {right_sql} ON {condition_sql}"
-            all_params.extend(condition_params)
-        else:
-            # For certain join types (like INNER JOIN, LEFT JOIN), a condition is required
-            # CROSS JOIN is the only join type that doesn't require a condition
-            join_type_upper = join_expr.join_type.upper()
-            if "CROSS" not in join_type_upper:
-                raise ValueError(f"{join_type_upper} requires a condition or USING clause. Got: {join_expr.join_type}")
-            # No condition (e.g., CROSS JOIN)
-            sql = f"{left_sql} {join_clause} {right_sql}"
-
-        # Add alias if specified
-        if join_expr.alias:
-            sql = f"({sql}) AS {self.format_identifier(join_expr.alias)}"
-
-        return sql, tuple(all_params)
-
     def format_set_operation_expression(
         self,
         left: "bases.BaseExpression",

@@ -115,7 +115,8 @@ class TestSQLiteDialectComprehensive:
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_join_expression(mock_join_expr)
 
-        assert join_type in str(exc_info.value)
+        expected_keyword = join_type.upper().split()[0]
+        assert expected_keyword in str(exc_info.value)
 
     def test_format_returning_clause_version_check_comprehensive(self):
         """Comprehensive test for RETURNING clause version check"""
