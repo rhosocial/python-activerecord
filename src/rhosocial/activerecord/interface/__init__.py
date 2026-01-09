@@ -12,7 +12,6 @@ __all__ = [
     'IUpdateBehavior',
     'ModelEvent',
     'IQuery',
-    'IDictQuery',
     'ModelT',
     'DictT',
     'QueryT',

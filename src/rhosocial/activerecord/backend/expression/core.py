@@ -91,7 +91,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
         return subquery_sql, self.query_params
 
 
-class TableExpression(bases.BaseExpression):
+class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
     """Represents a table or view in a SQL query, optionally with an alias."""
     def __init__(self, dialect: "SQLDialectBase", name: str, alias: Optional[str] = None,
                  temporal_options: Optional[Dict[str, Any]] = None):

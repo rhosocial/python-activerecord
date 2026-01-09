@@ -2,7 +2,9 @@
 """Module providing version control functionality."""
 from typing import Tuple, Any, Dict, List, Optional
 
-from ..backend import DatabaseError, StorageBackend, SQLExpressionBase
+from ..backend.errors import DatabaseError
+from ..backend.base import StorageBackend
+from ..backend.expression.bases import BaseExpression as SQLExpressionBase
 from ..interface import IActiveRecord, IUpdateBehavior, ModelEvent
 
 
@@ -52,7 +54,7 @@ class Version:
         """
         return f"{self.db_column} = ?", (self.value,)
 
-    def get_update_expression(self, backend: StorageBackend) -> BaseExpression:
+    def get_update_expression(self, backend: StorageBackend) -> SQLExpressionBase:
         """Get SQL expression for version update
 
         Args:

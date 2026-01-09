@@ -2,7 +2,7 @@
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.types import SQLiteColumnType, SQLITE_TYPE_MAPPINGS
-from rhosocial.activerecord.backend.typing import DatabaseType
+from rhosocial.activerecord.backend.schema import DatabaseType
 
 
 class TestSQLiteColumnType:

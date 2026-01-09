@@ -3,7 +3,7 @@ import pytest
 from pydantic import Field
 from typing import ClassVar, Optional, List
 
-from rhosocial.activerecord.query import CaseExpression, Column
+from rhosocial.activerecord.backend.expression import CaseExpression, Column
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 

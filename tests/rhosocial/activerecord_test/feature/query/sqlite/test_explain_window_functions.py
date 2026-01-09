@@ -6,7 +6,7 @@ import pytest
 import sqlite3
 
 from rhosocial.activerecord.backend.dialect import ExplainType
-from rhosocial.activerecord.query.expression import FunctionExpression, WindowExpression
+from rhosocial.activerecord.backend.expression import FunctionCall, WindowFrameSpecification, WindowSpecification, WindowFunctionCall, Column, Literal
 from rhosocial.activerecord.testsuite.feature.query.conftest import (
     order_fixtures,
     blog_fixtures,
@@ -30,10 +30,10 @@ def skip_if_unsupported():
         pytest.skip("SQLite version doesn't support window functions (requires 3.25.0+)")
 
 
-def test_explain_row_number(order_fixtures, skip_if_unsupported):
-    """Test explain with ROW_NUMBER() window function"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_row_number(order_fixtures, skip_if_unsupported):
+        """Test explain with ROW_NUMBER() window function"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect # Add this line
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -51,12 +51,11 @@ def test_explain_row_number(order_fixtures, skip_if_unsupported):
     try:
         # Test ROW_NUMBER window function
         query = Order.query().select("id", "total_amount", "status")
-        query.window(
-            expr=FunctionExpression("ROW_NUMBER", alias=None),
-            order_by=["total_amount DESC"],
-            alias="row_num"
-        )
-
+                    query.window(
+                        expr=FunctionCall(dialect, "ROW_NUMBER"),
+                        order_by=["total_amount DESC"],
+                        alias="row_num"
+                    )
         # Get execution plan (query plan)
         plan = query.explain(type=ExplainType.QUERYPLAN).all()
 
@@ -74,10 +73,10 @@ def test_explain_row_number(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_window_with_partition(order_fixtures, skip_if_unsupported):
-    """Test explain with window function and PARTITION BY"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_window_with_partition(order_fixtures, skip_if_unsupported):
+        """Test explain with window function and PARTITION BY"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -99,7 +98,7 @@ def test_explain_window_with_partition(order_fixtures, skip_if_unsupported):
         # Test window function with PARTITION BY
         query = Order.query().select("id", "status", "total_amount")
         query.window(
-            expr=FunctionExpression("SUM", "total_amount", alias=None),
+            expr=FunctionCall(dialect, "SUM", Column(dialect, "total_amount")),
             partition_by=["status"],
             alias="status_total"
         )
@@ -122,10 +121,10 @@ def test_explain_window_with_partition(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_multiple_window_functions(order_fixtures, skip_if_unsupported):
-    """Test explain with multiple window functions"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_multiple_window_functions(order_fixtures, skip_if_unsupported):
+        """Test explain with multiple window functions"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -146,18 +145,18 @@ def test_explain_multiple_window_functions(order_fixtures, skip_if_unsupported):
 
         # Add row_number window function
         query.window(
-            expr=FunctionExpression("ROW_NUMBER", alias=None),
+            expr=FunctionCall(dialect, "ROW_NUMBER"),
             order_by=["total_amount"],
             alias="row_num"
         )
 
         # Add running sum window function
         query.window(
-            expr=FunctionExpression("SUM", "total_amount", alias=None),
+            expr=FunctionCall(dialect, "SUM", Column(dialect, "total_amount")),
             order_by=["total_amount"],
-            frame_type=WindowExpression.ROWS,
-            frame_start=WindowExpression.UNBOUNDED_PRECEDING,
-            frame_end=WindowExpression.CURRENT_ROW,
+            frame_type="ROWS",
+            frame_start="UNBOUNDED PRECEDING",
+            frame_end="CURRENT ROW",
             alias="running_sum"
         )
 
@@ -177,10 +176,10 @@ def test_explain_multiple_window_functions(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_window_with_frame(order_fixtures, skip_if_unsupported):
-    """Test explain with window function frame specifications"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_window_with_frame(order_fixtures, skip_if_unsupported):
+        """Test explain with window function frame specifications"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -199,9 +198,9 @@ def test_explain_window_with_frame(order_fixtures, skip_if_unsupported):
         # Test window with frame specification
         query = Order.query().select("id", "total_amount")
         query.window(
-            expr=FunctionExpression("AVG", "total_amount", alias=None),
+            expr=FunctionCall(dialect, "AVG", Column(dialect, "total_amount")),
             order_by=["total_amount"],
-            frame_type=WindowExpression.ROWS,
+            frame_type="ROWS",
             frame_start="1 PRECEDING",
             frame_end="1 FOLLOWING",
             alias="moving_avg"
@@ -224,10 +223,10 @@ def test_explain_window_with_frame(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_window_with_joins(order_fixtures, skip_if_unsupported):
-    """Test explain with window functions and joins"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_window_with_joins(order_fixtures, skip_if_unsupported):
+        """Test explain with window functions and joins"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -256,7 +255,7 @@ def test_explain_window_with_joins(order_fixtures, skip_if_unsupported):
         query.select(f"{Order.__table_name__}.id", f"{Order.__table_name__}.total_amount",
                      f"{User.__table_name__}.username")
         query.window(
-            expr=FunctionExpression("ROW_NUMBER", alias=None),
+            expr=FunctionCall(dialect, "ROW_NUMBER"),
             order_by=[f"{Order.__table_name__}.total_amount DESC"],
             alias="row_num"
         )
@@ -279,10 +278,10 @@ def test_explain_window_with_joins(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_window_with_filter(order_fixtures, skip_if_unsupported):
-    """Test explain with window functions and filters"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_window_with_filter(order_fixtures, skip_if_unsupported):
+        """Test explain with window functions and filters"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -305,7 +304,7 @@ def test_explain_window_with_filter(order_fixtures, skip_if_unsupported):
         # Add window function
         query.select("id", "status", "total_amount")
         query.window(
-            expr=FunctionExpression("ROW_NUMBER", alias=None),
+            expr=FunctionCall(dialect, "ROW_NUMBER"),
             partition_by=["status"],
             order_by=["total_amount DESC"],
             alias="status_rank"
@@ -331,10 +330,10 @@ def test_explain_window_with_filter(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_window_with_grouping(order_fixtures, skip_if_unsupported):
-    """Test explain with window functions and grouping"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_window_with_grouping(order_fixtures, skip_if_unsupported):
+        """Test explain with window functions and grouping"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     for i in range(2):
         user = User(
@@ -404,10 +403,10 @@ def test_explain_window_with_grouping(order_fixtures, skip_if_unsupported):
         raise
 
 
-def test_explain_named_windows(order_fixtures, skip_if_unsupported):
-    """Test explain with named window definitions"""
-    User, Order, OrderItem = order_fixtures
-
+    def test_explain_named_windows(order_fixtures, skip_if_unsupported):
+        """Test explain with named window definitions"""
+        User, Order, OrderItem = order_fixtures
+        dialect = Order.query().backend().dialect
     # Create test data
     user = User(username='test_user', email='test@example.com', age=30)
     user.save()
@@ -435,7 +434,7 @@ def test_explain_named_windows(order_fixtures, skip_if_unsupported):
 
         # Use the named window
         query.window(
-            expr=FunctionExpression("ROW_NUMBER", alias=None),
+            expr=FunctionCall(dialect, "ROW_NUMBER"),
             window_name="amount_window",
             alias="row_num"
         )
@@ -460,7 +459,7 @@ def test_explain_named_windows(order_fixtures, skip_if_unsupported):
 
                 # Use inline window definition instead of named window
                 fallback_query.window(
-                    expr=FunctionExpression("ROW_NUMBER", alias=None),
+                    expr=FunctionCall(dialect, "ROW_NUMBER"),
                     partition_by=["status"],
                     order_by=["total_amount DESC"],
                     alias="row_num"

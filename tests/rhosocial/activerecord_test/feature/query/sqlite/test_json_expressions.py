@@ -5,8 +5,9 @@ import sqlite3
 
 import pytest
 
-from rhosocial.activerecord.backend import SQLDialectBase, OperationalError
-from rhosocial.activerecord.query.expression import JsonExpression, CaseExpression
+from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+from rhosocial.activerecord.backend.errors import OperationalError
+from rhosocial.activerecord.backend.expression import JSONExpression as JsonExpression, CaseExpression
 from rhosocial.activerecord.testsuite.feature.query.conftest import (
     order_fixtures,
     blog_fixtures,
