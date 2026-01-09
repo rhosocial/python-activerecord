@@ -61,4 +61,8 @@ class RangeQueryMixin:
 
     def less_than_or_equal(self, column: str, value: Any) -> 'IQuery[ModelT]':
         pass
+
+    def __init__(self, *args, **kwargs):
+        super().__init__(*args, **kwargs)
+
     # endregion

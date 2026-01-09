@@ -1286,11 +1286,16 @@ class SQLDialectBase:
         join_expr: "JoinExpression"
     ) -> Tuple[str, Tuple]:
         """Format JOIN expression."""
+        from ..expression.statements import QueryExpression
         all_params = []
 
         # Format left and right tables
         left_sql, left_params = join_expr.left_table.to_sql()
+        if isinstance(join_expr.left_table, QueryExpression):
+            left_sql = f"({left_sql})"
         right_sql, right_params = join_expr.right_table.to_sql()
+        if isinstance(join_expr.right_table, QueryExpression):
+            right_sql = f"({right_sql})"
         all_params.extend(left_params)
         all_params.extend(right_params)
 

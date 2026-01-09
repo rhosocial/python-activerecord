@@ -2,7 +2,6 @@
 """
 Tests for the advanced SQL function expression components in advanced_functions.py
 """
-import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal
 )

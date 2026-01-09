@@ -1,15 +1,13 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_update.py
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, QueryExpression, TableExpression,
-    InsertExpression, UpdateExpression, ValuesSource, SelectSource,
-    DefaultValuesSource, OnConflictClause, core,
-    JoinExpression,
-    LogicalPredicate, ReturningClause, ComparisonPredicate
+    UpdateExpression, JoinExpression,
+    LogicalPredicate, ReturningClause
 )
 from rhosocial.activerecord.backend.expression.query_parts import WhereClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression import bases # For set_dialect_recursive
 
 
 class TestUpdateStatements:

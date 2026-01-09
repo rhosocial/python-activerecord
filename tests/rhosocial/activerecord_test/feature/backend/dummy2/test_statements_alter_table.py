@@ -1,15 +1,15 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_alter_table.py
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, RawSQLExpression, TableExpression, FunctionCall,
-    ComparisonPredicate, QueryExpression,
-    # Import ALTER TABLE related classes
+    Column, Literal, FunctionCall,
+    ComparisonPredicate,  # Import ALTER TABLE related classes
     AlterTableExpression, AddColumn, DropColumn,
     ColumnDefinition, IndexDefinition
 )
 from rhosocial.activerecord.backend.expression.statements import (
     AlterColumn, AddConstraint, DropConstraint, RenameObject, AddIndex, DropIndex,
-    TableConstraint, TableConstraintType, AlterTableActionType, AddTableConstraint,
+    TableConstraint, TableConstraintType, AddTableConstraint,
     DropTableConstraint, RenameColumn, RenameTable, ColumnAlterOperation
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -785,7 +785,7 @@ class TestAlterTableStatements:
 
     def test_add_column_action_with_default_constraint_expression(self, dummy_dialect: DummyDialect):
         """Tests ADD COLUMN with DEFAULT constraint using an expression."""
-        from rhosocial.activerecord.backend.expression import FunctionCall, Column, Literal
+        from rhosocial.activerecord.backend.expression import FunctionCall
         from rhosocial.activerecord.backend.expression.statements import ColumnDefinition, ColumnConstraint, ColumnConstraintType
         from rhosocial.activerecord.backend.expression.statements import AddColumn, AlterTableExpression
 

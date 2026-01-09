@@ -1,10 +1,9 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_operators.py
-import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, FunctionCall, Subquery
+    Column, Literal, FunctionCall
 )
 from rhosocial.activerecord.backend.expression.operators import (
-    SQLOperation, BinaryExpression, UnaryExpression, RawSQLExpression, RawSQLPredicate, BinaryArithmeticExpression
+    SQLOperation, BinaryExpression, UnaryExpression, RawSQLExpression, RawSQLPredicate
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 

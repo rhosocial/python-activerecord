@@ -81,6 +81,22 @@ class RelationalQueryMixin:
             InvalidRelationPathError: If an invalid relation path format is provided
                 (e.g., empty string, leading/trailing dots, consecutive dots)
             RelationNotFoundError: If a relation specified in the path does not exist on the model
+
+        Examples:
+            # Simple relation loading
+            User.query().with_('orders')
+
+            # Nested relation loading
+            User.query().with_('orders.items')
+
+            # Multiple relations
+            User.query().with_('orders', 'profile')
+
+            # With query modifier
+            User.query().with_(('orders', lambda q: q.where('status = ?', ('active',))))
+
+            # Complex nested with modifier
+            User.query().with_(('orders.items', lambda q: q.where('quantity > ?', (0,))))
         """
         pass
 

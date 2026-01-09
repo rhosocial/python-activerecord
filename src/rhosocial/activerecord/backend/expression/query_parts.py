@@ -2,7 +2,7 @@
 """
 SQL query clause expressions like WHERE, GROUP BY, HAVING, ORDER BY, LIMIT, etc.
 
-These expression classes collect parameters for specific SQL clauses 
+These expression classes collect parameters for specific SQL clauses
 and delegate SQL generation to backend-specific dialects.
 """
 from enum import Enum
@@ -130,14 +130,14 @@ class OrderByClause(bases.BaseExpression):
 
     The ORDER BY clause sorts the result set based on specified columns or expressions,
     with optional direction (ASC/DESC) and null order handling.
-    
+
     Examples:
         # Basic ORDER BY
         order_by = OrderByClause(
             dialect,
             expressions=[(Column(dialect, "name"), "ASC")]
         )
-        
+
         # Complex ORDER BY with multiple expressions and directions
         order_by = OrderByClause(
             dialect,
@@ -147,7 +147,7 @@ class OrderByClause(bases.BaseExpression):
                 (Column(dialect, "name"), "ASC")
             ]
         )
-        
+
         # ORDER BY with expression only (defaults to ASC)
         order_by = OrderByClause(
             dialect,
@@ -174,14 +174,14 @@ class LimitOffsetClause(bases.BaseExpression):
 
     The LIMIT clause restricts the number of rows returned, while OFFSET
     skips a specified number of rows before starting to return rows.
-    
+
     Examples:
         # Basic LIMIT
         limit_clause = LimitOffsetClause(dialect, limit=10)
-        
+
         # LIMIT with OFFSET
         limit_clause = LimitOffsetClause(dialect, limit=10, offset=20)
-        
+
         # OFFSET only (some databases support this)
         offset_clause = LimitOffsetClause(dialect, offset=50)
     """
@@ -210,7 +210,7 @@ class QualifyClause(bases.BaseExpression):
 
     The QUALIFY clause filters rows based on the results of window functions,
     similar to how HAVING filters groups based on aggregate function results.
-    
+
     Examples:
         # QUALIFY with window function results
         window_spec = WindowSpecification(
@@ -223,7 +223,7 @@ class QualifyClause(bases.BaseExpression):
             function_name="ROW_NUMBER",
             window_spec=window_spec
         )
-        
+
         qualify_clause = QualifyClause(
             dialect,
             condition=rank_func <= Literal(dialect, 3)  # Top 3 earners per department
@@ -251,7 +251,7 @@ class ForUpdateClause(bases.BaseExpression):
 
         # FOR UPDATE with specific columns
         for_update = ForUpdateClause(
-            dialect, 
+            dialect,
             of_columns=[Column(dialect, "id"), "name"]
         )
 
@@ -311,6 +311,9 @@ class JoinExpression(bases.BaseExpression):
     This class collects all parameters for a JOIN operation and delegates
     the SQL generation to the configured dialect for database-specific syntax.
 
+    This class supports chaining of joins using the join() method and convenience methods
+    like inner_join(), left_join(), etc., enabling complex multi-table joins.
+
     Example Usage:
         # Basic INNER JOIN with ON condition
         join_expr = JoinExpression(
@@ -338,11 +341,24 @@ class JoinExpression(bases.BaseExpression):
             join_type=JoinType.INNER,
             natural=True
         )
+
+        # Chaining joins
+        chained_join = join_expr.join(
+            right_table=TableExpression(dialect, "products", alias="p"),
+            join_type="LEFT JOIN",
+            condition=Column(dialect, "product_id", "o") == Column(dialect, "id", "p")
+        )
+
+        # Using convenience methods
+        final_join = chained_join.left_join(
+            right_table=TableExpression(dialect, "categories", alias="c"),
+            condition=Column(dialect, "category_id", "p") == Column(dialect, "id", "c")
+        )
     """
     def __init__(self,
                  dialect: "SQLDialectBase",
-                 left_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression"],
-                 right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression"],
+                 left_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                 right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
                  join_type: str = "JOIN",
                  condition: Optional["bases.SQLPredicate"] = None,  # ON condition (mutually exclusive with 'using')
                  using: Optional[List[str]] = None,  # USING clause columns (mutually exclusive with 'condition')
@@ -351,9 +367,10 @@ class JoinExpression(bases.BaseExpression):
                  dialect_options: Optional[Dict[str, Any]] = None):  # Dialect-specific options
         super().__init__(dialect)
 
+        from .statements import QueryExpression
         # Normalize table inputs
-        self.left_table = left_table if isinstance(left_table, (core.TableExpression, core.Subquery)) else core.TableExpression(dialect, str(left_table))
-        self.right_table = right_table if isinstance(right_table, (core.TableExpression, core.Subquery)) else core.TableExpression(dialect, str(right_table))
+        self.left_table = left_table if isinstance(left_table, (core.TableExpression, core.Subquery, JoinExpression, QueryExpression)) else core.TableExpression(dialect, str(left_table))
+        self.right_table = right_table if isinstance(right_table, (core.TableExpression, core.Subquery, JoinExpression, QueryExpression)) else core.TableExpression(dialect, str(right_table))
 
         # Store join_type as string
         self.join_type = join_type
@@ -372,3 +389,106 @@ class JoinExpression(bases.BaseExpression):
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegates SQL generation for the JOIN expression to the configured dialect."""
         return self.dialect.format_join_expression(self)
+
+    def join(self,
+             right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+             join_type: str = "JOIN",
+             condition: Optional["bases.SQLPredicate"] = None,
+             using: Optional[List[str]] = None,
+             natural: bool = False,
+             alias: Optional[str] = None) -> "JoinExpression":
+        """
+        Create a new JoinExpression by joining the current expression to another table.
+
+        This enables chaining of joins like:
+        join1.join(table2, "INNER JOIN", condition=...).join(table3, "LEFT JOIN", condition=...)
+
+        Args:
+            right_table: The table to join with
+            join_type: Type of join (e.g., "INNER JOIN", "LEFT JOIN", etc.)
+            condition: Join condition (ON clause)
+            using: Using columns (USING clause)
+            natural: Whether to use NATURAL join
+            alias: Alias for the resulting join
+
+        Returns:
+            A new JoinExpression representing the chained join
+        """
+        # Create a new JoinExpression with this instance as the left table
+        return JoinExpression(
+            dialect=self.dialect,
+            left_table=self,  # Use current join expression as left table
+            right_table=right_table,
+            join_type=join_type,
+            condition=condition,
+            using=using,
+            natural=natural,
+            alias=alias,
+            dialect_options=self.dialect_options
+        )
+
+    def inner_join(self,
+                   right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                   condition: Optional["bases.SQLPredicate"] = None,
+                   using: Optional[List[str]] = None,
+                   alias: Optional[str] = None) -> "JoinExpression":
+        """Create an inner join with another table."""
+        return self.join(
+            right_table=right_table,
+            join_type="INNER JOIN",
+            condition=condition,
+            using=using,
+            alias=alias
+        )
+
+    def left_join(self,
+                  right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                  condition: Optional["bases.SQLPredicate"] = None,
+                  using: Optional[List[str]] = None,
+                  alias: Optional[str] = None) -> "JoinExpression":
+        """Create a left join with another table."""
+        return self.join(
+            right_table=right_table,
+            join_type="LEFT JOIN",
+            condition=condition,
+            using=using,
+            alias=alias
+        )
+
+    def right_join(self,
+                   right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                   condition: Optional["bases.SQLPredicate"] = None,
+                   using: Optional[List[str]] = None,
+                   alias: Optional[str] = None) -> "JoinExpression":
+        """Create a right join with another table."""
+        return self.join(
+            right_table=right_table,
+            join_type="RIGHT JOIN",
+            condition=condition,
+            using=using,
+            alias=alias
+        )
+
+    def full_join(self,
+                  right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                  condition: Optional["bases.SQLPredicate"] = None,
+                  using: Optional[List[str]] = None,
+                  alias: Optional[str] = None) -> "JoinExpression":
+        """Create a full join with another table."""
+        return self.join(
+            right_table=right_table,
+            join_type="FULL JOIN",
+            condition=condition,
+            using=using,
+            alias=alias
+        )
+
+    def cross_join(self,
+                   right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+                   alias: Optional[str] = None) -> "JoinExpression":
+        """Create a cross join with another table."""
+        return self.join(
+            right_table=right_table,
+            join_type="CROSS JOIN",
+            alias=alias
+        )

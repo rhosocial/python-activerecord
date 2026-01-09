@@ -1,17 +1,15 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_parts.py
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall, ComparisonPredicate,
     WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause, QualifyClause
 )
 from rhosocial.activerecord.backend.expression.predicates import (
-    InPredicate, BetweenPredicate, IsNullPredicate, LikePredicate, LogicalPredicate
+    InPredicate, BetweenPredicate, IsNullPredicate
 )
 from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
-from rhosocial.activerecord.backend.expression.statements import (
-    ColumnConstraintType, TableConstraintType, ReferentialAction
-)
 
 
 class TestQueryParts:

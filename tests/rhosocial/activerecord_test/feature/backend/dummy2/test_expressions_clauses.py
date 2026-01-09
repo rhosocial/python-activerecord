@@ -1,13 +1,14 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_expressions_clauses.py
 import pytest
+
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, Subquery, TableExpression,
-    ComparisonPredicate, FunctionCall,
-    JoinExpression, CTEExpression, GroupingExpression, ValuesExpression,
+    ComparisonPredicate, JoinExpression, CTEExpression, GroupingExpression, ValuesExpression,
     MergeExpression, MergeAction, OrderedSetAggregation,
     MergeActionType
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
+
 
 class TestClauseExpressions:
     """Tests for various SQL clause-related expressions."""

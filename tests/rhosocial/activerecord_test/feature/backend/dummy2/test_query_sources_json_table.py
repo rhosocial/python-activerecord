@@ -1,7 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_query_sources_json_table.py
-import pytest
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, Subquery, QueryExpression, TableExpression
+    Column, QueryExpression
 )
 from rhosocial.activerecord.backend.expression.query_sources import (
     JSONTableExpression, JSONTableColumn

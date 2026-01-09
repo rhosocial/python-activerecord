@@ -1,5 +1,4 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_statements_truncate.py
-import pytest
 from rhosocial.activerecord.backend.expression import (
     TruncateExpression
 )

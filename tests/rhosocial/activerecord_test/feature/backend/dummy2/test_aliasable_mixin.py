@@ -3,14 +3,13 @@
 Tests for the AliasableMixin functionality in core expression classes.
 This tests the as_() method and alias initialization for various expression classes.
 """
-import pytest
 from rhosocial.activerecord.backend.expression import (
-    Literal, Column, FunctionCall, Subquery, TableExpression
+    Literal, Column, FunctionCall, Subquery
 )
-from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.expression.advanced_functions import (
     CastExpression, JSONExpression, ArrayExpression, OrderedSetAggregation
 )
+from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
 
