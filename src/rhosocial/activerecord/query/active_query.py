@@ -1,28 +1,22 @@
 # src/rhosocial/activerecord/query/active_query.py
 """ActiveQuery implementation."""
 
-from typing import List, Optional, Union, Type
 import logging
+from typing import List, Optional, Type
 
 from .aggregate import AggregateQueryMixin
+from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
-from .set_operation import SetOperationQuery
-from .base import BaseQueryMixin
-from ..interface import IActiveQuery
 from ..backend.expression import (
-    BaseExpression,
     Literal,
     TableExpression,
     statements,
-    WhereClause,
-    OrderByClause,
-    LimitOffsetClause,
-    GroupByHavingClause
+    LimitOffsetClause
 )
+from ..interface import IActiveQuery
 from ..interface.model import IActiveRecord
-from ..backend.base import StorageBackend
 
 
 class ActiveQuery(
@@ -50,24 +44,11 @@ class ActiveQuery(
     - Supports relationship queries with model instantiation and association management
     """
 
-    model_class: Type[IActiveRecord]
-    _backend: 'StorageBackend'
-    # Query clause attributes
-    where_clause: Optional['WhereClause']
-    order_by_clause: Optional['OrderByClause']
-    join_clauses: List[Union[str, type]]
-    select_columns: Optional[List[BaseExpression]]
-    limit_offset_clause: Optional['LimitOffsetClause']
-    group_by_having_clause: Optional['GroupByHavingClause']
-    _adapt_params: bool
-    _explain_enabled: bool
-    _explain_options: dict
-
     def __init__(self, model_class: Type[IActiveRecord]):
         # Initialize BaseQueryMixin with backend
         super().__init__(model_class.backend())
         self.model_class = model_class
-        self._backend = model_class.backend()
+        # self._backend is set by BaseQueryMixin.__init__
 
     @property
     def backend(self):
@@ -108,7 +89,7 @@ class ActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
-        rows = self.model_class.backend().fetch_all(sql, params, column_adapters=column_adapters)
+        rows = self.backend.fetch_all(sql, params, column_adapters=column_adapters)
 
         # Convert database column names back to Python field names before creating model instances
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
@@ -144,7 +125,7 @@ class ActiveQuery(
             user = User.query().where('email = ?', (email,)).one()
         """
         # Get backend instance and dialect
-        backend = self.model_class.backend()
+        backend = self.backend
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
@@ -175,7 +156,7 @@ class ActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch a single record, passing the column adapters to the backend.
-        row = self.model_class.backend().fetch_one(sql, params, column_adapters=column_adapters)
+        row = self.backend.fetch_one(sql, params, column_adapters=column_adapters)
 
         if not row:
             return None

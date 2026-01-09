@@ -3,7 +3,7 @@
 import logging
 from typing import List, Union, Any, Optional, Dict
 
-from .base import BaseQueryMixin
+from ..interface import IActiveQuery
 from ..backend.expression import (
     functions,
     statements,
@@ -13,7 +13,7 @@ from ..backend.expression import (
 )
 
 
-class AggregateQueryMixin(BaseQueryMixin):
+class AggregateQueryMixin(IActiveQuery):
     """Query mixin for aggregation operations that access the database.
 
     This mixin provides methods for SQL aggregations like COUNT, SUM, AVG, etc.
@@ -56,8 +56,8 @@ class AggregateQueryMixin(BaseQueryMixin):
             total_users = User.query().count('*')
             unique_emails = User.query().count('email', is_distinct=True)
         """
-        backend = self.model_class.backend()
-        dialect = backend.backend
+        backend = self.backend
+        dialect = backend.dialect
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.count(dialect, column, is_distinct=is_distinct, alias=alias)
@@ -108,8 +108,8 @@ class AggregateQueryMixin(BaseQueryMixin):
             total_discount = Order.query().where('status = ?', ('active',)).sum_('discount')
             unique_total = Order.query().sum_('amount', is_distinct=True)
         """
-        backend = self.model_class.backend()
-        dialect = backend.backend
+        backend = self.backend
+        dialect = backend.dialect
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.sum_(dialect, column, is_distinct=is_distinct, alias=alias)
@@ -160,8 +160,8 @@ class AggregateQueryMixin(BaseQueryMixin):
             avg_salary = Employee.query().where('department = ?', ('IT',)).avg('salary')
             unique_avg = Student.query().avg('score', is_distinct=True)
         """
-        backend = self.model_class.backend()
-        dialect = backend.backend
+        backend = self.backend
+        dialect = backend.dialect
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.avg(dialect, column, is_distinct=is_distinct, alias=alias)
@@ -209,8 +209,8 @@ class AggregateQueryMixin(BaseQueryMixin):
             min_price = Product.query().min_('price')
             min_age = User.query().where('status = ?', ('active',)).min_('age')
         """
-        backend = self.model_class.backend()
-        dialect = backend.backend
+        backend = self.backend
+        dialect = backend.dialect
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.min_(dialect, column, alias=alias)
@@ -258,8 +258,8 @@ class AggregateQueryMixin(BaseQueryMixin):
             max_price = Product.query().max_('price')
             max_age = User.query().where('status = ?', ('active',)).max_('age')
         """
-        backend = self.model_class.backend()
-        dialect = backend.backend
+        backend = self.backend
+        dialect = backend.dialect
 
         # Use the factory function from functions.py to create the aggregation expression
         agg_expr = functions.max_(dialect, column, alias=alias)
@@ -331,8 +331,8 @@ class AggregateQueryMixin(BaseQueryMixin):
         # Handle explain if enabled
         if self._explain_enabled:
             # Get backend instance and dialect
-            backend = self.model_class.backend()
-            dialect = backend.backend
+            backend = self.backend
+            dialect = backend.dialect
 
             # Create the underlying query expression
             from_clause = TableExpression(dialect, self.model_class.table_name())

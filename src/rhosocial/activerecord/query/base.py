@@ -17,10 +17,10 @@ from ..backend.expression import (
     OrderByClause,
     LimitOffsetClause
 )
-from ..interface import IQuery
+from ..interface import IQuery, IActiveQuery
 
 
-class BaseQueryMixin:
+class BaseQueryMixin(IActiveQuery):
     """BaseQueryMixin implementation for basic query building operations.
 
     This class provides foundational query building capabilities for constructing SQL expressions.
@@ -39,7 +39,7 @@ class BaseQueryMixin:
     """
 
     def __init__(self, backend: StorageBackend):
-        self._backend = backend
+        super().__init__(backend)
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
@@ -62,7 +62,7 @@ class BaseQueryMixin:
 
     # region Basic Query Methods
     @overload
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin':
         """Add AND condition to the query using a SQL placeholder string.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -85,7 +85,7 @@ class BaseQueryMixin:
         ...
 
     @overload
-    def where(self, condition: SQLPredicate, params: None = None) -> 'IQuery':
+    def where(self, condition: SQLPredicate, params: None = None) -> 'BaseQueryMixin':
         """Add AND condition to the query using a predicate expression.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -152,7 +152,7 @@ class BaseQueryMixin:
         return self
 
 
-    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQuery':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'BaseQueryMixin':
         """Select specific columns or expressions to retrieve from the query.
 
         This method accepts both column names (strings) and expression objects.
@@ -176,7 +176,7 @@ class BaseQueryMixin:
             User.query().select('name').where('status = ?', ('active',))
         """
         # Get dialect from backend
-        dialect = self._backend.dialect
+        dialect = self.backend.dialect
 
         # Convert string column names to Column objects
         converted_columns = []
@@ -198,7 +198,7 @@ class BaseQueryMixin:
 
         return self
 
-    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQuery':
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'BaseQueryMixin':
         """Add ORDER BY clauses to the query.
 
         Args:
@@ -278,7 +278,7 @@ class BaseQueryMixin:
 
         return self
 
-    def limit(self, count: Union[int, BaseExpression]) -> 'IQuery':
+    def limit(self, count: Union[int, BaseExpression]) -> 'BaseQueryMixin':
         """Add LIMIT clause to restrict the number of rows returned.
 
         Args:
@@ -298,7 +298,7 @@ class BaseQueryMixin:
 
         return self
 
-    def offset(self, count: Union[int, BaseExpression]) -> 'IQuery':
+    def offset(self, count: Union[int, BaseExpression]) -> 'BaseQueryMixin':
         """Add OFFSET clause to skip a specified number of rows.
 
         Args:
@@ -321,7 +321,7 @@ class BaseQueryMixin:
 
 
     # region Aggregate Methods
-    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQuery':
+    def group_by(self, *columns: Union[str, BaseExpression]) -> 'BaseQueryMixin':
         """Add GROUP BY columns for complex aggregations.
 
         Args:
@@ -368,7 +368,7 @@ class BaseQueryMixin:
         return self
 
     @overload
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery':
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin':
         """Add HAVING condition using a SQL placeholder string for complex aggregations.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -391,7 +391,7 @@ class BaseQueryMixin:
         ...
 
     @overload
-    def having(self, condition: SQLPredicate, params: None = None) -> 'IQuery':
+    def having(self, condition: SQLPredicate, params: None = None) -> 'BaseQueryMixin':
         """Add HAVING condition using a predicate expression for complex aggregations.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -482,7 +482,7 @@ class BaseQueryMixin:
 
     # endregion
 
-    def explain(self, **kwargs) -> 'IQuery':
+    def explain(self, **kwargs) -> 'BaseQueryMixin':
         """Enable EXPLAIN for the subsequent query execution.
 
         This method configures the query to generate an execution plan when executed.
