@@ -11,6 +11,7 @@ from ..backend.base import StorageBackend
 from ..backend.expression import (
     statements,
     Literal,
+    WildcardExpression,
     TableExpression,
     query_sources,
     bases
@@ -41,6 +42,9 @@ class CTEQuery(
     - to_sql() method has different implementation logic compared to BaseQueryMixin, specifically handling WITH clause construction
     - Results are always dictionaries, no model instantiation occurs
 
+    When constructing queries that include wildcards (SELECT *), the system
+    automatically uses WildcardExpression instead of Literal("*") to avoid
+    treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
     # region Instance Attributes
@@ -98,16 +102,14 @@ class CTEQuery(
             # If params is None, use an empty tuple
             params = params if params is not None else ()
             query_expr = RawSQLExpression(dialect, sql_string, params)
-        elif isinstance(query, bases.BaseExpression):
-            # If query is a BaseExpression, use it directly
-            query_expr = query
         elif isinstance(query, IQuery):
-            # If query is an IQuery, wrap it in a Subquery
-            from ..backend.expression.core import Subquery
-            query_expr = Subquery(dialect, query)
+            # If query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
+            from ..backend.expression.operators import RawSQLExpression
+            sql, params = query.to_sql()
+            query_expr = RawSQLExpression(dialect, sql, params)
         else:
-            # Assume it's already a BaseExpression
-            query_expr = query
+            # For other types, raise an error as they are not supported
+            raise TypeError(f"Query type {type(query)} is not supported in CTE. Only str, SQLQueryAndParams, and IQuery are supported.")
 
         # Create a CTEExpression
         cte_expr = query_sources.CTEExpression(
@@ -168,7 +170,7 @@ class CTEQuery(
                 last_cte_name = self._ctes[-1].name
                 main_query_expr = statements.QueryExpression(
                     dialect,
-                    select=self.select_columns or [Literal(dialect, "*")],  # Use selected columns or default to SELECT *
+                    select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
                     from_=TableExpression(dialect, last_cte_name),  # Reference the last CTE
                     where=self.where_clause,
                     group_by_having=self.group_by_having_clause,
@@ -180,35 +182,25 @@ class CTEQuery(
         else:
             # Convert the main query to an appropriate expression
             if isinstance(self._main_query, str):
-                # If main_query is a string, we'll need to handle it differently
-                # For now, we'll create a RawSQLExpression wrapped in a QueryExpression
+                # If main_query is a string, treat it as a complete query (not just a SELECT clause)
+                # We'll wrap it in a RawSQLExpression to avoid double SELECT
                 from ..backend.expression.operators import RawSQLExpression
-                main_query_expr = statements.QueryExpression(
-                    dialect,
-                    select=[RawSQLExpression(dialect, self._main_query)],
-                    from_=TableExpression(dialect, "placeholder_main_query")
-                )
+                main_query_expr = RawSQLExpression(dialect, self._main_query)
             elif bases.is_sql_query_and_params(self._main_query):
                 # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
                 from ..backend.expression.operators import RawSQLExpression
                 sql_string, params = self._main_query
                 # If params is None, use an empty tuple
                 params = params if params is not None else ()
-                main_query_expr = statements.QueryExpression(
-                    dialect,
-                    select=[RawSQLExpression(dialect, sql_string, params)],
-                    from_=TableExpression(dialect, "placeholder_main_query")
-                )
-            elif isinstance(self._main_query, bases.BaseExpression):
-                # If main_query is a BaseExpression, use it directly
-                main_query_expr = self._main_query
+                main_query_expr = RawSQLExpression(dialect, sql_string, params)
             elif isinstance(self._main_query, IQuery):
-                # If main_query is an IQuery, wrap it in a Subquery
-                from ..backend.expression.core import Subquery
-                main_query_expr = Subquery(dialect, self._main_query)
+                # If main_query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
+                from ..backend.expression.operators import RawSQLExpression
+                sql, params = self._main_query.to_sql()
+                main_query_expr = RawSQLExpression(dialect, sql, params)
             else:
-                # For other types, assume it's already a BaseExpression
-                main_query_expr = self._main_query
+                # For other types, raise an error as they are not supported
+                raise TypeError(f"Main query type {type(self._main_query)} is not supported in CTE. Only str, SQLQueryAndParams, and IQuery are supported.")
 
         # Create WithQueryExpression with the CTEs and main query
         with_query_expr = query_sources.WithQueryExpression(
@@ -219,36 +211,40 @@ class CTEQuery(
         )
         return with_query_expr.to_sql()
 
-    def union(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
+    def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.
 
         Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
+            other: Another query object (IQuery)
 
         Returns:
             A new SetOperationQuery instance representing the UNION
         """
+        from .set_operation import SetOperationQuery
         return SetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
+    def intersect(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform an INTERSECT operation with another query.
 
         Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
+            other: Another query object (IQuery)
 
         Returns:
             A new SetOperationQuery instance representing the INTERSECT
         """
+        from .set_operation import SetOperationQuery
         return SetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
+    def except_(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform an EXCEPT operation with another query.
 
         Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
+            other: Another query object (IQuery)
 
         Returns:
             A new SetOperationQuery instance representing the EXCEPT
         """
+        from .set_operation import SetOperationQuery
         return SetOperationQuery(self, other, "EXCEPT")
+
     # endregion

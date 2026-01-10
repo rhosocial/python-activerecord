@@ -35,26 +35,29 @@ class SetOperationQuery(ISetOperationQuery):
         # Use SetOperationExpression to represent the set operation
         self._set_op_expr = SetOperationExpression(
             left_dialect,  # Use left's dialect as the main dialect
-            left=self._get_query_expression(left),
-            right=self._get_query_expression(right),
+            left=self._convert_to_base_expression(left),
+            right=self._convert_to_base_expression(right),
             operation=operation
         )
 
         # Call parent constructor with the left's backend since it's validated to be the same as right's
         super().__init__(left.backend)
 
-    def _get_query_expression(self, query: Union[ISetOperationQuery, IQuery]) -> BaseExpression:
-        """Convert a query object to a BaseExpression."""
-        # If the query is a SetOperationQuery, use its _set_op_expr
+    def _convert_to_base_expression(self, query: IQuery) -> bases.BaseExpression:
+        """Convert a query object to a BaseExpression suitable for expression system.
+
+        Since SetOperationExpression belongs to the expression system, it should only accept
+        BaseExpression objects, not high-level IQuery objects.
+        """
+        # If the query is a SetOperationQuery (which inherits from IQuery), get its underlying expression
         if isinstance(query, SetOperationQuery):
             return query._set_op_expr
-        # If the query implements IQuery (including ActiveQuery), we need to convert it to a BaseExpression
-        # This would typically involve creating a Subquery expression from the IQuery
+        # If the query implements IQuery (including ActiveQuery), convert it to a RawSQLExpression to avoid extra parentheses
         elif isinstance(query, IQuery):
-            # Import here to avoid circular imports
-            from ..backend.expression.core import Subquery
-            # Create a Subquery expression from the IQuery instance
-            return Subquery(query.backend.dialect, query)
+            from ..backend.expression.operators import RawSQLExpression
+            # Convert the IQuery to SQL first, then create a RawSQLExpression
+            sql, params = query.to_sql()
+            return RawSQLExpression(query.backend.dialect, sql, params)
         else:
             # Fallback: This case might indicate a design issue or missing functionality
             # in how different query types are handled
@@ -65,15 +68,15 @@ class SetOperationQuery(ISetOperationQuery):
         # Use the SetOperationExpression's to_sql method
         return self._set_op_expr.to_sql()
 
-    def union(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+    def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query."""
         return SetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+    def intersect(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform an INTERSECT operation with another query."""
         return SetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: Union[ISetOperationQuery, IQuery]) -> 'SetOperationQuery':
+    def except_(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform an EXCEPT operation with another query."""
         return SetOperationQuery(self, other, "EXCEPT")
 

@@ -130,7 +130,23 @@ class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
 
 
 class WildcardExpression(bases.SQLValueExpression):
-    """Represents a wildcard expression (SELECT *) in a SQL query."""
+    """Represents a wildcard expression (SELECT *) in a SQL query.
+
+    Important: When constructing queries that include wildcards (SELECT *),
+    use WildcardExpression instead of Literal("*") to avoid treating the
+    wildcard as a parameter value. Using Literal("*") will incorrectly
+    include the '*' character in the parameter tuple rather than as part
+    of the SQL query itself.
+
+    Examples:
+        # Correct usage:
+        select=[WildcardExpression(dialect)]
+        # Results in: SELECT * FROM ...
+
+        # Incorrect usage:
+        select=[Literal(dialect, "*")]
+        # Results in: SELECT ? FROM ... with params ('*',)
+    """
     def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None):
         super().__init__(dialect)
         self.table = table  # Optional table qualifier for SELECT table.*

@@ -12,6 +12,7 @@ from .relational import RelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.expression import (
     Literal,
+    WildcardExpression,
     TableExpression,
     statements,
     LimitOffsetClause,
@@ -27,6 +28,7 @@ class ActiveQuery(
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
+    IActiveQuery
 ):
     """ActiveQuery implementation for model-based queries.
 
@@ -43,6 +45,10 @@ class ActiveQuery(
     - Requires a model_class parameter in __init__ as ActiveQuery operates on specific model instances
     - Results are model instances by default
     - Supports relationship queries with model instantiation and association management
+
+    When constructing queries that include wildcards (SELECT *), the system
+    automatically uses WildcardExpression instead of Literal("*") to avoid
+    treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
     def __init__(self, model_class: Type[IActiveRecord]):
@@ -158,7 +164,7 @@ class ActiveQuery(
         # Use the temporary limit_offset instead of the original one
         query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [Literal(dialect, "*")],  # Default to SELECT *
+            select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
             from_=from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
@@ -188,38 +194,6 @@ class ActiveQuery(
 
         return record
 
-    def union(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
-        """Perform a UNION operation with another query.
-
-        Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
-
-        Returns:
-            A new SetOperationQuery instance representing the UNION
-        """
-        return SetOperationQuery(self, other, "UNION")
-
-    def intersect(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
-        """Perform an INTERSECT operation with another query.
-
-        Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
-
-        Returns:
-            A new SetOperationQuery instance representing the INTERSECT
-        """
-        return SetOperationQuery(self, other, "INTERSECT")
-
-    def except_(self, other: Union[ISetOperationQuery, 'IQuery']) -> 'SetOperationQuery':
-        """Perform an EXCEPT operation with another query.
-
-        Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
-
-        Returns:
-            A new SetOperationQuery instance representing the EXCEPT
-        """
-        return SetOperationQuery(self, other, "EXCEPT")
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
         """Generate the SQL query string and parameters for ActiveQuery.
@@ -239,7 +213,7 @@ class ActiveQuery(
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [Literal(dialect, "*")],  # Default to SELECT *
+            select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
             from_=from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
@@ -249,6 +223,42 @@ class ActiveQuery(
 
         # Generate SQL using the QueryExpression
         return query_expr.to_sql()
+
+    def union(self, other: 'IQuery') -> 'SetOperationQuery':
+        """Perform a UNION operation with another query.
+
+        Args:
+            other: Another query object (IQuery)
+
+        Returns:
+            A new SetOperationQuery instance representing the UNION
+        """
+        from .set_operation import SetOperationQuery
+        return SetOperationQuery(self, other, "UNION")
+
+    def intersect(self, other: 'IQuery') -> 'SetOperationQuery':
+        """Perform an INTERSECT operation with another query.
+
+        Args:
+            other: Another query object (IQuery)
+
+        Returns:
+            A new SetOperationQuery instance representing the INTERSECT
+        """
+        from .set_operation import SetOperationQuery
+        return SetOperationQuery(self, other, "INTERSECT")
+
+    def except_(self, other: 'IQuery') -> 'SetOperationQuery':
+        """Perform an EXCEPT operation with another query.
+
+        Args:
+            other: Another query object (IQuery)
+
+        Returns:
+            A new SetOperationQuery instance representing the EXCEPT
+        """
+        from .set_operation import SetOperationQuery
+        return SetOperationQuery(self, other, "EXCEPT")
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""
