@@ -53,11 +53,11 @@ class AggregateFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixin
             args_params = []
         else:
             args_sql = []
-            args_params = []
+            args_params = []  # This will be a list of tuples
             for arg in self.args:
-                arg_sql, arg_params = arg.to_sql()
-                args_sql.append(arg_sql)
-                args_params.extend(arg_params)
+                sql_part, params_part = arg.to_sql()
+                args_sql.append(sql_part)
+                args_params.append(params_part)
 
         # Handle filter predicate if present
         filter_sql, filter_params = None, None
