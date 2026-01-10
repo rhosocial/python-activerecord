@@ -2,7 +2,7 @@
 """ActiveQuery implementation."""
 
 import logging
-from typing import List, Optional, Type
+from typing import List, Optional, Type, Union
 
 from .aggregate import AggregateQueryMixin
 from .base import BaseQueryMixin
@@ -17,8 +17,7 @@ from ..backend.expression import (
     LimitOffsetClause,
     bases
 )
-from ..interface import IActiveQuery, ISetOperationQuery
-from ..interface.model import IActiveRecord
+from ..interface import ISetOperationQuery, IQuery, IActiveRecord
 
 
 class ActiveQuery(
@@ -27,8 +26,6 @@ class ActiveQuery(
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
-    IActiveQuery,
-    ISetOperationQuery,
 ):
     """ActiveQuery implementation for model-based queries.
 

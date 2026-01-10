@@ -17,10 +17,10 @@ from ..backend.expression import (
     OrderByClause,
     LimitOffsetClause
 )
-from ..interface import IQuery, IActiveQuery
+from ..interface import IQueryBuilding, IActiveQuery
 
 
-class BaseQueryMixin(IActiveQuery):
+class BaseQueryMixin(IQueryBuilding):
     """BaseQueryMixin implementation for basic query building operations.
 
     This class provides foundational query building capabilities for constructing SQL expressions.
