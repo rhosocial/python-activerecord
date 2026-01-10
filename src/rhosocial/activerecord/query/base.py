@@ -38,23 +38,12 @@ class BaseQueryMixin(IQueryBuilding):
     and AggregateQueryMixin.
     """
 
-    def __init__(self, backend: StorageBackend):
-        super().__init__(backend)
-        self.where_clause = None
-        self.order_by_clause = None
-        self.join_clauses = []
-        self.select_columns = None
-        self.limit_offset_clause = None
-        self.group_by_having_clause = None
-        self._adapt_params = True
-        self._explain_enabled = False
-        self._explain_options = {}
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using backend's logger."""
         # Log using backend's logger if available
-        if hasattr(self._backend, 'logger'):
-            self._backend.logger.log(level, msg, *args, **kwargs)
+        if hasattr(self.backend, 'logger'):
+            self.backend.logger.log(level, msg, *args, **kwargs)
         else:
             # Fallback logging
             import logging
@@ -134,7 +123,7 @@ class BaseQueryMixin(IQueryBuilding):
         See overloaded method signatures for parameter details.
         """
         # Get dialect from backend
-        dialect = self._backend.dialect
+        dialect = self.backend.dialect
 
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
@@ -239,7 +228,8 @@ class BaseQueryMixin(IQueryBuilding):
             User.query().order_by(functions.upper(User.c.name))
             User.query().order_by((functions.length(User.c.description), "DESC"))
         """
-        dialect = self._backend.dialect
+        # Get dialect from backend
+        dialect = self.backend.dialect
 
         # Convert clauses to the format expected by OrderByClause
         order_expressions = []
@@ -287,7 +277,8 @@ class BaseQueryMixin(IQueryBuilding):
         Returns:
             IQuery: Query instance for method chaining
         """
-        dialect = self._backend.dialect
+        # Get dialect from backend
+        dialect = self.backend.dialect
 
         # Create or update the LimitOffsetClause
         if self.limit_offset_clause:
@@ -307,7 +298,8 @@ class BaseQueryMixin(IQueryBuilding):
         Returns:
             IQuery: Query instance for method chaining
         """
-        dialect = self._backend.dialect
+        # Get dialect from backend
+        dialect = self.backend.dialect
 
         # Create or update the LimitOffsetClause
         if self.limit_offset_clause:
@@ -346,7 +338,8 @@ class BaseQueryMixin(IQueryBuilding):
             User.query().group_by('department')
             User.query().group_by('status', 'created_at')
         """
-        dialect = self._backend.dialect
+        # Get dialect from backend
+        dialect = self.backend.dialect
 
         # Convert string columns to Column objects
         group_expressions = []
@@ -433,7 +426,7 @@ class BaseQueryMixin(IQueryBuilding):
         See overloaded method signatures for parameter details.
         """
         # Get dialect from backend
-        dialect = self._backend.dialect
+        dialect = self.backend.dialect
 
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):

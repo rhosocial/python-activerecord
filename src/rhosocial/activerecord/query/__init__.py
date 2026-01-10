@@ -14,10 +14,11 @@ from .set_operation import SetOperationQuery
 __all__ = [
     'ActiveQuery',
     'CTEQuery',
+    'SetOperationQuery',
+    # Query Mixins
     'BaseQueryMixin',
     'AggregateQueryMixin',
     'JoinQueryMixin',
     'RangeQueryMixin',
     'RelationalQueryMixin',
-    'SetOperationQuery',
 ]

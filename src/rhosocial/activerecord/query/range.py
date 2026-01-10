@@ -5,10 +5,9 @@ from typing import List, Union, Tuple, Any
 
 from .base import BaseQueryMixin
 from ..backend.expression import Column, BaseExpression
-from ..interface import IQuery
 
 
-class RangeQueryMixin(BaseQueryMixin):
+class RangeQueryMixin:
     """RangeQueryMixin implementation for range-based operations.
 
     This mixin provides a set of convenience methods for common filtering operations.

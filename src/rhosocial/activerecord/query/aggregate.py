@@ -3,7 +3,6 @@
 import logging
 from typing import List, Union, Any, Optional, Dict
 
-from ..interface import IActiveQuery
 from ..backend.expression import (
     functions,
     statements,
@@ -13,7 +12,7 @@ from ..backend.expression import (
 )
 
 
-class AggregateQueryMixin(IActiveQuery):
+class AggregateQueryMixin:
     """Query mixin for aggregation operations that access the database.
 
     This mixin provides methods for SQL aggregations like COUNT, SUM, AVG, etc.

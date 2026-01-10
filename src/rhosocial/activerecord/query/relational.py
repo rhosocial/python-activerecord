@@ -41,12 +41,6 @@ class RelationalQueryMixin:
 
     """
 
-    def __init__(self, *args, **kwargs):
-        super().__init__(*args, **kwargs)
-        # region Instance Attributes
-        # Stores relation loading configurations by relation path
-        self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
-        # endregion
 
     def with_(self, *relations: Union[str, tuple]) -> 'IQuery[ModelT]':
         """Configure eager loading for model relationships.

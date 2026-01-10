@@ -48,7 +48,7 @@ class SetOperationQuery(ISetOperationQuery):
         # If the query is a SetOperationQuery, use its _set_op_expr
         if isinstance(query, SetOperationQuery):
             return query._set_op_expr
-        # If the query implements IQuery, we need to convert it to a BaseExpression
+        # If the query implements IQuery (including ActiveQuery), we need to convert it to a BaseExpression
         # This would typically involve creating a Subquery expression from the IQuery
         elif isinstance(query, IQuery):
             # Import here to avoid circular imports

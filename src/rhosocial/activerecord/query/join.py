@@ -19,26 +19,13 @@ class JoinQueryMixin:
     Always consult your specific database's documentation for full compatibility details.
     """
 
-    # The `_base_table_expression` always stores the initial TableExpression for the model.
     # The `join_clause` stores the constructed JoinExpression tree (or None if no joins).
-    _base_table_expression: TableExpression
     join_clause: Optional[JoinExpression]
 
-    def __init__(self, *args, **kwargs):
-        """
-        Initializes the JoinQueryMixin.
-
-        This assumes that the main query class it's mixed into provides
-        `self.model_class`.
-        """
-        super().__init__(*args, **kwargs)
-        dialect = self.model_class.backend().backend
-        self._base_table_expression = TableExpression(dialect, self.model_class.table_name(), alias=self.model_class.table_name())
-        self.join_clause = None # Explicitly None at start
 
     def _resolve_right_table(self, right: Union[str, Type[ModelT], TableExpression], alias: Optional[str]) -> Union[TableExpression, JoinExpression]:
         """Helper method to resolve the right-hand side of a join into a TableExpression."""
-        dialect = self.model_class.backend().backend
+        dialect = self.backend.dialect
         if isinstance(right, str):
             return TableExpression(dialect, right, alias=alias)
         # Check if it's a model class
@@ -57,7 +44,7 @@ class JoinQueryMixin:
         """Helper method to resolve the ON condition into a predicate."""
         if on is None:
             return None
-        dialect = self.model_class.backend().backend
+        dialect = self.backend.dialect
         if isinstance(on, str):
             return RawSQLPredicate(dialect, on)
         if isinstance(on, SQLPredicate):
@@ -66,15 +53,16 @@ class JoinQueryMixin:
 
     def _perform_join(self, join_type: str, right: Union[str, Type[ModelT], TableExpression], on: Optional[Union[str, SQLPredicate]], alias: Optional[str], natural: bool = False) -> 'IQuery[ModelT]':
         """Internal helper to construct and chain join expressions."""
-        dialect = self.model_class.backend().backend
+        dialect = self.backend.dialect
         right_table = self._resolve_right_table(right, alias)
         condition = self._resolve_on_condition(on)
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.
+            left_table = TableExpression(dialect, self.model_class.table_name(), alias=self.model_class.table_name())
             self.join_clause = JoinExpression(
                 dialect=dialect,
-                left_table=self._base_table_expression, # Use the stored base table
+                left_table=left_table, # Use the model's table as the left table
                 right_table=right_table,
                 join_type=join_type,
                 condition=condition,

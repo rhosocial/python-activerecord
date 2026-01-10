@@ -17,7 +17,8 @@ from ..backend.expression import (
     LimitOffsetClause,
     bases
 )
-from ..interface import ISetOperationQuery, IQuery, IActiveRecord
+from ..interface.query import ISetOperationQuery, IQuery, IActiveQuery, ThreadSafeDict
+from ..interface.model import IActiveRecord
 
 
 class ActiveQuery(
@@ -45,14 +46,34 @@ class ActiveQuery(
     """
 
     def __init__(self, model_class: Type[IActiveRecord]):
-        # Initialize BaseQueryMixin with backend
-        super().__init__(model_class.backend())
+        """Initialize ActiveQuery with a model class.
+
+        Args:
+            model_class: The model class that this query targets
+        """
         self.model_class = model_class
-        # self._backend is set by BaseQueryMixin.__init__
+
+        # Initialize attributes from BaseQueryMixin
+        self.where_clause = None
+        self.order_by_clause = None
+        self.join_clauses = []
+        self.select_columns = None
+        self.limit_offset_clause = None
+        self.group_by_having_clause = None
+        self._adapt_params = True
+        self._explain_enabled = False
+        self._explain_options = {}
+
+        # Initialize attributes from JoinQueryMixin
+        self.join_clause = None
+
+        # Initialize attributes from RelationalQueryMixin
+        self._eager_loads = ThreadSafeDict()
 
     @property
     def backend(self):
         """Get the backend for this query."""
+        # Always return the backend from the model class to avoid duplication
         return self.model_class.backend()
 
     def all(self) -> List[IActiveRecord]:
