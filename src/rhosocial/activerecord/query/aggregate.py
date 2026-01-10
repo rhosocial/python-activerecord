@@ -64,7 +64,7 @@ class AggregateQueryMixin:
         self.select_columns = [agg_expr]
 
         # Execute the query and return the scalar result
-        result = self.all()
+        result = self.aggregate()
 
         # Restore original select_columns
         self.select_columns = original_select_columns
@@ -233,31 +233,31 @@ class AggregateQueryMixin:
 
         Examples:
             1. With grouping (returns multiple rows)
-            result = User.query()\\
-                .group_by('department')\\
-                .select(functions.count(User.c.id).as_('total'))\\
+            result = User.query()\
+                .group_by('department')\
+                .select(functions.count(User.c.id).as_('total'))\
                 .aggregate()
 
             2. Scalar aggregate (returns a single row in a list)
-            result = User.query()\\
-                .select(functions.count(User.c.id).as_('total'))\\
+            result = User.query()\
+                .select(functions.count(User.c.id).as_('total'))\
                 .aggregate()
             total = result[0]['total'] if result else 0
 
             3. Multiple aggregations
-            result = User.query()\\
-                .group_by('status')\\
+            result = User.query()\
+                .group_by('status')\
                 .select(
                     functions.count(User.c.id).as_('count'),
                     functions.avg(User.c.age).as_('average_age')
-                )\\
+                )\
                 .aggregate()
 
             4. With explain enabled
-            plan = User.query()\\
-                .group_by('department')\\
-                .select(functions.count(User.c.id).as_('total'))\\
-                .explain()\\
+            plan = User.query()\
+                .group_by('department')\
+                .select(functions.count(User.c.id).as_('total'))\
+                .explain()\
                 .aggregate()
 
             5. Contrast with .all(): .aggregate() returns dictionaries instead of ActiveRecord instances
@@ -334,9 +334,9 @@ class AggregateQueryMixin:
                 print("User does not exist")
 
             2. Check with complex conditions
-            has_active_admins = User.query()\\
-                .where(User.c.role == 'admin')\\
-                .where(User.c.status == 'active')\\
+            has_active_admins = User.query()\
+                .where(User.c.role == 'admin')\
+                .where(User.c.status == 'active')\
                 .exists()
 
             3. Using raw SQL string with parameters (use with caution)
@@ -401,7 +401,7 @@ class AsyncAggregateQueryMixin:
         self.select_columns = [agg_expr]
 
         # Execute the query and return the scalar result
-        result = await self.all()
+        result = await self.aggregate()
 
         # Restore original select_columns
         self.select_columns = original_select_columns
@@ -570,31 +570,31 @@ class AsyncAggregateQueryMixin:
 
         Examples:
             1. With grouping (returns multiple rows)
-            result = await User.query()\\
-                .group_by('department')\\
-                .select(functions.count(User.c.id).as_('total'))\\
+            result = await User.query()\
+                .group_by('department')\
+                .select(functions.count(User.c.id).as_('total'))\
                 .aggregate()
 
             2. Scalar aggregate (returns a single row in a list)
-            result = await User.query()\\
-                .select(functions.count(User.c.id).as_('total'))\\
+            result = await User.query()\
+                .select(functions.count(User.c.id).as_('total'))\
                 .aggregate()
             total = result[0]['total'] if result else 0
 
             3. Multiple aggregations
-            result = await User.query()\\
-                .group_by('status')\\
+            result = await User.query()\
+                .group_by('status')\
                 .select(
                     functions.count(User.c.id).as_('count'),
                     functions.avg(User.c.age).as_('average_age')
-                )\\
+                )\
                 .aggregate()
 
             4. With explain enabled
-            plan = await User.query()\\
-                .group_by('department')\\
-                .select(functions.count(User.c.id).as_('total'))\\
-                .explain()\\
+            plan = await User.query()\
+                .group_by('department')\
+                .select(functions.count(User.c.id).as_('total'))\
+                .explain()\
                 .aggregate()
 
             5. Contrast with .all(): .aggregate() returns dictionaries instead of ActiveRecord instances
@@ -671,9 +671,9 @@ class AsyncAggregateQueryMixin:
                 print("User does not exist")
 
             2. Check with complex conditions
-            has_active_admins = await User.query()\\
-                .where(User.c.role == 'admin')\\
-                .where(User.c.status == 'active')\\
+            has_active_admins = await User.query()\
+                .where(User.c.role == 'admin')\
+                .where(User.c.status == 'active')\
                 .exists()
 
             3. Using raw SQL string with parameters (use with caution)

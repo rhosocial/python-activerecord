@@ -1,8 +1,9 @@
 # src/rhosocial/activerecord/query/cte_query.py
 """CTEQuery implementation."""
+import logging
+from typing import List, Union, Tuple, Optional, Dict, Any
 
-from typing import List, Union, Tuple, Optional
-
+from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
@@ -21,6 +22,7 @@ from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IQuery
 
 
 class CTEQuery(
+    AggregateQueryMixin,
     BaseQueryMixin,
     JoinQueryMixin,
     RangeQueryMixin,
@@ -65,6 +67,17 @@ class CTEQuery(
         self._main_query = None
         self._recursive = False
 
+        # Initialize attributes from BaseQueryMixin for CTE
+        self.where_clause = None
+        self.order_by_clause = None
+        self.join_clauses = []
+        self.select_columns = None
+        self.limit_offset_clause = None
+        self.group_by_having_clause = None
+        self._adapt_params = True
+        self._explain_enabled = False
+        self._explain_options = {}
+
     @property
     def backend(self):
         """Get the backend for this query."""
@@ -210,6 +223,20 @@ class CTEQuery(
             recursive=self._recursive
         )
         return with_query_expr.to_sql()
+
+    def aggregate(self) -> List[Dict[str, Any]]:
+        """
+        Execute aggregate query for CTE and return results as a list of dictionaries.
+        This overrides the `aggregate` method from `AggregateQueryMixin` to avoid
+        dependencies on `model_class`.
+        """
+        if self._explain_enabled:
+            raise NotImplementedError("explain() is not supported for aggregate queries on CTEQuery yet.")
+
+        sql, params = self.to_sql()
+        self._log(logging.INFO, f"Executing CTE aggregate query: {sql}, parameters: {params}")
+
+        return self.backend.fetch_all(sql, params)
 
     def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.
@@ -251,6 +278,7 @@ class CTEQuery(
 
 
 class AsyncCTEQuery(
+    AsyncAggregateQueryMixin,
     BaseQueryMixin,
     JoinQueryMixin,
     RangeQueryMixin,
@@ -289,6 +317,17 @@ class AsyncCTEQuery(
         self._ctes = []
         self._main_query = None
         self._recursive = False
+
+        # Initialize attributes from BaseQueryMixin for CTE
+        self.where_clause = None
+        self.order_by_clause = None
+        self.join_clauses = []
+        self.select_columns = None
+        self.limit_offset_clause = None
+        self.group_by_having_clause = None
+        self._adapt_params = True
+        self._explain_enabled = False
+        self._explain_options = {}
 
     @property
     def backend(self):
@@ -436,44 +475,19 @@ class AsyncCTEQuery(
         )
         return with_query_expr.to_sql()
 
-    async def all(self) -> List[dict]:
-        """Execute the query asynchronously and return all matching records as dictionaries.
-
-        This method executes the CTE query and returns a list of dictionaries
-        representing all matching records. The returned list will be empty if
-        no records match the query conditions.
-
-        Returns:
-            List[dict]: List of result dictionaries (empty if no matches)
+    async def aggregate(self) -> List[Dict[str, Any]]:
         """
-        # Get SQL and parameters
-        sql, params = self.to_sql()
-
-        # Log the execution
-        self._log(20, f"Executing async CTE query: {sql}, parameters: {params}")
-
-        # Execute the query using the backend's async method
-        rows = await self.backend.fetch_all_async(sql, params)
-
-        return rows
-
-    async def one(self) -> Optional[dict]:
-        """Execute the query asynchronously and return the first matching record as a dictionary.
-
-        This method executes the CTE query with a LIMIT 1 clause and returns either:
-        - A single dictionary if a matching record is found
-        - None if no matching records exist
-
-        Returns:
-            Optional[dict]: Single result dictionary or None
+        Execute aggregate query for async CTE and return results as a list of dictionaries.
+        This overrides the `aggregate` method from `AsyncAggregateQueryMixin` to avoid
+        dependencies on `model_class`.
         """
-        # Get SQL and parameters
+        if self._explain_enabled:
+            raise NotImplementedError("explain() is not supported for aggregate queries on CTEQuery yet.")
+
         sql, params = self.to_sql()
+        self._log(logging.INFO, f"Executing async CTE aggregate query: {sql}, parameters: {params}")
 
-        # Execute the query using the backend's async method
-        row = await self.backend.fetch_one_async(sql, params)
-
-        return row
+        return await self.backend.fetch_all_async(sql, params)
 
     def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.
