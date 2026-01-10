@@ -337,7 +337,7 @@ class SQLiteBackend(StorageBackend):
             self._apply_pragmas()
 
             self._connection.row_factory = sqlite3.Row
-            self._connection.text_factory = str
+
             self.log(logging.INFO, "Connected to SQLite database successfully")
         except sqlite3.Error as e:
             self.log(logging.ERROR, f"Failed to connect to SQLite database: {str(e)}")
@@ -509,12 +509,8 @@ class SQLiteBackend(StorageBackend):
         Returns:
             sqlite3.Cursor: SQLite cursor with row factory
         """
-        if self._cursor:
-            return self._cursor
-
-        # Create cursor with SQLite Row factory for dict-like access
-        cursor = self._connection.cursor()
-        return cursor
+        # Always create a new cursor to avoid state-related issues.
+        return self._connection.cursor()
 
     def _handle_auto_commit_if_needed(self) -> None:
         """

@@ -51,11 +51,11 @@ def skip_if_unsupported():
     try:
         # Test ROW_NUMBER window function
         query = Order.query().select("id", "total_amount", "status")
-                    query.window(
-                        expr=FunctionCall(dialect, "ROW_NUMBER"),
-                        order_by=["total_amount DESC"],
-                        alias="row_num"
-                    )
+        query.window(
+            expr=FunctionCall(dialect, "ROW_NUMBER"),
+            order_by=["total_amount DESC"],
+            alias="row_num"
+        )
         # Get execution plan (query plan)
         plan = query.explain(type=ExplainType.QUERYPLAN).all()
 

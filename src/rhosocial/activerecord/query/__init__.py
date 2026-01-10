@@ -8,7 +8,7 @@ from .base import BaseQueryMixin
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
-from .relational import RelationalQueryMixin
+from .relational import RelationalQueryMixin, InvalidRelationPathError, RelationNotFoundError
 from .set_operation import SetOperationQuery
 
 __all__ = [
@@ -24,4 +24,6 @@ __all__ = [
     'JoinQueryMixin',
     'RangeQueryMixin',
     'RelationalQueryMixin',
+    'InvalidRelationPathError',
+    'RelationNotFoundError',
 ]

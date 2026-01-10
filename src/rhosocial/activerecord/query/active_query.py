@@ -8,7 +8,7 @@ from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
-from .relational import RelationalQueryMixin
+from .relational import RelationalQueryMixin, InvalidRelationPathError, RelationNotFoundError, RelationConfig, InvalidRelationPathError, RelationNotFoundError, RelationConfig, InvalidRelationPathError, RelationNotFoundError, RelationConfig
 from .set_operation import SetOperationQuery
 from ..backend.expression import (
     WildcardExpression,
@@ -213,7 +213,7 @@ class ActiveQuery(
         query_expr = statements.QueryExpression(
             dialect,
             select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
-            from_=from_clause,
+            from_=self.join_clause if self.join_clause else from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
@@ -361,7 +361,7 @@ class AsyncActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
-        rows = await self.backend.fetch_all_async(sql, params, column_adapters=column_adapters)
+        rows = await self.backend.fetch_all(sql, params, column_adapters=column_adapters)
 
         # Convert database column names back to Python field names before creating model instances
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
@@ -428,7 +428,7 @@ class AsyncActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch a single record, passing the column adapters to the backend.
-        row = await self.backend.fetch_one_async(sql, params, column_adapters=column_adapters)
+        row = await self.backend.fetch_one(sql, params, column_adapters=column_adapters)
 
         if not row:
             return None
@@ -458,7 +458,7 @@ class AsyncActiveQuery(
         query_expr = statements.QueryExpression(
             dialect,
             select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
-            from_=from_clause,
+            from_=self.join_clause if self.join_clause else from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,

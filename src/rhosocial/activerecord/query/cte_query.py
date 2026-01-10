@@ -500,12 +500,12 @@ class AsyncCTEQuery(
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(logging.INFO, f"Executing EXPLAIN async CTE aggregate query: {explain_sql}, parameters: {explain_params}")
-            return await self.backend.execute_query_async(explain_sql, explain_params)
+            return await self.backend.execute_query(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing async CTE aggregate query: {sql}, parameters: {params}")
 
-        return await self.backend.fetch_all_async(sql, params)
+        return await self.backend.fetch_all(sql, params)
 
     def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.
