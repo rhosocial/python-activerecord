@@ -231,7 +231,16 @@ class CTEQuery(
         dependencies on `model_class`.
         """
         if self._explain_enabled:
-            raise NotImplementedError("explain() is not supported for aggregate queries on CTEQuery yet.")
+            dialect = self.backend.dialect
+            from ..backend.expression.operators import RawSQLExpression
+            query_expr = RawSQLExpression(dialect, *self.to_sql())
+
+            explain_options = statements.ExplainOptions(**self._explain_options)
+            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+
+            explain_sql, explain_params = explain_expr.to_sql()
+            self._log(logging.INFO, f"Executing EXPLAIN CTE aggregate query: {explain_sql}, parameters: {explain_params}")
+            return self.backend.execute_query(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing CTE aggregate query: {sql}, parameters: {params}")
@@ -482,7 +491,16 @@ class AsyncCTEQuery(
         dependencies on `model_class`.
         """
         if self._explain_enabled:
-            raise NotImplementedError("explain() is not supported for aggregate queries on CTEQuery yet.")
+            dialect = self.backend.dialect
+            from ..backend.expression.operators import RawSQLExpression
+            query_expr = RawSQLExpression(dialect, *self.to_sql())
+
+            explain_options = statements.ExplainOptions(**self._explain_options)
+            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+
+            explain_sql, explain_params = explain_expr.to_sql()
+            self._log(logging.INFO, f"Executing EXPLAIN async CTE aggregate query: {explain_sql}, parameters: {explain_params}")
+            return await self.backend.execute_query_async(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing async CTE aggregate query: {sql}, parameters: {params}")
