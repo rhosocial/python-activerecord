@@ -337,10 +337,46 @@ class IActiveQuery(IQuery, IQueryBuilding):
         pass
 
 
+class IAsyncActiveQuery(IQuery, IQueryBuilding):
+    """Interface for asynchronous model-based queries that return ActiveRecord instances.
+
+    This interface extends the general IQuery interface with model-specific
+    functionality, including the model_class attribute and async methods that
+    return model instances instead of raw dictionaries.
+    """
+
+    model_class: Type['IActiveRecord']
+
+    @abstractmethod
+    async def all(self) -> List['IActiveRecord']:
+        """Execute query asynchronously and return all matching records as model instances.
+
+        Returns:
+            List[IActiveRecord]: List of model instances (empty if no matches)
+        """
+        pass
+
+    @abstractmethod
+    async def one(self) -> Optional['IActiveRecord']:
+        """Execute query asynchronously and return the first matching record as a model instance.
+
+        Returns:
+            Optional[IActiveRecord]: Single model instance or None
+        """
+        pass
+
+
 class ICTEQuery(IQuery, IQueryBuilding):
     """Interface for Common Table Expression queries.
 
     CTE queries return raw data as dictionaries, not model instances.
+    """
+
+
+class IAsyncCTEQuery(IQuery, IQueryBuilding):
+    """Interface for asynchronous Common Table Expression queries.
+
+    Async CTE queries return raw data as dictionaries, not model instances.
     """
 
 

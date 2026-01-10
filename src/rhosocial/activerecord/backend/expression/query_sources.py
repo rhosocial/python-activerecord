@@ -238,10 +238,6 @@ class CTEExpression(bases.BaseExpression):
             params_input = self.query[1]
             # Ensure the parameters are in tuple format
             query_params = tuple(params_input) if isinstance(params_input, list) else params_input
-        elif hasattr(self.query, 'to_sql'):
-            # When query is an IQuery object that implements to_sql() method,
-            # call its to_sql() method to get SQL and parameters
-            query_sql, query_params = self.query.to_sql()
         else:
             # When query is a raw string or other type that can be converted to string,
             # convert to string and no parameters are associated
