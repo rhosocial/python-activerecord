@@ -75,14 +75,16 @@ class BasicProvider(IBasicProvider):
         
         # 3. Prepare the database schema. To ensure tests are isolated, we drop
         #    the table if it exists and recreate it from the schema file.
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
         try:
-            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}")
+            model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL))
         except Exception:
             # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
-            
+
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-        model_class.__backend__.execute(schema_sql)
+        model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
         
         return model_class
 

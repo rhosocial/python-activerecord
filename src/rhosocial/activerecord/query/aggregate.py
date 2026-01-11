@@ -352,7 +352,7 @@ class AggregateQueryMixin:
             self._log(logging.INFO, f"Executing EXPLAIN aggregate query: {explain_sql}")
 
             # Execute the EXPLAIN query using the backend
-            result = backend.execute_query(explain_sql, explain_params)
+            result = backend.fetch_all(explain_sql, explain_params)
 
             return result
 

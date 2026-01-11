@@ -239,7 +239,7 @@ class CTEQuery(
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(logging.INFO, f"Executing EXPLAIN CTE aggregate query: {explain_sql}, parameters: {explain_params}")
-            return self.backend().execute_query(explain_sql, explain_params)
+            return self.backend().fetch_all(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing CTE aggregate query: {sql}, parameters: {params}")
@@ -498,7 +498,7 @@ class AsyncCTEQuery(
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(logging.INFO, f"Executing EXPLAIN async CTE aggregate query: {explain_sql}, parameters: {explain_params}")
-            return await self.backend().execute_query(explain_sql, explain_params)
+            return await self.backend().fetch_all(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing async CTE aggregate query: {sql}, parameters: {params}")
