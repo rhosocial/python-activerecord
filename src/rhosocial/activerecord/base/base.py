@@ -28,29 +28,89 @@ class CustomModuleFormatter(logging.Formatter):
         return super().format(record)
 
 class BaseActiveRecord(IActiveRecord):
-    """Core ActiveRecord implementation with basic CRUD operations.
+    """
+    Core ActiveRecord implementation providing the fundamental ORM functionality.
 
-    Provides:
-    - Database configuration and connection management
-    - Record creation and persistence
-    - Change tracking
-    - Event handling
-    - Transaction support
-    - Basic query operations
+    The BaseActiveRecord class implements the ActiveRecord pattern, where each instance
+    represents a row in the database table. The class provides a comprehensive set of
+    features for database interaction including CRUD operations, relationship management,
+    and event handling.
+
+    Key Features:
+    - Declarative model definition using type hints and Pydantic
+    - Automatic schema mapping from model fields
+    - Transparent database persistence
+    - Dirty tracking for efficient updates
+    - Comprehensive event system for lifecycle hooks
+    - Flexible query interface
+    - Relationship support (BelongsTo, HasOne, HasMany)
+    - Transaction management
+    - Type-safe database operations
+
+    The class follows the Single Table Inheritance pattern where each model class
+    corresponds to a single database table, and instances correspond to rows in that table.
+
+    Usage:
+    ```python
+    class User(BaseActiveRecord):
+        __table_name__ = "users"
+
+        id: Optional[int] = Field(default=None, primary_key=True)
+        username: str
+        email: str
+        created_at: Optional[datetime] = None
+
+    # Create new record
+    user = User(username="john", email="john@example.com")
+    user.save()
+
+    # Query records
+    users = User.where(User.c.username.like("%joh%")).all()
+
+    # Update record
+    user.email = "newemail@example.com"
+    user.save()
+
+    # Delete record
+    user.delete()
+    ```
     """
 
     @classmethod
     def configure(cls, config: ConnectionConfig, backend_class: Type[StorageBackend]) -> None:
-        """Configure storage backend for the model class.
+        """
+        Configure the storage backend for this model class.
+
+        This method sets up the database connection and storage backend for the model class.
+        It should be called before performing any database operations with the model.
+        The configuration is class-specific, meaning different model classes can use
+        different database connections or backend implementations.
 
         Args:
-            config: Database connection settings
-            backend_class: Storage backend implementation class
+            config: Connection configuration containing database settings like host,
+                   port, database name, credentials, etc. The specific configuration
+                   options depend on the backend implementation.
+            backend_class: The StorageBackend subclass to use for database operations.
+                          This allows plugging in different database implementations
+                          (SQLite, PostgreSQL, MySQL, etc.) or special-purpose backends
+                          (testing backends, caching backends, etc.).
 
         Note:
-            This method initializes the backend with full connection configuration
-            and logger instance from the model class.
+            This method affects only the current model class and its instances.
+            Subclasses will inherit the configuration unless explicitly overridden.
+            The configuration should typically be done during application initialization
+            or before the first database operation.
+
+        Example:
+            ```python
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+
+            config = SQLiteConnectionConfig(database="myapp.db")
+            User.configure(config, SQLiteBackend)
+            ```
         """
+
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -616,11 +676,44 @@ class BaseActiveRecord(IActiveRecord):
         return record
 
     def save(self) -> int:
-        """Save or update record.
+        """
+        Save the current instance to the database, either inserting or updating.
+
+        This method implements the core persistence functionality for ActiveRecord.
+        If the instance is new (doesn't exist in the database), it performs an INSERT
+        operation. If the instance already exists, it performs an UPDATE operation
+        with only the changed fields.
+
+        The method handles the complete save lifecycle:
+        1. Prepares the data to be saved (applies type conversions, validations)
+        2. Determines whether to insert or update based on primary key presence
+        3. Executes the appropriate database operation
+        4. Updates internal state (marks as no longer dirty)
+        5. Triggers appropriate events (before_save, after_save, etc.)
+
+        The method implements dirty tracking to optimize updates by only sending
+        changed fields to the database, improving performance and reducing conflicts.
 
         Returns:
-            int: Number of affected rows. For insert operations, returns 1;
-                 for update operations, returns actual number of updated rows
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+
+        Raises:
+            DatabaseError: If no backend is configured or if the save operation fails
+            ValidationError: If the model fails validation before saving
+
+        Example:
+            ```python
+            # Create new record
+            user = User(username="john", email="john@example.com")
+            user.save()  # Performs INSERT
+
+            # Update existing record
+            user.email = "newemail@example.com"
+            user.save()  # Performs UPDATE with only the changed field
+            ```
         """
         if not self.backend():
             raise DatabaseError("No backend configured")
@@ -886,17 +979,47 @@ class BaseActiveRecord(IActiveRecord):
 
     @classmethod
     def backend(cls) -> StorageBackend:
-        """Get storage backend instance.
+        """
+        Get the storage backend instance for this model class.
 
-        Returns the class's __backend__ attribute by default. Subclasses can override
-        for dynamic backends.
+        This method provides access to the configured storage backend for the model class.
+        It implements a lazy loading pattern where the backend is initialized on first
+        access if it hasn't been explicitly configured.
 
-        If no backend is explicitly configured, a DummyBackend instance is returned.
-        The DummyBackend allows SQL generation but raises NotImplementedError for
-        any database operations.
+        The method follows this resolution order:
+        1. Returns the cached __backend__ instance if already initialized
+        2. Attempts to create a backend instance if configuration exists but backend isn't initialized
+        3. Falls back to a DummyBackend if no configuration exists
+
+        The DummyBackend is a special backend implementation that allows SQL generation
+        and query building without requiring an active database connection. It's useful
+        for testing, schema introspection, and static analysis.
+
+        Args:
+            cls: The model class requesting the backend (implicit from @classmethod)
+
+        Returns:
+            StorageBackend: The configured backend instance for this model class.
+                           Could be a real backend (SQLite, PostgreSQL, etc.) or
+                           a DummyBackend if no configuration exists.
+
+        Note:
+            This method is thread-safe and implements lazy initialization. Subclasses
+            can override this method to implement dynamic backend selection based
+            on runtime conditions (e.g., sharding, read replicas, etc.).
 
         Raises:
-            DatabaseError: if backend class or connection config is invalid during configuration.
+            DatabaseError: If there are issues initializing the backend due to
+                          invalid configuration or connection problems.
+
+        Example:
+            ```python
+            # Get the backend for a model class
+            backend = User.backend()
+
+            # Use backend directly for low-level operations
+            result = backend.execute("SELECT * FROM users WHERE id = ?", (1,))
+            ```
         """
         if cls.__backend__:
             return cls.__backend__

@@ -26,14 +26,38 @@ class RelationConfig:
 
 
 class RelationalQueryMixin(IQuery):
-    """Query methods for eager loading model relationships.
+    """
+    Query mixin providing eager loading capabilities for model relationships.
 
-    This mixin adds the ability to eagerly load model relationships during queries.
-    It maintains the configuration for which relations should be loaded and how
-    they should be loaded.
+    This mixin implements a comprehensive eager loading system that allows loading
+    related model data alongside the primary query results. It solves the N+1 query
+    problem by batching related data loading efficiently.
 
-    Note: This mixin is designed to work with IActiveQuery implementations that
-    handle model instances.
+    Key Features:
+    - Support for simple relation loading (e.g., 'posts')
+    - Support for nested relation loading (e.g., 'posts.comments')
+    - Support for query modifiers to customize loading behavior
+    - Path validation to ensure relations exist and are accessible
+    - Efficient batch loading to minimize database queries
+    - Proper ordering of nested relation loading
+
+    The mixin works by:
+    1. Storing relation loading configurations when with_() is called
+    2. Validating relation paths to ensure they exist
+    3. Loading related data after the primary query execution
+    4. Maintaining proper ordering of nested relations during loading
+
+    Usage:
+    ```python
+    # Simple eager loading
+    users = User.query().with_('posts').all()
+
+    # Nested eager loading
+    users = User.query().with_('posts.comments').all()
+
+    # With query modifier
+    users = User.query().with_(('posts', lambda q: q.where(Post.c.status == 'published'))).all()
+    ```
     """
 
     def __init__(self, *args, **kwargs):
@@ -42,31 +66,56 @@ class RelationalQueryMixin(IQuery):
         self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
 
     def with_(self, *relations: Union[str, tuple]) -> 'IQuery':
-        """Configure eager loading for model relationships.
+        """
+        Configure eager loading for model relationships to prevent N+1 queries.
 
-        This method allows specifying which relations should be loaded along with
-        the main query results, optimizing database queries by reducing N+1 problems.
+        This method enables efficient loading of related data by batching the related
+        queries together with the primary query. It accepts both simple relation names
+        and complex configurations with query modifiers.
 
-        The method supports:
-        1. Simple relation loading: Load a direct relation
-        2. Nested relation loading: Load relations of relations using dot notation
-        3. Query modification: Customize how relations are loaded using modifier functions
-        4. Multiple relation loading: Load several relations at once
-        5. Chainable calls: Build relation loading incrementally
+        The method performs full validation of relation paths before applying them,
+        ensuring all specified relations exist and are accessible from the appropriate
+        models in the path chain.
 
         Args:
-            *relations: Variable length argument that accepts either:
-                - strings: Relation paths using dot notation for nesting (e.g., "user", "user.posts")
-                - tuples: Pairs of (relation_path, query_modifier) where query_modifier is a callable
-                  that customizes the relation query
+            *relations: Variable-length argument accepting:
+                - str: Simple relation path (e.g., 'posts', 'posts.comments')
+                - tuple: Relation path with query modifier (e.g., ('posts', modifier_func))
+
+                The relation path supports dot notation for nested relations:
+                - 'posts' - Load posts for each user
+                - 'posts.comments' - Load posts and their comments for each user
+                - 'posts.author.profile' - Load nested relations three levels deep
+
+                Query modifiers are callable functions that accept and return a query object,
+                allowing customization of how related data is loaded:
+                - Filtering: Only load published posts
+                - Ordering: Order comments by creation date
+                - Selective fields: Only load specific columns
 
         Returns:
-            IQuery: The current query instance with updated eager loading configuration
+            IQuery: Returns self to enable method chaining
 
         Raises:
-            InvalidRelationPathError: If an invalid relation path format is provided
-                (e.g., empty string, leading/trailing dots, consecutive dots)
-            RelationNotFoundError: If a relation specified in the path does not exist on the model
+            InvalidRelationPathError: If the relation path format is invalid (empty, leading/
+                                    trailing dots, consecutive dots)
+            RelationNotFoundError: If any relation in the path doesn't exist on its respective model
+
+        Example:
+            # Simple eager loading
+            users = User.query().with_('posts').all()
+
+            # Multiple relations
+            users = User.query().with_('posts', 'profile').all()
+
+            # Nested relations
+            users = User.query().with_('posts.comments').all()
+
+            # With query modifier
+            users = User.query().with_(('posts', lambda q: q.where(Post.c.status == 'published'))).all()
+
+            # Complex scenario
+            users = User.query().with_('posts', ('posts.comments', lambda q: q.order_by(Comment.c.created_at.desc()))).all()
         """
         # First validate all paths to ensure transactional behavior
         validated_relations = []
@@ -97,18 +146,22 @@ class RelationalQueryMixin(IQuery):
         return self
 
     def _validate_relation_path(self, relation_path: str) -> None:
-        """Validate a relation path format.
+        """
+        Validates the format of a relation path to ensure it follows the expected syntax.
 
-        Checks for common issues in relation path format:
-        - Empty string
-        - Leading/trailing dots
-        - Consecutive dots
+        This method performs syntactic validation of relation paths before they're
+        processed further. It checks for common formatting errors that would lead
+        to runtime issues.
 
         Args:
-            relation_path: The relation path to validate
+            relation_path: The relation path string to validate (e.g., 'posts', 'posts.comments')
 
         Raises:
-            InvalidRelationPathError: If the path format is invalid
+            InvalidRelationPathError: If the path format is invalid, including:
+                - Empty string: ""
+                - Leading dots: ".posts"
+                - Trailing dots: "posts."
+                - Consecutive dots: "posts..comments"
         """
         if not relation_path:
             raise InvalidRelationPathError("Relation path cannot be empty")
@@ -142,18 +195,24 @@ class RelationalQueryMixin(IQuery):
             raise RelationNotFoundError(f"Relation '{relation_name}' not found on {model_class.__name__}")
 
     def _validate_complete_relation_path(self, relation_path: str) -> None:
-        """Validate that all relations in a complete path exist on appropriate models.
+        """
+        Validates that all relations in a complete path exist on their respective models.
 
-        This method traverses the entire relation path, validating each part
-        on the correct model class. It handles circular references by properly
-        tracking the model class at each step in the chain.
+        This method performs semantic validation of the relation path by checking that
+        each relation in the path exists on the appropriate model class. It traverses
+        the path step by step, following the relationships from one model to the next.
+
+        For example, with path 'posts.comments':
+        1. Checks that 'posts' relation exists on the query's model class
+        2. Gets the related model for 'posts' (e.g., Post)
+        3. Checks that 'comments' relation exists on the Post model
 
         Args:
-            relation_path: The full relation path to validate
+            relation_path: The full relation path to validate (e.g., 'posts.comments')
 
         Raises:
-            RelationNotFoundError: If any relation in the path does not exist
-            on its respective model
+            RelationNotFoundError: If any relation in the path does not exist on its
+                                 respective model class
         """
         parts = relation_path.split('.')
         current_model_class = self.model_class
@@ -231,19 +290,27 @@ class RelationalQueryMixin(IQuery):
         )
 
     def _process_relation_path(self, relation_path: str, query_modifier: Optional[Callable] = None) -> None:
-        """Process a relation path and add relation configurations.
+        """
+        Process a relation path and create appropriate configurations for loading.
 
-        This method handles the traversal of a relation path, generating configurations
-        for each part of the path. It ensures proper nesting and handles both direct
-        and nested relations, including circular references.
+        This method breaks down a relation path (like 'user.posts.comments') into its
+        components and creates configuration entries for each level of the path.
+        It handles both simple and nested relations, ensuring that the query modifier
+        is applied only to the target relation (the last one in the path).
+
+        The method creates a configuration for each segment of the path:
+        - For 'user.posts.comments', it creates configs for 'user', 'user.posts', and 'user.posts.comments'
+        - Each configuration tracks what nested relations need to be loaded
+        - The query modifier is only applied to the final relation ('user.posts.comments')
 
         Args:
-            relation_path: The full relation path (e.g., "user.posts.comments")
-            query_modifier: Optional query modifier function to apply to the target relation
+            relation_path: The full relation path to process (e.g., 'posts.comments')
+            query_modifier: Optional function to customize the query for the target relation
+                           (applied only to the deepest level of the relation path)
 
         Raises:
-            InvalidRelationPathError: If the path format is invalid
-            RelationNotFoundError: If any relation in the path does not exist
+            InvalidRelationPathError: If the relation path format is invalid
+            RelationNotFoundError: If any relation in the path does not exist on its respective model
         """
         # Validate the path format first
         self._validate_relation_path(relation_path)
@@ -281,13 +348,28 @@ class RelationalQueryMixin(IQuery):
                 self._add_relation_config(full_path, next_level, current_modifier)
 
     def _load_relations(self, records: List) -> None:
-        """Main entry point for loading relations for a set of records.
+        """
+        Main entry point for loading all configured relations for a set of records.
 
-        Orchestrates the loading of all configured relations, ensuring they are
-        loaded in the correct order (by nesting depth).
+        This method orchestrates the eager loading process by coordinating the loading
+        of all relations that were configured through the with_() method. It ensures
+        that relations are loaded in the correct order based on their nesting depth
+        to satisfy dependencies (e.g., load posts before loading posts.comments).
+
+        The method implements an efficient loading strategy:
+        1. Sorts relations by nesting depth to load parent relations before child relations
+        2. Processes each relation configuration using the appropriate loading method
+        3. Handles errors gracefully, continuing to load other relations even if one fails
+        4. Uses batch loading to minimize the number of database queries
 
         Args:
-            records: List of model instances to load relations for
+            records: List of model instances for which to load the configured relations.
+                     These are the primary records returned by the main query that need
+                     their related data to be loaded.
+
+        Note:
+            This method is typically called after the primary query execution to load
+            all configured relations in an optimized manner, preventing N+1 query problems.
         """
         if not records or not self._eager_loads:
             return
@@ -307,16 +389,22 @@ class RelationalQueryMixin(IQuery):
                 self._log(logging.ERROR, f"Error loading relation {relation_name}: {e}")
 
     def _get_relation(self, relation_name: str, model_class: Type = None) -> Optional[Any]:
-        """Get relation descriptor by name.
+        """
+        Get a relation descriptor by its name from the specified model class.
 
-        Gets the direct relation descriptor for a base relation name.
+        This method retrieves the RelationDescriptor object for a given relation name
+        from the specified model class. The RelationDescriptor contains all the information
+        needed to load the related data (foreign keys, related model type, etc.).
 
         Args:
-            relation_name: Base relation name
-            model_class: Model class to get relation from (defaults to query model)
+            relation_name: The name of the relation to retrieve (e.g., 'posts', 'author')
+                          This should be the base name, not a nested path.
+            model_class: The model class from which to retrieve the relation.
+                        If not provided, defaults to the query's model class.
 
         Returns:
-            Relation descriptor or None if not found
+            RelationDescriptor object if found, None otherwise.
+            The RelationDescriptor can be used to load related data efficiently.
         """
         if model_class is None:
             model_class = self.model_class
@@ -327,16 +415,28 @@ class RelationalQueryMixin(IQuery):
         return model_class.get_relation(relation_name)
 
     def _create_base_query(self, related_model: Type, config: RelationConfig) -> Optional['IQuery']:
-        """Create and configure base query for related records.
+        """
+        Create and configure a base query for loading related records.
 
-        Creates a query for the related model and applies any configured modifiers.
+        This method creates an initial query for the related model and applies any
+        configured query modifiers. The base query serves as the starting point
+        for loading related data and can be customized with filters, ordering,
+        or other query modifications.
 
         Args:
-            related_model: Model class for the related records
-            config: Configuration containing optional query modifier
+            related_model: The model class for which to create the base query.
+                          This is the class of the related records to be loaded.
+            config: Configuration object that may contain a query modifier function
+                   to customize the base query before execution.
 
         Returns:
-            Configured query instance or None if creation fails
+            An IQuery instance that is ready to load related records, or None if
+            the related model doesn't support query creation.
+
+        Note:
+            If a query modifier is configured, it will be applied to the base query
+            to customize how the related data is loaded (e.g., adding WHERE clauses,
+            ordering, etc.).
         """
         if not hasattr(related_model, 'query'):
             return None
@@ -361,12 +461,29 @@ class RelationalQueryMixin(IQuery):
 
     def _configure_query_for_nested_relations(self, query: 'IQuery', relation_name: str,
                                               config: RelationConfig) -> None:
-        """Configure a query to load nested relations.
+        """
+        Configure a query to load nested relations based on the configuration.
+
+        This method checks if there are nested relations configured for the current
+        relation and adds them to the provided query. It's used during the eager
+        loading process to ensure that nested relations are properly configured
+        for loading.
+
+        The method iterates through any nested relations specified in the configuration
+        and adds them to the query using the with_() method. This allows for complex
+        nested eager loading scenarios like 'posts.comments.author'.
 
         Args:
-            query: Base query to configure
-            relation_name: Current relation path
-            config: Relation configuration
+            query: The base query to configure with nested relations.
+                  This query will be modified to include nested relation loading.
+            relation_name: The current relation path (e.g., 'posts.comments').
+                          Used to look up nested relations in the configuration.
+            config: Configuration object containing information about nested relations
+                   that should be loaded for the current relation.
+
+        Note:
+            This method only processes nested relations if the relation name contains
+            dots (indicating it's a nested relation path).
         """
         # Only needed for nested relations
         if '.' not in relation_name:
@@ -392,18 +509,33 @@ class RelationalQueryMixin(IQuery):
                     query = query.with_(nested_rel)
 
     def _load_single_relation(self, records: List, relation_name: str, config: RelationConfig) -> None:
-        """Load a single relation for all records.
+        """
+        Load a single relation for all records in an optimized manner.
 
-        Handles the complete process of loading one relation, including:
-        - Setting up cache
-        - Getting relation metadata
-        - Loading related records
-        - Processing nested relations
+        This method handles the complete process of loading one specific relation for
+        all the provided records. It coordinates with the relation descriptor to perform
+        efficient batch loading and handles nested relations if they are configured.
+
+        The method performs several key operations:
+        1. Identifies the base relation name from the full path
+        2. Retrieves the relation descriptor from the model class
+        3. Gets the related model class for the relation
+        4. Creates and configures a base query for loading related data
+        5. Applies any configured query modifiers to customize the loading
+        6. Delegates to the relation descriptor's batch_load method for efficient loading
+        7. Processes any nested relations that should be loaded for the related records
 
         Args:
-            records: List of parent records to load relation for
-            relation_name: Name/path of the relation to load
-            config: Configuration for the relation loading
+            records: List of parent records for which to load the relation data.
+                     These are the records that have the relationship (e.g., users).
+            relation_name: Full relation path to load (e.g., 'posts', 'posts.comments').
+                          This could be a simple relation or a nested path.
+            config: Configuration object containing nested relations and query modifiers
+                   that affect how the relation should be loaded.
+
+        Note:
+            This method is part of the batch loading process and is designed to load
+            the same relation for multiple records in a single efficient database query.
         """
         # Extract base relation name (e.g., "user" from "user.posts.comments")
         parts = relation_name.split('.')
@@ -455,17 +587,34 @@ class RelationalQueryMixin(IQuery):
             config: RelationConfig,
             related_model: Type
     ) -> None:
-        """Process nested relations if any exist.
+        """
+        Process nested relations by recursively loading additional related data.
 
-        Handles the loading of nested relations by:
-        1. Collecting all loaded related records
-        2. Creating a new query for the nested relations
-        3. Recursively loading the nested relations
+        This method handles the loading of nested relations (relations of relations)
+        after the primary relation has been loaded. It implements a recursive loading
+        pattern to handle arbitrarily deep relation chains.
+
+        The method works as follows:
+        1. Collects all the related records that were just loaded
+        2. For each nested relation specified in the configuration:
+           a. Creates a new query context for that nested relation
+           b. Applies any query modifiers if configured
+           c. Recursively calls the loading process for the nested relation
+
+        For example, if loading 'posts.comments' and the posts have been loaded,
+        this method will take all the loaded posts and initiate loading of their comments.
 
         Args:
-            loaded_data: Dictionary mapping parent record IDs to loaded related records
-            config: Configuration containing nested relations info
-            related_model: Model class for the current relation
+            loaded_data: Dictionary mapping parent record IDs to the related records
+                        that were just loaded (e.g., mapping user IDs to their posts)
+            config: Configuration object containing information about what nested
+                   relations should be loaded next (e.g., 'comments' for each 'post')
+            related_model: The model class of the currently loaded related records
+                          (e.g., Post class when loading comments for posts)
+
+        Note:
+            This method enables the deep eager loading capability, allowing chains
+            like 'user.posts.comments.likes' to be loaded efficiently.
         """
         if not config.nested or not loaded_data:
             return

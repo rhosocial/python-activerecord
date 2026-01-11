@@ -75,15 +75,21 @@ class RelationDescriptor(Generic[T]):
     Generic descriptor for managing model relations.
     Modified to use instance-level caching for proper isolation.
 
+    The RelationDescriptor serves as the core implementation for all relationship types
+    (BelongsTo, HasOne, HasMany). It handles model type resolution, relation validation,
+    data loading, and caching. The descriptor follows Python's descriptor protocol to
+    provide transparent relation access on model instances.
+
     Args:
-        foreign_key: Foreign key field name
-        inverse_of: Name of inverse relation
-        loader: Custom loader implementation
-        validator: Custom validation implementation
-        cache_config: Cache configuration
+        foreign_key: Foreign key field name used to establish the relationship
+        inverse_of: Name of the inverse relation on the related model for validation
+        loader: Custom loader implementation for loading related data
+        validator: Custom validation implementation for relationship validation
+        cache_config: Cache configuration for controlling caching behavior
 
     Raises:
         ValueError: If inverse relationship validation fails
+        TypeError: If foreign_key is not a string or cache_config is not CacheConfig instance
     """
 
     def __init__(
@@ -124,7 +130,19 @@ class RelationDescriptor(Generic[T]):
             self._owner.log(level, msg, *args, **kwargs)
 
     def __set_name__(self, owner: Type[RelationManagementInterface], name: str) -> None:
-        """Set descriptor name and register with owner."""
+        """
+        Called when the descriptor is assigned to a class attribute during class creation.
+
+        This method implements the descriptor protocol and is automatically called when
+        a RelationDescriptor is assigned as a class attribute. It performs the following:
+        1. Sets the relation name and owner class
+        2. Registers the relation with the owner class
+        3. Creates and attaches a dynamic query method for the relation
+
+        Args:
+            owner: The model class that owns this relation descriptor
+            name: The name of the attribute to which this descriptor is assigned
+        """
         self.name = name
         self._owner = owner
         # self._cache.relation_name = name
@@ -137,7 +155,22 @@ class RelationDescriptor(Generic[T]):
         setattr(owner, f"{name}_query", query_method)
 
     def __get__(self, instance: Any, owner: Optional[Type] = None) -> Any:
-        """Get descriptor or create bound method."""
+        """
+        Descriptor protocol method called when accessing the relation from an instance.
+
+        This method handles the descriptor protocol for attribute access. When accessed
+        from a class, it returns the descriptor itself. When accessed from an instance,
+        it creates and returns a bound relation method that can be used to access the
+        related data.
+
+        Args:
+            instance: The model instance accessing the relation (None if accessed from class)
+            owner: The model class that owns this descriptor
+
+        Returns:
+            If accessed from class: the descriptor itself
+            If accessed from instance: a bound method for accessing related data
+        """
         self.log(logging.DEBUG, f"Getting `{self.name}` relation for {owner.__name__ if owner else 'None'}")
         if instance is None:
             return self
@@ -240,7 +273,18 @@ class RelationDescriptor(Generic[T]):
                 raise
 
     def _create_relation_method(self, instance: Any):
-        """Create bound method for accessing relation."""
+        """
+        Creates a bound method for accessing the relation data for a specific instance.
+
+        This method creates a closure that binds the relation descriptor to a specific
+        instance. The returned method can be used to access related data for that instance.
+
+        Args:
+            instance: The model instance for which to create the relation access method
+
+        Returns:
+            A callable method that can be used to access the related data for the instance
+        """
         self.log(logging.DEBUG, f"Creating relation method for `{self.name}`")
 
         def relation_method(*args, **kwargs):
@@ -252,7 +296,16 @@ class RelationDescriptor(Generic[T]):
         return relation_method
 
     def _create_query_method(self):
-        """Create query class method."""
+        """
+        Creates a dynamic query method for the relation that returns a preconfigured query.
+
+        This method creates a query method that is attached to the model class during
+        class creation. The query is preconfigured with the appropriate foreign key
+        conditions based on the relationship type (BelongsTo vs HasOne/HasMany).
+
+        Returns:
+            A callable method that takes an instance and returns a preconfigured query
+        """
         self.log(logging.DEBUG, f"Creating query method for `{self.name}`")
 
         def query_method(instance):
@@ -286,10 +339,18 @@ class RelationDescriptor(Generic[T]):
 
     def _load_relation(self, instance: Any) -> Optional[T]:
         """
-        Load relation with caching support.
+        Loads the related data for a specific instance with caching support.
+
+        This method implements the lazy-loading behavior for relations. It first checks
+        the instance-level cache, and if not found, delegates to the relation loader
+        to fetch the data from the database. The loaded data is then cached for future
+        access.
+
+        Args:
+            instance: The model instance for which to load the related data
 
         Returns:
-            Optional[T]: Related data or None
+            Optional[T]: The related model instance(s) or None if not found
         """
         if self._cached_model is None:
             self.get_related_model(type(instance))
@@ -309,17 +370,20 @@ class RelationDescriptor(Generic[T]):
             return None
 
     def batch_load(self, records: List[Any], base_query: Any) -> Dict[int, Any]:
-        """Batch load related records for multiple parent records.
+        """
+        Batch loads related records for multiple parent records efficiently.
 
-        This method delegates the actual loading to the relation loader
-        while providing caching support.
+        This method implements an optimized loading strategy that minimizes database queries
+        by loading multiple related records in a single operation. It first checks the cache
+        for each record, and only loads uncached records from the database. This is a key
+        component in solving the N+1 query problem.
 
         Args:
             records: List of parent records to load relations for
-            base_query: Pre-configured query to use for loading
+            base_query: Pre-configured query with potential filters from with_() configurations
 
         Returns:
-            Dict mapping record IDs to their related data
+            Dict mapping record IDs (using id() function) to their related data
         """
         self.log(logging.DEBUG, f"Batch loading `{self.name}` relation for {len(records)} records")
         if self._cached_model is None:
@@ -424,31 +488,75 @@ class RelationshipValidator(RelationValidation):
 
 class BelongsTo(RelationDescriptor[T], Generic[T]):
     """
-    One-to-one or many-to-one relationship.
-    Instance belongs to a single instance of related model.
+    Defines a BelongsTo relationship (many-to-one or one-to-one).
+
+    This relationship type indicates that the model instance 'belongs to' another model
+    instance. For example, a Comment belongsTo a Post. The foreign key is stored on
+    the model that has the BelongsTo relationship.
+
+    Characteristics:
+    - The foreign key is stored in the model that defines the BelongsTo relationship
+    - Returns a single related model instance (not a collection)
+    - Common examples: Comment belongsTo Post, Employee belongsTo Department
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize a BelongsTo relationship with automatic validation.
+
+        The BelongsTo relationship automatically registers a RelationshipValidator
+        to ensure the relationship is properly defined and matches with an inverse
+        relationship on the related model.
+        """
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
 
 
 class HasOne(RelationDescriptor[T], Generic[T]):
     """
-    One-to-one relationship.
-    Instance has one related instance.
+    Defines a HasOne relationship (one-to-one).
+
+    This relationship type indicates that the model instance 'has one' related instance.
+    For example, a User hasOne Profile. The foreign key is typically stored on the
+    related model (the 'one' side).
+
+    Characteristics:
+    - The foreign key is stored in the related model
+    - Returns a single related model instance (not a collection)
+    - Common examples: User hasOne Profile, Order hasOne Invoice
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize a HasOne relationship with automatic validation.
+
+        The HasOne relationship automatically registers a RelationshipValidator
+        to ensure the relationship is properly defined and matches with an inverse
+        relationship on the related model.
+        """
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
 
 
 class HasMany(RelationDescriptor[T], Generic[T]):
     """
-    One-to-many relationship.
-    Instance has multiple related instances.
+    Defines a HasMany relationship (one-to-many).
+
+    This relationship type indicates that the model instance 'has many' related instances.
+    For example, a Post hasMany Comments. The foreign key is stored on the related models.
+
+    Characteristics:
+    - The foreign key is stored in the related models
+    - Returns a collection of related model instances
+    - Common examples: Post hasMany Comments, User hasMany Orders
     """
 
     def __init__(self, *args, **kwargs):
+        """
+        Initialize a HasMany relationship with automatic validation.
+
+        The HasMany relationship automatically registers a RelationshipValidator
+        to ensure the relationship is properly defined and matches with an inverse
+        relationship on the related model.
+        """
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
 
 
@@ -456,19 +564,31 @@ R = TypeVar('R', bound=Union[IActiveRecord, QueryMixin])
 
 
 class DefaultRelationLoader(RelationLoader[R]):
-    """Default implementation of relation loading logic."""
+    """
+    Default implementation of relation loading logic.
+
+    This class implements the standard algorithm for loading related data. It handles
+    the differences between relationship types (BelongsTo vs HasOne vs HasMany) and
+    implements efficient batch loading strategies to minimize database queries.
+    """
 
     def __init__(self, descriptor: RelationDescriptor):
-        """Initialize the loader with a reference to its descriptor.
+        """
+        Initializes the loader with a reference to its descriptor.
 
         Args:
-            descriptor: The RelationDescriptor that owns this loader
+            descriptor: The RelationDescriptor that owns this loader and defines
+                       the relationship characteristics (foreign key, relationship type, etc.)
         """
         self.descriptor = descriptor
         self._cached_model: Optional[Type[R]] = None
 
     def load(self, instance: Any) -> Optional[Union[R, List[R]]]:
-        """Load relation for a single instance.
+        """
+        Load relation for a single instance.
+
+        This method provides a single-instance loading interface that delegates
+        to the more efficient batch_load method for consistency.
 
         Args:
             instance: The model instance to load relations for
@@ -486,17 +606,22 @@ class DefaultRelationLoader(RelationLoader[R]):
         return result.get(id(instance))
 
     def batch_load(self, instances: List[Any], base_query: Optional['IQuery']) -> Dict[int, Any]:
-        """Batch load relations for multiple instances.
+        """
+        Batch load relations for multiple instances efficiently.
 
-        Uses the provided base_query if available, otherwise creates a new one.
-        The base_query may contain conditions from with_() configurations.
+        This method implements the core optimization for avoiding N+1 query problems.
+        It loads all related records for the given instances in a single or minimal
+        number of queries, depending on the relationship type. The method handles
+        the differences between BelongsTo (many-to-one), HasOne (one-to-one), and
+        HasMany (one-to-many) relationships appropriately.
 
         Args:
             instances: List of model instances to load relations for
-            base_query: Pre-configured query with conditions from with_()
+            base_query: Pre-configured query with potential filters from with_() configurations
+                       or None to create a new query
 
         Returns:
-            Dict mapping instance IDs to their related data
+            Dict mapping instance IDs (using id() function) to their related data
         """
         if not instances:
             return {}
