@@ -260,38 +260,129 @@ class IActiveRecord(BaseModel, ABC):
 
     @abstractmethod
     def save(self) -> int:
-        """Save the record to database.
+        """
+        Save the record to database, performing insert or update as appropriate.
+
+        This method implements the core persistence functionality. If the record is
+        new (determined by is_new_record property), it performs an INSERT operation.
+        If the record already exists, it performs an UPDATE operation with only
+        the changed fields.
+
+        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
+        and handles dirty field tracking to optimize updates.
 
         Returns:
-            Number of affected rows
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If the model fails validation before saving
         """
         pass
 
     @abstractmethod
     def delete(self) -> int:
-        """Delete the record from database.
+        """
+        Delete the record from database.
+
+        This method performs a DELETE operation for the current record. It identifies
+        the record to delete using the primary key value and removes it from the database.
+        The operation is performed using the model's configured backend.
+
+        The delete operation triggers appropriate model events (BEFORE_DELETE, AFTER_DELETE)
+        and updates the internal state of the record.
 
         Returns:
-            Number of affected rows
+            int: Number of affected rows in the database
+                 - Returns 1 if the record was successfully deleted
+                 - Returns 0 if no record matched the primary key (record didn't exist)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValueError: If the record doesn't have a valid primary key value
         """
         pass
 
     @classmethod
     @abstractmethod
     def find_one(cls: Type[ModelT], condition: Union[Any, Dict[str, Any]]) -> Optional[ModelT]:
-        """Find single record by condition"""
+        """
+        Find a single record that matches the specified condition.
+
+        This method queries the database for a record that matches the given condition
+        and returns it as an instance of the model class. If no matching record is found,
+        it returns None.
+
+        The condition can be specified in multiple ways:
+        - As a primary key value (e.g., find_one(123) for primary key = 123)
+        - As a dictionary of field-value pairs (e.g., find_one({'username': 'john'}))
+        - As a more complex condition using expression objects
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            Optional[ModelT]: A model instance if a matching record is found, None otherwise
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
         pass
 
     @classmethod
     @abstractmethod
     def find_all(cls: Type[ModelT], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List[ModelT]:
-        """Find all records matching condition"""
+        """
+        Find all records that match the specified condition.
+
+        This method queries the database for all records that match the given condition
+        and returns them as a list of model instances. If no condition is provided,
+        it returns all records from the table.
+
+        Args:
+            condition: Optional condition to match. Can be:
+                      - A dictionary of field-value pairs (e.g., {'status': 'active'})
+                      - A list of conditions for complex queries
+                      - None to return all records
+
+        Returns:
+            List[ModelT]: A list of model instances that match the condition.
+                         Returns an empty list if no records match.
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
         pass
 
     @classmethod
     @abstractmethod
     def find_one_or_fail(cls: Type[ModelT], condition: Union[Any, Dict[str, Any]]) -> ModelT:
-        """Find single record or raise exception"""
+        """
+        Find a single record that matches the specified condition or raise an exception.
+
+        This method behaves like find_one() but raises a RecordNotFound exception
+        if no matching record is found, instead of returning None.
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            ModelT: A model instance if a matching record is found
+
+        Raises:
+            RecordNotFound: If no record matches the specified condition
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
         pass
 
     def refresh(self) -> None:
@@ -316,7 +407,20 @@ class IActiveRecord(BaseModel, ABC):
     @property
     @abstractmethod
     def is_new_record(self) -> bool:
-        """Check if this is a new record"""
+        """
+        Check if this is a new record that hasn't been saved to the database yet.
+
+        This property determines whether the current instance represents a record
+        that exists in the database or a new record that needs to be inserted.
+        Typically, a record is considered new if:
+        - It was created in memory but not yet saved to the database
+        - It doesn't have a valid primary key value from the database
+        - It has never been persisted
+
+        Returns:
+            bool: True if this is a new record that hasn't been saved to the database,
+                  False if this record already exists in the database
+        """
         pass
 
     def on(self, event: ModelEvent, handler: Callable) -> None:

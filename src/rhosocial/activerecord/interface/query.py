@@ -19,7 +19,17 @@ V = TypeVar('V')
 
 
 class ThreadSafeDict(Dict[K, V]):
-    """A thread-safe dictionary that behaves exactly like a normal dict."""
+    """
+    A thread-safe dictionary implementation using thread-local storage.
+
+    This class provides a dictionary-like interface that maintains separate data
+    for each thread, ensuring thread safety by isolating data per thread.
+    Each thread gets its own copy of the data, so changes in one thread
+    don't affect other threads.
+
+    Note: This is not a shared thread-safe dictionary but rather a thread-isolated
+    dictionary where each thread has its own instance of the data.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize thread-safe dictionary.
@@ -30,65 +40,87 @@ class ThreadSafeDict(Dict[K, V]):
         - From iterable: ThreadSafeDict([('a', 1), ('b', 2)])
         - From kwargs: ThreadSafeDict(a=1, b=2)
         """
-        super().__init__(*args, **kwargs)
+        # Initialize the thread-local storage
         self._local = local()
-        if not hasattr(self._local, 'data'):
-            self._local.data = {}
-        if args or kwargs:
-            self.update(*args, **kwargs)
+        # Call parent constructor with initial data
+        super().__init__()
+        # Store initial data in thread-local storage
+        initial_data = {}
+        if args:
+            if len(args) > 1:
+                raise TypeError('ThreadSafeDict expected at most 1 argument, got %d' % len(args))
+            arg = args[0]
+            if hasattr(arg, 'items'):
+                # Mapping-like object
+                initial_data.update(arg)
+            else:
+                # Iterable of pairs
+                for key, value in arg:
+                    initial_data[key] = value
+        initial_data.update(kwargs)
+        self._local.data = initial_data
 
     def __ensure_data(self) -> dict:
         """Ensure thread-local data exists.
 
         Returns:
-            dict: Thread-local dictionary
+            dict: Thread-local dictionary for the current thread
         """
         if not hasattr(self._local, 'data'):
             self._local.data = {}
         return self._local.data
 
     def __getitem__(self, key: K) -> V:
+        """Get item from thread-local storage."""
         return self.__ensure_data()[key]
 
     def __setitem__(self, key: K, value: V) -> None:
+        """Set item in thread-local storage."""
         self.__ensure_data()[key] = value
 
     def __delitem__(self, key: K) -> None:
+        """Delete item from thread-local storage."""
         del self.__ensure_data()[key]
 
     def __iter__(self) -> Iterator[K]:
+        """Iterate over thread-local storage."""
         return iter(self.__ensure_data())
 
     def __len__(self) -> int:
+        """Get length of thread-local storage."""
         return len(self.__ensure_data())
 
     def __contains__(self, key: K) -> bool:
+        """Check if key exists in thread-local storage."""
         return key in self.__ensure_data()
 
     def __bool__(self) -> bool:
+        """Check if thread-local storage is non-empty."""
         return bool(self.__ensure_data())
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, (Dict, ThreadSafeDict)):
+        """Compare with another dict-like object."""
+        if not isinstance(other, (dict, ThreadSafeDict)):
             return NotImplemented
-        return self.__ensure_data() == other
+        return self.__ensure_data() == dict(other)
 
     def __repr__(self) -> str:
+        """String representation of the thread-local data."""
         return f"ThreadSafeDict({repr(self.__ensure_data())})"
 
     def __str__(self) -> str:
+        """String representation of the thread-local data."""
         return str(self.__ensure_data())
 
     # Standard dict methods
     def clear(self) -> None:
-        """Remove all items from the dictionary."""
-        if hasattr(self._local, 'data'):
-            self._local.data.clear()
+        """Remove all items from the thread-local dictionary."""
+        self.__ensure_data().clear()
 
     def copy(self) -> 'ThreadSafeDict[K, V]':
-        """Return a shallow copy of the dictionary."""
+        """Return a shallow copy of the thread-local dictionary."""
         result = ThreadSafeDict()
-        result.update(self.__ensure_data())
+        result._local.data = self.__ensure_data().copy()
         return result
 
     def get(self, key: K, default: Any = None) -> Optional[V]:
@@ -96,41 +128,42 @@ class ThreadSafeDict(Dict[K, V]):
         return self.__ensure_data().get(key, default)
 
     def items(self) -> ItemsView[K, V]:
-        """Return a view of dictionary's items (key-value pairs)."""
+        """Return a view of thread-local dictionary's items (key-value pairs)."""
         return self.__ensure_data().items()
 
     def keys(self) -> KeysView[K]:
-        """Return a view of dictionary's keys."""
+        """Return a view of thread-local dictionary's keys."""
         return self.__ensure_data().keys()
 
     def values(self) -> ValuesView[V]:
-        """Return a view of dictionary's values."""
+        """Return a view of thread-local dictionary's values."""
         return self.__ensure_data().values()
 
     def pop(self, key: K, default: Any = ...) -> V:
-        """Remove specified key and return the corresponding value.
+        """Remove specified key and return the corresponding value from thread-local storage.
 
         If default is provided and key doesn't exist, return default.
         If default is not provided and key doesn't exist, raise KeyError.
         """
+        data = self.__ensure_data()
         if default is ...:
-            return self.__ensure_data().pop(key)
-        return self.__ensure_data().pop(key, default)
+            return data.pop(key)
+        return data.pop(key, default)
 
     def popitem(self) -> Tuple[K, V]:
-        """Remove and return an arbitrary (key, value) pair.
+        """Remove and return an arbitrary (key, value) pair from thread-local storage.
 
         Raises:
-            KeyError: If dictionary is empty
+            KeyError: If thread-local dictionary is empty
         """
         return self.__ensure_data().popitem()
 
     def setdefault(self, key: K, default: V = None) -> V:
-        """Return value for key if it exists, else set and return default."""
+        """Return value for key if it exists, else set and return default in thread-local storage."""
         return self.__ensure_data().setdefault(key, default)
 
     def update(self, *args, **kwargs) -> None:
-        """Update dictionary with elements from args and kwargs.
+        """Update thread-local dictionary with elements from args and kwargs.
 
         Args can be:
         - another dictionary
@@ -140,33 +173,30 @@ class ThreadSafeDict(Dict[K, V]):
         data = self.__ensure_data()
         if args:
             if len(args) > 1:
-                raise TypeError('update expected at most 1 argument, got ' + str(len(args)))
+                raise TypeError('update expected at most 1 argument, got %d' % len(args))
             other = args[0]
             if isinstance(other, Mapping):
-                for key in other:
-                    data[key] = other[key]
+                data.update(other)
             elif hasattr(other, 'keys'):
-                for key in other.keys():
-                    data[key] = other[key]
+                data.update({k: other[k] for k in other.keys()})
             else:
                 for key, value in other:
                     data[key] = value
-        for key, value in kwargs.items():
-            data[key] = value
+        data.update(kwargs)
 
     # Additional useful methods
     def to_dict(self) -> Dict[K, V]:
-        """Convert to a regular dictionary."""
+        """Convert thread-local data to a regular dictionary."""
         return dict(self.__ensure_data())
 
     def set_many(self, items: List[Tuple[K, V]]) -> None:
-        """Set multiple items at once from a list of tuples."""
+        """Set multiple items at once from a list of tuples in thread-local storage."""
         data = self.__ensure_data()
         for key, value in items:
             data[key] = value
 
     def get_many(self, keys: List[K], default: Any = None) -> List[V]:
-        """Get multiple values at once.
+        """Get multiple values at once from thread-local storage.
 
         Args:
             keys: List of keys to retrieve
@@ -275,64 +305,138 @@ class IQueryBuilding(Protocol):
 
 
 class IQuery(IBackend, ToSQLProtocol, ABC):
-    """Basic interface for query objects.
+    """
+    Basic interface for query objects.
 
     This interface defines the minimal contract for query objects,
-    including backend access and SQL generation.
+    including backend access and SQL generation. All query implementations
+    should extend this interface to ensure consistent behavior across
+    different query types and database backends.
+
+    The interface combines:
+    - IBackend: Provides access to the storage backend
+    - ToSQLProtocol: Enables SQL generation functionality
+    - ABC: Abstract base class for enforceable contracts
     """
 
     _backend: StorageBackend
 
     def __init__(self, backend: StorageBackend):
+        """
+        Initialize the query with a backend.
+
+        Args:
+            backend: The storage backend to use for query execution
+        """
         super().__init__()
         self._backend = backend
 
     @abstractmethod
     def to_sql(self) -> Tuple[str, tuple]:
-        """Get complete SQL query with parameters.
+        """
+        Generate the complete SQL query with parameters.
 
         This method returns the full SQL statement with parameter values
         ready for execution, following the ToSQLProtocol from the expression system.
+        The parameters are returned separately to prevent SQL injection attacks
+        and allow proper parameter binding by the database driver.
 
         Returns:
-            Tuple of (sql_query, params) where:
-            - sql_query: Complete SQL string with placeholders
-            - params: Tuple of parameter values
+            Tuple[str, tuple]: A tuple containing:
+            - sql_query: Complete SQL string with placeholders (usually '?')
+            - params: Tuple of parameter values in the correct order
 
         Examples:
-            sql, params = User.query().where('status = ?', (1,)).to_sql()
-            print(f"SQL: {sql}")
-            print(f"Params: {params}")
+            >>> query = User.query().where(User.c.status == 'active')
+            >>> sql, params = query.to_sql()
+            >>> print(f"SQL: {sql}")
+            >>> print(f"Params: {params}")
+            SQL: SELECT * FROM users WHERE status = ?
+            Params: ('active',)
+
+        Note:
+            The method should never return user data directly embedded in the SQL string,
+            always use parameter placeholders to ensure security against SQL injection.
         """
         pass
 
 
 # Define specialized interfaces for different query types
 class IActiveQuery(IQuery, IQueryBuilding):
-    """Interface for model-based queries that return ActiveRecord instances.
+    """
+    Interface for model-based queries that return ActiveRecord instances.
 
     This interface extends the general IQuery interface with model-specific
     functionality, including the model_class attribute and methods that
     return model instances instead of raw dictionaries.
+
+    This interface is designed for queries that operate on ActiveRecord models
+    and need to return properly instantiated model objects with all their
+    methods and properties intact.
     """
 
     model_class: Type['IActiveRecord']
+    """
+    The model class that this query operates on and returns instances of.
+
+    This attribute specifies which ActiveRecord model class the query is
+    associated with. It's used internally to instantiate the correct model
+    types when executing the query.
+    """
 
     @abstractmethod
     def all(self) -> List['IActiveRecord']:
-        """Execute query and return all matching records as model instances.
+        """
+        Execute the query and return all matching records as model instances.
+
+        This method executes the query against the database and returns all
+        matching records wrapped in instances of the appropriate ActiveRecord
+        model class. Each returned instance will have full ActiveRecord
+        functionality including change tracking, validation, and persistence methods.
 
         Returns:
-            List[IActiveRecord]: List of model instances (empty if no matches)
+            List[IActiveRecord]: List of model instances that match the query criteria.
+                               Returns an empty list if no records match.
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If there are issues instantiating model instances
+                           from the database data
+
+        Example:
+            >>> users = User.query().where(User.c.status == 'active').all()
+            >>> for user in users:
+            ...     print(f"User: {user.username}")
         """
         pass
 
     @abstractmethod
     def one(self) -> Optional['IActiveRecord']:
-        """Execute query and return the first matching record as a model instance.
+        """
+        Execute the query and return the first matching record as a model instance.
+
+        This method executes the query against the database and returns the first
+        matching record wrapped in an ActiveRecord model instance. If no matching
+        record is found, it returns None.
+
+        Unlike the 'first' method (if available), this method is intended to be
+        used when exactly one result is expected (though None is acceptable).
 
         Returns:
-            Optional[IActiveRecord]: Single model instance or None
+            Optional[IActiveRecord]: Single model instance if a matching record is found,
+                                   None if no records match
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If there are issues instantiating the model instance
+                           from the database data
+
+        Example:
+            >>> user = User.query().where(User.c.username == 'john').one()
+            >>> if user:
+            ...     print(f"Found user: {user.username}")
         """
         pass
 
@@ -381,57 +485,125 @@ class IAsyncCTEQuery(IQuery, IQueryBuilding):
 
 
 class ISetOperationQuery(IQuery):
-    """Interface for set operation queries (UNION, INTERSECT, EXCEPT).
+    """
+    Interface for set operation queries (UNION, INTERSECT, EXCEPT).
 
-    This interface defines methods for performing set operations between queries.
+    This interface defines methods for performing SQL set operations between queries.
+    Set operations allow combining results from multiple queries in specific ways:
+    - UNION: Combines results from both queries, removing duplicates
+    - UNION ALL: Combines results from both queries, keeping duplicates
+    - INTERSECT: Returns only rows that exist in both queries
+    - EXCEPT/MINUS: Returns rows from the first query that don't exist in the second
+
     Classes implementing this interface should support chaining set operations
     and provide operator overloading for more Pythonic syntax.
     """
 
     @abstractmethod
     def union(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
-        """Perform a UNION operation with another query.
+        """
+        Perform a UNION operation with another query, combining results and removing duplicates.
+
+        The UNION operation combines the result sets of two queries, removing duplicate rows.
+        Both queries must have the same number of columns with compatible data types.
 
         Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
+            other: Another query object (either ISetOperationQuery or IQuery) to union with
 
         Returns:
-            A new ISetOperationQuery instance representing the UNION
+            ISetOperationQuery: A new query instance representing the UNION operation
+
+        Example:
+            >>> users_query = User.query().select(User.c.username)
+            >>> admins_query = Admin.query().select(Admin.c.username)
+            >>> combined = users_query.union(admins_query)
+            >>> # Returns all unique usernames from both tables
         """
         ...
 
     @abstractmethod
     def intersect(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
-        """Perform an INTERSECT operation with another query.
+        """
+        Perform an INTERSECT operation with another query, returning only common rows.
+
+        The INTERSECT operation returns only the rows that exist in both queries.
+        Both queries must have the same number of columns with compatible data types.
 
         Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
+            other: Another query object (either ISetOperationQuery or IQuery) to intersect with
 
         Returns:
-            A new ISetOperationQuery instance representing the INTERSECT
+            ISetOperationQuery: A new query instance representing the INTERSECT operation
+
+        Example:
+            >>> active_users = User.query().where(User.c.status == 'active')
+            >>> premium_users = User.query().where(User.c.plan == 'premium')
+            >>> active_premium = active_users.intersect(premium_users)
+            >>> # Returns users who are both active AND on premium plan
         """
         ...
 
     @abstractmethod
     def except_(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
-        """Perform an EXCEPT operation with another query.
+        """
+        Perform an EXCEPT operation with another query, returning rows from first query not in second.
+
+        The EXCEPT operation returns rows from the first query that do not exist in the second query.
+        Both queries must have the same number of columns with compatible data types.
+        Note: This method is named 'except_' to avoid conflict with Python's 'except' keyword.
 
         Args:
-            other: Another query object (either ISetOperationQuery or IQuery)
+            other: Another query object (either ISetOperationQuery or IQuery) to subtract
 
         Returns:
-            A new ISetOperationQuery instance representing the EXCEPT
+            ISetOperationQuery: A new query instance representing the EXCEPT operation
+
+        Example:
+            >>> all_users = User.query()
+            >>> admin_users = User.query().where(User.c.role == 'admin')
+            >>> non_admin_users = all_users.except_(admin_users)
+            >>> # Returns all users who are not admins
         """
         ...
 
     def __or__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
-        """Implement the | operator for UNION."""
+        """
+        Implement the | operator for UNION operations.
+
+        This enables Pythonic syntax for UNION operations: query1 | query2
+
+        Args:
+            other: Another query object to union with
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the UNION operation
+        """
         return self.union(other)
 
     def __and__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
-        """Implement the & operator for INTERSECT."""
+        """
+        Implement the & operator for INTERSECT operations.
+
+        This enables Pythonic syntax for INTERSECT operations: query1 & query2
+
+        Args:
+            other: Another query object to intersect with
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the INTERSECT operation
+        """
         return self.intersect(other)
 
     def __sub__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
-        """Implement the - operator for EXCEPT."""
+        """
+        Implement the - operator for EXCEPT operations.
+
+        This enables Pythonic syntax for EXCEPT operations: query1 - query2
+
+        Args:
+            other: Another query object to subtract
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the EXCEPT operation
+        """
         return self.except_(other)
