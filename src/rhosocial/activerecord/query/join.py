@@ -25,7 +25,7 @@ class JoinQueryMixin:
 
     def _resolve_right_table(self, right: Union[str, Type[ModelT], TableExpression], alias: Optional[str]) -> Union[TableExpression, JoinExpression]:
         """Helper method to resolve the right-hand side of a join into a TableExpression."""
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
         if isinstance(right, str):
             return TableExpression(dialect, right, alias=alias)
         # Check if it's a model class
@@ -44,7 +44,7 @@ class JoinQueryMixin:
         """Helper method to resolve the ON condition into a predicate."""
         if on is None:
             return None
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
         if isinstance(on, str):
             return RawSQLPredicate(dialect, on)
         if isinstance(on, SQLPredicate):
@@ -53,7 +53,7 @@ class JoinQueryMixin:
 
     def _perform_join(self, join_type: str, right: Union[str, Type[ModelT], TableExpression], on: Optional[Union[str, SQLPredicate]], alias: Optional[str], natural: bool = False) -> 'IQuery[ModelT]':
         """Internal helper to construct and chain join expressions."""
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
         right_table = self._resolve_right_table(right, alias)
         condition = self._resolve_on_condition(on)
 

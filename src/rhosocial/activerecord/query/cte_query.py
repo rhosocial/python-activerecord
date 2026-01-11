@@ -78,7 +78,6 @@ class CTEQuery(
         self._explain_enabled = False
         self._explain_options = {}
 
-    @property
     def backend(self):
         """Get the backend for this query."""
         return self._backend
@@ -100,7 +99,7 @@ class CTEQuery(
             self for method chaining
         """
         # Get dialect from backend
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
 
         # Convert the query to an appropriate expression
         if isinstance(query, str):
@@ -174,7 +173,7 @@ class CTEQuery(
             Tuple of (SQL string, parameters tuple)
         """
         # Get dialect from backend
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
 
         # Convert the main query to an appropriate expression
         if self._main_query is None:
@@ -231,7 +230,7 @@ class CTEQuery(
         dependencies on `model_class`.
         """
         if self._explain_enabled:
-            dialect = self.backend.dialect
+            dialect = self.backend().dialect
             from ..backend.expression.operators import RawSQLExpression
             query_expr = RawSQLExpression(dialect, *self.to_sql())
 
@@ -240,12 +239,12 @@ class CTEQuery(
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(logging.INFO, f"Executing EXPLAIN CTE aggregate query: {explain_sql}, parameters: {explain_params}")
-            return self.backend.execute_query(explain_sql, explain_params)
+            return self.backend().execute_query(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing CTE aggregate query: {sql}, parameters: {params}")
 
-        return self.backend.fetch_all(sql, params)
+        return self.backend().fetch_all(sql, params)
 
     def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.
@@ -338,7 +337,6 @@ class AsyncCTEQuery(
         self._explain_enabled = False
         self._explain_options = {}
 
-    @property
     def backend(self):
         """Get the backend for this query."""
         return self._backend
@@ -360,7 +358,7 @@ class AsyncCTEQuery(
             self for method chaining
         """
         # Get dialect from backend
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
 
         # Convert the query to an appropriate expression
         if isinstance(query, str):
@@ -434,7 +432,7 @@ class AsyncCTEQuery(
             Tuple of (SQL string, parameters tuple)
         """
         # Get dialect from backend
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
 
         # Convert the main query to an appropriate expression
         if self._main_query is None:
@@ -491,7 +489,7 @@ class AsyncCTEQuery(
         dependencies on `model_class`.
         """
         if self._explain_enabled:
-            dialect = self.backend.dialect
+            dialect = self.backend().dialect
             from ..backend.expression.operators import RawSQLExpression
             query_expr = RawSQLExpression(dialect, *self.to_sql())
 
@@ -500,12 +498,12 @@ class AsyncCTEQuery(
 
             explain_sql, explain_params = explain_expr.to_sql()
             self._log(logging.INFO, f"Executing EXPLAIN async CTE aggregate query: {explain_sql}, parameters: {explain_params}")
-            return await self.backend.execute_query(explain_sql, explain_params)
+            return await self.backend().execute_query(explain_sql, explain_params)
 
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing async CTE aggregate query: {sql}, parameters: {params}")
 
-        return await self.backend.fetch_all(sql, params)
+        return await self.backend().fetch_all(sql, params)
 
     def union(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.

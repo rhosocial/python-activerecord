@@ -75,7 +75,6 @@ class ActiveQuery(
         # Initialize attributes from RelationalQueryMixin
         self._eager_loads = ThreadSafeDict()
 
-    @property
     def backend(self):
         """Get the backend for this query."""
         # Always return the backend from the model class to avoid duplication
@@ -115,7 +114,7 @@ class ActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
-        rows = self.backend.fetch_all(sql, params, column_adapters=column_adapters)
+        rows = self.backend().fetch_all(sql, params, column_adapters=column_adapters)
 
         # Convert database column names back to Python field names before creating model instances
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
@@ -151,7 +150,7 @@ class ActiveQuery(
             user = User.query().where('email = ?', (email,)).one()
         """
         # Get backend instance and dialect
-        backend = self.backend
+        backend = self.backend()
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
@@ -182,7 +181,7 @@ class ActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch a single record, passing the column adapters to the backend.
-        row = self.backend.fetch_one(sql, params, column_adapters=column_adapters)
+        row = self.backend().fetch_one(sql, params, column_adapters=column_adapters)
 
         if not row:
             return None
@@ -204,7 +203,7 @@ class ActiveQuery(
             Tuple of (SQL string, parameters tuple)
         """
         # Get dialect from backend
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
 
         # Use the model's actual table name
         from_clause = TableExpression(dialect, self.model_class.table_name())
@@ -321,7 +320,6 @@ class AsyncActiveQuery(
         # Initialize attributes from RelationalQueryMixin
         self._eager_loads = ThreadSafeDict()
 
-    @property
     def backend(self):
         """Get the backend for this query."""
         # Always return the backend from the model class to avoid duplication
@@ -361,7 +359,7 @@ class AsyncActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch all records, passing the column adapters to the backend.
-        rows = await self.backend.fetch_all(sql, params, column_adapters=column_adapters)
+        rows = await self.backend().fetch_all(sql, params, column_adapters=column_adapters)
 
         # Convert database column names back to Python field names before creating model instances
         field_data_rows = [self.model_class._map_columns_to_fields(row) for row in rows]
@@ -397,7 +395,7 @@ class AsyncActiveQuery(
             user = await User.query().where('email = ?', (email,)).one()
         """
         # Get backend instance and dialect
-        backend = self.backend
+        backend = self.backend()
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
@@ -428,7 +426,7 @@ class AsyncActiveQuery(
         self._log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
         # Step 2: Fetch a single record, passing the column adapters to the backend.
-        row = await self.backend.fetch_one(sql, params, column_adapters=column_adapters)
+        row = await self.backend().fetch_one(sql, params, column_adapters=column_adapters)
 
         if not row:
             return None
@@ -449,7 +447,7 @@ class AsyncActiveQuery(
             Tuple of (SQL string, parameters tuple)
         """
         # Get dialect from backend
-        dialect = self.backend.dialect
+        dialect = self.backend().dialect
 
         # Use the model's actual table name
         from_clause = TableExpression(dialect, self.model_class.table_name())

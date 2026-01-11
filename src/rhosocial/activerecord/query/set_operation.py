@@ -27,8 +27,8 @@ class SetOperationQuery(ISetOperationQuery):
         self.operation = operation
 
         # Check backend consistency between left and right operands
-        left_dialect = left.backend.dialect
-        right_dialect = right.backend.dialect
+        left_dialect = left.backend().dialect
+        right_dialect = right.backend().dialect
         if left_dialect is not right_dialect:
             raise ValueError(f"Different backends for left ({type(left_dialect)}) and right ({type(right_dialect)}) operands")
 
@@ -57,7 +57,7 @@ class SetOperationQuery(ISetOperationQuery):
             from ..backend.expression.operators import RawSQLExpression
             # Convert the IQuery to SQL first, then create a RawSQLExpression
             sql, params = query.to_sql()
-            return RawSQLExpression(query.backend.dialect, sql, params)
+            return RawSQLExpression(query.backend().dialect, sql, params)
         else:
             # Fallback: This case might indicate a design issue or missing functionality
             # in how different query types are handled
@@ -80,7 +80,6 @@ class SetOperationQuery(ISetOperationQuery):
         """Perform an EXCEPT operation with another query."""
         return SetOperationQuery(self, other, "EXCEPT")
 
-    @property
     def backend(self):
         """Get the backend for this query."""
         # Return the backend of the left operand, as it's used for the SetOperationExpression

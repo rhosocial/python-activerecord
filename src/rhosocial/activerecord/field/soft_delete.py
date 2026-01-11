@@ -6,6 +6,8 @@ from pydantic import Field
 
 from ..query import ActiveQuery
 from ..interface import IActiveRecord, ModelEvent
+from ..backend.expression.core import Column, Literal
+from ..backend.expression.predicates import IsNullPredicate
 
 
 class SoftDeleteMixin(IActiveRecord):
@@ -35,8 +37,11 @@ class SoftDeleteMixin(IActiveRecord):
 
     @classmethod
     def query(cls) -> 'ActiveQuery':
-        """Return query builder with soft delete condition"""
-        return super().query().where("deleted_at IS NULL")
+        """Return query builder excluding soft-deleted records using expression system."""
+        backend = cls.backend()
+        # Use is_not_null() method from ComparisonMixin to check for non-deleted records
+        non_deleted_condition = Column(backend.dialect, "deleted_at").is_not_null()
+        return super().query().where(non_deleted_condition)
 
     @classmethod
     def query_with_deleted(cls) -> 'ActiveQuery':
@@ -45,33 +50,31 @@ class SoftDeleteMixin(IActiveRecord):
 
     @classmethod
     def query_only_deleted(cls) -> 'ActiveQuery':
-        """Return query for only deleted records"""
-        return super().query().where("deleted_at IS NOT NULL")
+        """Return query for only soft-deleted records using expression system."""
+        backend = cls.backend()
+        # Use is_null() method from ComparisonMixin to check for deleted records
+        deleted_condition = Column(backend.dialect, "deleted_at").is_null()
+        return super().query().where(deleted_condition)
 
     def restore(self) -> int:
-        """Restore a soft-deleted record"""
+        """Restore a soft-deleted record using expression system."""
         if self.deleted_at is None:
             return 0
 
         # Get the backend
         backend = self.backend()
 
-        # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_parameter_placeholder()
-
-        # Create the condition with the standard question mark
-        condition = f"{self.primary_key()} = ?"
-
-        # Only convert if the placeholder is not a question mark
-        if placeholder != '?':
-            from ..interface.model import replace_question_marks
-            condition = replace_question_marks(condition, placeholder)
+        # Create the condition using expression system
+        pk_column = Column(backend.dialect, self.primary_key())
+        pk_value = getattr(self, self.primary_key())
+        condition_expr = pk_column == pk_value
+        condition_sql, condition_params = condition_expr.to_sql()
 
         result = backend.update(
             self.table_name(),
             {'deleted_at': None},
-            condition,
-            (getattr(self, self.primary_key()),)
+            condition_sql,
+            condition_params
         )
 
         if result.affected_rows > 0:

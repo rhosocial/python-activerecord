@@ -213,12 +213,11 @@ class ThreadSafeDict(Dict[K, V]):
 class IBackend(Protocol):
     """Protocol that provides backend access for query objects.
 
-    This protocol defines a property for accessing the storage backend
+    This protocol defines a method for accessing the storage backend
     associated with a query object, which is necessary for consistent
     query execution across different database systems.
     """
 
-    @property
     def backend(self) -> 'StorageBackend':
         """Get the storage backend for this query.
 

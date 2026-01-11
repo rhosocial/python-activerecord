@@ -3,8 +3,7 @@
 from typing import Tuple, Any, Dict, List, Optional
 
 from ..backend.errors import DatabaseError
-from ..backend.base import StorageBackend
-from ..backend.expression.bases import BaseExpression as SQLExpressionBase
+from ..backend.expression import core, predicates
 from ..interface import IActiveRecord, IUpdateBehavior, ModelEvent
 
 
@@ -46,24 +45,31 @@ class Version:
         """Increment version number by increment_by"""
         self.value += self.increment_by
 
-    def get_update_condition(self) -> Tuple[str, tuple]:
-        """Get SQL condition for version check
-
-        Returns:
-            Tuple of (condition_sql, params)
-        """
-        return f"{self.db_column} = ?", (self.value,)
-
-    def get_update_expression(self, backend: StorageBackend) -> SQLExpressionBase:
-        """Get SQL expression for version update
+    def get_update_condition(self, dialect):
+        """Get SQL condition for version check using expression system
 
         Args:
-            backend: Storage backend instance
+            dialect: The SQL dialect instance
 
         Returns:
-            SQL expression to increment version
+            Expression object representing the version condition
         """
-        return backend.create_expression(f"{self.db_column} + {self.increment_by}")
+        from ..backend.expression.core import Column, Literal
+        # Use operator overloading: Column == Literal
+        return Column(dialect, self.db_column) == Literal(dialect, self.value)
+
+    def get_update_expression(self, dialect):
+        """Get SQL expression for version update using expression system
+
+        Args:
+            dialect: The SQL dialect instance
+
+        Returns:
+            Expression object to increment version
+        """
+        from ..backend.expression.core import Column, Literal
+        # Use operator overloading: Column + Literal
+        return Column(dialect, self.db_column) + Literal(dialect, self.increment_by)
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Version):
@@ -101,17 +107,20 @@ class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
         return self._version.value
 
     def get_update_conditions(self) -> List[Tuple[str, Optional[tuple]]]:
-        """Add version check to update conditions"""
+        """Add version check to update conditions using expression system"""
         if not self.is_new_record:
-            condition, params = self._version.get_update_condition()
-            return [(condition, params)]
+            backend = self.backend()
+            condition_expr = self._version.get_update_condition(backend.dialect)
+            sql, params = condition_expr.to_sql()
+            return [(sql, params)]
         return []
 
     def get_update_expressions(self) -> Dict[str, Any]:
-        """Add version increment to update expressions"""
+        """Add version increment to update expressions using expression system"""
         if not self.is_new_record:
+            backend = self.backend()
             return {
-                self._version.db_column: self._version.get_update_expression(self.backend())
+                self._version.db_column: self._version.get_update_expression(backend.dialect)
             }
         return {}
 

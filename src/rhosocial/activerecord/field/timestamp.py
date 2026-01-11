@@ -2,8 +2,10 @@
 """Module providing timestamp functionality."""
 from datetime import datetime, timezone
 from pydantic import Field
+from typing import Dict, Any
 
-from ..interface import IActiveRecord, ModelEvent
+from ..interface import IActiveRecord, IUpdateBehavior, ModelEvent
+from ..backend.expression.core import FunctionCall
 
 
 class TimestampMixin(IActiveRecord):
@@ -29,3 +31,15 @@ class TimestampMixin(IActiveRecord):
         if is_new:
             instance.created_at = now
         instance.updated_at = now
+
+    def get_update_expressions(self) -> Dict[str, Any]:
+        """Provide update expressions for timestamp updates using expression system."""
+        backend = self.backend()
+        if not self.is_new_record:
+            return {
+                'updated_at': FunctionCall(backend.dialect, 'CURRENT_TIMESTAMP')
+            }
+        return {
+            'created_at': FunctionCall(backend.dialect, 'CURRENT_TIMESTAMP'),
+            'updated_at': FunctionCall(backend.dialect, 'CURRENT_TIMESTAMP')
+        }

@@ -33,7 +33,7 @@ class RangeQueryMixin:
             TypeError: If the column is not a string or a BaseExpression.
         """
         if isinstance(column, str):
-            dialect = self.backend.dialect
+            dialect = self.backend().dialect
             return Column(dialect, column)
         elif isinstance(column, BaseExpression):
             return column
