@@ -28,13 +28,6 @@ async def test_async_backend_server_version(async_sqlite_backend):
     assert all(isinstance(v, int) for v in version)
 
 
-@pytest.mark.asyncio
-async def test_async_backend_capabilities(async_sqlite_backend):
-    """Test AsyncSQLiteBackend capabilities."""
-    capabilities = async_sqlite_backend.capabilities
-    assert capabilities is not None
-    # Check that at least the NONE category is present (it's always set by default)
-    assert capabilities.categories is not None
 
 
 from rhosocial.activerecord.backend.options import ExecutionOptions

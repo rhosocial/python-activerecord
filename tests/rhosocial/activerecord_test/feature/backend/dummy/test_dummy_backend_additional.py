@@ -9,13 +9,6 @@ from rhosocial.activerecord.backend.errors import DatabaseError
 class TestAsyncDummyBackendRemaining:
     """Tests for remaining uncovered lines in AsyncDummyBackend."""
 
-    @pytest.mark.asyncio
-    async def test_async_dummy_backend_initialize_capabilities(self):
-        """Test AsyncDummyBackend._initialize_capabilities method."""
-        backend = AsyncDummyBackend()
-        capabilities = backend._initialize_capabilities()
-        # This tests the method at line 94-96 in backend.py
-        assert capabilities is not None
 
     @pytest.mark.asyncio
     async def test_async_dummy_backend_handle_error_with_not_implemented_error(self):

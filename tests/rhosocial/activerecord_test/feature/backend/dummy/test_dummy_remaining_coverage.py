@@ -14,9 +14,6 @@ class TestDummyBackendRemainingCoverage:
         """Test all methods to ensure coverage."""
         backend = DummyBackend()
         
-        # Test _initialize_capabilities (covers line 46)
-        capabilities = backend._initialize_capabilities()
-        assert capabilities is not None
         
         # Test get_server_version (covers line 79)
         version = backend.get_server_version()
@@ -69,9 +66,6 @@ class TestAsyncDummyBackendRemainingCoverage:
         """Test all async methods to ensure coverage."""
         backend = AsyncDummyBackend()
         
-        # Test _initialize_capabilities (covers line 94-96)
-        capabilities = backend._initialize_capabilities()
-        assert capabilities is not None
         
         # Test get_default_adapter_suggestions (covers related line)
         suggestions = backend.get_default_adapter_suggestions()

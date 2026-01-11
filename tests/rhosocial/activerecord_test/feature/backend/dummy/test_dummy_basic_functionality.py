@@ -29,13 +29,13 @@ def test_dummy_backend_dialect_property():
     assert isinstance(backend.dialect, DummyDialect)
 
 
-def test_dummy_backend_capabilities():
-    """Test that DummyBackend initializes capabilities."""
+def test_dummy_backend_has_required_attributes():
+    """Test that DummyBackend has required attributes."""
     backend = DummyBackend()
-    # Check that capabilities are initialized
-    assert hasattr(backend, '_capabilities')
-    # Check that capabilities object exists
-    assert backend.capabilities is not None
+    # Check that backend has dialect property
+    assert hasattr(backend, 'dialect')
+    # Check that backend can access dialect
+    assert backend.dialect is not None
 
 
 def test_dummy_backend_connect_raises_error():

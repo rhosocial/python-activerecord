@@ -2,7 +2,6 @@
 from abc import ABC, abstractmethod
 
 from .base import StorageBackendBase
-from .capability import CapabilityMixin
 from .connection import AsyncConnectionMixin, ConnectionMixin
 from .execution import AsyncExecutionMixin, ExecutionMixin
 from .hooks import AsyncExecutionHooksMixin, ExecutionHooksMixin
@@ -21,7 +20,6 @@ from .type_adaption import AsyncTypeAdaptionMixin, TypeAdaptionMixin
 class StorageBackend(
     StorageBackendBase,
     LoggingMixin,
-    CapabilityMixin,
     TypeAdaptionMixin,
     SQLBuildingMixin,
     ReturningClauseMixin,
@@ -53,7 +51,6 @@ class StorageBackend(
 class AsyncStorageBackend(
     StorageBackendBase,
     LoggingMixin,
-    CapabilityMixin,
     AsyncTypeAdaptionMixin,
     SQLBuildingMixin,
     ReturningClauseMixin,
@@ -87,7 +84,6 @@ __all__ = [
     "AsyncStorageBackend",
     "StorageBackendBase",
     "LoggingMixin",
-    "CapabilityMixin",
     "TypeAdaptionMixin",
     "AsyncTypeAdaptionMixin",
     "SQLBuildingMixin",

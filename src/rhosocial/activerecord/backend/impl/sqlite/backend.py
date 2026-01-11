@@ -21,22 +21,6 @@ from ...result import QueryResult
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
 from ...base import StorageBackend
-from ...capabilities import (
-    DatabaseCapabilities,
-    CTECapability,
-    JSONCapability,
-    TransactionCapability,
-    BulkOperationCapability,
-    JoinCapability,
-    ConstraintCapability,
-    AggregateFunctionCapability,
-    DateTimeFunctionCapability,
-    StringFunctionCapability,
-    MathematicalFunctionCapability,
-    ALL_SET_OPERATIONS,
-    ALL_WINDOW_FUNCTIONS,
-    ALL_RETURNING_FEATURES
-)
 from ...options import ExecutionOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
@@ -92,107 +76,6 @@ class SQLiteBackend(StorageBackend):
         # Register SQLite-specific adapters
         self._register_sqlite_adapters()
 
-    def _initialize_capabilities(self) -> DatabaseCapabilities:
-        """Initialize SQLite capabilities based on version.
-        
-        This method declares the capabilities that SQLite supports, taking into
-        account version-specific feature availability. The capability system
-        allows tests and application code to check for feature support before
-        using features, preventing runtime errors on SQLite versions that
-        don't support certain features.
-        """
-        capabilities = DatabaseCapabilities()
-        version = self.get_server_version()
-
-        # Basic capabilities supported by most versions
-        capabilities.add_set_operation(ALL_SET_OPERATIONS)
-        capabilities.add_join_operation([
-            JoinCapability.INNER_JOIN,
-            JoinCapability.LEFT_OUTER_JOIN,
-            JoinCapability.CROSS_JOIN
-        ])
-        capabilities.add_transaction(TransactionCapability.SAVEPOINT)
-        capabilities.add_bulk_operation(BulkOperationCapability.BATCH_OPERATIONS)
-        capabilities.add_constraint([
-            ConstraintCapability.PRIMARY_KEY,
-            ConstraintCapability.FOREIGN_KEY,
-            ConstraintCapability.UNIQUE,
-            ConstraintCapability.NOT_NULL,
-            ConstraintCapability.DEFAULT
-        ])
-        capabilities.add_datetime_function(DateTimeFunctionCapability.STRFTIME)
-        capabilities.add_aggregate_function(AggregateFunctionCapability.GROUP_CONCAT)
-
-        # CTEs supported from 3.8.3+
-        if version >= (3, 8, 3):
-            capabilities.add_cte([
-                CTECapability.BASIC_CTE,
-                CTECapability.RECURSIVE_CTE
-            ])
-
-        # JSON operations supported from 3.9.0+
-        if version >= (3, 9, 0):
-            capabilities.add_json([
-                JSONCapability.JSON_EXTRACT,
-                JSONCapability.JSON_CONTAINS,
-                JSONCapability.JSON_EXISTS,
-                JSONCapability.JSON_KEYS,
-                JSONCapability.JSON_ARRAY,
-                JSONCapability.JSON_OBJECT
-            ])
-            
-        # UPSERT (ON CONFLICT) supported from 3.24.0+
-        if version >= (3, 24, 0):
-            capabilities.add_bulk_operation(BulkOperationCapability.UPSERT)
-
-        # Window functions supported from 3.25.0+
-        if version >= (3, 25, 0):
-            capabilities.add_window_function(ALL_WINDOW_FUNCTIONS)
-
-        # RETURNING clause and built-in math functions supported from 3.35.0+
-        if version >= (3, 35, 0):
-            capabilities.add_returning(ALL_RETURNING_FEATURES)
-            capabilities.add_mathematical_function([
-                MathematicalFunctionCapability.ABS,
-                MathematicalFunctionCapability.ROUND,
-                MathematicalFunctionCapability.CEIL,
-                MathematicalFunctionCapability.FLOOR,
-                MathematicalFunctionCapability.POWER,
-                MathematicalFunctionCapability.SQRT
-            ])
-
-        # STRICT tables supported from 3.37.0+
-        if version >= (3, 37, 0):
-            capabilities.add_constraint(ConstraintCapability.STRICT_TABLES)
-
-        # Additional JSON functions from 3.38.0+
-        if version >= (3, 38, 0):
-            capabilities.add_json([
-                JSONCapability.JSON_SET,
-                JSONCapability.JSON_INSERT,
-                JSONCapability.JSON_REPLACE,
-                JSONCapability.JSON_REMOVE
-            ])
-
-        # RIGHT and FULL OUTER JOIN supported from 3.39.0+
-        if version >= (3, 39, 0):
-            capabilities.add_join_operation([
-                JoinCapability.RIGHT_OUTER_JOIN,
-                JoinCapability.FULL_OUTER_JOIN
-            ])
-            
-        # CONCAT functions supported from 3.44.0+
-        if version >= (3, 44, 0):
-            capabilities.add_string_function([
-                StringFunctionCapability.CONCAT,
-                StringFunctionCapability.CONCAT_WS
-            ])
-            
-        # JSONB support from 3.45.0+
-        if version >= (3, 45, 0):
-            capabilities.add_json(JSONCapability.JSONB_SUPPORT)
-
-        return capabilities
 
     def _register_sqlite_adapters(self):
         """Register SQLite-specific type adapters to the adapter_registry."""

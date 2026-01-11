@@ -48,8 +48,8 @@ class StorageBackendBase(ABC):
         # Logger (for LoggingMixin)
         self._logger: Optional[logging.Logger] = kwargs.get('logger', logging.getLogger('storage'))
 
-        # Capabilities (for CapabilityMixin)
-        self._capabilities = None
+        # Initialize backend state
+        self._capabilities = None  # Legacy attribute, kept for compatibility
 
         # Type Adaptation (for TypeAdaptionMixin)
         # Architectural Note: This registry is completely independent of the dialect.

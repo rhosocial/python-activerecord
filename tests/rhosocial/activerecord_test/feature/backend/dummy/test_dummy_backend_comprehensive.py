@@ -40,26 +40,12 @@ class TestDummyBackendComprehensive:
         version = backend.get_server_version()
         assert version == (0, 0, 0)
 
-    def test_dummy_backend_initialize_capabilities(self):
-        """Test _initialize_capabilities method adds CTE capability."""
-        backend = DummyBackend()
-        capabilities = backend._initialize_capabilities()
-        # This tests line 46: capabilities.add_cte([CTECapability.BASIC_CTE])
-        assert capabilities is not None
-
-    def test_dummy_backend_capabilities(self):
-        """Test that _initialize_capabilities adds CTE capability."""
-        backend = DummyBackend()
-        capabilities = backend._initialize_capabilities()
-        # Check that capabilities object exists
-        assert capabilities is not None
 
     def test_async_dummy_backend_initialization(self):
-        """Test AsyncDummyBackend _initialize_capabilities."""
+        """Test AsyncDummyBackend can be initialized."""
         backend = AsyncDummyBackend()
-        capabilities = backend._initialize_capabilities()
-        # Should return empty capabilities
-        assert capabilities is not None
+        # Should be able to initialize without error
+        assert backend is not None
 
     def test_async_dummy_backend_get_default_adapter_suggestions(self):
         """Test AsyncDummyBackend get_default_adapter_suggestions."""
