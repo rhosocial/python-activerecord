@@ -54,8 +54,9 @@ class BaseActiveRecord(IActiveRecord):
     ```python
     class User(BaseActiveRecord):
         __table_name__ = "users"
+        __primary_key__ = "id"  # Specify the database column name for the primary key
 
-        id: Optional[int] = Field(default=None, primary_key=True)
+        id: Optional[int] = Field(default=None)  # Note: pydantic's primary_key=True is deprecated
         username: str
         email: str
         created_at: Optional[datetime] = None
@@ -73,7 +74,15 @@ class BaseActiveRecord(IActiveRecord):
 
     # Delete record
     user.delete()
+
+    # Get primary key column name
+    pk_column = User.primary_key()  # Returns "id"
     ```
+
+    Note: Unlike traditional ORMs, this implementation does not rely on pydantic's
+    Field(primary_key=True) for primary key detection. Instead, it uses the __primary_key__
+    class attribute and the primary_key() method. This allows for more flexibility
+    in primary key handling, including dynamic primary keys based on runtime conditions.
     """
 
     @classmethod
