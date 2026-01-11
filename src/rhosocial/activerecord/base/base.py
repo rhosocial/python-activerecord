@@ -83,6 +83,10 @@ class BaseActiveRecord(IActiveRecord):
     Field(primary_key=True) for primary key detection. Instead, it uses the __primary_key__
     class attribute and the primary_key() method. This allows for more flexibility
     in primary key handling, including dynamic primary keys based on runtime conditions.
+
+    Important: Currently, the implementation supports single-column primary keys only.
+    The __primary_key__ attribute should be set to a single column name string.
+    Composite primary keys are not supported in the current implementation.
     """
 
     @classmethod

@@ -75,7 +75,7 @@ class IActiveRecord(BaseModel, ABC):
 
     Attributes:
         __table_name__ (str): Database table name
-        __primary_key__ (str): Primary key column name
+        __primary_key__ (str): Primary key column name (single-column primary keys only)
         __backend__ (StorageBackend): Database storage backend
         __backend_class__ (Type[StorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
@@ -163,10 +163,13 @@ class IActiveRecord(BaseModel, ABC):
 
     @classmethod
     def primary_key(cls) -> str:
-        """Get primary key name.
+        """Get the primary key column name.
 
         Returns the class's __primary_key__ attribute by default. Subclasses can override
         for dynamic primary keys.
+
+        Note: This implementation currently supports single-column primary keys only.
+        For composite primary keys, a different approach would be required.
 
         Example:
             @classmethod
