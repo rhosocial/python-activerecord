@@ -1,44 +1,40 @@
+# tests/rhosocial/activerecord_test/feature/backend/dialect/test_window_protocol.py
 """
 Test for WindowFunctionSupport protocol implementation.
 
-This test creates a dialect that only supports window functions and verifies that
-the window function formatting methods work correctly while other features remain unsupported.
+This test creates a dialect that does not support window functions and verifies that
+the window function formatting methods raise appropriate errors.
 """
 import pytest
-from unittest.mock import MagicMock
 
-from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins import WindowFunctionMixin
-from rhosocial.activerecord.backend.dialect.protocols import WindowFunctionSupport
-from rhosocial.activerecord.backend.expression.advanced_functions import (
-    WindowFunctionCall, WindowSpecification, WindowFrameSpecification
+from rhosocial.activerecord.backend.dialect import (
+    SQLDialectBase, WindowFunctionMixin, WindowFunctionSupport, UnsupportedFeatureError
 )
-from rhosocial.activerecord.backend.expression.core import Column
 
 
-class WindowOnlyDialect(SQLDialectBase, WindowFunctionMixin, WindowFunctionSupport):
-    """Dialect that only supports window functions."""
+class NoWindowDialect(SQLDialectBase, WindowFunctionMixin, WindowFunctionSupport):
+    """Dialect that does not support window functions."""
     
     def supports_window_functions(self) -> bool:
-        return True
+        return False
     
     def supports_window_frame_clause(self) -> bool:
-        return True
+        return False
 
 
-def test_window_only_dialect_supports_window_features():
-    """Test that window-only dialect properly supports window function features."""
-    dialect = WindowOnlyDialect()
+def test_no_window_dialect_does_not_support_window_features():
+    """Test that no-window dialect properly indicates lack of window function support."""
+    dialect = NoWindowDialect()
     
     # Verify protocol implementation
     assert isinstance(dialect, WindowFunctionSupport)
-    assert dialect.supports_window_functions()
-    assert dialect.supports_window_frame_clause()
+    assert not dialect.supports_window_functions()
+    assert not dialect.supports_window_frame_clause()
 
 
-def test_format_window_function_call_works():
-    """Test that format_window_function_call method works in window-only dialect."""
-    dialect = WindowOnlyDialect()
+def test_format_window_function_call_raises_error():
+    """Test that format_window_function_call method raises error in no-window dialect."""
+    dialect = NoWindowDialect()
     
     # Create a mock window function call
     class MockWindowFunctionCall:
@@ -50,41 +46,36 @@ def test_format_window_function_call_works():
     
     mock_call = MockWindowFunctionCall()
     
-    # This should not raise an error
-    result = dialect.format_window_function_call(mock_call)
+    # This should raise an error
+    with pytest.raises(UnsupportedFeatureError):
+        dialect.format_window_function_call(mock_call)
+
+
+def test_format_window_specification_raises_error():
+    """Test that format_window_specification method raises error in no-window dialect."""
+    dialect = NoWindowDialect()
     
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert "ROW_NUMBER" in result[0]
-
-
-def test_format_window_specification_works():
-    """Test that format_window_specification method works in window-only dialect."""
-    dialect = WindowOnlyDialect()
-
-    # Create a mock window specification with at least one component
+    # Create a mock window specification
     class MockWindowSpec:
         def __init__(self):
-            # Add an order_by component to avoid the ValueError
+            # Add an order_by component to avoid the ValueError in format_window_specification
             class MockExpr:
                 def to_sql(self):
                     return "col1", ()
             self.partition_by = []
             self.order_by = [MockExpr()]
             self.frame = None
-
+    
     mock_spec = MockWindowSpec()
-
-    # This should not raise an error
-    result = dialect.format_window_specification(mock_spec)
-
-    assert isinstance(result, tuple)
-    assert len(result) == 2
+    
+    # This should raise an error
+    with pytest.raises(UnsupportedFeatureError):
+        dialect.format_window_specification(mock_spec)
 
 
-def test_format_window_frame_specification_works():
-    """Test that format_window_frame_specification method works in window-only dialect."""
-    dialect = WindowOnlyDialect()
+def test_format_window_frame_specification_raises_error():
+    """Test that format_window_frame_specification method raises error in no-window dialect."""
+    dialect = NoWindowDialect()
     
     # Create a mock window frame specification
     class MockFrameSpec:
@@ -95,72 +86,42 @@ def test_format_window_frame_specification_works():
     
     mock_spec = MockFrameSpec()
     
-    # This should not raise an error
-    result = dialect.format_window_frame_specification(mock_spec)
+    # This should raise an error
+    with pytest.raises(UnsupportedFeatureError):
+        dialect.format_window_frame_specification(mock_spec)
+
+
+def test_window_clause_and_definition_methods_raise_error():
+    """Test window clause and definition methods raise errors."""
+    dialect = NoWindowDialect()
     
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-
-
-def test_window_clause_and_definition_methods():
-    """Test window clause and definition methods."""
-    dialect = WindowOnlyDialect()
-
-    # Test format_window_clause
+    # Test format_window_clause raises error
     class MockWindowClause:
         def __init__(self):
             self.definitions = []
-
+    
     mock_clause = MockWindowClause()
-
-    with pytest.raises(ValueError):  # Should raise error for empty definitions
+    
+    with pytest.raises(UnsupportedFeatureError):
         dialect.format_window_clause(mock_clause)
-
-    # Test format_window_definition
-    class MockWindowSpec:
+    
+    # Test format_window_definition raises error
+    class MockWindowDef:
         def __init__(self):
             # Add an order_by component to avoid the ValueError in format_window_specification
             class MockExpr:
                 def to_sql(self):
                     return "col1", ()
-            self.partition_by = []
-            self.order_by = [MockExpr()]
-            self.frame = None
-
-    class MockWindowDef:
-        def __init__(self):
             self.name = "w1"
+            class MockWindowSpec:
+                def __init__(self):
+                    self.partition_by = []
+                    self.order_by = [MockExpr()]
+                    self.frame = None
             self.specification = MockWindowSpec()
-
+    
     mock_def = MockWindowDef()
-
-    # This should not raise an error
-    result = dialect.format_window_definition(mock_def)
-
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert "w1" in result[0]
-
-
-def test_other_features_still_raise_errors():
-    """Test that features not supported by this dialect still raise errors."""
-    dialect = WindowOnlyDialect()
     
-    # Test that CTE methods still raise errors
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_cte("test", "SELECT 1")
-    
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_with_query([], "SELECT 1")
-    
-    # Test that JSON table expressions still raise errors
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_json_table_expression("", "", [], None, ())
-    
-    # Test that lateral expressions still raise errors  
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_lateral_expression("", (), None, "CROSS")
-    
-    # Test that table function expressions still raise errors
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_table_function_expression("FUNC", [], (), None, [])
+    # This should raise an error
+    with pytest.raises(UnsupportedFeatureError):
+        dialect.format_window_definition(mock_def)

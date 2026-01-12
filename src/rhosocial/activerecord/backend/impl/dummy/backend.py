@@ -99,7 +99,7 @@ class AsyncDummyBackend(AsyncStorageBackend):
         raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
 
     async def disconnect(self) -> None:
-        pass
+        pass # Disconnecting a dummy backend is a no-op
 
     async def ping(self, reconnect: bool = True) -> bool:
         raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
@@ -119,7 +119,7 @@ class AsyncDummyBackend(AsyncStorageBackend):
         raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
 
     async def _handle_auto_commit(self) -> None:
-        pass
+        pass # No real database, so no commit needed
 
     @property
     def transaction_manager(self) -> AsyncTransactionManager:

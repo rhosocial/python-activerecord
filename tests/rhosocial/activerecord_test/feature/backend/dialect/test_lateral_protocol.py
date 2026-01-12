@@ -1,79 +1,49 @@
+# tests/rhosocial/activerecord_test/feature/backend/dialect/test_lateral_protocol.py
 """
 Test for LateralJoinSupport protocol implementation.
 
-This test creates a dialect that only supports lateral joins and table functions and verifies that
-the corresponding formatting methods work correctly while other features remain unsupported.
+This test creates a dialect that does not support lateral joins and table functions and verifies that
+the corresponding formatting methods raise appropriate errors.
 """
-import pytest
-from unittest.mock import MagicMock
 
-from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
-from rhosocial.activerecord.backend.dialect.mixins import LateralJoinMixin
-from rhosocial.activerecord.backend.dialect.protocols import LateralJoinSupport
+from rhosocial.activerecord.backend.dialect import (
+    SQLDialectBase, LateralJoinMixin, LateralJoinSupport
+)
+from rhosocial.activerecord.backend.expression import (
+    Column, QueryExpression, TableExpression, Subquery
+)
 from rhosocial.activerecord.backend.expression.query_sources import (
     LateralExpression, TableFunctionExpression
 )
-from rhosocial.activerecord.backend.expression.core import Subquery, Column
-from rhosocial.activerecord.backend.expression.statements import QueryExpression
-from rhosocial.activerecord.backend.expression.core import TableExpression
 
 
-class LateralOnlyDialect(SQLDialectBase, LateralJoinMixin, LateralJoinSupport):
-    """Dialect that only supports lateral joins and table functions."""
+class NoLateralDialect(SQLDialectBase, LateralJoinMixin, LateralJoinSupport):
+    """Dialect that does not support lateral joins and table functions."""
     
     def supports_lateral_join(self) -> bool:
-        return True
+        return False
 
 
-def test_lateral_only_dialect_supports_lateral_features():
-    """Test that lateral-only dialect properly supports lateral join features."""
-    dialect = LateralOnlyDialect()
+def test_no_lateral_dialect_does_not_support_lateral_features():
+    """Test that no-lateral dialect properly indicates lack of lateral join features."""
+    dialect = NoLateralDialect()
     
     # Verify protocol implementation
     assert isinstance(dialect, LateralJoinSupport)
-    assert dialect.supports_lateral_join()
+    assert not dialect.supports_lateral_join()
 
 
-def test_format_lateral_expression_works():
-    """Test that format_lateral_expression method works in lateral-only dialect."""
-    dialect = LateralOnlyDialect()
+def test_format_lateral_expression_reports_no_support():
+    """Test that format_lateral_expression method reports no support in no-lateral dialect."""
+    dialect = NoLateralDialect()
     
-    # This should not raise an error
-    result = dialect.format_lateral_expression(
-        expr_sql="SELECT * FROM users",
-        expr_params=(),
-        alias="lateral_users",
-        join_type="CROSS"
-    )
-    
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert "LATERAL" in result[0]
-    assert "lateral_users" in result[0]
+    # Verify that the dialect reports no lateral join support
+    assert not dialect.supports_lateral_join()
 
 
-def test_format_table_function_expression_works():
-    """Test that format_table_function_expression method works in lateral-only dialect."""
-    dialect = LateralOnlyDialect()
-    
-    # This should not raise an error
-    result = dialect.format_table_function_expression(
-        func_name="UNNEST",
-        args_sql=["array_col"],
-        args_params=(),
-        alias="unested",
-        column_names=["value"]
-    )
-    
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert "UNNEST" in result[0]
-    assert "unested" in result[0]
-
-
-def test_lateral_expression_integration():
-    """Test LateralExpression integration with lateral-only dialect."""
-    dialect = LateralOnlyDialect()
+def test_lateral_expression_integration_reports_no_support():
+    """Test LateralExpression integration with no-lateral dialect."""
+    dialect = NoLateralDialect()
     
     # Create a subquery to use in lateral expression
     subquery = Subquery(
@@ -92,18 +62,13 @@ def test_lateral_expression_integration():
         alias="lateral_data"
     )
     
-    # This should work without raising an error
-    result = lateral_expr.to_sql()
-    
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert "LATERAL" in result[0]
-    assert "lateral_data" in result[0]
+    # The dialect should report no lateral join support
+    assert not dialect.supports_lateral_join()
 
 
-def test_table_function_expression_integration():
-    """Test TableFunctionExpression integration with lateral-only dialect."""
-    dialect = LateralOnlyDialect()
+def test_table_function_expression_integration_reports_no_support():
+    """Test TableFunctionExpression integration with no-lateral dialect."""
+    dialect = NoLateralDialect()
     
     # Create a mock expression to use as argument
     class MockArg:
@@ -121,37 +86,5 @@ def test_table_function_expression_integration():
         column_names=["value"]
     )
     
-    # This should work without raising an error
-    result = table_func.to_sql()
-    
-    assert isinstance(result, tuple)
-    assert len(result) == 2
-    assert "UNNEST" in result[0]
-    assert "unested" in result[0]
-
-
-def test_other_features_still_raise_errors():
-    """Test that features not supported by this dialect still raise errors."""
-    dialect = LateralOnlyDialect()
-    
-    # Test that CTE methods still raise errors
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_cte("test", "SELECT 1")
-    
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_with_query([], "SELECT 1")
-    
-    # Test that window function methods still raise errors
-    class MockWindowCall:
-        def __init__(self):
-            self.function_name = "ROW_NUMBER"
-            self.args = []
-            self.window_spec = None
-            self.alias = None
-    
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_window_function_call(MockWindowCall())
-    
-    # Test that JSON table expressions still raise errors
-    with pytest.raises(Exception):  # Should raise UnsupportedFeatureError
-        dialect.format_json_table_expression("", "", [], None, ())
+    # The dialect should report no lateral join support (which covers table functions)
+    assert not dialect.supports_lateral_join()

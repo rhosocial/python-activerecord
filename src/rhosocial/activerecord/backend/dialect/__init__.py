@@ -52,6 +52,8 @@ from .protocols import (
     QualifyClauseSupport,
     LockingSupport,
     GraphSupport,
+    WildcardSupport,
+    JoinSupport,
 )
 from .mixins import (
     WindowFunctionMixin,
@@ -70,6 +72,7 @@ from .mixins import (
     QualifyClauseMixin,
     LockingMixin,
     GraphMixin,
+    JoinMixin,
 )
 
 # Import Explain types from expression module to make them available in dialect module
@@ -104,6 +107,8 @@ __all__ = [
     'QualifyClauseSupport',
     'LockingSupport',
     'GraphSupport',
+    'WildcardSupport',
+    'JoinSupport',
 
     # Mixins
     'WindowFunctionMixin',
@@ -122,4 +127,5 @@ __all__ = [
     'QualifyClauseMixin',
     'LockingMixin',
     'GraphMixin',
+    'JoinMixin',
 ]
