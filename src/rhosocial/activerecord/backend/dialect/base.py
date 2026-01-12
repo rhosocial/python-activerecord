@@ -9,7 +9,6 @@ from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..expression import bases
-from ..expression.query_parts import JoinExpression
 from ..expression.statements import QueryExpression, ColumnDefinition
 
 if TYPE_CHECKING:

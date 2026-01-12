@@ -8,7 +8,7 @@ from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
-from .relational import RelationalQueryMixin, InvalidRelationPathError, RelationNotFoundError, RelationConfig, InvalidRelationPathError, RelationNotFoundError, RelationConfig, InvalidRelationPathError, RelationNotFoundError, RelationConfig
+from .relational import RelationalQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.expression import (
     WildcardExpression,

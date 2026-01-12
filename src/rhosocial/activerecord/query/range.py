@@ -3,7 +3,6 @@
 
 from typing import List, Union, Tuple, Any
 
-from .base import BaseQueryMixin
 from ..backend.expression import Column, BaseExpression
 
 

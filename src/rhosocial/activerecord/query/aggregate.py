@@ -7,7 +7,6 @@ from ..backend.expression import (
     functions,
     statements,
     BaseExpression,
-    Literal,
     WildcardExpression,
     TableExpression
 )

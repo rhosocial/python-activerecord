@@ -3,7 +3,7 @@
 
 from typing import Union
 
-from ..backend.expression import BaseExpression, SetOperationExpression, bases
+from ..backend.expression import SetOperationExpression, bases
 from ..interface import IQuery, ISetOperationQuery
 
 
