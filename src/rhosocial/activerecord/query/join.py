@@ -3,7 +3,7 @@
 
 from typing import Union, Type, Optional
 
-from ..interface import ModelT, IQuery, IActiveRecord
+from ..interface import IQuery, IActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
 
 
@@ -23,7 +23,7 @@ class JoinQueryMixin:
     join_clause: Optional[JoinExpression]
 
 
-    def _resolve_right_table(self, right: Union[str, Type[ModelT], TableExpression], alias: Optional[str]) -> Union[TableExpression, JoinExpression]:
+    def _resolve_right_table(self, right: Union[str, Type['IActiveRecord'], TableExpression], alias: Optional[str]) -> Union[TableExpression, JoinExpression]:
         """Helper method to resolve the right-hand side of a join into a TableExpression."""
         dialect = self.backend().dialect
         if isinstance(right, str):
@@ -51,7 +51,7 @@ class JoinQueryMixin:
             return on
         raise TypeError(f"Unsupported type for 'on' condition: {type(on)}")
 
-    def _perform_join(self, join_type: str, right: Union[str, Type[ModelT], TableExpression], on: Optional[Union[str, SQLPredicate]], alias: Optional[str], natural: bool = False) -> 'IQuery[ModelT]':
+    def _perform_join(self, join_type: str, right: Union[str, Type['IActiveRecord'], TableExpression], on: Optional[Union[str, SQLPredicate]], alias: Optional[str], natural: bool = False) -> 'IQuery[IActiveRecord]':
         """Internal helper to construct and chain join expressions."""
         dialect = self.backend().dialect
         right_table = self._resolve_right_table(right, alias)
@@ -79,62 +79,62 @@ class JoinQueryMixin:
         return self
 
     def join(self,
-             right: Union[str, Type[ModelT], TableExpression],
+             right: Union[str, Type['IActiveRecord'], TableExpression],
              on: Optional[Union[str, SQLPredicate]] = None,
-             alias: Optional[str] = None) -> 'IQuery[ModelT]':
+             alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds a JOIN clause to the query (defaults to INNER JOIN).
         """
         return self._perform_join("JOIN", right, on, alias)
 
     def inner_join(self,
-                   right: Union[str, Type[ModelT], TableExpression],
+                   right: Union[str, Type['IActiveRecord'], TableExpression],
                    on: Optional[Union[str, SQLPredicate]] = None,
-                   alias: Optional[str] = None) -> 'IQuery[ModelT]':
+                   alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds an INNER JOIN clause to the query.
         """
         return self._perform_join("INNER JOIN", right, on, alias)
 
     def left_join(self,
-                  right: Union[str, Type[ModelT], TableExpression],
+                  right: Union[str, Type['IActiveRecord'], TableExpression],
                   on: Optional[Union[str, SQLPredicate]] = None,
-                  alias: Optional[str] = None) -> 'IQuery[ModelT]':
+                  alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds a LEFT JOIN clause to the query.
         """
         return self._perform_join("LEFT JOIN", right, on, alias)
 
     def right_join(self,
-                   right: Union[str, Type[ModelT], TableExpression],
+                   right: Union[str, Type['IActiveRecord'], TableExpression],
                    on: Optional[Union[str, SQLPredicate]] = None,
-                   alias: Optional[str] = None) -> 'IQuery[ModelT]':
+                   alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds a RIGHT JOIN clause to the query.
         """
         return self._perform_join("RIGHT JOIN", right, on, alias)
 
     def full_join(self,
-                  right: Union[str, Type[ModelT], TableExpression],
+                  right: Union[str, Type['IActiveRecord'], TableExpression],
                   on: Optional[Union[str, SQLPredicate]] = None,
-                  alias: Optional[str] = None) -> 'IQuery[ModelT]':
+                  alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds a FULL OUTER JOIN clause to the query.
         """
         return self._perform_join("FULL JOIN", right, on, alias)
 
     def cross_join(self,
-                   right: Union[str, Type[ModelT], TableExpression],
-                   alias: Optional[str] = None) -> 'IQuery[ModelT]':
+                   right: Union[str, Type['IActiveRecord'], TableExpression],
+                   alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds a CROSS JOIN clause to the query.
         """
         return self._perform_join("CROSS JOIN", right, None, alias)
 
     def natural_join(self,
-                     right: Union[str, Type[ModelT], TableExpression],
+                     right: Union[str, Type['IActiveRecord'], TableExpression],
                      join_type: str = "JOIN",
-                     alias: Optional[str] = None) -> 'IQuery[ModelT]':
+                     alias: Optional[str] = None) -> 'IQuery[IActiveRecord]':
         """
         Adds a NATURAL JOIN clause to the query.
 
@@ -145,7 +145,7 @@ class JoinQueryMixin:
             Support for NATURAL JOIN may also vary across different database backends.
 
         Args:
-            right: The right-hand side of the join. Can be a table name (str), a ModelT class,
+            right: The right-hand side of the join. Can be a table name (str), a IActiveRecord class,
                    or a TableExpression.
             join_type: The type of join to perform (e.g., "JOIN", "INNER JOIN"). Defaults to "JOIN".
             alias: An optional alias for the joined result.

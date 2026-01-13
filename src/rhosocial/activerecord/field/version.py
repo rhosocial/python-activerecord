@@ -1,10 +1,10 @@
 # src/rhosocial/activerecord/field/version.py
 """Module providing version control functionality."""
-from typing import Tuple, Any, Dict, List, Optional
+from typing import Any, Dict, List
 
 from ..backend.errors import DatabaseError
-from ..backend.expression import core, predicates
-from ..interface import IActiveRecord, IUpdateBehavior, ModelEvent
+from ..backend.expression import SQLPredicate, SQLValueExpression
+from ..interface import IActiveRecord, ModelEvent
 
 
 class Version:
@@ -85,7 +85,7 @@ class Version:
         return f"Version(value={self.value}, increment_by={self.increment_by}, db_column='{self.db_column}')"
 
 
-class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
+class OptimisticLockMixin(IActiveRecord):
     """Optimistic locking mixin that uses Version class
 
     Uses VersionField (a PrivateAttr) to manage a Version instance.
@@ -106,16 +106,15 @@ class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
         """Read-only access to current version number"""
         return self._version.value
 
-    def get_update_conditions(self) -> List[Tuple[str, Optional[tuple]]]:
+    def get_update_conditions(self) -> List[SQLPredicate]:
         """Add version check to update conditions using expression system"""
         if not self.is_new_record:
             backend = self.backend()
             condition_expr = self._version.get_update_condition(backend.dialect)
-            sql, params = condition_expr.to_sql()
-            return [(sql, params)]
+            return [condition_expr]
         return []
 
-    def get_update_expressions(self) -> Dict[str, Any]:
+    def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
         """Add version increment to update expressions using expression system"""
         if not self.is_new_record:
             backend = self.backend()

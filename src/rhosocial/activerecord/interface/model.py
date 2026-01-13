@@ -2,31 +2,16 @@
 """
 Core ActiveRecord model interface definition.
 """
-import inspect
 import logging
 from abc import ABC, abstractmethod
-from copy import deepcopy
-from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Callable, Tuple, \
-    TYPE_CHECKING, get_args
-
 from pydantic import BaseModel
-from pydantic.fields import FieldInfo
+from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable, TYPE_CHECKING
 
 from .base import ModelEvent
 from ..backend.base import StorageBackend
-from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.expression import ComparisonPredicate, Column, Literal
-from ..backend.schema import DatabaseType
 from ..backend.config import ConnectionConfig
-from ..backend.options import InsertOptions, UpdateOptions
-
-if TYPE_CHECKING:
-    from ..backend.type_adapter import SQLTypeAdapter
-
-
-# Type variable for interface
-ModelT = TypeVar('ModelT', bound='IActiveRecord')
-
+from ..backend.errors import DatabaseError, RecordNotFound
+from ..backend.schema import DatabaseType
 
 
 class IActiveRecord(BaseModel, ABC):
@@ -166,7 +151,7 @@ class IActiveRecord(BaseModel, ABC):
         return cls.__backend__
 
     @classmethod
-    def create_from_database(cls: Type[ModelT], row: Dict[str, Any]) -> ModelT:
+    def create_from_database(cls: Type['IActiveRecord'], row: Dict[str, Any]) -> 'IActiveRecord':
         """Create instance from database record"""
         instance = cls(**row)
         instance._is_from_db = True
@@ -174,12 +159,12 @@ class IActiveRecord(BaseModel, ABC):
         return instance
 
     @classmethod
-    def create_collection_from_database(cls: Type[ModelT], rows: List[Dict[str, Any]]) -> List[ModelT]:
+    def create_collection_from_database(cls: Type['IActiveRecord'], rows: List[Dict[str, Any]]) -> List['IActiveRecord']:
         """Create instance collection from database records"""
         return [cls.create_from_database(row) for row in rows]
 
     @classmethod
-    def validate_record(cls: Type[ModelT], value: Any) -> None:
+    def validate_record(cls, value: Any) -> None:
         """Execute business rule validation.
 
         Unlike Pydantic's data type validation, this method focuses on business rules like:
@@ -276,7 +261,7 @@ class IActiveRecord(BaseModel, ABC):
 
     @classmethod
     @abstractmethod
-    def find_one(cls: Type[ModelT], condition: Union[Any, Dict[str, Any]]) -> Optional[ModelT]:
+    def find_one(cls: Type['IActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> Optional['IActiveRecord']:
         """
         Find a single record that matches the specified condition.
 
@@ -294,7 +279,7 @@ class IActiveRecord(BaseModel, ABC):
                       of field-value pairs, or a more complex condition expression
 
         Returns:
-            Optional[ModelT]: A model instance if a matching record is found, None otherwise
+            Optional[IActiveRecord]: A model instance if a matching record is found, None otherwise
 
         Raises:
             DatabaseError: If there are issues connecting to or executing against
@@ -304,7 +289,7 @@ class IActiveRecord(BaseModel, ABC):
 
     @classmethod
     @abstractmethod
-    def find_all(cls: Type[ModelT], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List[ModelT]:
+    def find_all(cls: Type['IActiveRecord'], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List['IActiveRecord']:
         """
         Find all records that match the specified condition.
 
@@ -319,7 +304,7 @@ class IActiveRecord(BaseModel, ABC):
                       - None to return all records
 
         Returns:
-            List[ModelT]: A list of model instances that match the condition.
+            List[IActiveRecord]: A list of model instances that match the condition.
                          Returns an empty list if no records match.
 
         Raises:
@@ -330,7 +315,7 @@ class IActiveRecord(BaseModel, ABC):
 
     @classmethod
     @abstractmethod
-    def find_one_or_fail(cls: Type[ModelT], condition: Union[Any, Dict[str, Any]]) -> ModelT:
+    def find_one_or_fail(cls: Type['IActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> 'IActiveRecord':
         """
         Find a single record that matches the specified condition or raise an exception.
 
@@ -342,7 +327,7 @@ class IActiveRecord(BaseModel, ABC):
                       of field-value pairs, or a more complex condition expression
 
         Returns:
-            ModelT: A model instance if a matching record is found
+            IActiveRecord: A model instance if a matching record is found
 
         Raises:
             RecordNotFound: If no record matches the specified condition

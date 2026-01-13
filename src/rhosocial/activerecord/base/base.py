@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, ClassVar, Type, Union, get_origin,
 from pydantic.fields import FieldInfo
 
 from ..interface import IActiveRecord, ModelEvent
+from ..interface.update import IUpdateBehavior
 from ..backend.base import StorageBackend
 from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
@@ -16,8 +17,8 @@ from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as D
 from ..backend.config import ConnectionConfig
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.expression import ComparisonPredicate, Column, Literal
-from .typing import ConditionType, MultiConditionType, ModelT
-from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend  # Import DummyBackend
+from .typing import ConditionType, MultiConditionType
+from ..backend.impl.dummy.backend import DummyBackend  # Import DummyBackend
 
 
 class CustomModuleFormatter(logging.Formatter):
@@ -419,11 +420,11 @@ class BaseActiveRecord(IActiveRecord):
         mro = self.__class__.__mro__
         activerecord_idx = mro.index(IActiveRecord)
         for cls in mro[:activerecord_idx]:
-            if (hasattr(cls, 'get_update_conditions') and
-                    hasattr(cls, 'get_update_expressions')):
-                # Get conditions and expressions from this class
-                behavior_conditions = cls.get_update_conditions(self)
-                behavior_expressions = cls.get_update_expressions(self)
+            # Check if the instance implements the IUpdateBehavior protocol
+            if isinstance(self, IUpdateBehavior):
+                # Get conditions and expressions from this instance
+                behavior_conditions = self.get_update_conditions()
+                behavior_expressions = self.get_update_expressions()
 
                 # Add to update conditions and expressions
                 if behavior_conditions:
@@ -434,101 +435,34 @@ class BaseActiveRecord(IActiveRecord):
         # Combine data with additional expressions. This 'data' becomes the SET clause values.
         data.update(update_expressions)
 
-        # Step 1: Map Python field names in `data` to database column names.
-        # This `mapped_set_data` will be used for preparing parameters.
-        mapped_set_data = self.__class__._map_fields_to_columns(data)
         self.log(logging.DEBUG, f"1. SET clause raw data (Python field names): {data}")
-        self.log(logging.DEBUG, f"1. SET clause mapped data (DB column names): {mapped_set_data}")
-
-        # Step 2: Resolve and prepare the SET clause parameters using the new prioritized logic.
-        set_param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
-        all_suggestions = self.backend().get_default_adapter_suggestions()
-
-        for field_name, py_value in mapped_set_data.items(): # Iterate over mapped data to get DB column names
-            resolved_adapter_info = None
-
-            # Priority 1: Check for a field-specific adapter.
-            # NOTE: Custom adapters are defined for Python field names.
-            # We need to get the original field name from the mapped column name for adapter lookup.
-            original_field_name = self.__class__._get_field_name(field_name)
-            custom_adapter_tuple = self.__class__._get_adapter_for_field(original_field_name)
-            if custom_adapter_tuple:
-                resolved_adapter_info = custom_adapter_tuple
-
-            # Priority 2: If no custom adapter was found, fall back to default suggestion.
-            if not resolved_adapter_info:
-                value_type = type(py_value)
-                resolved_adapter_info = all_suggestions.get(value_type)
-
-            if resolved_adapter_info:
-                set_param_adapters[field_name] = resolved_adapter_info
-
-        self.log(logging.DEBUG, f"2. Resolved SET clause parameter adapters: {len(set_param_adapters)} adapters found")
-
-        prepared_set_data = self.backend().prepare_parameters(mapped_set_data, set_param_adapters)
-        self.log(logging.DEBUG, f"2. Prepared SET clause data: {prepared_set_data}")
-
-        # Step 3: Prepare the WHERE clause parameters.
-        # (WHERE clause adaptation remains type-based as field context is not available here)
-        raw_where_params_list = []
-        where_conditions_list = []
-
-        # Add primary key condition.
-        pk_column = self.primary_key() # Use DB column name for WHERE clause
-        pk_value = getattr(self, self.__class__.primary_key_field()) # Get value from Python field
-
-        where_conditions_list.append(f"{pk_column} = ?")
-        raw_where_params_list.append(pk_value)
-
-        # Add additional conditions from mixins.
-        for condition_str, condition_params in update_conditions:
-            where_conditions_list.append(condition_str)
-            if condition_params:
-                raw_where_params_list.extend(condition_params)
-
-        # Build param_adapters for the WHERE clause parameters.
-        where_param_adapters_sequence: List[Optional[Tuple['SQLTypeAdapter', Type]]] = []
-        for raw_value in raw_where_params_list:
-            value_type = type(raw_value)
-            suggestion = all_suggestions.get(value_type)
-            where_param_adapters_sequence.append(suggestion)
-
-        # Prepare the WHERE clause parameters using the resolved adapters.
-        prepared_where_params = self.backend().prepare_parameters(
-            tuple(raw_where_params_list), # Pass as a tuple for prepare_parameters
-            where_param_adapters_sequence
-        )
-
-        self.log(logging.DEBUG, f"3. Prepared WHERE clause parameters: {len(prepared_where_params)} parameters prepared")
 
         # Step 4: Create column_mapping for result processing (maps column names back to field names).
         column_mapping = self.__class__.get_column_to_field_map()
-        self.log(logging.DEBUG, f"4. Column mapping for result processing: {column_mapping}")
 
         # Step 5: Get the column adapters for processing output.
         column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"5. Column adapters map: {column_adapters}")
 
         # Get the database backend
         backend = self.backend()
 
-        # Get the appropriate placeholder for this database
-        # The backend will handle placeholder conversion in _prepare_sql_and_params
-        # No need to manually replace placeholders here since backend.execute() handles it
-        final_where_clause = " AND ".join(where_conditions_list)
-
-        self.log(logging.INFO,
-                 f"Updating {self.__class__.__name__}#{getattr(self, self.__class__.primary_key_field())}: "
-                 f"set_data={prepared_set_data}, where_clause={final_where_clause}, where_params={prepared_where_params}")
-
-        # Step 6: Execute update with an UpdateOptions object.
+        # Step 6: Construct the WHERE predicate by combining primary key condition with additional conditions
         pk_name = self.primary_key() # Get primary key name (e.g., 'id')
         pk_value = getattr(self, self.__class__.primary_key_field()) # Get value of primary key field
 
-        # Construct the WHERE predicate using ComparisonPredicate
+        # Start with primary key condition
         where_predicate = ComparisonPredicate(
             backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
         )
+
+        # Combine with additional conditions from mixins using AND
+        for condition in update_conditions:
+            # All conditions should now be SQLPredicate objects
+            if hasattr(condition, 'to_sql'):  # If it's a SQLPredicate
+                where_predicate = where_predicate & condition
+            else:
+                # Handle other condition formats if needed
+                pass
 
         # Determine if backend supports RETURNING clause
         supports_returning = backend.dialect.supports_returning_clause()
@@ -543,7 +477,7 @@ class BaseActiveRecord(IActiveRecord):
 
         update_options = UpdateOptions(
             table=self.table_name(),
-            data=prepared_set_data, # mapped_set_data contains prepared and mapped data
+            data=data, # Use original data with Python field names, backend handles mapping
             where=where_predicate,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
@@ -588,7 +522,7 @@ class BaseActiveRecord(IActiveRecord):
                 after_method(self, is_new)
 
     @classmethod
-    def find_one(cls: Type[ModelT], condition: ConditionType) -> Optional[ModelT]:
+    def find_one(cls: Type['BaseActiveRecord'], condition: ConditionType) -> Optional['BaseActiveRecord']:
         """Find single record by primary key or conditions.
 
         Args:
@@ -597,7 +531,7 @@ class BaseActiveRecord(IActiveRecord):
                 - For dict, queries by conditions
 
         Returns:
-            Optional[ModelT]: Found record or None
+            Optional[BaseActiveRecord]: Found record or None
 
         Examples:
             # Query by primary key
@@ -618,7 +552,7 @@ class BaseActiveRecord(IActiveRecord):
         return query.one()
 
     @classmethod
-    def find_all(cls: Type[ModelT], condition: MultiConditionType = None) -> List[ModelT]:
+    def find_all(cls: Type['BaseActiveRecord'], condition: MultiConditionType = None) -> List['BaseActiveRecord']:
         """Find multiple records.
 
         Args:
@@ -628,7 +562,7 @@ class BaseActiveRecord(IActiveRecord):
                 - For None, returns all records
 
         Returns:
-            List[ModelT]: List of found records
+            List[BaseActiveRecord]: List of found records
 
         Examples:
             # Query by primary key list
@@ -658,14 +592,14 @@ class BaseActiveRecord(IActiveRecord):
         return query.all()
 
     @classmethod
-    def find_one_or_fail(cls: Type[ModelT], condition: ConditionType) -> ModelT:
+    def find_one_or_fail(cls: Type['BaseActiveRecord'], condition: ConditionType) -> 'BaseActiveRecord':
         """Find single record, raise exception if not found.
 
         Args:
             condition: Primary key value or query condition dict
 
         Returns:
-            ModelT: Found record
+            BaseActiveRecord: Found record
 
         Raises:
             RecordNotFound: When record is not found

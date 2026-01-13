@@ -91,7 +91,7 @@ class ActiveQuery(
         use .explain() with .aggregate() instead: User.query().explain().aggregate()
 
         Returns:
-            List[ModelT]: List of model instances (empty if no matches)
+            List[IActiveRecord]: List of model instances (empty if no matches)
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)
@@ -133,7 +133,7 @@ class ActiveQuery(
         use .limit(1).explain() with .aggregate() instead: User.query().limit(1).explain().aggregate()
 
         Returns:
-            Optional[ModelT]: Single model instance or None
+            Optional[IActiveRecord]: Single model instance or None
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)
@@ -336,7 +336,7 @@ class AsyncActiveQuery(
         use .explain() with .aggregate() instead: User.query().explain().aggregate()
 
         Returns:
-            List[ModelT]: List of model instances (empty if no matches)
+            List[IActiveRecord]: List of model instances (empty if no matches)
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)
@@ -378,7 +378,7 @@ class AsyncActiveQuery(
         use .limit(1).explain() with .aggregate() instead: User.query().limit(1).explain().aggregate()
 
         Returns:
-            Optional[ModelT]: Single model instance or None
+            Optional[IActiveRecord]: Single model instance or None
 
         Examples:
             1. Using ActiveRecord field proxy (recommended)

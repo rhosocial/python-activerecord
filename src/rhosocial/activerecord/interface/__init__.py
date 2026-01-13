@@ -2,7 +2,7 @@
 """
 Package interface provides core interfaces for ActiveRecord implementation.
 """
-from .base import ModelEvent, ModelT, DictT, QueryT
+from .base import ModelEvent, DictT, QueryT
 from .model import IActiveRecord
 from .query import IQuery, IActiveQuery, IAsyncActiveQuery, ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IBackend, IQueryBuilding, ThreadSafeDict
 from .update import IUpdateBehavior
@@ -20,7 +20,6 @@ __all__ = [
     'ThreadSafeDict',
     'ModelEvent',
     'IQuery',
-    'ModelT',
     'DictT',
     'QueryT',
 ]

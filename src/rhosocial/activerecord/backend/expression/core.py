@@ -9,9 +9,6 @@ from . import mixins
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .bases import SQLQueryAndParams
-
-
 
 
 class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
