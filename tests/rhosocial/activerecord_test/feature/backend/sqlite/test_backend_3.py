@@ -516,3 +516,181 @@ class TestSQLiteBackendCoveragePart3Fixed:
         # Disconnect should clear it
         backend.disconnect()
         assert backend._transaction_manager is None
+
+    def test_uuid_type_adaptation_full_flow(self):
+        """
+        Test full flow of UUID type adaptation from save to query operations.
+
+        This test verifies that UUID objects are properly converted to database-compatible
+        format during save operations and properly reconstructed from database format
+        during query operations, ensuring end-to-end type safety.
+        """
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
+        backend.connect()
+
+        # Create test table with UUID primary key
+        options = ExecutionOptions(stmt_type=StatementType.DDL)
+        backend.execute("""
+            CREATE TABLE users (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                external_id TEXT
+            )
+        """, options=options)
+
+        # Generate test UUIDs
+        user_id = uuid.uuid4()
+        external_id = uuid.uuid4()
+
+        # Test 1: Save operation with UUID parameters
+        # The execute method should now properly convert UUIDs to strings
+        insert_options = ExecutionOptions(stmt_type=StatementType.INSERT)
+        result = backend.execute(
+            "INSERT INTO users (id, name, external_id) VALUES (?, ?, ?)",
+            (user_id, "John Doe", external_id),  # UUIDs passed directly
+            options=insert_options
+        )
+        assert result.affected_rows == 1
+
+        # Test 2: Query operations with UUID parameters
+        # fetch_one should properly convert UUID parameter to string for database
+        user_fetched = backend.fetch_one(
+            "SELECT * FROM users WHERE id = ?",
+            (user_id,)  # UUID passed directly as parameter
+        )
+        assert user_fetched is not None
+        assert user_fetched['id'] == str(user_id)  # Should be converted to string in DB
+        assert user_fetched['name'] == "John Doe"
+        assert user_fetched['external_id'] == str(external_id)
+
+        # Test 3: Query with external_id UUID parameter
+        user_by_external = backend.fetch_one(
+            "SELECT * FROM users WHERE external_id = ?",
+            (external_id,)  # UUID passed directly as parameter
+        )
+        assert user_by_external is not None
+        assert user_by_external['id'] == str(user_id)
+        assert user_by_external['external_id'] == str(external_id)
+
+        # Test 4: fetch_all with UUID parameter
+        users = backend.fetch_all(
+            "SELECT * FROM users WHERE id = ? OR external_id = ?",
+            (user_id, external_id)  # Both UUIDs passed directly
+        )
+        assert len(users) == 1
+        assert users[0]['id'] == str(user_id)
+        assert users[0]['external_id'] == str(external_id)
+
+        # Test 5: Multiple UUID parameters in single query
+        another_user_id = uuid.uuid4()
+        another_ext_id = uuid.uuid4()
+
+        # Insert another user
+        backend.execute(
+            "INSERT INTO users (id, name, external_id) VALUES (?, ?, ?)",
+            (another_user_id, "Jane Smith", another_ext_id),
+            options=insert_options
+        )
+
+        # Query with multiple UUID parameters
+        multiple_users = backend.fetch_all(
+            "SELECT * FROM users WHERE id = ? OR external_id = ?",
+            (user_id, another_ext_id)  # Two different UUIDs
+        )
+        assert len(multiple_users) == 2
+        found_ids = {user['id'] for user in multiple_users}
+        assert str(user_id) in found_ids
+        assert str(another_user_id) in found_ids
+
+        # Test 6: Verify that raw database values are strings
+        raw_result = backend.fetch_one(
+            "SELECT typeof(id) as id_type, typeof(external_id) as ext_type FROM users LIMIT 1"
+        )
+        # In SQLite, UUIDs should be stored as TEXT (strings)
+        # Note: typeof() in SQLite returns 'text' for TEXT columns
+        # We can't test typeof directly, but we can verify the values are strings
+        sample_user = backend.fetch_one("SELECT id, external_id FROM users LIMIT 1")
+        assert isinstance(sample_user['id'], str)
+        assert isinstance(sample_user['external_id'], str)
+        # Verify they can be parsed back to UUID
+        parsed_id = uuid.UUID(sample_user['id'])
+        parsed_ext = uuid.UUID(sample_user['external_id'])
+        assert isinstance(parsed_id, uuid.UUID)
+        assert isinstance(parsed_ext, uuid.UUID)
+
+        backend.disconnect()
+
+    def test_uuid_type_adaptation_with_column_adapters(self):
+        """
+        Test UUID type adaptation with column adapters for result processing.
+
+        This test verifies that UUIDs are properly converted both when sent to
+        the database (input) and when retrieved from the database (output).
+        """
+        config = SQLiteConnectionConfig(database=":memory:")
+        backend = SQLiteBackend(connection_config=config)
+        backend.connect()
+
+        # Create test table
+        options = ExecutionOptions(stmt_type=StatementType.DDL)
+        backend.execute("""
+            CREATE TABLE products (
+                id TEXT PRIMARY KEY,
+                name TEXT,
+                category_id TEXT
+            )
+        """, options=options)
+
+        # Get UUID adapter for result processing
+        uuid_adapter = backend.adapter_registry.get_adapter(uuid.UUID, str)
+
+        # Generate test data
+        product_id = uuid.uuid4()
+        category_id = uuid.uuid4()
+
+        # Insert with UUID parameters (should be converted to strings automatically)
+        insert_options = ExecutionOptions(stmt_type=StatementType.INSERT)
+        result = backend.execute(
+            "INSERT INTO products (id, name, category_id) VALUES (?, ?, ?)",
+            (product_id, "Test Product", category_id),
+            options=insert_options
+        )
+        assert result.affected_rows == 1
+
+        # Query with UUID parameter and column adapters for result processing
+        # This tests both input (parameter) and output (result) type adaptation
+        column_adapters = {
+            'id': (uuid_adapter, uuid.UUID),      # Convert DB string back to UUID object
+            'category_id': (uuid_adapter, uuid.UUID)  # Convert DB string back to UUID object
+        }
+
+        product = backend.fetch_one(
+            "SELECT * FROM products WHERE id = ?",
+            (product_id,),  # Input: UUID parameter should be converted to string
+            column_adapters=column_adapters      # Output: Result columns converted to UUID
+        )
+
+        assert product is not None
+        # With column adapters, the ID and category_id should be converted back to UUID objects
+        assert isinstance(product['id'], uuid.UUID)
+        assert product['id'] == product_id  # Should match original UUID
+        assert product['name'] == "Test Product"
+        assert isinstance(product['category_id'], uuid.UUID)
+        assert product['category_id'] == category_id  # Should match original UUID
+
+        # Test with fetch_all as well
+        products = backend.fetch_all(
+            "SELECT * FROM products WHERE category_id = ?",
+            (category_id,),  # Input: UUID parameter should be converted to string
+            column_adapters=column_adapters      # Output: Result columns converted to UUID
+        )
+
+        assert len(products) == 1
+        product2 = products[0]
+        assert isinstance(product2['id'], uuid.UUID)
+        assert product2['id'] == product_id
+        assert isinstance(product2['category_id'], uuid.UUID)
+        assert product2['category_id'] == category_id
+
+        backend.disconnect()

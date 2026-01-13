@@ -27,40 +27,6 @@ if TYPE_CHECKING:
 # Type variable for interface
 ModelT = TypeVar('ModelT', bound='IActiveRecord')
 
-"""Utility functions for database placeholder handling."""
-
-
-def replace_question_marks(sql: str, placeholder: str) -> str:
-    """Replace question mark placeholders with database-specific placeholders.
-
-    This utility function carefully replaces question marks that are used as parameter
-    placeholders, while preserving question marks that might appear in string literals.
-
-    Args:
-        sql: Original SQL with question mark placeholders
-        placeholder: Database-specific placeholder to use
-
-    Returns:
-        SQL with replaced placeholders
-    """
-    # Check if we need indexed placeholders (e.g., $1, $2, $3 for PostgreSQL)
-    if placeholder.find('%d') != -1:
-        # For indexed placeholders
-        parts = []
-        param_index = 1
-        i = 0
-        while i < len(sql):
-            if sql[i] == '?':
-                # Replace with indexed placeholder
-                parts.append(placeholder % param_index)
-                param_index += 1
-            else:
-                parts.append(sql[i])
-            i += 1
-        return ''.join(parts)
-    else:
-        # For non-indexed placeholders
-        return sql.replace('?', placeholder)
 
 
 class IActiveRecord(BaseModel, ABC):

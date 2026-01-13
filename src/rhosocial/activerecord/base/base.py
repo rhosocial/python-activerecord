@@ -513,12 +513,9 @@ class BaseActiveRecord(IActiveRecord):
         backend = self.backend()
 
         # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_parameter_placeholder()
-
-        # Combine base condition with additional conditions
+        # The backend will handle placeholder conversion in _prepare_sql_and_params
+        # No need to manually replace placeholders here since backend.execute() handles it
         final_where_clause = " AND ".join(where_conditions_list)
-        if placeholder != '?':
-            final_where_clause = replace_question_marks(final_where_clause, placeholder)
 
         self.log(logging.INFO,
                  f"Updating {self.__class__.__name__}#{getattr(self, self.__class__.primary_key_field())}: "
