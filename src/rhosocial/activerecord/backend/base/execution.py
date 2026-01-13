@@ -9,9 +9,11 @@ preparation, SQL preparation, query execution, and result processing.
 import logging
 import time
 from typing import Optional, Tuple, List, Union, Dict
+
 from ..options import ExecutionOptions
 from ..result import QueryResult
 from ..schema import StatementType
+
 
 class ExecutionMixin:
     """
@@ -81,7 +83,7 @@ class ExecutionMixin:
                 # Get default adapter suggestions from backend
                 all_suggestions = self.get_default_adapter_suggestions()
 
-                # Build param_adapters for prepare_parameters
+                # Build param_adapters for prepare_parameters for sequence parameters
                 param_adapters = []
                 for param_value in params:
                     py_type = type(param_value)
@@ -213,7 +215,7 @@ class AsyncExecutionMixin:
                 # Get default adapter suggestions from backend
                 all_suggestions = self.get_default_adapter_suggestions()
 
-                # Build param_adapters for prepare_parameters
+                # Build param_adapters for prepare_parameters for sequence parameters
                 param_adapters = []
                 for param_value in params:
                     py_type = type(param_value)

@@ -1,10 +1,10 @@
 # src/rhosocial/activerecord/backend/base/returning.py
-import logging
 from typing import List, Optional, Union
-from ..expression.statements import ReturningClause
+
 from ..expression import bases, Column, Literal
-from ..errors import ReturningNotSupportedError
+from ..expression.statements import ReturningClause
 from ..schema import StatementType
+
 
 class ReturningClauseMixin:
     """Mixin for RETURNING clause processing."""

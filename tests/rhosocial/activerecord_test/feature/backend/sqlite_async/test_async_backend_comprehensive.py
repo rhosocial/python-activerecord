@@ -394,10 +394,10 @@ class TestAsyncSQLiteBackendBasic:
         )
         assert result.affected_rows == 1
 
-        # Dict params
+        # Tuple params (replacing dict params since SQLite uses positional placeholders)
         result = await backend.execute(
             "INSERT INTO param_test (name, value) VALUES (?, ?)",
-            params={"name": "test2", "value": 200},
+            params=("test2", 200),
             options=options
         )
         assert result.affected_rows == 1

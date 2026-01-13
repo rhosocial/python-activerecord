@@ -4,9 +4,7 @@ from abc import ABC, abstractmethod
 
 from ..config import ConnectionConfig
 from ..dialect import SQLDialectBase
-from ..type_registry import TypeRegistry
 from ..type_adapter import (
-    SQLTypeAdapter,
     DateTimeAdapter,
     JSONAdapter,
     UUIDAdapter,
@@ -14,6 +12,7 @@ from ..type_adapter import (
     BooleanAdapter,
     DecimalAdapter,
 )
+from ..type_registry import TypeRegistry
 
 
 class StorageBackendBase(ABC):

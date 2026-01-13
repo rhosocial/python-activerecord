@@ -3,16 +3,15 @@ Defines mixins for high-level SQL data operations (INSERT, UPDATE, DELETE, FETCH
 implementing an Options-based pattern for clean, extensible, and type-safe APIs.
 These mixins are designed to be composed into StorageBackend classes.
 """
-from typing import Optional, Union, List, Dict, Tuple, Type
+from typing import Dict, Tuple, Type
+from typing import List, Optional
 
+from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal
 from ..expression.statements import ReturningClause, ValuesSource
-from ..expression import Column, Literal
-from typing import List, Optional, Union
 from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions
 from ..result import QueryResult
 from ..schema import StatementType
 from ..type_adapter import SQLTypeAdapter
-from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal, SQLPredicate
 
 
 class SQLOperationsMixin:
