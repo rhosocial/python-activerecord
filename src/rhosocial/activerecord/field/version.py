@@ -5,6 +5,7 @@ from typing import Any, Dict, List
 from ..backend.errors import DatabaseError
 from ..backend.expression import SQLPredicate, SQLValueExpression
 from ..interface import IActiveRecord, ModelEvent
+from ..interface.update import IUpdateBehavior
 
 
 class Version:
@@ -54,9 +55,9 @@ class Version:
         Returns:
             Expression object representing the version condition
         """
-        from ..backend.expression.core import Column, Literal
-        # Use operator overloading: Column == Literal
-        return Column(dialect, self.db_column) == Literal(dialect, self.value)
+        from ..backend.expression.core import Column
+        # Use operator overloading: Column == value (automatically converted to Literal)
+        return Column(dialect, self.db_column) == self.value
 
     def get_update_expression(self, dialect):
         """Get SQL expression for version update using expression system
@@ -67,9 +68,9 @@ class Version:
         Returns:
             Expression object to increment version
         """
-        from ..backend.expression.core import Column, Literal
-        # Use operator overloading: Column + Literal
-        return Column(dialect, self.db_column) + Literal(dialect, self.increment_by)
+        from ..backend.expression.core import Column
+        # Use operator overloading: Column + value (automatically converted to Literal)
+        return Column(dialect, self.db_column) + self.increment_by
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Version):
@@ -85,7 +86,7 @@ class Version:
         return f"Version(value={self.value}, increment_by={self.increment_by}, db_column='{self.db_column}')"
 
 
-class OptimisticLockMixin(IActiveRecord):
+class OptimisticLockMixin(IActiveRecord, IUpdateBehavior):
     """Optimistic locking mixin that uses Version class
 
     Uses VersionField (a PrivateAttr) to manage a Version instance.

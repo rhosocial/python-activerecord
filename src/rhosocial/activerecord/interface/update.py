@@ -1,30 +1,35 @@
 # src/rhosocial/activerecord/interface/update.py
 """
-Protocol for model update behavior customization.
+Interface for model update behavior customization.
 """
-from typing import Protocol, Dict, List
-from typing import runtime_checkable
+from abc import ABC, abstractmethod
+from typing import Dict, List
 from ..backend.expression import SQLValueExpression, SQLPredicate
 
 
-@runtime_checkable
-class IUpdateBehavior(Protocol):
+class IUpdateBehavior(ABC):
     """
-    Protocol for defining custom model update behavior.
+    Interface for defining custom model update behavior.
 
-    This protocol allows models to add custom conditions and expressions during
+    This interface allows models to add custom conditions and expressions during
     UPDATE operations. It's particularly useful for implementing advanced features
     like optimistic locking, version tracking, audit trails, and conditional updates.
 
-    Classes that implement this protocol can control exactly what conditions must
+    Classes that implement this interface can control exactly what conditions must
     be met for an update to occur and what additional expressions should be included
     in the UPDATE statement.
 
-    Note: Unlike an abstract base class, this is a structural protocol.
-    Any class that has the required methods automatically satisfies this protocol,
-    without needing to explicitly inherit from it.
+    Note: This is an abstract base class interface that requires explicit inheritance.
+    Classes must inherit from this interface to be recognized as implementing it.
+
+    IMPORTANT: IUpdateBehavior should be used as a base class for ActiveRecord mixins.
+    The _update_internal method will only recognize classes that directly inherit
+    from IUpdateBehavior. If a method is not needed, it can return an empty list/dict
+    or None, which will be automatically skipped during updates. Both methods do not
+    need to be implemented simultaneously - a class can implement just one of them.
     """
 
+    @abstractmethod
     def get_update_conditions(self) -> List[SQLPredicate]:
         """
         Get additional WHERE conditions to include in UPDATE operations.
@@ -36,6 +41,8 @@ class IUpdateBehavior(Protocol):
         Returns:
             List[SQLPredicate]: List of SQL predicate objects that will be
             combined with AND logic in the final UPDATE statement's WHERE clause.
+            If no additional conditions are needed, return an empty list or None,
+            which will be automatically skipped during updates.
 
         Example:
             def get_update_conditions(self):
@@ -79,9 +86,13 @@ class IUpdateBehavior(Protocol):
         Note:
             All conditions returned by this method will be combined with AND logic
             in the final UPDATE statement's WHERE clause.
+            This method does not need to be implemented if conditions are not needed.
+            Only classes that directly inherit from IUpdateBehavior will be recognized
+            by the _update_internal method.
         """
         ...
 
+    @abstractmethod
     def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
         """
         Get additional field expressions to include in UPDATE SET clause.
@@ -93,6 +104,8 @@ class IUpdateBehavior(Protocol):
 
         Returns:
             Dict[str, SQLValueExpression]: Mapping of field names to SQL expression objects.
+            If no additional expressions are needed, return an empty dict or None,
+            which will be automatically skipped during updates.
 
         Example:
             def get_update_expressions(self):
@@ -142,5 +155,8 @@ class IUpdateBehavior(Protocol):
         Note:
             These expressions will be added to the SET clause of the UPDATE statement
             alongside any fields that have been marked as dirty in the model.
+            This method does not need to be implemented if expressions are not needed.
+            Only classes that directly inherit from IUpdateBehavior will be recognized
+            by the _update_internal method.
         """
         ...

@@ -42,8 +42,8 @@ class InsertOptions:
     """Encapsulates all options for a high-level `insert` operation."""
     # The name of the table to insert into.
     table: str
-    # A dictionary of column names to values for the new record.
-    data: Dict
+    # A dictionary of column names to their new values (can be literals or expression objects).
+    data: Dict[str, 'bases.BaseExpression']
 
     # See ExecutionOptions for details on these result-processing parameters.
     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
@@ -62,8 +62,8 @@ class UpdateOptions:
     """Encapsulates all options for a high-level `update` operation."""
     # The name of the table to update.
     table: str
-    # A dictionary of column names to their new values.
-    data: Dict
+    # A dictionary of column names to their new values (can be literals or expression objects).
+    data: Dict[str, 'bases.BaseExpression']
     # The WHERE clause, as a structured SQLPredicate object.
     where: SQLPredicate
 

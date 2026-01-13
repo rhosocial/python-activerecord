@@ -412,43 +412,79 @@ class BaseActiveRecord(IActiveRecord):
             QueryResult: Result object containing affected rows and returned data
                         if RETURNING clause is used
         """
+        self.log(logging.INFO, f"Starting update operation for {self.__class__.__name__} record with ID: {getattr(self, self.__class__.primary_key_field(), 'unknown')}")
+
         # Update existing record with enhanced conditions and expressions
         update_conditions = []
         update_expressions = {}
 
-        # Collect additional conditions and expressions from mixins
+        # Collect additional conditions and expressions from mixins in MRO
         mro = self.__class__.__mro__
         activerecord_idx = mro.index(IActiveRecord)
+
+        # Log the MRO traversal for debugging
+        self.log(logging.DEBUG, f"Traversing MRO for IUpdateBehavior implementations: {[cls.__name__ for cls in mro[:activerecord_idx]]}")
+
+        # Process classes that implement IUpdateBehavior interface and actually define the methods
         for cls in mro[:activerecord_idx]:
-            # Check if the instance implements the IUpdateBehavior protocol
-            if isinstance(self, IUpdateBehavior):
-                # Get conditions and expressions from this instance
-                behavior_conditions = self.get_update_conditions()
-                behavior_expressions = self.get_update_expressions()
+            # Check if this class implements the IUpdateBehavior interface
+            if issubclass(cls, IUpdateBehavior):
+                # Check if this class actually defines the IUpdateBehavior methods in its own __dict__
+                # This avoids calling methods from parent classes multiple times
+                defines_conditions_method = 'get_update_conditions' in cls.__dict__
+                defines_expressions_method = 'get_update_expressions' in cls.__dict__
 
-                # Add to update conditions and expressions
-                if behavior_conditions:
-                    update_conditions.extend(behavior_conditions)
-                if behavior_expressions:
-                    update_expressions.update(behavior_expressions)
+                # Only call the methods that are actually defined in this class
+                if defines_conditions_method or defines_expressions_method:
+                    # Log which class is contributing to update behavior
+                    self.log(logging.DEBUG, f"Processing IUpdateBehavior from {cls.__name__}")
 
-        # Combine data with additional expressions. This 'data' becomes the SET clause values.
-        data.update(update_expressions)
+                    # Get conditions only if this class defines the method
+                    if defines_conditions_method:
+                        behavior_conditions = cls.get_update_conditions(self)
+                        if behavior_conditions:
+                            self.log(logging.DEBUG, f"  Adding {len(behavior_conditions)} condition(s) from {cls.__name__}")
+                            update_conditions.extend(behavior_conditions)
+                        else:
+                            self.log(logging.DEBUG, f"  No conditions from {cls.__name__}")
 
-        self.log(logging.DEBUG, f"1. SET clause raw data (Python field names): {data}")
+                    # Get expressions only if this class defines the method
+                    if defines_expressions_method:
+                        behavior_expressions = cls.get_update_expressions(self)
+                        if behavior_expressions:
+                            self.log(logging.DEBUG, f"  Adding {len(behavior_expressions)} expression(s) from {cls.__name__}: {list(behavior_expressions.keys())}")
+                            update_expressions.update(behavior_expressions)
+                        else:
+                            self.log(logging.DEBUG, f"  No expressions from {cls.__name__}")
+                else:
+                    # Log when a class implements IUpdateBehavior but doesn't define methods directly
+                    self.log(logging.DEBUG, f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)")
 
-        # Step 4: Create column_mapping for result processing (maps column names back to field names).
+        # Log the final collected results for debugging
+        self.log(logging.INFO, f"Update operation: {len(update_conditions)} condition(s), {len(update_expressions)} expression(s) collected from mixins")
+        self.log(logging.DEBUG, f"Final update conditions: {len(update_conditions)} total")
+        self.log(logging.DEBUG, f"Final update expressions: {list(update_expressions.keys())}")
+
+        # Combine original data with update expressions to form the complete assignments
+        # This allows ActiveRecord to provide a unified data dictionary with both regular values and expressions
+        complete_data = {**data, **update_expressions}
+
+        self.log(logging.DEBUG, f"Complete data for SET clause: {list(complete_data.keys())}")
+
+        # Create column_mapping for result processing (maps column names back to field names).
         column_mapping = self.__class__.get_column_to_field_map()
 
-        # Step 5: Get the column adapters for processing output.
+        # Get the column adapters for processing output.
         column_adapters = self.get_column_adapters()
 
         # Get the database backend
         backend = self.backend()
 
-        # Step 6: Construct the WHERE predicate by combining primary key condition with additional conditions
+        # Construct the WHERE predicate by combining primary key condition with additional conditions
         pk_name = self.primary_key() # Get primary key name (e.g., 'id')
         pk_value = getattr(self, self.__class__.primary_key_field()) # Get value of primary key field
+
+        self.log(logging.DEBUG, f"Primary key: {pk_name} = {pk_value}")
 
         # Start with primary key condition
         where_predicate = ComparisonPredicate(
@@ -464,6 +500,8 @@ class BaseActiveRecord(IActiveRecord):
                 # Handle other condition formats if needed
                 pass
 
+        self.log(logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied")
+
         # Determine if backend supports RETURNING clause
         supports_returning = backend.dialect.supports_returning_clause()
 
@@ -477,13 +515,19 @@ class BaseActiveRecord(IActiveRecord):
 
         update_options = UpdateOptions(
             table=self.table_name(),
-            data=data, # Use original data with Python field names, backend handles mapping
+            data=complete_data,  # Combined data with both regular values and expressions
             where=where_predicate,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
             returning_columns=returning_columns
         )
+
+        self.log(logging.INFO, f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update")
+
         result = backend.update(update_options)
+
+        self.log(logging.INFO, f"Update operation completed. Affected rows: {result.affected_rows}")
+
         return result
 
     def _prepare_save_data(self) -> Dict[str, Any]:
@@ -582,10 +626,10 @@ class BaseActiveRecord(IActiveRecord):
         else: # Assumes list of primary keys
             # Pass list of primary keys directly. Type adaptation will be handled by the query builder.
             pk_field_name = cls.primary_key()
-            
+
             if not condition:
                 return []
-                
+
             placeholders = ','.join(['?' for _ in condition])
             query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
 
@@ -710,7 +754,7 @@ class BaseActiveRecord(IActiveRecord):
         self._trigger_event(ModelEvent.BEFORE_DELETE)
 
         backend = self.backend()
-        
+
         pk_name = self.primary_key()
         pk_value = getattr(self, pk_name)
 
@@ -723,7 +767,7 @@ class BaseActiveRecord(IActiveRecord):
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            
+
             update_opts = UpdateOptions(
                 table=self.table_name(),
                 data=data,
@@ -967,7 +1011,7 @@ class BaseActiveRecord(IActiveRecord):
         """
         if cls.__backend__:
             return cls.__backend__
-        
+
         # If a backend_class and config are set, but __backend__ is None,
         # it means the backend was never instantiated (e.g., configure was called,
         # but the actual __backend__ instance was not set yet). This should not happen
@@ -984,7 +1028,7 @@ class BaseActiveRecord(IActiveRecord):
             except Exception as e:
                 # If instantiation fails, re-raise as a DatabaseError
                 raise DatabaseError(f"Failed to instantiate configured backend: {e}") from e
-        
+
         # Fallback to DummyBackend if no real backend is configured
         if not hasattr(cls, '_dummy_backend') or cls._dummy_backend is None:
             from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend # Lazy import

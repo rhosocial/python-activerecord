@@ -29,11 +29,19 @@ class SQLOperationsMixin:
         Returns:
             QueryResult: The result of the insert operation.
         """
-        columns = list(options.data.keys())
-        values = [Literal(self.dialect, v) for v in options.data.values()]
+        # Process values - they may be literals or expression objects
+        processed_values = []
+        for v in options.data.values():
+            # Check if the value is a SQL expression that should be used directly in SQL
+            if hasattr(v, 'to_sql') and hasattr(v, 'dialect'):
+                # This is an expression object like FunctionCall, BinaryExpression, etc.
+                processed_values.append(v)
+            else:
+                # This is a regular value that should be wrapped in a Literal
+                processed_values.append(Literal(self.dialect, v))
 
         # Create a ValuesSource to use as the data source for the InsertExpression
-        values_source = ValuesSource(self.dialect, [values])
+        values_source = ValuesSource(self.dialect, [processed_values])
 
         # Create ReturningClause if returning_columns is specified
         returning_clause = None
@@ -78,7 +86,18 @@ class SQLOperationsMixin:
         Returns:
             QueryResult: The result of the update operation.
         """
-        assignments = {k: Literal(self.dialect, v) for k, v in options.data.items()}
+        # Handle assignments - options.data may contain both literal values and expression objects
+        assignments = {}
+
+        # Process each item in the data dictionary
+        for k, v in options.data.items():
+            # Check if the value is a SQL expression that should be used directly in SQL
+            if hasattr(v, 'to_sql') and hasattr(v, 'dialect'):
+                # This is an expression object like FunctionCall, BinaryExpression, etc.
+                assignments[k] = v
+            else:
+                # This is a regular value that should be wrapped in a Literal
+                assignments[k] = Literal(self.dialect, v)
 
         # Create ReturningClause if returning_columns is specified
         returning_clause = None
@@ -212,11 +231,19 @@ class AsyncSQLOperationsMixin:
         Returns:
             QueryResult: The result of the insert operation.
         """
-        columns = list(options.data.keys())
-        values = [Literal(self.dialect, v) for v in options.data.values()]
+        # Process values - they may be literals or expression objects
+        processed_values = []
+        for v in options.data.values():
+            # Check if the value is a SQL expression that should be used directly in SQL
+            if hasattr(v, 'to_sql') and hasattr(v, 'dialect'):
+                # This is an expression object like FunctionCall, BinaryExpression, etc.
+                processed_values.append(v)
+            else:
+                # This is a regular value that should be wrapped in a Literal
+                processed_values.append(Literal(self.dialect, v))
 
         # Create a ValuesSource to use as the data source for the InsertExpression
-        values_source = ValuesSource(self.dialect, [values])
+        values_source = ValuesSource(self.dialect, [processed_values])
 
         # Create ReturningClause if returning_columns is specified
         returning_clause = None
@@ -258,7 +285,18 @@ class AsyncSQLOperationsMixin:
         Returns:
             QueryResult: The result of the update operation.
         """
-        assignments = {k: Literal(self.dialect, v) for k, v in options.data.items()}
+        # Handle assignments - options.data may contain both literal values and expression objects
+        assignments = {}
+
+        # Process each item in the data dictionary
+        for k, v in options.data.items():
+            # Check if the value is a SQL expression that should be used directly in SQL
+            if hasattr(v, 'to_sql') and hasattr(v, 'dialect'):
+                # This is an expression object like FunctionCall, BinaryExpression, etc.
+                assignments[k] = v
+            else:
+                # This is a regular value that should be wrapped in a Literal
+                assignments[k] = Literal(self.dialect, v)
 
         # Create ReturningClause if returning_columns is specified
         returning_clause = None

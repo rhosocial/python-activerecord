@@ -4,11 +4,12 @@ from datetime import datetime, timezone
 from pydantic import Field
 from typing import Dict, Any
 
-from ..interface import IActiveRecord, IUpdateBehavior, ModelEvent
+from ..interface import IActiveRecord, ModelEvent
+from ..interface.update import IUpdateBehavior
 from ..backend.expression.core import FunctionCall
 
 
-class TimestampMixin(IActiveRecord):
+class TimestampMixin(IActiveRecord, IUpdateBehavior):
     """Adds created_at and updated_at timestamp fields.
 
     Automatically maintains timestamps on record creation/updates.
@@ -36,10 +37,12 @@ class TimestampMixin(IActiveRecord):
         """Provide update expressions for timestamp updates using expression system."""
         backend = self.backend()
         if not self.is_new_record:
+            from ..backend.expression.operators import RawSQLExpression
             return {
-                'updated_at': FunctionCall(backend.dialect, 'CURRENT_TIMESTAMP')
+                'updated_at': RawSQLExpression(backend.dialect, 'CURRENT_TIMESTAMP')
             }
+        from ..backend.expression.operators import RawSQLExpression
         return {
-            'created_at': FunctionCall(backend.dialect, 'CURRENT_TIMESTAMP'),
-            'updated_at': FunctionCall(backend.dialect, 'CURRENT_TIMESTAMP')
+            'created_at': RawSQLExpression(backend.dialect, 'CURRENT_TIMESTAMP'),
+            'updated_at': RawSQLExpression(backend.dialect, 'CURRENT_TIMESTAMP')
         }
