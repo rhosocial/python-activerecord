@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/base/typing.py
 """Type definitions for ActiveRecord implementation."""
 
-from typing import TypeVar, Any, Dict, List, Optional, Union
+from typing import Any, Dict, List, Optional, Union
 
 
 # Common type aliases

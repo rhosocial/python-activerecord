@@ -255,51 +255,25 @@ class BaseActiveRecord(IActiveRecord):
             QueryResult: Result object containing affected rows, last insert ID,
                         and returned data if RETURNING clause is used
         """
-        self.log(logging.DEBUG, f"1. Raw data for insert: {data}")
+        self.log(logging.DEBUG, f"Raw data for insert: {data}")
 
-        # Step 2: Resolve parameter adapters with the new prioritized logic.
-        param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
-        all_suggestions = self.backend().get_default_adapter_suggestions()
-
-        for field_name, py_value in data.items():
-            resolved_adapter_info = None
-
-            # Priority 1: Check for a field-specific adapter from annotations.
-            custom_adapter_tuple = self.__class__._get_adapter_for_field(field_name)
-            if custom_adapter_tuple:
-                # User-specified adapter (adapter, target_db_type) found. Use it directly.
-                resolved_adapter_info = custom_adapter_tuple
-
-            # Priority 2: If no custom adapter was found, fall back to default suggestion.
-            if not resolved_adapter_info:
-                value_type = type(py_value)
-                resolved_adapter_info = all_suggestions.get(value_type)
-
-            if resolved_adapter_info:
-                param_adapters[field_name] = resolved_adapter_info
-
-        self.log(logging.DEBUG, f"2. Resolved parameter adapters: {len(param_adapters)} adapters found")
-
-        # Step 3: Prepare the INPUT parameters using the resolved adapters.
-        prepared_data = self.backend().prepare_parameters(data, param_adapters)
-        self.log(logging.DEBUG, f"3. Prepared data with Python field names and adapted values: {prepared_data}")
-
-        # Step 4: Translate Python field names to database column names.
-        prepared_data = self.__class__._map_fields_to_columns(prepared_data)
-        self.log(logging.DEBUG, f"4. Prepared data with database column names and adapted values: {prepared_data}")
+        # Translate Python field names to database column names.
+        # The backend's execute method will handle parameter type adaptation.
+        prepared_data = self.__class__._map_fields_to_columns(data)
+        self.log(logging.DEBUG, f"Data with database column names: {prepared_data}")
 
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
 
-        # Step 5: Create column_mapping for result processing (maps column names back to field names).
+        # Create column_mapping for result processing (maps column names back to field names).
         # This is derived from the model's get_column_to_field_map.
         column_mapping = self.__class__.get_column_to_field_map()
-        self.log(logging.DEBUG, f"5. Column mapping for result processing: {column_mapping}")
+        self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
 
-        # Step 6: Get the column adapters for processing output (e.g., RETURNING clauses).
+        # Get the column adapters for processing output (e.g., RETURNING clauses).
         column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"6. Column adapters map: {column_adapters}")
+        self.log(logging.DEBUG, f"Column adapters map: {column_adapters}")
 
-        # Step 7: Call `insert` with an InsertOptions object that includes prepared data, column mapping, column adapters, and returning columns if supported.
+        # Call `insert` with an InsertOptions object that includes prepared data, column mapping, column adapters, and returning columns if supported.
 
         # Determine if backend supports RETURNING clause
         supports_returning = self.backend().dialect.supports_returning_clause()
@@ -322,7 +296,7 @@ class BaseActiveRecord(IActiveRecord):
         )
         result = self.backend().insert(insert_options)
 
-        # Step 8: Handle auto-increment primary key if needed.
+        # Handle auto-increment primary key if needed.
         pk_column = self.primary_key()
         pk_field_name = self.__class__._get_field_name(pk_column)
         if (result is not None and result.affected_rows > 0 and
@@ -331,13 +305,13 @@ class BaseActiveRecord(IActiveRecord):
                 getattr(self, pk_field_name, None) is None):
 
             pk_retrieved = False
-            self.log(logging.DEBUG, f"8. Attempting to retrieve primary key '{pk_column}' for new record")
+            self.log(logging.DEBUG, f"Attempting to retrieve primary key '{pk_column}' for new record")
 
             # Get the Python field name corresponding to the primary key column
             pk_field_name = self.__class__._get_field_name(pk_column)
-            self.log(logging.DEBUG, f"8.1 Primary key column '{pk_column}' maps to field '{pk_field_name}'")
+            self.log(logging.DEBUG, f"Primary key column '{pk_column}' maps to field '{pk_field_name}'")
 
-            # Step 8.1: Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
+            # Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
             if result.data and isinstance(result.data, list) and len(result.data) > 0:
                 first_row = result.data[0]
                 # Result data will have already been mapped back to field names if column_mapping was used.
@@ -345,11 +319,11 @@ class BaseActiveRecord(IActiveRecord):
                     pk_value = first_row[pk_field_name]
                     setattr(self, pk_field_name, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"8.1 Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
+                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
                 else:
-                    self.log(logging.WARNING, f"8.1 RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
+                    self.log(logging.WARNING, f"RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
 
-            # Step 8.2: Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
+            # Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
             if not pk_retrieved and result.last_insert_id is not None:
                 field_type = self.__class__.model_fields[pk_field_name].annotation
                 # Handle Optional[int]
@@ -363,12 +337,12 @@ class BaseActiveRecord(IActiveRecord):
                     pk_value = result.last_insert_id
                     setattr(self, pk_field_name, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"8.2 Retrieved primary key '{pk_field_name}' from last_insert_id: {pk_value}")
+                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from last_insert_id: {pk_value}")
 
-            # Step 8.3: If PK still not retrieved, it's an error.
+            # If PK still not retrieved, it's an error.
             if not pk_retrieved:
                 error_msg = f"Failed to retrieve primary key '{pk_field_name}' for new record after insert."
-                self.log(logging.ERROR, f"8.3 {error_msg}")
+                self.log(logging.ERROR, f"{error_msg}")
                 raise DatabaseError(error_msg)
 
         self._is_from_db = True

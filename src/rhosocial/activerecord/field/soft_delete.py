@@ -68,14 +68,16 @@ class SoftDeleteMixin(IActiveRecord):
         pk_column = Column(backend.dialect, self.primary_key())
         pk_value = getattr(self, self.primary_key())
         condition_expr = pk_column == pk_value
-        condition_sql, condition_params = condition_expr.to_sql()
 
-        result = backend.update(
-            self.table_name(),
-            {'deleted_at': None},
-            condition_sql,
-            condition_params
+        # Use UpdateOptions for the update operation
+        from ..backend.options import UpdateOptions
+        update_options = UpdateOptions(
+            table=self.table_name(),
+            data={'deleted_at': None},
+            where=condition_expr
         )
+
+        result = backend.update(update_options)
 
         if result.affected_rows > 0:
             self.deleted_at = None

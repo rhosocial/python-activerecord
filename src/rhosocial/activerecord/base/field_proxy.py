@@ -13,7 +13,8 @@ Supports:
 - Self-join queries
 """
 
-from typing import ClassVar, TYPE_CHECKING
+from typing import TYPE_CHECKING
+
 from ..backend.expression.core import Column
 
 if TYPE_CHECKING:
