@@ -33,6 +33,13 @@ class TimestampMixin(IActiveRecord, IUpdateBehavior):
             instance.created_at = now
         instance.updated_at = now
 
+    def get_update_conditions(self):
+        """Get additional WHERE conditions for UPDATE operations.
+
+        For TimestampMixin, no additional conditions are needed during updates.
+        """
+        return []
+
     def get_update_expressions(self) -> Dict[str, Any]:
         """Provide update expressions for timestamp updates using expression system."""
         backend = self.backend()

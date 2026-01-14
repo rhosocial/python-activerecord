@@ -24,12 +24,12 @@ class IUpdateBehavior(ABC):
 
     IMPORTANT: IUpdateBehavior should be used as a base class for ActiveRecord mixins.
     The _update_internal method will only recognize classes that directly inherit
-    from IUpdateBehavior. If a method is not needed, it can return an empty list/dict
-    or None, which will be automatically skipped during updates. Both methods do not
-    need to be implemented simultaneously - a class can implement just one of them.
+    from IUpdateBehavior.
+    BOTH METHODS MUST BE IMPLEMENTED when inheriting from IUpdateBehavior.
+    If a particular method is not needed, it should return an empty list/dict
+    or None, which will be automatically skipped during updates.
     """
 
-    @abstractmethod
     def get_update_conditions(self) -> List[SQLPredicate]:
         """
         Get additional WHERE conditions to include in UPDATE operations.
@@ -41,7 +41,7 @@ class IUpdateBehavior(ABC):
         Returns:
             List[SQLPredicate]: List of SQL predicate objects that will be
             combined with AND logic in the final UPDATE statement's WHERE clause.
-            If no additional conditions are needed, return an empty list or None,
+            If no additional conditions are needed, return None,
             which will be automatically skipped during updates.
 
         Example:
@@ -88,13 +88,12 @@ class IUpdateBehavior(ABC):
         Note:
             All conditions returned by this method will be combined with AND logic
             in the final UPDATE statement's WHERE clause.
-            This method does not need to be implemented if conditions are not needed.
+            This method does not need to return meaningful data if conditions are not needed.
             Only classes that directly inherit from IUpdateBehavior will be recognized
             by the _update_internal method.
         """
-        ...
+        return None  # Return None by default if not overridden
 
-    @abstractmethod
     def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
         """
         Get additional field expressions to include in UPDATE SET clause.
@@ -159,8 +158,8 @@ class IUpdateBehavior(ABC):
         Note:
             These expressions will be added to the SET clause of the UPDATE statement
             alongside any fields that have been marked as dirty in the model.
-            This method does not need to be implemented if expressions are not needed.
+            This method does not need to return meaningful data if expressions are not needed.
             Only classes that directly inherit from IUpdateBehavior will be recognized
             by the _update_internal method.
         """
-        ...
+        return None  # Return None by default if not overridden
