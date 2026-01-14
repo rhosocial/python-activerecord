@@ -54,7 +54,7 @@ class SQLOperationsMixin:
             dialect=self.dialect,
             into=options.table,
             source=values_source,
-            columns=columns,
+            columns=list(options.data.keys()),
             returning=returning_clause
         )
 
@@ -256,7 +256,7 @@ class AsyncSQLOperationsMixin:
             dialect=self.dialect,
             into=options.table,
             source=values_source,
-            columns=columns,
+            columns=list(options.data.keys()),
             returning=returning_clause
         )
 
