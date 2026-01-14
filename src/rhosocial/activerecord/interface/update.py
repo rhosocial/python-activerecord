@@ -65,23 +65,25 @@ class IUpdateBehavior(ABC):
                     )
                 ]
 
-            # Method 2: Using field proxy (if your model uses field_proxy)
-            # Assuming your model has a field proxy like: c = FieldProxy()
-            # def get_update_conditions(self):
-            #     # This generates ComparisonPredicate objects automatically
-            #     return [
-            #         (self.__class__.c.version == self.version),  # Generates ComparisonPredicate
-            #         (self.__class__.c.updated_at <= self.updated_at)  # Generates ComparisonPredicate
-            #     ]
+            # Method 1: Using explicit expression objects (shown above)
 
-            # Method 3: More complex field proxy example with multiple conditions
-            # def get_update_conditions(self):
-            #     # Using field proxy for complex conditions
-            #     return [
-            #         (self.__class__.c.version == self.version),  # Optimistic locking
-            #         (self.__class__.c.status == 'active'),       # Ensure status is active
-            #         (self.__class__.c.locked_until < 'NOW()'),   # Ensure not locked
-            #     ]
+            Method 2: Using field proxy (if your model uses field_proxy)
+            Assuming your model has a field proxy like: c = FieldProxy()
+            def get_update_conditions(self):
+                # This generates ComparisonPredicate objects automatically
+                return [
+                    (self.__class__.c.version == self.version),  # Generates ComparisonPredicate
+                    (self.__class__.c.updated_at <= self.updated_at)  # Generates ComparisonPredicate
+                ]
+
+            Method 3: More complex field proxy example with multiple conditions
+            def get_update_conditions(self):
+                # Using field proxy for complex conditions
+                return [
+                    (self.__class__.c.version == self.version),  # Optimistic locking
+                    (self.__class__.c.status == 'active'),       # Ensure status is active
+                    (self.__class__.c.locked_until < 'NOW()'),   # Ensure not locked
+                ]
 
         Note:
             All conditions returned by this method will be combined with AND logic
@@ -132,25 +134,27 @@ class IUpdateBehavior(ABC):
                     )
                 }
 
-            # Method 2: Using field proxy (if your model uses field_proxy)
-            # The field proxy is more commonly used in conditions (get_update_conditions)
-            # For expressions, you can still use field proxy for the column reference:
-            # def get_update_expressions(self):
-            #     # This generates SQLValueExpression objects automatically
-            #     return {
-            #         'version': (self.__class__.c.version + 1),  # Uses field proxy for arithmetic
-            #         'updated_at': 'CURRENT_TIMESTAMP',  # SQL function string
-            #         'last_modified_by': self.last_modified_by_id
-            #     }
+            # Method 1: Using explicit expression objects (shown above)
 
-            # Method 3: More complex field proxy example for expressions
-            # def get_update_expressions(self):
-            #     # Using field proxy for complex expressions
-            #     return {
-            #         'version': (self.__class__.c.version + 1),           # Increment version
-            #         'updated_at': 'CURRENT_TIMESTAMP',                  # Set current timestamp
-            #         'update_count': (self.__class__.c.update_count + 1)  # Increment update counter
-            #     }
+            Method 2: Using field proxy (if your model uses field_proxy)
+            The field proxy is more commonly used in conditions (get_update_conditions)
+            For expressions, you can still use field proxy for the column reference:
+            def get_update_expressions(self):
+                # This generates SQLValueExpression objects automatically
+                return {
+                    'version': (self.__class__.c.version + 1),  # Uses field proxy for arithmetic
+                    'updated_at': 'CURRENT_TIMESTAMP',  # SQL function string
+                    'last_modified_by': self.last_modified_by_id
+                }
+
+            Method 3: More complex field proxy example for expressions
+            def get_update_expressions(self):
+                # Using field proxy for complex expressions
+                return {
+                    'version': (self.__class__.c.version + 1),           # Increment version
+                    'updated_at': 'CURRENT_TIMESTAMP',                  # Set current timestamp
+                    'update_count': (self.__class__.c.update_count + 1)  # Increment update counter
+                }
 
         Note:
             These expressions will be added to the SET clause of the UPDATE statement
