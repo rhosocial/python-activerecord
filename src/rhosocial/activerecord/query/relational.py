@@ -4,7 +4,7 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Callable, Union, Type, Tuple
 
-from ..interface import IQuery, ThreadSafeDict
+from ..interface import IQuery, ThreadSafeDict, IActiveQuery
 
 
 class InvalidRelationPathError(Exception):
@@ -65,7 +65,7 @@ class RelationalQueryMixin(IQuery):
         # Stores relation loading configurations by relation path
         self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
 
-    def with_(self, *relations: Union[str, tuple]) -> 'IQuery':
+    def with_(self, *relations: Union[str, tuple]) -> 'IActiveQuery':
         """
         Configure eager loading for model relationships to prevent N+1 queries.
 
@@ -94,7 +94,7 @@ class RelationalQueryMixin(IQuery):
                 - Selective fields: Only load specific columns
 
         Returns:
-            IQuery: Returns self to enable method chaining
+            IActiveQuery: Returns self to enable method chaining
 
         Raises:
             InvalidRelationPathError: If the relation path format is invalid (empty, leading/

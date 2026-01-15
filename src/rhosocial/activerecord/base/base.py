@@ -4,21 +4,20 @@
 import inspect
 import logging
 from copy import deepcopy
+from pydantic.fields import FieldInfo
 from typing import Any, Dict, List, Optional, ClassVar, Type, Union, get_origin, get_args, Tuple, Set
 
-from pydantic.fields import FieldInfo
-
-from ..interface import IActiveRecord, ModelEvent
-from ..interface.update import IUpdateBehavior
 from ..backend.base import StorageBackend
+from ..backend.config import ConnectionConfig
+from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
+from ..backend.expression import ComparisonPredicate, Column, Literal, SQLPredicate
+from ..backend.expression.bases import is_sql_query_and_params
+from ..backend.impl.dummy.backend import DummyBackend
+from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
-from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
-from ..backend.config import ConnectionConfig
-from ..backend.options import DeleteOptions, UpdateOptions
-from ..backend.expression import ComparisonPredicate, Column, Literal
-from .typing import ConditionType, MultiConditionType
-from ..backend.impl.dummy.backend import DummyBackend  # Import DummyBackend
+from ..interface import IActiveRecord, ModelEvent
+from ..interface.update import IUpdateBehavior
 
 
 class CustomModuleFormatter(logging.Formatter):
@@ -540,28 +539,67 @@ class BaseActiveRecord(IActiveRecord):
                 after_method(self, is_new)
 
     @classmethod
-    def find_one(cls: Type['BaseActiveRecord'], condition: ConditionType) -> Optional['BaseActiveRecord']:
+    def find_one(
+        cls: Type['BaseActiveRecord'],
+        condition: Union[
+            Any,
+            Dict[str, Any],
+            Dict['Column', Any],
+            'SQLPredicate',
+            Tuple[str, tuple]
+        ]
+    ) -> Optional['BaseActiveRecord']:
         """Find single record by primary key or conditions.
 
         Args:
-            condition: Primary key value or query condition dict
-                - For scalar value, queries by primary key
-                - For dict, queries by conditions
+            condition: Can be:
+                - Scalar value: queries by primary key
+                - Dict[str, Any]: queries by column name conditions (keys must be valid schema column names)
+                - Dict[Column, Any]: queries by column object conditions (use FieldProxy for type safety)
+                - SQLPredicate: direct predicate for query (use FieldProxy for column references)
+                - SQLQueryAndParams: pre-built query and parameters
 
         Returns:
-            Optional[BaseActiveRecord]: Found record or None
+            Optional[BaseActiveRecord]: Returns at most one record even if multiple records
+            match the condition, or None if no records match
+
+        Note:
+            When using dict for conditions, we do not validate column name or Column object
+            against the database schema. Whether using string column names or Column objects
+            (from FieldProxy), ensure they correspond to actual schema columns. When using
+            FieldProxy, also ensure the columns are from the correct model/table.
 
         Examples:
             # Query by primary key
             user = User.find_one(1)
-            # Query by conditions
+            # Query by conditions (column names must match schema)
             user = User.find_one({'status': 1, 'type': 2})
+            # Query by column object conditions (using FieldProxy)
+            user = User.find_one({User.c.status: 1, User.c.type: 2})
+            # Query by SQLPredicate using FieldProxy (recommended for type safety)
+            user = User.find_one(User.c.status == 1)
         """
         query = cls.query()
 
         if isinstance(condition, dict):
-            # Pass dictionary conditions directly. Type adaptation will be handled by the query builder.
-            query = query.query(condition)
+            # Convert dictionary conditions to where clauses
+            for key, value in condition.items():
+                if isinstance(key, Column):
+                    # If key is a Column object, use it directly
+                    query = query.where(key == value)
+                elif isinstance(key, str):
+                    # If key is a string, treat it as a column name
+                    query = query.where(getattr(cls.c, key) == value)
+                else:
+                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
+                                    f"Expected str or Column, got {type(key)}")
+        elif isinstance(condition, SQLPredicate):
+            # Pass SQLPredicate directly to where clause
+            query = query.where(condition)
+        elif is_sql_query_and_params(condition):
+            # Handle SQLQueryAndParams tuple
+            sql, params = condition
+            query = query.where(sql, params)
         else:
             # Pass scalar primary key condition directly. Type adaptation will be handled by the query builder.
             pk_field_name = cls.primary_key()
@@ -570,33 +608,72 @@ class BaseActiveRecord(IActiveRecord):
         return query.one()
 
     @classmethod
-    def find_all(cls: Type['BaseActiveRecord'], condition: MultiConditionType = None) -> List['BaseActiveRecord']:
+    def find_all(
+        cls: Type['BaseActiveRecord'],
+        condition: Optional[Union[
+            Any,
+            List[Any],
+            Dict[str, Any],
+            Dict['Column', Any],
+            'SQLPredicate',
+            Tuple[str, tuple]
+        ]] = None
+    ) -> List['BaseActiveRecord']:
         """Find multiple records.
 
         Args:
-            condition: List of primary keys or query condition dict
-                - For primary key list, queries by primary keys
-                - For dict, queries by conditions
-                - For None, returns all records
+            condition: Can be:
+                - None: returns all records
+                - List of primary keys: queries by primary keys
+                - Dict[str, Any]: queries by column name conditions (keys must be valid schema column names)
+                - Dict[Column, Any]: queries by column object conditions (use FieldProxy for type safety)
+                - SQLPredicate: direct predicate for query (use FieldProxy for column references)
+                - SQLQueryAndParams: pre-built query and parameters
 
         Returns:
             List[BaseActiveRecord]: List of found records
 
+        Note:
+            When using dict for conditions, we do not validate column name or Column object
+            against the database schema. Whether using string column names or Column objects
+            (from FieldProxy), ensure they correspond to actual schema columns. When using
+            FieldProxy, also ensure the columns are from the correct model/table.
+
         Examples:
-            # Query by primary key list
-            users = User.find_all([1, 2, 3])
-            # Query by conditions
-            users = User.find_all({'status': 1})
             # Query all records
             users = User.find_all()
+            # Query by primary key list
+            users = User.find_all([1, 2, 3])
+            # Query by conditions (column names must match schema)
+            users = User.find_all({'status': 1})
+            # Query by column object conditions (using FieldProxy)
+            users = User.find_all({User.c.status: 1})
+            # Query by SQLPredicate using FieldProxy (recommended for type safety)
+            users = User.find_all(User.c.status == 1)
         """
         query = cls.query()
         if condition is None:
             return query.all()
 
         if isinstance(condition, dict):
-            # Pass dictionary conditions directly. Type adaptation will be handled by the query builder.
-            query = query.query(condition)
+            # Convert dictionary conditions to where clauses
+            for key, value in condition.items():
+                if isinstance(key, Column):
+                    # If key is a Column object, use it directly
+                    query = query.where(key == value)
+                elif isinstance(key, str):
+                    # If key is a string, treat it as a column name
+                    query = query.where(getattr(cls.c, key) == value)
+                else:
+                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
+                                    f"Expected str or Column, got {type(key)}")
+        elif isinstance(condition, SQLPredicate):
+            # Pass SQLPredicate directly to where clause
+            query = query.where(condition)
+        elif is_sql_query_and_params(condition):
+            # Handle SQLQueryAndParams tuple
+            sql, params = condition
+            query = query.where(sql, params)
         else: # Assumes list of primary keys
             # Pass list of primary keys directly. Type adaptation will be handled by the query builder.
             pk_field_name = cls.primary_key()
@@ -610,11 +687,25 @@ class BaseActiveRecord(IActiveRecord):
         return query.all()
 
     @classmethod
-    def find_one_or_fail(cls: Type['BaseActiveRecord'], condition: ConditionType) -> 'BaseActiveRecord':
+    def find_one_or_fail(
+        cls: Type['BaseActiveRecord'],
+        condition: Union[
+            Any,
+            Dict[str, Any],
+            Dict['Column', Any],
+            'SQLPredicate',
+            Tuple[str, tuple]
+        ]
+    ) -> 'BaseActiveRecord':
         """Find single record, raise exception if not found.
 
         Args:
-            condition: Primary key value or query condition dict
+            condition: Can be:
+                - Scalar value: queries by primary key
+                - Dict[str, Any]: queries by column name conditions (keys must be valid schema column names)
+                - Dict[Column, Any]: queries by column object conditions (use FieldProxy for type safety)
+                - SQLPredicate: direct predicate for query (use FieldProxy for column references)
+                - SQLQueryAndParams: pre-built query and parameters
 
         Returns:
             BaseActiveRecord: Found record
@@ -622,11 +713,21 @@ class BaseActiveRecord(IActiveRecord):
         Raises:
             RecordNotFound: When record is not found
 
+        Note:
+            When using dict for conditions, we do not validate column name or Column object
+            against the database schema. Whether using string column names or Column objects
+            (from FieldProxy), ensure they correspond to actual schema columns. When using
+            FieldProxy, also ensure the columns are from the correct model/table.
+
         Examples:
             # Query by primary key
             user = User.find_one_or_fail(1)
-            # Query by conditions
+            # Query by conditions (column names must match schema)
             user = User.find_one_or_fail({'status': 1, 'type': 2})
+            # Query by column object conditions (using FieldProxy)
+            user = User.find_one_or_fail({User.c.status: 1, User.c.type: 2})
+            # Query by SQLPredicate using FieldProxy (recommended for type safety)
+            user = User.find_one_or_fail(User.c.status == 1)
         """
         record = cls.find_one(condition)
         if record is None:

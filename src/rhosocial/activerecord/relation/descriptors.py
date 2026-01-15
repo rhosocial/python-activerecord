@@ -5,12 +5,14 @@ Provides BelongsTo, HasOne, and HasMany relationship types.
 """
 
 import logging
+
 from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, cast, Dict
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import RelationValidation, RelationManagementInterface, RelationLoader
 from ..base import QueryMixin
 from ..interface import IActiveRecord
+from ..backend.expression.core import Column
 
 T = TypeVar('T')
 
@@ -346,18 +348,18 @@ class RelationDescriptor(Generic[T]):
                 if hasattr(instance, self.foreign_key):
                     fk_value = getattr(instance, self.foreign_key)
                     if fk_value is not None:
-                        query = query.where(
-                            f"{related_model.primary_key()} = ?",
-                            (fk_value,)
-                        )
+                        # Use backend expression system instead of manual SQL string concatenation
+                        backend = related_model.backend()
+                        pk_column = Column(backend.dialect, related_model.primary_key(), table=related_model.table_name())
+                        query = query.where(pk_column == fk_value)
             else:
                 # For HasOne/HasMany, filter by foreign key matching our primary key
                 pk_value = getattr(instance, instance.primary_key())
                 if pk_value is not None:
-                    query = query.where(
-                        f"{self.foreign_key} = ?",
-                        (pk_value,)
-                    )
+                    # Use backend expression system instead of manual SQL string concatenation
+                    backend = related_model.backend()
+                    fk_column = Column(backend.dialect, self.foreign_key, table=related_model.table_name())
+                    query = query.where(fk_column == pk_value)
 
             return query
 

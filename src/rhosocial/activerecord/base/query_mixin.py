@@ -20,7 +20,7 @@ class QueryMixin(IActiveRecord):
     __query_class__ = ActiveQuery
 
     @classmethod
-    def query(cls) -> 'IActiveQuery':
+    def query(cls) -> 'ActiveQuery':
         """
         Create a new query instance configured for this model class.
 
@@ -43,7 +43,7 @@ class QueryMixin(IActiveRecord):
             cls: The model class for which to create the query (implicit from @classmethod)
 
         Returns:
-            IActiveQuery: A new query instance configured for this model class.
+            ActiveQuery: A new query instance configured for this model class.
                          The query is ready to be chained with additional methods
                          or executed with methods like all(), one(), first(), etc.
 

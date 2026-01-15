@@ -129,6 +129,10 @@ class SQLiteBackend(StorageBackend):
 
         type_mappings = [
             (bool, int),        # Python bool -> DB driver int (SQLite INTEGER)
+            # Why TEXT for date/time?
+            # 1. SQLite's TIMESTAMP has limited range.
+            # 2. SQLite's flexible typing allows TIMESTAMP to accept TEXT.
+            # To avoid ambiguity, we explicitly use TEXT.
             (datetime, str),    # Python datetime -> DB driver str (SQLite TEXT)
             (date, str),        # Python date -> DB driver str (SQLite TEXT)
             (time, str),        # Python time -> DB driver str (SQLite TEXT)
