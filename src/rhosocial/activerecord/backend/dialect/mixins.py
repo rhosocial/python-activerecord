@@ -19,7 +19,7 @@ if TYPE_CHECKING:  # pragma: no cover
         WindowDefinition, WindowClause
     )
     from ..expression.query_parts import (
-        QualifyClause, JoinExpression
+        QualifyClause, JoinExpression, OrderByClause
     )
     from ..expression.graph import GraphEdgeDirection, MatchClause
 
@@ -105,25 +105,12 @@ class WindowFunctionMixin:
             parts.append("PARTITION BY " + ", ".join(partition_parts))
 
         # ORDER BY
-        if spec.order_by:
-            order_by_parts = []
-            for item in spec.order_by:
-                if isinstance(item, tuple):
-                    expr, direction = item
-                    if isinstance(expr, bases.BaseExpression):
-                        expr_sql, expr_params = expr.to_sql()
-                        order_by_parts.append(f"{expr_sql} {direction.upper()}")
-                        all_params.extend(expr_params)
-                    else:
-                        order_by_parts.append(f"{self.format_identifier(str(expr))} {direction.upper()}")
-                else:
-                    if isinstance(item, bases.BaseExpression):
-                        expr_sql, expr_params = item.to_sql()
-                        order_by_parts.append(expr_sql)
-                        all_params.extend(expr_params)
-                    else:
-                        order_by_parts.append(self.format_identifier(str(item)))
-            parts.append("ORDER BY " + ", ".join(order_by_parts))
+        if spec.order_by and spec.order_by.expressions:
+            # spec.order_by is now a single OrderByClause, so call its to_sql method
+            # The OrderByClause.to_sql() method already includes "ORDER BY" keyword
+            clause_sql, clause_params = spec.order_by.to_sql()
+            parts.append(clause_sql)
+            all_params.extend(clause_params)
 
         # Frame
         if spec.frame:
@@ -859,23 +846,13 @@ class OrderedSetAggregationMixin:
 
     def format_ordered_set_aggregation(
             self,
-            func_name: str,
-            func_args_sql: List[str],
-            func_args_params: tuple,
-            order_by_sql: List[str],
-            order_by_params: tuple,
-            alias: Optional[str] = None
+            aggregation: "OrderedSetAggregation"
     ) -> Tuple[str, Tuple]:
         """
         Formats an ordered-set aggregate function call.
 
         Args:
-            func_name: The name of the aggregate function.
-            func_args_sql: List of SQL strings for the function's arguments.
-            func_args_params: Parameters for the function's arguments.
-            order_by_sql: List of SQL strings for the ORDER BY expressions.
-            order_by_params: Parameters for the ORDER BY expressions.
-            alias: Optional alias for the result.
+            aggregation: OrderedSetAggregation object to format
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
@@ -883,12 +860,19 @@ class OrderedSetAggregationMixin:
         if not self.supports_ordered_set_aggregation():
             raise UnsupportedFeatureError(self.name, "ordered-set aggregate functions")
 
-        args_str = ", ".join(func_args_sql)
-        order_by_str = ", ".join(order_by_sql)
-        sql = f"{func_name.upper()}({args_str}) WITHIN GROUP (ORDER BY {order_by_str})"
-        if alias:
-            sql = f"{sql} AS {self.format_identifier(alias)}"
-        return sql, func_args_params + order_by_params
+        # Format function arguments
+        func_args_sql, func_args_params = [], []
+        for arg in aggregation.args:
+            arg_sql, arg_params = arg.to_sql()
+            func_args_sql.append(arg_sql)
+            func_args_params.extend(arg_params)
+
+        # Get the ORDER BY SQL from the OrderByClause object
+        order_by_sql, order_by_params = aggregation.order_by.to_sql()
+        sql = f"{aggregation.func_name.upper()}({', '.join(func_args_sql)}) WITHIN GROUP ({order_by_sql})"
+        if aggregation.alias:
+            sql = f"{sql} AS {self.format_identifier(aggregation.alias)}"
+        return sql, tuple(func_args_params) + order_by_params
 
 
 class MergeMixin:

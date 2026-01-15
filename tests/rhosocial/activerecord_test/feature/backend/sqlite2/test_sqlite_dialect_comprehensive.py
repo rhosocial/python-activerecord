@@ -98,7 +98,11 @@ class TestSQLiteDialectComprehensive:
             elif method_name == "format_json_table_expression":
                 method("json_col", "$.path", [], "alias", ())
             elif method_name == "format_ordered_set_aggregation":
-                method("func", [], (), [], (), None)
+                from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
+                from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+                from rhosocial.activerecord.backend.expression.core import Column
+                mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
+                method(mock_agg)
             else:
                 mock_obj = Mock()
                 method(mock_obj)

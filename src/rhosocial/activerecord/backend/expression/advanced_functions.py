@@ -8,6 +8,7 @@ from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
 from . import bases
 from . import core
 from . import mixins
+from .query_parts import OrderByClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -129,12 +130,23 @@ class WindowSpecification(bases.BaseExpression):
     """Window specification (PARTITION BY ..., ORDER BY ..., frame)"""
     def __init__(self, dialect: "SQLDialectBase",
                  partition_by: Optional[List[Union["bases.BaseExpression", str]]] = None,
-                 order_by: Optional[List[Union["bases.BaseExpression", str]]] = None,  # Each element can be (expr, direction) or expr
+                 order_by: Optional[Union["OrderByClause", str]] = None,  # Accept only single OrderByClause or str
                  frame: Optional[WindowFrameSpecification] = None,
                  dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
         self.partition_by = partition_by or []
-        self.order_by = order_by or []
+
+        # Strictly validate and process order_by parameter
+        if order_by is None:
+            self.order_by = None
+        elif isinstance(order_by, str):
+            # Convert string to OrderByClause - create a column expression from the string
+            self.order_by = OrderByClause(dialect, [core.Column(dialect, order_by)])
+        elif isinstance(order_by, OrderByClause):
+            self.order_by = order_by
+        else:
+            raise TypeError(f"order_by must be OrderByClause or str, got {type(order_by)}")
+
         self.frame = frame
         self.dialect_options = dialect_options or {}
 
@@ -238,26 +250,22 @@ class OrderedSetAggregation(mixins.AliasableMixin, mixins.ArithmeticMixin, mixin
     def __init__(self, dialect: "SQLDialectBase",
                  func_name: str,
                  args: List["bases.BaseExpression"],
-                 order_by: List["bases.BaseExpression"],
+                 order_by: Union["OrderByClause", str],  # Accept OrderByClause or str
                  alias: Optional[str] = None):
         super().__init__(dialect)
         self.func_name = func_name
         self.args = args
-        self.order_by = order_by
+
+        # Strictly validate and process order_by parameter - accept OrderByClause or str
+        if isinstance(order_by, str):
+            # Convert string to OrderByClause - create a column expression from the string
+            self.order_by = OrderByClause(dialect, [core.Column(dialect, order_by)])
+        elif isinstance(order_by, OrderByClause):
+            self.order_by = order_by
+        else:
+            raise TypeError(f"order_by must be OrderByClause or str, got {type(order_by)}")
+
         self.alias = alias
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        func_args_sql, func_args_params = [], []
-        for arg in self.args:
-            arg_sql, arg_params = arg.to_sql()
-            func_args_sql.append(arg_sql)
-            func_args_params.extend(arg_params)
-        order_by_sql, order_by_params = [], []
-        for expr in self.order_by:
-            expr_sql, expr_params = expr.to_sql()
-            order_by_sql.append(expr_sql)
-            order_by_params.extend(expr_params)
-        return self.dialect.format_ordered_set_aggregation(
-            self.func_name, func_args_sql, tuple(func_args_params),
-            order_by_sql, tuple(order_by_params), self.alias
-        )
+        return self.dialect.format_ordered_set_aggregation(self)

@@ -130,11 +130,12 @@ class TestAliasableMixin:
 
     def test_ordered_set_aggregation_alias_initialization(self, dummy_dialect: DummyDialect):
         """Test OrderedSetAggregation with alias specified during initialization."""
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         ord_agg = OrderedSetAggregation(
-            dummy_dialect, 
-            "PERCENTILE_CONT", 
-            [Literal(dummy_dialect, 0.5)], 
-            [Column(dummy_dialect, "value")], 
+            dummy_dialect,
+            "PERCENTILE_CONT",
+            [Literal(dummy_dialect, 0.5)],
+            OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")]),
             alias="percentile_50"
         )
         assert ord_agg.alias == "percentile_50"
@@ -144,11 +145,12 @@ class TestAliasableMixin:
 
     def test_ordered_set_aggregation_alias_with_as_method(self, dummy_dialect: DummyDialect):
         """Test OrderedSetAggregation with alias specified using as_() method."""
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         ord_agg = OrderedSetAggregation(
-            dummy_dialect, 
-            "PERCENTILE_CONT", 
-            [Literal(dummy_dialect, 0.5)], 
-            [Column(dummy_dialect, "value")]
+            dummy_dialect,
+            "PERCENTILE_CONT",
+            [Literal(dummy_dialect, 0.5)],
+            OrderByClause(dummy_dialect, [Column(dummy_dialect, "value")])
         ).as_("percentile_50")
         assert ord_agg.alias == "percentile_50"
         sql, params = ord_agg.to_sql()

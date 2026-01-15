@@ -206,7 +206,7 @@ namespaces = true
 minversion = "7.0"
 testpaths = ["tests"]
 
-addopts = "-ra -q"
+addopts = "-ra -q -m 'not benchmark'"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -229,6 +229,7 @@ markers = [
     "cte: marks tests for CTE query functionality",
     "aggregate: marks tests for aggregate queries",
     "cache: marks tests for caching mechanisms",
+    "benchmark: marks tests as performance benchmarks that should be excluded by default",
 
     # Database backend-specific markers
     "sqlite: marks tests specific to SQLite backend",

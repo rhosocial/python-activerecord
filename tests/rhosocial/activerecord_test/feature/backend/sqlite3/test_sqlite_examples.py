@@ -108,6 +108,7 @@ SELECT s FROM x WHERE ind=0;
         print(formatted_row)
 
 
+@pytest.mark.benchmark
 @pytest.mark.skipif(
     sys.version_info < (3, 8) or sqlite3.sqlite_version_info < (3, 8, 3),
     reason="Recursive CTEs require Python 3.8+ and SQLite 3.8.3+"

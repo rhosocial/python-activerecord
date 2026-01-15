@@ -168,11 +168,12 @@ class TestClauseExpressions:
     # --- OrderedSetAggregation ---
     def test_ordered_set_aggregation_percentile_cont(self, dummy_dialect: DummyDialect):
         """Tests PERCENTILE_CONT WITHIN GROUP ordered-set aggregate function."""
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         expr = OrderedSetAggregation(
             dummy_dialect,
             "PERCENTILE_CONT",
             args=[Literal(dummy_dialect, 0.5)],
-            order_by=[Column(dummy_dialect, "salary")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "salary")]),
             alias="median_salary"
         )
         sql, params = expr.to_sql()
@@ -182,11 +183,12 @@ class TestClauseExpressions:
 
     def test_ordered_set_aggregation_listagg(self, dummy_dialect: DummyDialect):
         """Tests LISTAGG WITHIN GROUP ordered-set aggregate function."""
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         expr = OrderedSetAggregation(
             dummy_dialect,
             "LISTAGG",
             args=[Column(dummy_dialect, "name"), Literal(dummy_dialect, ",")],
-            order_by=[Column(dummy_dialect, "name")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "name")]),
             alias="employee_list"
         )
         sql, params = expr.to_sql()

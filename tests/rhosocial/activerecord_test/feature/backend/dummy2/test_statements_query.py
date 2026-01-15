@@ -78,10 +78,11 @@ class TestQueryStatements:
     def test_window_function_call_inline_spec(self, dummy_dialect: DummyDialect):
         """Tests WindowFunctionCall with inline window specification."""
         # Create a window specification
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
 
         # Create the window function call
@@ -108,10 +109,11 @@ class TestQueryStatements:
         )
 
         # Create a window specification with the frame
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
-            order_by=[Column(dummy_dialect, "date")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
             frame=frame_spec
         )
 
@@ -148,10 +150,11 @@ class TestQueryStatements:
     def test_query_with_window_clause(self, dummy_dialect: DummyDialect):
         """Tests a complete query with WINDOW clause."""
         # Create a window specification
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec1 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
 
         # Create a window definition
@@ -169,10 +172,11 @@ class TestQueryStatements:
             end_frame="CURRENT ROW"
         )
 
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec2 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
-            order_by=[Column(dummy_dialect, "date")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
             frame=frame_spec
         )
 
@@ -233,10 +237,11 @@ class TestQueryStatements:
     def test_window_specification_to_sql(self, dummy_dialect: DummyDialect):
         """Tests WindowSpecification.to_sql method."""
         # Test with partition and order by
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
         sql, params = window_spec.to_sql()
         expected = 'PARTITION BY "department" ORDER BY "salary" DESC'
@@ -250,10 +255,11 @@ class TestQueryStatements:
             start_frame="CURRENT ROW",
             end_frame="UNBOUNDED FOLLOWING"
         )
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec_with_frame = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
-            order_by=[Column(dummy_dialect, "date")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
             frame=frame_spec
         )
         sql2, params2 = window_spec_with_frame.to_sql()
@@ -262,13 +268,14 @@ class TestQueryStatements:
         assert params2 == ()
 
         # Test with ORDER BY using tuples (expression, direction)
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec3 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "region")],
-            order_by=[
+            order_by=OrderByClause(dummy_dialect, [
                 (Column(dummy_dialect, "category"), "ASC"),
                 (Column(dummy_dialect, "price"), "DESC")
-            ]
+            ])
         )
         sql3, params3 = window_spec3.to_sql()
         expected3 = 'PARTITION BY "region" ORDER BY "category" ASC, "price" DESC'
@@ -278,10 +285,11 @@ class TestQueryStatements:
     def test_window_definition_to_sql(self, dummy_dialect: DummyDialect):
         """Tests WindowDefinition.to_sql method."""
         # Create a window specification
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
 
         # Create a window definition
@@ -302,10 +310,11 @@ class TestQueryStatements:
             start_frame="UNBOUNDED PRECEDING",
             end_frame="CURRENT ROW"
         )
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec2 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "product_type")],
-            order_by=[Column(dummy_dialect, "sales_date")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "sales_date")]),
             frame=frame_spec
         )
         window_def2 = WindowDefinition(

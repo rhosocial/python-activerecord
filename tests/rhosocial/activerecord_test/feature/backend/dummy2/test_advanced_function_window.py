@@ -213,10 +213,11 @@ class TestAdvancedFunctionWindow:
     def test_window_function_call_inline_spec(self, dummy_dialect: DummyDialect):
         """Tests WindowFunctionCall with inline window specification."""
         # Create a window specification
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
 
         # Create the window function call
@@ -243,10 +244,11 @@ class TestAdvancedFunctionWindow:
         )
 
         # Create a window specification with the frame
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
-            order_by=[Column(dummy_dialect, "date")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
             frame=frame_spec
         )
 
@@ -283,10 +285,11 @@ class TestAdvancedFunctionWindow:
     def test_query_with_window_clause(self, dummy_dialect: DummyDialect):
         """Tests a complete query with WINDOW clause."""
         # Create a window specification
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec1 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
 
         # Create a window definition
@@ -304,10 +307,11 @@ class TestAdvancedFunctionWindow:
             end_frame="CURRENT ROW"
         )
 
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec2 = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "category")],
-            order_by=[Column(dummy_dialect, "date")],
+            order_by=OrderByClause(dummy_dialect, [Column(dummy_dialect, "date")]),
             frame=frame_spec
         )
 
@@ -347,10 +351,11 @@ class TestAdvancedFunctionWindow:
         )
 
         # Test with literal arguments that are not BaseExpression instances
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
         # Pass literal values directly (not as BaseExpression objects) to trigger the else branch
         window_func = WindowFunctionCall(
@@ -400,3 +405,75 @@ class TestAdvancedFunctionWindow:
         # Should raise ValueError when to_sql() is called
         with pytest.raises(ValueError, match=r"CASE expression must have at least one WHEN/THEN condition-result pair."):
             case_expr.to_sql()
+
+    def test_window_specification_with_invalid_order_by_type_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that WindowSpecification raises TypeError when order_by is not OrderByClause or str."""
+        from rhosocial.activerecord.backend.expression import Column
+        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
+
+        # Test with invalid types that should raise TypeError
+        invalid_types = [123, [Column(dummy_dialect, "value")], 3.14, {"key": "value"}]
+
+        for invalid_type in invalid_types:
+            with pytest.raises(TypeError, match=r"order_by must be OrderByClause or str, got <class '.*'>"):
+                WindowSpecification(
+                    dummy_dialect,
+                    partition_by=[Column(dummy_dialect, "department")],
+                    order_by=invalid_type
+                )
+
+    def test_window_specification_with_string_converts_to_order_by_clause(self, dummy_dialect: DummyDialect):
+        """Tests that WindowSpecification converts string to OrderByClause."""
+        from rhosocial.activerecord.backend.expression import Column
+        from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
+
+        # Create a WindowSpecification with string order_by (should be converted to OrderByClause)
+        window_spec = WindowSpecification(
+            dummy_dialect,
+            partition_by=[Column(dummy_dialect, "department")],
+            order_by="salary"  # String should be converted to OrderByClause
+        )
+
+        # Verify that order_by is now an OrderByClause object
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        assert isinstance(window_spec.order_by, OrderByClause)
+        # Verify that the OrderByClause contains the expected column
+        assert len(window_spec.order_by.expressions) == 1
+        # The expression should be a Column with the name "salary"
+
+    def test_ordered_set_aggregation_with_invalid_order_by_type_raises_error(self, dummy_dialect: DummyDialect):
+        """Tests that OrderedSetAggregation raises TypeError when order_by is not OrderByClause or str."""
+        from rhosocial.activerecord.backend.expression import Column, Literal
+        from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
+
+        # Test with invalid types that should raise TypeError
+        invalid_types = [123, [Column(dummy_dialect, "value")], 3.14, {"key": "value"}]
+
+        for invalid_type in invalid_types:
+            with pytest.raises(TypeError, match=r"order_by must be OrderByClause or str, got <class '.*'>"):
+                OrderedSetAggregation(
+                    dummy_dialect,
+                    "PERCENTILE_CONT",
+                    args=[Literal(dummy_dialect, 0.5)],
+                    order_by=invalid_type
+                )
+
+    def test_ordered_set_aggregation_with_string_converts_to_order_by_clause(self, dummy_dialect: DummyDialect):
+        """Tests that OrderedSetAggregation converts string to OrderByClause."""
+        from rhosocial.activerecord.backend.expression import Literal
+        from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
+
+        # Create an OrderedSetAggregation with string order_by (should be converted to OrderByClause)
+        ordered_agg = OrderedSetAggregation(
+            dummy_dialect,
+            "PERCENTILE_CONT",
+            args=[Literal(dummy_dialect, 0.5)],
+            order_by="value"  # String should be converted to OrderByClause
+        )
+
+        # Verify that order_by is now an OrderByClause object
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        assert isinstance(ordered_agg.order_by, OrderByClause)
+        # Verify that the OrderByClause contains the expected column
+        assert len(ordered_agg.order_by.expressions) == 1
+        # The expression should be a Column with the name "value"

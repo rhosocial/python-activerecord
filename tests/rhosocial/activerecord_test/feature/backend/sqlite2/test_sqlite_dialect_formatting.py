@@ -157,9 +157,13 @@ class TestSQLiteDialectFormatting:
     def test_format_ordered_set_aggregation_error(self):
         """Test ordered-set aggregation formatting error"""
         dialect = SQLiteDialect()
+        from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+        from rhosocial.activerecord.backend.expression.core import Column
+        mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_ordered_set_aggregation("func", [], (), [], (), None)
+            dialect.format_ordered_set_aggregation(mock_agg)
 
         assert "ordered-set aggregate functions" in str(exc_info.value)
         assert "SQLite does not support ordered-set aggregate functions" in str(exc_info.value)
@@ -193,7 +197,11 @@ class TestSQLiteDialectFormatting:
             elif method_name == "format_json_table_expression":
                 method("json_col", "$.path", [], "alias", ())
             elif method_name == "format_ordered_set_aggregation":
-                method("func", [], (), [], (), None)
+                from rhosocial.activerecord.backend.expression.advanced_functions import OrderedSetAggregation
+                from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
+                from rhosocial.activerecord.backend.expression.core import Column
+                mock_agg = OrderedSetAggregation(dialect, "func", [], OrderByClause(dialect, [Column(dialect, "test")]))
+                method(mock_agg)
             else:
                 mock_obj = Mock()
                 method(mock_obj)

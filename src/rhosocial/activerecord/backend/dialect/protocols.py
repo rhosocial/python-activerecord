@@ -503,23 +503,13 @@ class OrderedSetAggregationSupport(Protocol):
 
     def format_ordered_set_aggregation(
         self,
-        func_name: str,
-        func_args_sql: List[str],
-        func_args_params: tuple,
-        order_by_sql: List[str],
-        order_by_params: tuple,
-        alias: Optional[str] = None
+        aggregation: "OrderedSetAggregation"
     ) -> Tuple[str, Tuple]:
         """
         Formats an ordered-set aggregate function call.
 
         Args:
-            func_name: The name of the aggregate function.
-            func_args_sql: List of SQL strings for the function's arguments.
-            func_args_params: Parameters for the function's arguments.
-            order_by_sql: List of SQL strings for the ORDER BY expressions.
-            order_by_params: Parameters for the ORDER BY expressions.
-            alias: Optional alias for the result.
+            aggregation: OrderedSetAggregation object to format
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.

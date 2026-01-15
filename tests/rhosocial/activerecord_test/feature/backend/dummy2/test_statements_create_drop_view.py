@@ -450,7 +450,7 @@ class TestCreateDropViewStatements:
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[Column(dummy_dialect, "department")],
-            order_by=[(Column(dummy_dialect, "salary"), "DESC")]
+            order_by=OrderByClause(dummy_dialect, [(Column(dummy_dialect, "salary"), "DESC")])
         )
 
         # Create a window function call

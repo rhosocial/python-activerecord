@@ -693,10 +693,11 @@ class TestDeleteStatements:
         from rhosocial.activerecord.backend.expression.advanced_functions import WindowSpecification
 
         # Create a WindowSpecification with no components (empty)
+        from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
         window_spec = WindowSpecification(
             dummy_dialect,
             partition_by=[],  # Empty partition
-            order_by=[],      # Empty order by
+            order_by=OrderByClause(dummy_dialect, []),  # Empty order by clause
             frame=None        # No frame
         )
 

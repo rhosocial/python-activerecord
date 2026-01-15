@@ -197,11 +197,12 @@ class TestOrderedSetAggregation:
         
         try:
             # PERCENTILE_CONT(0.5) WITHIN GROUP (ORDER BY salary)
+            from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
             expr = OrderedSetAggregation(
                 sqlite_dialect_3_8_0,
                 "PERCENTILE_CONT",
                 args=[Literal(sqlite_dialect_3_8_0, 0.5)],
-                order_by=[Column(sqlite_dialect_3_8_0, "salary")],
+                order_by=OrderByClause(sqlite_dialect_3_8_0, [Column(sqlite_dialect_3_8_0, "salary")]),
                 alias="median_salary"
             )
             expr.to_sql()
