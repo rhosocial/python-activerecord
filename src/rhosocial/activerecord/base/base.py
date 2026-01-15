@@ -444,6 +444,12 @@ class BaseActiveRecord(IActiveRecord):
 
         self.log(logging.DEBUG, f"Complete data for SET clause: {list(complete_data.keys())}")
 
+        # Map field names to column names for the database operation
+        # This is critical for models that use UseColumn annotations
+        mapped_data = self.__class__._map_fields_to_columns(complete_data)
+
+        self.log(logging.DEBUG, f"Mapped data for SET clause: {list(mapped_data.keys())}")
+
         # Create column_mapping for result processing (maps column names back to field names).
         column_mapping = self.__class__.get_column_to_field_map()
 
@@ -488,7 +494,7 @@ class BaseActiveRecord(IActiveRecord):
 
         update_options = UpdateOptions(
             table=self.table_name(),
-            data=complete_data,  # Combined data with both regular values and expressions
+            data=mapped_data,  # Combined data with both regular values and expressions, mapped to column names
             where=where_predicate,
             column_mapping=column_mapping,
             column_adapters=column_adapters,

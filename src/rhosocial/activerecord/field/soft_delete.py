@@ -39,8 +39,9 @@ class SoftDeleteMixin(IActiveRecord):
     def query(cls) -> 'ActiveQuery':
         """Return query builder excluding soft-deleted records using expression system."""
         backend = cls.backend()
-        # Use is_not_null() method from ComparisonMixin to check for non-deleted records
-        non_deleted_condition = Column(backend.dialect, "deleted_at").is_not_null()
+        # Use is_null() method from ComparisonMixin to check for non-deleted records
+        # Records where deleted_at is NULL are considered not deleted
+        non_deleted_condition = Column(backend.dialect, "deleted_at").is_null()
         return super().query().where(non_deleted_condition)
 
     @classmethod
@@ -52,8 +53,9 @@ class SoftDeleteMixin(IActiveRecord):
     def query_only_deleted(cls) -> 'ActiveQuery':
         """Return query for only soft-deleted records using expression system."""
         backend = cls.backend()
-        # Use is_null() method from ComparisonMixin to check for deleted records
-        deleted_condition = Column(backend.dialect, "deleted_at").is_null()
+        # Use is_not_null() method from ComparisonMixin to check for deleted records
+        # Records where deleted_at is NOT NULL are considered deleted
+        deleted_condition = Column(backend.dialect, "deleted_at").is_not_null()
         return super().query().where(deleted_condition)
 
     def restore(self) -> int:
