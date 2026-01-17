@@ -4,6 +4,7 @@ Core ActiveRecord model interface definition.
 """
 import logging
 from abc import ABC, abstractmethod
+from copy import deepcopy
 from pydantic import BaseModel
 from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable, TYPE_CHECKING
 from typing import Protocol
@@ -16,15 +17,15 @@ from ..backend.errors import DatabaseError, RecordNotFound
 from ..backend.schema import DatabaseType
 
 
-class IActiveRecord(BaseModel, ABC):
-    """Base interface for ActiveRecord models.
+class ActiveRecordBase(BaseModel, ABC):
+    """Base class for ActiveRecord models (Sync and Async).
 
-    Defines core functionality that all ActiveRecord models must implement, including:
+    Defines core functionality common to both synchronous and asynchronous ActiveRecord models, including:
     - Database connection and configuration
-    - CRUD operations
     - Field tracking for changes
     - Event handling
     - Validation
+    - Data preparation for saving
 
     Attributes:
         __table_name__ (str): Database table name
@@ -40,49 +41,33 @@ class IActiveRecord(BaseModel, ABC):
     """
     __table_name__: ClassVar[Optional[str]] = None
     __primary_key__: ClassVar[str] = 'id'
-    __backend__: Optional[StorageBackend] = None
-    __backend_class__: ClassVar[Type[StorageBackend]] = None
+    __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
+    __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
     __logger__: ClassVar[logging.Logger] = logging.getLogger('activerecord')
 
+    def __init__(self, **data):
+        """Initialize ActiveRecord instance."""
+        super().__init__(**data)
+        self._dirty_fields = set()
+        self._original_values = {}
+        self.reset_tracking()
+        # Initialize instance event handlers
+        self._is_from_db = False
+        self._event_handlers = {event: [] for event in ModelEvent}
+
     def __init_subclass__(cls) -> None:
-        """Initialize subclass"""
+        """Initialize subclass by merging all non-tracking fields."""
         super().__init_subclass__()
-
-
-
-
-    def _save_internal(self) -> int:
-        """
-        Internal method for saving the record (either insert or update).
-
-        This method determines whether to perform an insert or update operation based on
-        whether this is a new record or an existing one. It handles the complete save
-        process including:
-        1. Data preparation with mixin processing
-        2. Conditional execution of insert or update based on record state
-        3. Post-save processing and event triggering
-        4. Tracking reset after successful save
-
-        For both insert and update operations, if the backend supports RETURNING clauses,
-        the methods will utilize them to retrieve relevant data efficiently.
-
-        Returns:
-            int: Number of affected rows from the underlying insert or update operation
-        """
-        is_new = self.is_new_record
-
-        # Prepare data for saving (including mixin processing)
-        data = self._prepare_save_data()
-        result = self._insert_internal(data) if is_new else self._update_internal(data)
-
-        if result is not None and result.affected_rows > 0:
-            self._after_save(is_new)
-            self.reset_tracking()
-
-        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
-
-        return result.affected_rows
+        # Collect non-tracking fields from all parent classes
+        no_track_fields = set()
+        for base in cls.__mro__:
+            if hasattr(base, '__no_track_fields__'):
+                no_track_fields.update(base.__no_track_fields__)
+        cls.__no_track_fields__ = no_track_fields
+        cls.__column_types_cache__ = None
+        # Initialize _dummy_backend to None for each subclass
+        cls._dummy_backend = None
 
     @classmethod
     def table_name(cls) -> str:
@@ -132,7 +117,7 @@ class IActiveRecord(BaseModel, ABC):
         return cls.__primary_key__
 
     @classmethod
-    def backend(cls) -> Optional[StorageBackend]:
+    def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
         """Get storage backend instance.
 
         Returns the class's __backend__ attribute by default. Subclasses can override
@@ -151,19 +136,6 @@ class IActiveRecord(BaseModel, ABC):
         if not cls.__backend__:
             raise DatabaseError("No backend configured")
         return cls.__backend__
-
-    @classmethod
-    def create_from_database(cls: Type['IActiveRecord'], row: Dict[str, Any]) -> 'IActiveRecord':
-        """Create instance from database record"""
-        instance = cls(**row)
-        instance._is_from_db = True
-        instance.reset_tracking()
-        return instance
-
-    @classmethod
-    def create_collection_from_database(cls: Type['IActiveRecord'], rows: List[Dict[str, Any]]) -> List['IActiveRecord']:
-        """Create instance collection from database records"""
-        return [cls.create_from_database(row) for row in rows]
 
     @classmethod
     def validate_record(cls, value: Any) -> None:
@@ -210,6 +182,190 @@ class IActiveRecord(BaseModel, ABC):
         # Then execute record level validation
         self.validate_record(self)
         self._trigger_event(ModelEvent.AFTER_VALIDATE)
+
+    def on(self, event: ModelEvent, handler: Callable) -> None:
+        """Register event handler (instance level)"""
+        if not hasattr(self, '_event_handlers'):
+            self._event_handlers = {event: [] for event in ModelEvent}
+        self._event_handlers[event].append(handler)
+
+    def off(self, event: ModelEvent, handler: Callable) -> None:
+        """Remove event handler (instance level)"""
+        if hasattr(self, '_event_handlers') and handler in self._event_handlers[event]:
+            self._event_handlers[event].remove(handler)
+
+    def _trigger_event(self, event: ModelEvent, **kwargs) -> None:
+        """Trigger event (instance level)"""
+        if hasattr(self, '_event_handlers'):
+            for handler in self._event_handlers[event]:
+                handler(self, **kwargs)
+
+    def _prepare_save_data(self) -> Dict[str, Any]:
+        """Prepare data for saving.
+
+        This method processes the model's fields and prepares them for saving
+        to the database. It handles tracking changed fields and applying any
+        necessary transformations.
+
+        Returns:
+            Dict containing the fields to be saved
+        """
+        data = {}
+        if getattr(self, 'is_dirty', False):
+            # Only include changed fields for existing records
+            for field in getattr(self, '_dirty_fields', []):
+                value = getattr(self, field)
+                data[field] = value
+        else:
+            # Include all fields for new records
+            data = self.model_dump()
+        return data
+
+    def _after_save(self, is_new: bool) -> None:
+        """Process after save operations.
+
+        This method is called after a successful save operation to handle
+        any necessary cleanup or post-save tasks.
+
+        Args:
+            is_new: Whether this was a new record
+        """
+        # Mark record as from database
+        self._is_from_db = True
+        # Reset change tracking
+        self.reset_tracking()
+
+    @classmethod
+    def get_feature_handlers(cls) -> List[Callable]:
+        """
+        Discovers and collects unique feature handlers from the class's MRO.
+
+        This method walks the inheritance hierarchy (MRO) and collects all handlers
+        defined in `_feature_handlers` lists within parent classes and mixins.
+        It ensures that each handler is unique and maintains a consistent order.
+
+        Returns:
+            A list of unique feature handler classes, ordered by their appearance
+            in the MRO.
+        """
+        collected_handlers = {}
+        # We iterate through the MRO in reverse. This ensures that handlers
+        # from base classes are registered before handlers from child classes.
+        for mro_class in reversed(cls.mro()):
+            if hasattr(mro_class, '_feature_handlers'):
+                for handler in mro_class._feature_handlers:
+                    collected_handlers[handler] = True  # Use dict for ordered set
+        return list(collected_handlers.keys())
+
+    @classmethod
+    def primary_key_field(cls) -> str:
+        """Get the Python field name that maps to the primary key column."""
+        return cls.primary_key()
+
+    @property
+    def is_new_record(self) -> bool:
+        """
+        Check if this is a new record that hasn't been saved to the database yet.
+
+        Returns:
+            bool: True if this is a new record that hasn't been saved to the database,
+                  False if this record already exists in the database
+        """
+        pk_field_name = self.__class__.primary_key_field()
+        pk_value = getattr(self, pk_field_name)
+        # A record is new if its primary key field is None OR if it hasn't been loaded from the DB
+        return pk_value is None or not self._is_from_db
+
+    def __setattr__(self, name: str, value: Any):
+        """Overridden to track field changes."""
+        if (name in self.__class__.model_fields and
+                hasattr(self, '_original_values') and
+                name not in self.__class__.__no_track_fields__):
+            if name not in self._original_values:
+                self._original_values[name] = getattr(self, name, None)
+            if value != self._original_values[name]:
+                self._dirty_fields.add(name)
+        super().__setattr__(name, value)
+
+    def reset_tracking(self):
+        """Reset change tracking state by clearing dirty fields and storing current values."""
+        self._dirty_fields.clear()
+        self._original_values = self.model_dump()
+
+    @property
+    def is_dirty(self) -> bool:
+        """Check if record has changes"""
+        return len(self._dirty_fields) > 0
+
+    @property
+    def dirty_fields(self) -> Set[str]:
+        """Get set of changed fields"""
+        return self._dirty_fields.copy()
+
+    def get_old_attribute(self, field_name: str) -> Optional[Any]:
+        """Get old attribute value."""
+        return deepcopy(self._original_values[field_name])
+
+    @property
+    def is_from_db(self) -> bool:
+        """Indicates if record was loaded from database"""
+        return self._is_from_db
+
+
+class IActiveRecord(ActiveRecordBase):
+    """Base interface for ActiveRecord models.
+
+    Defines core functionality that all ActiveRecord models must implement, including:
+    - Database connection and configuration
+    - CRUD operations
+    - Field tracking for changes
+    - Event handling
+    - Validation
+
+    Attributes:
+        __table_name__ (str): Database table name
+        __primary_key__ (str): Primary key column name (single-column primary keys only)
+        __backend__ (StorageBackend): Database storage backend
+        __backend_class__ (Type[StorageBackend]): Backend implementation class
+        __connection_config__ (ConnectionConfig): Connection configuration
+        __logger__ (Logger): Logger instance
+        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        _dirty_fields (Set[str]): Set of modified field names
+        __no_track_fields__ (Set[str]): Fields excluded from change tracking
+        _original_values (Dict): Original field values before modification
+    """
+
+    def _save_internal(self) -> int:
+        """
+        Internal method for saving the record (either insert or update).
+
+        This method determines whether to perform an insert or update operation based on
+        whether this is a new record or an existing one. It handles the complete save
+        process including:
+        1. Data preparation with mixin processing
+        2. Conditional execution of insert or update based on record state
+        3. Post-save processing and event triggering
+        4. Tracking reset after successful save
+
+        For both insert and update operations, if the backend supports RETURNING clauses,
+        the methods will utilize them to retrieve relevant data efficiently.
+
+        Returns:
+            int: Number of affected rows from the underlying insert or update operation
+        """
+        is_new = self.is_new_record
+
+        # Prepare data for saving (including mixin processing)
+        data = self._prepare_save_data()
+        result = self._insert_internal(data) if is_new else self._update_internal(data)
+
+        if result is not None and result.affected_rows > 0:
+            self._after_save(is_new)
+            self.reset_tracking()
+
+        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
+
+        return result.affected_rows
 
     @abstractmethod
     def save(self) -> int:
@@ -357,103 +513,29 @@ class IActiveRecord(BaseModel, ABC):
         self._is_from_db = True
         self.reset_tracking()
 
-    @property
-    @abstractmethod
-    def is_new_record(self) -> bool:
-        """
-        Check if this is a new record that hasn't been saved to the database yet.
 
-        This property determines whether the current instance represents a record
-        that exists in the database or a new record that needs to be inserted.
-        Typically, a record is considered new if:
-        - It was created in memory but not yet saved to the database
-        - It doesn't have a valid primary key value from the database
-        - It has never been persisted
+class IAsyncActiveRecord(ActiveRecordBase):
+    """Base interface for Asynchronous ActiveRecord models.
 
-        Returns:
-            bool: True if this is a new record that hasn't been saved to the database,
-                  False if this record already exists in the database
-        """
-        pass
+    Defines core functionality that all asynchronous ActiveRecord models must implement, including:
+    - Asynchronous database connection and configuration
+    - Asynchronous CRUD operations
+    - Field tracking for changes
+    - Event handling
+    - Validation
 
-    def on(self, event: ModelEvent, handler: Callable) -> None:
-        """Register event handler (instance level)"""
-        if not hasattr(self, '_event_handlers'):
-            self._event_handlers = {event: [] for event in ModelEvent}
-        self._event_handlers[event].append(handler)
-
-    def off(self, event: ModelEvent, handler: Callable) -> None:
-        """Remove event handler (instance level)"""
-        if hasattr(self, '_event_handlers') and handler in self._event_handlers[event]:
-            self._event_handlers[event].remove(handler)
-
-    def _trigger_event(self, event: ModelEvent, **kwargs) -> None:
-        """Trigger event (instance level)"""
-        if hasattr(self, '_event_handlers'):
-            for handler in self._event_handlers[event]:
-                handler(self, **kwargs)
-
-    def _prepare_save_data(self) -> Dict[str, Any]:
-        """Prepare data for saving.
-
-        This method processes the model's fields and prepares them for saving
-        to the database. It handles tracking changed fields and applying any
-        necessary transformations.
-
-        Returns:
-            Dict containing the fields to be saved
-        """
-        data = {}
-        if self.is_dirty:
-            # Only include changed fields for existing records
-            for field in self._dirty_fields:
-                value = getattr(self, field)
-                data[field] = value
-        else:
-            # Include all fields for new records
-            data = self.model_dump()
-        return data
-
-    def _after_save(self, is_new: bool) -> None:
-        """Process after save operations.
-
-        This method is called after a successful save operation to handle
-        any necessary cleanup or post-save tasks.
-
-        Args:
-            is_new: Whether this was a new record
-        """
-        # Mark record as from database
-        self._is_from_db = True
-        # Reset change tracking
-        self.reset_tracking()
-
-    @classmethod
-    def get_feature_handlers(cls) -> List[Callable]:
-        """
-        Discovers and collects unique feature handlers from the class's MRO.
-
-        This method walks the inheritance hierarchy (MRO) and collects all handlers
-        defined in `_feature_handlers` lists within parent classes and mixins.
-        It ensures that each handler is unique and maintains a consistent order.
-
-        Returns:
-            A list of unique feature handler classes, ordered by their appearance
-            in the MRO.
-        """
-        collected_handlers = {}
-        # We iterate through the MRO in reverse. This ensures that handlers
-        # from base classes are registered before handlers from child classes.
-        for mro_class in reversed(cls.mro()):
-            if hasattr(mro_class, '_feature_handlers'):
-                for handler in mro_class._feature_handlers:
-                    collected_handlers[handler] = True  # Use dict for ordered set
-        return list(collected_handlers.keys())
-
-
-@runtime_checkable
-class IAsyncActiveRecord(Protocol):
-    """Async ActiveRecord interface, providing asynchronous database operations methods"""
+    Attributes:
+        __table_name__ (str): Database table name
+        __primary_key__ (str): Primary key column name (single-column primary keys only)
+        __backend__ (AsyncStorageBackend): Asynchronous database storage backend
+        __backend_class__ (Type[AsyncStorageBackend]): Backend implementation class
+        __connection_config__ (ConnectionConfig): Connection configuration
+        __logger__ (Logger): Logger instance
+        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        _dirty_fields (Set[str]): Set of modified field names
+        __no_track_fields__ (Set[str]): Fields excluded from change tracking
+        _original_values (Dict): Original field values before modification
+    """
 
     @abstractmethod
     async def save(self) -> int:
@@ -577,12 +659,21 @@ class IAsyncActiveRecord(Protocol):
         """
         pass
 
-    @abstractmethod
     async def refresh(self) -> None:
-        """
-        Reload record from database asynchronously.
+        """Reload record from database asynchronously"""
+        pk_value = getattr(self, self.primary_key(), None)
+        if pk_value is None:
+            raise DatabaseError("Cannot refresh unsaved record")
 
-        This method uses the current record's primary key value to re-fetch the latest data
-        from the database and update all field values of the current instance.
-        """
-        pass
+        self.log(logging.DEBUG, f"Refreshing {self.__class__.__name__}#{pk_value}")
+
+        record: __class__ = await self.find_one(pk_value)
+
+        if record is None:
+            raise RecordNotFound(f"Record not found: {self.__class__.__name__}#{pk_value}")
+
+        # Update all field values
+        self.__dict__.update(record.__dict__)
+
+        self._is_from_db = True
+        self.reset_tracking()

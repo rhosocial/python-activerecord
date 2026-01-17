@@ -16,7 +16,7 @@ from ..backend.impl.dummy.backend import DummyBackend, AsyncDummyBackend
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
-from ..interface import IActiveRecord, ModelEvent
+from ..interface import IActiveRecord, IAsyncActiveRecord, ActiveRecordBase, ModelEvent
 from ..interface.update import IUpdateBehavior
 
 
@@ -89,8 +89,10 @@ class BaseActiveRecord(IActiveRecord):
     Composite primary keys are not supported in the current implementation.
     """
 
+
+
     @classmethod
-    def configure(cls, config: ConnectionConfig, backend_class: Type[AsyncStorageBackend]) -> None:
+    def configure(cls, config: ConnectionConfig, backend_class: Type[StorageBackend]) -> None:
         """
         Configure the storage backend for this model class.
 
@@ -100,30 +102,24 @@ class BaseActiveRecord(IActiveRecord):
         different database connections or backend implementations.
 
         Args:
-            config: Connection configuration containing database settings like host,
-                   port, database name, credentials, etc. The specific configuration
-                   options depend on the backend implementation.
-            backend_class: The AsyncStorageBackend subclass to use for database operations.
-                          This allows plugging in different database implementations
-                          (SQLite, PostgreSQL, MySQL, etc.) or special-purpose backends
-                          (testing backends, caching backends, etc.).
+            config: Connection configuration
+            backend_class: The backend implementation class
 
         Note:
-            This method affects only the current model class and its instances.
-            Subclasses will inherit the configuration unless explicitly overridden.
-            The configuration should typically be done during application initialization
-            or before the first database operation.
+            This method is typically called at the application startup to initialize
+            the database connection for the model. It supports different configurations
+            for different models, allowing for multi-database architectures.
 
         Example:
             ```python
-            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-            from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+            from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+            from rhosocial.activerecord.backend.config import ConnectionConfig
 
-            config = SQLiteConnectionConfig(database="myapp.db")
-            User.configure(config, AsyncSQLiteBackend)
+            # Configure the User model to use SQLite
+            config = ConnectionConfig(database="my_db.sqlite")
+            User.configure(config, SQLiteBackend)
             ```
         """
-
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -139,98 +135,25 @@ class BaseActiveRecord(IActiveRecord):
         cls.__backend__ = backend_instance
         # Invalidate dummy backend cache if a real backend is configured
         if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
-            cls._dummy_backend = None # Invalidate cache by setting to None
+            cls._dummy_backend = None
 
+    @classmethod
+    def backend(cls) -> StorageBackend:
+        """Get synchronous storage backend instance."""
+        return super().backend()
 
-    def __init__(self, **data):
-        """Initialize ActiveRecord instance.
+    @classmethod
+    def create_from_database(cls, row: Dict[str, Any]) -> 'BaseActiveRecord':
+        """Create instance from database record"""
+        instance = cls(**row)
+        instance._is_from_db = True
+        instance.reset_tracking()
+        return instance
 
-        Args:
-            **data: Model data
-
-        Raises:
-            DatabaseError: If database is not configured for the model class
-        """
-        # if not hasattr(self.__class__, '__backend__') or self.__class__.__backend__ is None:
-        #     raise DatabaseError(f"Database not configured for {self.__class__.__name__}")
-
-        super().__init__(**data)
-        self.reset_tracking()
-
-    def __init_subclass__(cls) -> None:
-        """Initialize subclass by merging all non-tracking fields."""
-        super().__init_subclass__()
-        # Collect non-tracking fields from all parent classes
-        no_track_fields = set()
-        for base in cls.__mro__:
-            if hasattr(base, '__no_track_fields__'):
-                no_track_fields.update(base.__no_track_fields__)
-        cls.__no_track_fields__ = no_track_fields
-        cls.__column_types_cache__ = None
-        # Initialize _dummy_backend to None for each subclass
-        cls._dummy_backend: Optional[AsyncDummyBackend] = None
-
-
-    # Change tracking attributes
-    _dirty_fields: set = set()  # Set of field names that have been modified
-    __no_track_fields__: ClassVar[Set[str]] = set()  # Fields to exclude from change tracking
-    _original_values: dict = {}  # Original values of fields before modification
-
-    def __init__(self, **data):
-        """Initialize ActiveRecord instance.
-
-        Args:
-            **data: Model data
-
-        Raises:
-            DatabaseError: If database is not configured for the model class
-        """
-        # if not hasattr(self.__class__, '__backend__') or self.__class__.__backend__ is None:
-        #     raise DatabaseError(f"Database not configured for {self.__class__.__name__}")
-
-        super().__init__(**data)
-        self.reset_tracking()
-        # Initialize instance event handlers
-        self._is_from_db = False  # Flag indicating if record was loaded from database
-        self._event_handlers = {event: [] for event in ModelEvent}  # Stores event handlers for model instance
-
-    def __setattr__(self, name: str, value: Any):
-        """Overridden to track field changes.
-
-        When a field is modified, stores the original value and marks the field as dirty.
-        """
-        if (name in self.__class__.model_fields and
-                hasattr(self, '_original_values') and
-                name not in self.__class__.__no_track_fields__):
-            if name not in self._original_values:
-                self._original_values[name] = getattr(self, name, None)
-            if value != self._original_values[name]:
-                self._dirty_fields.add(name)
-        super().__setattr__(name, value)
-
-    def reset_tracking(self):
-        """Reset change tracking state by clearing dirty fields and storing current values."""
-        self._dirty_fields.clear()
-        self._original_values = self.model_dump()
-
-    @property
-    def is_dirty(self) -> bool:
-        """Check if record has changes"""
-        return len(self._dirty_fields) > 0
-
-    @property
-    def dirty_fields(self) -> Set[str]:
-        """Get set of changed fields"""
-        return self._dirty_fields.copy()
-
-    def get_old_attribute(self, field_name: str) -> Optional[Any]:
-        """Get old attribute value."""
-        return deepcopy(self._original_values[field_name])
-
-    @property
-    def is_from_db(self) -> bool:
-        """Indicates if record was loaded from database"""
-        return self._is_from_db
+    @classmethod
+    def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List['BaseActiveRecord']:
+        """Create instance collection from database records"""
+        return [cls.create_from_database(row) for row in rows]
 
     def _insert_internal(self, data) -> Any:
         """
@@ -348,20 +271,7 @@ class BaseActiveRecord(IActiveRecord):
         self.reset_tracking()
         return result
 
-    @property
-    def is_new_record(self) -> bool:
-        """Determine if this is a new record.
 
-        Checks:
-        1. If primary key attribute exists
-        2. If primary key value is None
-        3. If dirty fields set is empty
-        """
-        pk_field_name = self.__class__.primary_key_field()
-        pk_value = getattr(self, pk_field_name)
-
-        # A record is new if its primary key field is None OR if it hasn't been loaded from the DB
-        return pk_value is None or not self._is_from_db
 
     def _update_internal(self, data) -> Any:
         """
@@ -1117,14 +1027,14 @@ class BaseActiveRecord(IActiveRecord):
         return cls._dummy_backend
 
 
-class AsyncBaseActiveRecord(IActiveRecord):
+class AsyncBaseActiveRecord(IAsyncActiveRecord):
     """
-    Core ActiveRecord implementation providing the fundamental ORM functionality.
+    Core Asynchronous ActiveRecord implementation providing the fundamental ORM functionality.
 
-    The AsyncBaseActiveRecord class implements the ActiveRecord pattern, where each instance
-    represents a row in the database table. The class provides a comprehensive set of
-    features for database interaction including CRUD operations, relationship management,
-    and event handling.
+    The AsyncBaseActiveRecord class implements the ActiveRecord pattern in an asynchronous manner,
+    where each instance represents a row in the database table. The class provides a comprehensive
+    set of features for asynchronous database interaction including CRUD operations, relationship
+    management, and event handling.
 
     Key Features:
     - Declarative model definition using type hints and Pydantic
@@ -1184,36 +1094,30 @@ class AsyncBaseActiveRecord(IActiveRecord):
         """
         Configure the storage backend for this model class.
 
-        This method sets up the database connection and storage backend for the model class.
+        This method sets up the asynchronous database connection and storage backend for the model class.
         It should be called before performing any database operations with the model.
         The configuration is class-specific, meaning different model classes can use
         different database connections or backend implementations.
 
         Args:
-            config: Connection configuration containing database settings like host,
-                   port, database name, credentials, etc. The specific configuration
-                   options depend on the backend implementation.
-            backend_class: The AsyncStorageBackend subclass to use for database operations.
-                          This allows plugging in different database implementations
-                          (SQLite, PostgreSQL, MySQL, etc.) or special-purpose backends
-                          (testing backends, caching backends, etc.).
+            config: Connection configuration
+            backend_class: The backend implementation class
 
         Note:
-            This method affects only the current model class and its instances.
-            Subclasses will inherit the configuration unless explicitly overridden.
-            The configuration should typically be done during application initialization
-            or before the first database operation.
+            This method is typically called at the application startup to initialize
+            the database connection for the model. It supports different configurations
+            for different models, allowing for multi-database architectures.
 
         Example:
             ```python
-            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-            from rhosocial.activerecord.backend.impl.sqlite.backend import AsyncSQLiteBackend
+            from rhosocial.activerecord.backend.impl.sqlite_async import AsyncSQLiteBackend
+            from rhosocial.activerecord.backend.config import ConnectionConfig
 
-            config = SQLiteConnectionConfig(database="myapp.db")
+            # Configure the User model to use SQLite
+            config = ConnectionConfig(database="my_db.sqlite")
             User.configure(config, AsyncSQLiteBackend)
             ```
         """
-
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -1229,98 +1133,25 @@ class AsyncBaseActiveRecord(IActiveRecord):
         cls.__backend__ = backend_instance
         # Invalidate dummy backend cache if a real backend is configured
         if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
-            cls._dummy_backend = None # Invalidate cache by setting to None
+            cls._dummy_backend = None
 
+    @classmethod
+    def backend(cls) -> AsyncStorageBackend:
+        """Get asynchronous storage backend instance."""
+        return super().backend()
 
-    def __init__(self, **data):
-        """Initialize ActiveRecord instance.
+    @classmethod
+    def create_from_database(cls, row: Dict[str, Any]) -> 'AsyncBaseActiveRecord':
+        """Create instance from database record"""
+        instance = cls(**row)
+        instance._is_from_db = True
+        instance.reset_tracking()
+        return instance
 
-        Args:
-            **data: Model data
-
-        Raises:
-            DatabaseError: If database is not configured for the model class
-        """
-        # if not hasattr(self.__class__, '__backend__') or self.__class__.__backend__ is None:
-        #     raise DatabaseError(f"Database not configured for {self.__class__.__name__}")
-
-        super().__init__(**data)
-        self.reset_tracking()
-
-    def __init_subclass__(cls) -> None:
-        """Initialize subclass by merging all non-tracking fields."""
-        super().__init_subclass__()
-        # Collect non-tracking fields from all parent classes
-        no_track_fields = set()
-        for base in cls.__mro__:
-            if hasattr(base, '__no_track_fields__'):
-                no_track_fields.update(base.__no_track_fields__)
-        cls.__no_track_fields__ = no_track_fields
-        cls.__column_types_cache__ = None
-        # Initialize _dummy_backend to None for each subclass
-        cls._dummy_backend: Optional[AsyncDummyBackend] = None
-
-
-    # Change tracking attributes
-    _dirty_fields: set = set()  # Set of field names that have been modified
-    __no_track_fields__: ClassVar[Set[str]] = set()  # Fields to exclude from change tracking
-    _original_values: dict = {}  # Original values of fields before modification
-
-    def __init__(self, **data):
-        """Initialize ActiveRecord instance.
-
-        Args:
-            **data: Model data
-
-        Raises:
-            DatabaseError: If database is not configured for the model class
-        """
-        # if not hasattr(self.__class__, '__backend__') or self.__class__.__backend__ is None:
-        #     raise DatabaseError(f"Database not configured for {self.__class__.__name__}")
-
-        super().__init__(**data)
-        self.reset_tracking()
-        # Initialize instance event handlers
-        self._is_from_db = False  # Flag indicating if record was loaded from database
-        self._event_handlers = {event: [] for event in ModelEvent}  # Stores event handlers for model instance
-
-    def __setattr__(self, name: str, value: Any):
-        """Overridden to track field changes.
-
-        When a field is modified, stores the original value and marks the field as dirty.
-        """
-        if (name in self.__class__.model_fields and
-                hasattr(self, '_original_values') and
-                name not in self.__class__.__no_track_fields__):
-            if name not in self._original_values:
-                self._original_values[name] = getattr(self, name, None)
-            if value != self._original_values[name]:
-                self._dirty_fields.add(name)
-        super().__setattr__(name, value)
-
-    def reset_tracking(self):
-        """Reset change tracking state by clearing dirty fields and storing current values."""
-        self._dirty_fields.clear()
-        self._original_values = self.model_dump()
-
-    @property
-    def is_dirty(self) -> bool:
-        """Check if record has changes"""
-        return len(self._dirty_fields) > 0
-
-    @property
-    def dirty_fields(self) -> Set[str]:
-        """Get set of changed fields"""
-        return self._dirty_fields.copy()
-
-    def get_old_attribute(self, field_name: str) -> Optional[Any]:
-        """Get old attribute value."""
-        return deepcopy(self._original_values[field_name])
-
-    @property
-    def is_from_db(self) -> bool:
-        """Indicates if record was loaded from database"""
-        return self._is_from_db
+    @classmethod
+    def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List['AsyncBaseActiveRecord']:
+        """Create instance collection from database records"""
+        return [cls.create_from_database(row) for row in rows]
 
     async def _insert_internal(self, data) -> Any:
         """
@@ -1437,21 +1268,6 @@ class AsyncBaseActiveRecord(IActiveRecord):
         self._is_from_db = True
         self.reset_tracking()
         return result
-
-    @property
-    def is_new_record(self) -> bool:
-        """Determine if this is a new record.
-
-        Checks:
-        1. If primary key attribute exists
-        2. If primary key value is None
-        3. If dirty fields set is empty
-        """
-        pk_field_name = self.__class__.primary_key_field()
-        pk_value = getattr(self, pk_field_name)
-
-        # A record is new if its primary key field is None OR if it hasn't been loaded from the DB
-        return pk_value is None or not self._is_from_db
 
     async def _update_internal(self, data) -> Any:
         """
@@ -1855,7 +1671,7 @@ class AsyncBaseActiveRecord(IActiveRecord):
 
     async def save(self) -> int:
         """
-        Save the current instance to the database, either inserting or updating.
+        Save the current instance to the database asynchronously, either inserting or updating.
 
         This method implements the core persistence functionality for ActiveRecord.
         If the instance is new (doesn't exist in the database), it performs an INSERT
@@ -1919,7 +1735,7 @@ class AsyncBaseActiveRecord(IActiveRecord):
 
     async def delete(self) -> int:
         """
-        Delete the record from the database.
+        Delete the record from the database asynchronously.
 
         This method handles the complete deletion process including:
         1. Soft delete handling if the model implements prepare_delete method
