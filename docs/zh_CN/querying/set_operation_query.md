@@ -8,6 +8,27 @@
 *   `intersect(other)`: 交集 (INTERSECT)。
 *   `except_(other)`: 差集 (EXCEPT / MINUS)。
 
+## 运算符重载
+
+除了使用方法调用外，`SetOperationQuery` 还支持使用 Python 运算符进行集合操作，使代码更加简洁。
+
+*   `|` (按位或) 对应 `union()`
+*   `&` (按位与) 对应 `intersect()`
+*   `-` (减法) 对应 `except_()`
+
+**示例：**
+
+```python
+# 使用 | 运算符进行 UNION
+union_query = q1 | q2
+
+# 使用 & 运算符进行 INTERSECT
+intersect_query = q1 & q2
+
+# 使用 - 运算符进行 EXCEPT
+except_query = q1 - q2
+```
+
 ## 方法
 
 ### `all() -> List[Dict[str, Any]]`

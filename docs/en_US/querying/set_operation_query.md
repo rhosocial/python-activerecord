@@ -8,6 +8,27 @@
 *   `intersect(other)`: Intersection (INTERSECT).
 *   `except_(other)`: Difference (EXCEPT / MINUS).
 
+## Operator Overloading
+
+In addition to method calls, `SetOperationQuery` supports using Python operators for set operations, making the code more concise.
+
+*   `|` (Bitwise OR) corresponds to `union()`
+*   `&` (Bitwise AND) corresponds to `intersect()`
+*   `-` (Subtraction) corresponds to `except_()`
+
+**Examples:**
+
+```python
+# Use | operator for UNION
+union_query = q1 | q2
+
+# Use & operator for INTERSECT
+intersect_query = q1 & q2
+
+# Use - operator for EXCEPT
+except_query = q1 - q2
+```
+
 ## Methods
 
 ### `all() -> List[Dict[str, Any]]`
