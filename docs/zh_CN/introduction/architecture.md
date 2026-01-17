@@ -6,6 +6,8 @@
 
 架构分为三个主要部分：核心基石、同步实现和异步实现。
 
+> **关于 SQLite 异步后端**: 请注意，本库中包含的 SQLite 异步后端实现主要是为了测试目的（验证异步抽象的有效性及与同步实现的等价性），并不建议在生产环境中作为高性能异步解决方案使用。对于生产环境的异步需求，请使用 `rhosocial-activerecord-mysql`、`rhosocial-activerecord-postgres` 等专用后端包。
+
 ### 1. 核心基石 (`ActiveRecordBase`)
 
 `ActiveRecordBase` 是所有模型的共同祖先。它连接了 Pydantic 的数据验证能力和 ActiveRecord 模式。

@@ -6,6 +6,8 @@ The library is built on a layered architecture to ensure maintainability, testab
 
 The architecture is divided into three main parts: the Core Foundation, the Synchronous Implementation, and the Asynchronous Implementation.
 
+> **About SQLite Async Backend**: Please note that the SQLite asynchronous backend implementation included in this library is primarily for testing purposes (verifying the validity of the async abstraction and its equivalence with the synchronous implementation) and is not recommended for use as a high-performance asynchronous solution in production environments. For production asynchronous needs, please use dedicated backend packages such as `rhosocial-activerecord-mysql` or `rhosocial-activerecord-postgres`.
+
 ### 1. Core Foundation (`ActiveRecordBase`)
 
 The `ActiveRecordBase` serves as the common ancestor for all models. It bridges the gap between Pydantic's data validation and the ActiveRecord pattern.

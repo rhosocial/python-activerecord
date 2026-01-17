@@ -21,7 +21,18 @@ Furthermore, **the Backend itself provides a powerful "Expression-Dialect" syste
 *   **SQL Server** (Planned)
 *   **MariaDB** (Planned)
 
-## 2. Type Safety and Data Validation
+> **Note**: Different database backends may have varying levels of feature support (e.g., MySQL only supports window functions starting from version 8.0). Please refer to the specific backend's release notes and documentation.
+
+## 2. Strict Model-Backend Correspondence and Sync/Async Isolation
+
+We adhere to the **"One Model - One Backend - One Table"** design principle:
+
+*   **Strict One-to-One Correspondence**: A model class corresponds to a specific backend instance, which in turn corresponds to a single table (or view) in the database.
+*   **Strict Isolation of Sync and Async**:
+    *   **Distinct Models**: Synchronous models (inheriting from `ActiveRecord`) and asynchronous models (inheriting from `AsyncActiveRecord`) are treated as completely different model entities.
+    *   **No Mixing**: You cannot define a relationship in a synchronous model that points to an asynchronous model, and vice versa. Synchronous `ActiveQuery` and `CTEQuery` can only be used with synchronous models; asynchronous query builders can only be used with asynchronous models. This isolation ensures predictable runtime behavior and avoids the complexity and potential deadlock risks associated with async/await context switching.
+
+## 3. Type Safety and Data Validation
 
 We deeply understand the critical impact of good paradigms on system stability and development efficiency. Therefore, in the design of the data model layer, we made a key decision:
 
@@ -34,7 +45,7 @@ We chose not to implement our own validation system for simple reasons:
 
 Through this inheritance, every ActiveRecord model is essentially a Pydantic model, possessing powerful runtime type checking and data validation capabilities, ensuring the absolute purity of data entering the database.
 
-## 3. Powerful Query System
+## 4. Powerful Query System
 
 ActiveRecord is not just about data models; it is paired with a powerful query system, primarily including:
 
