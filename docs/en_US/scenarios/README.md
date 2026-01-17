@@ -1,14 +1,12 @@
-<!-- TRANSLATION PENDING -->
+# 9. Scenarios
 
-# 9. 场景实战 (Scenarios)
+Integrating `rhosocial-activerecord` into modern Web frameworks.
 
-将 `rhosocial-activerecord` 集成到现代 Web 框架中。
+## Contents
 
-## 目录
+*   **[FastAPI Integration](fastapi.md)**: Async, Dependency Injection, and Pydantic model reuse.
+*   **[GraphQL Integration](graphql.md)**: Solving the N+1 problem and building efficient APIs.
 
-*   **[FastAPI 集成](fastapi.md)**: 异步、依赖注入与 Pydantic 模型复用。
-*   **[GraphQL 集成](graphql.md)**: 解决 N+1 问题，构建高效 API。
+## Example Code
 
-## 示例代码
-
-本章的完整示例代码位于 `docs/examples/chapter_09_scenarios/`。
+Full example code for this chapter can be found at `docs/examples/chapter_09_scenarios/`.

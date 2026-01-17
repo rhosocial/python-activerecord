@@ -1,10 +1,8 @@
-<!-- TRANSLATION PENDING -->
+# Custom Backend
 
-# 自定义后端 (Custom Backend)
+To support a new database (e.g., PostgreSQL, MySQL), you need to:
 
-要支持新的数据库（如 PostgreSQL, MySQL），你需要：
+1.  **Inherit `SQLDialectBase`**: Define the SQL syntax specific to that database (quote style, type mapping).
+2.  **Inherit `StorageBackend`**: Implement low-level I/O operations such as `connect`, `execute`, `fetch`.
 
-1.  **继承 `SQLDialectBase`**: 定义该数据库特定的 SQL 语法（引号风格、类型映射）。
-2.  **继承 `StorageBackend`**: 实现 `connect`, `execute`, `fetch` 等底层 I/O 操作。
-
-目前 `sqlite` 实现是一个完美的参考范例。请查阅 `src/rhosocial/activerecord/backend/impl/sqlite` 源码。
+The current `sqlite` implementation is a perfect reference example. Please refer to the source code at `src/rhosocial/activerecord/backend/impl/sqlite`.

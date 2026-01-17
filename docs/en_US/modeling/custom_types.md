@@ -1,12 +1,10 @@
-<!-- TRANSLATION PENDING -->
+# Custom Types
 
-# 自定义类型 (Custom Types)
+Sometimes we need to store complex types that are not natively supported by the database, such as storing a Python list as a JSON string.
 
-有时我们需要存储数据库原生不支持的复杂类型，例如将 Python 列表存储为 JSON 字符串。
+## Using `UseAdapter`
 
-## 使用 `UseAdapter`
-
-我们可以定义一个适配器类，实现 `serialize` 和 `deserialize` 方法。
+We can define an adapter class that implements the `serialize` and `deserialize` methods.
 
 ```python
 import json
@@ -23,8 +21,8 @@ class JsonListAdapter(TypeAdapter[List[str], str]):
         return value
 
 class Post(ActiveRecord):
-    # 数据库中存储为 TEXT，Python 中表现为 List[str]
+    # Stored as TEXT in DB, represented as List[str] in Python
     tags_cache: Annotated[List[str], UseAdapter(JsonListAdapter)] = []
 ```
 
-这样，当你访问 `post.tags_cache` 时，它自动是一个列表；保存到数据库时，它自动变成 JSON 字符串。
+This way, when you access `post.tags_cache`, it is automatically a list; when saving to the database, it automatically becomes a JSON string.

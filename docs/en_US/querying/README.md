@@ -1,20 +1,19 @@
-<!-- TRANSLATION PENDING -->
+# 5. Querying Interface
 
-# 5. 查询接口 (Querying Interface)
+Querying is the core of interacting with data. `rhosocial-activerecord` provides a fluent, type-safe query API that also supports powerful SQL features.
 
-查询是与数据交互的核心。`rhosocial-activerecord` 提供了一套流畅的、类型安全的查询 API，同时支持强大的 SQL 特性。
+In the TechBlog system, we will implement:
 
-在 TechBlog 中，我们需要实现：
-*   查找 "alice" 的所有文章。
-*   统计每个分类下的文章数。
-*   找出评论最多的前 10 篇文章。
+*   Find all posts by "alice".
+*   Count the number of posts in each category.
+*   Find the top 10 most commented posts.
 
-## 目录
+## Table of Contents
 
-*   **[基础过滤 (Filtering & Sorting)](filtering.md)**: `select`, `where`, `order_by`, `limit`。
-*   **[聚合统计 (Aggregation)](aggregation.md)**: `count`, `sum`, `avg`, `group_by`。
-*   **[高级查询 (Advanced Features)](advanced.md)**: Join 连接、CTE 公用表表达式、窗口函数。
+*   **[Filtering & Sorting](filtering.md)**: `select`, `where`, `order_by`, `limit`.
+*   **[Aggregation](aggregation.md)**: `count`, `sum`, `avg`, `group_by`.
+*   **[Advanced Features](advanced.md)**: Joins, CTEs (Common Table Expressions), Window Functions.
 
-## 示例代码
+## Example Code
 
-本章的完整示例代码位于 `docs/examples/chapter_05_querying/`。
+Full example code for this chapter can be found at `docs/examples/chapter_05_querying/`.

@@ -1,8 +1,6 @@
-<!-- TRANSLATION PENDING -->
+# 7. Backend System
 
-# 7. 后端系统 (Backend System)
-
-这是高级主题，面向希望深入了解 ORM 内部工作原理或需要支持新数据库的用户。
+This is an advanced topic for users who want to understand the internal workings of the ORM or need to support a new database.
 
 ## Backend Ecosystem
 
@@ -18,9 +16,9 @@ These independent packages can also serve as examples for you to develop custom 
 
 ## Contents
 
-*   **[表达式系统 (Expression System)](expression.md)**: Python 对象如何变成 SQL 字符串。
-*   **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
+*   **[Expression System](expression.md)**: How Python objects are transformed into SQL strings.
+*   **[Custom Backend](custom_backend.md)**: Implementing a new database driver.
 
-## 示例代码
+## Example Code
 
-本章的完整示例代码位于 `docs/examples/chapter_07_backend/`。
+Full example code for this chapter can be found at `docs/examples/chapter_07_backend/`.

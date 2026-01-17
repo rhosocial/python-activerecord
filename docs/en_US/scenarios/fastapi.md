@@ -1,12 +1,10 @@
-<!-- TRANSLATION PENDING -->
+# FastAPI Integration
 
-# FastAPI 集成
+Since `ActiveRecord` models are essentially `Pydantic` models, they can be seamlessly used as FastAPI `response_model` or request bodies.
 
-由于 `ActiveRecord` 模型本质上就是 `Pydantic` 模型，它们可以无缝地用作 FastAPI 的 `response_model` 或请求体。
+## Dependency Injection
 
-## 依赖注入
-
-使用 `Depends` 来管理数据库会话或事务（如果实现了 UnitOfWork）。
+Use `Depends` to manage database sessions or transactions (if a UnitOfWork is implemented).
 
 ```python
 @app.post("/users/", response_model=User)
@@ -15,6 +13,6 @@ def create_user(user: User):
     return user
 ```
 
-## 异步支持
+## Async Support
 
-虽然本库核心是同步的，但可以通过 `run_in_executor` 或使用 `sqlite_async` 后端（如果已实现）来适配 `async def` 路由。
+Although the core of this library is synchronous, you can adapt `async def` routes by using `run_in_executor` or using the `sqlite_async` backend (if implemented).
