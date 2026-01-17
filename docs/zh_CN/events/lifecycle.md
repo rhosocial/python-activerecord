@@ -13,6 +13,69 @@ rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许
 *   `BEFORE_DELETE`: 删除前
 *   `AFTER_DELETE`: 删除后
 
+## save() 方法生命周期
+
+下图展示了 `save()` 方法的完整执行流程及事件触发点：
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Model as Model Instance
+    participant Mixins
+    participant DB as Database Backend
+
+    User->>Model: save()
+    
+    rect rgb(240, 248, 255)
+        Note over Model: 1. 验证阶段 (Validation)
+        Model->>Model: validate_fields()
+        Model->>Model: 触发 BEFORE_VALIDATE
+        Model->>Model: Pydantic 校验
+        Model->>Model: validate_record() (业务规则)
+        Model->>Model: 触发 AFTER_VALIDATE
+    end
+
+    alt 无变更 (非新记录且未修改)
+        Model-->>User: 返回 0
+    end
+
+    rect rgb(255, 250, 240)
+        Note over Model: 2. 保存前处理
+        Model->>Model: 触发 BEFORE_SAVE
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Model: 3. 执行保存 (_save_internal)
+        Model->>Model: _prepare_save_data()
+        Model->>Mixins: prepare_save_data()
+        
+        alt 新记录 (New Record)
+            Model->>DB: INSERT
+        else 现有记录 (Existing Record)
+            Model->>DB: UPDATE
+        end
+        
+        DB-->>Model: Result (affected_rows)
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Model: 4. 保存后处理
+        Model->>Model: _after_save()
+        Model->>Mixins: after_save()
+        Model->>Model: reset_tracking()
+        Model->>Model: 触发 AFTER_SAVE
+    end
+
+    Model-->>User: 返回 affected_rows
+```
+
+## 异常处理与事务
+
+事件处理器的执行是同步的，并且是 `save()` 流程的一部分。因此：
+
+1.  **异常中断**：如果任何一个事件处理器抛出异常，整个 `save()` 过程将立即中断，后续步骤（包括实际的数据库操作或后续事件）都不会执行。异常会向上传播给调用者。
+2.  **事务回滚**：如果 `save()` 操作被包裹在数据库事务中（推荐做法），事件处理器引发的异常将导致整个事务回滚。这确保了数据的一致性——例如，如果 `AFTER_SAVE` 钩子失败，之前在 `save()` 中执行的数据库 INSERT/UPDATE 操作也会被回滚。
+
 ## 注册事件处理器
 
 ### 1. 使用 `on` 方法

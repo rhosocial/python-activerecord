@@ -13,6 +13,69 @@ Defined in the `rhosocial.activerecord.interface.base.ModelEvent` enum:
 *   `BEFORE_DELETE`: Before delete
 *   `AFTER_DELETE`: After delete
 
+## save() Lifecycle
+
+The following diagram illustrates the complete execution flow of the `save()` method and where events are triggered:
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Model as Model Instance
+    participant Mixins
+    participant DB as Database Backend
+
+    User->>Model: save()
+    
+    rect rgb(240, 248, 255)
+        Note over Model: 1. Validation Phase
+        Model->>Model: validate_fields()
+        Model->>Model: Trigger BEFORE_VALIDATE
+        Model->>Model: Pydantic Validation
+        Model->>Model: validate_record() (Business Rules)
+        Model->>Model: Trigger AFTER_VALIDATE
+    end
+
+    alt No Changes (Existing Record & Not Dirty)
+        Model-->>User: Return 0
+    end
+
+    rect rgb(255, 250, 240)
+        Note over Model: 2. Pre-Save Processing
+        Model->>Model: Trigger BEFORE_SAVE
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Model: 3. Execution (_save_internal)
+        Model->>Model: _prepare_save_data()
+        Model->>Mixins: prepare_save_data()
+        
+        alt New Record
+            Model->>DB: INSERT
+        else Existing Record
+            Model->>DB: UPDATE
+        end
+        
+        DB-->>Model: Result (affected_rows)
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Model: 4. Post-Save Processing
+        Model->>Model: _after_save()
+        Model->>Mixins: after_save()
+        Model->>Model: reset_tracking()
+        Model->>Model: Trigger AFTER_SAVE
+    end
+
+    Model-->>User: Return affected_rows
+```
+
+## Exception Handling and Transactions
+
+Event handlers are executed synchronously as part of the `save()` process. Therefore:
+
+1.  **Interruption on Exception**: If any event handler raises an exception, the entire `save()` process is immediately interrupted. Subsequent steps (including the actual database operation or subsequent events) will not be executed. The exception is propagated to the caller.
+2.  **Transaction Rollback**: If the `save()` operation is wrapped in a database transaction (recommended), an exception raised by an event handler will cause the entire transaction to rollback. This ensures data consistency—for example, if an `AFTER_SAVE` hook fails, the database INSERT/UPDATE operation performed earlier in `save()` will also be rolled back.
+
 ## Registering Event Handlers
 
 ### 1. Using the `on` Method

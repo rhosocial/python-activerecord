@@ -223,6 +223,7 @@ User.query().between(User.c.age, 20, 30)
 ## RelationalQueryMixin (Eager Loading)
 
 Provides relationship eager loading capabilities to solve the N+1 query problem.
+For detailed explanation of caching mechanism and N+1 problem, please refer to [Caching Mechanism](../performance/caching.md).
 
 *   `with_(*relations)`: Eager load relationships.
 *   `includes(*relations)`: Alias for `with_`.
@@ -283,22 +284,84 @@ users = User.query().with_(
 
 ## Set Operation Initiation
 
-`ActiveQuery` can serve as the left operand for set operations.
+`ActiveQuery` can serve as the left operand for set operations. In addition to method calls, it also supports using Python operator overloading to initiate set operations.
 
-*   `union(other)`: Initiate a UNION operation.
-*   `intersect(other)`: Initiate an INTERSECT operation.
-*   `except_(other)`: Initiate an EXCEPT operation.
+*   `union(other)` or `+`: Initiate a UNION operation.
+*   `intersect(other)` or `&`: Initiate an INTERSECT operation.
+*   `except_(other)` or `-`: Initiate an EXCEPT operation.
+
+The returned object is a `SetOperationQuery` instance, which can be further chained (e.g., `order_by`, `limit`, etc.) or executed directly (e.g., `all`, `to_sql`).
+
+*   **Usage Examples**:
+
+```python
+q1 = User.query().where(User.c.age > 20)
+q2 = User.query().where(User.c.age < 30)
+
+# Using method calls
+union_q = q1.union(q2)
+
+# Using operator overloading
+intersect_q = q1 & q2  # INTERSECT
+except_q = q1 - q2     # EXCEPT
+union_q_op = q1 + q2   # UNION
+
+# Inspect SQL
+sql, params = intersect_q.to_sql()
+print(sql)
+# SELECT * FROM users WHERE age > ? INTERSECT SELECT * FROM users WHERE age < ?
+```
+
+## Predefined Query Scopes
+
+To improve code reusability and readability, it is recommended to define class methods in the Model class to encapsulate common query conditions. This is similar to the Scope concept in other frameworks.
+
+Since `Model.query()` returns a new query object, you can chain methods on top of it and return the configured query object.
+
+### Example
+
+Suppose we have a blog system with `Post` and `Comment` models. We often want to query "published posts with the most comments".
+
+```python
+class Post(Model):
+    # ... field definitions ...
+
+    @classmethod
+    def query_published(cls):
+        """Predefined query: Only published posts"""
+        return cls.query().where(cls.c.status == "published")
+
+    @classmethod
+    def query_with_most_comments(cls):
+        """Predefined query: Ordered by comment count descending"""
+        # Assuming Comment table has post_id field
+        return cls.query_published() \
+            .select(cls.c.title, func.count(Comment.c.id).as_("comment_count")) \
+            .left_join(Comment, on=(cls.c.id == Comment.c.post_id)) \
+            .group_by(cls.c.id) \
+            .order_by(("comment_count", "DESC"))
+
+# Usage
+# Get top 5 published posts with most comments
+top_posts = Post.query_with_most_comments().limit(5).all()
+```
+
+Benefits of this pattern:
+1.  **Encapsulation**: The caller doesn't need to know the underlying Join and Where conditions.
+2.  **Chainability**: Returns an `ActiveQuery` object, so you can continue to call `limit()`, `offset()`, `all()`, etc.
+3.  **Reusability**: `query_with_most_comments` reuses `query_published` internally.
 
 ## Execution Methods
 
 These methods trigger database queries and return results.
 
 *   `all() -> List[Model]`: Return a list of all matching model instances.
+    *   **Note**: Calling `explain()` before this method has **no effect**. To get execution plans, use `aggregate()`.
 *   `one() -> Optional[Model]`: Return the first matching record, or None if none found.
-*   `one_or_fail() -> Model`: Return the first matching record, or raise `RecordNotFound`.
-*   `first() -> Optional[Model]`: Alias for `one()`.
+    *   **Note**: Calling `explain()` before this method has **no effect**.
 *   `exists() -> bool`: Check if matching records exist.
-*   `scalar() -> Any`: Return the value of the first column of the first row (useful for aggregations).
+    *   Provided by `AggregateQueryMixin`.
+    *   **Note**: Calling `explain()` before this method has **no effect**.
 *   `to_sql() -> Tuple[str, List[Any]]`: Return the generated SQL statement and parameters (does not execute query).
 
 *   **Debugging Tips**:
@@ -308,4 +371,101 @@ These methods trigger database queries and return results.
 sql, params = User.query().where(User.c.id == 1).to_sql()
 print(sql, params)
 # SELECT * FROM users WHERE id = ? [1]
+```
+
+## Query Lifecycle and Execution Flow
+
+To better understand how `ActiveQuery` works, the following diagrams illustrate the execution lifecycles of the `all()`, `one()`, and `aggregate()` methods.
+
+**Important Note**: `ActiveQuery` itself is not responsible for concatenating SQL strings. It simply calls the underlying **Expression System** to construct queries. All SQL generation work is delegated to the expression system, ensuring SQL safety and compatibility with different database dialects.
+
+### 1. Lifecycle of `all()` and `one()`
+
+These methods are primarily used to retrieve model instances. The process includes expression construction, SQL generation, database execution, data mapping, and model instantiation.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as ActiveQuery
+    participant Expr as Expression System
+    participant Model as ActiveRecord Model
+    participant Backend as Database Backend
+
+    User->>Query: Call all() / one()
+    
+    rect rgb(240, 248, 255)
+        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
+        Query->>Expr: Construct QueryExpression
+        Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
+        Expr->>Expr: to_sql()
+        Expr-->>Query: Return (sql, params)
+    end
+
+    rect rgb(255, 250, 240)
+        Note over Query: 2. Preparation
+        Query->>Model: get_column_adapters()
+        Model-->>Query: Return column adapters
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Query: 3. Database Interaction
+        alt all()
+            Query->>Backend: fetch_all(sql, params)
+        else one()
+            Query->>Backend: fetch_one(sql, params)
+        end
+        Backend-->>Query: Return Raw Rows
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Query: 4. Result Processing (ORM)
+        loop For each row
+            Query->>Model: _map_columns_to_fields()
+            Note right of Query: Map DB columns to fields
+            Query->>Model: create_from_database()
+            Note right of Query: Instantiate Model
+        end
+    end
+
+    rect rgb(230, 230, 250)
+        Note over Query: 5. Eager Loading
+        opt with() configured
+            Query->>Query: _load_relations()
+            Note right of Query: Batch load related data<br/>and populate model instances
+        end
+    end
+
+    Query-->>User: Return List[Model] or single Model
+```
+
+### 2. Lifecycle of `aggregate()`
+
+The `aggregate()` method returns raw dictionary data, typically used for statistical analysis or scenarios where model instantiation is not required. It also relies on the expression system for SQL generation.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as ActiveQuery
+    participant Expr as Expression System
+    participant Backend as Database Backend
+
+    User->>Query: Call aggregate()
+
+    alt explain() enabled
+        Note over Query, Expr: EXPLAIN Mode
+        Query->>Expr: Construct ExplainExpression
+        Expr->>Expr: to_sql()
+        Expr-->>Query: Return (sql, params)
+        Query->>Backend: fetch_all(sql, params)
+        Backend-->>Query: Return execution plan
+        Query-->>User: Return Plan Data
+    else Standard Mode
+        Note over Query, Expr: Standard Aggregation
+        Query->>Expr: Construct QueryExpression
+        Expr->>Expr: to_sql()
+        Expr-->>Query: Return (sql, params)
+        Query->>Backend: fetch_all(sql, params)
+        Backend-->>Query: Return List[Dict]
+        Query-->>User: Return List[Dict]
+    end
 ```

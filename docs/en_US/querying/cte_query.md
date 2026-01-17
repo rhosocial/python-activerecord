@@ -32,13 +32,85 @@ Enables recursive mode (`WITH RECURSIVE`).
 
 Specifies the main query. If not specified, it defaults to querying the last defined CTE.
 
-### `all() -> List[Dict[str, Any]]`
+## Encapsulating as Predefined Query
 
-Executes the query and returns all results (list of dictionaries).
+Similar to `ActiveQuery`, the construction logic of `CTEQuery` can be complex. It is recommended to encapsulate it in Model class methods for reuse.
 
-### `one() -> Optional[Dict[str, Any]]`
+```python
+class Category(Model):
+    # ...
+    
+    @classmethod
+    def query_hierarchy(cls, root_id):
+        """Returns the entire category tree under the specified root node"""
+        base_query = cls.query().where(cls.c.id == root_id)
+        
+        recursive_part = cls.query() \
+            .join('category_tree', on='categories.parent_id = category_tree.id')
+            
+        union_query = base_query.union(recursive_part)
+        
+        return CTEQuery(cls.backend()) \
+            .recursive(True) \
+            .with_cte('category_tree', union_query) \
+            .query(None) # Default query CTE
 
-Executes the query and returns the first result (dictionary), or `None` if no result is found.
+# Usage
+tree_data = Category.query_hierarchy(1).all()
+```
+
+## Execution Methods
+
+These methods trigger database queries and return results.
+
+*   `all() -> List[Dict[str, Any]]`: Executes the query and returns all results (list of dictionaries).
+    *   **Essence**: In `CTEQuery`, this method is an alias for `aggregate()`.
+    *   **Note**: Unlike `ActiveQuery`, results from `CTEQuery` are always **dictionaries**, not model instances.
+*   `one() -> Optional[Dict[str, Any]]`: Executes the query and returns the first result (dictionary), or `None` if no result is found.
+    *   **Note**: This method currently fetches all results and takes the first one. If a large result set is expected, it is recommended to use `limit(1)` to improve performance.
+*   `aggregate() -> List[Dict[str, Any]]`: Executes the query and returns results.
+    *   Supports `explain()`: If `explain()` is called before this method, it returns the query execution plan.
+*   `to_sql() -> Tuple[str, List[Any]]`: Returns the generated SQL statement and parameters.
+    *   The generated SQL usually starts with `WITH ...`.
+
+## Query Lifecycle and Execution Flow
+
+The execution flow of `CTEQuery` is simpler than `ActiveQuery` because it does not involve model mapping or association loading.
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as CTEQuery
+    participant Expr as Expression System
+    participant Backend as Database Backend
+
+    User->>Query: Call all() / one() / aggregate()
+    
+    rect rgb(240, 248, 255)
+        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
+        Query->>Expr: Build WithQueryExpression
+        Note right of Query: Assemble all CTE definitions + Main Query
+        Expr->>Expr: to_sql()
+        Expr-->>Query: Return (sql, params)
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Query: 2. Database Interaction
+        Query->>Backend: fetch_all(sql, params)
+        Backend-->>Query: Return List[Dict]
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Query: 3. Result Handling
+        alt one()
+            Note right of Query: Take first element or None
+        else all() / aggregate()
+            Note right of Query: Return list directly
+        end
+    end
+
+    Query-->>User: Return Result
+```
 
 ## Usage Examples
 

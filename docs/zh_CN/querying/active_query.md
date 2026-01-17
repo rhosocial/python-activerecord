@@ -223,6 +223,7 @@ User.query().between(User.c.age, 20, 30)
 ## RelationalQueryMixin (关联加载)
 
 提供了关联关系预加载能力，用于解决 N+1 查询问题。
+关于缓存机制和 N+1 问题的详细解释，请参阅 [缓存机制](../performance/caching.md)。
 
 *   `with_(*relations)`: 预加载关联关系。
 *   `includes(*relations)`: `with_` 的别名。
@@ -283,22 +284,85 @@ users = User.query().with_(
 
 ## 集合操作发起
 
-`ActiveQuery` 可以作为集合操作的左操作数。
+`ActiveQuery` 可以作为集合操作的左操作数。除了使用方法调用外，还支持使用 Python 运算符重载来发起集合操作。
 
-*   `union(other)`: 发起 UNION 操作。
-*   `intersect(other)`: 发起 INTERSECT 操作。
-*   `except_(other)`: 发起 EXCEPT 操作。
+*   `union(other)` 或 `+`: 发起 UNION 操作。
+*   `intersect(other)` 或 `&`: 发起 INTERSECT 操作。
+*   `except_(other)` 或 `-`: 发起 EXCEPT 操作。
+
+返回的对象是一个 `SetOperationQuery` 实例，可以继续链式调用（如 `order_by`, `limit` 等）或直接执行（如 `all`, `to_sql`）。
+
+*   **用法示例**：
+
+```python
+q1 = User.query().where(User.c.age > 20)
+q2 = User.query().where(User.c.age < 30)
+
+# 使用方法调用
+union_q = q1.union(q2)
+
+# 使用运算符重载
+intersect_q = q1 & q2  # INTERSECT
+except_q = q1 - q2     # EXCEPT
+union_q_op = q1 + q2   # UNION
+
+# 查看 SQL
+sql, params = intersect_q.to_sql()
+print(sql)
+# SELECT * FROM users WHERE age > ? INTERSECT SELECT * FROM users WHERE age < ?
+```
+
+## 预定义查询范围 (Scopes)
+
+为了提高代码的可重用性和可读性，建议在 Model 类中定义类方法来封装常用的查询条件。这类似于其他框架中的 Scope 概念。
+
+由于 `Model.query()` 返回一个新的查询对象，你可以在其基础上链式调用方法，并返回配置好的查询对象。
+
+### 示例
+
+假设我们有一个博客系统，包含 `Post`（文章）和 `Comment`（评论）模型。我们希望经常查询“已发布且评论最多”的文章。
+
+```python
+class Post(Model):
+    # ... 字段定义 ...
+
+    @classmethod
+    def query_published(cls):
+        """预定义查询：仅包含已发布的文章"""
+        return cls.query().where(cls.c.status == "published")
+
+    @classmethod
+    def query_with_most_comments(cls):
+        """预定义查询：按评论数降序排列"""
+        # 假设 Comment 表有 post_id 字段
+        # 这里使用子查询或 join 来统计评论数
+        return cls.query_published() \
+            .select(cls.c.title, func.count(Comment.c.id).as_("comment_count")) \
+            .left_join(Comment, on=(cls.c.id == Comment.c.post_id)) \
+            .group_by(cls.c.id) \
+            .order_by(("comment_count", "DESC"))
+
+# 使用
+# 获取已发布且评论最多的前 5 篇文章
+top_posts = Post.query_with_most_comments().limit(5).all()
+```
+
+这种模式的好处是：
+1.  **封装复杂逻辑**：调用者无需关心底层的 Join 和 Where 条件。
+2.  **可链式调用**：返回的是 `ActiveQuery` 对象，因此可以继续调用 `limit()`, `offset()`, `all()` 等方法。
+3.  **代码复用**：`query_with_most_comments` 内部复用了 `query_published`。
 
 ## 执行方法
 
 这些方法会触发数据库查询并返回结果。
 
 *   `all() -> List[Model]`: 返回所有匹配的模型实例列表。
+    *   **注意**：在此方法前调用 `explain()` **无效**。如果需要获取执行计划，请使用 `aggregate()`。
 *   `one() -> Optional[Model]`: 返回第一条匹配的记录，如果没有找到则返回 None。
-*   `one_or_fail() -> Model`: 返回第一条匹配的记录，如果没有找到则抛出 `RecordNotFound` 异常。
-*   `first() -> Optional[Model]`: `one()` 的别名。
+    *   **注意**：在此方法前调用 `explain()` **无效**。
 *   `exists() -> bool`: 检查是否存在匹配的记录。
-*   `scalar() -> Any`: 返回第一行第一列的值（常用于聚合查询）。
+    *   此方法由 `AggregateQueryMixin` 提供。
+    *   **注意**：在此方法前调用 `explain()` **无效**。
 *   `to_sql() -> Tuple[str, List[Any]]`: 返回生成的 SQL 语句和参数（不执行查询）。
 
 *   **调试技巧**：
@@ -308,4 +372,101 @@ users = User.query().with_(
 sql, params = User.query().where(User.c.id == 1).to_sql()
 print(sql, params)
 # SELECT * FROM users WHERE id = ? [1]
+```
+
+## 查询生命周期与执行流程
+
+为了更好地理解 `ActiveQuery` 是如何工作的，以下展示了 `all()`、`one()` 和 `aggregate()` 方法的执行生命周期。
+
+**重要说明**：`ActiveQuery` 本身并不负责拼接 SQL 字符串，它仅仅是调用底层**表达式系统**（Expression System）来构建查询。所有的 SQL 生成工作都委托给了表达式系统，确保了 SQL 的安全性和对不同数据库方言的兼容性。
+
+### 1. `all()` 和 `one()` 的生命周期
+
+这两个方法主要用于获取模型实例。流程包括构建表达式、SQL 生成、数据库执行、数据映射和模型实例化。
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as ActiveQuery
+    participant Expr as Expression System
+    participant Model as ActiveRecord Model
+    participant Backend as Database Backend
+
+    User->>Query: 调用 all() / one()
+    
+    rect rgb(240, 248, 255)
+        Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
+        Query->>Expr: 构建 QueryExpression
+        Note right of Query: 组装 Select, From, Where 等<br/>(one() 会使用临时的 LIMIT 1)
+        Expr->>Expr: to_sql()
+        Expr-->>Query: 返回 (sql, params)
+    end
+
+    rect rgb(255, 250, 240)
+        Note over Query: 2. 准备执行
+        Query->>Model: get_column_adapters()
+        Model-->>Query: 返回列适配器
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Query: 3. 数据库交互
+        alt all()
+            Query->>Backend: fetch_all(sql, params)
+        else one()
+            Query->>Backend: fetch_one(sql, params)
+        end
+        Backend-->>Query: 返回原始行数据 (Raw Rows)
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Query: 4. 结果处理 (ORM)
+        loop 对每一行数据
+            Query->>Model: _map_columns_to_fields()
+            Note right of Query: 将 DB 列名转换为字段名
+            Query->>Model: create_from_database()
+            Note right of Query: 实例化模型对象
+        end
+    end
+
+    rect rgb(230, 230, 250)
+        Note over Query: 5. 关联加载 (Eager Loading)
+        opt 配置了 with()
+            Query->>Query: _load_relations()
+            Note right of Query: 批量加载关联数据<br/>并填充到模型实例中
+        end
+    end
+
+    Query-->>User: 返回模型实例列表或单个实例
+```
+
+### 2. `aggregate()` 的生命周期
+
+`aggregate()` 方法用于返回原始字典数据，常用于统计分析或无需模型实例化的场景。它同样依赖表达式系统生成 SQL。
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as ActiveQuery
+    participant Expr as Expression System
+    participant Backend as Database Backend
+
+    User->>Query: 调用 aggregate()
+
+    alt 启用了 explain()
+        Note over Query, Expr: EXPLAIN 模式
+        Query->>Expr: 构建 ExplainExpression
+        Expr->>Expr: to_sql()
+        Expr-->>Query: 返回 (sql, params)
+        Query->>Backend: fetch_all(sql, params)
+        Backend-->>Query: 返回执行计划数据
+        Query-->>User: 返回执行计划
+    else 普通模式
+        Note over Query, Expr: 标准聚合模式
+        Query->>Expr: 构建 QueryExpression
+        Expr->>Expr: to_sql()
+        Expr-->>Query: 返回 (sql, params)
+        Query->>Backend: fetch_all(sql, params)
+        Backend-->>Query: 返回原始字典列表
+        Query-->>User: 返回 List[Dict]
+    end
 ```

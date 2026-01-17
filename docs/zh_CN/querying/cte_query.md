@@ -32,13 +32,85 @@
 
 指定主查询。如果不指定，默认查询最后一个定义的 CTE。
 
-### `all() -> List[Dict[str, Any]]`
+## 封装为预定义查询
 
-执行查询并返回所有结果（字典列表）。
+与 `ActiveQuery` 类似，`CTEQuery` 的构建逻辑通常比较复杂。建议将其封装在 Model 的类方法中，以便复用。
 
-### `one() -> Optional[Dict[str, Any]]`
+```python
+class Category(Model):
+    # ...
+    
+    @classmethod
+    def query_hierarchy(cls, root_id):
+        """返回指定根节点下的整个分类树"""
+        base_query = cls.query().where(cls.c.id == root_id)
+        
+        recursive_part = cls.query() \
+            .join('category_tree', on='categories.parent_id = category_tree.id')
+            
+        union_query = base_query.union(recursive_part)
+        
+        return CTEQuery(cls.backend()) \
+            .recursive(True) \
+            .with_cte('category_tree', union_query) \
+            .query(None) # 默认查询 CTE
 
-执行查询并返回第一条结果（字典），如果没有结果则返回 `None`。
+# 使用
+tree_data = Category.query_hierarchy(1).all()
+```
+
+## 执行方法
+
+这些方法会触发数据库查询并返回结果。
+
+*   `all() -> List[Dict[str, Any]]`: 执行查询并返回所有结果（字典列表）。
+    *   **本质**：在 `CTEQuery` 中，此方法是 `aggregate()` 的别名。
+    *   **注意**：与 `ActiveQuery` 不同，`CTEQuery` 的结果总是**字典**，而不是模型实例。
+*   `one() -> Optional[Dict[str, Any]]`: 执行查询并返回第一条结果（字典），如果没有结果则返回 `None`。
+    *   **注意**：此方法目前会获取所有结果然后取第一个。如果预期结果集很大，建议配合 `limit(1)` 使用以提高性能。
+*   `aggregate() -> List[Dict[str, Any]]`: 执行查询并返回结果。
+    *   支持 `explain()`：如果在调用此方法前调用了 `explain()`，将返回查询执行计划。
+*   `to_sql() -> Tuple[str, List[Any]]`: 返回生成的 SQL 语句和参数。
+    *   生成的 SQL 通常以 `WITH ...` 开头。
+
+## 查询生命周期与执行流程
+
+`CTEQuery` 的执行流程比 `ActiveQuery` 简单，因为它不涉及模型映射和关联加载。
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as CTEQuery
+    participant Expr as Expression System
+    participant Backend as Database Backend
+
+    User->>Query: 调用 all() / one() / aggregate()
+    
+    rect rgb(240, 248, 255)
+        Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
+        Query->>Expr: 构建 WithQueryExpression
+        Note right of Query: 组装所有 CTE 定义 + 主查询
+        Expr->>Expr: to_sql()
+        Expr-->>Query: 返回 (sql, params)
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Query: 2. 数据库交互
+        Query->>Backend: fetch_all(sql, params)
+        Backend-->>Query: 返回字典列表 (List[Dict])
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Query: 3. 结果处理
+        alt one()
+            Note right of Query: 取列表第一个元素或 None
+        else all() / aggregate()
+            Note right of Query: 直接返回列表
+        end
+    end
+
+    Query-->>User: 返回结果
+```
 
 ## 用法示例
 
