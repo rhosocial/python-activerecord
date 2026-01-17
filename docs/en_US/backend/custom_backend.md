@@ -60,3 +60,19 @@ The Rhosocial ActiveRecord test suite is designed to be protocol-aware. This mea
 *   **Validation**: If your dialect returns `True` but fails to generate valid SQL for that feature, the tests will fail.
 
 Therefore, it is crucial to accurately implement the `supports_*` methods in your dialect. Do not return `True` for features you haven't fully implemented or verified.
+
+## Backend CLI Support
+
+Backends can also serve as command-line tools by implementing a `__main__.py` module. This is useful for debugging, quick database access, or testing your implementation.
+
+For example, the **SQLite** backend (`src/rhosocial/activerecord/backend/impl/sqlite/__main__.py`) can be executed directly:
+
+```bash
+# Run a SQL query against a database file
+python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db "SELECT * FROM users"
+
+# Execute a SQL script file
+python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db -f schema.sql --executescript
+```
+
+This is achieved by standard Python module execution. When building your own backend, considering adding a CLI interface can greatly enhance the developer experience.

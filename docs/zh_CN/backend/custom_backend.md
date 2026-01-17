@@ -60,3 +60,19 @@ Rhosocial ActiveRecord 的测试套件被设计为能够感知协议。这意味
 *   **验证**: 如果您的方言返回 `True` 但未能为该特性生成有效的 SQL，测试将会失败。
 
 因此，准确实现方言中的 `supports_*` 方法至关重要。切勿对您尚未完全实现或验证的特性返回 `True`。
+
+## 后端命令行 (CLI) 支持
+
+后端还可以通过实现 `__main__.py` 模块作为命令行工具使用。这对于调试、快速访问数据库或测试您的实现非常有用。
+
+例如，**SQLite** 后端 (`src/rhosocial/activerecord/backend/impl/sqlite/__main__.py`) 可以直接执行：
+
+```bash
+# 针对数据库文件运行 SQL 查询
+python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db "SELECT * FROM users"
+
+# 执行 SQL 脚本文件
+python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db -f schema.sql --executescript
+```
+
+这是通过标准 Python 模块执行实现的。在构建您自己的后端时，考虑添加 CLI 接口可以极大地提升开发体验。
