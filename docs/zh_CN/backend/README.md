@@ -16,7 +16,7 @@ rhosocial-activerecord 的设计初衷是支持多数据库后端。除了核心
 
 ## 目录
 
-*   **[表达式系统 (Expression System)](expression.md)**: Python 对象如何变成 SQL 字符串。
+*   **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。
 *   **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
 
 ## 示例代码

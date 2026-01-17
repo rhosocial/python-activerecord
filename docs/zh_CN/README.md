@@ -44,7 +44,7 @@
     *   **[JSON 序列化 (JSON Serialization)](serialization/json.md)**: 模型转换为 JSON/Dict，字段过滤。
 
 9.  **[后端系统 (Backend System)](backend/README.md)**
-    *   **[表达式系统 (Expression System)](backend/expression.md)**: Python 对象如何安全地转换为 SQL 字符串。
+    *   **[表达式系统 (Expression System)](backend/expression/README.md)**: Python 对象如何安全地转换为 SQL 字符串。
     *   **[自定义后端 (Custom Backend)](backend/custom_backend.md)**: 实现一个新的数据库驱动。
 
 10. **[测试指南 (Testing)](testing/README.md)**

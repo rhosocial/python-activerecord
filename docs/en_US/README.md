@@ -44,7 +44,7 @@
     *   **[JSON Serialization](serialization/json.md)**: Converting models to JSON/Dicts, field filtering.
 
 9.  **[Backend System](backend/README.md)**
-    *   **[Expression System](backend/expression.md)**: How Python objects are safely transformed into SQL strings.
+    *   **[Expression System](backend/expression/README.md)**: How Python objects are safely transformed into SQL strings.
     *   **[Custom Backend](backend/custom_backend.md)**: Implementing a new database driver.
 
 10. **[Testing](testing/README.md)**
