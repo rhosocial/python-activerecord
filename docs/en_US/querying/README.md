@@ -8,3 +8,19 @@
     *   Used for building complex recursive or analytical queries, returning results as dictionaries.
 *   **[SetOperationQuery (Set Operations)](set_operation_query.md)**
     *   Handles UNION, INTERSECT, and EXCEPT set operations.
+
+## Debugging & Inspecting SQL
+
+All query objects (`ActiveQuery`, `CTEQuery`, `SetOperationQuery`) support calling the `to_sql()` method at any time. This is extremely helpful for debugging, allowing you to inspect the generated SQL statement and parameter tuple without actually executing the query.
+
+```python
+# Construct a query
+query = User.query().where(User.c.age > 18).order_by(User.c.created_at.desc())
+
+# Inspect SQL and parameters
+sql, params = query.to_sql()
+print(f"SQL: {sql}")
+# Output: SQL: SELECT * FROM users WHERE age > ? ORDER BY created_at DESC
+print(f"Params: {params}")
+# Output: Params: (18,)
+```
