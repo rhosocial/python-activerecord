@@ -1,13 +1,12 @@
 # src/rhosocial/activerecord/field/soft_delete.py
 """Module providing soft delete functionality."""
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
 from pydantic import Field
+from typing import Dict, Any, Optional
 
-from ..query import ActiveQuery
+from ..backend.expression.core import Column
 from ..interface import IActiveRecord, ModelEvent
-from ..backend.expression.core import Column, Literal
-from ..backend.expression.predicates import IsNullPredicate
+from ..query import ActiveQuery
 
 
 class SoftDeleteMixin(IActiveRecord):

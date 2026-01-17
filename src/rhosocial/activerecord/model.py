@@ -1,10 +1,15 @@
 # src/rhosocial/activerecord/model.py
 # Define the main ActiveRecord class by combining mixins
 # This approach keeps the class definition clean and modular
-from .base import BaseActiveRecord, QueryMixin
-from .base.column_name_mixin import ColumnNameMixin
-from .base.field_adapter_mixin import FieldAdapterMixin
-from .base.metaclass import MetaclassMixin
+from .base import (
+    BaseActiveRecord,
+    AsyncBaseActiveRecord,
+    QueryMixin,
+    AsyncQueryMixin,
+    ColumnNameMixin,
+    FieldAdapterMixin,
+    MetaclassMixin
+)
 from .relation import RelationManagementMixin
 
 
@@ -12,7 +17,7 @@ class ActiveRecord(
     RelationManagementMixin,
     # FieldMixin, # import when needed
     QueryMixin,
-    ColumnNameMixin, # Added ColumnNameMixin here
+    ColumnNameMixin,  # Added ColumnNameMixin here
     FieldAdapterMixin,
     MetaclassMixin,
     BaseActiveRecord,
@@ -27,9 +32,34 @@ class ActiveRecord(
     - FieldAdapterMixin: Field-specific type adapter support
     - MetaclassMixin: Metaclass-based model building support
     """
+
+    ...
+
+
+class AsyncActiveRecord(
+    RelationManagementMixin,
+    # FieldMixin, # import when needed
+    AsyncQueryMixin,  # Use async query mixin
+    ColumnNameMixin,
+    FieldAdapterMixin,
+    MetaclassMixin,
+    AsyncBaseActiveRecord,  # Use async base class
+):
+    """Complete Async ActiveRecord implementation combining core features.
+
+    Inherits functionality from:
+
+    - AsyncBaseActiveRecord: Async core CRUD operations
+    - RelationManagementMixin: Relationship handling
+    - AsyncQueryMixin: Async query builder
+    - FieldAdapterMixin: Field-specific type adapter support
+    - MetaclassMixin: Metaclass-based model building support
+    """
+
     ...
 
 
 __all__ = [
-    'ActiveRecord',
+    "ActiveRecord",
+    "AsyncActiveRecord",
 ]

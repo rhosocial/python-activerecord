@@ -6,9 +6,11 @@ import logging
 from abc import ABC, abstractmethod
 from pydantic import BaseModel
 from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable, TYPE_CHECKING
+from typing import Protocol
+from typing_extensions import runtime_checkable
 
 from .base import ModelEvent
-from ..backend.base import StorageBackend
+from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound
 from ..backend.schema import DatabaseType
@@ -447,3 +449,140 @@ class IActiveRecord(BaseModel, ABC):
                 for handler in mro_class._feature_handlers:
                     collected_handlers[handler] = True  # Use dict for ordered set
         return list(collected_handlers.keys())
+
+
+@runtime_checkable
+class IAsyncActiveRecord(Protocol):
+    """Async ActiveRecord interface, providing asynchronous database operations methods"""
+
+    @abstractmethod
+    async def save(self) -> int:
+        """
+        Save the record to database asynchronously, performing insert or update as appropriate.
+
+        This method implements the core persistence functionality. If the record is
+        new (determined by is_new_record property), it performs an INSERT operation.
+        If the record already exists, it performs an UPDATE operation with only
+        the changed fields.
+
+        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
+        and handles dirty field tracking to optimize updates.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+        """
+        pass
+
+    @abstractmethod
+    async def delete(self) -> int:
+        """
+        Delete the record from database asynchronously.
+
+        This method performs a DELETE operation for the current record. It identifies
+        the record to delete using the primary key value and removes it from the database.
+        The operation is performed using the model's configured backend.
+
+        The delete operation triggers appropriate model events (BEFORE_DELETE, AFTER_DELETE)
+        and updates the internal state of the record.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - Returns 1 if the record was successfully deleted
+                 - Returns 0 if no record matched the primary key (record didn't exist)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValueError: If the record doesn't have a valid primary key value
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def find_one(cls: Type['IAsyncActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> Optional['IAsyncActiveRecord']:
+        """
+        Find a single record that matches the specified condition asynchronously.
+
+        This method queries the database for a record that matches the given condition
+        and returns it as an instance of the model class. If no matching record is found,
+        it returns None.
+
+        The condition can be specified in multiple ways:
+        - As a primary key value (e.g., find_one(123) for primary key = 123)
+        - As a dictionary of field-value pairs (e.g., find_one({'username': 'john'}))
+        - As a more complex condition using expression objects
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            Optional[IAsyncActiveRecord]: A model instance if a matching record is found, None otherwise
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def find_all(cls: Type['IAsyncActiveRecord'], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List['IAsyncActiveRecord']:
+        """
+        Find all records that match the specified condition asynchronously.
+
+        This method queries the database for all records that match the given condition
+        and returns them as a list of model instances. If no condition is provided,
+        it returns all records from the table.
+
+        Args:
+            condition: Optional condition to match. Can be:
+                      - A dictionary of field-value pairs (e.g., {'status': 'active'})
+                      - A list of conditions for complex queries
+                      - None to return all records
+
+        Returns:
+            List[IAsyncActiveRecord]: A list of model instances that match the condition.
+                         Returns an empty list if no records match.
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def find_one_or_fail(cls: Type['IAsyncActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> 'IAsyncActiveRecord':
+        """
+        Find a single record that matches the specified condition or raise an exception asynchronously.
+
+        This method behaves like find_one() but raises a RecordNotFound exception
+        if no matching record is found, instead of returning None.
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            IAsyncActiveRecord: A model instance if a matching record is found
+
+        Raises:
+            RecordNotFound: If no record matches the specified condition
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @abstractmethod
+    async def refresh(self) -> None:
+        """
+        Reload record from database asynchronously.
+
+        This method uses the current record's primary key value to re-fetch the latest data
+        from the database and update all field values of the current instance.
+        """
+        pass

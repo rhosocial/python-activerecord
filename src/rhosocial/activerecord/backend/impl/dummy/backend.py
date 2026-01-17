@@ -16,6 +16,11 @@ from rhosocial.activerecord.backend.transaction import TransactionManager, Async
 from .dialect import DummyDialect
 
 
+# Error message constants
+DUMMY_BACKEND_ERROR_MSG = "DummyBackend does not support real database operations. Did you forget to configure a concrete backend?"
+ASYNC_DUMMY_BACKEND_ERROR_MSG = "AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?"
+
+
 class DummyBackend(StorageBackend):
     """
     A dummy backend for ActiveRecord that generates SQL without connecting to a real database.
@@ -41,13 +46,13 @@ class DummyBackend(StorageBackend):
         return self._dialect
 
     def connect(self) -> None:
-        raise NotImplementedError("DummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
     def disconnect(self) -> None:
         pass # Disconnecting a dummy backend is a no-op
 
     def ping(self, reconnect: bool = True) -> bool:
-        raise NotImplementedError("DummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
     def _handle_error(self, error: Exception) -> None:
         # Re-raise the NotImplementedError or any other error that occurred.
@@ -61,17 +66,17 @@ class DummyBackend(StorageBackend):
         return (0, 0, 0) # Indicates a dummy/mock version
 
     def _get_cursor(self) -> Any:
-        raise NotImplementedError("DummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
     def _execute_query(self, cursor: Any, sql: str, params: Optional[Tuple]) -> Any:
-        raise NotImplementedError("DummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
     def _handle_auto_commit(self) -> None:
         pass # No real database, so no commit needed
 
     @property
     def transaction_manager(self) -> TransactionManager:
-        raise NotImplementedError("DummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
 # Async Dummy Backend
 class AsyncDummyBackend(AsyncStorageBackend):
@@ -96,13 +101,13 @@ class AsyncDummyBackend(AsyncStorageBackend):
         return self._dialect
 
     async def connect(self) -> None:
-        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
 
     async def disconnect(self) -> None:
         pass # Disconnecting a dummy backend is a no-op
 
     async def ping(self, reconnect: bool = True) -> bool:
-        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
 
     async def _handle_error(self, error: Exception) -> None:
         if isinstance(error, NotImplementedError):
@@ -113,14 +118,14 @@ class AsyncDummyBackend(AsyncStorageBackend):
         return (0, 0, 0)
 
     async def _get_cursor(self) -> Any:
-        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
 
     async def _execute_query(self, cursor: Any, sql: str, params: Optional[Tuple]) -> Any:
-        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
 
     async def _handle_auto_commit(self) -> None:
         pass # No real database, so no commit needed
 
     @property
     def transaction_manager(self) -> AsyncTransactionManager:
-        raise NotImplementedError("AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?")
+        raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)

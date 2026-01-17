@@ -9,8 +9,8 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type, Itera
 from typing import Protocol
 from typing_extensions import runtime_checkable
 
-from .model import IActiveRecord
-from ..backend.base import StorageBackend
+from .model import IActiveRecord, IAsyncActiveRecord
+from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
 from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 
@@ -223,6 +223,24 @@ class IBackend(Protocol):
 
         Returns:
             StorageBackend: The backend instance for this query
+        """
+        ...
+
+
+@runtime_checkable
+class IAsyncBackend(Protocol):
+    """Protocol that provides backend access for async query objects.
+
+    This protocol defines a method for accessing the async storage backend
+    associated with a query object, which is necessary for consistent
+    query execution across different database systems.
+    """
+
+    async def backend(self) -> 'AsyncStorageBackend':
+        """Get the async storage backend for this query.
+
+        Returns:
+            AsyncStorageBackend: The async backend instance for this query
         """
         ...
 
@@ -643,6 +661,55 @@ class IQuery(IBackend, ToSQLProtocol, ABC):
         pass
 
 
+class IAsyncQuery(IAsyncBackend, ToSQLProtocol, ABC):
+    """
+    Basic interface for async query objects.
+
+    This interface defines the minimal contract for async query objects,
+    including backend access and SQL generation. All async query implementations
+    should extend this interface to ensure consistent behavior across
+    different query types and database backends.
+
+    The interface combines:
+    - IAsyncBackend: Provides access to the async storage backend
+    - ToSQLProtocol: Enables SQL generation functionality
+    - ABC: Abstract base class for enforceable contracts
+    """
+
+    _backend: 'AsyncStorageBackend'
+
+    def __init__(self, backend: 'AsyncStorageBackend'):
+        """
+        Initialize the query with a backend.
+
+        Args:
+            backend: The async storage backend to use for query execution
+        """
+        super().__init__()
+        self._backend = backend
+
+    @abstractmethod
+    def to_sql(self) -> Tuple[str, tuple]:
+        """
+        Generate the complete SQL query with parameters.
+
+        This method returns the full SQL statement with parameter values
+        ready for execution, following the ToSQLProtocol from the expression system.
+        The parameters are returned separately to prevent SQL injection attacks
+        and allow proper parameter binding by the database driver.
+
+        Returns:
+            Tuple[str, tuple]: A tuple containing:
+            - sql_query: Complete SQL string with placeholders (usually '?')
+            - params: Tuple of parameter values in the correct order
+
+        Note:
+            The method should never return user data directly embedded in the SQL string,
+            always use parameter placeholders to ensure security against SQL injection.
+        """
+        pass
+
+
 # Define specialized interfaces for different query types
 class IActiveQuery(IQuery, IQueryBuilding):
     """
@@ -723,31 +790,31 @@ class IActiveQuery(IQuery, IQueryBuilding):
         pass
 
 
-class IAsyncActiveQuery(IQuery, IQueryBuilding):
+class IAsyncActiveQuery(IAsyncQuery, IQueryBuilding):
     """Interface for asynchronous model-based queries that return ActiveRecord instances.
 
-    This interface extends the general IQuery interface with model-specific
+    This interface extends the general IAsyncQuery interface with model-specific
     functionality, including the model_class attribute and async methods that
     return model instances instead of raw dictionaries.
     """
 
-    model_class: Type['IActiveRecord']
+    model_class: Type['IAsyncActiveRecord']
 
     @abstractmethod
-    async def all(self) -> List['IActiveRecord']:
+    async def all(self) -> List['IAsyncActiveRecord']:
         """Execute query asynchronously and return all matching records as model instances.
 
         Returns:
-            List[IActiveRecord]: List of model instances (empty if no matches)
+            List[IAsyncActiveRecord]: List of model instances (empty if no matches)
         """
         pass
 
     @abstractmethod
-    async def one(self) -> Optional['IActiveRecord']:
+    async def one(self) -> Optional['IAsyncActiveRecord']:
         """Execute query asynchronously and return the first matching record as a model instance.
 
         Returns:
-            Optional[IActiveRecord]: Single model instance or None
+            Optional[IAsyncActiveRecord]: Single model instance or None
         """
         pass
 
@@ -759,11 +826,21 @@ class ICTEQuery(IQuery, IQueryBuilding):
     """
 
 
-class IAsyncCTEQuery(IQuery, IQueryBuilding):
+class IAsyncCTEQuery(IAsyncQuery, IQueryBuilding):
     """Interface for asynchronous Common Table Expression queries.
 
     Async CTE queries return raw data as dictionaries, not model instances.
     """
+
+    @abstractmethod
+    async def aggregate(self) -> List[Dict[str, Any]]:
+        """
+        Execute aggregate query asynchronously and return results as a list of dictionaries.
+
+        Returns:
+            List[Dict[str, Any]]: Aggregated query results
+        """
+        pass
 
 
 class ISetOperationQuery(IQuery):
