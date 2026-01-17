@@ -15,7 +15,7 @@
 
 ```python
 # 构造查询
-query = User.query().where(User.c.age > 18).order_by(User.c.created_at.desc())
+query = User.query().where(User.c.age > 18).order_by((User.c.created_at, "DESC"))
 
 # 查看 SQL 和参数
 sql, params = query.to_sql()

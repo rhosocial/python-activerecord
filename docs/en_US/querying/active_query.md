@@ -266,14 +266,14 @@ users = User.query().with_(
 
 # Eager load comments for posts, ordered by creation time descending
 posts = Post.query().with_(
-    ("comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+    ("comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
 ).all()
 
 # Mixed usage: Nested loading + Modifiers
 # Note: The modifier applies only to the relation specified in the tuple
 users = User.query().with_(
     "posts",
-    ("posts.comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+    ("posts.comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
 ).all()
 ```
 

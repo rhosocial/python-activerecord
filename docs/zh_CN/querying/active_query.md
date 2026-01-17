@@ -266,14 +266,14 @@ users = User.query().with_(
 
 # 预加载文章的评论，并按创建时间倒序排列
 posts = Post.query().with_(
-    ("comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+    ("comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
 ).all()
 
 # 混合使用：嵌套加载 + 修改器
 # 注意：修改器只应用于元组中指定的这一层关联
 users = User.query().with_(
     "posts",
-    ("posts.comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+    ("posts.comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
 ).all()
 ```
 

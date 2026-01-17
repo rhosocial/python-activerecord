@@ -15,7 +15,7 @@ All query objects (`ActiveQuery`, `CTEQuery`, `SetOperationQuery`) support calli
 
 ```python
 # Construct a query
-query = User.query().where(User.c.age > 18).order_by(User.c.created_at.desc())
+query = User.query().where(User.c.age > 18).order_by((User.c.created_at, "DESC"))
 
 # Inspect SQL and parameters
 sql, params = query.to_sql()
