@@ -1,63 +1,60 @@
-# 使用 DummyBackend 进行测试 (Testing with DummyBackend)
+# 使用 DummyBackend 进行 SQL 检查 (Inspecting SQL with DummyBackend)
 
-rhosocial-activerecord 提供了一个特殊的 `DummyBackend`，允许你在不连接真实数据库的情况下进行模型和业务逻辑的测试。这被称为 "Zero-IO" 测试，速度极快且无需清理环境。
+`DummyBackend` 是 rhosocial-activerecord 的默认后端，也是一个特殊的 "Zero-IO" 后端。它的主要目的是在不连接真实数据库的情况下，利用标准 SQL 方言（Dialect）来验证 SQL 生成逻辑。
 
-## 什么是 DummyBackend？
+## 核心特性 (Key Features)
 
-`DummyBackend` 是一个不执行任何 SQL 的存储后端。它会记录所有的 SQL 操作，并允许你预设查询返回值。
+1.  **默认后端**: 当你没有配置任何具体数据库后端（如 SQLite）时，系统默认使用 `DummyBackend`（或其异步版本 `AsyncDummyBackend`）。
+2.  **仅包含方言**: 它只提供了 SQL 方言实现 (`DummyDialect`)，用于支持标准 SQL 的构造。
+3.  **不支持执行**: 它**不具备**任何数据库执行能力。尝试执行查询（如 `find`, `save`, `all` 等）会直接抛出错误。
+4.  **不支持 Mock**: 与某些测试框架不同，它**不支持**预设返回值（Mocking responses）。
 
-## 启用 DummyBackend
+## 主要用途：SQL 生成验证
 
-在测试开始时配置模型使用 `DummyBackend`。
+`DummyBackend` 最适合用于单元测试中，验证你的查询构建逻辑是否生成了预期的 SQL 语句和参数元组。
 
-```python
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend, DummyConnectionConfig
-
-# 配置所有模型使用 DummyBackend
-User.configure(DummyConnectionConfig(), DummyBackend)
-```
-
-## 预设返回值 (Mocking Responses)
-
-你可以拦截特定的 SQL 模式并返回预设数据。
+### 示例
 
 ```python
-backend = User.backend()
+from rhosocial.activerecord.model import ActiveRecord
 
-# 当查询 users 表时，返回特定的用户数据
-backend.add_response(
-    pattern="SELECT .* FROM users",
-    data=[
-        {"id": 1, "username": "test_user", "email": "test@example.com"}
-    ]
-)
+class User(ActiveRecord):
+    __table_name__ = "users"
+    id: int
+    username: str
+    email: str
 
-# 现在执行查询，不会访问数据库，而是直接返回预设数据
-user = User.find(1)
-assert user.username == "test_user"
+# 无需配置任何后端，默认即为 DummyBackend
+
+def test_user_query_generation():
+    # 1. 构建查询
+    query = User.query().where(User.c.username == "alice")
+    
+    # 2. 获取生成的 SQL 和参数 (不会触发数据库连接)
+    sql, params = query.to_sql()
+    
+    # 3. 验证
+    print(f"SQL: {sql}")
+    print(f"Params: {params}")
+    
+    assert 'SELECT "users".* FROM "users"' in sql
+    assert 'WHERE "users"."username" = ?' in sql
+    assert params == ("alice",)
 ```
 
-## 验证执行的 SQL
+## 注意事项
 
-你可以检查后端执行了哪些 SQL 语句，以验证你的查询逻辑是否正确。
+如果你尝试执行查询，将会收到错误：
 
 ```python
-# 执行一些操作
-User.find(1)
-
-# 获取最后执行的 SQL
-last_sql = backend.last_sql
-print(last_sql)
-# SELECT "users"."id", "users"."username", ... FROM "users" WHERE "users"."id" = ? LIMIT ?
-
-# 获取执行历史
-history = backend.execution_history
-assert len(history) == 1
+# 这将抛出错误，因为 DummyBackend 不支持实际操作
+try:
+    User.query().where(User.c.id == 1).one()
+except Exception as e:
+    print(e) 
+    # 输出: DummyBackend does not support real database operations. Did you forget to configure a concrete backend?
 ```
 
-## 优势
+## 总结
 
-1.  **速度极快**: 没有任何网络或磁盘 IO。
-2.  **无需 Fixtures**: 不需要准备数据库环境。
-3.  **确定性**: 每次运行结果完全一致。
-4.  **SQL 验证**: 可以精确验证生成的 SQL 是否符合预期。
+`DummyBackend` 是一个轻量级的工具，用于确保你的代码生成了正确的 SQL 结构。如果你需要进行集成测试或需要实际的数据交互，请使用 `SQLiteBackend`（支持内存模式 `:memory:`）或其他真实数据库后端。

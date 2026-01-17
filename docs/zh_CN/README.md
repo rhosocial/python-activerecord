@@ -28,22 +28,29 @@
     *   **[加载策略 (Loading Strategies)](relationships/loading.md)**: 解决 N+1 问题，掌握预加载与延迟加载。
 
 5.  **[查询接口 (Querying Interface)](querying/README.md)**
-    *   **[基础过滤 (Filtering & Sorting)](querying/filtering.md)**: `select`, `where`, `order_by`, `limit`。
-    *   **[聚合统计 (Aggregation)](querying/aggregation.md)**: `count`, `sum`, `avg`, `group_by`。
-    *   **[高级查询 (Advanced Features)](querying/advanced.md)**: Join 连接、CTE 公用表表达式、窗口函数。
+    *   **[ActiveQuery (模型查询)](querying/active_query.md)**: 过滤、排序、连接、聚合、关联加载。
+    *   **[CTEQuery (公用表表达式)](querying/cte_query.md)**: 递归与分析查询。
+    *   **[SetOperationQuery (集合操作)](querying/set_operation_query.md)**: UNION, INTERSECT, EXCEPT。
 
 6.  **[性能与优化 (Performance)](performance/README.md)**
     *   **[运行模式 (Strict vs Raw)](performance/modes.md)**: 何时使用 `.aggregate()` 绕过 Pydantic 开销。
     *   **[并发控制 (Concurrency)](performance/concurrency.md)**: 使用乐观锁处理竞态条件。
     *   **[缓存机制 (Caching)](performance/caching.md)**: 理解内部缓存以避免重复工作。
 
-7.  **[后端系统 (Backend System)](backend/README.md)**
+7.  **[事件系统 (Events)](events/README.md)**
+    *   **[生命周期事件 (Lifecycle Events)](events/lifecycle.md)**: 业务逻辑解耦 (before_save, after_create 等)。
+
+8.  **[序列化 (Serialization)](serialization/README.md)**
+    *   **[JSON 序列化 (JSON Serialization)](serialization/json.md)**: 模型转换为 JSON/Dict，字段过滤。
+
+9.  **[后端系统 (Backend System)](backend/README.md)**
     *   **[表达式系统 (Expression System)](backend/expression.md)**: Python 对象如何安全地转换为 SQL 字符串。
     *   **[自定义后端 (Custom Backend)](backend/custom_backend.md)**: 实现一个新的数据库驱动。
 
-8.  **[测试指南 (Testing)](testing/README.md)**
+10. **[测试指南 (Testing)](testing/README.md)**
     *   **[测试策略 (Strategies)](testing/strategies.md)**: 零 IO 测试 vs 集成测试。
+    *   **[Dummy Backend](testing/dummy.md)**: 使用内置的 Dummy Backend 进行单元测试。
 
-9.  **[场景实战 (Scenarios)](scenarios/README.md)**
+11. **[场景实战 (Scenarios)](scenarios/README.md)**
     *   **[FastAPI 集成](scenarios/fastapi.md)**: 异步、依赖注入与 Pydantic 模型复用。
     *   **[GraphQL 集成](scenarios/graphql.md)**: 解决 N+1 问题，构建高效 API。

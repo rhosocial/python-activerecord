@@ -60,7 +60,7 @@ Suppose multiple models (Post, Comment, Note) have `content` and `summary` field
 
 ```python
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class ContentMixin(ActiveRecord):
     content: str

@@ -7,7 +7,8 @@ Demonstrates:
 """
 import uuid
 from typing import ClassVar, Optional
-from rhosocial.activerecord import ActiveRecord, FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.relation import BelongsTo, HasMany
 from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
@@ -23,6 +24,9 @@ class User(UUIDMixin, TimestampMixin, ActiveRecord):
     is_active: bool = True
 
     c: ClassVar[FieldProxy] = FieldProxy()
+
+    # Relations
+    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='author')
 
     @classmethod
     def table_name(cls) -> str:
@@ -120,6 +124,26 @@ def main():
         .all()
     for author in authors:
         print(f"Author: {author.username}")
+
+    # 7. Relationship Loading & N+1 Problem
+    print("\n--- Relationship Loading & N+1 Problem ---")
+    
+    # N+1 Problem Demonstration
+    print("Demonstrating N+1 Problem (without eager loading):")
+    users = User.query().all()
+    for user in users:
+        # Accessing user.posts() triggers a query for each user if not loaded
+        posts = user.posts()  # <--- N queries
+        print(f"User {user.username} has {len(posts)} posts (Lazy Load)")
+
+    # Solution: Eager Loading with with_()
+    print("\nDemonstrating Eager Loading (with_):")
+    # with_('posts') pre-loads the posts relation in a separate efficient query
+    users_with_posts = User.query().with_('posts').all()  # <--- 1 query for users + 1 query for posts
+    for user in users_with_posts:
+        # posts are already loaded in cache
+        posts = user.posts()  # <--- No DB query
+        print(f"User {user.username} has {len(posts)} posts (Eager Load)")
 
 if __name__ == "__main__":
     main()

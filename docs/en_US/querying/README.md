@@ -1,19 +1,10 @@
-# 5. Querying Interface
+# Querying Interface
 
-Querying is the core of interacting with data. `rhosocial-activerecord` provides a fluent, type-safe query API that also supports powerful SQL features.
+`rhosocial-activerecord` provides a fluent, type-safe query API. This chapter details the three core query objects.
 
-In the TechBlog system, we will implement:
-
-*   Find all posts by "alice".
-*   Count the number of posts in each category.
-*   Find the top 10 most commented posts.
-
-## Table of Contents
-
-*   **[Filtering & Sorting](filtering.md)**: `select`, `where`, `order_by`, `limit`.
-*   **[Aggregation](aggregation.md)**: `count`, `sum`, `avg`, `group_by`.
-*   **[Advanced Features](advanced.md)**: Joins, CTEs (Common Table Expressions), Window Functions.
-
-## Example Code
-
-Full example code for this chapter can be found at `docs/examples/chapter_05_querying/`.
+*   **[ActiveQuery (Model Query)](active_query.md)**
+    *   The most commonly used query object, bound to ActiveRecord models, supporting filtering, sorting, joining, aggregation, and eager loading.
+*   **[CTEQuery (Common Table Expressions)](cte_query.md)**
+    *   Used for building complex recursive or analytical queries, returning results as dictionaries.
+*   **[SetOperationQuery (Set Operations)](set_operation_query.md)**
+    *   Handles UNION, INTERSECT, and EXCEPT set operations.

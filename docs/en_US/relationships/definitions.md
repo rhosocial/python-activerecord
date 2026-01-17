@@ -8,7 +8,7 @@ Each user has one profile page.
 
 ```python
 from typing import ClassVar
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasOne, BelongsTo
 
 class User(ActiveRecord):

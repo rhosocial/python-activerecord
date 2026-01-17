@@ -1,63 +1,60 @@
-# Testing with DummyBackend
+# Inspecting SQL with DummyBackend
 
-rhosocial-activerecord provides a special `DummyBackend` that allows you to test models and business logic without connecting to a real database. This is known as "Zero-IO" testing, which is extremely fast and requires no environment cleanup.
+`DummyBackend` is the default backend for rhosocial-activerecord and serves as a special "Zero-IO" backend. Its primary purpose is to verify SQL generation logic using standard SQL Dialect without connecting to a real database.
 
-## What is DummyBackend?
+## Key Features
 
-`DummyBackend` is a storage backend that executes no SQL. It records all SQL operations and allows you to preset query return values.
+1.  **Default Backend**: When you haven't configured any specific database backend (like SQLite), the system defaults to using `DummyBackend` (or its async version `AsyncDummyBackend`).
+2.  **Dialect Only**: It only provides a SQL Dialect implementation (`DummyDialect`) to support standard SQL construction.
+3.  **No Execution Support**: It **does not** have any database execution capabilities. Attempting to execute queries (like `find`, `save`, `all`, etc.) will raise an error immediately.
+4.  **No Mocking Support**: Unlike some testing frameworks, it **does not** support mocking responses (preset return values).
 
-## Enabling DummyBackend
+## Primary Use Case: SQL Generation Verification
 
-Configure your models to use `DummyBackend` at the start of your tests.
+`DummyBackend` is best suited for unit tests to verify that your query construction logic generates the expected SQL statements and parameter tuples.
 
-```python
-from rhosocial.activerecord.backend.impl.dummy import DummyBackend, DummyConnectionConfig
-
-# Configure all models to use DummyBackend
-User.configure(DummyConnectionConfig(), DummyBackend)
-```
-
-## Mocking Responses
-
-You can intercept specific SQL patterns and return preset data.
+### Example
 
 ```python
-backend = User.backend()
+from rhosocial.activerecord.model import ActiveRecord
 
-# When querying the users table, return specific user data
-backend.add_response(
-    pattern="SELECT .* FROM users",
-    data=[
-        {"id": 1, "username": "test_user", "email": "test@example.com"}
-    ]
-)
+class User(ActiveRecord):
+    __table_name__ = "users"
+    id: int
+    username: str
+    email: str
 
-# Now execute the query; it won't access the database but will return the preset data directly
-user = User.find(1)
-assert user.username == "test_user"
+# No backend configuration needed, defaults to DummyBackend
+
+def test_user_query_generation():
+    # 1. Build query
+    query = User.query().where(User.c.username == "alice")
+    
+    # 2. Get generated SQL and parameters (no database connection triggered)
+    sql, params = query.to_sql()
+    
+    # 3. Verify
+    print(f"SQL: {sql}")
+    print(f"Params: {params}")
+    
+    assert 'SELECT "users".* FROM "users"' in sql
+    assert 'WHERE "users"."username" = ?' in sql
+    assert params == ("alice",)
 ```
 
-## Verifying Executed SQL
+## Important Note
 
-You can check which SQL statements the backend executed to verify if your query logic is correct.
+If you attempt to execute a query, you will receive an error:
 
 ```python
-# Perform some operations
-User.find(1)
-
-# Get the last executed SQL
-last_sql = backend.last_sql
-print(last_sql)
-# SELECT "users"."id", "users"."username", ... FROM "users" WHERE "users"."id" = ? LIMIT ?
-
-# Get execution history
-history = backend.execution_history
-assert len(history) == 1
+# This will raise an error because DummyBackend does not support actual operations
+try:
+    User.query().where(User.c.id == 1).one()
+except Exception as e:
+    print(e) 
+    # Output: DummyBackend does not support real database operations. Did you forget to configure a concrete backend?
 ```
 
-## Advantages
+## Summary
 
-1.  **Extremely Fast**: No network or disk IO.
-2.  **No Fixtures**: No need to prepare a database environment.
-3.  **Deterministic**: Results are consistent every run.
-4.  **SQL Verification**: You can precisely verify if the generated SQL meets expectations.
+`DummyBackend` is a lightweight tool for ensuring your code generates correct SQL structures. If you need integration testing or actual data interaction, please use `SQLiteBackend` (supports in-memory mode `:memory:`) or other real database backends.

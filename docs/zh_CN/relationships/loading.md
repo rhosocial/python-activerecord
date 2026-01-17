@@ -18,7 +18,7 @@ for user in users:
 
 ```python
 # 告诉 ORM 我们需要同时加载 profile
-users = User.query().with_('profile').find_all()
+users = User.query().with_('profile').all()
 
 for user in users:
     # 这里不再触发数据库查询，直接从缓存读取

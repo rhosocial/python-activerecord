@@ -1,10 +1,10 @@
-# Chapter 9: Testing
+# Chapter 10: Testing
 
 rhosocial-activerecord advocates for the "Zero-IO" testing philosophy. With the built-in `DummyBackend`, you can quickly verify model logic and SQL generation without relying on a real database environment.
 
 ## Contents
 
-*   [Using DummyBackend](dummy.md): Learn how to use the dummy backend for high-performance unit testing.
+*   [Inspecting SQL with DummyBackend](dummy.md): Learn how to use the dummy backend to verify SQL generation logic.
 
 ## Testing Strategy Recommendations
 

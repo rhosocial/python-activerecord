@@ -10,7 +10,7 @@ Since models are Pydantic `BaseModel`s, you can use all Pydantic validation feat
 
 ```python
 from pydantic import Field, field_validator
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     email: str

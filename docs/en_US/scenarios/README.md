@@ -1,4 +1,4 @@
-# 9. Scenarios
+# 11. Scenarios
 
 Integrating `rhosocial-activerecord` into modern Web frameworks.
 

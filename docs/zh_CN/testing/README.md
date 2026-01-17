@@ -1,10 +1,10 @@
-# 第九章：测试 (Testing)
+# 第十章：测试 (Testing)
 
 rhosocial-activerecord 提倡 "Zero-IO" 测试理念。通过内置的 `DummyBackend`，你可以在不依赖真实数据库环境的情况下，快速验证模型逻辑和 SQL 生成。
 
 ## 目录
 
-*   [使用 DummyBackend (Using DummyBackend)](dummy.md): 学习如何使用虚拟后端进行高性能单元测试。
+*   [使用 DummyBackend 进行 SQL 检查 (Inspecting SQL with DummyBackend)](dummy.md): 学习如何使用虚拟后端验证 SQL 生成逻辑。
 
 ## 测试策略建议
 

@@ -20,7 +20,7 @@ rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许
 你可以在 `__init__` 或其他地方使用 `on` 方法注册实例级别的回调。
 
 ```python
-from rhosocial.activerecord import ActiveRecord, ModelEvent
+from rhosocial.activerecord.model import ActiveRecord, ModelEvent
 
 class User(ActiveRecord):
     username: str
@@ -73,7 +73,8 @@ def callback(instance: 'ActiveRecord', **kwargs):
 
 ```python
 import uuid
-from rhosocial.activerecord import ActiveRecord, ModelEvent
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.interface.base import ModelEvent
 
 class UUIDMixin:
     def __init__(self, **data):

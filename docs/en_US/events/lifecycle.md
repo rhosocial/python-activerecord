@@ -20,7 +20,8 @@ Defined in the `rhosocial.activerecord.interface.base.ModelEvent` enum:
 You can register instance-level callbacks in `__init__` or elsewhere using the `on` method.
 
 ```python
-from rhosocial.activerecord import ActiveRecord, ModelEvent
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.interface.base import ModelEvent
 
 class User(ActiveRecord):
     username: str
@@ -73,7 +74,8 @@ def callback(instance: 'ActiveRecord', **kwargs):
 
 ```python
 import uuid
-from rhosocial.activerecord import ActiveRecord, ModelEvent
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.interface.base import ModelEvent
 
 class UUIDMixin:
     def __init__(self, **data):

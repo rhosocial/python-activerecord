@@ -60,7 +60,7 @@ comment.delete(hard=True)
 
 ```python
 from pydantic import Field
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 
 class ContentMixin(ActiveRecord):
     content: str

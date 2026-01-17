@@ -10,7 +10,7 @@ A post has multiple tags, and a tag can be used for multiple posts. We need a `P
 
 ```python
 from typing import ClassVar
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import BelongsTo
 
 class PostTag(ActiveRecord):
@@ -26,6 +26,8 @@ class PostTag(ActiveRecord):
 ### 2. Define Models at Both Ends
 
 ```python
+from typing import List
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasMany
 
 class Post(ActiveRecord):

@@ -8,7 +8,7 @@ Demonstrates:
 """
 import uuid
 from typing import ClassVar, Optional, List
-from rhosocial.activerecord import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasOne, BelongsTo, HasMany
 from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig

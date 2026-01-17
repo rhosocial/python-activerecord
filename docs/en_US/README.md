@@ -20,86 +20,37 @@
     *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns.
     *   **[Mixins](modeling/mixins.md)**: Reusable logic with built-in (`UUID`, `Timestamp`) and custom Mixins.
     *   **[Validation & Hooks](modeling/validation.md)**: Pydantic validation and lifecycle hooks.
+    *   **[Custom Types](modeling/custom_types.md)**: Handling complex data types like JSON and arrays.
 
-4.  **Relationships & Associations**
-    *   **Type-Safe Descriptors**: How `RelationDescriptor` ensures code intelligence.
-    *   **Relationship Types**:
-        *   `HasOne` / `BelongsTo` (1:1)
-        *   `HasMany` (1:N)
-        *   Many-to-Many (N:M) via Through Models
-    *   **Loading Strategies**:
-        *   Eager Loading with `with_()` (Solving N+1 problems).
-        *   Lazy Loading (On-demand access).
+4.  **[Relationships](relationships/README.md)**
+    *   **[Definitions](relationships/definitions.md)**: Defining `HasOne`, `BelongsTo`, `HasMany`.
+    *   **[Many-to-Many](relationships/many_to_many.md)**: Implementing complex N:M relations via Through Models.
+    *   **[Loading Strategies](relationships/loading.md)**: Solving N+1 problems with eager loading vs lazy loading.
 
-5.  **Querying Interface**
-    *   **ActiveQuery Architecture**: Understanding the Mixin-based design (`ActiveQuery` = `Base` + `Aggregate` + `Join` + ...).
-    *   **Core Filtering (`BaseQueryMixin`)**:
-        *   `select()`: Choosing specific columns.
-        *   `where()`: Applying conditions.
-        *   `distinct()`: Deduplicating results.
-    *   **Aggregations (`AggregateQueryMixin`)**:
-        *   Standard functions: `count()`, `sum()`, `avg()`, `min()`, `max()`.
-        *   `aggregate()`: Running arbitrary aggregation expressions.
-    *   **Joins (`JoinQueryMixin`)**:
-        *   `join()`: Inner joins.
-        *   `left_join()`, `cross_join()`: Other join types.
-    *   **Ordering & Ranges (`RangeQueryMixin`)**:
-        *   `order_by()`: Sorting results.
-        *   `limit()`, `offset()`: Slicing result sets.
-    *   **Relationships (`RelationalQueryMixin`)**:
-        *   `with_()`: Eager loading related records.
-    *   **Set Operations (`SetOperationQuery`)**:
-        *   `union()`, `intersect()`, `except_()`: Combining query results.
-    *   **Common Table Expressions (`CTEQuery`)**:
-        *   `with_cte()`: Defining and using CTEs for complex queries.
+5.  **[Querying Interface](querying/README.md)**
+    *   **[ActiveQuery (Model Query)](querying/active_query.md)**: Filtering, sorting, joins, aggregation, eager loading.
+    *   **[CTEQuery (Common Table Expressions)](querying/cte_query.md)**: Recursive and analytical queries.
+    *   **[SetOperationQuery (Set Operations)](querying/set_operation_query.md)**: UNION, INTERSECT, EXCEPT.
 
-6.  **Performance & Optimization (The Raw Layer)**
-    *   **The "Gradual" Strategy**: When to switch modes.
-    *   **Strict Mode**: Full Pydantic validation for high-integrity operations (User input, complex business logic).
-    *   **Raw / Aggregate Mode**: Using `.aggregate()` to bypass Pydantic overhead for massive read operations (ETL, Reporting).
-    *   **Caching**: Understanding the Column-to-Field Map cache.
-    *   **Batch Operations**: Bulk Create and Update strategies.
+6.  **[Performance](performance/README.md)**
+    *   **[Strict vs Raw Modes](performance/modes.md)**: When to use `.aggregate()` to bypass Pydantic overhead.
+    *   **[Concurrency Control](performance/concurrency.md)**: Handling race conditions with Optimistic Locking.
+    *   **[Caching](performance/caching.md)**: Understanding internal caching to avoid redundant work.
 
-7.  **The Backend Expression System**
-    *   **The `ToSQL` Protocol**: How Python objects transform into SQL strings safely.
-    *   **Expression Components**: Columns, Literals, Functions, Windows.
-    *   **Dialect System**: How different databases (SQLite, Dummy) are supported.
-    *   **Advanced SQL Construction**: Building CTEs (Common Table Expressions) and Recursive queries.
-    *   **Implementing Custom Backends**:
-        *   **Architecture**: Inheriting from `StorageBackend` and its Mixins (`ConnectionMixin`, `ExecutionMixin`, etc.).
-        *   **Dialect Definition**: Subclassing `SQLDialectBase` for database-specific SQL generation.
-        *   **Type Adapters**: Mapping Python types to database types.
-        *   **Reference Implementation**: Using the `sqlite` backend as a template.
+7.  **[Events](events/README.md)**
+    *   **[Lifecycle Events](events/lifecycle.md)**: Hooks for Decoupling business logic (before_save, after_create, etc.).
 
-8.  **Testing & Reliability**
-    *   **Zero-IO Testing**: The `DummyBackend` advantage.
-    *   **Unit Testing Models**: Verifying logic without a database.
-    *   **Integration Testing**: Using SQLite for full round-trip verification.
-    *   **Test Patterns**: Best practices for maintainable test suites.
+8.  **[Serialization](serialization/README.md)**
+    *   **[JSON Serialization](serialization/json.md)**: Converting models to JSON/Dicts, field filtering.
 
-9.  **Integration & Real-World Scenarios**
-    *   **FastAPI Integration**:
-        *   **Pydantic Models as Schemas**: Using ActiveRecord models directly as `response_model` and request bodies.
-        *   **Async Route Handlers**: Leveraging `await` for non-blocking database I/O.
-        *   **Dependency Injection**: Managing sessions and transactions per request.
-    *   **GraphQL Integration (Strawberry/Ariadne)**:
-        *   **Resolvers**: Mapping GraphQL fields to `ActiveQuery` methods.
-        *   **DataLoader Pattern**: Solving the N+1 problem using `in_` queries and batch loading.
-    *   **Data Processing & ETL**:
-        *   **Raw Mode**: Using `.aggregate()` for high-performance data export/transformation.
-        *   **Bulk Operations**: Efficiently importing large datasets.
-    *   **Serverless / FaaS**:
-        *   **Cold Start Optimization**: Benefits of the lightweight backend initialization.
+9.  **[Backend System](backend/README.md)**
+    *   **[Expression System](backend/expression.md)**: How Python objects are safely transformed into SQL strings.
+    *   **[Custom Backend](backend/custom_backend.md)**: Implementing a new database driver.
 
-10. **Migration & Deployment**
-    *   **Schema Management**: Syncing models with database tables.
-    *   **Migration Strategies**: Handling schema evolution.
-    *   **Production Readiness**: Configuration for high-load environments.
+10. **[Testing](testing/README.md)**
+    *   **[Strategies](testing/strategies.md)**: Zero-IO Testing vs Integration Testing.
+    *   **[Dummy Backend](testing/dummy.md)**: Using the dummy backend for unit tests.
 
-11. **API Reference**
-    *   Complete API documentation for all classes and methods.
-
-12. **Contributing**
-    *   Setting up the development environment.
-    *   Running the test suite.
-    *   Writing documentation.
+11. **[Scenarios](scenarios/README.md)**
+    *   **[FastAPI Integration](scenarios/fastapi.md)**: Async support, dependency injection, and Pydantic model reuse.
+    *   **[GraphQL Integration](scenarios/graphql.md)**: Solving N+1 problems with DataLoaders.

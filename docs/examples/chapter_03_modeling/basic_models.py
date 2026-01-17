@@ -9,7 +9,8 @@ Demonstrates core concepts:
 import uuid
 from typing import ClassVar, Annotated, Optional, List
 from pydantic import Field, field_validator
-from rhosocial.activerecord import ActiveRecord, FieldProxy, UseColumn
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import FieldProxy, UseColumn
 from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions

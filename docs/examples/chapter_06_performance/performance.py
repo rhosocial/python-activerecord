@@ -9,7 +9,8 @@ import time
 import logging
 import uuid
 from typing import ClassVar, List
-from rhosocial.activerecord import ActiveRecord, FieldProxy
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.field import OptimisticLockMixin, UUIDMixin, TimestampMixin
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
