@@ -16,19 +16,10 @@
     *   **[Configuration](getting_started/configuration.md)**: Setting up SQLite and managing shared backend connections.
     *   **[Quick Start](getting_started/quick_start.md)**: A complete "Hello World" example defining User/Post models and performing CRUD.
 
-3.  **Modeling Data (The Safe Layer)**
-    *   **The `ActiveRecord` Base Class**: The foundation of your domain models.
-    *   **Field Definition**: Using Pydantic types for robust schema validation.
-    *   **Mixins & Composition**:
-        *   `UUIDMixin`: Handling UUID Primary Keys automatically.
-        *   `TimestampMixin`: Managing `created_at` and `updated_at`.
-        *   `OptimisticLockMixin`: Implementing concurrency control with versioning.
-    *   **Validation Lifecycle**: Hooks for `before_save`, `after_save`, etc.
-    *   **Advanced Field Configuration**:
-        *   **Custom Column Names**: Mapping fields to legacy DB columns via `Annotated[T, UseColumn("col_name")]`.
-        *   **Custom Adapters**: defining custom serialization logic via `Annotated[T, UseAdapter(AdapterClass)]`.
-        *   **Field Proxy**: Using `ClassVar[FieldProxy]` (e.g., `User.c.name`) for type-safe query construction and aliasing.
-    *   **Customizing Metadata**: Table names, indexes, and constraints.
+3.  **[Modeling Data](modeling/README.md)**
+    *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns.
+    *   **[Mixins](modeling/mixins.md)**: Reusable logic with built-in (`UUID`, `Timestamp`) and custom Mixins.
+    *   **[Validation & Hooks](modeling/validation.md)**: Pydantic validation and lifecycle hooks.
 
 4.  **Relationships & Associations**
     *   **Type-Safe Descriptors**: How `RelationDescriptor` ensures code intelligence.
