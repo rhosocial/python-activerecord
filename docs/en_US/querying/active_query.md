@@ -227,23 +227,59 @@ Provides relationship eager loading capabilities to solve the N+1 query problem.
 *   `with_(*relations)`: Eager load relationships.
 *   `includes(*relations)`: Alias for `with_`.
 
-*   **Usage Examples**:
+The `with_()` method supports three main usages:
+
+### 1. Simple Eager Loading
+
+Use relation name strings to load direct relationships.
 
 ```python
 # Eager load user's posts
 users = User.query().with_("posts").all()
 
-for user in users:
-    # No extra SQL query triggered here
-    print(len(user.posts)) 
+# Load multiple relations simultaneously
+users = User.query().with_("posts", "profile").all()
+```
 
-# Nested eager loading: User's posts, and comments of posts
-User.query().with_("posts", "posts.comments").all()
+### 2. Nested Eager Loading
+
+Use dot-separated (`.`) path strings to load deep relationships.
+
+```python
+# Load user's posts, and comments for each post
+users = User.query().with_("posts.comments").all()
+
+# Load deeper levels: User's posts -> Comments -> Author
+users = User.query().with_("posts.comments.author").all()
+```
+
+### 3. Eager Loading with Modifiers
+
+Use a tuple `(relation_name, modifier_func)` to customize the related query (e.g., filtering, sorting).
+The `modifier_func` receives a query object and should return the modified query object.
+
+```python
+# Eager load user's posts, but only load those with status 'published'
+users = User.query().with_(
+    ("posts", lambda q: q.where(Post.c.status == 'published'))
+).all()
+
+# Eager load comments for posts, ordered by creation time descending
+posts = Post.query().with_(
+    ("comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+).all()
+
+# Mixed usage: Nested loading + Modifiers
+# Note: The modifier applies only to the relation specified in the tuple
+users = User.query().with_(
+    "posts",
+    ("posts.comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+).all()
 ```
 
 *   **Notes**:
     *   Relation names must match `HasOne`, `HasMany`, `BelongsTo` field names defined in the model.
-    *   Filtering on eager loaded relations (e.g., `with_("posts", lambda q: q.where(...))`) is currently not supported.
+    *   The modifier function must return the query object.
 
 ## Set Operation Initiation
 

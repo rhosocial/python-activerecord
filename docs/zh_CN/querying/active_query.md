@@ -227,23 +227,59 @@ User.query().between(User.c.age, 20, 30)
 *   `with_(*relations)`: 预加载关联关系。
 *   `includes(*relations)`: `with_` 的别名。
 
-*   **用法示例**：
+`with_()` 方法支持三种主要用法：
+
+### 1. 简单预加载 (Simple Eager Loading)
+
+使用关联名称字符串，加载直接关联的模型。
 
 ```python
 # 预加载用户的文章
 users = User.query().with_("posts").all()
 
-for user in users:
-    # 这里不会触发额外的 SQL 查询
-    print(len(user.posts)) 
+# 同时加载多个关联
+users = User.query().with_("posts", "profile").all()
+```
 
-# 嵌套预加载：用户的文章，以及文章的评论
-User.query().with_("posts", "posts.comments").all()
+### 2. 嵌套预加载 (Nested Eager Loading)
+
+使用点号 (`.`) 分隔的路径字符串，加载深层关联。
+
+```python
+# 加载用户的文章，以及每篇文章的评论
+users = User.query().with_("posts.comments").all()
+
+# 加载更深层级：用户的文章 -> 评论 -> 作者
+users = User.query().with_("posts.comments.author").all()
+```
+
+### 3. 带查询修改器的预加载 (Eager Loading with Modifiers)
+
+使用元组 `(relation_name, modifier_func)`，对关联查询进行自定义（如过滤、排序）。
+`modifier_func` 接收一个查询对象，并应返回修改后的查询对象。
+
+```python
+# 预加载用户的文章，但只加载状态为 'published' 的文章
+users = User.query().with_(
+    ("posts", lambda q: q.where(Post.c.status == 'published'))
+).all()
+
+# 预加载文章的评论，并按创建时间倒序排列
+posts = Post.query().with_(
+    ("comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+).all()
+
+# 混合使用：嵌套加载 + 修改器
+# 注意：修改器只应用于元组中指定的这一层关联
+users = User.query().with_(
+    "posts",
+    ("posts.comments", lambda q: q.order_by(Comment.c.created_at.desc()))
+).all()
 ```
 
 *   **注意事项**：
     *   关联名称必须与模型中定义的 `HasOne`, `HasMany`, `BelongsTo` 字段名一致。
-    *   不支持对预加载的关联进行进一步的过滤（如 `with_("posts", lambda q: q.where(...))` 目前不支持，需后续版本跟进）。
+    *   修改器函数必须返回查询对象。
 
 ## 集合操作发起
 
