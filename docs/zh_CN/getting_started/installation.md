@@ -28,6 +28,6 @@ pip install .
 你可以通过检查版本号来验证安装是否成功：
 
 ```python
-import rhosocial.activerecord
-print(rhosocial.activerecord.__version__)
+from importlib.metadata import version
+print(version("rhosocial_activerecord"))
 ```
