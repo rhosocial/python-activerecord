@@ -24,3 +24,7 @@ print(f"SQL: {sql}")
 print(f"Params: {params}")
 # 输出: Params: (18,)
 ```
+
+> **注意**：`to_sql()` 生成的 SQL 语句格式取决于当前配置的数据库后端（Backend）。
+> *   如果配置了特定的数据库（如 SQLite, PostgreSQL），生成的 SQL 将符合该数据库的方言（Dialect）。
+> *   如果在未指定后端的情况下使用（通常用于测试或演示），默认可能会使用遵循 SQL 标准的 Dummy 后端，生成的 SQL 将是标准 SQL 格式。
