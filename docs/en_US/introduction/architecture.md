@@ -59,12 +59,15 @@ classDiagram
     %% Base Implementation Layer
     class BaseActiveRecord {
         <<abstract>>
+        +configure(config, backend_class)$
+        +backend() StorageBackend$
         +save() int
         +delete() int
         +refresh() None
         +transaction() ContextManager
     }
     IActiveRecord <|-- BaseActiveRecord
+    BaseActiveRecord ..> StorageBackend : uses
 
     %% Mixins
     class QueryMixin {
@@ -75,16 +78,45 @@ classDiagram
         +get_relation(name)
         +clear_relation_cache(name)
     }
+    class ColumnNameMixin {
+        +get_field_to_column_map() Dict
+        +get_column_to_field_map() Dict
+        +validate_column_names() None
+    }
+    class FieldAdapterMixin {
+        #_get_adapter_for_field(field_name)
+    }
+    class MetaclassMixin {
+        <<Metaclass Provider>>
+    }
 
     %% User-Facing Class
     class ActiveRecord {
         <<Concrete>>
-        +create(**kwargs) IActiveRecord$
     }
 
     BaseActiveRecord <|-- ActiveRecord
     QueryMixin --|> ActiveRecord
     RelationManagementMixin --|> ActiveRecord
+    ColumnNameMixin --|> ActiveRecord
+    FieldAdapterMixin --|> ActiveRecord
+    MetaclassMixin --|> ActiveRecord
+
+    %% User Defined Model
+    class UserDefinedModel {
+        <<User Implementation>>
+        +field1: type
+        +field2: type
+    }
+    ActiveRecord <|-- UserDefinedModel
+
+    %% Backend Dependency
+    class StorageBackend {
+        <<abstract>>
+        +connect()
+        +disconnect()
+        +transaction()
+    }
 ```
 
 ### 3. Asynchronous Architecture (`AsyncActiveRecord`)
@@ -113,12 +145,15 @@ classDiagram
     %% Base Implementation Layer
     class AsyncBaseActiveRecord {
         <<abstract>>
+        +configure(config, backend_class)$
+        +backend() AsyncStorageBackend$
         +save() int async
         +delete() int async
         +refresh() None async
         +transaction() AsyncContextManager
     }
     IAsyncActiveRecord <|-- AsyncBaseActiveRecord
+    AsyncBaseActiveRecord ..> AsyncStorageBackend : uses
 
     %% Mixins
     class AsyncQueryMixin {
@@ -129,16 +164,230 @@ classDiagram
         +get_relation(name)
         +clear_relation_cache(name)
     }
+    class ColumnNameMixin {
+        +get_field_to_column_map() Dict
+        +get_column_to_field_map() Dict
+        +validate_column_names() None
+    }
+    class FieldAdapterMixin {
+        #_get_adapter_for_field(field_name)
+    }
+    class MetaclassMixin {
+        <<Metaclass Provider>>
+    }
 
     %% User-Facing Class
     class AsyncActiveRecord {
         <<Concrete>>
-        +create(**kwargs) IAsyncActiveRecord$ async
     }
 
     AsyncBaseActiveRecord <|-- AsyncActiveRecord
     AsyncQueryMixin --|> AsyncActiveRecord
     RelationManagementMixin --|> AsyncActiveRecord
+    ColumnNameMixin --|> AsyncActiveRecord
+    FieldAdapterMixin --|> AsyncActiveRecord
+    MetaclassMixin --|> AsyncActiveRecord
+
+    %% User Defined Model
+    class UserDefinedModel {
+        <<User Implementation>>
+        +field1: type
+        +field2: type
+    }
+    AsyncActiveRecord <|-- UserDefinedModel
+
+    %% Backend Dependency
+    class AsyncStorageBackend {
+        <<abstract>>
+        +connect() async
+        +disconnect() async
+        +transaction() async
+    }
+```
+
+### 4. Query Architecture
+
+The query system uses a composition pattern, reusing functionality through Mixins, and supports both synchronous and asynchronous operations. Notably, `IActiveQuery` and `IAsyncActiveQuery` provide the `aggregate()` method, which allows retrieving raw execution results (list of dictionaries) from the database when it is not suitable or desired to map to `ActiveRecord` instances.
+
+#### Synchronous Query
+
+```mermaid
+classDiagram
+    %% Interfaces
+    class IQuery {
+        <<interface>>
+        +to_sql() Tuple
+        +backend() StorageBackend
+    }
+    class IActiveQuery {
+        <<interface>>
+        +model_class: Type
+        +all() List~IActiveRecord~
+        +one() Optional~IActiveRecord~
+        +aggregate() List~Dict~
+    }
+    class ICTEQuery {
+        <<interface>>
+        +with_cte(name, query)
+        +recursive(enabled)
+        +aggregate() List~Dict~
+    }
+    class ISetOperationQuery {
+        <<interface>>
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+
+    IActiveQuery --|> IQuery
+    ICTEQuery --|> IQuery
+    ISetOperationQuery --|> IQuery
+
+    %% Mixins
+    class BaseQueryMixin {
+        +where(condition)
+        +select(columns)
+        +order_by(clauses)
+        +limit(count)
+        +offset(count)
+        +group_by(columns)
+        +having(condition)
+    }
+    class JoinQueryMixin {
+        +join(target, on)
+        +left_join(target, on)
+    }
+    class AggregateQueryMixin {
+        +count()
+        +sum(column)
+        +avg(column)
+        +min(column)
+        +max(column)
+        +aggregate() List~Dict~
+    class RelationalQueryMixin {
+        +preload(relation)
+        +eager_load(relation)
+    }
+    class RangeQueryMixin {
+        +chunk(size)
+        +batch(size)
+    }
+
+    %% Implementations
+    class ActiveQuery {
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+    class CTEQuery
+    class SetOperationQuery
+
+    ActiveQuery ..|> IActiveQuery
+    ActiveQuery --|> BaseQueryMixin
+    ActiveQuery --|> JoinQueryMixin
+    ActiveQuery --|> AggregateQueryMixin
+    ActiveQuery --|> RelationalQueryMixin
+    ActiveQuery --|> RangeQueryMixin
+
+    CTEQuery ..|> ICTEQuery
+    CTEQuery ..|> ISetOperationQuery
+    CTEQuery --|> BaseQueryMixin
+    CTEQuery --|> JoinQueryMixin
+    CTEQuery --|> AggregateQueryMixin
+    CTEQuery --|> RangeQueryMixin
+
+    SetOperationQuery ..|> ISetOperationQuery
+```
+
+#### Asynchronous Query
+
+```mermaid
+classDiagram
+    %% Interfaces
+    class IQuery {
+        <<interface>>
+        +to_sql() Tuple
+        +backend() StorageBackend
+    }
+    class IAsyncActiveQuery {
+        <<interface>>
+        +model_class: Type
+        +all() List~IActiveRecord~ async
+        +one() Optional~IActiveRecord~ async
+        +aggregate() List~Dict~ async
+    }
+    class IAsyncCTEQuery {
+        <<interface>>
+        +with_cte(name, query)
+        +recursive(enabled)
+        +aggregate() List~Dict~ async
+    }
+    class ISetOperationQuery {
+        <<interface>>
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+
+    IAsyncActiveQuery --|> IQuery
+    IAsyncCTEQuery --|> IQuery
+    ISetOperationQuery --|> IQuery
+
+    %% Mixins
+    class BaseQueryMixin {
+        +where(condition)
+        +select(columns)
+        +order_by(clauses)
+        +limit(count)
+        +offset(count)
+        +group_by(columns)
+        +having(condition)
+    }
+    class JoinQueryMixin {
+        +join(target, on)
+        +left_join(target, on)
+    }
+    class AsyncAggregateQueryMixin {
+        +count() async
+        +sum(column) async
+        +avg(column) async
+        +min(column) async
+        +max(column) async
+        +aggregate() List~Dict~ async
+    }
+    class RelationalQueryMixin {
+        +preload(relation)
+        +eager_load(relation)
+    }
+    class RangeQueryMixin {
+        +chunk(size)
+        +batch(size)
+    }
+
+    %% Implementations
+    class AsyncActiveQuery {
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+    class AsyncCTEQuery
+    class SetOperationQuery
+
+    AsyncActiveQuery ..|> IAsyncActiveQuery
+    AsyncActiveQuery --|> BaseQueryMixin
+    AsyncActiveQuery --|> JoinQueryMixin
+    AsyncActiveQuery --|> AsyncAggregateQueryMixin
+    AsyncActiveQuery --|> RelationalQueryMixin
+    AsyncActiveQuery --|> RangeQueryMixin
+
+    AsyncCTEQuery ..|> IAsyncCTEQuery
+    AsyncCTEQuery ..|> ISetOperationQuery
+    AsyncCTEQuery --|> BaseQueryMixin
+    AsyncCTEQuery --|> JoinQueryMixin
+    AsyncCTEQuery --|> AsyncAggregateQueryMixin
+    AsyncCTEQuery --|> RangeQueryMixin
+
+    SetOperationQuery ..|> ISetOperationQuery
 ```
 
 ## The Life of a Query
@@ -155,13 +404,44 @@ sequenceDiagram
 
     App->>Model: User.query().where(...)
     Model->>Query: Create Query Builder
-    App->>Query: .all()
-    Query->>Expr: Build Query Expression
-    Expr->>Dialect: Compile to SQL
-    Dialect-->>Backend: Raw SQL + Params
-    Backend->>DB: Execute SQL
-    DB-->>Backend: Result Rows
-    Backend-->>Query: Raw Data
-    Query->>Model: Instantiate Objects (Pydantic Validation)
-    Model-->>App: List[User]
+    
+    alt Call .all() / .one()
+        App->>Query: .all()
+        Query->>Expr: Collect Query Conditions
+        Expr->>Dialect: Construct SQL
+        Dialect-->>Expr: SQL & Params
+        Expr->>Backend: Execute SQL
+        Backend-->>Expr: Result Rows
+        Expr->>Query: Result Rows
+        Query-->>Model: Result Rows
+        Model-->>App: List[User]
+    else Call .aggregate()
+        App->>Query: .aggregate()
+        Query->>Expr: Collect Query Conditions
+        Expr->>Dialect: Construct SQL
+        Dialect-->>Expr: SQL & Params
+        Expr->>Backend: Execute SQL
+        Backend-->>Expr: Result Rows
+        Expr->>Query: Result Rows
+        Query-->>App: List[Dict]
+    end
 ```
+
+### Detailed Flow
+
+1.  **Initiation**
+    The user calls `User.query()`. The model instantiates an `ActiveQuery` builder and injects the current model's context. At this point, the query builder knows which model and corresponding database table it serves.
+
+2.  **Condition Collection**
+    The user chains methods like `.where()`, `.select()`, etc. This stage primarily involves collecting various conditions and parameters required for the query. Notably, SQL construction can occur at any time, not just at the final moment.
+
+3.  **SQL Construction**
+    When the user calls `.all()`, `.one()`, or `.aggregate()`, or needs to inspect the generated SQL, the query builder passes the collected conditions to the `Dialect` layer. The Dialect is responsible for translating abstract conditions into specific database SQL syntax (e.g., handling pagination syntax differences or parameter placeholder styles across different databases).
+
+4.  **Execution**
+    The constructed SQL and parameters are passed to the `StorageBackend`. The backend is responsible for retrieving a connection from the pool, executing the query, and handling the underlying database cursor. For asynchronous operations, `await` is used here to wait for the database response non-blockingly.
+
+5.  **Mapping (ORM Mapping)**
+    The database returns raw row data (usually tuples or dictionaries).
+    *   **If `.all()` or `.one()` is called**: `ActiveRecord` receives this data and uses Pydantic's parsing capabilities to convert it into strongly-typed model instances. This step involves not just data population but also type conversion and validation, ensuring that the objects returned to the user are safe and reliable.
+    *   **If `.aggregate()` is called**: The mapping step is skipped, and the raw list of dictionaries (`List[Dict]`) is returned directly. This is useful for aggregation queries or scenarios where model overhead is unnecessary.

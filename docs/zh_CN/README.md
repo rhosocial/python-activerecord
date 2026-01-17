@@ -1,184 +1,114 @@
-# rhosocial ActiveRecord 文档大纲（中文版）
+# rhosocial-activerecord 文档
 
-> **⚠️ 开发阶段声明：** 当前项目尚处于开发阶段，特性随时可能增减，且可能存在缺陷，甚至与实际实现不对应。因此文档内容存在随时调整的可能性，目前仅供参考。
->
-> **📝 文档标注说明：** 在文档中，您可能会看到如"目前暂未实现"、"部分实现"、"存在调整可能"等标签。这些标签表示相关功能尚未完全实现或可能与实际实现不符，请以实际代码为准。
+## 目录 (Table of Contents)
 
-> **🔄 实现状态：** 截至最新审查，核心ActiveRecord功能稳定，基本CRUD操作、关系管理和查询构建已实现。异步操作、跨数据库查询和批量操作等功能处于不同开发阶段。有关特定功能的实现状态，请参见各个文档部分。
+1.  **[简介 (Introduction)](introduction/README.md)**
+    *   **[设计哲学 (Philosophy)](introduction/philosophy.md)**: "渐进式 ORM" (Gradual ORM) —— 在严格的类型安全 (OLTP) 与原始高性能 (OLAP) 之间寻求平衡。
+    *   **[核心特性 (Key Features)](introduction/key_features.md)**:
+        *   Pydantic V2 深度集成
+        *   可组合的 Mixins (UUID, Timestamp, 乐观锁)
+        *   零 IO 测试策略 (Zero-IO Testing)
+    *   **[对比分析 (Comparison)](introduction/comparison.md)**: 与 SQLModel, SQLAlchemy, Peewee, Django ORM 的详细对比。
+    *   **[架构设计 (Architecture)](introduction/architecture.md)**: 理解分层设计 (Interface -> Active Record -> Dialect -> Expression -> Backend).
 
-## [1. 介绍](1.introduction/README.md)
-- [概述](1.introduction/introduction.md)
-- [特点](1.introduction/features.md)
-- [系统需求](1.introduction/README.md#requirements)
-- [设计理念](1.introduction/philosophy.md)
-- [Pydantic集成](1.introduction/pydantic-integration.md)
-- [异步支持](1.introduction/async-support.md)
-- [关系管理](1.introduction/relationships.md)
-- [聚合功能](1.introduction/aggregation.md)
-- [性能表现](1.introduction/performance.md)
-- [学习曲线](1.introduction/learning-curve.md)
-- [社区生态](1.introduction/community.md)
-- [何时选择](1.introduction/when-to-choose.md)
-- [代码对比](1.introduction/code-comparison.md)
-- [总结](1.introduction/conclusion.md)
+2.  **[快速入门 (Getting Started)](getting_started/README.md)**
+    *   **[安装指南 (Installation)](getting_started/installation.md)**: 环境要求 (Python 3.8+, Pydantic V2) 及 pip 安装。
+    *   **[数据库配置 (Configuration)](getting_started/configuration.md)**: 设置 SQLite 后端及管理共享连接。
+    *   **[快速开始 (Quick Start)](getting_started/quick_start.md)**: 一个完整的 "Hello World" 示例，定义 User/Post 模型并执行 CRUD。
 
-## [2. 快速入门（SQLite示例）](2.quick_start/README.md)
-- [安装指南](2.quick_start/installation.md)
-- [基本配置](2.quick_start/basic_configuration.md)
-- [第一个模型示例](2.quick_start/first_model_example.md)
-- [常见问题解答](2.quick_start/faq.md)
+3.  **模型定义 (Modeling Data - The Safe Layer)**
+    *   **`ActiveRecord` 基类**: 领域模型的基石。
+    *   **字段定义**: 使用 Pydantic 类型进行健壮的 Schema 验证。
+    *   **Mixin 与组合**:
+        *   `UUIDMixin`: 自动处理 UUID 主键。
+        *   `TimestampMixin`: 自动管理 `created_at` 和 `updated_at`。
+        *   `OptimisticLockMixin`: 基于版本号的并发控制实现。
+    *   **验证生命周期**: `before_save`, `after_save` 等钩子函数。
+    *   **高级字段配置**:
+        *   **自定义列名**: 通过 `Annotated[T, UseColumn("col_name")]` 映射遗留数据库列。
+        *   **自定义适配器**: 通过 `Annotated[T, UseAdapter(AdapterClass)]` 定义自定义序列化逻辑。
+        *   **字段代理 (Field Proxy)**: 使用 `ClassVar[FieldProxy]` (如 `User.c.name`) 进行类型安全的查询构建与别名支持。
+    *   **元数据定制**: 表名、索引与约束配置。
 
-## [3. ActiveRecord 与 ActiveQuery](3.active_record_and_active_query/README.md)
-### [3.1 定义模型](3.active_record_and_active_query/3.1.defining_models/README.md)
-- [表结构定义](3.active_record_and_active_query/3.1.defining_models/table_schema_definition.md)
-- [字段验证规则](3.active_record_and_active_query/3.1.defining_models/field_validation_rules.md)
-- [生命周期钩子](3.active_record_and_active_query/3.1.defining_models/lifecycle_hooks.md)
-- [继承与多态](3.active_record_and_active_query/3.1.defining_models/inheritance_and_polymorphism.md)
-- [组合模式与混入](3.active_record_and_active_query/3.1.defining_models/composition_patterns_and_mixins.md)
+4.  **关联关系 (Relationships & Associations)**
+    *   **类型安全的描述符**: `RelationDescriptor` 如何提供智能代码提示。
+    *   **关系类型**:
+        *   `HasOne` / `BelongsTo` (一对一)
+        *   `HasMany` (一对多)
+        *   多对多 (Many-to-Many) —— 通过中间模型
+    *   **加载策略**:
+        *   预加载 (Eager Loading): 使用 `with_()` 解决 N+1 问题。
+        *   延迟加载 (Lazy Loading): 按需访问。
 
-### [3.2 CRUD操作](3.active_record_and_active_query/3.2.crud_operations/README.md)
-- [创建/读取/更新/删除](3.active_record_and_active_query/3.2.crud_operations/create_read_update_delete.md)
-- [批量操作](3.active_record_and_active_query/3.2.crud_operations/batch_operations.md)
-- [事务处理基础](3.active_record_and_active_query/3.2.crud_operations/transaction_basics.md)
+5.  **查询接口 (Querying Interface)**
+    *   **ActiveQuery 架构**: 理解基于 Mixin 的设计 (`ActiveQuery` = `Base` + `Aggregate` + `Join` + ...)。
+    *   **核心过滤 (`BaseQueryMixin`)**:
+        *   `select()`: 选择特定列。
+        *   `where()`: 应用查询条件。
+        *   `distinct()`: 结果去重。
+    *   **聚合 (`AggregateQueryMixin`)**:
+        *   标准函数: `count()`, `sum()`, `avg()`, `min()`, `max()`。
+        *   `aggregate()`: 执行任意聚合表达式。
+    *   **连接 (`JoinQueryMixin`)**:
+        *   `join()`: 内连接。
+        *   `left_join()`, `cross_join()`: 其他连接类型。
+    *   **排序与范围 (`RangeQueryMixin`)**:
+        *   `order_by()`: 结果排序。
+        *   `limit()`, `offset()`: 结果切片与分页。
+    *   **关联加载 (`RelationalQueryMixin`)**:
+        *   `with_()`: 预加载 (Eager loading) 关联记录。
+    *   **集合操作 (`SetOperationQuery`)**:
+        *   `union()`, `intersect()`, `except_()`: 组合查询结果。
+    *   **公用表表达式 (`CTEQuery`)**:
+        *   `with_cte()`: 定义和使用 CTE 以处理复杂查询。
 
-### [3.3 预定义字段与特性](3.active_record_and_active_query/3.3.predefined_fields_and_features/README.md)
-- [主键配置](3.active_record_and_active_query/3.3.predefined_fields_and_features/primary_key_configuration.md)
-- [时间戳字段（创建/更新）](3.active_record_and_active_query/3.3.predefined_fields_and_features/timestamp_fields.md)
-- [软删除机制](3.active_record_and_active_query/3.3.predefined_fields_and_features/soft_delete_mechanism.md)
-- [版本控制与乐观锁](3.active_record_and_active_query/3.3.predefined_fields_and_features/version_control_and_optimistic_locking.md)
-- [悲观锁策略](3.active_record_and_active_query/3.3.predefined_fields_and_features/pessimistic_locking_strategies.md)
-- [自定义字段](3.active_record_and_active_query/3.3.predefined_fields_and_features/custom_fields.md)
+6.  **性能与优化 (Performance & Optimization - The Raw Layer)**
+    *   **"渐进式" 策略**: 何时切换模式。
+    *   **严格模式 (Strict Mode)**: 为高完整性操作 (用户输入、复杂业务逻辑) 提供完整的 Pydantic 验证。
+    *   **原始/聚合模式 (Raw / Aggregate Mode)**: 使用 `.aggregate()` 绕过 Pydantic 开销，用于海量读取 (ETL, 报表)。
+    *   **缓存机制**: 理解列名-字段映射 (Column-to-Field Map) 缓存。
+    *   **批量操作**: 批量创建 (Bulk Create) 与 更新策略。
 
-### [3.4 关系管理](3.active_record_and_active_query/3.4.relationships/README.md)
-- [一对一关系](3.active_record_and_active_query/3.4.relationships/one_to_one_relationships.md)
-- [一对多关系](3.active_record_and_active_query/3.4.relationships/one_to_many_relationships.md)
-- [多对多关系](3.active_record_and_active_query/3.4.relationships/many_to_many_relationships.md)
-- [多态关系](3.active_record_and_active_query/3.4.relationships/polymorphic_relationships.md)
-- [自引用关系](3.active_record_and_active_query/3.4.relationships/self_referential_relationships.md)
-- [关系加载策略](3.active_record_and_active_query/3.4.relationships/relationship_loading_strategies.md)
-- [预加载与懒加载](3.active_record_and_active_query/3.4.relationships/eager_and_lazy_loading.md)
-- [跨数据库关系](3.active_record_and_active_query/3.4.relationships/cross_database_relationships.md)
+7.  **后端表达式系统 (The Backend Expression System)**
+    *   **`ToSQL` 协议**: Python 对象如何安全地转换为 SQL 字符串。
+    *   **表达式组件**: 列 (Columns)、字面量 (Literals)、函数 (Functions)、窗口 (Windows)。
+    *   **方言系统**: 如何支持不同的数据库 (SQLite, Dummy)。
+    *   **高级 SQL 构建**: 编程式构建 CTE (公用表表达式) 和递归查询。
+    *   **实现自定义后端 (Implementing Custom Backends)**:
+        *   **架构设计**: 继承 `StorageBackend` 及其 Mixin 组件 (`ConnectionMixin`, `ExecutionMixin` 等)。
+        *   **方言定义**: 继承 `SQLDialectBase` 实现数据库特定的 SQL 生成逻辑。
+        *   **类型适配**: 将 Python 类型映射到数据库类型。
+        *   **参考实现**: 使用 `sqlite` 后端作为标准模板。
 
-### [3.5 事务与隔离级别](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/README.md)
-- [事务管理](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/transaction_management.md)
-- [隔离级别配置](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/isolation_level_configuration.md)
-- [嵌套事务](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/nested_transactions.md)
-- [保存点](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/savepoints.md)
-- [事务中的错误处理](3.active_record_and_active_query/3.5.transactions_and_isolation_levels/error_handling_in_transactions.md)
+8.  **测试与可靠性 (Testing & Reliability)**
+    *   **零 IO 测试 (Zero-IO Testing)**: `DummyBackend` 的独特优势。
+    *   **单元测试模型**: 在不连接数据库的情况下验证业务逻辑。
+    *   **集成测试**: 使用 SQLite 进行完整的往返验证。
+    *   **测试模式**: 可维护测试套件的最佳实践。
 
-### [3.6 聚合查询](3.active_record_and_active_query/3.6.aggregate_queries/README.md)
-- [计数、求和、平均值、最小值、最大值](3.active_record_and_active_query/3.6.aggregate_queries/basic_aggregate_functions.md)
-- [分组操作](3.active_record_and_active_query/3.6.aggregate_queries/group_by_operations.md)
-- [Having子句](3.active_record_and_active_query/3.6.aggregate_queries/having_clauses.md)
-- [复杂聚合](3.active_record_and_active_query/3.6.aggregate_queries/complex_aggregations.md)
-- [窗口函数](3.active_record_and_active_query/3.6.aggregate_queries/window_functions.md)
-- [统计查询](3.active_record_and_active_query/3.6.aggregate_queries/statistical_queries.md)
-- [JSON操作](3.active_record_and_active_query/3.6.aggregate_queries/json_operations.md)
-  - JSON提取（EXTRACT）
-  - JSON文本提取（EXTRACT_TEXT）
-  - JSON包含检查（CONTAINS）
-  - JSON路径存在检查（EXISTS）
-  - JSON类型获取（TYPE）
-  - JSON元素操作（REMOVE/INSERT/REPLACE/SET）
-- [自定义表达式](3.active_record_and_active_query/3.6.aggregate_queries/custom_expressions.md)
-  - 算术表达式
-  - 函数表达式
-  - CASE表达式
-  - 条件表达式（COALESCE, NULLIF等）
-  - 子查询表达式
-  - 分组集合表达式（CUBE, ROLLUP, GROUPING SETS）
+9.  **集成与场景案例 (Integration & Real-World Scenarios)**
+    *   **FastAPI 集成**:
+        *   **Pydantic 模型即 Schema**: 直接将 ActiveRecord 模型用作 `response_model` 和请求体。
+        *   **异步路由处理**: 利用 `await` 实现非阻塞数据库 I/O。
+        *   **依赖注入**: 每个请求的会话与事务管理。
+    *   **GraphQL 集成 (Strawberry/Ariadne)**:
+        *   **解析器 (Resolvers)**: 将 GraphQL 字段映射到 `ActiveQuery` 方法。
+        *   **DataLoader 模式**: 使用 `in_` 查询和批量加载解决 N+1 问题。
+    *   **数据处理与 ETL**:
+        *   **原始模式 (Raw Mode)**: 使用 `.aggregate()` 进行高性能数据导出/转换。
+        *   **批量操作**: 高效导入海量数据。
+    *   **Serverless / FaaS**:
+        *   **冷启动优化**: 轻量级后端初始化带来的优势。
 
-### [3.7 高级查询特性](3.active_record_and_active_query/3.7.advanced_query_features/README.md)
-- [自定义ActiveQuery类](3.active_record_and_active_query/3.7.advanced_query_features/custom_activequery_classes.md)
-- [查询作用域](3.active_record_and_active_query/3.7.advanced_query_features/query_scopes.md)
-- [动态查询构建](3.active_record_and_active_query/3.7.advanced_query_features/dynamic_query_building.md)
-- [原生SQL集成](3.active_record_and_active_query/3.7.advanced_query_features/raw_sql_integration.md)
-- [异步访问](3.active_record_and_active_query/3.7.advanced_query_features/async_access.md)
+10. **迁移与部署 (Migration & Deployment)**
+    *   **Schema 管理**: 同步模型与数据库表结构。
+    *   **迁移策略**: 处理 Schema 演进。
+    *   **生产就绪**: 高负载环境下的配置建议。
 
-## [4. 性能优化](4.performance_optimization/README.md)
-- [查询优化技巧](4.performance_optimization/query_optimization_techniques.md)
-- [缓存策略](4.performance_optimization/caching_strategies.md)
-  - [模型级缓存](4.performance_optimization/caching_strategies/model_level_caching.md)
-  - [查询结果缓存](4.performance_optimization/caching_strategies/query_result_caching.md)
-  - [关系缓存](4.performance_optimization/caching_strategies/relationship_caching.md)
-- [大数据集处理](4.performance_optimization/large_dataset_handling.md)
-- [批量操作最佳实践](4.performance_optimization/batch_operation_best_practices.md)
-- [性能分析与监控](4.performance_optimization/performance_analysis_and_monitoring.md)
+11. **API 参考 (API Reference)**
+    *   所有类和方法的详细 API 文档。
 
-## [5. 后端配置](5.backend_configuration/README.md)
-### 5.1 支持的数据库
-> **注意：** SQLite是唯一内置的后端，其他数据库后端需要额外的依赖项。
-
-- [MySQL](5.backend_configuration/5.1.supported_databases/mysql.md)
-- [MariaDB](5.backend_configuration/5.1.supported_databases/mariadb.md)
-- [PostgreSQL](5.backend_configuration/5.1.supported_databases/postgresql.md)
-- [Oracle](5.backend_configuration/5.1.supported_databases/oracle.md)
-- [SQL Server](5.backend_configuration/5.1.supported_databases/sql_server.md)
-- [SQLite](5.backend_configuration/5.1.supported_databases/sqlite.md)
-
-### 5.2 跨数据库查询
-- [跨数据库连接配置](5.backend_configuration/5.2.cross_database_queries/connection_configuration.md)
-- [异构数据源集成](5.backend_configuration/5.2.cross_database_queries/heterogeneous_data_source_integration.md)
-- [数据同步策略](5.backend_configuration/5.2.cross_database_queries/data_synchronization_strategies.md)
-- [跨数据库事务处理](5.backend_configuration/5.2.cross_database_queries/cross_database_transaction_handling.md)
-
-### 5.3 数据库特定差异
-- [数据类型映射](5.backend_configuration/5.3.database_specific_differences/data_type_mapping.md)
-- [SQL方言差异](5.backend_configuration/5.3.database_specific_differences/sql_dialect_differences.md)
-- [性能考量](5.backend_configuration/5.3.database_specific_differences/performance_considerations.md)
-
-### 5.4 自定义后端
-- [实现自定义数据库后端](5.backend_configuration/5.4.custom_backends/implementing_custom_backends.md)
-- [扩展现有后端](5.backend_configuration/5.4.custom_backends/extending_existing_backends.md)
-
-## [6. 测试与调试](6.testing_and_debugging/README.md)
-- [单元测试编写指南](6.testing_and_debugging/unit_testing_guide/README.md)
-  - [模型测试](6.testing_and_debugging/unit_testing_guide/model_testing.md)
-  - [关系测试](6.testing_and_debugging/unit_testing_guide/relationship_testing.md)
-  - [事务测试](6.testing_and_debugging/unit_testing_guide/transaction_testing.md)
-- [调试技巧](6.testing_and_debugging/debugging_techniques.md)
-- [日志记录和分析](6.testing_and_debugging/logging_and_analysis.md)
-- [性能分析工具](6.testing_and_debugging/performance_profiling_tools.md)
-
-## [7. 版本迁移与升级](7.version_migration_and_upgrades/README.md)
-- [模式变更管理](7.version_migration_and_upgrades/schema_change_management.md)
-- [数据迁移策略](7.version_migration_and_upgrades/data_migration_strategies.md)
-- [从其他ORM迁移至ActiveRecord](7.version_migration_and_upgrades/migrating_from_other_orms.md)
-
-## [8. 安全性考虑](8.security_considerations/README.md)
-- [SQL注入防护](8.security_considerations/sql_injection_protection.md)
-- [敏感数据处理](8.security_considerations/sensitive_data_handling.md)
-- [访问控制与权限](8.security_considerations/access_control_and_permissions.md)
-
-## [9. 应用场景](9.application_scenarios/README.md)
-### 9.1 Web应用开发
-- [Web API后端开发](9.application_scenarios/9.1.web_application_development/web_api_backend_development.md)
-- [与各种Web框架集成](9.application_scenarios/9.1.web_application_development/integration_with_web_frameworks.md)
-
-### 9.2 数据分析应用
-- [报表生成](9.application_scenarios/9.2.data_analysis_applications/report_generation.md)
-- [数据转换处理](9.application_scenarios/9.2.data_analysis_applications/data_transformation_processing.md)
-
-### 9.3 企业应用开发
-- [微服务架构中的应用](9.application_scenarios/9.3.enterprise_application_development/applications_in_microservice_architecture.md)
-- [企业级数据库集成](9.application_scenarios/9.3.enterprise_application_development/enterprise_database_integration.md)
-
-### 9.4 命令行工具开发
-- [数据处理脚本](9.application_scenarios/9.4.command_line_tool_development/data_processing_scripts.md)
-- [ETL流程实现](9.application_scenarios/9.4.command_line_tool_development/etl_process_implementation.md)
-
-## [10. 完整使用示例](10.complete_examples/README.md)
-- Web应用示例
-- 数据分析示例
-- 微服务示例
-- 命令行工具示例
-
-## [11. 贡献指南](11.contributing/README.md)
-- [想法与功能请求](11.contributing/ideas_and_feature_requests.md)
-- [开发流程](11.contributing/development_process.md)
-- [Bug修复](11.contributing/bug_fixes.md)
-- [文档贡献](11.contributing/documentation_contributions.md)
-- [赞助支持](11.contributing/sponsorship.md)
-
-## [12. API参考](12.api_reference/README.md)
-- 完整类/方法文档
+12. **贡献指南 (Contributing)**
+    *   搭建开发环境。
+    *   运行测试套件。
+    *   编写文档。

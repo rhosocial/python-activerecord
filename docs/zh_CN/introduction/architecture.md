@@ -59,12 +59,15 @@ classDiagram
     %% Base Implementation Layer
     class BaseActiveRecord {
         <<abstract>>
+        +configure(config, backend_class)$
+        +backend() StorageBackend$
         +save() int
         +delete() int
         +refresh() None
         +transaction() ContextManager
     }
     IActiveRecord <|-- BaseActiveRecord
+    BaseActiveRecord ..> StorageBackend : uses
 
     %% Mixins
     class QueryMixin {
@@ -75,16 +78,45 @@ classDiagram
         +get_relation(name)
         +clear_relation_cache(name)
     }
+    class ColumnNameMixin {
+        +get_field_to_column_map() Dict
+        +get_column_to_field_map() Dict
+        +validate_column_names() None
+    }
+    class FieldAdapterMixin {
+        #_get_adapter_for_field(field_name)
+    }
+    class MetaclassMixin {
+        <<Metaclass Provider>>
+    }
 
     %% User-Facing Class
     class ActiveRecord {
         <<Concrete>>
-        +create(**kwargs) IActiveRecord$
     }
 
     BaseActiveRecord <|-- ActiveRecord
     QueryMixin --|> ActiveRecord
     RelationManagementMixin --|> ActiveRecord
+    ColumnNameMixin --|> ActiveRecord
+    FieldAdapterMixin --|> ActiveRecord
+    MetaclassMixin --|> ActiveRecord
+
+    %% User Defined Model
+    class UserDefinedModel {
+        <<User Implementation>>
+        +field1: type
+        +field2: type
+    }
+    ActiveRecord <|-- UserDefinedModel
+
+    %% Backend Dependency
+    class StorageBackend {
+        <<abstract>>
+        +connect()
+        +disconnect()
+        +transaction()
+    }
 ```
 
 ### 3. 异步架构 (`AsyncActiveRecord`)
@@ -113,12 +145,15 @@ classDiagram
     %% Base Implementation Layer
     class AsyncBaseActiveRecord {
         <<abstract>>
+        +configure(config, backend_class)$
+        +backend() AsyncStorageBackend$
         +save() int async
         +delete() int async
         +refresh() None async
         +transaction() AsyncContextManager
     }
     IAsyncActiveRecord <|-- AsyncBaseActiveRecord
+    AsyncBaseActiveRecord ..> AsyncStorageBackend : uses
 
     %% Mixins
     class AsyncQueryMixin {
@@ -129,16 +164,231 @@ classDiagram
         +get_relation(name)
         +clear_relation_cache(name)
     }
+    class ColumnNameMixin {
+        +get_field_to_column_map() Dict
+        +get_column_to_field_map() Dict
+        +validate_column_names() None
+    }
+    class FieldAdapterMixin {
+        #_get_adapter_for_field(field_name)
+    }
+    class MetaclassMixin {
+        <<Metaclass Provider>>
+    }
 
     %% User-Facing Class
     class AsyncActiveRecord {
         <<Concrete>>
-        +create(**kwargs) IAsyncActiveRecord$ async
     }
 
     AsyncBaseActiveRecord <|-- AsyncActiveRecord
     AsyncQueryMixin --|> AsyncActiveRecord
     RelationManagementMixin --|> AsyncActiveRecord
+    ColumnNameMixin --|> AsyncActiveRecord
+    FieldAdapterMixin --|> AsyncActiveRecord
+    MetaclassMixin --|> AsyncActiveRecord
+
+    %% User Defined Model
+    class UserDefinedModel {
+        <<User Implementation>>
+        +field1: type
+        +field2: type
+    }
+    AsyncActiveRecord <|-- UserDefinedModel
+
+    %% Backend Dependency
+    class AsyncStorageBackend {
+        <<abstract>>
+        +connect() async
+        +disconnect() async
+        +transaction() async
+    }
+```
+
+### 4. 查询架构 (Query Architecture)
+
+查询系统采用组合模式，通过 Mixin 复用功能，并支持同步和异步操作。特别地，`IActiveQuery` 和 `IAsyncActiveQuery` 提供了 `aggregate()` 方法，用于在不适合或不需要映射为 `ActiveRecord` 实例时，获取数据库的原始执行结果（字典列表）。
+
+#### 同步查询 (Sync Query)
+
+```mermaid
+classDiagram
+    %% Interfaces
+    class IQuery {
+        <<interface>>
+        +to_sql() Tuple
+        +backend() StorageBackend
+    }
+    class IActiveQuery {
+        <<interface>>
+        +model_class: Type
+        +all() List~IActiveRecord~
+        +one() Optional~IActiveRecord~
+        +aggregate() List~Dict~
+    }
+    class ICTEQuery {
+        <<interface>>
+        +with_cte(name, query)
+        +recursive(enabled)
+        +aggregate() List~Dict~
+    }
+    class ISetOperationQuery {
+        <<interface>>
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+
+    IActiveQuery --|> IQuery
+    ICTEQuery --|> IQuery
+    ISetOperationQuery --|> IQuery
+
+    %% Mixins
+    class BaseQueryMixin {
+        +where(condition)
+        +select(columns)
+        +order_by(clauses)
+        +limit(count)
+        +offset(count)
+        +group_by(columns)
+        +having(condition)
+    }
+    class JoinQueryMixin {
+        +join(target, on)
+        +left_join(target, on)
+    }
+    class AggregateQueryMixin {
+        +count()
+        +sum(column)
+        +avg(column)
+        +min(column)
+        +max(column)
+        +aggregate() List~Dict~
+    }
+    class RelationalQueryMixin {
+        +preload(relation)
+        +eager_load(relation)
+    }
+    class RangeQueryMixin {
+        +chunk(size)
+        +batch(size)
+    }
+
+    %% Implementations
+    class ActiveQuery {
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+    class CTEQuery
+    class SetOperationQuery
+
+    ActiveQuery ..|> IActiveQuery
+    ActiveQuery --|> BaseQueryMixin
+    ActiveQuery --|> JoinQueryMixin
+    ActiveQuery --|> AggregateQueryMixin
+    ActiveQuery --|> RelationalQueryMixin
+    ActiveQuery --|> RangeQueryMixin
+
+    CTEQuery ..|> ICTEQuery
+    CTEQuery ..|> ISetOperationQuery
+    CTEQuery --|> BaseQueryMixin
+    CTEQuery --|> JoinQueryMixin
+    CTEQuery --|> AggregateQueryMixin
+    CTEQuery --|> RangeQueryMixin
+
+    SetOperationQuery ..|> ISetOperationQuery
+```
+
+#### 异步查询 (Async Query)
+
+```mermaid
+classDiagram
+    %% Interfaces
+    class IQuery {
+        <<interface>>
+        +to_sql() Tuple
+        +backend() StorageBackend
+    }
+    class IAsyncActiveQuery {
+        <<interface>>
+        +model_class: Type
+        +all() List~IActiveRecord~ async
+        +one() Optional~IActiveRecord~ async
+        +aggregate() List~Dict~ async
+    }
+    class IAsyncCTEQuery {
+        <<interface>>
+        +with_cte(name, query)
+        +recursive(enabled)
+        +aggregate() List~Dict~ async
+    }
+    class ISetOperationQuery {
+        <<interface>>
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+
+    IAsyncActiveQuery --|> IQuery
+    IAsyncCTEQuery --|> IQuery
+    ISetOperationQuery --|> IQuery
+
+    %% Mixins
+    class BaseQueryMixin {
+        +where(condition)
+        +select(columns)
+        +order_by(clauses)
+        +limit(count)
+        +offset(count)
+        +group_by(columns)
+        +having(condition)
+    }
+    class JoinQueryMixin {
+        +join(target, on)
+        +left_join(target, on)
+    }
+    class AsyncAggregateQueryMixin {
+        +count() async
+        +sum(column) async
+        +avg(column) async
+        +min(column) async
+        +max(column) async
+        +aggregate() List~Dict~ async
+    }
+    class RelationalQueryMixin {
+        +preload(relation)
+        +eager_load(relation)
+    }
+    class RangeQueryMixin {
+        +chunk(size)
+        +batch(size)
+    }
+
+    %% Implementations
+    class AsyncActiveQuery {
+        +union(other)
+        +intersect(other)
+        +except_(other)
+    }
+    class AsyncCTEQuery
+    class SetOperationQuery
+
+    AsyncActiveQuery ..|> IAsyncActiveQuery
+    AsyncActiveQuery --|> BaseQueryMixin
+    AsyncActiveQuery --|> JoinQueryMixin
+    AsyncActiveQuery --|> AsyncAggregateQueryMixin
+    AsyncActiveQuery --|> RelationalQueryMixin
+    AsyncActiveQuery --|> RangeQueryMixin
+
+    AsyncCTEQuery ..|> IAsyncCTEQuery
+    AsyncCTEQuery ..|> ISetOperationQuery
+    AsyncCTEQuery --|> BaseQueryMixin
+    AsyncCTEQuery --|> JoinQueryMixin
+    AsyncCTEQuery --|> AsyncAggregateQueryMixin
+    AsyncCTEQuery --|> RangeQueryMixin
+
+    SetOperationQuery ..|> ISetOperationQuery
 ```
 
 ## 查询的生命周期 (The Life of a Query)
@@ -155,13 +405,44 @@ sequenceDiagram
 
     App->>Model: User.query().where(...)
     Model->>Query: 创建查询构建器
-    App->>Query: .all()
-    Query->>Expr: 构建查询表达式
-    Expr->>Dialect: 编译为 SQL
-    Dialect-->>Backend: 原始 SQL + 参数
-    Backend->>DB: 执行 SQL
-    DB-->>Backend: 返回结果行
-    Backend-->>Query: 原始数据
-    Query->>Model: 实例化对象 (Pydantic 验证)
-    Model-->>App: List[User]
+    
+    alt 调用 .all() / .one()
+        App->>Query: .all()
+        Query->>Expr: 收集查询条件
+        Expr->>Dialect: 构建 SQL
+        Dialect-->>Expr: SQL & Params
+        Expr->>Backend: 执行 SQL
+        Backend-->>Expr: Result Rows
+        Expr->>Query: Result Rows
+        Query-->>Model: Result Rows
+        Model-->>App: List[User]
+    else 调用 .aggregate()
+        App->>Query: .aggregate()
+        Query->>Expr: 收集查询条件
+        Expr->>Dialect: 构建 SQL
+        Dialect-->>Expr: SQL & Params
+        Expr->>Backend: 执行 SQL
+        Backend-->>Expr: Result Rows
+        Expr->>Query: Result Rows
+        Query-->>App: List[Dict]
+    end
 ```
+
+### 流程详解 (Detailed Flow)
+
+1.  **启动 (Initiation)**
+    用户调用 `User.query()`。模型实例化一个 `ActiveQuery` 构建器，并注入当前模型的上下文。此时，查询构建器知道它服务于哪个模型以及对应的数据表。
+
+2.  **条件收集 (Condition Collection)**
+    用户链式调用 `.where()`, `.select()` 等方法。这一阶段主要是收集查询所需的各种条件和参数。值得注意的是，SQL 构建可以随时进行，不仅限于最后时刻。
+
+3.  **构建 SQL (SQL Construction)**
+    当用户调用 `.all()`, `.one()` 或 `.aggregate()` 时，或者需要查看生成的 SQL 时，查询构建器会将收集到的条件传递给 `Dialect`（方言层）。方言层负责将抽象的条件转换为特定数据库的 SQL 语法（例如处理不同数据库的分页语法差异或参数占位符风格）。
+
+4.  **执行 (Execution)**
+    构建好的 SQL 和参数被传递给 `StorageBackend`。后端负责从连接池获取连接、执行查询，并处理底层的数据库游标。对于异步操作，这里会使用 `await` 非阻塞地等待数据库响应。
+
+5.  **映射 (ORM Mapping)**
+    数据库返回的是原始的行数据（通常是元组或字典）。
+    *   **如果调用 `.all()` 或 `.one()`**：`ActiveRecord` 接收这些数据，利用 Pydantic 的解析能力，将其转换为强类型的模型实例。这一步不仅是数据填充，还包括了类型转换和验证，确保返回给用户的对象是安全可靠的。
+    *   **如果调用 `.aggregate()`**：跳过映射步骤，直接返回原始的字典列表 (`List[Dict]`)。这对于聚合查询或不需要模型开销的场景非常有用。
