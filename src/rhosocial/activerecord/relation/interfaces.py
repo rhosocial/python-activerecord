@@ -139,9 +139,9 @@ class IAsyncRelationValidation(ABC):
     """
 
     @abstractmethod
-    async def validate(self, owner: IAsyncActiveRecord, related_model: IAsyncActiveRecord) -> None:
+    def validate(self, owner: IAsyncActiveRecord, related_model: IAsyncActiveRecord) -> None:
         """
-        Asynchronously validate relationship between two models.
+        Validate relationship between two models.
 
         Args:
             owner: Owner model class (must be IAsyncActiveRecord, NOT IActiveRecord)

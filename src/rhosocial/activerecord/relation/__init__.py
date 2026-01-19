@@ -4,8 +4,9 @@ Relations package for Python ORM-style relationship management.
 Provides a flexible, type-safe way to define and manage model relationships.
 """
 
-from .base import IRelationManagementMixin
+from .base import RelationManagementMixin
 from .descriptors import RelationDescriptor, BelongsTo, HasOne, HasMany, DefaultIRelationLoader
+from .async_descriptors import AsyncRelationDescriptor, AsyncBelongsTo, AsyncHasOne, AsyncHasMany, AsyncDefaultRelationLoader
 from .cache import CacheConfig, GlobalCacheConfig
 from .interfaces import (
     IRelationLoader,
@@ -19,10 +20,14 @@ from .interfaces import (
 
 __all__ = [
     'RelationDescriptor',
-    'IRelationManagementMixin',
+    'AsyncRelationDescriptor',
+    'RelationManagementMixin',
     'BelongsTo',
     'HasOne',
     'HasMany',
+    'AsyncBelongsTo',
+    'AsyncHasOne',
+    'AsyncHasMany',
     'CacheConfig',
     'GlobalCacheConfig',
     'IRelationLoader',
@@ -31,4 +36,5 @@ __all__ = [
     'IAsyncRelationLoader',
     'IAsyncRelationValidation',
     'DefaultIRelationLoader',
+    'AsyncDefaultRelationLoader',
 ]

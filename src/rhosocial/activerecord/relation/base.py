@@ -11,7 +11,7 @@ from .descriptors import RelationDescriptor
 from .interfaces import IRelationManagement
 
 
-class IRelationManagementMixin(IRelationManagement):
+class RelationManagementMixin(IRelationManagement):
     """
     Mixin providing relation management capabilities for ActiveRecord models.
 

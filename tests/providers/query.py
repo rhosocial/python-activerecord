@@ -13,7 +13,7 @@ Its main responsibilities are:
 import os
 import time
 from typing import Type, List, Tuple
-from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
 # The models are defined generically in the testsuite...
 from rhosocial.activerecord.testsuite.feature.query.fixtures.models import MappedUser, MappedPost, MappedComment
@@ -40,23 +40,23 @@ class QueryProvider(IQueryProvider):
         """A generic helper method to handle the setup for any given model."""
         # 1. Get the backend class (SQLiteBackend) and connection config for the requested scenario.
         backend_class, original_config = get_scenario(scenario_name)
-        
+
         # Check if this is a file-based scenario, and if so, generate a unique filename
         import os
         import tempfile
         import uuid
         config = original_config  # default to the original config
-        
+
         if original_config.database != ":memory:":
             # For file-based scenarios, create a unique temporary file
             unique_filename = os.path.join(
                 tempfile.gettempdir(),
                 f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
             )
-            
+
             # Store the actual database file used for this scenario in this test
             self._scenario_db_files[scenario_name] = unique_filename
-            
+
             # Create a new config with the unique database path
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
             config = SQLiteConnectionConfig(
@@ -102,7 +102,7 @@ class QueryProvider(IQueryProvider):
 
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
         model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
-        
+
         return model_class
 
     def _setup_multiple_models(self, models_and_tables, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
@@ -237,28 +237,28 @@ class QueryProvider(IQueryProvider):
                     # Ignore errors if the file is already gone or locked, etc.
                     pass
 
-    async def _setup_model_async(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str, shared_backend=None) -> Type[ActiveRecord]:
+    async def _setup_model_async(self, model_class: Type[AsyncActiveRecord], scenario_name: str, table_name: str, shared_backend=None) -> Type[AsyncActiveRecord]:
         """A generic helper method to handle the setup for any given model."""
-        # 1. Get the backend class (SQLiteBackend) and connection config for the requested scenario.
-        from tests.rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+        # 1. Get the backend class (AsyncSQLiteBackend) and connection config for the requested scenario.
+        from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
         backend_class, original_config = get_scenario(scenario_name)
-        
+
         # Check if this is a file-based scenario, and if so, generate a unique filename
         import os
         import tempfile
         import uuid
         config = original_config  # default to the original config
-        
+
         if original_config.database != ":memory:":
             # For file-based scenarios, create a unique temporary file
             unique_filename = os.path.join(
                 tempfile.gettempdir(),
                 f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
             )
-            
+
             # Store the actual database file used for this scenario in this test
             self._scenario_db_files[scenario_name] = unique_filename
-            
+
             # Create a new config with the unique database path
             from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
             config = SQLiteConnectionConfig(
@@ -272,13 +272,27 @@ class QueryProvider(IQueryProvider):
         if shared_backend is None:
             # Create a new backend instance for complete isolation
             model_class.configure(config, AsyncSQLiteBackend)
-            shared_backend = model_class.__backend__
-            await shared_backend.connect()
+            # Connect to the backend if it has connect method
+            if hasattr(model_class.__backend__, 'connect'):
+                await model_class.__backend__.connect()
         else:
             # Reuse the shared backend instance for subsequent models in the group
             model_class.__connection_config__ = config
             model_class.__backend_class__ = AsyncSQLiteBackend
             model_class.__backend__ = shared_backend
+
+        # On Windows, add a small delay after each save operation to ensure
+        # proper timestamp ordering since multiple rapid operations may have
+        # nearly identical timestamps, causing flaky tests
+        original_save = model_class.save
+
+        async def delayed_save(self, *args, **kwargs):
+            result = await original_save(self, *args, **kwargs)  # Changed to await for async save
+            # Add small delay to ensure timestamp differences on Windows
+            time.sleep(0.001)  # 1ms delay
+            return result
+
+        model_class.save = delayed_save
 
         # 3. Prepare the database schema. To ensure tests are isolated, we drop
         #    the table if it exists and recreate it from the schema file.
@@ -286,17 +300,17 @@ class QueryProvider(IQueryProvider):
         from rhosocial.activerecord.backend.schema import StatementType
         try:
             options = ExecutionOptions(stmt_type=StatementType.DDL)
-            await shared_backend.execute(f"DROP TABLE IF EXISTS {table_name}", options=options)
+            await model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=options)
         except Exception:
             # Ignore errors if the table doesn't exist, which is expected on the first run.
             pass
 
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
-        await shared_backend.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
-        
+        await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
         return model_class
     
-    async def _setup_multiple_models_async(self, models_and_tables, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+    async def _setup_multiple_models_async(self, models_and_tables, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
         """A helper to set up multiple models for fixture groups."""
         result = []
         shared_backend = None
@@ -311,17 +325,18 @@ class QueryProvider(IQueryProvider):
             result.append(configured_model)
         return tuple(result)
 
-    async def setup_async_order_fixtures(self, scenario_name: str) -> Tuple[Type['AsyncActiveRecord'], Type['AsyncActiveRecord'], Type['AsyncActiveRecord']]:
+    async def setup_async_order_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
         """Sets up the database for async order-related models (AsyncUser, AsyncOrder, AsyncOrderItem) tests."""
         from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser, AsyncOrder, AsyncOrderItem
-        
+
         models_and_tables = [
             (AsyncUser, "users"),
             (AsyncOrder, "orders"),
             (AsyncOrderItem, "order_items")
         ]
-        
+
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
+
 
     async def cleanup_after_test_async(self, scenario_name: str):
         """
