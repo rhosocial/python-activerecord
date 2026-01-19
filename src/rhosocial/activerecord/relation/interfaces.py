@@ -13,7 +13,7 @@ T = TypeVar('T', bound=IActiveRecord)
 U = TypeVar('U', bound=IAsyncActiveRecord)
 
 
-class RelationLoader(Generic[T], ABC):
+class IRelationLoader(Generic[T], ABC):
     """
     Abstract interface for loading related objects.
     Implementers define how to load related data for a given model instance.
@@ -60,7 +60,7 @@ class RelationLoader(Generic[T], ABC):
         pass
 
 
-class AsyncRelationLoader(Generic[U], ABC):
+class IAsyncRelationLoader(Generic[U], ABC):
     """
     Abstract interface for asynchronously loading related objects.
     Implementers define how to load related data for a given model instance asynchronously.
@@ -107,7 +107,7 @@ class AsyncRelationLoader(Generic[U], ABC):
         pass
 
 
-class RelationValidation(ABC):
+class IRelationValidation(ABC):
     """
     Abstract interface for relationship validation.
     Implementers define validation rules for relationship types.
@@ -132,7 +132,7 @@ class RelationValidation(ABC):
         pass
 
 
-class AsyncRelationValidation(ABC):
+class IAsyncRelationValidation(ABC):
     """
     Abstract interface for asynchronous relationship validation.
     Implementers define validation rules for relationship types that can run asynchronously.
@@ -157,7 +157,7 @@ class AsyncRelationValidation(ABC):
         pass
 
 
-class RelationManagementInterface(ABC):
+class IRelationManagement(ABC):
     """Interface defining required relation management capabilities."""
 
     _relations: ClassVar[dict]

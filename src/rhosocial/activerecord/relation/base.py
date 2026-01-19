@@ -8,10 +8,10 @@ from typing import Optional, List
 
 from .cache import InstanceCache
 from .descriptors import RelationDescriptor
-from .interfaces import RelationManagementInterface
+from .interfaces import IRelationManagement
 
 
-class RelationManagementMixin(RelationManagementInterface):
+class IRelationManagementMixin(IRelationManagement):
     """
     Mixin providing relation management capabilities for ActiveRecord models.
 

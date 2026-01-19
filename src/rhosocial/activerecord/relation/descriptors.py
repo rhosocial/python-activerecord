@@ -8,7 +8,7 @@ import logging
 from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, Dict
 
 from .cache import CacheConfig, InstanceCache
-from .interfaces import RelationValidation, RelationManagementInterface, RelationLoader
+from .interfaces import IRelationValidation, IRelationManagement, IRelationLoader
 from ..backend.expression.core import Column
 from ..interface import IActiveRecord, IActiveQuery
 
@@ -122,15 +122,15 @@ class RelationDescriptor(Generic[T]):
             self,
             foreign_key: str,
             inverse_of: Optional[str] = None,
-            loader: Optional[RelationLoader[T]] = None,
-            validator: Optional[RelationValidation] = None,
+            loader: Optional[IRelationLoader[T]] = None,
+            validator: Optional[IRelationValidation] = None,
             cache_config: Optional[CacheConfig] = None
     ):
         if type(foreign_key) is not str:
             raise TypeError("foreign_key must be a string")
         self.foreign_key = foreign_key
         self.inverse_of = inverse_of
-        self._loader = loader or DefaultRelationLoader(self)
+        self._loader = loader or DefaultIRelationLoader(self)
         self._validator = validator
         if cache_config is not None and not isinstance(cache_config, CacheConfig):
             raise TypeError("cache_config must be instance of CacheConfig")
@@ -155,7 +155,7 @@ class RelationDescriptor(Generic[T]):
                 kwargs['offset'] = 1
             self._owner.log(level, msg, *args, **kwargs)
 
-    def __set_name__(self, owner: Type[RelationManagementInterface], name: str) -> None:
+    def __set_name__(self, owner: Type[IRelationManagement], name: str) -> None:
         """
         Called when the descriptor is assigned to a class attribute during class creation.
 
@@ -450,7 +450,7 @@ class RelationDescriptor(Generic[T]):
         return result
 
 
-class RelationshipValidator(RelationValidation):
+class RelationshipValidator(IRelationValidation):
     """Default relationship validator implementation."""
 
     def __init__(self, descriptor: RelationDescriptor):
@@ -667,7 +667,7 @@ class HasMany(RelationDescriptor[T], Generic[T]):
 R = TypeVar('R', bound=IActiveRecord)
 
 
-class DefaultRelationLoader(RelationLoader[R]):
+class DefaultIRelationLoader(IRelationLoader[R]):
     """
     Default implementation of relation loading logic.
 

@@ -10,11 +10,11 @@ from .base import (
     FieldAdapterMixin,
     MetaclassMixin
 )
-from .relation import RelationManagementMixin
+from .relation import IRelationManagementMixin
 
 
 class ActiveRecord(
-    RelationManagementMixin,
+    IRelationManagementMixin,
     # FieldMixin, # import when needed
     QueryMixin,
     ColumnNameMixin,  # Added ColumnNameMixin here
@@ -37,7 +37,7 @@ class ActiveRecord(
 
 
 class AsyncActiveRecord(
-    RelationManagementMixin,
+    IRelationManagementMixin,
     AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
