@@ -4,12 +4,12 @@ from datetime import datetime, timezone
 from pydantic import Field
 from typing import Dict, Any
 
-from ..interface import IActiveRecord, ModelEvent
+from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
 from ..backend.expression.core import FunctionCall
 
 
-class TimestampMixin(IActiveRecord, IUpdateBehavior):
+class TimestampMixin(IUpdateBehavior):
     """Adds created_at and updated_at timestamp fields.
 
     Automatically maintains timestamps on record creation/updates.

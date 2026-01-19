@@ -38,12 +38,11 @@ class ActiveRecord(
 
 class AsyncActiveRecord(
     RelationManagementMixin,
-    # FieldMixin, # import when needed
-    AsyncQueryMixin,  # Use async query mixin
+    AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
     MetaclassMixin,
-    AsyncBaseActiveRecord,  # Use async base class
+    AsyncBaseActiveRecord,
 ):
     """Complete Async ActiveRecord implementation combining core features.
 

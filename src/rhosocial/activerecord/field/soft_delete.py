@@ -5,11 +5,11 @@ from pydantic import Field
 from typing import Dict, Any, Optional
 
 from ..backend.expression.core import Column
-from ..interface import IActiveRecord, ModelEvent
+from ..interface import ModelEvent
 from ..query import ActiveQuery
 
 
-class SoftDeleteMixin(IActiveRecord):
+class SoftDeleteMixin:
     """Implements soft delete functionality.
 
     Instead of actual deletion, marks records as deleted using timestamp.

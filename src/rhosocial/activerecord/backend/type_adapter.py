@@ -192,16 +192,22 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if target_type == datetime:
+            if isinstance(value, datetime):
+                return value
             if isinstance(value, (int, float)):
                 return datetime.fromtimestamp(value)
             elif isinstance(value, str):
                 return datetime.fromisoformat(value)
         elif target_type == date:
+            if isinstance(value, date):
+                return value
             if isinstance(value, (int, float)):
                 return date.fromtimestamp(value)
             elif isinstance(value, str):
                 return date.fromisoformat(value)
         elif target_type == time:
+            if isinstance(value, time):
+                return value
             if isinstance(value, str):
                 return time.fromisoformat(value)
         raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")

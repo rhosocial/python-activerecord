@@ -9,6 +9,7 @@ from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
+from .async_join import AsyncJoinQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.expression import (
     WildcardExpression,
@@ -269,8 +270,8 @@ class ActiveQuery(
 class AsyncActiveQuery(
     AsyncAggregateQueryMixin,
     BaseQueryMixin,
-    JoinQueryMixin,
-    RelationalQueryMixin,
+    AsyncJoinQueryMixin,
+    RelationalQueryMixin,  # Use the same RelationalQueryMixin as sync version
     RangeQueryMixin,
     IAsyncActiveQuery
 ):

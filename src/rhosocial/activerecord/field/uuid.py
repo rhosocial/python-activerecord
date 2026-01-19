@@ -4,10 +4,8 @@ import uuid
 from typing import Dict, Any
 from pydantic import Field
 
-from ..interface import IActiveRecord
 
-
-class UUIDMixin(IActiveRecord):
+class UUIDMixin:
     """Adds UUID primary key support.
 
     Automatically generates UUIDs for new records.

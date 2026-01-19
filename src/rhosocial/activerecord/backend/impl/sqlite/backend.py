@@ -11,7 +11,7 @@ import re
 import sqlite3
 import sys
 import time
-from sqlite3 import ProgrammingError
+from datetime import datetime
 from typing import Optional, Tuple, List, Any, Dict, Union, Type
 
 from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
@@ -211,6 +211,7 @@ class SQLiteBackend(StorageBackend):
     def connect(self) -> None:
         """Establish a connection to the SQLite database."""
         try:
+            sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode('utf-8')))
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
             self._connection = sqlite3.connect(
                 self.config.database,

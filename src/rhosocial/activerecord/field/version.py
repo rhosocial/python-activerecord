@@ -87,7 +87,7 @@ class Version:
         return f"Version(value={self.value}, increment_by={self.increment_by}, db_column='{self.db_column}')"
 
 
-class OptimisticLockMixin(IActiveRecord, IUpdateBehavior):
+class OptimisticLockMixin(IUpdateBehavior):
     """Optimistic locking mixin that uses Version class
 
     Uses VersionField (a PrivateAttr) to manage a Version instance.

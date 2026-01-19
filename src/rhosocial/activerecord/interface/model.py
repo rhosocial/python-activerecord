@@ -537,6 +537,24 @@ class IAsyncActiveRecord(ActiveRecordBase):
         _original_values (Dict): Original field values before modification
     """
 
+    async def _save_internal(self) -> int:
+        """
+        Internal method for saving the record (either insert or update).
+        """
+        is_new = self.is_new_record
+
+        # Prepare data for saving (including mixin processing)
+        data = self._prepare_save_data()
+        result = await self._insert_internal(data) if is_new else await self._update_internal(data)
+
+        if result is not None and result.affected_rows > 0:
+            self._after_save(is_new)
+            self.reset_tracking()
+
+        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
+
+        return result.affected_rows
+        
     @abstractmethod
     async def save(self) -> int:
         """

@@ -236,3 +236,102 @@ class QueryProvider(IQueryProvider):
                 except OSError:
                     # Ignore errors if the file is already gone or locked, etc.
                     pass
+
+    async def _setup_model_async(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str, shared_backend=None) -> Type[ActiveRecord]:
+        """A generic helper method to handle the setup for any given model."""
+        # 1. Get the backend class (SQLiteBackend) and connection config for the requested scenario.
+        from tests.rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+        backend_class, original_config = get_scenario(scenario_name)
+        
+        # Check if this is a file-based scenario, and if so, generate a unique filename
+        import os
+        import tempfile
+        import uuid
+        config = original_config  # default to the original config
+        
+        if original_config.database != ":memory:":
+            # For file-based scenarios, create a unique temporary file
+            unique_filename = os.path.join(
+                tempfile.gettempdir(),
+                f"test_activerecord_{scenario_name}_{uuid.uuid4().hex}.sqlite"
+            )
+            
+            # Store the actual database file used for this scenario in this test
+            self._scenario_db_files[scenario_name] = unique_filename
+            
+            # Create a new config with the unique database path
+            from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+            config = SQLiteConnectionConfig(
+                database=unique_filename,
+                delete_on_close=original_config.delete_on_close,
+                pragmas=original_config.pragmas
+            )
+
+        # 2. Configure the generic model class with our specific backend and config.
+        #    This is the key step that links the testsuite's model to our database.
+        if shared_backend is None:
+            # Create a new backend instance for complete isolation
+            model_class.configure(config, AsyncSQLiteBackend)
+            shared_backend = model_class.__backend__
+            await shared_backend.connect()
+        else:
+            # Reuse the shared backend instance for subsequent models in the group
+            model_class.__connection_config__ = config
+            model_class.__backend_class__ = AsyncSQLiteBackend
+            model_class.__backend__ = shared_backend
+
+        # 3. Prepare the database schema. To ensure tests are isolated, we drop
+        #    the table if it exists and recreate it from the schema file.
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        try:
+            options = ExecutionOptions(stmt_type=StatementType.DDL)
+            await shared_backend.execute(f"DROP TABLE IF EXISTS {table_name}", options=options)
+        except Exception:
+            # Ignore errors if the table doesn't exist, which is expected on the first run.
+            pass
+
+        schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+        await shared_backend.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+        
+        return model_class
+    
+    async def _setup_multiple_models_async(self, models_and_tables, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+        """A helper to set up multiple models for fixture groups."""
+        result = []
+        shared_backend = None
+        for i, (model_class, table_name) in enumerate(models_and_tables):
+            if i == 0:
+                # For the first model, create a new backend instance
+                configured_model = await self._setup_model_async(model_class, scenario_name, table_name)
+                shared_backend = configured_model.__backend__
+            else:
+                # For subsequent models, reuse the shared backend instance
+                configured_model = await self._setup_model_async(model_class, scenario_name, table_name, shared_backend=shared_backend)
+            result.append(configured_model)
+        return tuple(result)
+
+    async def setup_async_order_fixtures(self, scenario_name: str) -> Tuple[Type['AsyncActiveRecord'], Type['AsyncActiveRecord'], Type['AsyncActiveRecord']]:
+        """Sets up the database for async order-related models (AsyncUser, AsyncOrder, AsyncOrderItem) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_models import AsyncUser, AsyncOrder, AsyncOrderItem
+        
+        models_and_tables = [
+            (AsyncUser, "users"),
+            (AsyncOrder, "orders"),
+            (AsyncOrderItem, "order_items")
+        ]
+        
+        return await self._setup_multiple_models_async(models_and_tables, scenario_name)
+
+    async def cleanup_after_test_async(self, scenario_name: str):
+        """
+        Performs async cleanup after a test.
+        """
+        # For async tests, we can use the same logic as the sync version for now.
+        self.cleanup_after_test(scenario_name)
+
+    def __del__(self):
+        # Ensure all temp files are cleaned up when the provider is destroyed
+        for scenario_name in list(self._scenario_db_files.keys()):
+            self.cleanup_after_test(scenario_name)
+
