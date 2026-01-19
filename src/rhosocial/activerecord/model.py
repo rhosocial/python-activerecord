@@ -3,13 +3,13 @@
 # This approach keeps the class definition clean and modular
 from .base import (
     BaseActiveRecord,
-    AsyncBaseActiveRecord,
     QueryMixin,
     AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
     MetaclassMixin
 )
+from .base.async_base import AsyncBaseActiveRecord
 from .relation import RelationManagementMixin
 
 
@@ -38,12 +38,11 @@ class ActiveRecord(
 
 class AsyncActiveRecord(
     RelationManagementMixin,
-    # FieldMixin, # import when needed
-    AsyncQueryMixin,  # Use async query mixin
+    AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
     MetaclassMixin,
-    AsyncBaseActiveRecord,  # Use async base class
+    AsyncBaseActiveRecord,
 ):
     """Complete Async ActiveRecord implementation combining core features.
 
