@@ -5,16 +5,14 @@ Provides BelongsTo, HasOne, and HasMany relationship types.
 """
 
 import logging
-
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, cast, Dict
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, Dict
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import RelationValidation, RelationManagementInterface, RelationLoader
-from ..base import QueryMixin
-from ..interface import IActiveRecord
 from ..backend.expression.core import Column
+from ..interface import IActiveRecord, IActiveQuery
 
-T = TypeVar('T')
+T = TypeVar('T', bound=IActiveRecord)
 
 
 def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type[T]:
@@ -397,7 +395,7 @@ class RelationDescriptor(Generic[T]):
             self.log(logging.ERROR, f"Error loading relation: {e}")
             return None
 
-    def batch_load(self, records: List[Any], base_query: Any) -> Dict[int, Any]:
+    def batch_load(self, records: List[Any], base_query: Optional[IActiveQuery]) -> Dict[int, Any]:
         """
         Batch loads related records for multiple parent records efficiently.
 
@@ -666,7 +664,7 @@ class HasMany(RelationDescriptor[T], Generic[T]):
         super().__init__(*args, validator=RelationshipValidator(self), **kwargs)
 
 
-R = TypeVar('R', bound=Union[IActiveRecord, QueryMixin])
+R = TypeVar('R', bound=IActiveRecord)
 
 
 class DefaultRelationLoader(RelationLoader[R]):
@@ -720,7 +718,7 @@ class DefaultRelationLoader(RelationLoader[R]):
         result = self.batch_load([instance], None)
         return result.get(id(instance))
 
-    def batch_load(self, instances: List[Any], base_query: Optional['IQuery']) -> Dict[int, Any]:
+    def batch_load(self, instances: List[Any], base_query: Optional[IActiveQuery]) -> Dict[int, Any]:
         """
         Batch load relations for multiple instances efficiently.
 
@@ -754,7 +752,7 @@ class DefaultRelationLoader(RelationLoader[R]):
             model_class = self.descriptor.get_related_model(type(instances[0]))
             self._cached_model = model_class
 
-        model_class = cast(Type[Union[IActiveRecord, QueryMixin]], self._cached_model)
+        model_class = self._cached_model
 
         # Use provided base_query or create new one
         query = base_query if base_query is not None else model_class.query()

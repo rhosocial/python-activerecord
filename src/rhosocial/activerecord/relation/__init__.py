@@ -7,7 +7,13 @@ Provides a flexible, type-safe way to define and manage model relationships.
 from .base import RelationManagementMixin
 from .descriptors import RelationDescriptor, BelongsTo, HasOne, HasMany, DefaultRelationLoader
 from .cache import CacheConfig, GlobalCacheConfig
-from .interfaces import RelationLoader
+from .interfaces import (
+    RelationLoader,
+    RelationValidation,
+    RelationManagementInterface,
+    AsyncRelationLoader,
+    AsyncRelationValidation
+)
 
 # from .methods import DefaultRelationLoader
 
@@ -20,5 +26,9 @@ __all__ = [
     'CacheConfig',
     'GlobalCacheConfig',
     'RelationLoader',
+    'RelationValidation',
+    'RelationManagementInterface',
+    'AsyncRelationLoader',
+    'AsyncRelationValidation',
     'DefaultRelationLoader',
 ]
