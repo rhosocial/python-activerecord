@@ -8,7 +8,7 @@ from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .set_operation import SetOperationQuery
-from ..backend.base import StorageBackend
+from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import (
     statements,
     Literal,
@@ -18,7 +18,7 @@ from ..backend.expression import (
     bases
 )
 from ..backend.expression.query_sources import CTEExpression
-from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IQuery
+from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
 
 
 class CTEQuery(
@@ -51,7 +51,7 @@ class CTEQuery(
 
     # region Instance Attributes
     _ctes: List[CTEExpression]
-    _main_query: Optional[Union[str, 'IQuery', 'ActiveQuery', 'CTEQuery']]
+    _main_query: Optional[Union[str, 'bases.SQLQueryAndParams', 'IQuery']]
     _recursive: bool
     # endregion
 
@@ -61,6 +61,10 @@ class CTEQuery(
         Args:
             backend: The storage backend to use for this query
         """
+        # Check that the backend is NOT an async backend (sync version should not use async backend)
+        if isinstance(backend, AsyncStorageBackend):
+            raise TypeError(f"CTEQuery requires a synchronous StorageBackend, got {type(backend).__name__}")
+
         super().__init__(backend)  # Initialize BaseQueryMixin with backend
         self._backend = backend
         self._ctes = []
@@ -291,7 +295,7 @@ class AsyncCTEQuery(
     JoinQueryMixin,
     RangeQueryMixin,
     IAsyncCTEQuery,
-    ISetOperationQuery,
+    IAsyncSetOperationQuery,
 ):
     """AsyncCTEQuery implementation for Common Table Expression queries.
 
@@ -310,16 +314,20 @@ class AsyncCTEQuery(
 
     # region Instance Attributes
     _ctes: List[CTEExpression]
-    _main_query: Optional[Union[str, 'IQuery', 'ActiveQuery', 'CTEQuery', 'AsyncActiveQuery', 'AsyncCTEQuery']]
+    _main_query: Optional[Union[str, 'bases.SQLQueryAndParams', 'IAsyncQuery']]
     _recursive: bool
     # endregion
 
-    def __init__(self, backend: StorageBackend):
+    def __init__(self, backend: AsyncStorageBackend):
         """Initialize AsyncCTE Query.
 
         Args:
-            backend: The storage backend to use for this query
+            backend: The async storage backend to use for this query
         """
+        # Check that the backend IS an async backend (async version should use async backend)
+        if not isinstance(backend, AsyncStorageBackend):
+            raise TypeError(f"AsyncCTEQuery requires an AsyncStorageBackend, got {type(backend).__name__}")
+
         super().__init__(backend)  # Initialize BaseQueryMixin with backend
         self._backend = backend
         self._ctes = []
@@ -505,11 +513,11 @@ class AsyncCTEQuery(
 
         return await self.backend().fetch_all(sql, params)
 
-    def union(self, other: 'IQuery') -> 'SetOperationQuery':
+    def union(self, other: 'IAsyncQuery') -> 'SetOperationQuery':
         """Perform a UNION operation with another query.
 
         Args:
-            other: Another query object (IQuery)
+            other: Another query object (IAsyncQuery)
 
         Returns:
             A new SetOperationQuery instance representing the UNION
@@ -517,11 +525,11 @@ class AsyncCTEQuery(
         from .set_operation import SetOperationQuery
         return SetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: 'IQuery') -> 'SetOperationQuery':
+    def intersect(self, other: 'IAsyncQuery') -> 'SetOperationQuery':
         """Perform an INTERSECT operation with another query.
 
         Args:
-            other: Another query object (IQuery)
+            other: Another query object (IAsyncQuery)
 
         Returns:
             A new SetOperationQuery instance representing the INTERSECT
@@ -529,11 +537,11 @@ class AsyncCTEQuery(
         from .set_operation import SetOperationQuery
         return SetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: 'IQuery') -> 'SetOperationQuery':
+    def except_(self, other: 'IAsyncQuery') -> 'SetOperationQuery':
         """Perform an EXCEPT operation with another query.
 
         Args:
-            other: Another query object (IQuery)
+            other: Another query object (IAsyncQuery)
 
         Returns:
             A new SetOperationQuery instance representing the EXCEPT

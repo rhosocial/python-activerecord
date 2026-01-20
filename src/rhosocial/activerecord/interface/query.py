@@ -966,3 +966,129 @@ class ISetOperationQuery(IQuery):
             ISetOperationQuery: A new query instance representing the EXCEPT operation
         """
         return self.except_(other)
+
+
+class IAsyncSetOperationQuery(IAsyncQuery):
+    """
+    Interface for asynchronous set operation queries (UNION, INTERSECT, EXCEPT).
+
+    This interface defines methods for performing SQL set operations between async queries.
+    Set operations allow combining results from multiple queries in specific ways:
+    - UNION: Combines results from both queries, removing duplicates
+    - UNION ALL: Combines results from both queries, keeping duplicates
+    - INTERSECT: Returns only rows that exist in both queries
+    - EXCEPT/MINUS: Returns rows from the first query that don't exist in the second
+
+    This interface is specifically designed for asynchronous operations and should be used
+    with async backends. Classes implementing this interface should support chaining set operations
+    and provide operator overloading for more Pythonic syntax.
+    """
+
+    @abstractmethod
+    def union(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Perform a UNION operation with another async query, combining results and removing duplicates.
+
+        The UNION operation combines the result sets of two async queries, removing duplicate rows.
+        Both queries must have the same number of columns with compatible data types.
+
+        Args:
+            other: Another async query object (either IAsyncSetOperationQuery or IAsyncQuery) to union with
+
+        Returns:
+            IAsyncSetOperationQuery: A new async query instance representing the UNION operation
+
+        Example:
+            >>> users_query = User.async_query().select(User.c.username)
+            >>> admins_query = Admin.async_query().select(Admin.c.username)
+            >>> combined = users_query.union(admins_query)
+            >>> # Returns all unique usernames from both tables
+        """
+        ...
+
+    @abstractmethod
+    def intersect(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Perform an INTERSECT operation with another async query, returning only common rows.
+
+        The INTERSECT operation returns only the rows that exist in both async queries.
+        Both queries must have the same number of columns with compatible data types.
+
+        Args:
+            other: Another async query object (either IAsyncSetOperationQuery or IAsyncQuery) to intersect with
+
+        Returns:
+            IAsyncSetOperationQuery: A new async query instance representing the INTERSECT operation
+
+        Example:
+            >>> active_users = User.async_query().where(User.c.status == 'active')
+            >>> premium_users = User.async_query().where(User.c.plan == 'premium')
+            >>> active_premium = active_users.intersect(premium_users)
+            >>> # Returns users who are both active AND on premium plan
+        """
+        ...
+
+    @abstractmethod
+    def except_(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Perform an EXCEPT operation with another async query, returning rows from first query not in second.
+
+        The EXCEPT operation returns rows from the first async query that do not exist in the second async query.
+        Both queries must have the same number of columns with compatible data types.
+        Note: This method is named 'except_' to avoid conflict with Python's 'except' keyword.
+
+        Args:
+            other: Another async query object (either IAsyncSetOperationQuery or IAsyncQuery) to subtract
+
+        Returns:
+            IAsyncSetOperationQuery: A new async query instance representing the EXCEPT operation
+
+        Example:
+            >>> all_users = User.async_query()
+            >>> admin_users = User.async_query().where(User.c.role == 'admin')
+            >>> non_admin_users = all_users.except_(admin_users)
+            >>> # Returns all users who are not admins
+        """
+        ...
+
+    def __or__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Implement the | operator for UNION operations.
+
+        This enables Pythonic syntax for UNION operations: query1 | query2
+
+        Args:
+            other: Another async query object to union with
+
+        Returns:
+            IAsyncSetOperationQuery: A new query instance representing the UNION operation
+        """
+        return self.union(other)
+
+    def __and__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Implement the & operator for INTERSECT operations.
+
+        This enables Pythonic syntax for INTERSECT operations: query1 & query2
+
+        Args:
+            other: Another async query object to intersect with
+
+        Returns:
+            IAsyncSetOperationQuery: A new query instance representing the INTERSECT operation
+        """
+        return self.intersect(other)
+
+    def __sub__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Implement the - operator for EXCEPT operations.
+
+        This enables Pythonic syntax for EXCEPT operations: query1 - query2
+
+        Args:
+            other: Another async query object to subtract
+
+        Returns:
+            IAsyncSetOperationQuery: A new query instance representing the EXCEPT operation
+        """
+        return self.except_(other)
