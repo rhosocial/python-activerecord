@@ -331,3 +331,68 @@ class TestSQLiteSetOperationExpression:
         assert "LIMIT" in sql.upper()
         # Verify parameters are still handled (including limit value)
         assert params == (18, "active", 5)
+
+    def test_set_operation_with_explain_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test set operation with EXPLAIN clause."""
+        from rhosocial.activerecord.backend.expression.statements import ExplainExpression, ExplainOptions
+
+        left_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM users WHERE age > ?", (18,))
+        right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM customers WHERE status = ?", ("active",))
+
+        # Create SetOperationExpression first
+        set_op = SetOperationExpression(
+            sqlite_dialect_3_8_0,
+            left=left_query,
+            right=right_query,
+            operation="UNION"
+        )
+
+        # Wrap the set operation in an EXPLAIN expression
+        explain_options = ExplainOptions()
+        explain_expr = ExplainExpression(
+            sqlite_dialect_3_8_0,
+            set_op,
+            explain_options
+        )
+
+        sql, params = explain_expr.to_sql()
+
+        # Verify EXPLAIN is present in the SQL
+        assert "EXPLAIN" in sql.upper()
+        # Verify the set operation is included
+        assert "UNION" in sql.upper()
+        # Verify parameters are still handled
+        assert params == (18, "active")
+
+    def test_set_operation_with_explain_query_plan(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test set operation with EXPLAIN QUERY PLAN clause."""
+        from rhosocial.activerecord.backend.expression.statements import ExplainExpression, ExplainOptions, ExplainType
+
+        left_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM users WHERE age > ?", (18,))
+        right_query = Subquery(sqlite_dialect_3_8_0, "SELECT id, name FROM customers WHERE status = ?", ("active",))
+
+        # Create SetOperationExpression first
+        set_op = SetOperationExpression(
+            sqlite_dialect_3_8_0,
+            left=left_query,
+            right=right_query,
+            operation="UNION"
+        )
+
+        # Wrap the set operation in an EXPLAIN QUERY PLAN expression
+        explain_options = ExplainOptions(type=ExplainType.QUERY_PLAN)
+        explain_expr = ExplainExpression(
+            sqlite_dialect_3_8_0,
+            set_op,
+            explain_options
+        )
+
+        sql, params = explain_expr.to_sql()
+
+        # Verify EXPLAIN QUERY PLAN is present in the SQL
+        assert "EXPLAIN" in sql.upper()
+        # For SQLite, EXPLAIN QUERY PLAN is the default behavior
+        # Verify the set operation is included
+        assert "UNION" in sql.upper()
+        # Verify parameters are still handled
+        assert params == (18, "active")

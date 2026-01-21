@@ -354,3 +354,68 @@ class TestSetOperationExpression:
         assert "LIMIT" in sql.upper()
         # Verify parameters are still handled (including limit value)
         assert params == (18, "active", 5)
+
+    def test_set_operation_with_explain_basic(self, dummy_dialect: DummyDialect):
+        """Test set operation with EXPLAIN clause."""
+        from rhosocial.activerecord.backend.expression.statements import ExplainExpression, ExplainOptions
+
+        left_query = Subquery(dummy_dialect, "SELECT id, name FROM users WHERE age > ?", (18,))
+        right_query = Subquery(dummy_dialect, "SELECT id, name FROM customers WHERE status = ?", ("active",))
+
+        # Create SetOperationExpression first
+        set_op = SetOperationExpression(
+            dummy_dialect,
+            left=left_query,
+            right=right_query,
+            operation="UNION"
+        )
+
+        # Wrap the set operation in an EXPLAIN expression
+        explain_options = ExplainOptions()
+        explain_expr = ExplainExpression(
+            dummy_dialect,
+            set_op,
+            explain_options
+        )
+
+        sql, params = explain_expr.to_sql()
+
+        # Verify EXPLAIN is present in the SQL
+        assert "EXPLAIN" in sql.upper()
+        # Verify the set operation is included
+        assert "UNION" in sql.upper()
+        # Verify parameters are still handled
+        assert params == (18, "active")
+
+    def test_set_operation_with_explain_analyze(self, dummy_dialect: DummyDialect):
+        """Test set operation with EXPLAIN ANALYZE clause."""
+        from rhosocial.activerecord.backend.expression.statements import ExplainExpression, ExplainOptions, ExplainType
+
+        left_query = Subquery(dummy_dialect, "SELECT id, name FROM users WHERE age > ?", (18,))
+        right_query = Subquery(dummy_dialect, "SELECT id, name FROM customers WHERE status = ?", ("active",))
+
+        # Create SetOperationExpression first
+        set_op = SetOperationExpression(
+            dummy_dialect,
+            left=left_query,
+            right=right_query,
+            operation="UNION"
+        )
+
+        # Wrap the set operation in an EXPLAIN ANALYZE expression
+        explain_options = ExplainOptions(type=ExplainType.ANALYZE)
+        explain_expr = ExplainExpression(
+            dummy_dialect,
+            set_op,
+            explain_options
+        )
+
+        sql, params = explain_expr.to_sql()
+
+        # Verify EXPLAIN ANALYZE is present in the SQL
+        assert "EXPLAIN" in sql.upper()
+        assert "ANALYZE" in sql.upper()
+        # Verify the set operation is included
+        assert "UNION" in sql.upper()
+        # Verify parameters are still handled
+        assert params == (18, "active")
