@@ -214,6 +214,45 @@ class QueryProvider(IQueryProvider):
         models_and_tables = [(AsyncUser, "users"), (AsyncOrder, "orders"), (AsyncOrderItem, "order_items")]
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
+    async def setup_async_blog_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        """Sets up the database for async blog-related models (AsyncUser, AsyncPost, AsyncComment) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_blog_models import AsyncUser, AsyncPost, AsyncComment
+        models_and_tables = [(AsyncUser, "users"), (AsyncPost, "posts"), (AsyncComment, "comments")]
+        return await self._setup_multiple_models_async(models_and_tables, scenario_name)
+
+    async def setup_async_json_user_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
+        """Sets up the database for async JSON user model (AsyncJsonUser) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_json_models import AsyncJsonUser
+        return await self._setup_multiple_models_async([(AsyncJsonUser, "json_users")], scenario_name)
+
+    async def setup_async_tree_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
+        """Sets up the database for async tree structure model (AsyncNode) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_cte_models import AsyncNode
+        return await self._setup_multiple_models_async([(AsyncNode, "nodes")], scenario_name)
+
+    async def setup_async_extended_order_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        """Sets up the database for async extended order-related models (AsyncUser, AsyncExtendedOrder, AsyncExtendedOrderItem) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_extended_models import AsyncUser, AsyncExtendedOrder, AsyncExtendedOrderItem
+        models_and_tables = [(AsyncUser, "users"), (AsyncExtendedOrder, "extended_orders"), (AsyncExtendedOrderItem, "extended_order_items")]
+        return await self._setup_multiple_models_async(models_and_tables, scenario_name)
+
+    async def setup_async_combined_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        """Sets up the database for async combined models (AsyncUser, AsyncOrder, AsyncOrderItem, AsyncPost, AsyncComment) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_blog_models import AsyncUser, AsyncOrder, AsyncOrderItem, AsyncPost, AsyncComment
+        models_and_tables = [(AsyncUser, "users"), (AsyncOrder, "orders"), (AsyncOrderItem, "order_items"), (AsyncPost, "posts"), (AsyncComment, "comments")]
+        return await self._setup_multiple_models_async(models_and_tables, scenario_name)
+
+    async def setup_async_annotated_query_fixtures(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], ...]:
+        """Sets up the database for async models using Annotated type adapters in queries (AsyncSearchableItem) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_annotated_adapter_models import AsyncSearchableItem
+        return await self._setup_multiple_models_async([(AsyncSearchableItem, "searchable_items")], scenario_name)
+
+    async def setup_async_mapped_models(self, scenario_name: str) -> Tuple[Type[AsyncActiveRecord], Type[AsyncActiveRecord], Type[AsyncActiveRecord]]:
+        """Sets up the database for async mapped models (AsyncMappedUser, AsyncMappedPost, AsyncMappedComment) tests."""
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.async_mapped_models import AsyncMappedUser, AsyncMappedPost, AsyncMappedComment
+        models_and_tables = [(AsyncMappedUser, "users"), (AsyncMappedPost, "posts"), (AsyncMappedComment, "comments")]
+        return await self._setup_multiple_models_async(models_and_tables, scenario_name)
+
     async def cleanup_after_test_async(self, scenario_name: str):
         """Performs async cleanup. Logic is identical to sync for file operations."""
         self.cleanup_after_test(scenario_name)
