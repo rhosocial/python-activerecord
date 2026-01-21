@@ -13,13 +13,14 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
-    JoinSupport,
+    JoinSupport, SetOperationSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
     UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin, JoinMixin,
+    SetOperationMixin,
 )
 
 class DummyDialect(
@@ -28,13 +29,13 @@ class DummyDialect(
     UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
-    JoinMixin,
+    JoinMixin, SetOperationMixin,
     # Protocols for type checking
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
-    JoinSupport,
+    JoinSupport, SetOperationSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -75,8 +76,4 @@ class DummyDialect(
     def supports_cross_join(self) -> bool: return True
     def supports_natural_join(self) -> bool: return True
     # endregion
-
-
-
-
 

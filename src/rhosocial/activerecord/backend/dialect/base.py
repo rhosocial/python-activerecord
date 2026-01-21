@@ -8,7 +8,7 @@ implementations for standard SQL features.
 from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
-from ..expression import bases
+from ..expression import bases, ForUpdateClause
 from ..expression.statements import QueryExpression, ColumnDefinition
 
 if TYPE_CHECKING:
@@ -1286,18 +1286,52 @@ class SQLDialectBase:
         right: "bases.BaseExpression",
         operation: str,
         alias: Optional[str],
-        all_: bool
+        all_: bool,
+        order_by_clause: Optional["OrderByClause"] = None,
+        limit_offset_clause: Optional["LimitOffsetClause"] = None,
+        for_update_clause: Optional["ForUpdateClause"] = None
     ) -> Tuple[str, Tuple]:
-        """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
+        """Format set operation expression (UNION, INTERSECT, EXCEPT) with optional clauses."""
         left_sql, left_params = left.to_sql()
         right_sql, right_params = right.to_sql()
         all_str = " ALL" if all_ else ""
-        # Only add parentheses when alias is present, as per SQL standard
-        if alias is not None:
-            sql = f"({left_sql} {operation}{all_str} {right_sql}) AS {self.format_identifier(alias)}"
+
+        # Build the base set operation SQL
+        base_sql = f"{left_sql} {operation}{all_str} {right_sql}"
+
+        # According to SQL standard, set operations can be followed directly by ORDER BY, LIMIT/OFFSET, etc.
+        all_params = list(left_params + right_params)
+
+        # Add parentheses around the base set operation if needed for additional clauses or alias
+        if order_by_clause or limit_offset_clause or for_update_clause or alias:
+            sql_parts = [f"({base_sql})"]
         else:
-            sql = f"{left_sql} {operation}{all_str} {right_sql}"
-        return sql, left_params + right_params
+            sql_parts = [base_sql]
+
+        # Add alias if present
+        if alias:
+            sql_parts.append(f"AS {self.format_identifier(alias)}")
+
+        # Add ORDER BY clause if present
+        if order_by_clause:
+            order_by_sql, order_by_params = order_by_clause.to_sql()
+            sql_parts.append(order_by_sql)
+            all_params.extend(order_by_params)
+
+        # Add LIMIT/OFFSET clause if present
+        if limit_offset_clause:
+            limit_offset_sql, limit_offset_params = limit_offset_clause.to_sql()
+            sql_parts.append(limit_offset_sql)
+            all_params.extend(limit_offset_params)
+
+        # Add FOR UPDATE clause if present
+        if for_update_clause:
+            for_update_sql, for_update_params = for_update_clause.to_sql()
+            sql_parts.append(for_update_sql)
+            all_params.extend(for_update_params)
+
+        sql = " ".join(sql_parts)
+        return sql, tuple(all_params)
 
     def format_where_clause(self, clause: "WhereClause") -> Tuple[str, tuple]:
         """Format WHERE clause with condition."""

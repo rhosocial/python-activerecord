@@ -43,8 +43,8 @@ class SetOperationExpression(bases.BaseExpression):
             alias="combined_users"
         )
 
-        # UNION operation without alias (alias is optional)
-        union_expr_no_alias = SetOperationExpression(
+        # UNION operation with additional clauses
+        union_expr_with_order = SetOperationExpression(
             dialect,
             left=QueryExpression(
                 dialect,
@@ -56,45 +56,69 @@ class SetOperationExpression(bases.BaseExpression):
                 select=[Column(dialect, "id"), Column(dialect, "name")],
                 from_=TableExpression(dialect, "customers")
             ),
-            operation="UNION"
+            operation="UNION",
+            alias="combined_users",
+            order_by_clause=OrderByClause(dialect, [Column(dialect, "id")]),
+            limit_offset_clause=LimitOffsetClause(dialect, limit=10)
         )
 
-        # Recursive CTE with UNION ALL (essential for iterative algorithms like Sudoku solver)
-        initial_values = ValuesExpression(
+        # Recursive CTE example using UNION ALL (essential for iterative algorithms like Sudoku solver)
+        # Initial query part - base case for recursion
+        initial_query = QueryExpression(
             dialect,
-            values=[('1', 1)],  # Starting value
-            alias="initial",
-            column_names=["value", "level"]
+            select=[
+                Column(dialect, "id"),
+                Column(dialect, "parent_id"),
+                Column(dialect, "name"),
+                Literal(dialect, 0).as_("level"),  # Starting level
+                FunctionCall(dialect, "ARRAY_APPEND", Literal(dialect, []), Column(dialect, "id")).as_("path")  # Track path
+            ],
+            from_=TableExpression(dialect, "nodes"),
+            where=ComparisonPredicate(dialect, "=", Column(dialect, "parent_id"), Literal(dialect, None))  # Root nodes
         )
 
+        # Recursive query part - self-referencing query
         recursive_query = QueryExpression(
             dialect,
             select=[
-                FunctionCall(dialect, "CAST", Column(dialect, "value") + Literal(dialect, 1), "TEXT"),
-                Column(dialect, "level") + Literal(dialect, 1)
+                Column(dialect, "n.id"),
+                Column(dialect, "n.parent_id"),
+                Column(dialect, "n.name"),
+                FunctionCall(dialect, "+", Column(dialect, "r.level"), Literal(dialect, 1)).as_("level"),
+                FunctionCall(dialect, "ARRAY_APPEND", Column(dialect, "r.path"), Column(dialect, "n.id")).as_("path")
             ],
-            from_=[TableExpression(dialect, "counter")],  # Reference to CTE itself
-            where=(Column(dialect, "level") < Literal(dialect, 10))
+            from_=[
+                TableExpression(dialect, "nodes", alias="n"),
+                JoinExpression(
+                    dialect,
+                    left_table=TableExpression(dialect, "recursive_result", alias="r"),
+                    right_table=TableExpression(dialect, "nodes", alias="n"),
+                    join_type="INNER JOIN",
+                    condition=ComparisonPredicate(dialect, "=", Column(dialect, "r.id"), Column(dialect, "n.parent_id"))
+                )
+            ],
+            where=ComparisonPredicate(dialect, "<", Column(dialect, "r.level"), Literal(dialect, 10))  # Limit depth
         )
 
         # Combine initial and recursive parts with UNION ALL for recursive CTE
         recursive_union = SetOperationExpression(
             dialect,
-            left=initial_values,
+            left=initial_query,
             right=recursive_query,
             operation="UNION ALL",
-            alias="counter_recursive"
-        )
-
-        # Without alias (alias is optional)
-        recursive_union_no_alias = SetOperationExpression(
-            dialect,
-            left=initial_values,
-            right=recursive_query,
-            operation="UNION ALL"
+            alias="recursive_result"
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", left: "bases.BaseExpression", right: "bases.BaseExpression", operation: str, alias: Optional[str] = None, all_: bool = False):
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 left: "bases.BaseExpression",
+                 right: "bases.BaseExpression",
+                 operation: str,
+                 alias: Optional[str] = None,
+                 all_: bool = False,
+                 order_by_clause: Optional["OrderByClause"] = None,
+                 limit_offset_clause: Optional["LimitOffsetClause"] = None,
+                 for_update_clause: Optional["ForUpdateClause"] = None):
         """
         Initialize a SetOperationExpression.
 
@@ -105,17 +129,32 @@ class SetOperationExpression(bases.BaseExpression):
             operation: The set operation (e.g., "UNION", "INTERSECT", "EXCEPT")
             alias: Optional alias for the set operation result
             all_: Whether to use ALL variant of the operation (e.g., UNION ALL when operation="UNION")
+            order_by_clause: Optional ORDER BY clause to apply to the result set
+            limit_offset_clause: Optional LIMIT/OFFSET clause to apply to the result set
+            for_update_clause: Optional FOR UPDATE clause to apply to the result set
         """
         super().__init__(dialect)
         self.left = left
         self.right = right
         self.operation = operation
         self.alias = alias
-        self.all = all_
+        self.all_ = all_
+        self.order_by_clause = order_by_clause
+        self.limit_offset_clause = limit_offset_clause
+        self.for_update_clause = for_update_clause
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        # Delegate to the dialect's format_set_operation_expression method
-        return self.dialect.format_set_operation_expression(self.left, self.right, self.operation, self.alias, self.all)
+        """Generate the SQL representation of the set operation with optional clauses."""
+        return self.dialect.format_set_operation_expression(
+            self.left,
+            self.right,
+            self.operation,
+            self.alias,
+            self.all_,
+            self.order_by_clause,
+            self.limit_offset_clause,
+            self.for_update_clause
+        )
 
 
 class CTEExpression(bases.BaseExpression):
