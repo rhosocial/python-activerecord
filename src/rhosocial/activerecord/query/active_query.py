@@ -19,7 +19,7 @@ from ..backend.expression import (
     bases
 )
 from ..interface.model import IActiveRecord
-from ..interface.query import IQuery, IActiveQuery, IAsyncActiveQuery, ThreadSafeDict
+from ..interface.query import IQuery, IActiveQuery, IAsyncActiveQuery, ISetOperationQuery, IAsyncSetOperationQuery, ThreadSafeDict
 
 
 class ActiveQuery(
@@ -28,7 +28,8 @@ class ActiveQuery(
     JoinQueryMixin,
     RelationalQueryMixin,
     RangeQueryMixin,
-    IActiveQuery
+    IActiveQuery,
+    ISetOperationQuery
 ):
     """ActiveQuery implementation for model-based queries.
 
@@ -273,7 +274,8 @@ class AsyncActiveQuery(
     AsyncJoinQueryMixin,
     RelationalQueryMixin,  # Use the same RelationalQueryMixin as sync version
     RangeQueryMixin,
-    IAsyncActiveQuery
+    IAsyncActiveQuery,
+    IAsyncSetOperationQuery
 ):
     """AsyncActiveQuery implementation for model-based queries.
 
@@ -467,41 +469,41 @@ class AsyncActiveQuery(
         # Generate SQL using the QueryExpression
         return query_expr.to_sql()
 
-    def union(self, other: 'IQuery') -> 'SetOperationQuery':
+    def union(self, other: 'IAsyncQuery') -> 'IAsyncSetOperationQuery':
         """Perform a UNION operation with another query.
 
         Args:
-            other: Another query object (IQuery)
+            other: Another async query object (IAsyncQuery)
 
         Returns:
-            A new SetOperationQuery instance representing the UNION
+            A new AsyncSetOperationQuery instance representing the UNION
         """
-        from .set_operation import SetOperationQuery
-        return SetOperationQuery(self, other, "UNION")
+        from .set_operation import AsyncSetOperationQuery
+        return AsyncSetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: 'IQuery') -> 'SetOperationQuery':
+    def intersect(self, other: 'IAsyncQuery') -> 'IAsyncSetOperationQuery':
         """Perform an INTERSECT operation with another query.
 
         Args:
-            other: Another query object (IQuery)
+            other: Another async query object (IAsyncQuery)
 
         Returns:
-            A new SetOperationQuery instance representing the INTERSECT
+            A new AsyncSetOperationQuery instance representing the INTERSECT
         """
-        from .set_operation import SetOperationQuery
-        return SetOperationQuery(self, other, "INTERSECT")
+        from .set_operation import AsyncSetOperationQuery
+        return AsyncSetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: 'IQuery') -> 'SetOperationQuery':
+    def except_(self, other: 'IAsyncQuery') -> 'IAsyncSetOperationQuery':
         """Perform an EXCEPT operation with another query.
 
         Args:
-            other: Another query object (IQuery)
+            other: Another async query object (IAsyncQuery)
 
         Returns:
-            A new SetOperationQuery instance representing the EXCEPT
+            A new AsyncSetOperationQuery instance representing the EXCEPT
         """
-        from .set_operation import SetOperationQuery
-        return SetOperationQuery(self, other, "EXCEPT")
+        from .set_operation import AsyncSetOperationQuery
+        return AsyncSetOperationQuery(self, other, "EXCEPT")
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""
