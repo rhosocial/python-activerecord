@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/query/set_operation.py
 """SetOperationQuery implementation for building UNION, INTERSECT, and EXCEPT queries."""
 
-from typing import Union
+from typing import Union, List, Dict, Any
 
 from ..backend.expression import SetOperationExpression, bases
 from ..interface import IQuery, IAsyncQuery, ISetOperationQuery, IAsyncSetOperationQuery
@@ -51,6 +51,10 @@ class SetOperationQuery(ISetOperationQuery):
             operation=operation
         )
 
+        # Initialize explain-related attributes
+        self._explain_enabled = False
+        self._explain_options = {}
+
         # Call parent constructor with the left's backend since it's validated to be the same as right's
         super().__init__(left_backend)
 
@@ -90,6 +94,65 @@ class SetOperationQuery(ISetOperationQuery):
     def except_(self, other: 'IQuery') -> 'SetOperationQuery':
         """Perform an EXCEPT operation with another query."""
         return SetOperationQuery(self, other, "EXCEPT")
+
+    def aggregate(self) -> List[Dict[str, Any]]:
+        """Execute the set operation query and return results as a list of dictionaries.
+
+        This method executes the set operation (UNION, INTERSECT, EXCEPT) and returns
+        the results as a list of dictionaries, where each dictionary represents a row
+        with column names as keys. This is particularly useful for set operations
+        or when you need raw data instead of model instances.
+
+        If explain() has been called on the query, this method will return
+        the execution plan instead of the actual results.
+
+        Note: For queries that could normally return ActiveRecord instances (like with .one() or .all()),
+        you can use .aggregate() to get raw dictionary results instead of model instances.
+        This is useful when you want to avoid model instantiation overhead or when dealing
+        with custom SELECT expressions that don't map directly to model fields.
+
+        Examples:
+            1. With set operations (returns multiple rows)
+            result = query1.union(query2).aggregate()
+            # Returns [{'id': 1, 'name': 'Alice'}, {'id': 2, 'name': 'Bob'}]
+
+            2. With complex set operations
+            result = query1.intersect(query2).aggregate()
+            # Returns [{'id': 1, 'name': 'Alice'}]
+
+            3. With explain enabled
+            plan = query1.union(query2).explain().aggregate()
+        """
+        # Handle explain if enabled
+        if self._explain_enabled:
+            # Get backend instance and dialect
+            backend = self.backend()
+            dialect = backend.dialect
+
+            # Create the underlying set operation expression
+            from ..backend.expression.statements import ExplainExpression, ExplainOptions
+
+            # Create ExplainExpression with the set operation expression and options
+            explain_options = ExplainOptions(**self._explain_options)
+            explain_expr = ExplainExpression(dialect, self._set_op_expr, explain_options)
+
+            # Generate SQL for the EXPLAIN statement
+            explain_sql, explain_params = explain_expr.to_sql()
+
+            # Execute the EXPLAIN query using the backend
+            result = backend.fetch_all(explain_sql, explain_params)
+
+            return result
+
+        # Get SQL and parameters using the existing to_sql method
+        sql, params = self.to_sql()
+
+        # Execute the aggregate query
+        backend = self.backend()
+        result = backend.fetch_all(sql, params)
+
+        # Always return a list, even if empty
+        return result
 
     def backend(self) -> 'StorageBackend':
         """Get the backend for this query."""
@@ -141,6 +204,10 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             operation=operation
         )
 
+        # Initialize explain-related attributes
+        self._explain_enabled = False
+        self._explain_options = {}
+
         # Call parent constructor with the left's backend since it's validated to be the same as right's
         super().__init__(left_backend)
 
@@ -180,6 +247,65 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
     def except_(self, other: 'IAsyncQuery') -> 'AsyncSetOperationQuery':
         """Perform an EXCEPT operation with another async query."""
         return AsyncSetOperationQuery(self, other, "EXCEPT")
+
+    async def aggregate(self) -> List[Dict[str, Any]]:
+        """Execute the async set operation query and return results as a list of dictionaries.
+
+        This method executes the async set operation (UNION, INTERSECT, EXCEPT) and returns
+        the results as a list of dictionaries, where each dictionary represents a row
+        with column names as keys. This is particularly useful for set operations
+        or when you need raw data instead of model instances.
+
+        If explain() has been called on the query, this method will return
+        the execution plan instead of the actual results.
+
+        Note: For queries that could normally return ActiveRecord instances (like with .one() or .all()),
+        you can use .aggregate() to get raw dictionary results instead of model instances.
+        This is useful when you want to avoid model instantiation overhead or when dealing
+        with custom SELECT expressions that don't map directly to model fields.
+
+        Examples:
+            1. With set operations (returns multiple rows)
+            result = await query1.union(query2).aggregate()
+            # Returns [{'id': 1, 'name': 'Alice'}, {'id': 2, 'name': 'Bob'}]
+
+            2. With complex set operations
+            result = await query1.intersect(query2).aggregate()
+            # Returns [{'id': 1, 'name': 'Alice'}]
+
+            3. With explain enabled
+            plan = await query1.union(query2).explain().aggregate()
+        """
+        # Handle explain if enabled
+        if self._explain_enabled:
+            # Get backend instance and dialect
+            backend = self.backend()
+            dialect = backend.dialect
+
+            # Create the underlying set operation expression
+            from ..backend.expression.statements import ExplainExpression, ExplainOptions
+
+            # Create ExplainExpression with the set operation expression and options
+            explain_options = ExplainOptions(**self._explain_options)
+            explain_expr = ExplainExpression(dialect, self._set_op_expr, explain_options)
+
+            # Generate SQL for the EXPLAIN statement
+            explain_sql, explain_params = explain_expr.to_sql()
+
+            # Execute the EXPLAIN query using the async backend
+            result = await backend.fetch_all(explain_sql, explain_params)
+
+            return result
+
+        # Get SQL and parameters using the existing to_sql method
+        sql, params = self.to_sql()
+
+        # Execute the aggregate query
+        backend = self.backend()
+        result = await backend.fetch_all(sql, params)
+
+        # Always return a list, even if empty
+        return result
 
     def backend(self) -> 'StorageBackend':
         """Get the backend for this query."""
