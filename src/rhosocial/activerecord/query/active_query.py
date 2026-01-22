@@ -11,6 +11,7 @@ from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin
 from .async_join import AsyncJoinQueryMixin
 from .set_operation import SetOperationQuery
+from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import (
     WildcardExpression,
     TableExpression,
@@ -18,8 +19,8 @@ from ..backend.expression import (
     LimitOffsetClause,
     bases
 )
-from ..interface.model import IActiveRecord
-from ..interface.query import IQuery, IActiveQuery, IAsyncActiveQuery, ISetOperationQuery, IAsyncSetOperationQuery, ThreadSafeDict
+from ..interface.model import IActiveRecord, IAsyncActiveRecord
+from ..interface.query import IQuery, IAsyncQuery, IActiveQuery, IAsyncActiveQuery, ISetOperationQuery, IAsyncSetOperationQuery, ThreadSafeDict
 
 
 class ActiveQuery(
@@ -59,6 +60,7 @@ class ActiveQuery(
             model_class: The model class that this query targets
         """
         self.model_class = model_class
+        super().__init__(self.model_class.backend())
 
         # Initialize attributes from BaseQueryMixin
         self.where_clause = None
@@ -77,7 +79,7 @@ class ActiveQuery(
         # Initialize attributes from RelationalQueryMixin
         self._eager_loads = ThreadSafeDict()
 
-    def backend(self):
+    def backend(self) -> StorageBackend:
         """Get the backend for this query."""
         # Always return the backend from the model class to avoid duplication
         return self.model_class.backend()
@@ -298,13 +300,14 @@ class AsyncActiveQuery(
     treating the wildcard as a parameter value. This ensures correct SQL generation.
     """
 
-    def __init__(self, model_class: Type[IActiveRecord]):
+    def __init__(self, model_class: Type[IAsyncActiveRecord]):
         """Initialize AsyncActiveQuery with a model class.
 
         Args:
             model_class: The model class that this query targets
         """
         self.model_class = model_class
+        super().__init__(self.model_class.backend())
 
         # Initialize attributes from BaseQueryMixin
         self.where_clause = None
@@ -323,7 +326,7 @@ class AsyncActiveQuery(
         # Initialize attributes from RelationalQueryMixin
         self._eager_loads = ThreadSafeDict()
 
-    def backend(self):
+    def backend(self) -> AsyncStorageBackend:
         """Get the backend for this query."""
         # Always return the backend from the model class to avoid duplication
         return self.model_class.backend()
