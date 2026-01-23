@@ -696,9 +696,49 @@ class AsyncAggregateQueryMixin:
                 .explain()
                 .aggregate())
         """
+        # Handle explain if enabled
+        if self._explain_enabled:
+            # Get backend instance and dialect
+            backend = self.backend()
+            dialect = backend.dialect
+
+            # Create the underlying query expression
+            from_clause = TableExpression(dialect, self.model_class.table_name())
+
+            query_expr = statements.QueryExpression(
+                dialect,
+                select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+                from_=self.join_clause if self.join_clause else from_clause,
+                where=self.where_clause,
+                group_by_having=self.group_by_having_clause,
+                order_by=self.order_by_clause,
+                limit_offset=self.limit_offset_clause
+            )
+
+            # Create ExplainExpression with the query and options
+            explain_options = statements.ExplainOptions(**self._explain_options)
+            explain_expr = statements.ExplainExpression(dialect, query_expr, explain_options)
+
+            # Generate SQL for the EXPLAIN statement
+            explain_sql, explain_params = explain_expr.to_sql()
+
+            self._log(logging.INFO, f"Executing EXPLAIN aggregate query: {explain_sql}")
+
+            # Execute the EXPLAIN query using the backend
+            result = await backend.fetch_all(explain_sql, explain_params)
+
+            return result
+
+        # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
         self._log(logging.INFO, f"Executing async aggregate query: {sql}")
-        return await self.model_class.backend().fetch_all(sql, params)
+
+        # Execute the aggregate query
+        backend = self.model_class.backend()
+        result = await backend.fetch_all(sql, params)
+
+        # Always return a list, even if empty
+        return result
 
     async def exists(self) -> bool:
         """Check if any matching records exist asynchronously.

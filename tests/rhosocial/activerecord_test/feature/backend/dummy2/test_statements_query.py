@@ -346,7 +346,7 @@ class TestQueryStatements:
         def mock_supports_offset_without_limit():
             return True
         monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
-        
+
         # Create a limit clause with just offset (some dialects support this)
         limit_offset_clause = LimitOffsetClause(dummy_dialect, offset=10)
 
@@ -367,7 +367,7 @@ class TestQueryStatements:
         def mock_supports_offset_without_limit():
             return False
         monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
-        
+
         # Creating the LimitOffsetClause with offset only should raise error when dialect doesn't support it
         # The validation happens in the LimitOffsetClause constructor
         with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in this dialect"):
@@ -935,5 +935,31 @@ class TestQueryStatements:
         # Note: COUNT(users.*) is not standard SQL, but this tests the integration
         # Standard SQL would use COUNT(*) or COUNT(column_name)
         assert sql == 'SELECT COUNT(*) FROM "users"'
+        assert params == ()
+
+    def test_query_expression_with_group_by_and_count_star(self, dummy_dialect: DummyDialect):
+        """Tests QueryExpression with SELECT name, count(*) FROM users GROUP BY name."""
+        from rhosocial.activerecord.backend.expression import count
+        from rhosocial.activerecord.backend.expression import WildcardExpression
+
+        # Create the COUNT(*) expression
+        count_expr = count(dummy_dialect, WildcardExpression(dummy_dialect))
+
+        # Create GROUP BY/HAVING clause with GROUP BY name
+        group_by_having = GroupByHavingClause(
+            dummy_dialect,
+            group_by=[Column(dummy_dialect, "name")],  # GROUP BY name
+            having=None  # No HAVING clause
+        )
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "name"), count_expr],  # SELECT name, count(*)
+            from_=TableExpression(dummy_dialect, "users"),  # FROM users
+            group_by_having=group_by_having  # GROUP BY name
+        )
+        sql, params = query.to_sql()
+
+        assert sql == 'SELECT "name", COUNT(*) FROM "users" GROUP BY "name"'
         assert params == ()
 
