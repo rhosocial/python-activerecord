@@ -2,7 +2,7 @@
 
 The design of `rhosocial-activerecord` is not just about providing a tool to manipulate databases; it is about establishing a rigorous, efficient, and flexible paradigm for data interaction in modern Python application development.
 
-Our core design philosophy is reflected in the following three main aspects:
+Our core design philosophy is reflected in the following five main aspects:
 
 ## 1. Layered Architecture: Backend and ActiveRecord
 
@@ -23,7 +23,18 @@ Furthermore, **the Backend itself provides a powerful "Expression-Dialect" syste
 
 > **Note**: Different database backends may have varying levels of feature support (e.g., MySQL only supports window functions starting from version 8.0). Please refer to the specific backend's release notes and documentation.
 
-## 2. Strict Model-Backend Correspondence and Sync/Async Isolation
+## 2. Sync-Async Parity: Equivalent Functionality Across Paradigms
+
+A fundamental design principle of `rhosocial-activerecord` is **Sync-Async Parity**, meaning that synchronous and asynchronous implementations provide equivalent functionality and consistent APIs.
+
+*   **Method Signature Consistency**: Synchronous methods like `save()`, `delete()`, `all()`, `one()` have direct asynchronous counterparts like `async def save()`, `async def delete()`, `async def all()`, `async def one()`.
+*   **Interface Equivalence**: Both `ActiveRecord` and `AsyncActiveRecord` implement equivalent interfaces (`IActiveRecord` and `IAsyncActiveRecord` respectively), ensuring that the same operations are available in both paradigms.
+*   **Query Builder Parity**: `ActiveQuery` and `AsyncActiveQuery` provide identical query building capabilities with the same method chains and options, differing only in execution (synchronous vs. asynchronous).
+*   **Feature Completeness**: Every feature available in the synchronous version is also available in the asynchronous version, including relationships, validations, events, and complex queries.
+
+This parity allows developers to seamlessly transition between synchronous and asynchronous contexts without learning different APIs or sacrificing functionality.
+
+## 3. Strict Model-Backend Correspondence and Sync/Async Isolation
 
 We adhere to the **"One Model - One Backend - One Table"** design principle:
 
@@ -32,7 +43,7 @@ We adhere to the **"One Model - One Backend - One Table"** design principle:
     *   **Distinct Models**: Synchronous models (inheriting from `ActiveRecord`) and asynchronous models (inheriting from `AsyncActiveRecord`) are treated as completely different model entities.
     *   **No Mixing**: You cannot define a relationship in a synchronous model that points to an asynchronous model, and vice versa. Synchronous `ActiveQuery` and `CTEQuery` can only be used with synchronous models; asynchronous query builders can only be used with asynchronous models. This isolation ensures predictable runtime behavior and avoids the complexity and potential deadlock risks associated with async/await context switching.
 
-## 3. Type Safety and Data Validation
+## 4. Type Safety and Data Validation
 
 We deeply understand the critical impact of good paradigms on system stability and development efficiency. Therefore, in the design of the data model layer, we made a key decision:
 
@@ -45,7 +56,7 @@ We chose not to implement our own validation system for simple reasons:
 
 Through this inheritance, every ActiveRecord model is essentially a Pydantic model, possessing powerful runtime type checking and data validation capabilities, ensuring the absolute purity of data entering the database.
 
-## 4. Powerful Query System
+## 5. Powerful Query System
 
 ActiveRecord is not just about data models; it is paired with a powerful query system, primarily including:
 

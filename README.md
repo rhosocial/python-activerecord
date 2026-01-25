@@ -13,6 +13,7 @@
 <div align="center">
     <img src="docs/images/logo.svg" alt="rhosocial ActiveRecord Logo" width="200"/>
     <p>A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features.</p>
+    <p><strong>Sync-Async Parity:</strong> Equivalent functionality across synchronous and asynchronous implementations</p>
 </div>
 
 ## Key Features

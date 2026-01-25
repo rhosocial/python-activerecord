@@ -7,6 +7,7 @@
     *   **[Key Features](introduction/key_features.md)**:
         *   Pydantic V2 Integration
         *   Composable Mixins (UUID, Timestamp, Optimistic Locking)
+        *   **[Sync-Async Parity](introduction/key_features.md#sync-async-parity)**: Equivalent functionality across synchronous and asynchronous implementations
         *   Zero-IO Testing Strategy
     *   **[Comparison](introduction/comparison.md)**: Detailed analysis vs SQLModel, SQLAlchemy, Peewee, and Django ORM.
     *   **[Architecture](introduction/architecture.md)**: Understanding the layered design (Interface -> Active Record -> Dialect -> Expression -> Backend).

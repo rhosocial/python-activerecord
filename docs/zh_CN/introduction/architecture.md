@@ -1,10 +1,10 @@
 # 架构设计 (Architecture)
 
-本库采用分层架构设计，以确保可维护性、可测试性和灵活性。
+本库采用分层架构设计，以确保可维护性、可测试性和灵活性。架构的一个关键方面是**同步异步对等**原则，确保同步和异步实现在功能上等价且API保持一致。
 
 ## 组件关系图 (Component Relationships)
 
-架构分为三个主要部分：核心基石、同步实现和异步实现。
+架构分为三个主要部分：核心基石、同步实现和异步实现。设计强调**同步异步对等**，两种实现方式在结构和功能上相互镜像。
 
 > **关于 SQLite 异步后端**: 请注意，本库中包含的 SQLite 异步后端实现主要是为了测试目的（验证异步抽象的有效性及与同步实现的等价性），并不建议在生产环境中作为高性能异步解决方案使用。对于生产环境的异步需求，请使用 `rhosocial-activerecord-mysql`、`rhosocial-activerecord-postgres` 等专用后端包。
 
@@ -123,7 +123,7 @@ classDiagram
 
 ### 3. 异步架构 (`AsyncActiveRecord`)
 
-异步实现镜像了同步结构，但使用了兼容异步的接口和 Mixin。
+异步实现镜像了同步结构，但使用了兼容异步的接口和 Mixin。这体现了**同步异步对等**原则的实际应用，两种实现遵循相同的架构模式并提供等价的功能。
 
 ```mermaid
 classDiagram
@@ -393,6 +393,15 @@ classDiagram
     SetOperationQuery ..|> ISetOperationQuery
 ```
 
+## 同步异步对等实践 (Sync-Async Parity in Action)
+
+架构通过结构和功能对称性展示了**同步异步对等**原则：
+
+*   **结构对称性**: 同步和异步实现遵循相同的架构模式，具有对应的类和接口。
+*   **功能等价性**: 同步版本中可用的每个操作在异步版本中都有直接等价的实现。
+*   **接口一致性**: 方法签名在同步和异步版本之间保持一致，仅在 `async`/`await` 关键字的使用上有所不同。
+*   **Mixin 复用**: 许多组件如 `RelationManagementMixin`、`ColumnNameMixin` 和 `FieldAdapterMixin` 在同步和异步实现之间共享。
+
 ## 查询的生命周期 (The Life of a Query)
 
 ```mermaid
@@ -407,13 +416,23 @@ sequenceDiagram
 
     App->>Model: User.query().where(...)
     Model->>Query: 创建查询构建器
-    
-    alt 调用 .all() / .one()
+
+    alt 调用 .all() / .one() (同步)
         App->>Query: .all()
         Query->>Expr: 收集查询条件
         Expr->>Dialect: 构建 SQL
         Dialect-->>Expr: SQL & Params
         Expr->>Backend: 执行 SQL
+        Backend-->>Expr: Result Rows
+        Expr->>Query: Result Rows
+        Query-->>Model: Result Rows
+        Model-->>App: List[User]
+    else 调用 .all() / .one() (异步)
+        App->>Query: await .all()
+        Query->>Expr: 收集查询条件
+        Expr->>Dialect: 构建 SQL
+        Dialect-->>Expr: SQL & Params
+        Expr->>Backend: await 执行 SQL
         Backend-->>Expr: Result Rows
         Expr->>Query: Result Rows
         Query-->>Model: Result Rows

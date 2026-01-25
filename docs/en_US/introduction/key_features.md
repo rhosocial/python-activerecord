@@ -109,3 +109,47 @@ assert params == ("alice",)
 
 **What does this solve?**
 Your unit tests run instantly with no external environmental dependencies.
+
+
+## Sync-Async Parity: Equivalent Functionality Across Paradigms
+
+A fundamental design principle of `rhosocial-activerecord` is **Sync-Async Parity**, meaning that synchronous and asynchronous implementations provide equivalent functionality and consistent APIs.
+
+### Synchronous and Asynchronous Models
+
+Both synchronous and asynchronous models share the same structure and API:
+
+```python
+# Synchronous Model
+class User(ActiveRecord):
+    username: str
+    
+    @classmethod
+    def table_name(cls) -> str:
+        return 'users'
+
+# Asynchronous Model  
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    
+    @classmethod
+    def table_name(cls) -> str:
+        return 'users'
+```
+
+### Consistent Query Interface
+
+Both synchronous and asynchronous queries provide the same methods with identical signatures:
+
+```python
+# Synchronous Query
+users = User.query().where(User.c.username == 'john').all()
+
+# Asynchronous Query - same API, just with await
+async def get_users():
+    users = await AsyncUser.query().where(AsyncUser.c.username == 'john').all()
+    return users
+```
+
+This parity allows developers to seamlessly transition between synchronous and asynchronous contexts without learning different APIs or sacrificing functionality.
+

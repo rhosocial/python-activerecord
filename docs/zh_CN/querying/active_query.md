@@ -4,6 +4,8 @@
 
 默认情况下，`ActiveQuery` 的查询结果是模型实例（Model Instances）。
 
+本章还将介绍**同步异步对等**原则，其中 `ActiveQuery` 有一个直接的异步对应物 `AsyncActiveQuery`，具有等效的功能和一致的 API。
+
 ## BaseQueryMixin (基础构建块)
 
 提供了构建 SQL 查询的基础方法。
@@ -352,6 +354,20 @@ top_posts = Post.query_with_most_comments().limit(5).all()
 2.  **可链式调用**：返回的是 `ActiveQuery` 对象，因此可以继续调用 `limit()`, `offset()`, `all()` 等方法。
 3.  **代码复用**：`query_with_most_comments` 内部复用了 `query_published`。
 
+## 查询操作中的同步异步对等 (Sync-Async Parity in Query Operations)
+
+**同步异步对等**原则确保 `ActiveQuery` 和 `AsyncActiveQuery` 提供具有相同 API 的等效功能。两种实现中都提供相同的查询构建方法：
+
+```python
+# 同步查询
+users_sync = User.query().where(User.c.active == True).all()
+
+# 异步查询 - 相同的 API，只需使用 await
+async def get_users_async():
+    users_async = await AsyncUser.query().where(AsyncUser.c.active == True).all()
+    return users_async
+```
+
 ## 执行方法
 
 这些方法会触发数据库查询并返回结果。
@@ -470,3 +486,66 @@ sequenceDiagram
         Query-->>User: 返回 List[Dict]
     end
 ```
+
+
+### 3. 异步查询生命周期 (Async Query Lifecycle)
+
+异步版本遵循相同的流程，但在数据库操作中使用 `await`：
+
+```mermaid
+sequenceDiagram
+    participant User
+    participant Query as AsyncActiveQuery
+    participant Expr as Expression System
+    participant Model as AsyncActiveRecord Model
+    participant Backend as AsyncDatabase Backend
+
+    User->>Query: Call await all() / await one()
+
+    rect rgb(240, 248, 255)
+        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
+        Query->>Expr: Construct QueryExpression
+        Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
+        Expr->>Expr: to_sql()
+        Expr-->>Query: Return (sql, params)
+    end
+
+    rect rgb(255, 250, 240)
+        Note over Query: 2. Preparation
+        Query->>Model: get_column_adapters()
+        Model-->>Query: Return column adapters
+    end
+
+    rect rgb(240, 255, 240)
+        Note over Query: 3. Database Interaction
+        alt all()
+            Query->>Backend: await fetch_all(sql, params)
+        else one()
+            Query->>Backend: await fetch_one(sql, params)
+        end
+        Backend-->>Query: Return Raw Rows
+    end
+
+    rect rgb(255, 240, 245)
+        Note over Query: 4. Result Processing (ORM)
+        loop For each row
+            Query->>Model: _map_columns_to_fields()
+            Note right of Query: Map DB columns to fields
+            Query->>Model: create_from_database()
+            Note right of Query: Instantiate Model
+        end
+    end
+
+    rect rgb(230, 230, 250)
+        Note over Query: 5. Eager Loading
+        opt with() configured
+            Query->>Query: _load_relations()
+            Note right of Query: Batch load related data<br/>and populate model instances
+        end
+    end
+
+    Query-->>User: Return List[Model] or single Model
+```
+
+**同步异步对等**确保同步和异步实现遵循相同的架构模式并提供等效的功能，唯一的区别是在异步操作中使用 `await`。
+

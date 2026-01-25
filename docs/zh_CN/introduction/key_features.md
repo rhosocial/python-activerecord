@@ -109,3 +109,47 @@ assert params == ("alice",)
 
 **这一步解决了什么？**
 你的单元测试可以飞快运行，不需要任何外部环境依赖。
+
+
+## 同步异步对等：跨范式功能等价性 (Sync-Async Parity: Equivalent Functionality Across Paradigms)
+
+`rhosocial-activerecord` 的一个基本设计原则是**同步异步对等**，这意味着同步和异步实现提供等效的功能和一致的 API。
+
+### 同步和异步模型 (Synchronous and Asynchronous Models)
+
+同步和异步模型共享相同的结构和 API：
+
+```python
+# 同步模型
+class User(ActiveRecord):
+    username: str
+    
+    @classmethod
+    def table_name(cls) -> str:
+        return 'users'
+
+# 异步模型  
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    
+    @classmethod
+    def table_name(cls) -> str:
+        return 'users'
+```
+
+### 一致的查询接口 (Consistent Query Interface)
+
+同步和异步查询提供相同的方法，具有相同的签名：
+
+```python
+# 同步查询
+users = User.query().where(User.c.username == 'john').all()
+
+# 异步查询 - 相同的 API，只需使用 await
+async def get_users():
+    users = await AsyncUser.query().where(AsyncUser.c.username == 'john').all()
+    return users
+```
+
+这种对等性使开发人员能够在同步和异步上下文之间无缝过渡，而无需学习不同的 API 或牺牲功能。
+

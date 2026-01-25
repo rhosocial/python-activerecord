@@ -1,10 +1,10 @@
 # Architecture
 
-The library is built on a layered architecture to ensure maintainability, testability, and flexibility.
+The library is built on a layered architecture to ensure maintainability, testability, and flexibility. A key aspect of this architecture is the **Sync-Async Parity** principle, which ensures that synchronous and asynchronous implementations provide equivalent functionality with consistent APIs.
 
 ## Component Relationships
 
-The architecture is divided into three main parts: the Core Foundation, the Synchronous Implementation, and the Asynchronous Implementation.
+The architecture is divided into three main parts: the Core Foundation, the Synchronous Implementation, and the Asynchronous Implementation. The design emphasizes **Sync-Async Parity**, where both implementations mirror each other structurally and functionally.
 
 > **About SQLite Async Backend**: Please note that the SQLite asynchronous backend implementation included in this library is primarily for testing purposes (verifying the validity of the async abstraction and its equivalence with the synchronous implementation) and is not recommended for use as a high-performance asynchronous solution in production environments. For production asynchronous needs, please use dedicated backend packages such as `rhosocial-activerecord-mysql` or `rhosocial-activerecord-postgres`.
 
@@ -123,7 +123,7 @@ classDiagram
 
 ### 3. Asynchronous Architecture (`AsyncActiveRecord`)
 
-The asynchronous implementation mirrors the synchronous structure but uses async-compatible interfaces and mixins.
+The asynchronous implementation mirrors the synchronous structure but uses async-compatible interfaces and mixins. This demonstrates the **Sync-Async Parity** principle in action, where both implementations follow the same architectural pattern with equivalent functionality.
 
 ```mermaid
 classDiagram
@@ -266,6 +266,7 @@ classDiagram
         +min(column)
         +max(column)
         +aggregate() List~Dict~
+    }
     class RelationalQueryMixin {
         +preload(relation)
         +eager_load(relation)
@@ -392,6 +393,15 @@ classDiagram
     SetOperationQuery ..|> ISetOperationQuery
 ```
 
+## Sync-Async Parity in Action
+
+The architecture demonstrates the **Sync-Async Parity** principle through structural and functional symmetry:
+
+*   **Structural Symmetry**: Both synchronous and asynchronous implementations follow identical architectural patterns with corresponding classes and interfaces.
+*   **Functional Equivalence**: Every operation available in the synchronous version has a direct equivalent in the asynchronous version.
+*   **Interface Consistency**: Method signatures are consistent between sync and async versions, differing only in the presence of `async`/`await` keywords.
+*   **Mixin Reuse**: Many components like `RelationManagementMixin`, `ColumnNameMixin`, and `FieldAdapterMixin` are shared between sync and async implementations.
+
 ## The Life of a Query
 
 ```mermaid
@@ -406,13 +416,23 @@ sequenceDiagram
 
     App->>Model: User.query().where(...)
     Model->>Query: Create Query Builder
-    
-    alt Call .all() / .one()
+
+    alt Call .all() / .one() (Sync)
         App->>Query: .all()
         Query->>Expr: Collect Query Conditions
         Expr->>Dialect: Construct SQL
         Dialect-->>Expr: SQL & Params
         Expr->>Backend: Execute SQL
+        Backend-->>Expr: Result Rows
+        Expr->>Query: Result Rows
+        Query-->>Model: Result Rows
+        Model-->>App: List[User]
+    else Call .all() / .one() (Async)
+        App->>Query: await .all()
+        Query->>Expr: Collect Query Conditions
+        Expr->>Dialect: Construct SQL
+        Dialect-->>Expr: SQL & Params
+        Expr->>Backend: await Execute SQL
         Backend-->>Expr: Result Rows
         Expr->>Query: Result Rows
         Query-->>Model: Result Rows

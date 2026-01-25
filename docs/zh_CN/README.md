@@ -7,6 +7,7 @@
     *   **[核心特性 (Key Features)](introduction/key_features.md)**:
         *   Pydantic V2 深度集成
         *   可组合的 Mixins (UUID, Timestamp, 乐观锁)
+        *   **[同步异步对等 (Sync-Async Parity)](introduction/key_features.md#同步异步对等-sync-async-parity)**: 同步和异步实现间的功能等价性
         *   零 IO 测试策略 (Zero-IO Testing)
     *   **[对比分析 (Comparison)](introduction/comparison.md)**: 与 SQLModel, SQLAlchemy, Peewee, Django ORM 的详细对比。
     *   **[架构设计 (Architecture)](introduction/architecture.md)**: 理解分层设计 (Interface -> Active Record -> Dialect -> Expression -> Backend).
