@@ -2,6 +2,10 @@
 
 The Expression System provides a database-agnostic way to build SQL queries using Python objects. It handles SQL generation, parameter binding, and dialect-specific differences.
 
+## Important Notes
+
+- [**Limitations & Considerations**](limitations.md): Critical information about the boundaries and responsibilities of the expression system.
+
 ## Modules
 
 - [**Core**](core.md): Base classes, protocols, mixins, and fundamental operators.

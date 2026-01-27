@@ -570,6 +570,88 @@ class TimestampMixin:
         self.updated_at = datetime.now()
 ```
 
+## Expression-Dialect System Coding Standards
+
+### Expression Class Guidelines
+
+1. **Proper Inheritance**:
+   - All expression classes must inherit from `BaseExpression`
+   - Value expressions inherit from `SQLValueExpression`
+   - Predicate expressions inherit from `SQLPredicate`
+   - Use appropriate mixins for functionality (e.g., `ArithmeticMixin`, `ComparisonMixin`)
+
+2. **Protocol Implementation**:
+   - Implement `ToSQLProtocol` with proper `to_sql()` method
+   - Return `SQLQueryAndParams` type (SQL string and parameter tuple)
+   - Never directly concatenate SQL strings in expression classes
+
+3. **Dialect Delegation**:
+   - Always delegate formatting to dialect methods
+   - Use `self.dialect.format_*()` methods for all SQL formatting
+   - Maintain separation between query structure and SQL generation
+
+### Dialect Class Guidelines
+
+1. **Base Class Inheritance**:
+   - All dialect classes must inherit from `SQLDialectBase`
+   - Implement all required abstract methods
+
+2. **Formatting Methods**:
+   - Implement `format_*` methods for all SQL formatting needs
+   - Handle identifier quoting appropriately
+   - Properly handle parameter binding
+
+3. **Database-Specific Logic**:
+   - Include database-specific syntax variations
+   - Handle version-specific features
+   - Implement feature detection where needed
+
+### Expression System Module Organization
+
+Follow the established module structure:
+- `bases.py`: Abstract base classes and protocols
+- `core.py`: Core expressions (columns, literals, functions)
+- `mixins.py`: Operator overloading capabilities
+- `operators.py`: SQL operations
+- `predicates.py`: Predicate expressions
+- `query_parts.py`: Query clauses
+- `statements.py`: DML/DDL statements
+- `functions.py`: Factory functions
+- `aggregates.py`: Aggregation expressions
+- `advanced_functions.py`: Advanced SQL features
+- `query_sources.py`: Data source expressions
+- `graph.py`: Graph query expressions
+
+### Example Expression Class
+
+```python
+from typing import TYPE_CHECKING
+from . import bases, mixins
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..dialect import SQLDialectBase
+
+class MyExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+    """Represents a custom SQL expression."""
+    def __init__(self, dialect: "SQLDialectBase", value: str):
+        super().__init__(dialect)
+        self.value = value
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        # Delegate formatting to dialect
+        formatted_value = self.dialect.format_string_literal(self.value)
+        return formatted_value, (self.value,)
+```
+
+### Example Dialect Method
+
+```python
+def format_identifier(self, identifier: str) -> str:
+    """Format identifier with proper quoting."""
+    # Database-specific identifier formatting
+    return f'"{identifier}"'  # Example for standard SQL
+```
+
 ## Code Review Checklist
 
 - [ ] Path comment at file start matches actual location
@@ -582,3 +664,7 @@ class TimestampMixin:
 - [ ] Test coverage for new code
 - [ ] Security considerations addressed
 - [ ] Performance implications considered
+- [ ] Expression classes properly delegate to dialect
+- [ ] Dialect methods handle formatting correctly
+- [ ] Expression-dialect separation maintained
+- [ ] Expression system module organization followed

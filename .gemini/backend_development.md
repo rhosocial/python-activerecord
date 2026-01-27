@@ -46,11 +46,45 @@ rhosocial-activerecord-{backend}/
 
 ## Key Backend Concepts
 
-Before diving into components, it is crucial to understand two distinct, complementary concepts:
+Before diving into components, it is crucial to understand the **Expression-Dialect System**, which is fundamental to how SQL queries are built and executed:
 
-1.  **Expression Formatting**: This applies to special objects like `CurrentExpression` (subclasses of `SQLExpression`). The **query builder** automatically handles these by calling their `.as_sql()` method. The result is a raw SQL string (e.g., `CURRENT_TIMESTAMP`) embedded directly into the final SQL query *before* it reaches the backend. **The backend does not need special logic for these expression objects.**
+### The Expression-Dialect Architecture
+
+The expression-dialect system separates SQL query construction from SQL generation, enabling database-agnostic query building while allowing database-specific formatting.
+
+#### Architecture Principles
+- **Expression classes** implement the `ToSQLProtocol` and define how to generate SQL
+- **Each expression class** must call its dialect's `format_*` methods instead of self-formatting
+- **Dialect classes** are responsible for the actual SQL formatting and parameter handling
+- **Expression classes** should never directly concatenate SQL strings; they should delegate to dialect
+- This pattern ensures each dialect can customize formatting behavior while maintaining security
+
+#### Relationship Model
+```
+Expression.to_sql() -> Dialect.format_*() -> SQL string and parameters
+```
+
+#### Key Components
+1. **Expression Formatting**: Expression classes (subclasses of `BaseExpression`) build query structure and call dialect methods for formatting. The **expression system** handles query construction by calling dialect formatting methods.
 
 2.  **Type Adaptation**: This applies to plain Python values passed as parameters (e.g., a `datetime` object in a `WHERE` clause). The **backend is responsible** for converting these values into a format the native database driver can consume. For instance, converting a Python `datetime` object into a Python `str`. This is handled by the **SQLTypeAdapter Pattern**.
+
+#### Expression System Modules
+- `bases.py`: Abstract base classes and protocol definitions
+- `core.py`: Core expression components (columns, literals, function calls, subqueries)
+- `mixins.py`: Operator-overloading capabilities for expressions
+- `operators.py`: SQL operations (binary, unary, arithmetic expressions)
+- `predicates.py`: SQL predicate expressions (WHERE clause conditions)
+- `query_parts.py`: SQL query clauses (WHERE, GROUP BY, HAVING, ORDER BY, etc.)
+- `statements.py`: DML/DQL/DDL statements (SELECT, INSERT, UPDATE, DELETE, etc.)
+- `functions.py`: Standalone factory functions for creating SQL expressions
+- `aggregates.py`: SQL aggregation expressions and functions
+- `advanced_functions.py`: Advanced SQL functions (CASE, CAST, EXISTS, window functions)
+- `query_sources.py`: Data source expressions (VALUES, table functions, CTEs)
+- `graph.py`: SQL Graph Query (MATCH) expressions
+
+#### Important Limitation
+The expression system faithfully builds SQL according to user intent, but **does not validate** whether the generated SQL complies with SQL standards or can be successfully executed in the target database. Semantic validation is the responsibility of the database engine.
 
 ## A Note on Asynchronous Backends
 

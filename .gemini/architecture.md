@@ -1,17 +1,84 @@
-# System Architecture and Design Patterns
+# rhosocial-activerecord Architecture Document
 
-## Overview
+## Core Architecture Components
 
-The rhosocial-activerecord project follows a modular, protocol-based architecture that emphasizes extensibility, type safety, and clean separation of concerns. This document describes the core architectural decisions and design patterns used throughout the system.
+### 1. Expression-Dialect System
 
-**Architectural Foundation**: The project is built as a **standalone ActiveRecord implementation** without dependencies on existing ORMs. It uses only Pydantic for data validation and model definition, with all database interaction logic implemented from scratch through a clean backend abstraction layer.
+The Expression-Dialect System is the core query building component of rhosocial-activerecord, which achieves separation between database-agnostic SQL query building and database-specific SQL generation.
 
-## Core Architecture Principles
+#### Architectural Principles
+- **Expression classes** implement the `ToSQLProtocol` interface, defining how to generate SQL
+- **Each expression class** must call its dialect's `format_*` methods instead of self-formatting
+- **Dialect classes** are responsible for the actual SQL formatting and parameter handling
+- **Expression classes** should never directly concatenate SQL strings; they should delegate to dialect
+- This pattern ensures each dialect can customize formatting behavior while maintaining security
+
+#### Relationship Model
+```
+Expression.to_sql() -> Dialect.format_*() -> SQL string and parameters
+```
+
+#### Main Modules
+- `bases.py`: Abstract base classes and protocol definitions
+- `core.py`: Core expression components (columns, literals, function calls, subqueries)
+- `mixins.py`: Mixin classes that provide operator-overloading capabilities
+- `operators.py`: SQL operations (binary, unary, arithmetic expressions)
+- `predicates.py`: SQL predicate expressions (WHERE clause conditions)
+- `query_parts.py`: SQL query clauses (WHERE, GROUP BY, HAVING, ORDER BY, etc.)
+- `statements.py`: DML/DQL/DDL statements (SELECT, INSERT, UPDATE, DELETE, etc.)
+- `functions.py`: Standalone factory functions for creating SQL expression objects
+- `aggregates.py`: Expressions related to SQL aggregation and aggregate functions
+- `advanced_functions.py`: Advanced SQL functions and expressions (CASE, CAST, EXISTS, window functions, etc.)
+- `query_sources.py`: Data source expressions (VALUES, table functions, lateral joins, CTEs, etc.)
+- `graph.py`: SQL Graph Query (MATCH) expression building blocks
+
+#### Important Limitations
+The expression system faithfully builds SQL according to user intent, but **does not validate** whether the generated SQL complies with SQL standards or can be successfully executed in the target database. Semantic validation is the responsibility of the database engine.
+
+### 2. Backend System
+
+The backend system is responsible for database connection management and actual SQL execution.
+
+#### Main Components
+- `StorageBackend`: Base class for storage backends
+- `SQLDialectBase`: Base class for SQL dialects
+- Concrete implementations: `sqlite`, `dummy`, etc.
+
+### 3. Model Layer
+
+The model layer provides the implementation of the Active Record pattern.
+
+#### Main Components
+- `ActiveRecord`: Base class for the Active Record pattern
+- `FieldProxy`: Field proxy that bridges the gap between Python objects and SQL queries
+- Mixins: `UUIDMixin`, `TimestampMixin`, etc.
+
+### 4. Query Interface
+
+The query interface provides a fluent, type-safe query API.
+
+#### Main Components
+- `ActiveQuery`: Most commonly used query object bound to ActiveRecord models
+- `CTEQuery`: Query object for building Common Table Expressions (CTEs)
+- `SetOperationQuery`: Set operation query object
+
+## Design Patterns
+
+### Sync-Async Parity
+Synchronous and asynchronous implementations provide equivalent functionality with unified APIs.
+
+### Gradual ORM
+Balancing strict type safety (OLTP) with raw performance (OLAP).
+
+### Layered Architecture
+Clear distinction between Backend and ActiveRecord, avoiding tight coupling between database connection management and model definition in traditional ORMs.
+
+## Core Architectural Principles
 
 ### 1. Independence from Existing ORMs
-- **No ORM Dependencies**: Built from scratch without relying on SQLAlchemy, Django ORM, or others
+- **No ORM Dependencies**: Built from scratch without relying on SQLAlchemy, Django ORM, or other ORMs
 - **Direct Driver Interaction**: Backends interact directly with database drivers
-- **Lightweight Core**: Only Pydantic is required for the core functionality
+- **Lightweight Core**: Core functionality requires only Pydantic
 
 ### 2. Open-Closed Principle
 - **Open for Extension**: New backends can be added without modifying core code
@@ -25,7 +92,7 @@ The rhosocial-activerecord project follows a modular, protocol-based architectur
 
 ### 4. Single Responsibility
 - Each module has one clear purpose
-- Backends handle database specifics
+- Backends handle database-specific details
 - Models handle business logic
 - Query builders handle query construction
 
@@ -33,7 +100,7 @@ The rhosocial-activerecord project follows a modular, protocol-based architectur
 
 **Purpose**: Ensure all database identifiers (table names, column names, aliases) and literal values are consistently and correctly formatted according to the specific database dialect. This is crucial for conforming to dialect-specific quoting rules (e.g., `"name"`, ``` `name` ```, `[name]`) and ensuring broad compatibility.
 
-**Note on Security**: While proper identifier formatting is essential for SQL correctness, the primary mechanism for preventing SQL injection vulnerabilities in this project is the use of **SQL placeholders and parameter separation**, ensuring that literal values are always bound securely and never concatenated directly into the SQL query string.
+**Security Note**: While proper identifier formatting is essential for SQL correctness, the primary mechanism for preventing SQL injection vulnerabilities in this project is the use of **SQL placeholders and parameter separation**, ensuring that literal values are always bound securely and never concatenated directly into the SQL query string.
 
 **Implementation**: The `SQLDialectBase` (and its concrete implementations like `SQLiteDialect`) provides dedicated methods for this:
 - `format_identifier(self, identifier: str) -> str`: Formats and quotes identifiers.
@@ -61,29 +128,109 @@ class SQLDialectBase(ABC):
 
 ## Package Architecture
 
-### Namespace Package Structure
+### Package Structure
 
 ```
 rhosocial-activerecord/          # Core package
-├── src/rhosocial/activerecord/
-│   ├── __init__.py             # Namespace extension
-│   ├── base/                   # Core functionality
-│   ├── field/                  # Field types
-│   ├── query/                  # Query building
-│   ├── relation/               # Relationships
-│   ├── interface/              # Public APIs
-│   └── backend/                # Backend abstraction
-│       ├── base.py             # Abstract backend
-│       └── impl/               # Implementations
-│           └── sqlite/         # Built-in SQLite
-
-rhosocial-activerecord-mysql/   # Extension package
-└── src/rhosocial/activerecord/
-    └── backend/impl/
-        └── mysql/               # MySQL implementation
+├── src/rhosocial/activerecord/  # Main package root
+│   ├── __init__.py             # Package initialization
+│   ├── base/                   # Core model functionality
+│   │   ├── __init__.py
+│   │   ├── base.py             # Base ActiveRecord implementation
+│   │   ├── column_name_mixin.py # Column name handling mixin
+│   │   ├── field_adapter_mixin.py # Field adapter mixin
+│   │   ├── field_proxy.py      # Field proxy implementation
+│   │   ├── fields.py           # Field definitions
+│   │   ├── metaclass.py        # Model metaclass
+│   │   └── query_mixin.py      # Query functionality mixin
+│   ├── field/                  # Field mixins and types
+│   │   ├── __init__.py
+│   │   ├── integer_pk.py       # Integer primary key mixin
+│   │   ├── README.md
+│   │   ├── soft_delete.py      # Soft delete mixin
+│   │   ├── timestamp.py        # Timestamp mixin
+│   │   ├── uuid.py             # UUID mixin
+│   │   └── version.py          # Version mixin
+│   ├── interface/              # Public API interfaces
+│   │   ├── __init__.py
+│   │   ├── base.py             # Base interfaces
+│   │   ├── model.py            # Model interface
+│   │   ├── query.py            # Query interface
+│   │   ├── update.py           # Update interface
+│   ├── query/                  # Query building components
+│   │   ├── __init__.py
+│   │   ├── active_query.py     # Main query interface
+│   │   ├── aggregate.py        # Aggregate query functionality
+│   │   ├── async_join.py       # Async join functionality
+│   │   ├── base.py             # Base query functionality
+│   │   ├── cte_query.py        # CTE query functionality
+│   │   ├── join.py             # Join query functionality
+│   │   ├── range.py            # Range query functionality
+│   │   ├── relational.py       # Relational query functionality
+│   │   └── set_operation.py    # Set operation query functionality
+│   ├── relation/               # Relationship components
+│   │   ├── __init__.py
+│   │   ├── async_descriptors.py # Async relationship descriptors
+│   │   ├── base.py             # Base relationship functionality
+│   │   ├── cache.py            # Relationship caching
+│   │   ├── descriptors.py      # Relationship descriptors
+│   │   └── interfaces.py       # Relationship interfaces
+│   ├── model.py                # Main ActiveRecord class
+│   └── backend/                # Backend abstraction and implementations
+│       ├── __init__.py
+│       ├── base/               # Backend base classes
+│       │   ├── __init__.py
+│       │   └── base.py         # StorageBackend base class
+│       ├── dialect/            # SQL dialect implementations
+│       │   ├── __init__.py
+│       │   └── base.py         # SQLDialect base class
+│       ├── expression/         # Expression system
+│       │   ├── __init__.py     # Expression system entry point
+│       │   ├── advanced_functions.py # Advanced SQL functions (CASE, CAST, etc.)
+│       │   ├── aggregates.py   # Aggregate function expressions
+│       │   ├── bases.py        # Base expression classes and protocols
+│       │   ├── core.py         # Core expressions (Column, Literal, etc.)
+│       │   ├── functions.py    # Factory functions for expressions
+│       │   ├── graph.py        # Graph query expressions
+│       │   ├── literals.py     # Literal expressions
+│       │   ├── mixins.py       # Expression mixins with operator overloading
+│       │   ├── operators.py    # SQL operation expressions
+│       │   ├── predicates.py   # Predicate expressions
+│       │   ├── query_parts.py  # Query clause expressions
+│       │   ├── query_sources.py # Query source expressions
+│       │   └── statements.py   # SQL statement expressions
+│       ├── impl/               # Backend implementations
+│       │   ├── dummy/          # Dummy backend for testing
+│       │   │   ├── __init__.py
+│       │   │   ├── backend.py
+│       │   │   └── dialect.py
+│       │   └── sqlite/         # SQLite backend implementation
+│       │       ├── __init__.py
+│       │       ├── __main__.py
+│       │       ├── adapters.py # SQLite type adapters
+│       │       ├── backend.py  # SQLite backend implementation
+│       │       ├── config.py   # SQLite configuration
+│       │       ├── dialect.py  # SQLite dialect implementation
+│       │       ├── transaction.py # SQLite transaction handling
+│       │       └── types.py    # SQLite-specific types
+│       ├── config.py           # Backend configuration base classes
+│       ├── errors.py           # Backend-specific errors
+│       ├── helpers.py          # Backend helper functions
+│       ├── options.py          # Backend options
+│       ├── output_abc.py       # Output abstraction
+│       ├── output_rich.py      # Rich output implementation
+│       ├── output.py           # Output utilities
+│       ├── README.md           # Backend documentation
+│       ├── result.py           # Query result handling
+│       ├── schema.py           # Schema management
+│       ├── transaction.py      # Transaction base classes
+│       ├── type_adapter.py     # Type adaptation system
+│       └── type_registry.py    # Type adapter registry
 ```
 
-### Namespace Extension Mechanism
+### Namespace Package Structure
+
+The package follows a namespace structure that allows for distributed backend implementations:
 
 ```python
 # Core package __init__.py
@@ -104,12 +251,12 @@ This allows multiple packages to contribute to the same namespace, enabling dist
 # interface/model.py
 class IActiveRecord(BaseModel, ABC):
     """Core ActiveRecord interface."""
-    
+
     @abstractmethod
     def save(self) -> bool:
         """Save record to database."""
         pass
-    
+
     @abstractmethod
     def delete(self) -> bool:
         """Delete record from database."""
@@ -150,7 +297,7 @@ class StorageBackend(
     Abstract storage backend, primarily composed from various functional mixins.
     Its `execute` method acts as a template method orchestrating these mixins.
     """
-    
+
     # The actual execute method is a template method, coordinating mixins
     def execute(self, sql: str, params: Dict, **kwargs) -> QueryResult:
         # ... implementation coordinates mixins for connection, parsing,
@@ -168,7 +315,7 @@ class StorageBackend(
 # backend/impl/sqlite/backend.py
 class SQLiteBackend(StorageBackend):
     """SQLite-specific implementation."""
-    
+
     def execute(self, sql: str, params: Dict) -> QueryResult:
         # SQLite-specific execution
         pass
@@ -183,10 +330,10 @@ class SQLiteBackend(StorageBackend):
 ```python
 class User(ActiveRecord):
     __table_name__ = "users"
-    
+
     name: str
     email: str
-    
+
 # Usage
 user = User(name="John", email="john@example.com")
 user.save()  # Persists to database
@@ -210,10 +357,10 @@ from typing import Protocol, runtime_checkable, Any, Type, Dict, Optional
 @runtime_checkable
 class SQLTypeAdapter(Protocol):
     """Protocol for type conversion between Python and database values."""
-    
+
     def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any: ...
     def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any: ...
-    
+
     @property
     def supported_types(self) -> Dict[Type, Set[Type]]: ...
 ```
@@ -236,7 +383,7 @@ class TimestampMixin:
 class SoftDeleteMixin:
     """Add soft delete capability."""
     deleted_at: Optional[datetime] = None
-    
+
     def delete(self):
         self.deleted_at = datetime.now()
         return self.save()
@@ -314,7 +461,7 @@ class StorageBackend(
     that orchestrates the query execution process by coordinating its
     composed functional mixins.
     """
-    
+
     # This is the actual Template Method
     def execute(self, sql: str, params: Optional[Tuple] = None, **kwargs) -> QueryResult:
         # 1. Start timer
@@ -331,7 +478,7 @@ class StorageBackend(
         # 12. Handle auto-commit (hook method `_handle_auto_commit_if_needed`)
         # 13. Handle errors (hook method `_handle_execution_error`)
         pass
-    
+
     # Hook methods (some are abstract in StorageBackend, others in mixins)
     @abstractmethod
     def _execute_query(self, cursor, sql: str, params: Optional[Tuple]): ...
@@ -350,11 +497,11 @@ def create_backend(backend_type: str, **config) -> StorageBackend:
         'mysql': MySQLBackend,
         'postgresql': PostgreSQLBackend,
     }
-    
+
     backend_class = backends.get(backend_type)
     if not backend_class:
         raise ValueError(f"Unknown backend: {backend_type}")
-    
+
     return backend_class(**config)
 ```
 
@@ -466,20 +613,20 @@ extras_require = {
 def discover_backends():
     """Discover installed backends."""
     backends = {}
-    
+
     # Check for installed backends (each uses only native drivers)
     try:
         from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
         backends['mysql'] = MySQLBackend  # Uses mysql-connector-python directly
     except ImportError:
         pass
-    
+
     try:
         from rhosocial.activerecord.backend.impl.postgresql import PostgreSQLBackend
         backends['postgresql'] = PostgreSQLBackend  # Uses psycopg2 directly
     except ImportError:
         pass
-    
+
     return backends
 ```
 
@@ -490,11 +637,11 @@ def discover_backends():
 ```python
 class EncryptedField(Field):
     """Custom encrypted field type."""
-    
+
     def __set__(self, instance, value):
         encrypted = encrypt(value)
         super().__set__(instance, encrypted)
-    
+
     def __get__(self, instance, owner):
         value = super().__get__(instance, owner)
         return decrypt(value) if value else None
@@ -507,7 +654,7 @@ from pydantic import field_validator
 
 class User(ActiveRecord):
     email: str
-    
+
     @field_validator('email')
     def validate_email(cls, v):
         if '@' not in v:
@@ -522,7 +669,7 @@ class UserQueryMixin:
     @classmethod
     def find_by_email(cls, email: str):
         return cls.where("email = ?", (email,)).first()
-    
+
     @classmethod
     def active_users(cls):
         return cls.where(is_active=True)
@@ -538,7 +685,7 @@ class User(ActiveRecord):
     def before_save(self):
         """Called before saving."""
         self.updated_at = datetime.now()
-    
+
     def after_save(self):
         """Called after saving."""
         cache.invalidate(f"user:{self.id}")
@@ -560,7 +707,7 @@ The architecture is designed for minimal overhead:
 class PooledBackend(StorageBackend):
     def __init__(self, config, pool_size=10):
         self.pool = ConnectionPool(config, size=pool_size)
-    
+
     def get_connection(self):
         return self.pool.acquire()
 ```
@@ -580,7 +727,7 @@ class RelationDescriptor:
         cached = InstanceCache.get(instance, self.name, self._cache_config)
         if cached is not None:
             return cached
-        
+
         data = self._loader.load(instance)
         InstanceCache.set(instance, self.name, data, self._cache_config)
         return data
@@ -597,11 +744,11 @@ class RelationDescriptor:
     def __get__(self, instance, owner):
         if not hasattr(instance, '_relation_cache'):
             instance._relation_cache = {}
-        
+
         if self.name not in instance._relation_cache:
             # Load relation only when accessed
             instance._relation_cache[self.name] = self.load(instance)
-        
+
         return instance._relation_cache[self.name]
 ```
 
@@ -630,7 +777,7 @@ class ThreadSafeDict(Dict[K, V]):
             self._local.data = {}
         if args or kwargs:
             self.update(*args, **kwargs)
-    
+
     def __getitem__(self, key: K) -> V:
         return self._local.data[key]
 
@@ -690,13 +837,13 @@ tests/
 def backend_matrix():
     """Test across multiple backends."""
     backends = []
-    
+
     # Always test SQLite
     backends.append(SQLiteBackend)
-    
+
     # Test others if available
     if mysql_available():
         backends.append(MySQLBackend)
-    
+
     return backends
 ```
