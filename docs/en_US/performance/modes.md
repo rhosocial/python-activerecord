@@ -1,4 +1,13 @@
-# Execution Modes (Strict vs Raw)
+# Architecture Determines Performance
+
+## Performance Through Simplicity
+
+Our framework achieves excellent performance through architectural simplicity rather than complex optimization mechanisms:
+
+- **Direct Architecture**: Only 2 steps from expression to SQL, avoiding multi-layer compilation that adds overhead
+- **No Hidden Caching**: Unlike systems that require special query caching mechanisms, our approach is naturally efficient
+- **Stateless Expressions**: No object state management overhead during query building
+- **Predictable Performance**: Performance scales directly with expression count, without hidden factors
 
 ## Strict Mode (Default)
 

@@ -6,6 +6,15 @@ By default, `ActiveQuery` returns model instances.
 
 This chapter also introduces the **Sync-Async Parity** principle, where `ActiveQuery` has a direct asynchronous counterpart `AsyncActiveQuery` with equivalent functionality and consistent APIs.
 
+## Simple and Predictable Design
+
+Our query system emphasizes simplicity and predictability:
+
+- **Simple Loading Strategies**: Only necessary and clear loading strategies, avoiding strategy explosion problems
+- **No Complex Event Systems**: Unlike systems with dozens of event types, we provide only essential lifecycle hooks
+- **Explicit Control**: Users have complete control over when and how queries are executed
+- **No Hidden Behaviors**: No automatic flushing or hidden database operations that users cannot control
+
 ## BaseQueryMixin (Basic Building Blocks)
 
 Provides the basic building blocks for SQL queries.

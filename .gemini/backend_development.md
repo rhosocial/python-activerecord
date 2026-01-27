@@ -52,6 +52,19 @@ Before diving into components, it is crucial to understand the **Expression-Dial
 
 The expression-dialect system separates SQL query construction from SQL generation, enabling database-agnostic query building while allowing database-specific formatting.
 
+### Advantages of Our Approach
+
+Our expression-dialect system offers several advantages over traditional approaches:
+
+- **No Complex State Management**: Unlike systems that maintain complex object states, our expressions are stateless and pure
+- **Direct SQL Generation**: Only 2 steps from expression to SQL, avoiding multi-layer compilation architectures
+- **Standard-Based Implementation**: Using the dummy backend as a complete SQL standard reference, other dialects only need to override differences
+- **Test-Friendly**: The dummy backend allows testing SQL generation without database connections
+- **No Hidden Compilation Steps**: Unlike systems with complex multi-stage compilation, our approach is direct and predictable
+- **Fragment Generation**: Any expression can generate SQL fragments independently, unlike systems that require complete query compilation
+- **Explicit Control**: Unlike systems with automatic session management or hidden behaviors, our approach gives users complete visibility into when database operations occur
+- **Simple Architecture**: No complex object lifecycle tracking, automatic caching mechanisms, or multiple state transitions
+
 #### Architecture Principles
 - **Expression classes** implement the `ToSQLProtocol` and define how to generate SQL
 - **Each expression class** must call its dialect's `format_*` methods instead of self-formatting
@@ -85,6 +98,14 @@ Expression.to_sql() -> Dialect.format_*() -> SQL string and parameters
 
 #### Important Limitation
 The expression system faithfully builds SQL according to user intent, but **does not validate** whether the generated SQL complies with SQL standards or can be successfully executed in the target database. Semantic validation is the responsibility of the database engine.
+
+#### Design Philosophy: Explicit Over Implicit
+Our expression system follows the principle of explicit control over implicit behavior:
+- No hidden state management or object lifecycle tracking
+- No automatic query compilation or caching mechanisms
+- No complex object state transitions
+- Users have complete visibility and control over SQL generation
+- Unlike systems with complex multi-stage compilation, our approach is direct and predictable
 
 ## A Note on Asynchronous Backends
 

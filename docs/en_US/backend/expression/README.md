@@ -2,6 +2,15 @@
 
 The Expression System provides a database-agnostic way to build SQL queries using Python objects. It handles SQL generation, parameter binding, and dialect-specific differences.
 
+## Key Features
+
+- **Stateless Design**: Expression objects are pure functions with no internal state, eliminating the need for complex object state management
+- **Direct SQL Generation**: Only 2 steps from expression to SQL, avoiding multi-layer compilation architectures
+- **Flexible Fragment Generation**: Any expression can call `to_sql()` independently to generate SQL fragments, unlike systems that require complete query compilation
+- **User Control**: Users have complete control over when and how SQL is generated, without hidden automatic behaviors
+- **Explicit Over Implicit**: No hidden state management, automatic compilation, or complex object lifecycle tracking
+- **No Hidden Behaviors**: No automatic flushing or hidden database operations, unlike systems with automatic session management
+
 ## Important Notes
 
 - [**Limitations & Considerations**](limitations.md): Critical information about the boundaries and responsibilities of the expression system.

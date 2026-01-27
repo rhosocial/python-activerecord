@@ -77,3 +77,12 @@ While the **database engine** is responsible for:
 4. **Leverage database features**: Understand specific features and limitations of your target database
 
 This design is intentional, as it allows the expression system to remain universal while letting the database engine perform its specialized validation functions.
+
+### 5. Explicit Over Implicit
+
+Our expression system follows the principle of explicit control over implicit behavior:
+- No hidden state management or object lifecycle tracking
+- No automatic query compilation or caching mechanisms
+- No complex object state transitions
+- Users have complete visibility and control over SQL generation
+- Unlike systems with complex multi-stage compilation, our approach is direct and predictable.

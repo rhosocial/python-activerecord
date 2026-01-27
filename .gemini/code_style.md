@@ -590,6 +590,12 @@ class TimestampMixin:
    - Use `self.dialect.format_*()` methods for all SQL formatting
    - Maintain separation between query structure and SQL generation
 
+4. **Explicit Control**:
+   - Expression classes should not maintain internal state
+   - No hidden behaviors or automatic operations
+   - Keep expressions stateless and pure
+   - Unlike systems with complex object state management, our expressions are simple and predictable
+
 ### Dialect Class Guidelines
 
 1. **Base Class Inheritance**:

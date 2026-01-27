@@ -7,7 +7,9 @@
 1.  **Default Backend**: When you haven't configured any specific database backend (like SQLite), the system defaults to using `DummyBackend` (or its async version `AsyncDummyBackend`).
 2.  **Dialect Only**: It only provides a SQL Dialect implementation (`DummyDialect`) to support standard SQL construction.
 3.  **No Execution Support**: It **does not** have any database execution capabilities. Attempting to execute queries (like `find`, `save`, `all`, etc.) will raise an error immediately.
-4.  **No Mocking Support**: Unlike some testing frameworks, it **does not** support mocking responses (preset return values).
+4.  **Test-Friendly**: Unlike systems that require database connections to test SQL generation, our dummy backend allows complete testing of SQL generation logic without any external dependencies.
+5.  **Immediate Verification**: Any expression can call `to_sql()` immediately to verify output, without needing to execute through complex query compilation pipelines.
+6.  **No Mocking Support**: Unlike some testing frameworks, it **does not** support mocking responses (preset return values).
 
 ## Primary Use Case: SQL Generation Verification
 
