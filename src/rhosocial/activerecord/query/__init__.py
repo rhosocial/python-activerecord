@@ -10,7 +10,6 @@ from .join import JoinQueryMixin
 from .async_join import AsyncJoinQueryMixin
 from .range import RangeQueryMixin
 from .relational import RelationalQueryMixin, InvalidRelationPathError, RelationNotFoundError
-from .async_join import AsyncJoinQueryMixin
 from .set_operation import SetOperationQuery
 
 __all__ = [
