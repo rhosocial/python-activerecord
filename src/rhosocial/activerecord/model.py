@@ -28,7 +28,8 @@ class ActiveRecord(
 
     - BaseActiveRecord: Core CRUD operations
     - RelationManagementMixin: Relationship handling
-    - QueryMixin: Query builder
+    - QueryMixin: Synchronous query builder
+    - ColumnNameMixin: Column name handling and quoting
     - FieldAdapterMixin: Field-specific type adapter support
     - MetaclassMixin: Metaclass-based model building support
     """
@@ -50,7 +51,8 @@ class AsyncActiveRecord(
 
     - AsyncBaseActiveRecord: Async core CRUD operations
     - RelationManagementMixin: Relationship handling
-    - AsyncQueryMixin: Async query builder
+    - AsyncQueryMixin: Asynchronous query builder
+    - ColumnNameMixin: Column name handling and quoting
     - FieldAdapterMixin: Field-specific type adapter support
     - MetaclassMixin: Metaclass-based model building support
     """
