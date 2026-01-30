@@ -88,14 +88,14 @@ class CTEQuery(
 
     # region CTE Methods
     def with_cte(self, name: str,
-                 query: Union[str, 'bases.SQLQueryAndParams', 'IQuery'],
+                 query: Union[str, 'bases.SQLQueryAndParams', 'IQuery', 'statements.QueryExpression'],
                  columns: Optional[List[str]] = None,
                  materialized: Optional[bool] = None):
         """Add a Common Table Expression (CTE) to this query.
 
         Args:
             name: Name of the CTE
-            query: The query that defines the CTE, can be a string, IQuery, ActiveQuery, or CTEQuery
+            query: The query that defines the CTE, can be a string, IQuery, ActiveQuery, CTEQuery, or QueryExpression
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
 
@@ -123,14 +123,19 @@ class CTEQuery(
             from ..interface import IAsyncQuery
             if isinstance(query, IAsyncQuery):
                 raise TypeError(f"CTEQuery (sync) cannot accept async query of type {type(query).__name__}. Use AsyncCTEQuery for async queries.")
-            
+
             # If query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
+            from ..backend.expression.operators import RawSQLExpression
+            sql, params = query.to_sql()
+            query_expr = RawSQLExpression(dialect, sql, params)
+        elif isinstance(query, statements.QueryExpression):
+            # If query is a QueryExpression, convert it to a RawSQLExpression to avoid extra parentheses
             from ..backend.expression.operators import RawSQLExpression
             sql, params = query.to_sql()
             query_expr = RawSQLExpression(dialect, sql, params)
         else:
             # For other types, raise an error as they are not supported
-            raise TypeError(f"Query type {type(query)} is not supported in CTE. Only str, SQLQueryAndParams, and IQuery are supported.")
+            raise TypeError(f"Query type {type(query)} is not supported in CTE. Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported.")
 
         # Create a CTEExpression
         cte_expr = query_sources.CTEExpression(
@@ -146,7 +151,7 @@ class CTEQuery(
 
         return self
 
-    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IQuery']):
+    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IQuery', 'statements.QueryExpression']):
         """Set the main query that will use the defined CTEs.
 
         Args:
@@ -155,7 +160,35 @@ class CTEQuery(
         Returns:
             self for method chaining
         """
-        self._main_query = main_query
+        # Convert the main_query to an expression immediately to validate it early
+        # This ensures that if the query is invalid, we catch it here rather than later
+        try:
+            from ..backend.expression.operators import RawSQLExpression
+            dialect = self.backend().dialect
+
+            if isinstance(main_query, str):
+                # If main_query is a string, we'll need to handle it differently
+                # For now, we'll create a RawSQLExpression
+                main_query_expr = RawSQLExpression(dialect, main_query)
+            elif bases.is_sql_query_and_params(main_query):
+                # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
+                sql_string, params = main_query
+                # If params is None, use an empty tuple
+                params = params if params is not None else ()
+                main_query_expr = RawSQLExpression(dialect, sql_string, params)
+            elif hasattr(main_query, 'to_sql'):
+                # If main_query has to_sql method (IQuery or QueryExpression), convert it to a RawSQLExpression
+                sql, params = main_query.to_sql()
+                main_query_expr = RawSQLExpression(dialect, sql, params)
+            else:
+                # If main_query is not one of the supported types, raise an error
+                raise TypeError(f"Main query type {type(main_query)} is not supported in CTE. "
+                                f"Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported.")
+        except Exception as e:
+            # If there's an issue converting the query to an expression, raise a more informative error
+            raise TypeError(f"Could not convert main query of type {type(main_query)} to a valid SQL expression: {str(e)}")
+
+        self._main_query = main_query_expr  # Store the pre-built expression, not the original parameter
         return self
 
     def recursive(self, enabled: bool = True):
@@ -201,27 +234,9 @@ class CTEQuery(
             else:
                 raise ValueError("CTEQuery must have at least one CTE defined")
         else:
-            # Convert the main query to an appropriate expression
-            if isinstance(self._main_query, str):
-                # If main_query is a string, we'll need to handle it differently
-                # For now, we'll create a RawSQLExpression
-                from ..backend.expression.operators import RawSQLExpression
-                main_query_expr = RawSQLExpression(dialect, self._main_query)
-            elif bases.is_sql_query_and_params(self._main_query):
-                # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-                from ..backend.expression.operators import RawSQLExpression
-                sql_string, params = self._main_query
-                # If params is None, use an empty tuple
-                params = params if params is not None else ()
-                main_query_expr = RawSQLExpression(dialect, sql_string, params)
-            elif isinstance(self._main_query, IQuery):
-                # If main_query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
-                from ..backend.expression.operators import RawSQLExpression
-                sql, params = self._main_query.to_sql()
-                main_query_expr = RawSQLExpression(dialect, sql, params)
-            else:
-                # For other types, raise an error as they are not supported
-                raise TypeError(f"Main query type {type(self._main_query)} is not supported in CTE. Only str, SQLQueryAndParams, and IQuery are supported.")
+            # The main query is already converted to an expression in the query() method
+            # So we can use it directly
+            main_query_expr = self._main_query
 
         # Create WithQueryExpression with the CTEs and main query
         with_query_expr = query_sources.WithQueryExpression(
@@ -356,14 +371,14 @@ class AsyncCTEQuery(
 
     # region CTE Methods
     def with_cte(self, name: str,
-                 query: Union[str, 'bases.SQLQueryAndParams', 'IQuery'],
+                 query: Union[str, 'bases.SQLQueryAndParams', 'IQuery', 'statements.QueryExpression'],
                  columns: Optional[List[str]] = None,
                  materialized: Optional[bool] = None):
         """Add a Common Table Expression (CTE) to this query.
 
         Args:
             name: Name of the CTE
-            query: The query that defines the CTE, can be a string, IQuery, ActiveQuery, or CTEQuery
+            query: The query that defines the CTE, can be a string, IQuery, ActiveQuery, CTEQuery, or QueryExpression
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
 
@@ -397,9 +412,14 @@ class AsyncCTEQuery(
             from ..backend.expression.operators import RawSQLExpression
             sql, params = query.to_sql()
             query_expr = RawSQLExpression(dialect, sql, params)
+        elif isinstance(query, statements.QueryExpression):
+            # If query is a QueryExpression, convert it to a RawSQLExpression to avoid extra parentheses
+            from ..backend.expression.operators import RawSQLExpression
+            sql, params = query.to_sql()
+            query_expr = RawSQLExpression(dialect, sql, params)
         else:
             # For other types, raise an error as they are not supported
-            raise TypeError(f"Query type {type(query)} is not supported in CTE. Only str, SQLQueryAndParams, and IQuery are supported.")
+            raise TypeError(f"Query type {type(query)} is not supported in CTE. Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported.")
 
         # Create a CTEExpression
         cte_expr = query_sources.CTEExpression(
@@ -415,7 +435,7 @@ class AsyncCTEQuery(
 
         return self
 
-    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IAsyncQuery']):
+    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IAsyncQuery', 'statements.QueryExpression']):
         """Set the main query that will use the defined CTEs.
 
         Args:
@@ -424,7 +444,35 @@ class AsyncCTEQuery(
         Returns:
             self for method chaining
         """
-        self._main_query = main_query
+        # Convert the main_query to an expression immediately to validate it early
+        # This ensures that if the query is invalid, we catch it here rather than later
+        try:
+            from ..backend.expression.operators import RawSQLExpression
+            dialect = self.backend().dialect
+
+            if isinstance(main_query, str):
+                # If main_query is a string, we'll need to handle it differently
+                # For now, we'll create a RawSQLExpression
+                main_query_expr = RawSQLExpression(dialect, main_query)
+            elif bases.is_sql_query_and_params(main_query):
+                # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
+                sql_string, params = main_query
+                # If params is None, use an empty tuple
+                params = params if params is not None else ()
+                main_query_expr = RawSQLExpression(dialect, sql_string, params)
+            elif hasattr(main_query, 'to_sql'):
+                # If main_query has to_sql method (IAsyncQuery or QueryExpression), convert it to a RawSQLExpression
+                sql, params = main_query.to_sql()
+                main_query_expr = RawSQLExpression(dialect, sql, params)
+            else:
+                # If main_query is not one of the supported types, raise an error
+                raise TypeError(f"Main query type {type(main_query)} is not supported in CTE. "
+                                f"Only str, SQLQueryAndParams, IAsyncQuery, and QueryExpression are supported.")
+        except Exception as e:
+            # If there's an issue converting the query to an expression, raise a more informative error
+            raise TypeError(f"Could not convert main query of type {type(main_query)} to a valid SQL expression: {str(e)}")
+
+        self._main_query = main_query_expr  # Store the pre-built expression, not the original parameter
         return self
 
     def recursive(self, enabled: bool = True):
@@ -470,27 +518,9 @@ class AsyncCTEQuery(
             else:
                 raise ValueError("CTEQuery must have at least one CTE defined")
         else:
-            # Convert the main query to an appropriate expression
-            if isinstance(self._main_query, str):
-                # If main_query is a string, we'll need to handle it differently
-                # For now, we'll create a RawSQLExpression
-                from ..backend.expression.operators import RawSQLExpression
-                main_query_expr = RawSQLExpression(dialect, self._main_query)
-            elif bases.is_sql_query_and_params(self._main_query):
-                # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-                from ..backend.expression.operators import RawSQLExpression
-                sql_string, params = self._main_query
-                # If params is None, use an empty tuple
-                params = params if params is not None else ()
-                main_query_expr = RawSQLExpression(dialect, sql_string, params)
-            elif isinstance(self._main_query, IQuery):
-                # If main_query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
-                from ..backend.expression.operators import RawSQLExpression
-                sql, params = self._main_query.to_sql()
-                main_query_expr = RawSQLExpression(dialect, sql, params)
-            else:
-                # For other types, raise an error as they are not supported
-                raise TypeError(f"Main query type {type(self._main_query)} is not supported in CTE. Only str, SQLQueryAndParams, and IQuery are supported.")
+            # The main query is already converted to an expression in the query() method
+            # So we can use it directly
+            main_query_expr = self._main_query
 
         # Create WithQueryExpression with the CTEs and main query
         with_query_expr = query_sources.WithQueryExpression(
