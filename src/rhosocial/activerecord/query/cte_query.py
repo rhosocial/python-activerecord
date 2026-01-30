@@ -119,6 +119,11 @@ class CTEQuery(
             params = params if params is not None else ()
             query_expr = RawSQLExpression(dialect, sql_string, params)
         elif isinstance(query, IQuery):
+            # Check that the query is not an async query (sync CTEQuery should not accept async queries)
+            from ..interface import IAsyncQuery
+            if isinstance(query, IAsyncQuery):
+                raise TypeError(f"CTEQuery (sync) cannot accept async query of type {type(query).__name__}. Use AsyncCTEQuery for async queries.")
+            
             # If query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
             from ..backend.expression.operators import RawSQLExpression
             sql, params = query.to_sql()
@@ -198,8 +203,8 @@ class CTEQuery(
         else:
             # Convert the main query to an appropriate expression
             if isinstance(self._main_query, str):
-                # If main_query is a string, treat it as a complete query (not just a SELECT clause)
-                # We'll wrap it in a RawSQLExpression to avoid double SELECT
+                # If main_query is a string, we'll need to handle it differently
+                # For now, we'll create a RawSQLExpression
                 from ..backend.expression.operators import RawSQLExpression
                 main_query_expr = RawSQLExpression(dialect, self._main_query)
             elif bases.is_sql_query_and_params(self._main_query):
@@ -382,6 +387,12 @@ class AsyncCTEQuery(
             params = params if params is not None else ()
             query_expr = RawSQLExpression(dialect, sql_string, params)
         elif isinstance(query, IQuery):
+            # Check that the query is not a sync query (async CTEQuery should not accept sync queries)
+            from ..interface import IAsyncQuery
+            if not isinstance(query, IAsyncQuery):
+                # If it's a sync IQuery (but not an async one), raise an error
+                if isinstance(query, IQuery) and not isinstance(query, IAsyncQuery):
+                    raise TypeError(f"AsyncCTEQuery (async) cannot accept sync query of type {type(query).__name__}. Use CTEQuery for sync queries.")
             # If query is an IQuery, convert it to a RawSQLExpression to avoid extra parentheses
             from ..backend.expression.operators import RawSQLExpression
             sql, params = query.to_sql()
@@ -404,7 +415,7 @@ class AsyncCTEQuery(
 
         return self
 
-    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IQuery']):
+    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IAsyncQuery']):
         """Set the main query that will use the defined CTEs.
 
         Args:
@@ -461,8 +472,8 @@ class AsyncCTEQuery(
         else:
             # Convert the main query to an appropriate expression
             if isinstance(self._main_query, str):
-                # If main_query is a string, treat it as a complete query (not just a SELECT clause)
-                # We'll wrap it in a RawSQLExpression to avoid double SELECT
+                # If main_query is a string, we'll need to handle it differently
+                # For now, we'll create a RawSQLExpression
                 from ..backend.expression.operators import RawSQLExpression
                 main_query_expr = RawSQLExpression(dialect, self._main_query)
             elif bases.is_sql_query_and_params(self._main_query):
