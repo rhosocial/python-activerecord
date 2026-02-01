@@ -73,13 +73,13 @@ graph LR
     subgraph "Testsuite Layer"
         TEST[Test Functions<br/>Backend-agnostic logic]
         IFACE[Provider Interfaces<br/>Contract definitions]
-        CAPS[Capability Requirements<br/>Feature declarations]
+        PROTOCOLS[Protocol Requirements<br/>Feature declarations]
     end
     
     subgraph "Backend Layer"
         PROV[Provider Implementation<br/>Model setup & fixtures]
         SCHEMA[SQL Schemas<br/>Database structure]
-        CAPSDECL[Capability Declaration<br/>Supported features]
+        PROTODECL[Protocol Declaration<br/>Supported features]
     end
     
     subgraph "Database Layer"
@@ -223,7 +223,7 @@ This ensures any changes to the test suite's source code are immediately reflect
 - Create test fixtures and utilities
 - NEVER assume backend-specific features
 - NEVER write SQL directly in tests
-- Document required capabilities using correct category+capability format
+- Document required protocols using correct protocol+method format
 
 ### Backend Developers MUST:
 - Implement provider interfaces
@@ -242,192 +242,152 @@ This ensures any changes to the test suite's source code are immediately reflect
 | Database setup | Defines interface | ✅ Implements |
 | Model configuration | Defines fixtures | ✅ Provides models |
 | Cleanup/teardown | Defines hooks | ✅ Implements |
-| Capability declaration | Defines requirements | ✅ Declares support |
+| Protocol declaration | Defines requirements | ✅ Declares support |
 
-## Capability-Based Test Selection
+## Protocol-Based Test Selection
 
 ### Overview
 
-The capability negotiation mechanism uses a two-level hierarchy:
+The testing system now uses a protocol-based approach instead of the legacy capability system. This approach leverages Python's Protocol classes to define and check for specific database feature support. Protocols enable fine-grained feature detection and graceful error handling. The legacy system used centralized capability registries with CapabilityCategory and specific capability classes, while the new system distributes protocol implementations directly in backend dialect classes.
 
-1. **Capability Categories** (CapabilityCategory): Top-level groupings like CTE, WINDOW_FUNCTIONS
-2. **Specific Capabilities**: Individual features within each category
-
-### Capability Architecture
+### Protocol Architecture
 
 ```python
-# Capability hierarchy structure
-CapabilityCategory.CTE                    # Category
-    ├── CTECapability.BASIC_CTE          # Specific capability
-    ├── CTECapability.RECURSIVE_CTE      # Specific capability
-    └── CTECapability.MATERIALIZED_CTE   # Specific capability
+# Protocol hierarchy structure
+WindowFunctionSupport                    # Protocol for window functions
+    ├── supports_window_functions()      # Method to check support
+    ├── supports_window_frame_clause()   # Method to check frame support
+    └── format_window_function_call()    # Method to format calls
 
-CapabilityCategory.WINDOW_FUNCTIONS       # Category
-    ├── WindowFunctionCapability.ROW_NUMBER
-    ├── WindowFunctionCapability.RANK
-    └── WindowFunctionCapability.LAG
+CTESupport                              # Protocol for CTE support
+    ├── supports_basic_cte()            # Method to check basic CTE support
+    ├── supports_recursive_cte()        # Method to check recursive CTE support
+    └── format_cte()                    # Method to format CTEs
 
-# Pre-defined combinations
-ALL_CTE_FEATURES = (
-    CTECapability.BASIC_CTE |
-    CTECapability.RECURSIVE_CTE |
-    CTECapability.COMPOUND_RECURSIVE_CTE |
-    CTECapability.CTE_IN_DML |
-    CTECapability.MATERIALIZED_CTE
-)
+JoinSupport                             # Protocol for JOIN support
+    ├── supports_inner_join()           # Method to check INNER JOIN support
+    ├── supports_left_join()            # Method to check LEFT JOIN support
+    ├── supports_right_join()           # Method to check RIGHT JOIN support
+    └── supports_full_join()            # Method to check FULL JOIN support
 ```
 
-### Backend Capability Declaration
+### Backend Protocol Implementation
 
 ```python
-# Backend declares its capabilities
-# src/rhosocial/activerecord/backend/impl/sqlite/backend.py
-from rhosocial.activerecord.backend.capabilities import (
-    DatabaseCapabilities,
-    CapabilityCategory,
-    CTECapability,
-    WindowFunctionCapability,
-    ALL_CTE_FEATURES,
-    ALL_WINDOW_FUNCTIONS
+# Backend implements protocols
+# src/rhosocial/activerecord/backend/impl/sqlite/dialect.py
+from rhosocial.activerecord.backend.dialect.protocols import (
+    CTESupport,
+    JoinSupport,
+    WindowFunctionSupport
 )
 
-class SQLiteBackend(StorageBackend):
-    def _initialize_capabilities(self):
-        """Initialize and return the backend's capability descriptor."""
-        capabilities = DatabaseCapabilities()
-        version = self.get_server_version()
+class SQLiteDialect(CTESupport, JoinSupport):
+    """SQLite dialect implementing specific protocols."""
 
-        # CTEs supported from 3.8.3+
-        if version >= (3, 8, 3):
-            # Add specific capabilities
-            capabilities.add_cte([
-                CTECapability.BASIC_CTE,
-                CTECapability.RECURSIVE_CTE
-            ])
-            # This automatically adds CapabilityCategory.CTE
+    def supports_basic_cte(self) -> bool:
+        """Check if basic CTEs are supported (SQLite 3.8.3+)"""
+        return self.version >= (3, 8, 3)
 
-        # Window functions from 3.25.0+
-        if version >= (3, 25, 0):
-            # Use pre-defined combination
-            capabilities.add_window_function(ALL_WINDOW_FUNCTIONS)
+    def supports_recursive_cte(self) -> bool:
+        """Check if recursive CTEs are supported (SQLite 3.8.3+)"""
+        return self.version >= (3, 8, 3)
 
-        return capabilities
+    def supports_inner_join(self) -> bool:
+        """Check if INNER JOIN is supported"""
+        return True
+
+    def supports_left_join(self) -> bool:
+        """Check if LEFT JOIN is supported"""
+        return True
+
+    def supports_right_join(self) -> bool:
+        """Check if RIGHT JOIN is supported (not supported by SQLite)"""
+        return False
+
+    def supports_full_join(self) -> bool:
+        """Check if FULL JOIN is supported (not supported by SQLite)"""
+        return False
 ```
 
 ### Declaring Test Requirements
 
-Tests must specify BOTH category AND specific capability:
+Tests use the `@requires_protocol` decorator to specify required protocol support:
 
 ```python
-# Correct format: (category, specific_capability)
-from rhosocial.activerecord.backend.capabilities import (
-    CapabilityCategory,
-    CTECapability
-)
-from rhosocial.activerecord.testsuite.utils import requires_capabilities
+# Correct format: requires_protocol(ProtocolClass, method_name)
+from rhosocial.activerecord.backend.dialect.protocols import JoinSupport
+from rhosocial.activerecord.testsuite.utils import requires_protocol
 
-# Single capability requirement
-@requires_capabilities((CapabilityCategory.CTE, CTECapability.BASIC_CTE))
-def test_basic_cte(order_fixtures):
-    """Test requires basic CTE support."""
+# Single protocol requirement
+@requires_protocol(JoinSupport, 'supports_right_join')
+def test_right_join(order_fixtures):
+    """Test requires RIGHT JOIN support."""
     pass
 
-# Multiple capabilities from same category
-@requires_capabilities((CapabilityCategory.CTE, [CTECapability.BASIC_CTE, CTECapability.RECURSIVE_CTE]))
-def test_recursive_cte(tree_fixtures):
-    """Test requires both basic and recursive CTE."""
+# Protocol-level requirement (checks if dialect implements protocol)
+@requires_protocol(CTESupport)
+def test_basic_cte(tree_fixtures):
+    """Test requires CTE support at protocol level."""
     pass
 
-# Multiple capabilities from different categories
-@requires_capabilities(
-    (CapabilityCategory.CTE, CTECapability.RECURSIVE_CTE),
-    (CapabilityCategory.WINDOW_FUNCTIONS, WindowFunctionCapability.ROW_NUMBER)
-)
+# Multiple protocol requirements (handled by multiple decorators)
+@requires_protocol(JoinSupport, 'supports_full_join')
+@requires_protocol(CTESupport, 'supports_recursive_cte')
 def test_complex_query(order_fixtures):
-    """Test requires recursive CTE and window functions."""
-    pass
-
-# Category-only check (any capability in category)
-@requires_capabilities((CapabilityCategory.JSON_OPERATIONS, None))
-def test_json_support(json_user_fixtures):
-    """Test requires any JSON operation support."""
+    """Test requires FULL JOIN and recursive CTE support."""
     pass
 ```
 
-### Capability Checking Process
+### Protocol Checking Process
 
 ```mermaid
 sequenceDiagram
     participant Test as Test Function
-    participant Decorator as @requires_capabilities
+    participant Decorator as @requires_protocol
     participant Fixture as order_fixtures
     participant Backend as Database Backend
-    participant Caps as DatabaseCapabilities
-    
+    participant Dialect as Backend Dialect
+    participant Protocol as Protocol Check
+
     Test->>Decorator: Execute test
-    Decorator->>Fixture: Extract model class
-    Fixture->>Decorator: Return (User, Order, OrderItem)
-    Decorator->>Backend: Get backend from User
-    Backend->>Caps: Query capabilities
-    
-    alt Category Check
-        Decorator->>Caps: supports_category(category)
-        Caps-->>Decorator: True/False
-    else Specific Capability Check
-        Decorator->>Caps: supports_cte(CTECapability.RECURSIVE_CTE)
-        Caps-->>Decorator: True/False
-    end
-    
-    alt Capability Supported
-        Decorator->>Test: Proceed with test
-    else Capability Not Supported
-        Decorator->>Test: pytest.skip(reason)
+    Decorator->>Fixture: Access model from fixtures
+    Fixture->>Decorator: Provide (User, Order, OrderItem) models
+    Decorator->>Backend: Get backend from model
+    Backend->>Dialect: Access dialect implementation
+    Dialect->>Protocol: Check protocol implementation
+    alt Protocol Supported
+        Protocol->>Test: Proceed with test
+    else Protocol Not Supported
+        Protocol->>Test: pytest.skip(reason)
     end
 ```
 
-### Runtime vs Collection-Time Checking
+### Protocol-based Test Skipping
 
-**Collection-time checking** (in conftest.py):
-- Faster - checks capabilities before test execution
-- Requires access to backend during collection phase
-- May need workaround if backend initialization is expensive
-- Can cause issues if trying to access fixtures during setup
+The system automatically skips tests when required protocols are not supported:
 
-**Runtime checking** (in test or decorator):
-- Slower - capabilities checked during test execution
-- Always accurate - uses actual configured backend
-- Recommended for dynamic capability scenarios
-- Use `pytest_runtest_call` hook to access `item.funcargs` which contains already resolved fixtures
+1. **Test Execution**: When a test with `@requires_protocol` runs
+2. **Protocol Check**: The system checks if the backend's dialect implements the required protocol
+3. **Method Verification**: If a specific method is required, it checks if the method exists and returns True (for support-checking methods)
+4. **Conditional Skip**: If protocol/method is not supported, the test is skipped with a clear message
 
-**Common Issue & Solution:**
-If capability checks are performed in `pytest_runtest_setup` and attempt to access fixtures, it can cause issues like:
-`AssertionError: (<Function test_func[memory]>, {})` - This happens when trying to access fixtures during test setup.
-Move capability checks to `pytest_runtest_call` and access fixtures via `item.funcargs` instead of `request.getfixturevalue()`.
-
-### Fixtures vs Raw Objects Access Patterns
-
-**Composite Fixtures Return Pattern:**
-When fixtures return tuples of models (like `order_fixtures` returns `(User, Order, OrderItem)`) but test expects a tuple:
-- Test code may use: `Node = tree_fixtures[0]`
-- But fixture returns raw object: `yield Node` instead of `yield (Node,)`
-- This causes error: `TypeError: cannot be parametrized because it does not inherit from typing.Generic`
-- Solution: Ensure fixture returns tuple if test code expects tuple indexing
-
-**Correct Fixture Implementation:**
-```python
-# If test uses tree_fixtures[0], return a tuple
-@pytest.fixture
-def tree_fixtures(request):
-    # Get Node model for the test via fixture group
-    result = provider.setup_tree_fixtures(scenario)
-    
-    # Ensure we return a tuple for consistency with test expectation
-    if isinstance(result, tuple):
-        yield result
-    else:
-        # If only a single model is returned, wrap it in a tuple
-        yield (result,)
+**Example Skip Message:**
 ```
+SKIPPED [1] test_file.py:XX: Skipping test - backend dialect does not implement JoinSupport protocol
+SKIPPED [2] test_file.py:YY: Skipping test - backend dialect does not support right_join
+```
+
+### Protocol vs Legacy Capability Comparison
+
+| Aspect | Old Capability System | New Protocol System |
+|--------|----------------------|---------------------|
+| Implementation | Centralized capability registry | Distributed protocol implementations |
+| Type Safety | Runtime checks only | Compile-time type checking with Protocols |
+| Extensibility | Required modifying central capability classes | Easy to add new protocols independently |
+| Backend Integration | Backends declared capabilities | Backends implement protocols directly |
+| Test Flexibility | Fixed capability categories | Dynamic protocol combinations |
+| Maintenance | Centralized changes required | Decentralized, modular updates |
 
 ## Provider Pattern Implementation
 
@@ -438,7 +398,59 @@ The provider pattern enables test reuse across backends:
 1. **Testsuite defines** test logic and provider interface
 2. **Backend implements** provider to configure models/schemas
 3. **Test execution** uses provider to run same tests on different backends
-4. **Capability checking** determines which tests can run
+4. **Protocol checking** determines which tests can run
+
+### Synchronous and Asynchronous Test Equivalence
+
+An important characteristic of the test suite is the parallel structure of synchronous and asynchronous tests. Each test functionality has both sync and async versions that are logically equivalent:
+
+**Sync/Async Test Pairing:**
+- For each feature, there are both synchronous and asynchronous test methods
+- The async tests mirror the sync tests with `async def` and `await` calls
+- Both versions test the same functionality using the same logical steps
+- Async tests use `@pytest.mark.asyncio` decorator
+- Async fixtures (e.g., `async_order_fixtures`) correspond to sync fixtures (e.g., `order_fixtures`)
+
+**Example of Sync/Async Test Pair:**
+```python
+# Synchronous version
+def test_where_with_predicate(self, order_fixtures):
+    User, Order, OrderItem = order_fixtures
+
+    user = User(username='test_user', email='test@example.com', age=30)
+    user.save()
+
+    order = Order(user_id=user.id, order_number='ORD-TEST', status='pending')
+    order.save()
+
+    # Use predicate query to find the specific order
+    found = Order.query().where(Order.c.order_number == 'ORD-TEST').all()
+    assert len(found) == 1
+    assert found[0].order_number == 'ORD-TEST'
+
+# Asynchronous version - logically equivalent
+@pytest.mark.asyncio
+async def test_where_with_predicate_async(self, async_order_fixtures):
+    AsyncUser, AsyncOrder, AsyncOrderItem = async_order_fixtures
+
+    user = AsyncUser(username='async_test_user', email='async_test@example.com', age=30)
+    await user.save()
+
+    order = AsyncOrder(user_id=user.id, order_number='ORD-TEST', status='pending')
+    await order.save()
+
+    # Use predicate query to find the specific order (with await)
+    found = await AsyncOrder.query().where(AsyncOrder.c.order_number == 'ORD-TEST').all()
+    assert len(found) == 1
+    assert found[0].order_number == 'ORD-TEST'
+```
+
+**Benefits of Sync/Async Equivalence:**
+- Ensures both sync and async code paths are equally tested
+- Maintains consistency in test coverage between sync and async operations
+- Allows for comprehensive validation of async-specific behaviors
+- Facilitates easier maintenance as both versions follow the same structure
+- Enables backend developers to verify both sync and async implementations
 
 ### Provider Interface Example
 
@@ -728,38 +740,30 @@ Some commonly used markers for global classification:
 **Rules:**
 - NEVER import backend-specific modules
 - NEVER write SQL directly (use provider interface)
-- NEVER assume database features without declaring capability requirements
+- NEVER assume database features without declaring protocol requirements
 - ALWAYS use fixtures provided by provider
 - ALWAYS use pytest markers
-- ALWAYS specify BOTH category AND specific capability in requirements
+- ALWAYS specify protocol class and optional method name in requirements
 
 **Example:**
 
 ```python
-# Good - backend-agnostic with capability declaration
-from rhosocial.activerecord.backend.capabilities import (
-    CapabilityCategory,
-    CTECapability
-)
-from rhosocial.activerecord.testsuite.utils import requires_capabilities
+# Good - backend-agnostic with protocol declaration
+from rhosocial.activerecord.backend.dialect.protocols import JoinSupport
+from rhosocial.activerecord.testsuite.utils import requires_protocol
 
 @pytest.mark.feature
 @pytest.mark.feature_query
-@requires_capabilities((CapabilityCategory.CTE, CTECapability.BASIC_CTE))
-def test_basic_cte(order_fixtures):
-    """Test basic CTE functionality."""
+@requires_protocol(JoinSupport, 'supports_right_join')
+def test_right_join(order_fixtures):
+    """Test RIGHT JOIN functionality."""
     User, Order, OrderItem = order_fixtures
-    
+
     user = User(username='test', email='test@example.com')
     assert user.save()
 
-# Bad - missing category in capability requirement
-@requires_capabilities(CTECapability.BASIC_CTE)  # WRONG - no category
-def test_basic_cte(order_fixtures):
-    pass
-
 # Bad - backend-specific
-def test_basic_cte():
+def test_right_join():
     from rhosocial.activerecord.backend.mysql import MySQLBackend
     # DON'T DO THIS
 ```
@@ -790,7 +794,7 @@ pytest tests/
 **Issue: Test skipped due to capabilities**
 ```bash
 # Cause: Backend doesn't support required feature
-# Fix: Check backend capability declaration
+# Fix: Check backend protocol implementation
 pytest tests/ --run-testsuite --show-skipped-capabilities
 ```
 
@@ -802,12 +806,12 @@ return (Model,)  # Correct
 return Model     # Wrong
 ```
 
-**Issue: Cannot determine capability category**
+**Issue: Cannot determine protocol requirement**
 ```bash
-# Cause: Only specific capability provided, no category
-# Fix: Always provide (category, capability) tuple
-@requires_capabilities((CapabilityCategory.CTE, CTECapability.BASIC_CTE))  # Correct
-@requires_capabilities(CTECapability.BASIC_CTE)  # Wrong - no category
+# Cause: Using old capability system instead of protocol system
+# Fix: Always use @requires_protocol(ProtocolClass) or @requires_protocol(ProtocolClass, 'method_name')
+@requires_protocol(CTESupport, 'supports_basic_cte')  # Correct
+@requires_capabilities((CapabilityCategory.CTE, CTECapability.BASIC_CTE))  # Wrong - old system
 ```
 
 **Issue: Plugin registration conflicts**
@@ -821,7 +825,7 @@ return Model     # Wrong
 ```bash
 # Old approach: model.get_backend() - does not exist
 # Correct approach: model.backend() or model.__backend__
-# In capability checking plugins, ensure using the IActiveRecord interface methods
+# In protocol checking plugins, ensure using the IActiveRecord interface methods
 ```
 
 **Issue: Fixtures accessed incorrectly in pytest hooks**
@@ -862,12 +866,12 @@ os.environ.setdefault(
 **Issue: Understanding skip messages**
 ```bash
 # In the test output, you'll see skip messages like this:
-# SKIPPED [1] ..\python-activerecord-testsuite\src\rhosocial\activerecord\testsuite\plugin\pytest_activerecord_capabilities.py:196: 
-# Unsupported capabilities: AdvancedGroupingCapability.CUBE (tests/rhosocial/activerecord_test/feature/query/test_advanced_grouping.py::test_cube_basic[memory])
+# SKIPPED [1] ..\python-activerecord-testsuite\src\rhosocial\activerecord\testsuite\feature\query\conftest.py:235:
+# Skipping test - backend dialect does not implement JoinSupport protocol (tests/rhosocial/activerecord_test/feature/query/test_joins_2.py::test_right_join[memory])
 
-# The format is now: "Unsupported capabilities: [list of capabilities] (test_file_path::test_function_name[scenario])"
-# This tells you exactly which test was skipped and why, making it easier to debug capability issues.
-# Previously, it showed generic plugin information that was less helpful for identifying specific tests.
+# The format is now: "Skipping test - backend dialect does not implement/does not support [protocol/method] (test_file_path::test_function_name[scenario])"
+# This tells you exactly which test was skipped and why, making it easier to debug protocol issues.
+# The message indicates whether a protocol is not implemented or a specific method is not supported.
 ```
 
 ## Best Practices
@@ -880,7 +884,7 @@ When executing tests:
 3. **NEVER** assume tests will work without PYTHONPATH
 4. **VERIFY** command syntax for user's shell environment
 5. **PROVIDE** platform-specific commands
-6. **CHECK** capability requirements use (category, capability) format
+6. **CHECK** protocol requirements use requires_protocol decorator correctly
 
 ### For Developers
 
@@ -888,15 +892,16 @@ When writing tests:
 1. **Backend-agnostic first**: Default to testsuite structure
 2. **Provider pattern**: Use fixtures, not direct DB access
 3. **Clear markers**: Tag all tests appropriately
-4. **Declare capabilities correctly**: Always use (category, capability) format
+4. **Declare protocol requirements correctly**: Use @requires_protocol(ProtocolClass) or @requires_protocol(ProtocolClass, 'method_name') format
 5. **Return tuples**: Providers must return tuples for consistency
-6. **Document requirements**: Comment on capability needs
+6. **Document requirements**: Comment on protocol needs
 7. **Minimize redundant markers**: If tests can be distinguished by directory structure, avoid adding equivalent markers in conftest.py files
+8. **Maintain sync/async equivalence**: When adding new tests, consider implementing both synchronous and asynchronous versions to ensure comprehensive coverage
 
 ### For Backend Implementers
 
 When implementing backends:
-1. **Accurate capability declaration**: Use add_* methods correctly
+1. **Accurate protocol implementation**: Implement protocol methods correctly
 2. **Complete provider implementation**: Implement all interface methods
 3. **Return tuples consistently**: Even single models should be in tuples
 4. **Schema versioning**: Match schema structure to testsuite organization
@@ -904,16 +909,16 @@ When implementing backends:
 
 ### For Plugin Developers
 
-When developing pytest plugins for capability checking:
+When developing pytest plugins for protocol checking:
 1. **Use appropriate pytest hooks**: Use `pytest_runtest_call` to access resolved fixtures via `item.funcargs`, not `pytest_runtest_setup`
 2. **Avoid multiple plugin registration**: Register plugins either via `pytest_plugins` or entry points, never both
 3. **Proper backend access**: Access backend via `model.backend()` or `model.__backend__` following the IActiveRecord interface
-4. **Error handling**: Add detailed logging to help debug capability check failures
+4. **Error handling**: Add detailed logging to help debug protocol check failures
 5. **Environment setup**: Ensure necessary environment variables (like `TESTSUITE_PROVIDER_REGISTRY`) are set in conftest.py
 
 ### For Plugin Developers
 
-When creating pytest plugins for capability checking:
+When creating pytest plugins for protocol checking:
 1. **Use `pytest_runtest_call` hook** to access `item.funcargs` which contains resolved fixtures
 2. **Avoid `pytest_runtest_setup`** when accessing fixtures that might cause initialization issues
 3. **Handle exceptions gracefully** in plugin code to prevent test failures
@@ -975,7 +980,7 @@ tests/rhosocial/activerecord_test/
 - Located in `tests/rhosocial/activerecord_test/feature/backend/{backend_name}/`
 - Tests for backend-specific functionality and optimizations
 - Validate dialect-specific features and behaviors
-- Include performance and capability-specific tests
+- Include performance and protocol-specific tests
 - May include SQLite-specific tests like EXPLAIN functionality tests
 
 ### Implementation Strategy
@@ -986,7 +991,7 @@ The current implementation follows these principles:
 2. **Direct test implementation**: Tests are implemented directly rather than separated into interface/scenario patterns
 3. **Backend-specific subdirectories**: When backend-specific test cases are needed, they are placed in subdirectories (e.g., `query/sqlite/`)
 4. **Provider pattern**: Backend-specific adaptations for feature tests are handled through the provider mechanism
-5. **Capability declaration**: Backends declare their supported capabilities to enable selective test execution
+5. **Protocol implementation**: Backends implement their supported protocols to enable selective test execution
 6. **Schema organization**: SQL schema files are organized by feature to support different test scenarios
 
 This structure ensures clear test organization while allowing for both generic feature testing and backend-specific validation.
@@ -1020,7 +1025,7 @@ pytest --collect-only tests/               # Show what would be collected
 - ✅ MUST provide platform-specific commands
 - ✅ MUST understand testsuite vs backend division
 - ✅ MUST understand provider pattern and composite fixtures
-- ✅ MUST use (category, capability) format for requirements
+- ✅ MUST use @requires_protocol(ProtocolClass) or @requires_protocol(ProtocolClass, 'method_name') format for requirements
 - ✅ NEVER run pytest without PYTHONPATH
 - ✅ NEVER assume test discovery will work
 - ✅ Ensure plugin registration is not duplicated across multiple mechanisms
@@ -1031,8 +1036,8 @@ pytest --collect-only tests/               # Show what would be collected
 - Two-layer architecture (testsuite + backend)
 - Provider pattern for test reuse
 - Composite fixtures (always return tuples)
-- Two-level capability hierarchy (category + specific)
-- Backend capability declaration using add_* methods
+- Protocol-based feature detection (Protocol classes with support methods)
+- Backend protocol implementation directly in dialect classes
 - Backend-agnostic test logic
 - Backend-specific implementation details
 - PYTHONPATH requirement for execution
