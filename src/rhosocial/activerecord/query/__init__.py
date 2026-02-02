@@ -13,19 +13,19 @@ from .relational import RelationalQueryMixin, InvalidRelationPathError, Relation
 from .set_operation import SetOperationQuery
 
 __all__ = [
-    'ActiveQuery',
-    'AsyncActiveQuery',
-    'CTEQuery',
-    'AsyncCTEQuery',
-    'SetOperationQuery',
+    "ActiveQuery",
+    "AsyncActiveQuery",
+    "CTEQuery",
+    "AsyncCTEQuery",
+    "SetOperationQuery",
     # Query Mixins
-    'BaseQueryMixin',
-    'AggregateQueryMixin',
-    'AsyncAggregateQueryMixin',
-    'JoinQueryMixin',
-    'AsyncJoinQueryMixin',
-    'RangeQueryMixin',
-    'RelationalQueryMixin',
-    'InvalidRelationPathError',
-    'RelationNotFoundError',
+    "BaseQueryMixin",
+    "AggregateQueryMixin",
+    "AsyncAggregateQueryMixin",
+    "JoinQueryMixin",
+    "AsyncJoinQueryMixin",
+    "RangeQueryMixin",
+    "RelationalQueryMixin",
+    "InvalidRelationPathError",
+    "RelationNotFoundError",
 ]
