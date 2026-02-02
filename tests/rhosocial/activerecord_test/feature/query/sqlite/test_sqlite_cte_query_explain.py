@@ -74,14 +74,12 @@ class TestSqliteCTEQueryExplain:
         union_query = active_orders_query.union(completed_orders_query)
 
         # Create a CTE that uses the UNION operation as its source
-        
+
         cte_query = CTEQuery(backend)
         cte_query.with_cte('union_orders_cte', union_query)
-        # Query the CTE
-        cte_query.query("SELECT * FROM union_orders_cte")
 
-        # Enable explain and execute the CTE query
-        plan = cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = cte_query.from_cte('union_orders_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "CTE UNION Query")
@@ -124,11 +122,9 @@ class TestSqliteCTEQueryExplain:
         # Create a CTE that uses the INTERSECT operation as its source
         cte_query = CTEQuery(backend)
         cte_query.with_cte('intersect_orders_cte', intersect_query)
-        # Query the CTE
-        cte_query.query("SELECT * FROM intersect_orders_cte")
 
-        # Enable explain and execute the CTE query
-        plan = cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = cte_query.from_cte('intersect_orders_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "CTE INTERSECT Query")
@@ -170,11 +166,9 @@ class TestSqliteCTEQueryExplain:
         # Create a CTE that uses the EXCEPT operation as its source
         cte_query = CTEQuery(backend)
         cte_query.with_cte('except_orders_cte', except_query)
-        # Query the CTE
-        cte_query.query("SELECT * FROM except_orders_cte")
 
-        # Enable explain and execute the CTE query
-        plan = cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = cte_query.from_cte('except_orders_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "CTE EXCEPT Query")
@@ -213,11 +207,9 @@ class TestSqliteCTEQueryExplain:
         # Create a CTE that uses the QueryExpression as its source
         cte_query = CTEQuery(backend)
         cte_query.with_cte('query_expr_cte', query_expr)
-        # Query the CTE
-        cte_query.query("SELECT * FROM query_expr_cte")
 
-        # Enable explain and execute the CTE query
-        plan = cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = cte_query.from_cte('query_expr_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "CTE QueryExpression")
@@ -248,20 +240,8 @@ class TestSqliteCTEQueryExplain:
         cte_query = CTEQuery(backend)
         cte_query.with_cte('simple_orders_cte', (f"SELECT id, status, total_amount FROM {Order.table_name()} WHERE status IN (?, ?)", ('active', 'pending')))
 
-        # Create a QueryExpression for the main query that references the CTE
-        from rhosocial.activerecord.backend.expression import statements, core
-        main_query_expr = statements.QueryExpression(
-            dialect,
-            select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
-            from_=core.TableExpression(dialect, 'simple_orders_cte'),
-            where=statements.WhereClause(dialect, condition=core.Column(dialect, "total_amount") > core.Literal(dialect, Decimal('100.00')))
-        )
-
-        # Set the main query to the QueryExpression
-        cte_query.query(main_query_expr)
-
-        # Enable explain and execute the CTE query
-        plan = cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = cte_query.from_cte('simple_orders_cte').select('id', 'status', 'total_amount').where("total_amount > ?", (Decimal('100.00'),)).explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "CTE QueryExpression as Main Query")
@@ -305,11 +285,9 @@ class TestAsyncSqliteCTEQueryExplain:
         # Pass the SQL and params as a tuple to preserve the parameters
         cte_query = AsyncCTEQuery(backend)
         cte_query.with_cte('union_orders_cte', (union_sql, union_params))
-        # Query the CTE
-        cte_query.query("SELECT * FROM union_orders_cte")
 
-        # Enable explain and execute the CTE query
-        plan = await cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = await cte_query.from_cte('union_orders_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "Async CTE UNION Query")
@@ -350,11 +328,9 @@ class TestAsyncSqliteCTEQueryExplain:
         # Create a CTE that uses the INTERSECT SQL and params as its source
         cte_query = AsyncCTEQuery(backend)
         cte_query.with_cte('intersect_orders_cte', (intersect_sql, intersect_params))
-        # Query the CTE
-        cte_query.query("SELECT * FROM intersect_orders_cte")
 
-        # Enable explain and execute the CTE query
-        plan = await cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = await cte_query.from_cte('intersect_orders_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "Async CTE INTERSECT Query")
@@ -395,11 +371,9 @@ class TestAsyncSqliteCTEQueryExplain:
         # Create a CTE that uses the EXCEPT SQL and params as its source
         cte_query = AsyncCTEQuery(backend)
         cte_query.with_cte('except_orders_cte', (except_sql, except_params))
-        # Query the CTE
-        cte_query.query("SELECT * FROM except_orders_cte")
 
-        # Enable explain and execute the CTE query
-        plan = await cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = await cte_query.from_cte('except_orders_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "Async CTE EXCEPT Query")
@@ -436,11 +410,9 @@ class TestAsyncSqliteCTEQueryExplain:
         # Create a CTE that uses the QueryExpression as its source
         cte_query = AsyncCTEQuery(backend)
         cte_query.with_cte('query_expr_cte', query_expr)
-        # Query the CTE
-        cte_query.query("SELECT * FROM query_expr_cte")
 
-        # Enable explain and execute the CTE query
-        plan = await cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = await cte_query.from_cte('query_expr_cte').select('*').explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "Async CTE QueryExpression")
@@ -469,20 +441,8 @@ class TestAsyncSqliteCTEQueryExplain:
         cte_query = AsyncCTEQuery(backend)
         cte_query.with_cte('simple_orders_cte', (f"SELECT id, status, total_amount FROM {AsyncOrder.table_name()} WHERE status IN (?, ?)", ('active', 'pending')))
 
-        # Create a QueryExpression for the main query that references the CTE
-        from rhosocial.activerecord.backend.expression import statements, core
-        main_query_expr = statements.QueryExpression(
-            dialect,
-            select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
-            from_=core.TableExpression(dialect, 'simple_orders_cte'),
-            where=statements.WhereClause(dialect, condition=core.Column(dialect, "total_amount") > core.Literal(dialect, Decimal('100.00')))
-        )
-
-        # Set the main query to the QueryExpression
-        cte_query.query(main_query_expr)
-
-        # Enable explain and execute the CTE query
-        plan = await cte_query.explain().aggregate()
+        # Use the new API: specify which CTE to use and apply EXPLAIN using mixins
+        plan = await cte_query.from_cte('simple_orders_cte').select('id', 'status', 'total_amount').where("total_amount > ?", (Decimal('100.00'),)).explain().aggregate()
 
         # Validate the explain output
         _validate_explain_output(plan, "Async CTE QueryExpression as Main Query")

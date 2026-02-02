@@ -51,7 +51,7 @@ class CTEQuery(
 
     # region Instance Attributes
     _ctes: List[CTEExpression]
-    _main_query: Optional[Union[str, 'bases.SQLQueryAndParams', 'IQuery']]
+    _main_cte_name: Optional[str]
     _recursive: bool
     # endregion
 
@@ -68,7 +68,7 @@ class CTEQuery(
         super().__init__(backend)  # Initialize BaseQueryMixin with backend
         self._backend = backend
         self._ctes = []
-        self._main_query = None
+        self._main_cte_name = None
         self._recursive = False
 
         # Initialize attributes from BaseQueryMixin for CTE
@@ -151,45 +151,19 @@ class CTEQuery(
 
         return self
 
-    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IQuery', 'statements.QueryExpression']):
-        """Set the main query that will use the defined CTEs.
+
+    def from_cte(self, cte_name: str):
+        """Specify which CTE to use as the source for the main query.
 
         Args:
-            main_query: The main query that will reference the defined CTEs
+            cte_name: Name of the CTE to use as the source for the main query
 
         Returns:
             self for method chaining
         """
-        # Convert the main_query to an expression immediately to validate it early
-        # This ensures that if the query is invalid, we catch it here rather than later
-        try:
-            from ..backend.expression.operators import RawSQLExpression
-            dialect = self.backend().dialect
-
-            if isinstance(main_query, str):
-                # If main_query is a string, we'll need to handle it differently
-                # For now, we'll create a RawSQLExpression
-                main_query_expr = RawSQLExpression(dialect, main_query)
-            elif bases.is_sql_query_and_params(main_query):
-                # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-                sql_string, params = main_query
-                # If params is None, use an empty tuple
-                params = params if params is not None else ()
-                main_query_expr = RawSQLExpression(dialect, sql_string, params)
-            elif hasattr(main_query, 'to_sql'):
-                # If main_query has to_sql method (IQuery or QueryExpression), convert it to a RawSQLExpression
-                sql, params = main_query.to_sql()
-                main_query_expr = RawSQLExpression(dialect, sql, params)
-            else:
-                # If main_query is not one of the supported types, raise an error
-                raise TypeError(f"Main query type {type(main_query)} is not supported in CTE. "
-                                f"Only str, SQLQueryAndParams, IQuery, and QueryExpression are supported.")
-        except Exception as e:
-            # If there's an issue converting the query to an expression, raise a more informative error
-            raise TypeError(f"Could not convert main query of type {type(main_query)} to a valid SQL expression: {str(e)}")
-
-        self._main_query = main_query_expr  # Store the pre-built expression, not the original parameter
+        self._main_cte_name = cte_name
         return self
+
 
     def recursive(self, enabled: bool = True):
         """Set whether this CTE query should be recursive.
@@ -217,26 +191,31 @@ class CTEQuery(
         # Get dialect from backend
         dialect = self.backend().dialect
 
-        # Convert the main query to an appropriate expression
-        if self._main_query is None:
-            # If no main query is specified, we'll create a basic query that selects from the last CTE
-            if self._ctes:
-                last_cte_name = self._ctes[-1].name
-                main_query_expr = statements.QueryExpression(
-                    dialect,
-                    select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
-                    from_=TableExpression(dialect, last_cte_name),  # Reference the last CTE
-                    where=self.where_clause,
-                    group_by_having=self.group_by_having_clause,
-                    order_by=self.order_by_clause,
-                    limit_offset=self.limit_offset_clause
-                )
-            else:
-                raise ValueError("CTEQuery must have at least one CTE defined")
+        # Determine which CTE to use as the main query source
+        if self._main_cte_name:
+            # Use the explicitly specified CTE name
+            main_cte_name = self._main_cte_name
         else:
-            # The main query is already converted to an expression in the query() method
-            # So we can use it directly
-            main_query_expr = self._main_query
+            # Use the last CTE as default
+            if not self._ctes:
+                raise ValueError("CTEQuery must have at least one CTE defined")
+            main_cte_name = self._ctes[-1].name
+
+        # Verify that the specified CTE exists
+        cte_names = [cte.name for cte in self._ctes]
+        if main_cte_name not in cte_names:
+            raise ValueError(f"CTE '{main_cte_name}' not found in defined CTEs: {cte_names}")
+
+        # Build the main query using collected conditions from mixins
+        main_query_expr = statements.QueryExpression(
+            dialect,
+            select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
+            from_=TableExpression(dialect, main_cte_name),  # Reference the specified CTE
+            where=self.where_clause,
+            group_by_having=self.group_by_having_clause,
+            order_by=self.order_by_clause,
+            limit_offset=self.limit_offset_clause
+        )
 
         # Create WithQueryExpression with the CTEs and main query
         with_query_expr = query_sources.WithQueryExpression(
@@ -334,7 +313,7 @@ class AsyncCTEQuery(
 
     # region Instance Attributes
     _ctes: List[CTEExpression]
-    _main_query: Optional[Union[str, 'bases.SQLQueryAndParams', 'IAsyncQuery']]
+    _main_cte_name: Optional[str]
     _recursive: bool
     # endregion
 
@@ -351,7 +330,7 @@ class AsyncCTEQuery(
         super().__init__(backend)  # Initialize BaseQueryMixin with backend
         self._backend = backend
         self._ctes = []
-        self._main_query = None
+        self._main_cte_name = None
         self._recursive = False
 
         # Initialize attributes from BaseQueryMixin for CTE
@@ -435,45 +414,19 @@ class AsyncCTEQuery(
 
         return self
 
-    def query(self, main_query: Union[str, 'bases.SQLQueryAndParams', 'IAsyncQuery', 'statements.QueryExpression']):
-        """Set the main query that will use the defined CTEs.
+
+    def from_cte(self, cte_name: str):
+        """Specify which CTE to use as the source for the main query.
 
         Args:
-            main_query: The main query that will reference the defined CTEs
+            cte_name: Name of the CTE to use as the source for the main query
 
         Returns:
             self for method chaining
         """
-        # Convert the main_query to an expression immediately to validate it early
-        # This ensures that if the query is invalid, we catch it here rather than later
-        try:
-            from ..backend.expression.operators import RawSQLExpression
-            dialect = self.backend().dialect
-
-            if isinstance(main_query, str):
-                # If main_query is a string, we'll need to handle it differently
-                # For now, we'll create a RawSQLExpression
-                main_query_expr = RawSQLExpression(dialect, main_query)
-            elif bases.is_sql_query_and_params(main_query):
-                # If main_query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
-                sql_string, params = main_query
-                # If params is None, use an empty tuple
-                params = params if params is not None else ()
-                main_query_expr = RawSQLExpression(dialect, sql_string, params)
-            elif hasattr(main_query, 'to_sql'):
-                # If main_query has to_sql method (IAsyncQuery or QueryExpression), convert it to a RawSQLExpression
-                sql, params = main_query.to_sql()
-                main_query_expr = RawSQLExpression(dialect, sql, params)
-            else:
-                # If main_query is not one of the supported types, raise an error
-                raise TypeError(f"Main query type {type(main_query)} is not supported in CTE. "
-                                f"Only str, SQLQueryAndParams, IAsyncQuery, and QueryExpression are supported.")
-        except Exception as e:
-            # If there's an issue converting the query to an expression, raise a more informative error
-            raise TypeError(f"Could not convert main query of type {type(main_query)} to a valid SQL expression: {str(e)}")
-
-        self._main_query = main_query_expr  # Store the pre-built expression, not the original parameter
+        self._main_cte_name = cte_name
         return self
+
 
     def recursive(self, enabled: bool = True):
         """Set whether this CTE query should be recursive.
@@ -501,26 +454,31 @@ class AsyncCTEQuery(
         # Get dialect from backend
         dialect = self.backend().dialect
 
-        # Convert the main query to an appropriate expression
-        if self._main_query is None:
-            # If no main query is specified, we'll create a basic query that selects from the last CTE
-            if self._ctes:
-                last_cte_name = self._ctes[-1].name
-                main_query_expr = statements.QueryExpression(
-                    dialect,
-                    select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
-                    from_=TableExpression(dialect, last_cte_name),  # Reference the last CTE
-                    where=self.where_clause,
-                    group_by_having=self.group_by_having_clause,
-                    order_by=self.order_by_clause,
-                    limit_offset=self.limit_offset_clause
-                )
-            else:
-                raise ValueError("CTEQuery must have at least one CTE defined")
+        # Determine which CTE to use as the main query source
+        if self._main_cte_name:
+            # Use the explicitly specified CTE name
+            main_cte_name = self._main_cte_name
         else:
-            # The main query is already converted to an expression in the query() method
-            # So we can use it directly
-            main_query_expr = self._main_query
+            # Use the last CTE as default
+            if not self._ctes:
+                raise ValueError("CTEQuery must have at least one CTE defined")
+            main_cte_name = self._ctes[-1].name
+
+        # Verify that the specified CTE exists
+        cte_names = [cte.name for cte in self._ctes]
+        if main_cte_name not in cte_names:
+            raise ValueError(f"CTE '{main_cte_name}' not found in defined CTEs: {cte_names}")
+
+        # Build the main query using collected conditions from mixins
+        main_query_expr = statements.QueryExpression(
+            dialect,
+            select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
+            from_=TableExpression(dialect, main_cte_name),  # Reference the specified CTE
+            where=self.where_clause,
+            group_by_having=self.group_by_having_clause,
+            order_by=self.order_by_clause,
+            limit_offset=self.limit_offset_clause
+        )
 
         # Create WithQueryExpression with the CTEs and main query
         with_query_expr = query_sources.WithQueryExpression(
