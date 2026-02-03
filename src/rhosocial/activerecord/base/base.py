@@ -64,6 +64,26 @@ class BaseActiveRecord(IActiveRecord):
         return [cls.create_from_database(row) for row in rows]
 
     def _insert_internal(self, data) -> Any:
+        """
+        Internal method to perform the actual insertion of data into the database.
+
+        This method handles the complete insertion process including:
+        1. Preparing data with column mappings and adapters
+        2. Creating insert options with appropriate configurations
+        3. Executing the insert operation via the backend
+        4. Processing the result, including retrieving primary key if needed
+        5. Updating the instance with the retrieved primary key value
+        6. Marking the instance as loaded from the database and resetting tracking
+
+        Args:
+            data: Dictionary containing the field names and values to insert
+
+        Returns:
+            The result object from the backend insert operation
+
+        Raises:
+            DatabaseError: If there's an issue retrieving the primary key after insert
+        """
         self.log(logging.DEBUG, f"Raw data for insert: {data}")
         prepared_data = self.__class__._map_fields_to_columns(data)
         self.log(logging.DEBUG, f"Data with database column names: {prepared_data}")
@@ -129,6 +149,22 @@ class BaseActiveRecord(IActiveRecord):
         return result
 
     def _update_internal(self, data) -> Any:
+        """
+        Internal method to perform the actual update of data in the database.
+
+        This method handles the complete update process including:
+        1. Collecting update conditions and expressions from IUpdateBehavior implementations
+        2. Preparing data with column mappings and adapters
+        3. Creating update options with appropriate configurations
+        4. Executing the update operation via the backend
+        5. Returning the result of the update operation
+
+        Args:
+            data: Dictionary containing the field names and values to update
+
+        Returns:
+            The result object from the backend update operation
+        """
         self.log(logging.INFO, f"Starting update operation for {self.__class__.__name__} record with ID: {getattr(self, self.__class__.primary_key_field(), 'unknown')}")
         update_conditions = []
         update_expressions = {}
@@ -284,6 +320,28 @@ class BaseActiveRecord(IActiveRecord):
         return record
 
     def save(self) -> int:
+        """
+        Save the record to database, performing insert or update as appropriate.
+
+        This method implements the core persistence functionality. If the record is
+        new (determined by is_new_record property), it performs an INSERT operation.
+        If the record already exists and has changes, it performs an UPDATE operation with only
+        the changed fields.
+
+        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
+        and handles dirty field tracking to optimize updates.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If the model fails validation before saving
+        """
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
@@ -305,6 +363,27 @@ class BaseActiveRecord(IActiveRecord):
             raise DatabaseError(str(e)) from e
 
     def delete(self) -> int:
+        """
+        Delete the record from database.
+
+        This method performs a DELETE operation for the current record. It identifies
+        the record to delete using the primary key value and removes it from the database.
+        The operation is performed using the model's configured backend.
+
+        The delete operation triggers appropriate model events (BEFORE_DELETE, AFTER_DELETE)
+        and updates the internal state of the record. If the model has a 'prepare_delete' method,
+        a soft delete is performed by updating the record instead of removing it.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - Returns 1 if the record was successfully deleted
+                 - Returns 0 if no record matched the primary key (record didn't exist)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValueError: If the record doesn't have a valid primary key value
+        """
         if not self.backend():
             raise DatabaseError("No backend configured")
         if self.is_new_record:
@@ -466,6 +545,26 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         return [cls.create_from_database(row) for row in rows]
 
     async def _insert_internal(self, data) -> Any:
+        """
+        Internal method to perform the actual insertion of data into the database asynchronously.
+
+        This method handles the complete insertion process including:
+        1. Preparing data with column mappings and adapters
+        2. Creating insert options with appropriate configurations
+        3. Executing the insert operation via the backend asynchronously
+        4. Processing the result, including retrieving primary key if needed
+        5. Updating the instance with the retrieved primary key value
+        6. Marking the instance as loaded from the database and resetting tracking
+
+        Args:
+            data: Dictionary containing the field names and values to insert
+
+        Returns:
+            The result object from the backend insert operation
+
+        Raises:
+            DatabaseError: If there's an issue retrieving the primary key after insert
+        """
         self.log(logging.DEBUG, f"Raw data for insert: {data}")
         prepared_data = self.__class__._map_fields_to_columns(data)
         self.log(logging.DEBUG, f"Data with database column names: {prepared_data}")
@@ -531,6 +630,22 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         return result
 
     async def _update_internal(self, data) -> Any:
+        """
+        Internal method to perform the actual update of data in the database asynchronously.
+
+        This method handles the complete update process including:
+        1. Collecting update conditions and expressions from IUpdateBehavior implementations
+        2. Preparing data with column mappings and adapters
+        3. Creating update options with appropriate configurations
+        4. Executing the update operation via the backend asynchronously
+        5. Returning the result of the update operation
+
+        Args:
+            data: Dictionary containing the field names and values to update
+
+        Returns:
+            The result object from the backend update operation
+        """
         self.log(logging.INFO, f"Starting update operation for {self.__class__.__name__} record with ID: {getattr(self, self.__class__.primary_key_field(), 'unknown')}")
         update_conditions = []
         update_expressions = {}
@@ -686,6 +801,28 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         return record
 
     async def save(self) -> int:
+        """
+        Save the record to database asynchronously, performing insert or update as appropriate.
+
+        This method implements the core persistence functionality. If the record is
+        new (determined by is_new_record property), it performs an INSERT operation.
+        If the record already exists and has changes, it performs an UPDATE operation with only
+        the changed fields.
+
+        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
+        and handles dirty field tracking to optimize updates.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If the model fails validation before saving
+        """
         if not self.backend():
             raise DatabaseError("No backend configured")
         try:
@@ -707,6 +844,27 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             raise DatabaseError(str(e)) from e
 
     async def delete(self) -> int:
+        """
+        Delete the record from database asynchronously.
+
+        This method performs a DELETE operation for the current record. It identifies
+        the record to delete using the primary key value and removes it from the database.
+        The operation is performed using the model's configured backend.
+
+        The delete operation triggers appropriate model events (BEFORE_DELETE, AFTER_DELETE)
+        and updates the internal state of the record. If the model has a 'prepare_delete' method,
+        a soft delete is performed by updating the record instead of removing it.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - Returns 1 if the record was successfully deleted
+                 - Returns 0 if no record matched the primary key (record didn't exist)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValueError: If the record doesn't have a valid primary key value
+        """
         if not self.backend():
             raise DatabaseError("No backend configured")
         if self.is_new_record:
