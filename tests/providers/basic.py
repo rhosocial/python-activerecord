@@ -203,6 +203,7 @@ class BasicProvider(IBasicProvider):
 
     async def setup_async_mapped_models(self, scenario_name: str):
         """Sets up the database for AsyncMappedUser, AsyncMappedPost, and AsyncMappedComment models."""
+        from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import AsyncMappedUser, AsyncMappedPost, AsyncMappedComment
         user = await self._setup_async_model(AsyncMappedUser, scenario_name, "users")
         post = await self._setup_async_model(AsyncMappedPost, scenario_name, "posts")
         comment = await self._setup_async_model(AsyncMappedComment, scenario_name, "comments")
@@ -210,6 +211,7 @@ class BasicProvider(IBasicProvider):
 
     async def setup_async_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
         """Sets up the database for AsyncColumnMappingModel and AsyncMixedAnnotationModel."""
+        from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import AsyncColumnMappingModel, AsyncMixedAnnotationModel
         column_mapping_model = await self._setup_async_model(AsyncColumnMappingModel, scenario_name, "column_mapping_items")
         mixed_annotation_model = await self._setup_async_model(AsyncMixedAnnotationModel, scenario_name, "mixed_annotation_items")
         return column_mapping_model, mixed_annotation_model
