@@ -204,17 +204,51 @@ class BasicProvider(IBasicProvider):
     async def setup_async_mapped_models(self, scenario_name: str):
         """Sets up the database for AsyncMappedUser, AsyncMappedPost, and AsyncMappedComment models."""
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import AsyncMappedUser, AsyncMappedPost, AsyncMappedComment
+
+        # Use shared backend for all models to ensure proper cleanup
         user = await self._setup_async_model(AsyncMappedUser, scenario_name, "users")
-        post = await self._setup_async_model(AsyncMappedPost, scenario_name, "posts")
-        comment = await self._setup_async_model(AsyncMappedComment, scenario_name, "comments")
-        return user, post, comment
+        shared_backend = user.__backend__
+
+        # Configure remaining models with the same backend instance
+        post_model_class = AsyncMappedPost
+        post_model_class.__connection_config__ = user.__connection_config__
+        post_model_class.__backend_class__ = user.__backend_class__
+        post_model_class.__backend__ = shared_backend
+        await self._initialize_async_model_schema(post_model_class, scenario_name, "posts")
+
+        comment_model_class = AsyncMappedComment
+        comment_model_class.__connection_config__ = user.__connection_config__
+        comment_model_class.__backend_class__ = user.__backend_class__
+        comment_model_class.__backend__ = shared_backend
+        await self._initialize_async_model_schema(comment_model_class, scenario_name, "comments")
+
+        return user, post_model_class, comment_model_class
+
+    async def _initialize_async_model_schema(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str):
+        """Initialize schema for a model that shares backend with another model."""
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        from rhosocial.activerecord.backend.schema import StatementType
+        options = ExecutionOptions(stmt_type=StatementType.DDL)
+        await model_class.__backend__.execute(f"DROP TABLE IF EXISTS {table_name}", options=options)
+        schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
+        await model_class.__backend__.execute(schema_sql, options=options)
 
     async def setup_async_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
         """Sets up the database for AsyncColumnMappingModel and AsyncMixedAnnotationModel."""
         from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import AsyncColumnMappingModel, AsyncMixedAnnotationModel
+
+        # Use shared backend for all models to ensure proper cleanup
         column_mapping_model = await self._setup_async_model(AsyncColumnMappingModel, scenario_name, "column_mapping_items")
-        mixed_annotation_model = await self._setup_async_model(AsyncMixedAnnotationModel, scenario_name, "mixed_annotation_items")
-        return column_mapping_model, mixed_annotation_model
+        shared_backend = column_mapping_model.__backend__
+
+        # Configure remaining models with the same backend instance
+        mixed_annotation_model_class = AsyncMixedAnnotationModel
+        mixed_annotation_model_class.__connection_config__ = column_mapping_model.__connection_config__
+        mixed_annotation_model_class.__backend_class__ = column_mapping_model.__backend_class__
+        mixed_annotation_model_class.__backend__ = shared_backend
+        await self._initialize_async_model_schema(mixed_annotation_model_class, scenario_name, "mixed_annotation_items")
+
+        return column_mapping_model, mixed_annotation_model_class
 
     def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
         """Returns an instance of the YesOrNoBooleanAdapter."""
