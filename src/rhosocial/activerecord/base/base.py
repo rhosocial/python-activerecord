@@ -526,7 +526,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         update_conditions = []
         update_expressions = {}
         mro = self.__class__.__mro__
-        activerecord_idx = mro.index(IActiveRecord)
+        activerecord_idx = mro.index(IAsyncActiveRecord)
         self.log(logging.DEBUG, f"Traversing MRO for IUpdateBehavior implementations: {[cls.__name__ for cls in mro[:activerecord_idx]]}")
         for cls in mro[:activerecord_idx]:
             if issubclass(cls, IUpdateBehavior):
