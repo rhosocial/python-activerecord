@@ -428,20 +428,24 @@ class BaseActiveRecord(IActiveRecord):
                 adapters_map[column_name] = (adapter_instance, original_type)
         return adapters_map
 
+
 class AsyncBaseActiveRecord(IAsyncActiveRecord):
     """
-    Core Asynchronous ActiveRecord implementation providing the fundamental ORM functionality.
+    Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """
 
     @classmethod
     def configure(cls, config: ConnectionConfig, backend_class: Type[AsyncStorageBackend]) -> None:
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
+
         cls.__connection_config__ = config
         cls.__backend_class__ = backend_class
+
         backend_instance = backend_class(connection_config=config)
         if hasattr(cls, '__logger__'):
             backend_instance.logger = cls.__logger__
+
         cls.__backend__ = backend_instance
         if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
             cls._dummy_backend = None
@@ -474,6 +478,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         returning_columns = None
         if supports_returning:
             returning_columns = [self.primary_key()]
+
         insert_options = InsertOptions(
             table=self.table_name(),
             data=prepared_data,
@@ -489,6 +494,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                 pk_field_name in self.__class__.model_fields and
                 prepared_data.get(pk_column) is None and
                 getattr(self, pk_field_name, None) is None):
+
             pk_retrieved = False
             self.log(logging.DEBUG, f"Attempting to retrieve primary key '{pk_column}' for new record")
             pk_field_name = self.__class__._get_field_name(pk_column)
@@ -502,12 +508,14 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                     self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
                 else:
                     self.log(logging.WARNING, f"RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
+
             if not pk_retrieved and result.last_insert_id is not None:
                 field_type = self.__class__.model_fields[pk_field_name].annotation
                 if get_origin(field_type) in (Union, Optional):
                     types = [t for t in get_args(field_type) if t is not type(None)]
                     if types:
                         field_type = types[0]
+
                 if field_type is int:
                     pk_value = result.last_insert_id
                     setattr(self, pk_field_name, pk_value)
@@ -517,6 +525,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                 error_msg = f"Failed to retrieve primary key '{pk_field_name}' for new record after insert."
                 self.log(logging.ERROR, f"{error_msg}")
                 raise DatabaseError(error_msg)
+
         self._is_from_db = True
         self.reset_tracking()
         return result
@@ -563,7 +572,9 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         pk_name = self.primary_key()
         pk_value = getattr(self, self.__class__.primary_key_field())
         self.log(logging.DEBUG, f"Primary key: {pk_name} = {pk_value}")
-        where_predicate = ComparisonPredicate(backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value))
+        where_predicate = ComparisonPredicate(
+            backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+        )
         for condition in update_conditions:
             if hasattr(condition, 'to_sql'):
                 where_predicate = where_predicate & condition
@@ -608,16 +619,71 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                 after_method = getattr(base, 'after_save')
                 after_method(self, is_new)
 
-    async def _save_internal(self) -> int:
-        data = self._prepare_save_data()
-        if self.is_new_record:
-            result = await self._insert_internal(data)
+    @classmethod
+    async def find_one(
+        cls: Type['AsyncBaseActiveRecord'],
+        condition: Union[Any, Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]
+    ) -> Optional['AsyncBaseActiveRecord']:
+        query = cls.query()
+        if isinstance(condition, dict):
+            for key, value in condition.items():
+                if isinstance(key, Column):
+                    query = query.where(key == value)
+                elif isinstance(key, str):
+                    query = query.where(getattr(cls.c, key) == value)
+                else:
+                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
+                                    f"Expected str or Column, got {type(key)}")
+        elif isinstance(condition, SQLPredicate):
+            query = query.where(condition)
+        elif is_sql_query_and_params(condition):
+            sql, params = condition
+            query = query.where(sql, params)
         else:
-            if not self.is_dirty:
-                return 0
-            result = await self._update_internal(data)
-        self._after_save(self.is_new_record)
-        return result.affected_rows
+            pk_field_name = cls.primary_key()
+            query = query.where(f"{pk_field_name} = ?", (condition,))
+        return await query.one()
+
+    @classmethod
+    async def find_all(
+        cls: Type['AsyncBaseActiveRecord'],
+        condition: Optional[Union[Any, List[Any], Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]] = None
+    ) -> List['AsyncBaseActiveRecord']:
+        query = cls.query()
+        if condition is None:
+            return await query.all()
+        if isinstance(condition, dict):
+            for key, value in condition.items():
+                if isinstance(key, Column):
+                    query = query.where(key == value)
+                elif isinstance(key, str):
+                    query = query.where(getattr(cls.c, key) == value)
+                else:
+                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
+                                    f"Expected str or Column, got {type(key)}")
+        elif isinstance(condition, SQLPredicate):
+            query = query.where(condition)
+        elif is_sql_query_and_params(condition):
+            sql, params = condition
+            query = query.where(sql, params)
+        else: # Assumes list of primary keys
+            pk_field_name = cls.primary_key()
+            if not condition:
+                return []
+            placeholders = ','.join(['?' for _ in condition])
+            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
+        return await query.all()
+
+    @classmethod
+    async def find_one_or_fail(
+        cls: Type['AsyncBaseActiveRecord'],
+        condition: Union[Any, Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]
+    ) -> 'AsyncBaseActiveRecord':
+        record = await cls.find_one(condition)
+        if record is None:
+            cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
+            raise RecordNotFound(f"Record not found for {cls.__name__}")
+        return record
 
     async def save(self) -> int:
         if not self.backend():
@@ -673,72 +739,6 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             self._trigger_event(ModelEvent.AFTER_DELETE)
         return affected_rows
 
-    @classmethod
-    async def find_one(
-        cls: Type['AsyncBaseActiveRecord'],
-        condition: Union[Any, Dict[str, Any], 'SQLPredicate', Tuple[str, tuple]]
-    ) -> Optional['AsyncBaseActiveRecord']:
-        query = cls.query()
-        if isinstance(condition, dict):
-            for key, value in condition.items():
-                if isinstance(key, Column):
-                    query = query.where(key == value)
-                elif isinstance(key, str):
-                    query = query.where(getattr(cls.c, key) == value)
-                else:
-                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
-                                    f"Expected str or Column, got {type(key)}")
-        elif isinstance(condition, SQLPredicate):
-            query = query.where(condition)
-        elif is_sql_query_and_params(condition):
-            sql, params = condition
-            query = query.where(sql, params)
-        else:
-            pk_field_name = cls.primary_key()
-            query = query.where(f"{pk_field_name} = ?", (condition,))
-        return await query.one()
-
-    @classmethod
-    async def find_all(
-        cls: Type['AsyncBaseActiveRecord'],
-        condition: Optional[Union[Any, List[Any], Dict[str, Any], 'SQLPredicate', Tuple[str, tuple]]] = None
-    ) -> List['AsyncBaseActiveRecord']:
-        query = cls.query()
-        if condition is None:
-            return await query.all()
-        if isinstance(condition, dict):
-            for key, value in condition.items():
-                if isinstance(key, Column):
-                    query = query.where(key == value)
-                elif isinstance(key, str):
-                    query = query.where(getattr(cls.c, key) == value)
-                else:
-                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
-                                    f"Expected str or Column, got {type(key)}")
-        elif isinstance(condition, SQLPredicate):
-            query = query.where(condition)
-        elif is_sql_query_and_params(condition):
-            sql, params = condition
-            query = query.where(sql, params)
-        else: # Assumes list of primary keys
-            pk_field_name = cls.primary_key()
-            if not condition:
-                return []
-            placeholders = ','.join(['?' for _ in condition])
-            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
-        return await query.all()
-
-    @classmethod
-    async def find_one_or_fail(
-        cls: Type['AsyncBaseActiveRecord'],
-        condition: Union[Any, Dict[str, Any], 'SQLPredicate', Tuple[str, tuple]]
-    ) -> 'AsyncBaseActiveRecord':
-        record = await cls.find_one(condition)
-        if record is None:
-            cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
-            raise RecordNotFound(f"Record not found for {cls.__name__}")
-        return record
-
     def validate_custom(self) -> None:
         pass
 
@@ -749,6 +749,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         return cls.backend().transaction()
 
     # region Logging Methods
+
     @classmethod
     def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
         if not hasattr(cls, '__logger__'):
