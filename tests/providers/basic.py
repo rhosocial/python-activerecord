@@ -190,8 +190,8 @@ class BasicProvider(IBasicProvider):
         return await self._setup_async_model(AsyncTypeCase, scenario_name, "type_cases")
 
     async def setup_async_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `AsyncValidatedUser` model tests."""
-        return await self._setup_async_model(AsyncValidatedUser, scenario_name, "validated_users")
+        """Sets up the database for the `AsyncValidatedFieldUser` model tests."""
+        return await self._setup_async_model(AsyncValidatedFieldUser, scenario_name, "validated_field_users")
 
     async def setup_async_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncTypeTestModel` model tests."""
