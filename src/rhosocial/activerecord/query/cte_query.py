@@ -95,12 +95,26 @@ class CTEQuery(
 
         Args:
             name: Name of the CTE
-            query: The query that defines the CTE, can be a string, IQuery, ActiveQuery, CTEQuery, or QueryExpression
+            query: The query that defines the CTE. Best practice is to use IQuery instances
+                   (such as ActiveQuery) or QueryExpression objects. Also supports raw SQL
+                   string or SQLQueryAndParams (sql_string, params_tuple) for direct SQL input.
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
 
         Returns:
             self for method chaining
+
+        Example:
+            # Recommended: Using ActiveQuery
+            active_query = MyModel.query().select('col1', 'col2').where('col1 > ?', (10,))
+            cte_query.with_cte('my_cte', active_query)
+
+            # Recommended: Using QueryExpression
+            query_expr = statements.SelectExpression(dialect, ...)
+            cte_query.with_cte('my_cte', query_expr)
+
+            # Supported but for demonstration: raw SQL with parameters
+            cte_query.with_cte('my_cte', ("SELECT col1, col2 FROM table WHERE col1 > ?", (10,)))
         """
         # Get dialect from backend
         dialect = self.backend().dialect
@@ -357,12 +371,26 @@ class AsyncCTEQuery(
 
         Args:
             name: Name of the CTE
-            query: The query that defines the CTE, can be a string, IQuery, ActiveQuery, CTEQuery, or QueryExpression
+            query: The query that defines the CTE. Best practice is to use IQuery instances
+                   (such as ActiveQuery) or QueryExpression objects. Also supports raw SQL
+                   string or SQLQueryAndParams (sql_string, params_tuple) for direct SQL input.
             columns: Optional list of column names for the CTE
             materialized: Whether the CTE should be materialized (for databases that support it)
 
         Returns:
             self for method chaining
+
+        Example:
+            # Recommended: Using ActiveQuery
+            active_query = MyModel.query().select('col1', 'col2').where('col1 > ?', (10,))
+            cte_query.with_cte('my_cte', active_query)
+
+            # Recommended: Using QueryExpression
+            query_expr = statements.SelectExpression(dialect, ...)
+            cte_query.with_cte('my_cte', query_expr)
+
+            # Supported but for demonstration: raw SQL with parameters
+            cte_query.with_cte('my_cte', ("SELECT col1, col2 FROM table WHERE col1 > ?", (10,)))
         """
         # Get dialect from backend
         dialect = self.backend().dialect
@@ -381,7 +409,7 @@ class AsyncCTEQuery(
             params = params if params is not None else ()
             query_expr = RawSQLExpression(dialect, sql_string, params)
         elif isinstance(query, IQuery):
-            # Check that the query is not a sync query (async CTEQuery should not accept sync queries)
+            # Check that the query is a valid async query (async CTEQuery should accept async queries)
             from ..interface import IAsyncQuery
             if not isinstance(query, IAsyncQuery):
                 # If it's a sync IQuery (but not an async one), raise an error
@@ -512,40 +540,40 @@ class AsyncCTEQuery(
 
         return await self.backend().fetch_all(sql, params)
 
-    def union(self, other: 'IAsyncQuery') -> 'SetOperationQuery':
+    def union(self, other: 'IAsyncQuery') -> 'AsyncSetOperationQuery':
         """Perform a UNION operation with another query.
 
         Args:
             other: Another query object (IAsyncQuery)
 
         Returns:
-            A new SetOperationQuery instance representing the UNION
+            A new AsyncSetOperationQuery instance representing the UNION
         """
-        from .set_operation import SetOperationQuery
-        return SetOperationQuery(self, other, "UNION")
+        from .set_operation import AsyncSetOperationQuery
+        return AsyncSetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: 'IAsyncQuery') -> 'SetOperationQuery':
+    def intersect(self, other: 'IAsyncQuery') -> 'AsyncSetOperationQuery':
         """Perform an INTERSECT operation with another query.
 
         Args:
             other: Another query object (IAsyncQuery)
 
         Returns:
-            A new SetOperationQuery instance representing the INTERSECT
+            A new AsyncSetOperationQuery instance representing the INTERSECT
         """
-        from .set_operation import SetOperationQuery
-        return SetOperationQuery(self, other, "INTERSECT")
+        from .set_operation import AsyncSetOperationQuery
+        return AsyncSetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: 'IAsyncQuery') -> 'SetOperationQuery':
+    def except_(self, other: 'IAsyncQuery') -> 'AsyncSetOperationQuery':
         """Perform an EXCEPT operation with another query.
 
         Args:
             other: Another query object (IAsyncQuery)
 
         Returns:
-            A new SetOperationQuery instance representing the EXCEPT
+            A new AsyncSetOperationQuery instance representing the EXCEPT
         """
-        from .set_operation import SetOperationQuery
-        return SetOperationQuery(self, other, "EXCEPT")
+        from .set_operation import AsyncSetOperationQuery
+        return AsyncSetOperationQuery(self, other, "EXCEPT")
 
     # endregion
