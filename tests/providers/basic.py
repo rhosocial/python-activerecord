@@ -21,13 +21,11 @@ from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
     User, TypeCase, ValidatedFieldUser, TypeTestModel, ValidatedUser, TypeAdapterTest, YesOrNoBooleanAdapter,
     MappedUser, MappedPost, MappedComment, ColumnMappingModel, MixedAnnotationModel
 )
-# Import async models (now in the same file as sync models)
+# Import async models
 from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
-    AsyncUser, AsyncTypeCase, AsyncValidatedUser, AsyncValidatedFieldUser, AsyncTypeTestModel
-)
-# Import async type adapter model
-from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
-    AsyncTypeAdapterTest, AsyncYesOrNoBooleanAdapter
+    AsyncUser, AsyncTypeCase, AsyncValidatedUser, AsyncValidatedFieldUser, AsyncTypeTestModel,
+    AsyncTypeAdapterTest, AsyncMappedUser, AsyncMappedPost, AsyncMappedComment,
+    AsyncColumnMappingModel, AsyncMixedAnnotationModel
 )
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # ...and the scenarios are defined specifically for this backend.
@@ -98,7 +96,7 @@ class BasicProvider(IBasicProvider):
 
     async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given async model."""
-        # 1. Get the backend class (AsyncSQLiteBackend) and connection config for the requested scenario.
+        # 1. Get the async backend class (AsyncSQLiteBackend) and connection config for the requested scenario.
         from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
         backend_class = AsyncSQLiteBackend
         _, original_config = get_scenario(scenario_name)
@@ -146,27 +144,48 @@ class BasicProvider(IBasicProvider):
 
         return model_class
 
+
     # --- Implementation of the IBasicProvider interface ---
 
     def setup_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `User` model tests."""
         return self._setup_model(User, scenario_name, "users")
 
+    async def setup_async_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `AsyncUser` model tests."""
+        return await self._setup_async_model(AsyncUser, scenario_name, "users")
+
     def setup_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `TypeCase` model tests."""
         return self._setup_model(TypeCase, scenario_name, "type_cases")
+
+    async def setup_async_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `AsyncTypeCase` model tests."""
+        return await self._setup_async_model(AsyncTypeCase, scenario_name, "type_cases")
 
     def setup_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `TypeTestModel` model tests."""
         return self._setup_model(TypeTestModel, scenario_name, "type_tests")
 
+    async def setup_async_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `AsyncTypeTestModel` model tests."""
+        return await self._setup_async_model(AsyncTypeTestModel, scenario_name, "type_tests")
+
     def setup_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `ValidatedFieldUser` model tests."""
         return self._setup_model(ValidatedFieldUser, scenario_name, "validated_field_users")
 
+    async def setup_async_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `AsyncValidatedFieldUser` model tests."""
+        return await self._setup_async_model(AsyncValidatedFieldUser, scenario_name, "validated_field_users")
+
     def setup_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `ValidatedUser` model tests."""
         return self._setup_model(ValidatedUser, scenario_name, "validated_users")
+
+    async def setup_async_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `AsyncValidatedUser` model tests."""
+        return await self._setup_async_model(AsyncValidatedUser, scenario_name, "validated_users")
 
     def setup_mapped_models(self, scenario_name: str):
         """Sets up the database for MappedUser, MappedPost, and MappedComment models."""
@@ -175,40 +194,8 @@ class BasicProvider(IBasicProvider):
         comment = self._setup_model(MappedComment, scenario_name, "comments")
         return user, post, comment
 
-    def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
-        """Sets up the database for ColumnMappingModel and MixedAnnotationModel."""
-        column_mapping_model = self._setup_model(ColumnMappingModel, scenario_name, "column_mapping_items")
-        mixed_annotation_model = self._setup_model(MixedAnnotationModel, scenario_name, "mixed_annotation_items")
-        return column_mapping_model, mixed_annotation_model
-
-    def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `TypeAdapterTest` model tests."""
-        return self._setup_model(TypeAdapterTest, scenario_name, "type_adapter_tests")
-
-    async def setup_async_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `AsyncUser` model tests."""
-        return await self._setup_async_model(AsyncUser, scenario_name, "users")
-
-    async def setup_async_type_case_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `AsyncTypeCase` model tests."""
-        return await self._setup_async_model(AsyncTypeCase, scenario_name, "type_cases")
-
-    async def setup_async_validated_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `AsyncValidatedFieldUser` model tests."""
-        return await self._setup_async_model(AsyncValidatedFieldUser, scenario_name, "validated_field_users")
-
-    async def setup_async_type_test_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `AsyncTypeTestModel` model tests."""
-        return await self._setup_async_model(AsyncTypeTestModel, scenario_name, "type_tests")
-
-    async def setup_async_validated_field_user_model(self, scenario_name: str) -> Type[ActiveRecord]:
-        """Sets up the database for the `AsyncValidatedFieldUser` model tests."""
-        return await self._setup_async_model(AsyncValidatedFieldUser, scenario_name, "validated_field_users")
-
     async def setup_async_mapped_models(self, scenario_name: str):
         """Sets up the database for AsyncMappedUser, AsyncMappedPost, and AsyncMappedComment models."""
-        from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import AsyncMappedUser, AsyncMappedPost, AsyncMappedComment
-
         # Use shared backend for all models to ensure proper cleanup
         user = await self._setup_async_model(AsyncMappedUser, scenario_name, "users")
         shared_backend = user.__backend__
@@ -237,10 +224,14 @@ class BasicProvider(IBasicProvider):
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
         await model_class.__backend__.execute(schema_sql, options=options)
 
+    def setup_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
+        """Sets up the database for ColumnMappingModel and MixedAnnotationModel."""
+        column_mapping_model = self._setup_model(ColumnMappingModel, scenario_name, "column_mapping_items")
+        mixed_annotation_model = self._setup_model(MixedAnnotationModel, scenario_name, "mixed_annotation_items")
+        return column_mapping_model, mixed_annotation_model
+
     async def setup_async_mixed_models(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
         """Sets up the database for AsyncColumnMappingModel and AsyncMixedAnnotationModel."""
-        from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import AsyncColumnMappingModel, AsyncMixedAnnotationModel
-
         # Use shared backend for all models to ensure proper cleanup
         column_mapping_model = await self._setup_async_model(AsyncColumnMappingModel, scenario_name, "column_mapping_items")
         shared_backend = column_mapping_model.__backend__
@@ -254,17 +245,30 @@ class BasicProvider(IBasicProvider):
 
         return column_mapping_model, mixed_annotation_model_class
 
-    def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
-        """Returns an instance of the YesOrNoBooleanAdapter."""
-        return YesOrNoBooleanAdapter()
+    def setup_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `TypeAdapterTest` model tests."""
+        return self._setup_model(TypeAdapterTest, scenario_name, "type_adapter_tests")
 
     async def setup_async_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
         """Sets up the database for the `AsyncTypeAdapterTest` model tests."""
         return await self._setup_async_model(AsyncTypeAdapterTest, scenario_name, "type_adapter_tests")
 
-    async def cleanup_after_test_async(self, scenario_name: str):
+    def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
+        """Returns an instance of the YesOrNoBooleanAdapter."""
+        return YesOrNoBooleanAdapter()
+
+    def _load_sqlite_schema(self, filename: str) -> str:
+        """Helper to load a SQL schema file from this project's fixtures."""
+        # Schemas are stored in the centralized location for basic feature.
+        schema_dir = os.path.join(os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "basic", "schema")
+        schema_path = os.path.join(schema_dir, filename)
+        
+        with open(schema_path, 'r', encoding='utf-8') as f:
+            return f.read()
+
+    def cleanup_after_test(self, scenario_name: str):
         """
-        Performs async cleanup after a test. For file-based scenarios, this involves
+        Performs cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
         """
         # Use the dynamically generated database file if available, otherwise use the original config
@@ -290,18 +294,9 @@ class BasicProvider(IBasicProvider):
                     # Ignore errors if the file is already gone or locked, etc.
                     pass
 
-    def _load_sqlite_schema(self, filename: str) -> str:
-        """Helper to load a SQL schema file from this project's fixtures."""
-        # Schemas are stored in the centralized location for basic feature.
-        schema_dir = os.path.join(os.path.dirname(__file__), "..", "rhosocial", "activerecord_test", "feature", "basic", "schema")
-        schema_path = os.path.join(schema_dir, filename)
-        
-        with open(schema_path, 'r', encoding='utf-8') as f:
-            return f.read()
-
-    def cleanup_after_test(self, scenario_name: str):
+    async def cleanup_after_test_async(self, scenario_name: str):
         """
-        Performs cleanup after a test. For file-based scenarios, this involves
+        Performs async cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
         """
         # Use the dynamically generated database file if available, otherwise use the original config
