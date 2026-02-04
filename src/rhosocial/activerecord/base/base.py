@@ -210,10 +210,10 @@ class BaseActiveRecord(IActiveRecord):
             backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
         )
         for condition in update_conditions:
-            if hasattr(condition, 'to_sql'):
+            if isinstance(condition, SQLPredicate):
                 where_predicate = where_predicate & condition
             else:
-                pass
+                self.log(logging.WARNING, f"Skipping non-predicate condition in update: {condition} (type: {type(condition)})")
         self.log(logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied")
         supports_returning = backend.dialect.supports_returning_clause()
         returning_columns = None
@@ -691,10 +691,10 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
         )
         for condition in update_conditions:
-            if hasattr(condition, 'to_sql'):
+            if isinstance(condition, SQLPredicate):
                 where_predicate = where_predicate & condition
             else:
-                pass
+                self.log(logging.WARNING, f"Skipping non-predicate condition in update: {condition} (type: {type(condition)})")
         self.log(logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied")
         supports_returning = backend.dialect.supports_returning_clause()
         returning_columns = None
