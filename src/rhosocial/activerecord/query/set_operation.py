@@ -3,6 +3,7 @@
 
 from typing import Union, List, Dict, Any
 
+from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import SetOperationExpression, bases
 from ..interface import IQuery, IAsyncQuery, ISetOperationQuery, IAsyncSetOperationQuery
 
@@ -31,7 +32,6 @@ class SetOperationQuery(ISetOperationQuery):
         right_backend = right.backend()
 
         # Check that both operands use synchronous backends (not async backends)
-        from ..backend.base import AsyncStorageBackend
         if isinstance(left_backend, AsyncStorageBackend):
             raise TypeError(f"SetOperationQuery does not support async backends. Left operand uses {type(left_backend).__name__}")
         if isinstance(right_backend, AsyncStorageBackend):
@@ -307,7 +307,7 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
         # Always return a list, even if empty
         return result
 
-    def backend(self) -> 'StorageBackend':
+    def backend(self) -> 'AsyncStorageBackend':
         """Get the backend for this query."""
         # Return the backend of the left operand, as it's used for the SetOperationExpression
         return self.left.backend()

@@ -236,7 +236,7 @@ class IAsyncBackend(Protocol):
     query execution across different database systems.
     """
 
-    async def backend(self) -> 'AsyncStorageBackend':
+    def backend(self) -> 'AsyncStorageBackend':
         """Get the async storage backend for this query.
 
         Returns:
