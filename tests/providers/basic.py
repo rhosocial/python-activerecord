@@ -25,6 +25,10 @@ from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
 from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
     AsyncUser, AsyncTypeCase, AsyncValidatedUser, AsyncValidatedFieldUser, AsyncTypeTestModel
 )
+# Import async type adapter model
+from rhosocial.activerecord.testsuite.feature.basic.fixtures.models import (
+    AsyncTypeAdapterTest, AsyncYesOrNoBooleanAdapter
+)
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
@@ -253,6 +257,10 @@ class BasicProvider(IBasicProvider):
     def get_yes_no_adapter(self) -> BaseSQLTypeAdapter:
         """Returns an instance of the YesOrNoBooleanAdapter."""
         return YesOrNoBooleanAdapter()
+
+    async def setup_async_type_adapter_model_and_schema(self, scenario_name: str) -> Type[ActiveRecord]:
+        """Sets up the database for the `AsyncTypeAdapterTest` model tests."""
+        return await self._setup_async_model(AsyncTypeAdapterTest, scenario_name, "type_adapter_tests")
 
     async def cleanup_after_test_async(self, scenario_name: str):
         """
