@@ -21,6 +21,7 @@ tests against our specific (SQLite) backend.
 # parameterized to run against the scenarios defined in `providers/scenarios.py`.
 from rhosocial.activerecord.testsuite.feature.basic.conftest import (
     validated_user,
+    async_validated_user,
 )
 
 from rhosocial.activerecord.testsuite.feature.basic.test_validation import *
