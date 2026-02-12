@@ -1458,6 +1458,63 @@ docs: update installation guide for Python 3.14
 chore: bump version to 1.2.0
 ```
 
+### Complex Commit Messages via File
+
+When dealing with complex commit messages or messages containing special characters that may conflict with shell escaping (such as backticks, quotes, or regular expression patterns), you SHOULD write the commit message to a temporary file in `.claude/tmp/` and use the file option with git commit.
+
+**When to use this approach:**
+
+-   Commit message contains complex formatting or code examples
+-   Message includes special shell characters (`$`, `` ` ``, `"`, `'`, `\`, `|`, `>`, `<`)
+-   Multi-line descriptions that are difficult to format inline
+-   Regular expressions or JSON examples in the commit message
+-   Any situation where command-line escaping becomes error-prone
+
+**Workflow:**
+
+```bash
+# 1. Create a commit message file
+cat > .claude/tmp/my-commit-message.txt << 'EOF'
+feat(query): add support for regex operators in WHERE clauses
+
+Implement regular expression matching operators:
+- ~ (case-sensitive match)
+- ~* (case-insensitive match)
+- !~ (case-sensitive non-match)
+- !~* (case-insensitive non-match)
+
+Example usage:
+  User.where(name__regex__match=r'^[A-Z][a-z]+$')
+  Post.where(content__regex__imatch=r'python|javascript')
+
+Note: Backend support varies. PostgreSQL has full support,
+while SQLite requires the REGEXP extension.
+
+Closes AR-789
+EOF
+
+# 2. Commit using the file
+git commit -F .claude/tmp/my-commit-message.txt
+
+# 3. Clean up (optional)
+rm .claude/tmp/my-commit-message.txt
+```
+
+**Best Practices:**
+
+-   Use descriptive filenames (e.g., `ar-123-fix-commit.txt`)
+-   Delete temporary files after use (they are gitignored)
+-   Template files are available in `.claude/tmp/`:
+    -   `commit-message-template.txt` - Basic template
+    -   `commit-message-example-complex.txt` - Complex example with special characters
+
+**Benefits:**
+
+-   No shell escaping issues with special characters
+-   Easier to edit and review multi-line messages
+-   Better handling of code examples and regex patterns
+-   Can use your preferred editor to compose messages
+
 ### Commit Message Language
 
 -   **Default Language**: Commit messages MUST primarily be written in English.

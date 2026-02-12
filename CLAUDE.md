@@ -20,19 +20,19 @@ This document provides comprehensive instructions for understanding and working 
 
 This knowledge base is organized into the following specialized instruction documents:
 
-### 📝 [CODE_STYLE.md](./.gemini/code_style.md)
+### 📝 [CODE_STYLE.md](./.claude/code_style.md)
 Coding standards, conventions, and style guidelines for the project.
 
-### 🏗️ [ARCHITECTURE.md](./.gemini/architecture.md)
+### 🏗️ [ARCHITECTURE.md](./.claude/architecture.md)
 System architecture, design patterns, and module organization.
 
-### 🔖 [VERSION_CONTROL.md](./.gemini/version_control.md)
+### 🔖 [VERSION_CONTROL.md](./.claude/version_control.md)
 Version management, branching strategy, and release procedures.
 
-### 🧪 [TESTING.md](./.gemini/testing.md)
+### 🧪 [TESTING.md](./.claude/testing.md)
 Testing strategy with planned testsuite package separation, current test structure, and future migration path.
 
-### 🔌 [BACKEND_DEVELOPMENT.md](./.gemini/backend_development.md)
+### 🔌 [BACKEND_DEVELOPMENT.md](./.claude/backend_development.md)
 Guidelines for developing new database backend implementations.
 
 ## Project Identification
@@ -260,8 +260,8 @@ docs/
 ## Next Steps
 
 Review the specialized instruction documents in order:
-1. Start with [ARCHITECTURE.md](./.gemini/architecture.md) for system overview
-2. Review [CODE_STYLE.md](./.gemini/code_style.md) for coding standards
-3. Study [TESTING.md](./.gemini/testing.md) for the new testsuite architecture
-4. Consult [BACKEND_DEVELOPMENT.md](./.gemini/backend_development.md) for backend work
-5. Reference [VERSION_CONTROL.md](./.gemini/version_control.md) for releases
+1. Start with [ARCHITECTURE.md](./.claude/architecture.md) for system overview
+2. Review [CODE_STYLE.md](./.claude/code_style.md) for coding standards
+3. Study [TESTING.md](./.claude/testing.md) for the new testsuite architecture
+4. Consult [BACKEND_DEVELOPMENT.md](./.claude/backend_development.md) for backend work
+5. Reference [VERSION_CONTROL.md](./.claude/version_control.md) for releases
