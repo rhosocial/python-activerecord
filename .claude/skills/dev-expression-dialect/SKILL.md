@@ -1,11 +1,12 @@
 ---
-name: expression-dialect
-description: Architecture guide for Expression-Dialect separation pattern used in query building
+name: dev-expression-dialect
+description: Architecture guide for Expression-Dialect separation pattern - for backend developers and contributors
 license: MIT
 compatibility: opencode
 metadata:
   category: architecture
   level: advanced
+  audience: developers
 ---
 
 ## What I do

@@ -1,11 +1,12 @@
 ---
-name: backend-development
-description: Guidelines for implementing new database backends including dialect, type adapter, config, and storage backend
+name: dev-backend-development
+description: Guidelines for implementing new database backends for rhosocial-activerecord - dialect, type adapter, config, and storage backend
 license: MIT
 compatibility: opencode
 metadata:
   category: backend
   level: advanced
+  audience: developers
 ---
 
 ## What I do

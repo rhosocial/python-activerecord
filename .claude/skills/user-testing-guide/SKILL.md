@@ -1,11 +1,13 @@
 ---
-name: testing-guide
-description: Testing patterns for rhosocial-activerecord including Provider pattern, sync/async parity, and test structure
+name: user-testing-guide
+description: Testing patterns for rhosocial-activerecord application developers - Provider pattern, sync/async parity, and test structure
 license: MIT
 compatibility: opencode
 metadata:
   category: testing
   level: intermediate
+  audience: users
+  order: 10
 ---
 
 ## What I do
