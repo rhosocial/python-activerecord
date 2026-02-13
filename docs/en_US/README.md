@@ -1,5 +1,9 @@
 # rhosocial-activerecord Documentation
 
+> 🤖 **AI Learning Assistant**: Throughout this documentation, you'll find AI Prompt markers (💡) next to complex concepts. Feel free to ask your AI assistant to explain anything you don't understand.
+>
+> **Example:** "What is Expression-Dialect separation and why is it important?"
+
 ## Table of Contents
 
 1.  **[Introduction](introduction/README.md)**
@@ -7,10 +11,10 @@
     *   **[Key Features](introduction/key_features.md)**:
         *   Pydantic V2 Integration
         *   Composable Mixins (UUID, Timestamp, Optimistic Locking)
-        *   **[Sync-Async Parity](introduction/key_features.md#sync-async-parity)**: Equivalent functionality across synchronous and asynchronous implementations
+        *   **[Sync-Async Parity](introduction/key_features.md#sync-async-parity)**: Equivalent functionality across synchronous and asynchronous implementations 💡 *AI Prompt: "Why does this project enforce identical method names for sync and async APIs?"*
         *   Zero-IO Testing Strategy
     *   **[Comparison](introduction/comparison.md)**: Detailed analysis vs SQLModel, SQLAlchemy, Peewee, and Django ORM.
-    *   **[Architecture](introduction/architecture.md)**: Understanding the layered design (Interface -> Active Record -> Dialect -> Expression -> Backend).
+    *   **[Architecture](introduction/architecture.md)**: Understanding the layered design (Interface -> Active Record -> Dialect -> Expression -> Backend). 💡 *AI Prompt: "Explain the layered architecture and why Expression-Dialect separation matters."*
 
 2.  **[Getting Started](getting_started/README.md)**
     *   **[Installation](getting_started/installation.md)**: Requirements (Python 3.8+, Pydantic V2) and pip installation.
@@ -18,7 +22,7 @@
     *   **[Quick Start](getting_started/quick_start.md)**: A complete "Hello World" example defining User/Post models and performing CRUD.
 
 3.  **[Modeling Data](modeling/README.md)**
-    *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns.
+    *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns. 💡 *AI Prompt: "What is FieldProxy and how does it enable type-safe query building?"*
     *   **[Mixins](modeling/mixins.md)**: Reusable logic with built-in (`UUID`, `Timestamp`) and custom Mixins.
     *   **[Validation & Hooks](modeling/validation.md)**: Pydantic validation and lifecycle hooks.
     *   **[Custom Types](modeling/custom_types.md)**: Handling complex data types like JSON and arrays.
@@ -45,7 +49,7 @@
     *   **[JSON Serialization](serialization/json.md)**: Converting models to JSON/Dicts, field filtering.
 
 9.  **[Backend System](backend/README.md)**
-    *   **[Expression System](backend/expression/README.md)**: How Python objects are safely transformed into SQL strings.
+    *   **[Expression System](backend/expression/README.md)**: How Python objects are safely transformed into SQL strings. 💡 *AI Prompt: "Explain ToSQLProtocol and how Expression-Dialect separation prevents SQL injection."*
     *   **[Custom Backend](backend/custom_backend.md)**: Implementing a new database driver.
 
 10. **[Testing](testing/README.md)**
