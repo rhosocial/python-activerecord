@@ -179,10 +179,10 @@ User.query().join(User, on=(User.c.manager_id == Manager.id), alias="manager")
 直接返回标量值。
 
 *   `count(column=None)`: 统计行数。
-*   `sum(column)`: 计算总和。
+*   `sum_(column)`: 计算总和（注意下划线，避免与 Python 内置 `sum` 冲突）。
 *   `avg(column)`: 计算平均值。
-*   `min(column)`: 查找最小值。
-*   `max(column)`: 查找最大值。
+*   `min_(column)`: 查找最小值（注意下划线，避免与 Python 内置 `min` 冲突）。
+*   `max_(column)`: 查找最大值（注意下划线，避免与 Python 内置 `max` 冲突）。
 
 ### 复杂聚合
 *   `aggregate(**kwargs)`: 执行复杂的聚合查询，返回字典。
@@ -190,14 +190,16 @@ User.query().join(User, on=(User.c.manager_id == Manager.id), alias="manager")
 *   **用法示例**：
 
 ```python
+from rhosocial.activerecord.backend.expression import sum_, avg
+
 # 简单统计
 total_users = User.query().count()
-max_age = User.query().max(User.c.age)
+max_age = User.query().max_(User.c.age)
 
 # 复杂聚合：同时计算总分和平均分
 stats = User.query().aggregate(
-    total_score=User.c.score.sum(),
-    avg_score=User.c.score.avg()
+    total_score=sum_(User.c.score),
+    avg_score=avg(User.c.score)
 )
 # 返回: {'total_score': 1000, 'avg_score': 85.5}
 ```

@@ -2,12 +2,27 @@
 
 `rhosocial-activerecord` is designed to be **AI-Native** — built from the ground up to work seamlessly with AI code agents and editors.
 
+## ⚠️ Important Prerequisite
+
+**Must be used in the repository directory**: The AI configurations (skills, commands, context files) of this project will only be automatically recognized and loaded when you **clone this repository and execute AI agent CLI commands in the repository root directory**, or open the project folder in an IDE.
+
+```bash
+# 1. Clone the repository
+git clone https://github.com/rhosocial/python-activerecord.git
+cd python-activerecord
+
+# 2. Launch AI tools in this directory
+claude        # Claude Code
+opencode      # OpenCode
+# Or open this folder in Cursor/Windsurf
+```
+
 ## Why AI-Native?
 
 Several design choices make this project particularly well-suited for AI assistance:
 
 - **Explicit Type Annotations** — Full Pydantic v2 integration helps AI understand model structures
-- **Transparent SQL** — Every query has `.to_sql()` so AI can verify generated SQL before execution  
+- **Transparent SQL** — All expressions and queries expose `.to_sql()` so AI can verify generated SQL before execution  
 - **Clear Architecture** — Expression-Dialect separation makes the codebase easy for AI to navigate
 - **Built-in Context** — Project ships with AI-specific configurations
 

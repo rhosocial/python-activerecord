@@ -5,6 +5,8 @@
 In this chapter, we explore the core concepts that make this library unique.
 
 *   **[AI-Assisted Development](ai_assistance.md)**: Built-in AI configurations and how to use code agents to accelerate your workflow.
+*   **[Glossary](glossary.md)**: Key terms and concepts explained from scratch.
+*   **[Coming from Other Frameworks](coming_from_frameworks.md)**: If you know Django, SQLAlchemy, Rails, or others.
 *   **[A Tour of Key Features](key_features.md)**: Even if you are a beginner, take this guided tour to experience the core capabilities using a blog system example.
 *   **[Philosophy](philosophy.md)**: Why do we need a "Gradual ORM"?
 *   **[Comparison](comparison.md)**: How we compare to SQLModel, SQLAlchemy, and Django.

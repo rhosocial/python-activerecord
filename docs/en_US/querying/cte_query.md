@@ -120,12 +120,12 @@ Suppose we want to find "high-value users" (total order amount > 1000) and query
 
 ```python
 from rhosocial.activerecord.query import CTEQuery
-from rhosocial.activerecord.backend.expression import func
+from rhosocial.activerecord.backend.expression import sum_
 
 # 1. Define CTE: Calculate total order amount for each user
 # SELECT user_id, SUM(amount) as total_amount FROM orders GROUP BY user_id
 user_totals_cte = Order.query() \
-    .select(Order.c.user_id, Order.c.amount.sum().as_("total_amount")) \
+    .select(Order.c.user_id, sum_(Order.c.amount).as_("total_amount")) \
     .group_by(Order.c.user_id)
 
 # 2. Build CTE Query

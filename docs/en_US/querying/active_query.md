@@ -179,7 +179,7 @@ Provides data statistics and aggregation capabilities.
 Returns scalar values directly.
 
 *   `count(column=None)`: Count rows.
-*   `sum(column)`: Calculate sum.
+*   `sum_(column)`: Calculate sum (note the underscore to avoid conflict with Python's built-in `sum`).
 *   `avg(column)`: Calculate average.
 *   `min(column)`: Find minimum value.
 *   `max(column)`: Find maximum value.
@@ -190,14 +190,16 @@ Returns scalar values directly.
 *   **Usage Examples**:
 
 ```python
+from rhosocial.activerecord.backend.expression import sum_, avg
+
 # Simple stats
 total_users = User.query().count()
-max_age = User.query().max(User.c.age)
+max_age = User.query().max_(User.c.age)
 
 # Complex aggregation: Calculate total score and average score simultaneously
 stats = User.query().aggregate(
-    total_score=User.c.score.sum(),
-    avg_score=User.c.score.avg()
+    total_score=sum_(User.c.score),
+    avg_score=avg(User.c.score)
 )
 # Returns: {'total_score': 1000, 'avg_score': 85.5}
 ```

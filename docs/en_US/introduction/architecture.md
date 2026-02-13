@@ -261,10 +261,10 @@ classDiagram
     }
     class AggregateQueryMixin {
         +count()
-        +sum(column)
+        +sum_(column)
         +avg(column)
-        +min(column)
-        +max(column)
+        +min_(column)
+        +max_(column)
         +aggregate() List~Dict~
     }
     class RelationalQueryMixin {
@@ -352,10 +352,10 @@ classDiagram
     }
     class AsyncAggregateQueryMixin {
         +count() async
-        +sum(column) async
+        +sum_(column) async
         +avg(column) async
-        +min(column) async
-        +max(column) async
+        +min_(column) async
+        +max_(column) async
         +aggregate() List~Dict~ async
     }
     class RelationalQueryMixin {

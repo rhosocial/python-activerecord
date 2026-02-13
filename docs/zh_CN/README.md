@@ -3,17 +3,22 @@
 > 🤖 **AI 学习助手**：本文档中关键概念旁标有 💡 AI 提示词标记。遇到不理解的概念时，可以直接向 AI 助手提问。
 >
 > **示例：** "什么是 Expression-Dialect 分离？为什么这种设计很重要？"
+>
+> 📖 **详细用法请参考**：[AI 辅助开发指南](introduction/ai_assistance.md)
 
 ## 目录 (Table of Contents)
 
 1.  **[简介 (Introduction)](introduction/README.md)**
-    *   **[设计哲学 (Philosophy)](introduction/philosophy.md)**: "渐进式 ORM" (Gradual ORM) —— 在严格的类型安全 (OLTP) 与原始高性能 (OLAP) 之间寻求平衡。
+    *   **[AI 辅助开发](introduction/ai_assistance.md)**: 内置 AI 配置以及如何使用代码智能体加速你的工作流。
+    *   **[术语表](introduction/glossary.md)**: 从零开始解释关键术语和概念。
+    *   **[来自其他框架](introduction/coming_from_frameworks.md)**: 如果你熟悉 Django、SQLAlchemy、Rails 或其他框架。
+    *   **[设计哲学](introduction/philosophy.md)**: "渐进式 ORM" (Gradual ORM) —— 在严格的类型安全 (OLTP) 与原始高性能 (OLAP) 之间寻求平衡。
     *   **[核心特性 (Key Features)](introduction/key_features.md)**:
         *   Pydantic V2 深度集成
         *   可组合的 Mixins (UUID, Timestamp, 乐观锁)
         *   **[同步异步对等 (Sync-Async Parity)](introduction/key_features.md#同步异步对等-sync-async-parity)**: 同步和异步实现间的功能等价性 💡 *AI 提示词："为什么这个项目要求同步和异步 API 使用相同的方法名？这样做有什么好处？"*
         *   零 IO 测试策略 (Zero-IO Testing)
-    *   **[对比分析 (Comparison)](introduction/comparison.md)**: 与 SQLModel, SQLAlchemy, Peewee, Django ORM 的详细对比。
+    *   **[技术选型指南](introduction/comparison.md)**: 选择哪个 ORM？基于场景对比 SQLAlchemy、Django、SQLModel 等。
     *   **[架构设计 (Architecture)](introduction/architecture.md)**: 理解分层设计 (Interface -> Active Record -> Dialect -> Expression -> Backend). 💡 *AI 提示词："解释分层架构设计，以及 Expression-Dialect 分离的意义和好处。"*
 
 2.  **[快速入门 (Getting Started)](getting_started/README.md)**

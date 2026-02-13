@@ -3,17 +3,22 @@
 > 🤖 **AI Learning Assistant**: Throughout this documentation, you'll find AI Prompt markers (💡) next to complex concepts. Feel free to ask your AI assistant to explain anything you don't understand.
 >
 > **Example:** "What is Expression-Dialect separation and why is it important?"
+>
+> 📖 **For detailed usage:** See [AI-Assisted Development Guide](introduction/ai_assistance.md)
 
 ## Table of Contents
 
 1.  **[Introduction](introduction/README.md)**
+    *   **[AI-Assisted Development](introduction/ai_assistance.md)**: Built-in AI configurations and how to use code agents to accelerate your workflow.
+    *   **[Glossary](introduction/glossary.md)**: Key terms and concepts explained from scratch.
+    *   **[Coming from Other Frameworks](introduction/coming_from_frameworks.md)**: If you know Django, SQLAlchemy, Rails, or others.
     *   **[Philosophy](introduction/philosophy.md)**: The "Gradual ORM" approach — balancing strict Type Safety (OLTP) with Raw Performance (OLAP).
     *   **[Key Features](introduction/key_features.md)**:
         *   Pydantic V2 Integration
         *   Composable Mixins (UUID, Timestamp, Optimistic Locking)
         *   **[Sync-Async Parity](introduction/key_features.md#sync-async-parity)**: Equivalent functionality across synchronous and asynchronous implementations 💡 *AI Prompt: "Why does this project enforce identical method names for sync and async APIs?"*
         *   Zero-IO Testing Strategy
-    *   **[Comparison](introduction/comparison.md)**: Detailed analysis vs SQLModel, SQLAlchemy, Peewee, and Django ORM.
+    *   **[Technical Decision Guide](introduction/comparison.md)**: Which ORM to choose? Scenario-based comparison with SQLAlchemy, Django, SQLModel, and others.
     *   **[Architecture](introduction/architecture.md)**: Understanding the layered design (Interface -> Active Record -> Dialect -> Expression -> Backend). 💡 *AI Prompt: "Explain the layered architecture and why Expression-Dialect separation matters."*
 
 2.  **[Getting Started](getting_started/README.md)**

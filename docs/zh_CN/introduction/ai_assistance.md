@@ -2,12 +2,27 @@
 
 `rhosocial-activerecord` 设计为 **AI-Native**（AI 原生）—— 从底层架构开始就是为 AI 代码智能体和编辑器无缝协作而构建的。
 
+## ⚠️ 重要前提
+
+**必须在仓库目录下使用**：本项目的 AI 配置（skills、commands、上下文文件）只有在**克隆本仓库并在仓库根目录下**执行代码智能体命令行，或用 IDE 打开项目文件夹时，才能被自动识别和加载。
+
+```bash
+# 1. 克隆仓库
+git clone https://github.com/rhosocial/python-activerecord.git
+cd python-activerecord
+
+# 2. 在此目录下启动 AI 工具
+claude        # Claude Code
+opencode      # OpenCode
+# 或在 Cursor/Windsurf 中打开此文件夹
+```
+
 ## 为什么是 AI-Native？
 
 以下几项设计决策使这个项目特别适合 AI 辅助：
 
 - **显式类型注解** —— 完整的 Pydantic v2 集成帮助 AI 理解模型结构
-- **透明化 SQL** —— 每个查询都有 `.to_sql()` 方法，AI 可以在执行前验证生成的 SQL
+- **透明化 SQL** —— 所有表达式和查询都有 `.to_sql()` 方法，AI 可以在执行前验证生成的 SQL
 - **清晰架构** —— Expression-Dialect 分离使代码库易于 AI 理解
 - **内置上下文** —— 项目自带 AI 专用配置
 

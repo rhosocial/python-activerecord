@@ -76,7 +76,7 @@ Three core query builders with full sync/async parity:
 **ActiveQuery/AsyncActiveQuery** (query/active_query.py)
 - Model-based queries returned by `Model.query()`
 - **Chaining**: `.where()`, `.order_by()`, `.limit()`, `.offset()`, `.join()`, `.with_()` (eager load)
-- **Terminal**: `.all()`, `.first()`, `.one()`, `.count()`, `.exists()`, `.to_sql()`
+- **Terminal**: `.all()`, `.one()`, `.count()`, `.exists()`, `.to_sql()`
 - **Set operations**: `.union()`, `.intersect()`, `.except_()` → returns SetOperationQuery
 
 **CTEQuery/AsyncCTEQuery** (query/cte_query.py)
@@ -180,7 +180,7 @@ authors = Author.query().with_("posts").all()
 ### Async usage
 ```python
 # Same API, just await
-user = await User.query().where(User.c.email == "alice@example.com").first()
+user = await User.query().where(User.c.email == "alice@example.com").one()
 await user.save()
 ```
 

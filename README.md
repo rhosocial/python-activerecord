@@ -18,6 +18,34 @@
 
 ## Why This Project?
 
+### 1. ActiveRecord Pattern Is Intuitive
+
+The ActiveRecord pattern—where a class represents a table and an instance represents a row—maps directly to how developers think:
+
+```python
+user = User(name="Alice")  # Create
+user.save()                # Persist
+user.name = "Bob"          # Modify  
+user.save()                # Update
+```
+
+Simple, consistent, and easy to reason about. **This is what Python's been missing.**
+
+### 2. Python Lacks a Standalone ActiveRecord Ecosystem
+
+| | rhosocial-activerecord | SQLAlchemy | Django ORM |
+|---|---|---|---|
+| **Pattern** | ActiveRecord | Data Mapper | ActiveRecord (coupled) |
+| **Standalone** | ✅ Yes | ✅ Yes | ❌ Django only |
+| **Dependencies** | Pydantic only | Self-contained | Django framework |
+| **Async** | Native parity | 2.0 via greenlet | Django 4.1+ only |
+
+*   **SQLAlchemy** is excellent but follows the Data Mapper pattern—not ActiveRecord
+*   **Django ORM** is ActiveRecord but **tightly coupled** to Django; can't use it in FastAPI, Flask, or scripts without the entire Django stack
+*   **We fill the gap**: A **standalone, modern, feature-complete ActiveRecord** for all Python applications
+
+### 3. Built From Scratch, Not a Wrapper
+
 **Traditional ORM Architecture**: Your Code → ORM API → SQLAlchemy/Django → Database Driver → Database
 
 **Our Architecture**: Your Code → rhosocial-activerecord → Database Driver → Database

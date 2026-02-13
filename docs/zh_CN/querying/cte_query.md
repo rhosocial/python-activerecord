@@ -120,12 +120,12 @@ sequenceDiagram
 
 ```python
 from rhosocial.activerecord.query import CTEQuery
-from rhosocial.activerecord.backend.expression import func
+from rhosocial.activerecord.backend.expression import sum_
 
 # 1. 定义 CTE：统计每个用户的订单总额
 # SELECT user_id, SUM(amount) as total_amount FROM orders GROUP BY user_id
 user_totals_cte = Order.query() \
-    .select(Order.c.user_id, Order.c.amount.sum().as_("total_amount")) \
+    .select(Order.c.user_id, sum_(Order.c.amount).as_("total_amount")) \
     .group_by(Order.c.user_id)
 
 # 2. 构建 CTE 查询
