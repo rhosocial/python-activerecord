@@ -3,7 +3,12 @@
 Don't let technical jargon scare you. Let's look at how `rhosocial-activerecord` helps you write better code through a real-world scenario: building a simple blog system.
 
 ## 1. Defining Your Data: What You See Is What You Get
-It all starts with defining your model. In `rhosocial-activerecord`, your model **is essentially** a Pydantic model. This means you don't need to learn a new set of validation rules—just use your familiar Pydantic knowledge.
+It all starts with defining your model. In `rhosocial-activerecord`, your model **is essentially** a Pydantic V2 model. This means you don't need to learn a new set of validation rules—just use your familiar Pydantic knowledge.
+
+> **Version Requirements:**
+> - Python 3.8/3.9: `pydantic>=2.10.6`
+> - Python 3.10+: `pydantic>=2.12`
+> - Also supports Python 3.13/3.14 free-threaded builds
 
 ```python
 from typing import ClassVar

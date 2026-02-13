@@ -3,7 +3,12 @@
 不要被各种技术术语吓到。让我们通过一个实际的场景——构建一个简单的博客系统——来看看 `rhosocial-activerecord` 是如何帮助你更轻松地编写代码的。
 
 ## 1. 定义你的数据：所见即所得
-一切从定义模型开始。在 `rhosocial-activerecord` 中，你的模型 **本质上就是** Pydantic 模型。这意味着你不需要学习一套新的验证规则，利用你熟悉的 Pydantic 知识即可。
+一切从定义模型开始。在 `rhosocial-activerecord` 中，你的模型 **本质上就是** Pydantic V2 模型。这意味着你不需要学习一套新的验证规则，利用你熟悉的 Pydantic 知识即可。
+
+> **版本要求：**
+> - Python 3.8/3.9: `pydantic>=2.10.6`
+> - Python 3.10+: `pydantic>=2.12`
+> - 同时支持 Python 3.13/3.14 自由线程版
 
 ```python
 from typing import ClassVar
