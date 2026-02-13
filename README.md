@@ -236,17 +236,17 @@ Feed [`docs/LLM_CONTEXT.md`](docs/LLM_CONTEXT.md) to your preferred LLM for a st
 
 ### What can AI agents do?
 
-See the **[AI-Assisted Development Guide](docs/AI_GUIDE.md)** for concrete examples of what AI agents can help you accomplish with this project — from generating models and queries to implementing new backends and running tests.
+See the **[AI-Assisted Development Guide](docs/en_US/introduction/ai_assistance.md)** for concrete examples of what AI agents can help you accomplish with this project — from generating models and queries to implementing new backends and running tests.
 
 ## Documentation
 
 - **[Getting Started Guide](docs/en_US/getting_started/)** — Installation and basic usage
+- **[AI-Assisted Development](docs/en_US/introduction/ai_assistance.md)** — Using AI code agents with this project
 - **[Modeling Guide](docs/en_US/modeling/)** — Defining models, fields, and relationships
 - **[Querying Guide](docs/en_US/querying/)** — Complete query builder documentation
 - **[Backend Development](docs/en_US/backend/)** — Creating custom database backends
 - **[Architecture Overview](docs/ARCHITECTURE.md)** — Module structure and design decisions
 - **[LLM Context](docs/LLM_CONTEXT.md)** — Structured context for AI assistants
-- **[AI-Assisted Development Guide](docs/AI_GUIDE.md)** — Working with AI code agents
 - **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — Full API documentation
 
 ## Contributing

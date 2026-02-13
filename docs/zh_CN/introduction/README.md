@@ -4,6 +4,7 @@
 
 本章将深入探讨使其与众不同的核心概念。
 
+*   **[AI 辅助开发](ai_assistance.md)**: 内置 AI 配置以及如何使用代码智能体加速你的工作流。
 *   **[核心特性之旅](key_features.md)**: 即使你是初学者，也可以通过这个博客系统的例子，快速体验核心功能。
 *   **[设计哲学](philosophy.md)**: 为什么我们需要 "渐进式 ORM" (Gradual ORM)？
 *   **[对比分析](comparison.md)**: 与 SQLModel, SQLAlchemy 和 Django 的对比。
