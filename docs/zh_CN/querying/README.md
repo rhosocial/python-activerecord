@@ -8,6 +8,8 @@
     *   用于构建复杂的递归或分析查询，结果以字典形式返回。
 *   **[SetOperationQuery (集合操作)](set_operation_query.md)**
     *   处理 UNION、INTERSECT 和 EXCEPT 等集合运算。
+*   **[查询速查表](cheatsheet.md)**
+    *   常见查询模式速查：过滤、排序、分页和聚合。
 
 ## 调试与检查 SQL
 

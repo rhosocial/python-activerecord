@@ -123,9 +123,9 @@ Model lifecycle hooks. Register via decorator or method override.
 
 ### Define a model
 ```python
-from rhosocial.activerecord import ActiveRecord
 from typing import ClassVar
 from pydantic import Field
+from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 
 class User(ActiveRecord):

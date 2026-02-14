@@ -8,6 +8,8 @@
     *   Used for building complex recursive or analytical queries, returning results as dictionaries.
 *   **[SetOperationQuery (Set Operations)](set_operation_query.md)**
     *   Handles UNION, INTERSECT, and EXCEPT set operations.
+*   **[Query Cheatsheet](cheatsheet.md)**
+    *   Quick reference for common query patterns: filtering, sorting, pagination, and aggregation.
 
 ## Debugging & Inspecting SQL
 

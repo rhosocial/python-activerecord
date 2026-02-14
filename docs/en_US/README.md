@@ -25,6 +25,8 @@
     *   **[Installation](getting_started/installation.md)**: Requirements (Python 3.8+, Pydantic V2) and pip installation.
     *   **[Configuration](getting_started/configuration.md)**: Setting up SQLite and managing shared backend connections.
     *   **[Quick Start](getting_started/quick_start.md)**: A complete "Hello World" example defining User/Post models and performing CRUD.
+    *   **[First CRUD App](getting_started/first_crud.md)**: Build a complete Todo application from scratch, learning Create, Read, Update, Delete operations step by step.
+    *   **[Troubleshooting](getting_started/troubleshooting.md)**: Running into issues? Common errors and their solutions (No backend configured, FieldProxy missing, PYTHONPATH issues, etc.).
 
 3.  **[Modeling Data](modeling/README.md)**
     *   **[Fields & Proxies](modeling/fields.md)**: Field definition, `FieldProxy`, and mapping legacy columns. 💡 *AI Prompt: "What is FieldProxy and how does it enable type-safe query building?"*
@@ -41,6 +43,7 @@
     *   **[ActiveQuery (Model Query)](querying/active_query.md)**: Filtering, sorting, joins, aggregation, eager loading.
     *   **[CTEQuery (Common Table Expressions)](querying/cte_query.md)**: Recursive and analytical queries.
     *   **[SetOperationQuery (Set Operations)](querying/set_operation_query.md)**: UNION, INTERSECT, EXCEPT.
+    *   **[Query Cheatsheet](querying/cheatsheet.md)**: Quick reference for common query patterns.
 
 6.  **[Performance](performance/README.md)**
     *   **[Strict vs Raw Modes](performance/modes.md)**: When to use `.aggregate()` to bypass Pydantic overhead.
