@@ -10,6 +10,8 @@
     *   Handles UNION, INTERSECT, and EXCEPT set operations.
 *   **[Query Cheatsheet](cheatsheet.md)**
     *   Quick reference for common query patterns: filtering, sorting, pagination, and aggregation.
+*   **[Query Recipes](recipes.md)**
+    *   Query solutions for common business scenarios: recent users, top customers, duplicate detection, pagination implementation, etc.
 
 ## Debugging & Inspecting SQL
 

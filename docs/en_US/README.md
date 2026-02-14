@@ -44,6 +44,7 @@
     *   **[CTEQuery (Common Table Expressions)](querying/cte_query.md)**: Recursive and analytical queries.
     *   **[SetOperationQuery (Set Operations)](querying/set_operation_query.md)**: UNION, INTERSECT, EXCEPT.
     *   **[Query Cheatsheet](querying/cheatsheet.md)**: Quick reference for common query patterns.
+    *   **[Query Recipes](querying/recipes.md)**: Query solutions for common business scenarios.
 
 6.  **[Performance](performance/README.md)**
     *   **[Strict vs Raw Modes](performance/modes.md)**: When to use `.aggregate()` to bypass Pydantic overhead.

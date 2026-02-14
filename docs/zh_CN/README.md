@@ -44,6 +44,7 @@
     *   **[CTEQuery (公用表表达式)](querying/cte_query.md)**: 递归与分析查询。
     *   **[SetOperationQuery (集合操作)](querying/set_operation_query.md)**: UNION, INTERSECT, EXCEPT。
     *   **[查询速查表](querying/cheatsheet.md)**: 常见查询模式速查。
+    *   **[复杂查询实战](querying/recipes.md)**: 常见业务场景的查询解决方案。
 
 6.  **[性能与优化 (Performance)](performance/README.md)**
     *   **[运行模式 (Strict vs Raw)](performance/modes.md)**: 何时使用 `.aggregate()` 绕过 Pydantic 开销。
