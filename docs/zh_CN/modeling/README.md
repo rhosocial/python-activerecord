@@ -22,6 +22,12 @@
 *   **[验证与钩子 (Validation & Hooks)](validation.md)**
     *   Pydantic 验证器
     *   生命周期钩子 (`before_save`, `after_create` 等)
+*   **[模型最佳实践](best_practices.md)**
+    *   命名规范
+    *   字段设计原则
+    *   大型项目模型组织
+    *   版本控制与数据库迁移
+    *   性能优化：索引添加时机
 
 ## 示例代码
 

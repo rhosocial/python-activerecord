@@ -33,6 +33,7 @@
     *   **[Mixins](modeling/mixins.md)**: Reusable logic with built-in (`UUID`, `Timestamp`) and custom Mixins.
     *   **[Validation & Hooks](modeling/validation.md)**: Pydantic validation and lifecycle hooks.
     *   **[Custom Types](modeling/custom_types.md)**: Handling complex data types like JSON and arrays.
+    *   **[Best Practices](modeling/best_practices.md)**: Naming conventions, field design, project organization, version control, index optimization.
 
 4.  **[Relationships](relationships/README.md)**
     *   **[Definitions](relationships/definitions.md)**: Defining `HasOne`, `BelongsTo`, `HasMany`.

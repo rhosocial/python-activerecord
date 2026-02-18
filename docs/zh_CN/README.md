@@ -33,6 +33,7 @@
     *   **[Mixin 与复用 (Mixins)](modeling/mixins.md)**: 使用 Mixin 消除重复代码，包括 UUID、时间戳和软删除。
     *   **[验证与生命周期 (Validation & Hooks)](modeling/validation.md)**: 在保存前后自动执行逻辑，确保数据一致性。
     *   **[自定义类型 (Custom Types)](modeling/custom_types.md)**: 处理 JSON、数组等复杂数据类型。
+    *   **[模型最佳实践](modeling/best_practices.md)**: 命名规范、字段设计、项目组织、版本控制、索引优化。
 
 4.  **[关联关系 (Relationships)](relationships/README.md)**
     *   **[基础关系 (Definitions)](relationships/definitions.md)**: 定义 `HasOne`, `BelongsTo`, `HasMany`。

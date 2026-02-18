@@ -22,6 +22,12 @@ This chapter details how to define powerful data models.
 *   **[Validation & Hooks](validation.md)**
     *   Pydantic validators
     *   Lifecycle hooks (`before_save`, `after_create`, etc.)
+*   **[Best Practices](best_practices.md)**
+    *   Naming conventions
+    *   Field design principles
+    *   Organizing models in large projects
+    *   Version control and migrations
+    *   Performance optimization: when to add indexes
 
 ## Example Code
 
