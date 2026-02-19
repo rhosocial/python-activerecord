@@ -8,6 +8,8 @@
 *   **Post** <-> **Comment** (1:N)
 *   **Post** <-> **Tag** (N:N, 通过 PostTag 中间表)
 
+> 💡 **AI提示词示例**: "我想在博客系统中实现用户、文章、评论和标签之间的关联关系，应该如何设计？"
+
 ## 目录
 
 *   **[基础关系 (1:1, 1:N)](definitions.md)**: 定义 `HasOne`, `BelongsTo`, `HasMany`。
@@ -17,3 +19,5 @@
 ## 示例代码
 
 本章的完整示例代码位于 `docs/examples/chapter_04_relationships/`。
+
+> 💡 **AI提示词示例**: "关联关系在实际项目中应该如何正确使用？有没有完整的示例可以参考？"
