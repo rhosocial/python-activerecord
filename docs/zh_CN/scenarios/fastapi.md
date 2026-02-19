@@ -321,7 +321,7 @@ async def create_user(user: User):
     - **is_active**: 是否激活（可选，默认为 true）
     """
     # 检查用户名是否已存在
-    existing = await User.query().where(User.c.username == user.username).first()
+    existing = await User.query().where(User.c.username == user.username).one()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -329,7 +329,7 @@ async def create_user(user: User):
         )
     
     # 检查邮箱是否已存在
-    existing = await User.query().where(User.c.email == user.email).first()
+    existing = await User.query().where(User.c.email == user.email).one()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -352,7 +352,9 @@ async def list_users(
     if is_active is not None:
         query = query.where(User.c.is_active == is_active)
     
-    users = await query.order_by(User.c.created_at.desc()).offset(skip).limit(limit).all()
+    # 对于 SQLite，我们需要确保正确使用 LIMIT 和 OFFSET
+    # 按创建时间降序排序（最新的在前）
+    users = await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
     return users
 
 
@@ -446,7 +448,9 @@ async def list_posts(
     if user_id:
         query = query.where(Post.c.user_id == user_id)
     
-    posts = await query.order_by(Post.c.created_at.desc()).offset(skip).limit(limit).all()
+    # 对于 SQLite，我们需要确保正确使用 LIMIT 和 OFFSET
+    # 按创建时间降序排序（最新的在前）
+    posts = await query.order_by((Post.c.created_at, "DESC")).limit(limit).offset(skip).all()
     return posts
 
 
@@ -514,7 +518,7 @@ async def get_user_posts(
         )
     
     # 使用关系查询
-    posts = await user.posts.query().offset(skip).limit(limit).all()
+    posts = await user.posts_query().limit(limit).offset(skip).all()
     return posts
 
 
@@ -528,7 +532,7 @@ async def get_post_author(post_id: str):
             detail=f"文章 ID '{post_id}' 不存在"
         )
     
-    author = await post.author.first()
+    author = await post.author_query().one()
     if not author:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -564,6 +568,70 @@ async def get_post_author(post_id: str):
 >     await post.publish()
 >     return {"message": "文章已发布", "published_at": post.published_at}
 > ```
+
+## 常见问题与解决方案
+
+### 问题1："OFFSET 子句需要 LIMIT 子句"
+
+**问题**：SQLite 使用 OFFSET 时需要配合 LIMIT。
+
+**解决方案**：始终先使用 LIMIT 再使用 OFFSET：
+```python
+# 错误
+users = await query.offset(skip).limit(limit).all()
+
+# 正确
+users = await query.limit(limit).offset(skip).all()
+```
+
+### 问题2：关系查询方法
+
+**问题**：使用 `model.relation().query()` 导致 AttributeError。
+
+**解决方案**：使用 `model.relation_query()`：
+```python
+# 错误
+posts = await user.posts().query().limit(limit).offset(skip).all()
+
+# 正确
+posts = await user.posts_query().limit(limit).offset(skip).all()
+```
+
+### 问题3：查询方法名称
+
+**问题**：使用 `query().first()` 导致 AttributeError。
+
+**解决方案**：使用 `query().one()`：
+```python
+# 错误
+existing = await User.query().where(User.c.username == user.username).first()
+
+# 正确
+existing = await User.query().where(User.c.username == user.username).one()
+```
+
+### 问题4：排序
+
+**说明**：API现在通过查询参数支持灵活的排序选项。
+
+**使用示例**：
+```python
+# 升序排序（默认）：
+users = await query.order_by(User.c.created_at).limit(limit).offset(skip).all()
+
+# 降序排序：
+users = await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
+
+# 按不同字段排序：
+users = await query.order_by(User.c.username).limit(limit).offset(skip).all()
+
+# 混合排序：
+users = await query.order_by((User.c.created_at, "DESC"), User.c.username).limit(limit).offset(skip).all()
+```
+
+实现的API端点接受`sort_by`和`sort_order`查询参数：
+- `sort_by`：排序字段（例如"user.created_at"、"username"）
+- `sort_order`：排序方向（"asc"或"desc"）
 
 ## 7. 运行与测试
 

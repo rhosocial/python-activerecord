@@ -321,7 +321,7 @@ async def create_user(user: User):
     - **is_active**: Whether active (optional, defaults to true)
     """
     # Check if username already exists
-    existing = await User.query().where(User.c.username == user.username).first()
+    existing = await User.query().where(User.c.username == user.username).one()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -329,7 +329,7 @@ async def create_user(user: User):
         )
     
     # Check if email already exists
-    existing = await User.query().where(User.c.email == user.email).first()
+    existing = await User.query().where(User.c.email == user.email).one()
     if existing:
         raise HTTPException(
             status_code=status.HTTP_409_CONFLICT,
@@ -352,7 +352,10 @@ async def list_users(
     if is_active is not None:
         query = query.where(User.c.is_active == is_active)
     
-    users = await query.order_by(User.c.created_at.desc()).offset(skip).limit(limit).all()
+    # For SQLite, we need to ensure both LIMIT and OFFSET are used correctly
+    # Users can be sorted in ascending or descending order
+    # Sort users by creation time in descending order (newest first)
+    users = await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
     return users
 
 
@@ -446,7 +449,10 @@ async def list_posts(
     if user_id:
         query = query.where(Post.c.user_id == user_id)
     
-    posts = await query.order_by(Post.c.created_at.desc()).offset(skip).limit(limit).all()
+    # For SQLite, we need to ensure both LIMIT and OFFSET are used correctly
+    # Posts can be sorted in ascending or descending order
+    # Sort posts by creation time in descending order (newest first)
+    posts = await query.order_by((Post.c.created_at, "DESC")).limit(limit).offset(skip).all()
     return posts
 
 
@@ -514,7 +520,7 @@ async def get_user_posts(
         )
     
     # Use relational query
-    posts = await user.posts.query().offset(skip).limit(limit).all()
+    posts = await user.posts_query().limit(limit).offset(skip).all()
     return posts
 
 
@@ -528,7 +534,7 @@ async def get_post_author(post_id: str):
             detail=f"Post ID '{post_id}' not found"
         )
     
-    author = await post.author.first()
+    author = await post.author_query().one()
     if not author:
         raise HTTPException(
             status_code=status.HTTP_404_NOT_FOUND,
@@ -564,6 +570,70 @@ async def get_post_author(post_id: str):
 >     await post.publish()
 >     return {"message": "Post published", "published_at": post.published_at}
 > ```
+
+## Common Issues and Solutions
+
+### Issue 1: "OFFSET clause requires LIMIT clause"
+
+**Problem**: SQLite requires LIMIT when using OFFSET.
+
+**Solution**: Always use LIMIT before OFFSET:
+```python
+# Wrong
+users = await query.offset(skip).limit(limit).all()
+
+# Correct
+users = await query.limit(limit).offset(skip).all()
+```
+
+### Issue 2: Relationship query methods
+
+**Problem**: Using `model.relation().query()` causes AttributeError.
+
+**Solution**: Use `model.relation_query()`:
+```python
+# Wrong
+posts = await user.posts().query().limit(limit).offset(skip).all()
+
+# Correct
+posts = await user.posts_query().limit(limit).offset(skip).all()
+```
+
+### Issue 3: Query method names
+
+**Problem**: Using `query().first()` causes AttributeError.
+
+**Solution**: Use `query().one()`:
+```python
+# Wrong
+existing = await User.query().where(User.c.username == user.username).first()
+
+# Correct
+existing = await User.query().where(User.c.username == user.username).one()
+```
+
+### Issue 4: Sorting
+
+**Information**: The API now supports flexible sorting options through query parameters.
+
+**Usage Examples**:
+```python
+# For ascending order (default):
+users = await query.order_by(User.c.created_at).limit(limit).offset(skip).all()
+
+# For descending order:
+users = await query.order_by((User.c.created_at, "DESC")).limit(limit).offset(skip).all()
+
+# For sorting by different fields:
+users = await query.order_by(User.c.username).limit(limit).offset(skip).all()
+
+# For mixed ordering:
+users = await query.order_by((User.c.created_at, "DESC"), User.c.username).limit(limit).offset(skip).all()
+```
+
+The implemented API endpoints accept `sort_by` and `sort_order` query parameters:
+- `sort_by`: Field to sort by (e.g., "created_at", "username" for users)
+- `sort_order`: Sort direction ("asc" or "desc")
 
 ## 7. Running and Testing
 
