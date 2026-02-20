@@ -449,7 +449,8 @@ async def get_users_async():
 *   `one() -> Optional[Model]`: 返回第一条匹配的记录，如果没有找到则返回 None。
 *   `exists() -> bool`: 检查是否存在匹配的记录。
     *   此方法由 `AggregateQueryMixin` 提供。
-*   `aggregate() -> List[Dict]`: 返回原始字典列表（不映射为模型实例）。
+*   `aggregate() -> List[Dict]`: 返回原始字典列表（不映射为模型实例），常用于统计分析。
+    *   与 `.all()` / `.one()` 的区别：返回字典而非模型实例，适用于不需要模型封装的数据统计场景。
     *   **与 `.explain()` 配合使用**：如需获取查询执行计划，请使用 `.explain().aggregate()`。
 *   `to_sql() -> Tuple[str, List[Any]]`: 返回生成的 SQL 语句和参数（不执行查询）。
 

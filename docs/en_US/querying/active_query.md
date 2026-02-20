@@ -448,7 +448,8 @@ These methods trigger database queries and return results.
 *   `one() -> Optional[Model]`: Return the first matching record, or None if none found.
 *   `exists() -> bool`: Check if matching records exist.
     *   Provided by `AggregateQueryMixin`.
-*   `aggregate() -> List[Dict]`: Return a list of raw dictionaries (not mapped to model instances).
+*   `aggregate() -> List[Dict]`: Return a list of raw dictionaries (not mapped to model instances), commonly used for statistical analysis.
+    *   Difference from `.all()` / `.one()`: Returns dictionaries instead of model instances, suitable for data statistics without model encapsulation.
     *   **Works with `.explain()`**: To get query execution plans, use `.explain().aggregate()`.
 *   `to_sql() -> Tuple[str, List[Any]]`: Return the generated SQL statement and parameters (does not execute query).
 
