@@ -42,7 +42,7 @@ users = User.query().select(User.c.name.as_("username"), User.c.email).all()
 
 ### `where(condition)`
 
-添加过滤条件（AND 逻辑）。
+添加过滤条件（AND 逻辑）。支持多次调用，每次调用会将条件以 AND 逻辑组合。
 
 *   **用法示例**：
 
@@ -50,19 +50,22 @@ users = User.query().select(User.c.name.as_("username"), User.c.email).all()
 # 简单条件
 User.query().where(User.c.id == 1)
 
-# 组合条件 (AND)
+# 多次调用 (AND 逻辑)
+User.query().where(User.c.age >= 18).where(User.c.is_active == True)
+
+# 组合条件 (AND) - 注意：需要使用 & 运算符
 User.query().where((User.c.age >= 18) & (User.c.is_active == True))
 
 # 组合条件 (OR) - 注意：需要使用 | 运算符
 User.query().where((User.c.role == 'admin') | (User.c.role == 'moderator'))
 
-# 字典传参 (自动作为 AND 处理)
-User.query().where({"name": "Alice", "age": 25})
+# 使用原始 SQL 字符串 (注意：需防范 SQL 注入)
+User.query().where('status = ?', ('active',))
 ```
 
 *   **注意事项**：
+    *   **参数类型**：`.where()` 只接受 `SQLPredicate` 表达式或 SQL 字符串，**不支持字典参数**。
     *   **优先级问题**：在使用 `&` (AND) 和 `|` (OR) 时，**务必使用括号**包裹每个子条件，因为 Python 中位运算符的优先级较高。
-    *   **None 值处理**：如果字典传参中包含 `None`，会自动转换为 `IS NULL` 检查。
 
 ### `order_by(*columns)`
 
@@ -110,22 +113,37 @@ User.query() \
     .aggregate()
 ```
 
-### `distinct(enable=True)`
+### 去重查询
 
-去除重复行。
+目前 `ActiveQuery` 没有独立的 `.distinct()` 方法。如需去重查询，可以使用以下替代方案：
+
+*   **使用聚合函数的 `is_distinct` 参数**：
 
 ```python
-# 获取所有不重复的角色
-User.query().select(User.c.role).distinct().all()
+# 统计不重复的邮箱数量
+unique_emails = User.query().count(User.c.email, is_distinct=True)
+
+# 计算不重复的总分
+unique_total = Order.query().sum_(Order.c.amount, is_distinct=True)
+
+# 计算不重复的平均分
+unique_avg = Student.query().avg(Student.c.score, is_distinct=True)
 ```
 
 ### `explain()`
 
-获取查询执行计划，用于性能分析。
+获取查询执行计划，用于性能分析。**注意：`.explain()` 需要与 `.aggregate()` 方法配合使用才能获取执行计划。**
 
 ```python
-plan = User.query().where(User.c.id == 1).explain()
+# 获取查询执行计划 (需要使用 aggregate())
+plan = User.query().where(User.c.id == 1).explain().aggregate()
 print(plan)
+
+# 可选：带参数的 EXPLAIN
+plan = User.query()\
+    .where(User.c.status == 'active')\
+    .explain(analyze=True, format='TEXT')\
+    .aggregate()
 ```
 
 ### 窗口函数支持
@@ -239,7 +257,6 @@ User.query().between(User.c.age, 20, 30)
 关于缓存机制和 N+1 问题的详细解释，请参阅 [缓存机制](../performance/caching.md)。
 
 *   `with_(*relations)`: 预加载关联关系。
-*   `includes(*relations)`: `with_` 的别名。
 
 `with_()` 方法支持三种主要用法：
 
@@ -257,7 +274,7 @@ users = User.query().with_("posts", "profile").all()
 
 ### 2. 嵌套预加载 (Nested Eager Loading)
 
-使用点号 (`.`) 分隔的路径字符串，加载深层关联。
+使用点号 (`.`) 分隔的路径字符串，加载深层关联。使用路径语法时，每一层关系都会被自动加载。
 
 ```python
 # 加载用户的文章，以及每篇文章的评论
@@ -267,27 +284,65 @@ users = User.query().with_("posts.comments").all()
 users = User.query().with_("posts.comments.author").all()
 ```
 
+**等价写法**：路径语法会展开为每一层级的完整路径列表，框架会自动按正确顺序加载。
+
+```python
+# 路径语法
+users = User.query().with_("posts.comments").all()
+
+# 等价写法：每一级都需要列出（按加载顺序）
+users = User.query().with_("posts", "posts.comments").all()
+# 框架会按顺序加载：先加载 posts，再加载 posts.comments
+```
+
+**同时加载多个独立路径**：可以同时加载多个不相关的嵌套路径，框架会自动排序并批量加载。相同关系无需重复列出，框架会自动去重。
+
+```python
+# 同时加载用户的文章和用户的个人资料
+users = User.query().with_("posts", "profile").all()
+
+# 同时加载两个独立的嵌套路径
+# posts.comments 和 posts.tags 是两个独立的嵌套链
+users = User.query().with_("posts.comments", "posts.tags").all()
+
+# 等价写法（每一级都需要列出，框架会自动去重）
+users = User.query().with_("posts", "posts.comments", "posts.tags").all()
+# 注意：posts 只需要列出一次，框架会自动应用到所有依赖它的路径
+```
+
 ### 3. 带查询修改器的预加载 (Eager Loading with Modifiers)
 
-使用元组 `(relation_name, modifier_func)`，对关联查询进行自定义（如过滤、排序）。
-`modifier_func` 接收一个查询对象，并应返回修改后的查询对象。
+使用元组 `(relation_name, modifier_func)` 对关联查询进行自定义（如过滤、排序）。
+
+*   `modifier_func` 是一个接收 **原始查询对象** 的函数，参数类型为 `ActiveQuery`（或异步版本的 `AsyncActiveQuery`）。
+*   用户只需在该查询对象上**附加具体条件**即可，**无需调用终端方法**（如 `.all()`、`.one()` 等）。
+*   函数返回值必须是 `ActiveQuery` 或 `AsyncActiveQuery` 实例。
+*   **注意**：同一关联关系不要重复出现，后出现的会覆盖先出现的，导致先出现的失效。
 
 ```python
 # 预加载用户的文章，但只加载状态为 'published' 的文章
+# lambda 参数 q 是 ActiveQuery 实例，只需附加 .where() 条件
 users = User.query().with_(
     ("posts", lambda q: q.where(Post.c.status == 'published'))
 ).all()
 
 # 预加载文章的评论，并按创建时间倒序排列
+# 只需附加 .order_by() 排序条件，返回修改后的查询对象
 posts = Post.query().with_(
     ("comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
 ).all()
 
 # 混合使用：嵌套加载 + 修改器
-# 注意：修改器只应用于元组中指定的这一层关联
 users = User.query().with_(
     "posts",
-    ("posts.comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
+    ("posts.comments", lambda q: q.where(Comment.c.is_deleted == False))
+).all()
+
+# 错误示例：同一关联重复出现，后面的会覆盖前面的
+# posts 被定义了两次，第二个会覆盖第一个，导致第一个条件失效
+users = User.query().with_(
+    ("posts", lambda q: q.where(Post.c.status == 'published')),
+    ("posts", lambda q: q.order_by(Post.c.created_at))  # 这会覆盖上面的条件
 ).all()
 ```
 
@@ -297,13 +352,17 @@ users = User.query().with_(
 
 ## 集合操作发起
 
-`ActiveQuery` 可以作为集合操作的左操作数。除了使用方法调用外，还支持使用 Python 运算符重载来发起集合操作。
+`ActiveQuery` 实例可以作为集合操作的左操作数，与另一个 `ActiveQuery`、`CTEQuery` 或 `SetOperationQuery` 实例进行集合运算。除了使用方法调用外，还支持使用 Python 运算符重载来发起集合操作。
 
 *   `union(other)` 或 `+`: 发起 UNION 操作。
 *   `intersect(other)` 或 `&`: 发起 INTERSECT 操作。
 *   `except_(other)` 或 `-`: 发起 EXCEPT 操作。
 
-返回的对象是一个 `SetOperationQuery` 实例，可以继续链式调用（如 `order_by`, `limit` 等）或直接执行（如 `all`, `to_sql`）。
+返回的对象是一个 `SetOperationQuery` 实例，可以继续链式调用（如 `order_by`, `limit` 等）或执行（`to_sql`）。
+
+**注意**：
+*   **无 one/all 方法**：`SetOperationQuery` 没有 `.one()` 和 `.all()` 方法，这两个方法是 `ActiveQuery` / `AsyncActiveQuery` 专有的。
+*   **同步异步对等**：集合运算遵循同步异步对等原则，**不能混用**。同步 `ActiveQuery` 只能与同步查询进行集合运算，异步同理。
 
 *   **用法示例**：
 
@@ -323,6 +382,9 @@ union_q_op = q1 + q2   # UNION
 sql, params = intersect_q.to_sql()
 print(sql)
 # SELECT * FROM users WHERE age > ? INTERSECT SELECT * FROM users WHERE age < ?
+
+# SetOperationQuery 没有 .one() 和 .all() 方法，只能使用 .to_sql() 查看 SQL
+# 如需获取结果，需要转换为列表或其他方式
 ```
 
 ## 预定义查询范围 (Scopes)
@@ -384,12 +446,11 @@ async def get_users_async():
 这些方法会触发数据库查询并返回结果。
 
 *   `all() -> List[Model]`: 返回所有匹配的模型实例列表。
-    *   **注意**：在此方法前调用 `explain()` **无效**。如果需要获取执行计划，请使用 `aggregate()`。
 *   `one() -> Optional[Model]`: 返回第一条匹配的记录，如果没有找到则返回 None。
-    *   **注意**：在此方法前调用 `explain()` **无效**。
 *   `exists() -> bool`: 检查是否存在匹配的记录。
     *   此方法由 `AggregateQueryMixin` 提供。
-    *   **注意**：在此方法前调用 `explain()` **无效**。
+*   `aggregate() -> List[Dict]`: 返回原始字典列表（不映射为模型实例）。
+    *   **与 `.explain()` 配合使用**：如需获取查询执行计划，请使用 `.explain().aggregate()`。
 *   `to_sql() -> Tuple[str, List[Any]]`: 返回生成的 SQL 语句和参数（不执行查询）。
 
 *   **调试技巧**：

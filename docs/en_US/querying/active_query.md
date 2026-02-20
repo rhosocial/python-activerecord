@@ -42,7 +42,7 @@ users = User.query().select(User.c.name.as_("username"), User.c.email).all()
 
 ### `where(condition)`
 
-Add filtering conditions (AND logic).
+Add filtering conditions (AND logic). Supports multiple calls, each call combines conditions with AND logic.
 
 *   **Usage Examples**:
 
@@ -50,19 +50,22 @@ Add filtering conditions (AND logic).
 # Simple condition
 User.query().where(User.c.id == 1)
 
-# Combined conditions (AND)
+# Multiple calls (AND logic)
+User.query().where(User.c.age >= 18).where(User.c.is_active == True)
+
+# Combined conditions (AND) - Note: Must use & operator
 User.query().where((User.c.age >= 18) & (User.c.is_active == True))
 
 # Combined conditions (OR) - Note: Must use | operator
 User.query().where((User.c.role == 'admin') | (User.c.role == 'moderator'))
 
-# Dictionary arguments (Automatically treated as AND)
-User.query().where({"name": "Alice", "age": 25})
+# Using raw SQL string (Note: Beware of SQL injection)
+User.query().where('status = ?', ('active',))
 ```
 
 *   **Notes**:
+    *   **Parameter Type**: `.where()` only accepts `SQLPredicate` expressions or SQL strings, **does NOT support dictionary arguments**.
     *   **Precedence Issue**: When using `&` (AND) and `|` (OR), **always use parentheses** around each sub-condition, as bitwise operators have higher precedence in Python.
-    *   **None Handling**: If dictionary arguments contain `None`, it is automatically converted to `IS NULL` check.
 
 ### `order_by(*columns)`
 
@@ -110,22 +113,37 @@ User.query() \
     .aggregate()
 ```
 
-### `distinct(enable=True)`
+### Distinct Queries
 
-Remove duplicate rows.
+Currently, `ActiveQuery` does not have a standalone `.distinct()` method. To perform distinct queries, you can use the following alternatives:
+
+*   **Use the `is_distinct` parameter in aggregate functions**:
 
 ```python
-# Get all distinct roles
-User.query().select(User.c.role).distinct().all()
+# Count unique emails
+unique_emails = User.query().count(User.c.email, is_distinct=True)
+
+# Calculate sum of unique amounts
+unique_total = Order.query().sum_(Order.c.amount, is_distinct=True)
+
+# Calculate average of unique scores
+unique_avg = Student.query().avg(Student.c.score, is_distinct=True)
 ```
 
 ### `explain()`
 
-Get query execution plan for performance analysis.
+Get query execution plan for performance analysis. **Note: `.explain()` must be used together with `.aggregate()` to retrieve the execution plan.**
 
 ```python
-plan = User.query().where(User.c.id == 1).explain()
+# Get query execution plan (requires using aggregate())
+plan = User.query().where(User.c.id == 1).explain().aggregate()
 print(plan)
+
+# EXPLAIN with options
+plan = User.query()\
+    .where(User.c.status == 'active')\
+    .explain(analyze=True, format='TEXT')\
+    .aggregate()
 ```
 
 ### Window Functions
@@ -239,7 +257,6 @@ Provides relationship eager loading capabilities to solve the N+1 query problem.
 For detailed explanation of caching mechanism and N+1 problem, please refer to [Caching Mechanism](../performance/caching.md).
 
 *   `with_(*relations)`: Eager load relationships.
-*   `includes(*relations)`: Alias for `with_`.
 
 The `with_()` method supports three main usages:
 
@@ -257,7 +274,7 @@ users = User.query().with_("posts", "profile").all()
 
 ### 2. Nested Eager Loading
 
-Use dot-separated (`.`) path strings to load deep relationships.
+Use dot-separated (`.`) path strings to load deep relationships. When using path syntax, each level of relationship is automatically loaded.
 
 ```python
 # Load user's posts, and comments for each post
@@ -267,27 +284,65 @@ users = User.query().with_("posts.comments").all()
 users = User.query().with_("posts.comments.author").all()
 ```
 
+**Equivalent Syntax**: Path syntax expands to a complete path list for each level. The framework automatically loads in the correct order.
+
+```python
+# Path syntax
+users = User.query().with_("posts.comments").all()
+
+# Equivalent syntax: Each level must be listed (in loading order)
+users = User.query().with_("posts", "posts.comments").all()
+# Framework loads in order: first posts, then posts.comments
+```
+
+**Loading Multiple Independent Paths**: You can load multiple unrelated nested paths simultaneously. The framework will automatically sort and batch load them. Duplicate relations need not be listed multiple times; the framework automatically deduplicates.
+
+```python
+# Load user's posts and profile simultaneously
+users = User.query().with_("posts", "profile").all()
+
+# Load two independent nested paths simultaneously
+# posts.comments and posts.tags are two independent nested chains
+users = User.query().with_("posts.comments", "posts.tags").all()
+
+# Equivalent syntax (each level must be listed, framework auto-deduplicates)
+users = User.query().with_("posts", "posts.comments", "posts.tags").all()
+# Note: posts only needs to be listed once; framework applies it to all dependent paths
+```
+
 ### 3. Eager Loading with Modifiers
 
 Use a tuple `(relation_name, modifier_func)` to customize the related query (e.g., filtering, sorting).
-The `modifier_func` receives a query object and should return the modified query object.
+
+*   `modifier_func` is a function that receives the **raw query object**, with parameter type `ActiveQuery` (or `AsyncActiveQuery` for async version).
+*   Users only need to **attach specific conditions** to this query object, **without calling terminal methods** (like `.all()`, `.one()`, etc.).
+*   The function must return an `ActiveQuery` or `AsyncActiveQuery` instance.
+*   **Note**: Do not duplicate the same relation; the later one will override the earlier one, causing the first to become ineffective.
 
 ```python
 # Eager load user's posts, but only load those with status 'published'
+# lambda parameter q is an ActiveQuery instance, just attach .where() condition
 users = User.query().with_(
     ("posts", lambda q: q.where(Post.c.status == 'published'))
 ).all()
 
 # Eager load comments for posts, ordered by creation time descending
+# Just attach .order_by() condition, return the modified query object
 posts = Post.query().with_(
     ("comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
 ).all()
 
 # Mixed usage: Nested loading + Modifiers
-# Note: The modifier applies only to the relation specified in the tuple
 users = User.query().with_(
     "posts",
-    ("posts.comments", lambda q: q.order_by((Comment.c.created_at, "DESC")))
+    ("posts.comments", lambda q: q.where(Comment.c.is_deleted == False))
+).all()
+
+# Wrong example: Same relation appears twice, the second overrides the first
+# posts is defined twice, the second will override the first, invalidating the first condition
+users = User.query().with_(
+    ("posts", lambda q: q.where(Post.c.status == 'published')),
+    ("posts", lambda q: q.order_by(Post.c.created_at))  # This overrides the above condition
 ).all()
 ```
 
@@ -297,13 +352,17 @@ users = User.query().with_(
 
 ## Set Operation Initiation
 
-`ActiveQuery` can serve as the left operand for set operations. In addition to method calls, it also supports using Python operator overloading to initiate set operations.
+`ActiveQuery` instances can serve as the left operand for set operations, performing set operations with another `ActiveQuery`, `CTEQuery`, or `SetOperationQuery` instance. In addition to method calls, it also supports using Python operator overloading to initiate set operations.
 
 *   `union(other)` or `+`: Initiate a UNION operation.
 *   `intersect(other)` or `&`: Initiate an INTERSECT operation.
 *   `except_(other)` or `-`: Initiate an EXCEPT operation.
 
-The returned object is a `SetOperationQuery` instance, which can be further chained (e.g., `order_by`, `limit`, etc.) or executed directly (e.g., `all`, `to_sql`).
+The returned object is a `SetOperationQuery` instance, which can be further chained (e.g., `order_by`, `limit`, etc.) or executed (`to_sql`).
+
+**Notes**:
+*   **No one/all methods**: `SetOperationQuery` does not have `.one()` and `.all()` methods; these are exclusive to `ActiveQuery` / `AsyncActiveQuery`.
+*   **Sync-Async Parity**: Set operations follow sync-async parity principles, **cannot be mixed**. Sync `ActiveQuery` can only perform set operations with sync queries, and vice versa for async.
 
 *   **Usage Examples**:
 
@@ -323,6 +382,9 @@ union_q_op = q1 + q2   # UNION
 sql, params = intersect_q.to_sql()
 print(sql)
 # SELECT * FROM users WHERE age > ? INTERSECT SELECT * FROM users WHERE age < ?
+
+# SetOperationQuery has no .one() or .all() methods, only .to_sql() to inspect SQL
+# To get results, need to convert to list or other methods
 ```
 
 ## Predefined Query Scopes
@@ -382,13 +444,12 @@ async def get_users_async():
 
 These methods trigger database queries and return results.
 
-*   `all() -> List[Model]` / `async all() -> List[Model]`: Return a list of all matching model instances.
-    *   **Note**: Calling `explain()` before this method has **no effect**. To get execution plans, use `aggregate()`.
-*   `one() -> Optional[Model]` / `async one() -> Optional[Model]`: Return the first matching record, or None if none found.
-    *   **Note**: Calling `explain()` before this method has **no effect**.
-*   `exists() -> bool` / `async exists() -> bool`: Check if matching records exist.
+*   `all() -> List[Model]`: Return a list of all matching model instances.
+*   `one() -> Optional[Model]`: Return the first matching record, or None if none found.
+*   `exists() -> bool`: Check if matching records exist.
     *   Provided by `AggregateQueryMixin`.
-    *   **Note**: Calling `explain()` before this method has **no effect**.
+*   `aggregate() -> List[Dict]`: Return a list of raw dictionaries (not mapped to model instances).
+    *   **Works with `.explain()`**: To get query execution plans, use `.explain().aggregate()`.
 *   `to_sql() -> Tuple[str, List[Any]]`: Return the generated SQL statement and parameters (does not execute query).
 
 *   **Debugging Tips**:
