@@ -85,7 +85,7 @@ sequenceDiagram
     participant Expr as Expression System
     participant Backend as Database Backend
 
-    User->>Query: Call all() / one() / aggregate()
+    User->>Query: Call aggregate()
     
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
@@ -103,11 +103,7 @@ sequenceDiagram
 
     rect rgb(255, 240, 245)
         Note over Query: 3. Result Handling
-        alt one()
-            Note right of Query: Take first element or None
-        else all() / aggregate()
-            Note right of Query: Return list directly
-        end
+        Note right of Query: Return dictionary list directly
     end
 
     Query-->>User: Return Result

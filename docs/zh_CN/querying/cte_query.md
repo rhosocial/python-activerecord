@@ -85,7 +85,7 @@ sequenceDiagram
     participant Expr as Expression System
     participant Backend as Database Backend
 
-    User->>Query: 调用 all() / one() / aggregate()
+    User->>Query: 调用 aggregate()
     
     rect rgb(240, 248, 255)
         Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
@@ -103,11 +103,7 @@ sequenceDiagram
 
     rect rgb(255, 240, 245)
         Note over Query: 3. 结果处理
-        alt one()
-            Note right of Query: 取列表第一个元素或 None
-        else all() / aggregate()
-            Note right of Query: 直接返回列表
-        end
+        Note right of Query: 直接返回字典列表
     end
 
     Query-->>User: 返回结果
