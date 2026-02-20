@@ -112,9 +112,9 @@ test = [
     # Measures test coverage and generates coverage reports
     "coverage>=7.0.0",
 
-    # Asyncio support for pytest
+# Asyncio support for pytest
     # Enables testing of asynchronous code
-    "pytest-asyncio>=0.21.0",
+    "pytest-asyncio",
 
     # Async SQLite support
     "aiosqlite>=0.19.0",

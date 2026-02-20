@@ -3,7 +3,7 @@
 # Core framework for running test suites and fixtures
 # Version ~=8.4.2 provides stable testing capabilities
 pytest~=8.4.2
-pytest-asyncio>=0.21.0
+pytest-asyncio
 
 # Pytest plugin for mocking
 # Provides the 'mocker' fixture for patching and mocking objects in tests
