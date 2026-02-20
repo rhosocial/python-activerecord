@@ -89,6 +89,8 @@ User.find_all(User.c.username.like("admin%"))
 
 > **提示**: IDE 会自动补全 `User.c` 后面的字段名（虽然它是动态代理，但配合良好的类型提示可以实现）。目前 `FieldProxy` 是动态的，但在未来的版本中我们可能会提供静态生成工具以获得更好的 IDE 支持。
 
+> **FieldProxy 的优势**: 当字段单独定义了数据表字段名时（使用 `UseColumn`），FieldProxy 会自动使用自定义的字段名。例如，如果你定义了 `username: Annotated[str, UseColumn("USER-NAME")]`，那么 `User.c.username` 会自动引用数据库中的 `"USER-NAME"` 列，无需你手动处理这种映射关系。
+
 ### 设计理念：为何需要手动定义？
 
 你可能会注意到，`FieldProxy` 并不是默认存在的，而是需要用户手动将其定义为 `ClassVar`。这是一个经过深思熟虑的设计选择，主要基于以下两个原因：

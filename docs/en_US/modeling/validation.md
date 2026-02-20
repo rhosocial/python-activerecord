@@ -75,3 +75,11 @@ class User(ActiveRecord):
 ```
 
 > **Note**: Hook methods should be kept lightweight. If you perform time-consuming I/O operations in hooks, consider using an asynchronous task queue.
+
+## Validation Trigger Timing
+
+Pydantic validation is triggered at specific steps in the query execution flow, as referenced in [ActiveQuery Lifecycle](../querying/active_query.md#query-lifecycle-and-execution-flow):
+
+1.  **Effective in `all()` and `one()` methods**: When using `all()` or `one()` methods to execute queries, Pydantic validation is triggered during the result processing phase (ORM processing step) when calling the `create_from_database()` method. At this point, the data queried from the database is validated.
+
+2.  **Not effective in `aggregate()` method**: When using the `aggregate()` method to execute queries, only raw dictionary lists are returned without the model instantiation process, so Pydantic validation is not triggered. In this case, you will directly get the raw content returned by the database driver without any validation.

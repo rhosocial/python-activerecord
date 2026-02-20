@@ -498,7 +498,6 @@ sequenceDiagram
     end
 ```
 
-
 ### 3. 异步查询生命周期 (Async Query Lifecycle)
 
 异步版本遵循相同的流程，但在数据库操作中使用 `await`：
@@ -511,51 +510,51 @@ sequenceDiagram
     participant Model as AsyncActiveRecord Model
     participant Backend as AsyncDatabase Backend
 
-    User->>Query: Call await all() / await one()
+    User->>Query: 调用 await all() / await one()
 
     rect rgb(240, 248, 255)
-        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
-        Query->>Expr: Construct QueryExpression
-        Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
+        Note over Query, Expr: 1. SQL 生成 (委托给表达式系统)
+        Query->>Expr: 构建 QueryExpression
+        Note right of Query: 组装 Select, From, Where...<br/>(one() 会使用临时的 LIMIT 1)
         Expr->>Expr: to_sql()
-        Expr-->>Query: Return (sql, params)
+        Expr-->>Query: 返回 (sql, params)
     end
 
     rect rgb(255, 250, 240)
-        Note over Query: 2. Preparation
+        Note over Query: 2. 准备执行
         Query->>Model: get_column_adapters()
-        Model-->>Query: Return column adapters
+        Model-->>Query: 返回列适配器
     end
 
     rect rgb(240, 255, 240)
-        Note over Query: 3. Database Interaction
+        Note over Query: 3. 数据库交互
         alt all()
             Query->>Backend: await fetch_all(sql, params)
         else one()
             Query->>Backend: await fetch_one(sql, params)
         end
-        Backend-->>Query: Return Raw Rows
+        Backend-->>Query: 返回原始行数据 (Raw Rows)
     end
 
     rect rgb(255, 240, 245)
-        Note over Query: 4. Result Processing (ORM)
-        loop For each row
+        Note over Query: 4. 结果处理 (ORM)
+        loop 对每一行数据
             Query->>Model: _map_columns_to_fields()
-            Note right of Query: Map DB columns to fields
+            Note right of Query: 将 DB 列名转换为字段名
             Query->>Model: create_from_database()
-            Note right of Query: Instantiate Model
+            Note right of Query: 实例化模型对象
         end
     end
 
     rect rgb(230, 230, 250)
-        Note over Query: 5. Eager Loading
-        opt with() configured
+        Note over Query: 5. 关联加载 (Eager Loading)
+        opt 配置了 with()
             Query->>Query: _load_relations()
-            Note right of Query: Batch load related data<br/>and populate model instances
+            Note right of Query: 批量加载关联数据<br/>并填充到模型实例中
         end
     end
 
-    Query-->>User: Return List[Model] or single Model
+    Query-->>User: 返回模型实例列表或单个实例
 ```
 
 **同步异步对等**确保同步和异步实现遵循相同的架构模式并提供等效的功能，唯一的区别是在异步操作中使用 `await`。

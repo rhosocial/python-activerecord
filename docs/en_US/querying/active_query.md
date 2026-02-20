@@ -382,11 +382,11 @@ async def get_users_async():
 
 These methods trigger database queries and return results.
 
-*   `all() -> List[Model]` / `all() -> List[Model] async`: Return a list of all matching model instances.
+*   `all() -> List[Model]` / `async all() -> List[Model]`: Return a list of all matching model instances.
     *   **Note**: Calling `explain()` before this method has **no effect**. To get execution plans, use `aggregate()`.
-*   `one() -> Optional[Model]` / `one() -> Optional[Model] async`: Return the first matching record, or None if none found.
+*   `one() -> Optional[Model]` / `async one() -> Optional[Model]`: Return the first matching record, or None if none found.
     *   **Note**: Calling `explain()` before this method has **no effect**.
-*   `exists() -> bool` / `exists() -> bool async`: Check if matching records exist.
+*   `exists() -> bool` / `async exists() -> bool`: Check if matching records exist.
     *   Provided by `AggregateQueryMixin`.
     *   **Note**: Calling `explain()` before this method has **no effect**.
 *   `to_sql() -> Tuple[str, List[Any]]`: Return the generated SQL statement and parameters (does not execute query).
@@ -403,158 +403,6 @@ print(sql, params)
 ## Query Lifecycle and Execution Flow
 
 To better understand how `ActiveQuery` works, the following diagrams illustrate the execution lifecycles of the `all()`, `one()`, and `aggregate()` methods.
-
-**Important Note**: `ActiveQuery` itself is not responsible for concatenating SQL strings. It simply calls the underlying **Expression System** to construct queries. All SQL generation work is delegated to the expression system, ensuring SQL safety and compatibility with different database dialects.
-
-### 1. Lifecycle of `all()` and `one()`
-
-These methods are primarily used to retrieve model instances. The process includes expression construction, SQL generation, database execution, data mapping, and model instantiation.
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Query as ActiveQuery
-    participant Expr as Expression System
-    participant Model as ActiveRecord Model
-    participant Backend as Database Backend
-
-    User->>Query: Call all() / one()
-
-    rect rgb(240, 248, 255)
-        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
-        Query->>Expr: Construct QueryExpression
-        Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
-        Expr->>Expr: to_sql()
-        Expr-->>Query: Return (sql, params)
-    end
-
-    rect rgb(255, 250, 240)
-        Note over Query: 2. Preparation
-        Query->>Model: get_column_adapters()
-        Model-->>Query: Return column adapters
-    end
-
-    rect rgb(240, 255, 240)
-        Note over Query: 3. Database Interaction
-        alt all()
-            Query->>Backend: fetch_all(sql, params)
-        else one()
-            Query->>Backend: fetch_one(sql, params)
-        end
-        Backend-->>Query: Return Raw Rows
-    end
-
-    rect rgb(255, 240, 245)
-        Note over Query: 4. Result Processing (ORM)
-        loop For each row
-            Query->>Model: _map_columns_to_fields()
-            Note right of Query: Map DB columns to fields
-            Query->>Model: create_from_database()
-            Note right of Query: Instantiate Model
-        end
-    end
-
-    rect rgb(230, 230, 250)
-        Note over Query: 5. Eager Loading
-        opt with() configured
-            Query->>Query: _load_relations()
-            Note right of Query: Batch load related data<br/>and populate model instances
-        end
-    end
-
-    Query-->>User: Return List[Model] or single Model
-```
-
-### 2. Lifecycle of `aggregate()`
-
-The `aggregate()` method returns raw dictionary data, typically used for statistical analysis or scenarios where model instantiation is not required. It also relies on the expression system for SQL generation.
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Query as ActiveQuery
-    participant Expr as Expression System
-    participant Backend as Database Backend
-
-    User->>Query: Call aggregate()
-
-    alt explain() enabled
-        Note over Query, Expr: EXPLAIN Mode
-        Query->>Expr: Construct ExplainExpression
-        Expr->>Expr: to_sql()
-        Expr-->>Query: Return (sql, params)
-        Query->>Backend: fetch_all(sql, params)
-        Backend-->>Query: Return execution plan
-        Query-->>User: Return Plan Data
-    else Standard Mode
-        Note over Query, Expr: Standard Aggregation
-        Query->>Expr: Construct QueryExpression
-        Expr->>Expr: to_sql()
-        Expr-->>Query: Return (sql, params)
-        Query->>Backend: fetch_all(sql, params)
-        Backend-->>Query: Return List[Dict]
-        Query-->>User: Return List[Dict]
-    end
-```
-
-### 3. Async Query Lifecycle
-
-The asynchronous version follows the same flow but uses `await` for database operations:
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Query as AsyncActiveQuery
-    participant Expr as Expression System
-    participant Model as AsyncActiveRecord Model
-    participant Backend as AsyncDatabase Backend
-
-    User->>Query: Call await all() / await one()
-
-    rect rgb(240, 248, 255)
-        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
-        Query->>Expr: Construct QueryExpression
-        Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
-        Expr->>Expr: to_sql()
-        Expr-->>Query: Return (sql, params)
-    end
-
-    rect rgb(255, 250, 240)
-        Note over Query: 2. Preparation
-        Query->>Model: get_column_adapters()
-        Model-->>Query: Return column adapters
-    end
-
-    rect rgb(240, 255, 240)
-        Note over Query: 3. Database Interaction
-        alt all()
-            Query->>Backend: await fetch_all(sql, params)
-        else one()
-            Query->>Backend: await fetch_one(sql, params)
-        end
-        Backend-->>Query: Return Raw Rows
-    end
-
-    rect rgb(255, 240, 245)
-        Note over Query: 4. Result Processing (ORM)
-        loop For each row
-            Query->>Model: _map_columns_to_fields()
-            Note right of Query: Map DB columns to fields
-            Query->>Model: create_from_database()
-            Note right of Query: Instantiate Model
-        end
-    end
-
-    rect rgb(230, 230, 250)
-        Note over Query: 5. Eager Loading
-        opt with() configured
-            Query->>Query: _load_relations()
-            Note right of Query: Batch load related data<br/>and populate model instances
-        end
-    end
-
-    Query-->>User: Return List[Model] or single Model
-```
 
 The **Sync-Async Parity** ensures that both synchronous and asynchronous implementations follow the same architectural patterns and provide equivalent functionality, with the only difference being the use of `await` for asynchronous operations.
 
@@ -651,65 +499,6 @@ sequenceDiagram
     end
 ```
 
-
-### 3. Async Query Lifecycle
-
-The asynchronous version follows the same flow but uses `await` for database operations:
-
-```mermaid
-sequenceDiagram
-    participant User
-    participant Query as AsyncActiveQuery
-    participant Expr as Expression System
-    participant Model as AsyncActiveRecord Model
-    participant Backend as AsyncDatabase Backend
-
-    User->>Query: Call await all() / await one()
-
-    rect rgb(240, 248, 255)
-        Note over Query, Expr: 1. SQL Generation (Delegated to Expression System)
-        Query->>Expr: Construct QueryExpression
-        Note right of Query: Assemble Select, From, Where...<br/>(one() uses temporary Limit=1)
-        Expr->>Expr: to_sql()
-        Expr-->>Query: Return (sql, params)
-    end
-
-    rect rgb(255, 250, 240)
-        Note over Query: 2. Preparation
-        Query->>Model: get_column_adapters()
-        Model-->>Query: Return column adapters
-    end
-
-    rect rgb(240, 255, 240)
-        Note over Query: 3. Database Interaction
-        alt all()
-            Query->>Backend: await fetch_all(sql, params)
-        else one()
-            Query->>Backend: await fetch_one(sql, params)
-        end
-        Backend-->>Query: Return Raw Rows
-    end
-
-    rect rgb(255, 240, 245)
-        Note over Query: 4. Result Processing (ORM)
-        loop For each row
-            Query->>Model: _map_columns_to_fields()
-            Note right of Query: Map DB columns to fields
-            Query->>Model: create_from_database()
-            Note right of Query: Instantiate Model
-        end
-    end
-
-    rect rgb(230, 230, 250)
-        Note over Query: 5. Eager Loading
-        opt with() configured
-            Query->>Query: _load_relations()
-            Note right of Query: Batch load related data<br/>and populate model instances
-        end
-    end
-
-    Query-->>User: Return List[Model] or single Model
-```
 
 The **Sync-Async Parity** ensures that both synchronous and asynchronous implementations follow the same architectural patterns and provide equivalent functionality, with the only difference being the use of `await` for asynchronous operations.
 

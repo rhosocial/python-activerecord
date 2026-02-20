@@ -89,6 +89,8 @@ User.find_all(User.c.username.like("admin%"))
 
 > **Tip**: IDEs will autocomplete field names after `User.c` (although it's a dynamic proxy, type hints can support this). Currently dynamic, future versions may provide static generation tools for better IDE support.
 
+> **FieldProxy Benefits**: When a field has a custom database column name defined (using `UseColumn`), FieldProxy automatically uses the custom column name. For example, if you define `username: Annotated[str, UseColumn("USER-NAME")]`, then `User.c.username` will automatically reference the `"USER-NAME"` column in the database, without requiring you to manually handle this mapping.
+
 ### Design Philosophy: Why Manual Definition?
 
 You may notice that `FieldProxy` is not present by default and requires users to manually define it as a `ClassVar`. This is a deliberate design choice based on two main reasons:

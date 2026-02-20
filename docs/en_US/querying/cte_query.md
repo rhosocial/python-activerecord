@@ -63,15 +63,16 @@ tree_data = Category.query_hierarchy(1).all()
 
 These methods trigger database queries and return results.
 
-*   `all() -> List[Dict[str, Any]]`: Executes the query and returns all results (list of dictionaries).
-    *   **Essence**: In `CTEQuery`, this method is an alias for `aggregate()`.
-    *   **Note**: Unlike `ActiveQuery`, results from `CTEQuery` are always **dictionaries**, not model instances.
-*   `one() -> Optional[Dict[str, Any]]`: Executes the query and returns the first result (dictionary), or `None` if no result is found.
-    *   **Note**: This method currently fetches all results and takes the first one. If a large result set is expected, it is recommended to use `limit(1)` to improve performance.
+> **Why no `one()` and `all()` methods?**
+> 
+> Unlike `ActiveQuery`, `CTEQuery` does not support `one()` and `all()` methods. This is because CTE queries return raw data dictionaries rather than model instances. The `one()` and `all()` methods are specifically designed to return model instances, but the results of CTE queries cannot guarantee mapping back to a single model type.
+
 *   `aggregate() -> List[Dict[str, Any]]`: Executes the query and returns results.
     *   Supports `explain()`: If `explain()` is called before this method, it returns the query execution plan.
 *   `to_sql() -> Tuple[str, List[Any]]`: Returns the generated SQL statement and parameters.
     *   The generated SQL usually starts with `WITH ...`.
+
+**Sync-Async Parity**: `CTEQuery` also has an asynchronous counterpart `AsyncCTEQuery` with equivalent functionality and consistent APIs. The only difference is that the asynchronous version requires using the `await` keyword to call the `aggregate()` method.
 
 ## Query Lifecycle and Execution Flow
 
@@ -111,6 +112,8 @@ sequenceDiagram
 
     Query-->>User: Return Result
 ```
+
+**Sync-Async Parity**: `CTEQuery` also has an asynchronous counterpart `AsyncCTEQuery` with equivalent functionality and consistent APIs. The only difference is that the asynchronous version requires using the `await` keyword.
 
 ## Usage Examples
 
@@ -165,7 +168,7 @@ cte_query = CTEQuery(Category.backend()) \
         None 
     )
 
-results = cte_query.all()
+results = cte_query.aggregate()
 ```
 
 ## Notes
@@ -173,3 +176,9 @@ results = cte_query.all()
 1.  **Return Type**: `CTEQuery` results are always **lists of dictionaries** (`List[Dict[str, Any]]`) and are not automatically converted to Model instances.
 2.  **Backend Compatibility**: CTEs require database support (MySQL 8.0+, PostgreSQL, SQLite 3.8+).
 3.  **Recursion Limits**: Ensure recursive queries have a termination condition to avoid infinite loops or stack overflows.
+4.  **Exploring Class Members**: If you want to know what methods are available in the `CTEQuery` class, you can use JetBrains PyCharm or other IDEs with code intelligence. Alternatively, you can write a simple script to check class members:
+    ```python
+    from rhosocial.activerecord.query.cte_query import CTEQuery
+    methods = [method for method in dir(CTEQuery) if not method.startswith('_')]
+    print("CTEQuery methods:", sorted(methods))
+    ```

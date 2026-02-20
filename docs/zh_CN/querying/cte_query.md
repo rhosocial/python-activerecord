@@ -63,15 +63,16 @@ tree_data = Category.query_hierarchy(1).all()
 
 这些方法会触发数据库查询并返回结果。
 
-*   `all() -> List[Dict[str, Any]]`: 执行查询并返回所有结果（字典列表）。
-    *   **本质**：在 `CTEQuery` 中，此方法是 `aggregate()` 的别名。
-    *   **注意**：与 `ActiveQuery` 不同，`CTEQuery` 的结果总是**字典**，而不是模型实例。
-*   `one() -> Optional[Dict[str, Any]]`: 执行查询并返回第一条结果（字典），如果没有结果则返回 `None`。
-    *   **注意**：此方法目前会获取所有结果然后取第一个。如果预期结果集很大，建议配合 `limit(1)` 使用以提高性能。
+> **为什么没有 `one()` 和 `all()` 方法？**
+> 
+> 与 `ActiveQuery` 不同，`CTEQuery` 不支持 `one()` 和 `all()` 方法。这是因为 CTE 查询的结果是原始数据字典，而不是模型实例。`one()` 和 `all()` 方法专门用于返回模型实例，而 CTE 查询的结果无法保证能够映射回单一的模型类型。
+
 *   `aggregate() -> List[Dict[str, Any]]`: 执行查询并返回结果。
     *   支持 `explain()`：如果在调用此方法前调用了 `explain()`，将返回查询执行计划。
 *   `to_sql() -> Tuple[str, List[Any]]`: 返回生成的 SQL 语句和参数。
     *   生成的 SQL 通常以 `WITH ...` 开头。
+
+**同步异步对等**：`CTEQuery` 也有对应的异步版本 `AsyncCTEQuery`，两者具有相同的 API 和功能，唯一的区别是在异步版本中需要使用 `await` 关键字来调用 `aggregate()` 方法。
 
 ## 查询生命周期与执行流程
 
@@ -111,6 +112,8 @@ sequenceDiagram
 
     Query-->>User: 返回结果
 ```
+
+**同步异步对等**：`CTEQuery` 也有对应的异步版本 `AsyncCTEQuery`，两者具有相同的 API 和功能，唯一的区别是在异步版本中需要使用 `await` 关键字。
 
 ## 用法示例
 
@@ -165,7 +168,7 @@ cte_query = CTEQuery(Category.backend()) \
         None 
     )
 
-results = cte_query.all()
+results = cte_query.aggregate()
 ```
 
 ## 注意事项
@@ -173,3 +176,9 @@ results = cte_query.all()
 1.  **返回类型**：`CTEQuery` 的结果始终是**字典列表** (`List[Dict[str, Any]]`)，不会自动转换为 Model 实例。
 2.  **后端兼容性**：CTE 需要数据库支持（MySQL 8.0+, PostgreSQL, SQLite 3.8+）。
 3.  **递归限制**：确保递归查询有终止条件，否则会导致死循环或栈溢出。
+4.  **探索类成员**：如果您想了解 `CTEQuery` 类有哪些可用方法，可以使用 JetBrains PyCharm 或其他支持代码智能提示的 IDE。或者编写简单的脚本来检查类成员：
+    ```python
+    from rhosocial.activerecord.query.cte_query import CTEQuery
+    methods = [method for method in dir(CTEQuery) if not method.startswith('_')]
+    print("CTEQuery methods:", sorted(methods))
+    ```

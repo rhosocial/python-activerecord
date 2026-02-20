@@ -31,13 +31,15 @@ except_query = q1 - q2
 
 ## Methods
 
-### `all() -> List[Dict[str, Any]]`
+### `aggregate() -> List[Dict[str, Any]]`
 
 Executes the set query and returns all results (list of dictionaries).
 
-### `one() -> Optional[Dict[str, Any]]`
+> **Why no `one()` and `all()` methods?**
+> 
+> Unlike `ActiveQuery`, `SetOperationQuery` does not support `one()` and `all()` methods. This is because set operations (UNION, INTERSECT, EXCEPT) return raw data dictionaries rather than model instances. The `one()` and `all()` methods are specifically designed to return model instances, but the results of set operations cannot guarantee mapping back to a single model type, especially when combining columns from different tables.
 
-Executes the set query and returns the first result (dictionary).
+**Sync-Async Parity**: `SetOperationQuery` also has an asynchronous counterpart `AsyncSetOperationQuery` with equivalent functionality and consistent APIs. The only difference is that the asynchronous version requires using the `await` keyword to call the `aggregate()` method.
 
 ## Usage Examples
 
@@ -54,7 +56,7 @@ q2 = User.query().where(User.c.role == 'admin')
 # SQL: SELECT * FROM users WHERE is_active = 1 UNION SELECT * FROM users WHERE role = 'admin'
 union_query = q1.union(q2)
 
-results = union_query.all() # Returns list of dictionaries
+results = union_query.aggregate() # Returns list of dictionaries
 ```
 
 ## Important Limitations and Notes
@@ -78,3 +80,9 @@ results = union_query.all() # Returns list of dictionaries
     ```
 
 4.  **Sorting**: `SetOperationQuery` itself does not support `order_by`. If you need to sort the final result, you typically need to wrap it in another query.
+5.  **Exploring Class Members**: If you want to know what methods are available in the `SetOperationQuery` class, you can use JetBrains PyCharm or other IDEs with code intelligence. Alternatively, you can write a simple script to check class members:
+    ```python
+    from rhosocial.activerecord.query.set_operation import SetOperationQuery
+    methods = [method for method in dir(SetOperationQuery) if not method.startswith('_')]
+    print("SetOperationQuery methods:", sorted(methods))
+    ```
