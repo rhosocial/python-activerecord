@@ -357,6 +357,12 @@ class DecimalAdapter(BaseSQLTypeAdapter):
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
         if target_type == Decimal:
+            if isinstance(value, Decimal):
+                if options and 'precision' in options:
+                    precision = Decimal(options['precision'])
+                    rounding = options.get('rounding', ROUND_HALF_UP)
+                    return value.quantize(precision, rounding=rounding)
+                return value
             if isinstance(value, (str, float, int)):
                 decimal_value = Decimal(str(value))
                 if options and 'precision' in options:
