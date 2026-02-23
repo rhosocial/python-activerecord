@@ -231,6 +231,11 @@ class JSONAdapter(BaseSQLTypeAdapter):
     def _do_from_database(
         self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
     ) -> Any:
+        # Handle case where value is already a dict/list (e.g., from PostgreSQL JSONB)
+        if isinstance(value, dict):
+            return value
+        if isinstance(value, list):
+            return value
         if isinstance(value, str):
             return json.loads(value)
         raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")

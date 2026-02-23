@@ -1018,6 +1018,62 @@ pytest -k "test_create" tests/             # Name filter
 pytest --collect-only tests/               # Show what would be collected
 ```
 
+## CRITICAL: No Parallel Test Execution
+
+**Tests MUST NOT be executed in parallel.** The test suite creates database tables with fixed names, making parallel execution unsafe.
+
+### Why Parallel Execution Is Not Supported
+
+The test suite uses a shared database schema design where:
+
+1. **Fixed Table Names**: Tests create tables with predefined names:
+   - `users`, `orders`, `order_items`
+   - `posts`, `comments`
+   - `json_users`, `nodes`
+   - And others specific to test features
+
+2. **Table Lifecycle**: Each test typically:
+   - Drops existing tables: `DROP TABLE IF EXISTS ... CASCADE`
+   - Creates fresh tables: `CREATE TABLE ...`
+   - Inserts test data
+   - Cleans up after test completion
+
+3. **Conflict Risk**: If tests run in parallel:
+   - Test A drops table while Test B is querying it → Error
+   - Test A and B insert conflicting data → Test failures
+   - Cleanup happens before another test finishes → Data loss
+
+### What NOT To Do
+
+```bash
+# DO NOT use pytest-xdist for parallel execution
+pytest -n auto          # ❌ WILL CAUSE FAILURES
+pytest -n 4             # ❌ WILL CAUSE FAILURES
+pytest --dist=loadfile  # ❌ WILL CAUSE FAILURES
+```
+
+### Correct Execution
+
+```bash
+# Always run tests serially (default behavior)
+pytest                  # ✅ Correct - serial execution
+pytest -v tests/        # ✅ Correct - serial execution
+```
+
+### Design Rationale
+
+This is an intentional design decision, not a limitation:
+
+- **Simplicity**: Fixed table names simplify test setup and debugging
+- **Database Compatibility**: Works consistently across SQLite, MySQL, PostgreSQL
+- **Test Isolation**: Serial execution ensures complete test isolation
+- **CI/CD Friendly**: Most CI environments run tests serially by default
+
+If you need faster test execution, consider:
+- Running specific test directories instead of the full suite
+- Using pytest markers to run subsets of tests
+- Running backend-specific tests only for your target database
+
 ## Summary
 
 **Critical constraints for AI assistants:**

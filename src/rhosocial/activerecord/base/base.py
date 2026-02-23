@@ -234,11 +234,13 @@ class BaseActiveRecord(IActiveRecord):
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
+        pk_column = self.primary_key()
+        pk_field = self.__class__._get_field_name(pk_column)
         if is_new:
-            data = self.model_dump(exclude={self.primary_key()} if hasattr(self, self.primary_key()) else set())
+            data = self.model_dump(exclude={pk_field} if pk_field in self.model_fields else set())
         else:
             all_data = self.model_dump()
-            data = {field: all_data[field] for field in self._dirty_fields if field != self.primary_key()}
+            data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
         bases = self.__class__.__mro__
         for base in bases:
             if hasattr(base, 'prepare_save_data') and base != BaseActiveRecord:
@@ -715,11 +717,13 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
 
     def _prepare_save_data(self) -> Dict[str, Any]:
         is_new = self.is_new_record
+        pk_column = self.primary_key()
+        pk_field = self.__class__._get_field_name(pk_column)
         if is_new:
-            data = self.model_dump(exclude={self.primary_key()} if hasattr(self, self.primary_key()) else set())
+            data = self.model_dump(exclude={pk_field} if pk_field in self.model_fields else set())
         else:
             all_data = self.model_dump()
-            data = {field: all_data[field] for field in self._dirty_fields if field != self.primary_key()}
+            data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
         bases = self.__class__.__mro__
         for base in bases:
             if hasattr(base, 'prepare_save_data') and base != AsyncBaseActiveRecord:
