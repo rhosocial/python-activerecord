@@ -3,7 +3,7 @@
 # Core framework for running test suites and fixtures
 # Version ~=8.4.2 provides stable testing capabilities
 pytest~=8.4.2
-pytest-asyncio>=0.21.0
+pytest-asyncio
 
 # Pytest plugin for mocking
 # Provides the 'mocker' fixture for patching and mocking objects in tests
@@ -38,3 +38,7 @@ pydantic[email]
 # Used for configuration file handling and test data
 # Version ~=6.0.3 provides safe YAML parsing and generation
 pyyaml~=6.0.3
+
+# Rich terminal output library
+# Enhanced output formatting for test results and debugging
+rich

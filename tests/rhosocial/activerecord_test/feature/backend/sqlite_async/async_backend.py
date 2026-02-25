@@ -21,13 +21,12 @@ import logging
 import sqlite3
 from typing import Any, Dict, List, Optional, Tuple, Union, Type
 
-from rhosocial.activerecord.backend import DatabaseCapabilities, ALL_SET_OPERATIONS
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
-from rhosocial.activerecord.backend.capabilities import JoinCapability, TransactionCapability, BulkOperationCapability, \
-    ConstraintCapability, DateTimeFunctionCapability, AggregateFunctionCapability, CTECapability, JSONCapability, \
-    ALL_WINDOW_FUNCTIONS, ALL_RETURNING_FEATURES, MathematicalFunctionCapability, StringFunctionCapability
 from rhosocial.activerecord.backend.config import ConnectionConfig
-from rhosocial.activerecord.backend.dialect import ReturningOptions
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.result import QueryResult
+from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.errors import (
     ConnectionError,
     DatabaseError,
@@ -238,108 +237,8 @@ class AsyncTransactionManager:
 class AsyncSQLiteBackend(AsyncStorageBackend):
     """Async SQLite backend implementation for testing"""
 
-    def _initialize_capabilities(self) -> DatabaseCapabilities:
-        """Initialize SQLite capabilities based on version.
+    _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
 
-        This method declares the capabilities that SQLite supports, taking into
-        account version-specific feature availability. The capability system
-        allows tests and application code to check for feature support before
-        using features, preventing runtime errors on SQLite versions that
-        don't support certain features.
-        """
-        capabilities = DatabaseCapabilities()
-        version = self.get_server_version()
-
-        # Basic capabilities supported by most versions
-        capabilities.add_set_operation(ALL_SET_OPERATIONS)
-        capabilities.add_join_operation([
-            JoinCapability.INNER_JOIN,
-            JoinCapability.LEFT_OUTER_JOIN,
-            JoinCapability.CROSS_JOIN
-        ])
-        capabilities.add_transaction(TransactionCapability.SAVEPOINT)
-        capabilities.add_bulk_operation(BulkOperationCapability.BATCH_OPERATIONS)
-        capabilities.add_constraint([
-            ConstraintCapability.PRIMARY_KEY,
-            ConstraintCapability.FOREIGN_KEY,
-            ConstraintCapability.UNIQUE,
-            ConstraintCapability.NOT_NULL,
-            ConstraintCapability.CHECK,
-            ConstraintCapability.DEFAULT
-        ])
-        capabilities.add_datetime_function(DateTimeFunctionCapability.STRFTIME)
-        capabilities.add_aggregate_function(AggregateFunctionCapability.GROUP_CONCAT)
-
-        # CTEs supported from 3.8.3+
-        if version >= (3, 8, 3):
-            capabilities.add_cte([
-                CTECapability.BASIC_CTE,
-                CTECapability.RECURSIVE_CTE
-            ])
-
-        # JSON operations supported from 3.9.0+
-        if version >= (3, 9, 0):
-            capabilities.add_json([
-                JSONCapability.JSON_EXTRACT,
-                JSONCapability.JSON_CONTAINS,
-                JSONCapability.JSON_EXISTS,
-                JSONCapability.JSON_KEYS,
-                JSONCapability.JSON_ARRAY,
-                JSONCapability.JSON_OBJECT
-            ])
-
-        # UPSERT (ON CONFLICT) supported from 3.24.0+
-        if version >= (3, 24, 0):
-            capabilities.add_bulk_operation(BulkOperationCapability.UPSERT)
-
-        # Window functions supported from 3.25.0+
-        if version >= (3, 25, 0):
-            capabilities.add_window_function(ALL_WINDOW_FUNCTIONS)
-
-        # RETURNING clause and built-in math functions supported from 3.35.0+
-        if version >= (3, 35, 0):
-            capabilities.add_returning(ALL_RETURNING_FEATURES)
-            capabilities.add_mathematical_function([
-                MathematicalFunctionCapability.ABS,
-                MathematicalFunctionCapability.ROUND,
-                MathematicalFunctionCapability.CEIL,
-                MathematicalFunctionCapability.FLOOR,
-                MathematicalFunctionCapability.POWER,
-                MathematicalFunctionCapability.SQRT
-            ])
-
-        # STRICT tables supported from 3.37.0+
-        if version >= (3, 37, 0):
-            capabilities.add_constraint(ConstraintCapability.STRICT_TABLES)
-
-        # Additional JSON functions from 3.38.0+
-        if version >= (3, 38, 0):
-            capabilities.add_json([
-                JSONCapability.JSON_SET,
-                JSONCapability.JSON_INSERT,
-                JSONCapability.JSON_REPLACE,
-                JSONCapability.JSON_REMOVE
-            ])
-
-        # RIGHT and FULL OUTER JOIN supported from 3.39.0+
-        if version >= (3, 39, 0):
-            capabilities.add_join_operation([
-                JoinCapability.RIGHT_OUTER_JOIN,
-                JoinCapability.FULL_OUTER_JOIN
-            ])
-
-        # CONCAT functions supported from 3.44.0+
-        if version >= (3, 44, 0):
-            capabilities.add_string_function([
-                StringFunctionCapability.CONCAT,
-                StringFunctionCapability.CONCAT_WS
-            ])
-
-        # JSONB support from 3.45.0+
-        if version >= (3, 45, 0):
-            capabilities.add_json(JSONCapability.JSONB_SUPPORT)
-
-        return capabilities
 
     async def _handle_error(self, error: Exception) -> None:
         error_msg = str(error)
@@ -476,16 +375,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         """Get pragma settings"""
         return self.config.pragmas.copy()
 
-    @property
-    def is_sqlite(self) -> bool:
-        """Check if this is SQLite backend"""
-        return True
-
-    @property
-    def supports_returning(self) -> bool:
-        """Check if RETURNING clause is supported"""
-        version = self.get_server_version()
-        return version >= (3, 35, 0)
 
     @property
     def transaction_manager(self) -> AsyncTransactionManager:
@@ -614,12 +503,12 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
 
     def get_server_version(self) -> Tuple[int, int, int]:
         """Get SQLite version"""
-        if AsyncSQLiteBackend._sqlite_version_cache is not None:
+        if hasattr(AsyncSQLiteBackend, '_sqlite_version_cache') and AsyncSQLiteBackend._sqlite_version_cache is not None:
             return AsyncSQLiteBackend._sqlite_version_cache
 
         try:
-            # Use sqlite3.sqlite_version since it's the same for all connections
-            version_str = sqlite3.sqlite_version
+            # Use aiosqlite.sqlite_version since it's the same for all connections
+            version_str = aiosqlite.sqlite_version
             parts = version_str.split('.')
             version = tuple(int(p) for p in parts[:3])
 
@@ -642,57 +531,6 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             return tuple(params.values())
         return params
 
-    def _should_use_returning(self, returning: Union[bool, List[str], ReturningOptions, None]) -> bool:
-        """Check if RETURNING should be used"""
-        if returning is None or returning is False:
-            return False
-        if returning is True:
-            return True
-        if isinstance(returning, list):
-            return True
-        if isinstance(returning, ReturningOptions):
-            return returning.enabled
-        return False
-
-    def _check_returning_compatibility(self, options: ReturningOptions):
-        """Check RETURNING compatibility"""
-        version = self.get_server_version()
-
-        if not options.force:
-            if version < (3, 35, 0):
-                raise ReturningNotSupportedError(
-                    f"RETURNING clause requires SQLite 3.35.0+, current version: {'.'.join(map(str, version))}"
-                )
-
-            import sys
-            if sys.version_info < (3, 10):
-                raise ReturningNotSupportedError(
-                    "RETURNING clause has known issues in Python < 3.10. Use force=True to bypass."
-                )
-
-    def _add_returning_clause(
-            self,
-            sql: str,
-            returning: Union[bool, List[str], ReturningOptions]
-    ) -> str:
-        """Add RETURNING clause to SQL"""
-        if isinstance(returning, ReturningOptions):
-            if returning.columns:
-                # Validate column names
-                for col in returning.columns:
-                    self._validate_column_name(col)
-                columns_str = ", ".join(returning.columns)
-            else:
-                columns_str = "*"
-        elif isinstance(returning, list):
-            for col in returning:
-                self._validate_column_name(col)
-            columns_str = ", ".join(returning)
-        else:
-            columns_str = "*"
-
-        return f"{sql.rstrip(';')} RETURNING {columns_str}"
-
     def _validate_column_name(self, name: str):
         """Validate column name for SQL injection"""
         # Remove quotes if present
@@ -703,6 +541,73 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         for pattern in dangerous:
             if pattern in clean_name.upper():
                 raise ValueError(f"Invalid column name: {name}")
+
+    async def _get_cursor(self):
+        """Get database cursor for async operations."""
+        if not self._connection:
+            await self.connect()
+        return await self._connection.cursor()
+
+    def _prepare_sql_and_params(self, sql: str, params: Optional[Union[Tuple, Dict, List]]) -> Tuple[str, Tuple]:
+        """Prepare SQL and parameters."""
+        # For SQLite, convert dict params to tuple if needed
+        if isinstance(params, dict):
+            # For SQLite with positional placeholders (?), we need to convert dict to tuple
+            # This is a simplified conversion - in real usage, named placeholders (:name) would be more appropriate
+            # But since SQLite uses positional placeholders, we convert the dict values to a tuple
+            final_params = tuple(params.values()) if params else ()
+        elif isinstance(params, (tuple, list)):
+            final_params = tuple(params) if params else ()
+        else:
+            final_params = params or ()
+        return sql, final_params
+
+    async def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
+        """Execute the query with prepared SQL and parameters."""
+        if params:
+            await cursor.execute(sql, params)
+        else:
+            await cursor.execute(sql)
+        return cursor
+
+
+    def _log_query_completion(self, stmt_type: StatementType, cursor, data, duration: float):
+        """Log query completion information."""
+        self.log(logging.DEBUG, f"Query completed: {stmt_type.name}, duration: {duration:.4f}s")
+
+    def _build_query_result(self, cursor, data, duration: float):
+        """Build QueryResult from cursor, data and duration."""
+        # For SELECT queries, affected_rows should be the length of data
+        # For other queries, use cursor.rowcount
+        if data is not None:  # This is a SELECT query result
+            affected_rows = len(data) if data else 0
+            last_insert_id = getattr(cursor, 'lastrowid', None)
+        else:  # This is an INSERT/UPDATE/DELETE query
+            affected_rows = cursor.rowcount
+            last_insert_id = getattr(cursor, 'lastrowid', None)
+
+        return QueryResult(
+            data=data,
+            affected_rows=affected_rows,
+            last_insert_id=last_insert_id,
+            duration=duration
+        )
+
+
+
+    async def _handle_auto_commit_if_needed(self):
+        """Handle auto-commit if needed."""
+        if not self.in_transaction:
+            try:
+                await self._connection.commit()
+            except Exception as e:
+                self.logger.warning(f"Auto-commit failed: {e}")
+
+    async def _handle_execution_error(self, error: Exception):
+        """Handle execution error and return appropriate result."""
+        await self._handle_error(error)
+        # Re-raise the error after handling
+        raise error
 
     async def executescript(self, sql_script: str) -> None:
         """

@@ -5,20 +5,36 @@ Provides a flexible, type-safe way to define and manage model relationships.
 """
 
 from .base import RelationManagementMixin
-from .descriptors import RelationDescriptor, BelongsTo, HasOne, HasMany, DefaultRelationLoader
+from .descriptors import RelationDescriptor, BelongsTo, HasOne, HasMany, DefaultIRelationLoader
+from .async_descriptors import AsyncRelationDescriptor, AsyncBelongsTo, AsyncHasOne, AsyncHasMany, AsyncDefaultRelationLoader
 from .cache import CacheConfig, GlobalCacheConfig
-from .interfaces import RelationLoader
+from .interfaces import (
+    IRelationLoader,
+    IRelationValidation,
+    IRelationManagement,
+    IAsyncRelationLoader,
+    IAsyncRelationValidation
+)
 
 # from .methods import DefaultRelationLoader
 
 __all__ = [
     'RelationDescriptor',
+    'AsyncRelationDescriptor',
     'RelationManagementMixin',
     'BelongsTo',
     'HasOne',
     'HasMany',
+    'AsyncBelongsTo',
+    'AsyncHasOne',
+    'AsyncHasMany',
     'CacheConfig',
     'GlobalCacheConfig',
-    'RelationLoader',
-    'DefaultRelationLoader',
+    'IRelationLoader',
+    'IRelationValidation',
+    'IRelationManagement',
+    'IAsyncRelationLoader',
+    'IAsyncRelationValidation',
+    'DefaultIRelationLoader',
+    'AsyncDefaultRelationLoader',
 ]

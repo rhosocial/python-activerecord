@@ -16,6 +16,8 @@ IMPORTANT:
 from rhosocial.activerecord.testsuite.feature.basic.conftest import (
     mapped_models_fixtures,
     mixed_models_fixtures,
+    async_mapped_models_fixtures,
+    async_mixed_models_fixtures,
 )
 
 # 2. Import all test classes and functions from the generic test file.

@@ -8,7 +8,6 @@ from enum import Enum, auto
 from typing import TypeVar, Any, Dict
 
 # Define interface type variables
-ModelT = TypeVar('ModelT', bound='IActiveRecord')
 QueryT = TypeVar('QueryT', bound='IQuery')
 DictT = TypeVar('DictT', bound=Dict[str, Any])
 

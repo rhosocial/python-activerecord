@@ -1,520 +1,167 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/test_returning.py
-from unittest.mock import patch
-
+import sys
 import pytest
+from unittest.mock import patch, MagicMock
 
-from rhosocial.activerecord.backend.errors import ReturningNotSupportedError, OperationalError
+from rhosocial.activerecord.backend.base.returning import ReturningClauseMixin
+from rhosocial.activerecord.backend.errors import ReturningNotSupportedError
+from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteReturningHandler
-from rhosocial.activerecord.backend.dialect import ReturningOptions
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression import ReturningClause, Column, Literal
 
 
-def test_returning_not_supported():
-    """Test RETURNING clause not supported in older SQLite versions"""
-    # Mock SQLite version 3.34.0 (Before RETURNING support)
-    handler = SQLiteReturningHandler((3, 34, 0))
+# --- Unit tests for ReturningClauseMixin ---
 
-    # Test is_supported property
-    assert not handler.is_supported
+class TestReturningClauseMixin:
 
-    # Test format_clause raises ReturningNotSupportedError
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        handler.format_clause()
-    assert "RETURNING clause not supported in SQLite 3.34.0" in str(exc_info.value)
+    @pytest.fixture
+    def mixin_instance(self):
+        """Creates an instance of a class that uses ReturningClauseMixin for testing."""
+        class TestClass(ReturningClauseMixin):
+            def __init__(self):
+                self.dialect = DummyDialect()
 
-    # Test with specific columns
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        handler.format_clause(columns=["id", "name"])
-    assert "RETURNING clause not supported in SQLite 3.34.0" in str(exc_info.value)
+        return TestClass()
 
+    def test_process_returning_clause_with_none(self, mixin_instance):
+        assert mixin_instance._process_returning_clause(None) is None
 
-def test_returning_with_columns():
-    """Test RETURNING clause with specified columns"""
-    # Mock SQLite version 3.35.0 (RETURNING supported)
-    handler = SQLiteReturningHandler((3, 35, 0))
+    def test_process_returning_clause_with_false(self, mixin_instance):
+        assert mixin_instance._process_returning_clause(False) is None
 
-    # Test is_supported property
-    assert handler.is_supported
+    def test_process_returning_clause_with_true(self, mixin_instance):
+        returning_clause = mixin_instance._process_returning_clause(True)
+        assert isinstance(returning_clause, ReturningClause)
+        assert len(returning_clause.expressions) == 1
+        assert isinstance(returning_clause.expressions[0], Literal)
+        assert returning_clause.expressions[0].value == "*"
 
-    # Test single column
-    result = handler.format_clause(columns=["id"])
-    assert result == "RETURNING id"
+    def test_process_returning_clause_with_list_of_strings(self, mixin_instance):
+        returning_clause = mixin_instance._process_returning_clause(["id", "name"])
+        assert isinstance(returning_clause, ReturningClause)
+        assert len(returning_clause.expressions) == 2
+        assert isinstance(returning_clause.expressions[0], Column)
+        assert returning_clause.expressions[0].name == "id"
+        assert isinstance(returning_clause.expressions[1], Column)
+        assert returning_clause.expressions[1].name == "name"
 
-    # Test multiple columns
-    result = handler.format_clause(columns=["id", "name", "created_at"])
-    assert result == "RETURNING id, name, created_at"
+    def test_process_returning_clause_with_list_of_expressions(self, mixin_instance):
+        expressions = [Column(mixin_instance.dialect, "id"), Literal(mixin_instance.dialect, "test")]
+        returning_clause = mixin_instance._process_returning_clause(expressions)
+        assert isinstance(returning_clause, ReturningClause)
+        assert returning_clause.expressions == expressions
 
-    # Test without columns (should return all columns)
-    result = handler.format_clause()
-    assert result == "RETURNING *"
+    def test_process_returning_clause_with_returning_clause_object(self, mixin_instance):
+        original_clause = ReturningClause(mixin_instance.dialect, expressions=[Column(mixin_instance.dialect, "id")])
+        processed_clause = mixin_instance._process_returning_clause(original_clause)
+        assert processed_clause is original_clause
 
-    # Test empty columns list
-    result = handler.format_clause(columns=[])
-    assert result == "RETURNING *"
+    def test_process_returning_clause_with_invalid_type(self, mixin_instance):
+        with pytest.raises(ValueError, match="Unsupported returning type"):
+            mixin_instance._process_returning_clause(123)
 
+    def test_prepare_returning_clause(self, mixin_instance):
+        sql = "INSERT INTO users (name) VALUES ('test')"
+        returning_clause = ReturningClause(mixin_instance.dialect, expressions=[Column(mixin_instance.dialect, "id")])
+        returning_clause.to_sql = MagicMock(return_value=("RETURNING \"id\"", ()))
+        new_sql = mixin_instance._prepare_returning_clause(sql, returning_clause, StatementType.INSERT)
+        assert new_sql == "INSERT INTO users (name) VALUES ('test') RETURNING \"id\""
 
-def test_advanced_returning_format():
-    """Test advanced RETURNING clause format with expressions and aliases"""
-    # Mock SQLite version 3.35.0 (RETURNING supported)
-    handler = SQLiteReturningHandler((3, 35, 0))
+    def test_prepare_returning_clause_with_no_clause(self, mixin_instance):
+        sql = "DELETE FROM users WHERE id = 1"
+        new_sql = mixin_instance._prepare_returning_clause(sql, None, StatementType.DELETE)
+        assert new_sql == sql
 
-    # Test with columns and aliases
-    result = handler.format_advanced_clause(
-        columns=["id", "name"],
-        aliases={"id": "user_id", "name": "full_name"}
-    )
-    assert result == 'RETURNING id AS user_id, name AS full_name'
-
-    # Test with expressions
-    result = handler.format_advanced_clause(
-        expressions=[
-            {"expression": "count(*)", "alias": "total_count"},
-            {"expression": "avg(age)", "alias": "average_age"}
-        ]
-    )
-    assert result == 'RETURNING count(*) AS total_count, avg(age) AS average_age'
-
-    # Test with both columns and expressions
-    result = handler.format_advanced_clause(
-        columns=["id"],
-        expressions=[{"expression": "name || ' ' || surname", "alias": "full_name"}]
-    )
-    assert result == 'RETURNING id, name || \' \' || surname AS full_name'
-
-    # Test with no columns or expressions
-    result = handler.format_advanced_clause()
-    assert result == "RETURNING *"
+    def test_check_returning_compatibility(self, mixin_instance):
+        mixin_instance._check_returning_compatibility(None)
+        returning_clause = ReturningClause(mixin_instance.dialect, expressions=[Column(mixin_instance.dialect, "id")])
+        mixin_instance._check_returning_compatibility(returning_clause)
+        # No assertion needed, just that it doesn't raise an exception
 
 
-@patch('sqlite3.sqlite_version', '3.34.0')
-def test_backend_returning_not_supported():
-    """Test SQLite backend RETURNING functionality when not supported"""
+# --- Integration tests for SQLite RETURNING functionality ---
+
+@pytest.fixture
+def backend():
+    """Provides a SQLiteBackend instance connected to an in-memory database."""
     backend = SQLiteBackend(database=":memory:")
-
-    # Test supports_returning property
-    assert not backend.supports_returning
-
-    # Test execute with RETURNING as boolean
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        backend.execute(
-            "INSERT INTO users (name) VALUES (?)",
-            params=("test",),
-            returning=True
-        )
-    assert "RETURNING clause not supported" in str(exc_info.value)
-
-    # Test execute with RETURNING as column list
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        backend.execute(
-            "INSERT INTO users (name) VALUES (?)",
-            params=("test",),
-            returning=["id", "name"]
-        )
-    assert "RETURNING clause not supported" in str(exc_info.value)
-
-    # Test execute with ReturningOptions
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        backend.execute(
-            "INSERT INTO users (name) VALUES (?)",
-            params=("test",),
-            returning=ReturningOptions(enabled=True, columns=["id", "name"])
-        )
-    assert "RETURNING clause not supported" in str(exc_info.value)
-
-    # Test insert with RETURNING
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        backend.insert(
-            "users",
-            {"name": "test"},
-            returning=True
-        )
-    assert "RETURNING clause not supported" in str(exc_info.value)
-
-    # Test update with RETURNING
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        backend.update(
-            "users",
-            {"name": "updated"},
-            "id = ?",
-            (1,),
-            returning=True
-        )
-    assert "RETURNING clause not supported" in str(exc_info.value)
-
-    # Test delete with RETURNING
-    with pytest.raises(ReturningNotSupportedError) as exc_info:
-        backend.delete(
-            "users",
-            "id = ?",
-            (1,),
-            returning=True
-        )
-    assert "RETURNING clause not supported" in str(exc_info.value)
-
-
-@patch('sqlite3.sqlite_version', '3.35.0')
-def test_backend_returning_with_columns():
-    """Test SQLite backend RETURNING functionality with specified columns"""
-    backend = SQLiteBackend(database=":memory:")
-
-    # Test supports_returning property
-    assert backend.supports_returning
-
-    # Create a test table
-    backend.execute("""
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT,
-            created_at TIMESTAMP
-        )
-    """)
-
-    # Test insert with specific RETURNING columns as list
-    result = backend.insert(
-        "users",
-        {
-            "name": "test",
-            "email": "test@example.com",
-            "created_at": "2024-02-11 10:00:00"
-        },
-        returning=ReturningOptions(enabled=True, columns=["id", "name"], force=True)
-    )
-    assert result.data
-    assert len(result.data) == 1
-    assert "id" in result.data[0]
-    assert "name" in result.data[0]
-    assert "email" not in result.data[0]
-    assert "created_at" not in result.data[0]
-
-    # Test insert with ReturningOptions
-    result = backend.insert(
-        "users",
-        {
-            "name": "test_options",
-            "email": "options@example.com",
-            "created_at": "2024-02-11 10:00:00"
-        },
-        returning=ReturningOptions(enabled=True, columns=["id", "email"], force=True)
-    )
-    assert result.data
-    assert len(result.data) == 1
-    assert "id" in result.data[0]
-    assert "email" in result.data[0]
-    assert "name" not in result.data[0]
-    assert "created_at" not in result.data[0]
-
-    # Test update with specific RETURNING columns
-    result = backend.update(
-        "users",
-        {"name": "updated", "email": "updated@example.com"},
-        "id = ?",
-        (1,),
-        returning=ReturningOptions(enabled=True, columns=["name", "email"], force=True)
-    )
-    assert result.data
-    assert len(result.data) == 1
-    assert "id" not in result.data[0]
-    assert "name" in result.data[0]
-    assert "email" in result.data[0]
-    assert result.data[0]["name"] == "updated"
-    assert result.data[0]["email"] == "updated@example.com"
-
-    # Test delete with specific RETURNING columns and force=True
-    result = backend.delete(
-        "users",
-        "id = ?",
-        (1,),
-        returning=ReturningOptions(enabled=True, columns=["id"], force=True)
-    )
-    assert result.data
-    assert len(result.data) == 1
-    assert "id" in result.data[0]
-    assert "name" not in result.data[0]
-    assert "email" not in result.data[0]
-    assert result.data[0]["id"] == 1
-
-
-@patch('sqlite3.sqlite_version', '3.35.0')
-def test_returning_invalid_columns():
-    """Test RETURNING clause with invalid column names"""
-    backend = SQLiteBackend(database=":memory:")
-
-    # Create test table
-    backend.execute("""
+    backend.connect()
+    backend.execute(
+        """
         CREATE TABLE users (
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             name TEXT NOT NULL,
             email TEXT
         )
-    """)
-
-    # Test with single invalid column
-    with pytest.raises(OperationalError) as exc_info:
-        backend.insert(
-            "users",
-            {"name": "test", "email": "test@example.com"},
-            returning=ReturningOptions(enabled=True, columns=["nonexistent_column"], force=True)
-        )
-    assert "no such column: nonexistent_column" in str(exc_info.value).lower()
-
-    # Test with multiple invalid columns
-    with pytest.raises(OperationalError) as exc_info:
-        backend.insert(
-            "users",
-            {"name": "test", "email": "test@example.com"},
-            returning=ReturningOptions(enabled=True, columns=["invalid1", "invalid2"], force=True)
-        )
-    assert "no such column: invalid1" in str(exc_info.value).lower()
-
-    # Test with mix of valid and invalid columns
-    with pytest.raises(OperationalError) as exc_info:
-        backend.insert(
-            "users",
-            {"name": "test", "email": "test@example.com"},
-            returning=ReturningOptions(enabled=True, columns=["id", "nonexistent", "name"], force=True)
-        )
-    assert "no such column: nonexistent" in str(exc_info.value).lower()
-
-    # Test update with invalid columns
-    with pytest.raises(OperationalError) as exc_info:
-        backend.update(
-            "users",
-            {"name": "updated"},
-            "id = ?",
-            (1,),
-            returning=ReturningOptions(enabled=True, columns=["id", "fake_column"], force=True)
-        )
-    assert "no such column: fake_column" in str(exc_info.value).lower()
-
-    # Test delete with invalid columns
-    with pytest.raises(OperationalError) as exc_info:
-        backend.delete(
-            "users",
-            "id = ?",
-            (1,),
-            returning=ReturningOptions(enabled=True, columns=["id", "ghost_column"], force=True)
-        )
-    assert "no such column: ghost_column" in str(exc_info.value).lower()
-
-
-def test_column_name_validation():
-    """Test handling of column names with special characters"""
-    backend = SQLiteBackend(database=":memory:")
-
-    # Create test table with quoted column names
-    backend.execute('''
-        CREATE TABLE items (
-            id INTEGER PRIMARY KEY,
-            "special name" TEXT,
-            "with.dot" TEXT,
-            "with space" TEXT
-        )
-    ''')
-
-    # Verify table creation
-    result = backend.execute(
-        "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='items'",
-        returning=True
+        """,
+        options=ExecutionOptions(stmt_type=StatementType.DDL)
     )
-    assert result.data[0]['cnt'] == 1
+    yield backend
+    backend.disconnect()
 
-    # Insert test data with quoted column names
-    result = backend.insert(
-        "items",
-        {
-            '"special name"': "test1",
-            '"with.dot"': "test2",
-            '"with space"': "test3"
-        },
-        returning=ReturningOptions(
-            enabled=True,
-            columns=['"special name"', '"with.dot"', '"with space"'],
-            force=True
-        )
-    )
 
-    assert result.data
+@patch('sqlite3.sqlite_version_info', (3, 35, 0))
+def test_returning_with_insert(backend):
+    """Tests INSERT with RETURNING on a supported version."""
+    sql = "INSERT INTO users (name, email) VALUES (?, ?) RETURNING id, name"
+    params = ("Alice", "alice@example.com")
+    options = ExecutionOptions(stmt_type=StatementType.DQL)
+
+    result = backend.execute(sql, params, options=options)
+
+    # Note: With RETURNING clause, affected_rows may be 0 in some Python versions due to SQLite behavior
+    # The important thing is that data is returned
+    assert result.data is not None
     assert len(result.data) == 1
-    # SQLite returns unquoted column names in result
-    assert 'special name' in result.data[0]
-    assert 'with.dot' in result.data[0]
-    assert 'with space' in result.data[0]
-    assert result.data[0]['special name'] == 'test1'
-    assert result.data[0]['with.dot'] == 'test2'
-    assert result.data[0]['with space'] == 'test3'
+    assert result.data[0]['id'] == 1
+    assert result.data[0]['name'] == 'Alice'
 
-    # Test with SQL injection patterns in column names
-    dangerous_patterns = [
-        "column;",  # Semicolon
-        "column--",  # Comment
-        "columnUNIONx",  # UNION keyword
-        "xSELECTcolumn",  # SELECT keyword
-        "columnDROPx"  # DROP keyword
-    ]
+@patch('sqlite3.sqlite_version_info', (3, 35, 0))
+def test_returning_with_update(backend):
+    """Tests UPDATE with RETURNING on a supported version."""
+    backend.execute("INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')", options=ExecutionOptions(stmt_type=StatementType.DML))
 
-    for pattern in dangerous_patterns:
-        with pytest.raises(ValueError) as exc_info:
-            backend.insert(
-                "items",
-                {'"special name"': "test"},
-                returning=ReturningOptions(
-                    enabled=True,
-                    columns=[pattern],
-                    force=True
-                )
-            )
-        assert "Invalid column name" in str(exc_info.value)
+    sql = "UPDATE users SET email = ? WHERE name = ? RETURNING id, email"
+    params = ("bob_new@example.com", "Bob")
+    options = ExecutionOptions(stmt_type=StatementType.DQL)
 
+    result = backend.execute(sql, params, options=options)
 
-def test_column_name_safety():
-    """Test column name safety checks"""
-    backend = SQLiteBackend(database=":memory:")
-
-    # Create test table
-    backend.execute("""
-        CREATE TABLE data (
-            id INTEGER PRIMARY KEY,
-            name TEXT
-        )
-    """)
-
-    # Verify table creation
-    table_check = backend.execute(
-        "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='data'", returning=True
-    )
-    assert table_check.data[0]['cnt'] == 1
-
-    # Test with potentially dangerous column names
-    dangerous_columns = [
-        'id;drop table data;',
-        'id);drop table data;',
-        'id union select id from data',
-        'id",name);--',
-        'id from data;--'
-    ]
-
-    for col in dangerous_columns:
-        # All dangerous column names should be caught by validation
-        with pytest.raises(ValueError) as exc_info:
-            backend.insert(
-                "data",
-                {"name": "test"},
-                returning=ReturningOptions(
-                    enabled=True,
-                    columns=[col],
-                    force=True
-                )
-            )
-        assert "Invalid column name" in str(exc_info.value)
-
-        # Verify table still exists after each attempt
-        result = backend.execute(
-            "SELECT count(*) as cnt FROM sqlite_master WHERE type='table' AND name='data'",
-            returning=True
-        )
-        assert result.data[0]['cnt'] == 1
-
-
-import sys
-
-is_py38_39 = sys.version_info >= (3, 8) and sys.version_info < (3, 10)
-
-py38_39_only = pytest.mark.skipif(
-    not is_py38_39,
-    reason="This test is specific to Python 3.8 and 3.9"
-)
-
-
-@py38_39_only
-def test_python38_returning_with_quoted_columns():
-    """Test RETURNING clause handling in Python 3.8/3.9 with quoted column names"""
-    backend = SQLiteBackend(database=":memory:")
-
-    # Create test table
-    backend.execute('''
-        CREATE TABLE special_items (
-            id INTEGER PRIMARY KEY,
-            "special name" TEXT,
-            "with.dot" TEXT,
-            "with space" TEXT
-        )
-    ''')
-
-    # Single insert with returning
-    result = backend.insert(
-        "special_items",
-        {
-            '"special name"': "test1",
-            '"with.dot"': "test2",
-            '"with space"': "test3"
-        },
-        returning=ReturningOptions(
-            enabled=True,
-            columns=['"special name"', '"with.dot"', '"with space"'],
-            force=True
-        )
-    )
-
-    # Verify result structure
-    assert result.affected_rows == 0  # For known reasons, the return value here is always zero.
+    # Note: With RETURNING clause, affected_rows may be 0 in some Python versions due to SQLite behavior
+    # The important thing is that data is returned
+    assert result.data is not None
     assert len(result.data) == 1
-    row = result.data[0]
-    assert 'special name' in row
-    assert 'with.dot' in row
-    assert 'with space' in row
-    assert row['special name'] == 'test1'
-    assert row['with.dot'] == 'test2'
-    assert row['with space'] == 'test3'
-
-    # Multiple sequential inserts
-    for i in range(3):
-        result = backend.insert(
-            "special_items",
-            {
-                '"special name"': f"batch{i}",
-                '"with.dot"': f"dot{i}",
-                '"with space"': f"space{i}"
-            },
-            returning=ReturningOptions(
-                enabled=True,
-                columns=['"special name"', '"with.dot"', '"with space"'],
-                force=True
-            )
-        )
-        assert result.affected_rows == 1
-        assert len(result.data) == 1
-        row = result.data[0]
-        assert row['special name'] == f"batch{i}"
-        assert row['with.dot'] == f"dot{i}"
-        assert row['with space'] == f"space{i}"
+    assert result.data[0]['id'] == 1
+    assert result.data[0]['email'] == 'bob_new@example.com'
 
 
-def test_returning_options_factory_methods():
-    """Test ReturningOptions factory methods"""
-    # Test from_legacy
-    options = ReturningOptions.from_legacy(True, True)
-    assert options.enabled
-    assert options.force
-    assert not options.columns
+@patch('sqlite3.sqlite_version_info', (3, 35, 0))
+def test_returning_with_delete(backend):
+    """Tests DELETE with RETURNING on a supported version."""
+    backend.execute("INSERT INTO users (name, email) VALUES ('Charlie', 'charlie@example.com')", options=ExecutionOptions(stmt_type=StatementType.DML))
 
-    # Test columns_only
-    options = ReturningOptions.columns_only(["id", "name"])
-    assert options.enabled
-    assert not options.force
-    assert options.columns == ["id", "name"]
+    sql = "DELETE FROM users WHERE name = ? RETURNING id, name"
+    params = ("Charlie",)
+    options = ExecutionOptions(stmt_type=StatementType.DQL)
 
-    # Test with_expressions
-    expr = [{"expression": "COUNT(*)", "alias": "count"}]
-    aliases = {"id": "user_id"}
-    options = ReturningOptions.with_expressions(expr, aliases, True)
-    assert options.enabled
-    assert options.force
-    assert options.expressions == expr
-    assert options.aliases == aliases
+    result = backend.execute(sql, params, options=options)
 
-    # Test all_columns
-    options = ReturningOptions.all_columns(True)
-    assert options.enabled
-    assert options.force
-    assert not options.has_column_specification()
+    # Note: With RETURNING clause, affected_rows may be 0 in some Python versions due to SQLite behavior
+    # The important thing is that data is returned
+    assert result.data is not None
+    assert len(result.data) == 1
+    assert result.data[0]['id'] == 1
+    assert result.data[0]['name'] == 'Charlie'
+
+
+@patch('sqlite3.sqlite_version_info', (3, 34, 0))
+def test_returning_unsupported_sqlite_version(backend):
+    """Tests that RETURNING raises an error on unsupported SQLite versions."""
+    returning_clause = ReturningClause(backend.dialect, [Column(backend.dialect, "id")])
+
+    with pytest.raises(ReturningNotSupportedError, match="RETURNING clause requires SQLite 3.35.0+"):
+        backend._check_returning_compatibility(returning_clause)
+
+

@@ -1,0 +1,247 @@
+patterns:
+  # Backend implementation recognition
+  backend_implementation:
+    pattern: "backend/impl/([^/]+)/"
+    extract: backend_name
+    context: |
+      This is **{backend_name}** backend implementation.
+      
+      Files to check:
+      - {backend_name}/backend.py - StorageBackend implementation
+      - {backend_name}/dialect.py - SQLDialect implementation
+      - {backend_name}/config.py - Connection configuration
+      - {backend_name}/type_adapter.py - Type adapter
+      
+      Reference: .gemini/backend_development.md
+
+  # Expression component recognition
+  expression_component:
+    pattern: "backend/expression/([^/]+)\\.py$"
+    extract: component
+    context: |
+      This is **{component}** module of the Expression system.
+      
+      Expression system modules:
+      - bases.py - Abstract base classes and Protocols
+      - core.py - Core expressions like Column, Literal
+      - mixins.py - Operator overloading Mixins
+      - operators.py - SQL operators (AND, OR, NOT)
+      - predicates.py - Predicate expressions
+      - query_parts.py - Query clauses (WHERE, ORDER BY, LIMIT)
+      - statements.py - DML/DDL statements
+      - functions.py - Factory functions
+      - aggregates.py - Aggregate functions
+      - advanced_functions.py - Advanced SQL features
+      - query_sources.py - Data source expressions
+      - graph.py - Graph query expressions
+      
+      ⚠️ **Important**: Expression classes must not generate SQL, must delegate to dialect!
+
+  # Field type recognition
+  field_type:
+    pattern: "field/([^/]+)\\.py$"
+    extract: field_name
+    context: |
+      This is **{field_name}** field type implementation.
+      
+      Common field types:
+      - timestamp.py - Timestamp fields (created_at, updated_at)
+      - uuid.py - UUID fields
+      - soft_delete.py - Soft delete fields
+      - version.py - Optimistic locking version fields
+      
+      Implementation points:
+      1. Inherit from BaseField or appropriate Mixin
+      2. May need to register TypeAdapter
+      3. Ensure Pydantic v2 compatibility
+
+  # Query class recognition
+  query_class:
+    pattern: "query/([^/]+)\\.py$"
+    extract: query_name
+    context: |
+      This is **{query_name}** query implementation.
+      
+      Query class hierarchy:
+      - query_base.py - QueryBase abstract base class
+      - active_query.py - Standard queries (SELECT, WHERE, ORDER BY)
+      - cte_query.py - CTE queries (WITH clause)
+      - set_operation_query.py - Set operations (UNION, INTERSECT, EXCEPT)
+      - eager_load.py - Eager loading implementation
+      
+      Note: Each sync Query class should have corresponding Async version!
+
+  # Relation component recognition
+  relation_component:
+    pattern: "relation/([^/]+)\\.py$"
+    extract: component
+    context: |
+      This is **{component}** module of the Relation system.
+      
+      Relation system:
+      - relation.py - Relation definition and implementation
+      - cache.py - Relation cache (InstanceCache)
+      - descriptor.py - Relation descriptors (for lazy loading)
+
+  # Test category recognition
+  test_category:
+    pattern: "tests/.*/feature/([^/]+)/"
+    extract: category
+    context: |
+      This is **{category}** category feature tests.
+      
+      Test categories:
+      - basic - Basic CRUD operations
+      - query - Query features (WHERE, JOIN, CTE, Aggregate)
+      - relation - Relation operations
+      - events - Event hooks
+      - mixins - Mixin functionality
+      - backend - Backend interface tests
+      
+      **Testing Parity Principles**:
+      - Fixtures: `order_fixtures` → `async_order_fixtures` (add async_ prefix)
+      - Test classes: `TestQuery` → `TestAsyncQuery` (add Async prefix)
+      - Test methods: Method names completely identical
+      - Schema: Sync/async share same .sql files
+      
+      Run tests:
+      ```
+      /test-feature {category}
+      ```
+
+  # Test fixture recognition
+  test_fixture:
+    pattern: "conftest\\.py$"
+    context: |
+      This is pytest fixture configuration file.
+      
+      **Fixture Parity**:
+      - Each sync fixture must have corresponding async version
+      - Naming convention: `fixtures` → `async_fixtures` (add `async_` prefix)
+      - Schema files: Sync and async share same .sql files
+      
+      Example:
+      ```python
+      # Sync fixture
+      @pytest.fixture
+      def order_fixtures(backend_provider):
+          return backend_provider.setup_order_fixtures(scenario)
+      
+      # Async fixture - add async_ prefix
+      @pytest.fixture
+      def async_order_fixtures(backend_provider):
+          return backend_provider.setup_async_order_fixtures(scenario)
+      ```
+
+  # Test Schema file recognition
+  test_schema:
+    pattern: "tests/.*/schema/([^/]+)\\.sql$"
+    extract: schema_name
+    context: |
+      This is test SQL Schema file: **{schema_name}.sql**.
+      
+      **Schema Sharing Principle**:
+      - Schema files are shared between sync and async tests
+      - No need to create separate async_*.sql files
+      - Provider configures same table structure for sync/async tests
+      
+      Location: `tests/rhosocial/activerecord_test/feature/{category}/schema/`
+
+  # Interface definition recognition
+  interface_definition:
+    pattern: "interface/([^/]+)\\.py$"
+    extract: interface_name
+    context: |
+      This is **{interface_name}** interface definition.
+      
+      Interface directory contains:
+      - IActiveRecord - ActiveRecord interface
+      - IAsyncActiveRecord - Async ActiveRecord interface
+      - IQuery - Query interface
+      - ...
+      
+      Project uses Protocol for interface definitions, allowing structural subtyping.
+
+  # Mixin recognition
+  mixin_component:
+    pattern: "base/([^/]+)_mixin\\.py$|mixins?/([^/]+)\\.py$"
+    extract: mixin_name
+    context: |
+      This is **{mixin_name}** Mixin implementation.
+      
+      Mixins add reusable functionality to ActiveRecord:
+      - Add functionality via composition rather than inheritance
+      - Usually add fields and behaviors
+      - Common Mixins: TimestampMixin, SoftDeleteMixin, VersionMixin
+
+  # Changelog fragment recognition
+  changelog_fragment:
+    pattern: "changelog\\.d/(\\d+)\\.([^.]+)\\.md$"
+    extract:
+      - issue: 1
+      - type: 2
+    context: |
+      This is Issue #{issue} **{type}** type changelog fragment.
+      
+      Type descriptions:
+      - added - New feature
+      - fixed - Bug fix
+      - changed - Change
+      - deprecated - Deprecation
+      - removed - Removal
+      - security - Security fix
+      - performance - Performance optimization
+      - docs - Documentation
+      - internal - Internal changes
+
+  # Dialect recognition
+  dialect_implementation:
+    pattern: "(dialect.*\\.py|[^/]+_dialect\\.py)$"
+    extract: dialect_file
+    context: |
+      This is Dialect implementation file.
+      
+      Dialect responsibilities:
+      1. Generate database-specific SQL syntax
+      2. Implement `format_*` methods for SQL formatting
+      3. Implement protocol methods (supports_*)
+      
+      Key methods:
+      - format_identifier() - Identifier quoting
+      - format_string_literal() - String literals
+      - format_column_reference() - Column references
+      - supports_returning_clause() - Feature detection
+
+  # TypeAdapter recognition
+  type_adapter:
+    pattern: "type_adapter.*\\.py$|[^/]+_adapter\\.py$"
+    context: |
+      This is TypeAdapter implementation.
+      
+      TypeAdapter responsibilities:
+      - Bidirectional conversion between Python types and database types
+      - Register with StorageBackend
+      - Handle backend-specific type differences
+      
+      Reference: `src/rhosocial/activerecord/backend/base/type_adapter.py`
+
+file_associations:
+  # When opening specific files, auto-associate related files
+  "backend/impl/([^/]+)/backend\\.py":
+    related:
+      - "backend/impl/{1}/dialect.py"
+      - "backend/impl/{1}/config.py"
+      - "backend/impl/{1}/type_adapter.py"
+    context: "This is {1} backend core implementation, check corresponding dialect and config files."
+
+  "query/([^/]+)\\.py":
+    related:
+      - "query/async_{1}.py"
+      - "query/query_base.py"
+    context: "Sync Query class, check for corresponding Async version."
+
+  "base/base\\.py":
+    related:
+      - "base/async_base.py"
+      - "interface/__init__.py"
+    context: "BaseActiveRecord implementation, check async version and interface definitions."

@@ -1,9 +1,8 @@
 # src/rhosocial/activerecord/field/integer_pk.py
 """Module providing integer primary key functionality."""
-from ..interface import IActiveRecord
 
 
-class IntegerPKMixin(IActiveRecord):
+class IntegerPKMixin:
     """Integer Primary Key Mixin
 
     Provides support for integer-based primary keys in models.

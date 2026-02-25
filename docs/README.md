@@ -1,35 +1,17 @@
-# rhosocial ActiveRecord 文档 / rhosocial ActiveRecord Documentation
+# rhosocial-activerecord
 
-欢迎使用 rhosocial ActiveRecord 文档！/ Welcome to the rhosocial ActiveRecord documentation!
+A modern, type-safe, and high-performance Active Record implementation for Python, built on top of Pydantic V2 and a verifiable Backend Expression System.
 
-## 可用语言 / Available Languages
+## Documentation / 文档
 
-- [English](en_US/README.md)
-- [简体中文](zh_CN/README.md)
+Please select your language / 请选择语言:
 
-## 📋 实施状态总览 / Implementation Status Overview
+- [English Documentation](en_US/README.md)
+- [中文文档 (Chinese)](zh_CN/README.md)
 
-> **⚠️ 开发状态通知 / DEVELOPMENT STATUS NOTICE**: 本文档集中包含已实现的功能和计划中的功能（假设功能）。某些部分描述的功能尚未提供。请参阅各个文档部分的具体实施状态指示，如"❌ 未实现/NOT IMPLEMENTED"，"⚠️ 部分实现/PARTIALLY IMPLEMENTED"或"🔄 已实现/IMPLEMENTED"。
+## Key Features
 
-### 当前实施状态 / Current Implementation Status
-- **核心CRUD操作 / Core CRUD Operations**: ✅ Fully implemented
-- **关系管理 / Relationship Management**: ✅ Implemented (basic relationships)
-- **查询构建 / Query Building**: ✅ Implemented (basic to intermediate features)
-- **异步支持 / Async Support**: ❌ Not implemented
-- **跨数据库查询 / Cross-database Queries**: ❌ Not implemented
-- **批量操作 / Batch Operations**: ❌ Not implemented
-- **高级功能 / Advanced Features**: ⚠️ Partially implemented
-
-有关每个功能的详细实施状态，请参阅具体文档部分。/ For detailed implementation status of each feature, please refer to the specific documentation sections.
-
-## 关于 rhosocial ActiveRecord / About rhosocial ActiveRecord
-
-**中文**：
-rhosocial ActiveRecord 是一个现代的、Pythonic 的 ActiveRecord 模式实现，为数据库操作提供了优雅直观的接口，具有类型安全和丰富的功能。
-
-详细信息请查看对应语言的文档。
-
-**English**：
-rhosocial ActiveRecord is a modern, Pythonic implementation of the ActiveRecord design pattern, providing an elegant and intuitive interface for database operations with type safety and rich features. This library has made significant innovations on the traditional ActiveRecord pattern.
-
-Please refer to the documentation in your preferred language for detailed information.
+- **Gradual ORM**: Seamlessly switch between Type-Safe Objects (OLTP) and Raw Data Dictionaries (OLAP).
+- **Zero-IO Testing**: Verify SQL generation logic without a database connection using `DummyBackend`.
+- **Pydantic V2 Native**: Leveraging the fastest validation library for robust data modeling.
+- **Backend Expression System**: A verifiable, protocol-oriented SQL generation layer.

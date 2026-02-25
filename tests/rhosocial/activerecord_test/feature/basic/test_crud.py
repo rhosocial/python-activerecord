@@ -24,6 +24,9 @@ from rhosocial.activerecord.testsuite.feature.basic.conftest import (
     type_case_class,
     type_test_model,
     validated_user_class,
+    async_user_class,
+    async_type_case_class,
+    async_validated_user_class,
 )
 
 # By importing *, we bring all the test functions (e.g., `test_create_user`)

@@ -1,39 +1,32 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/backend.py
-from sqlite3 import ProgrammingError
+"""
+SQLite-specific implementation of the StorageBackend.
 
+This module provides the concrete implementation for interacting with SQLite databases,
+handling connections, queries, transactions, and type adaptations tailored for SQLite's
+specific behaviors and SQL dialect.
+"""
 import logging
 import re
 import sqlite3
 import sys
 import time
+from datetime import datetime
 from typing import Optional, Tuple, List, Any, Dict, Union, Type
 
+from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from .config import SQLiteConnectionConfig
+from ...options import InsertOptions, UpdateOptions, DeleteOptions
+from ...result import QueryResult
 from .dialect import SQLiteDialect, SQLDialectBase
 from .transaction import SQLiteTransactionManager
-from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from ...base import StorageBackend
-from ...capabilities import (
-    DatabaseCapabilities,
-    CTECapability,
-    JSONCapability,
-    TransactionCapability,
-    BulkOperationCapability,
-    JoinCapability,
-    ConstraintCapability,
-    AggregateFunctionCapability,
-    DateTimeFunctionCapability,
-    StringFunctionCapability,
-    MathematicalFunctionCapability,
-    ALL_SET_OPERATIONS,
-    ALL_WINDOW_FUNCTIONS,
-    ALL_RETURNING_FEATURES
-)
-from ...dialect import ReturningOptions
+from ...options import ExecutionOptions
 from ...errors import ConnectionError, IntegrityError, OperationalError, QueryError, DeadlockError, DatabaseError, \
     ReturningNotSupportedError, JsonOperationNotSupportedError
-from ...typing import QueryResult, DatabaseType
+from ...result import QueryResult
 from ...type_adapter import SQLTypeAdapter
+from ...expression.statements import ReturningClause
 
 
 class SQLiteBackend(StorageBackend):
@@ -83,107 +76,6 @@ class SQLiteBackend(StorageBackend):
         # Register SQLite-specific adapters
         self._register_sqlite_adapters()
 
-    def _initialize_capabilities(self) -> DatabaseCapabilities:
-        """Initialize SQLite capabilities based on version.
-        
-        This method declares the capabilities that SQLite supports, taking into
-        account version-specific feature availability. The capability system
-        allows tests and application code to check for feature support before
-        using features, preventing runtime errors on SQLite versions that
-        don't support certain features.
-        """
-        capabilities = DatabaseCapabilities()
-        version = self.get_server_version()
-
-        # Basic capabilities supported by most versions
-        capabilities.add_set_operation(ALL_SET_OPERATIONS)
-        capabilities.add_join_operation([
-            JoinCapability.INNER_JOIN,
-            JoinCapability.LEFT_OUTER_JOIN,
-            JoinCapability.CROSS_JOIN
-        ])
-        capabilities.add_transaction(TransactionCapability.SAVEPOINT)
-        capabilities.add_bulk_operation(BulkOperationCapability.BATCH_OPERATIONS)
-        capabilities.add_constraint([
-            ConstraintCapability.PRIMARY_KEY,
-            ConstraintCapability.FOREIGN_KEY,
-            ConstraintCapability.UNIQUE,
-            ConstraintCapability.NOT_NULL,
-            ConstraintCapability.DEFAULT
-        ])
-        capabilities.add_datetime_function(DateTimeFunctionCapability.STRFTIME)
-        capabilities.add_aggregate_function(AggregateFunctionCapability.GROUP_CONCAT)
-
-        # CTEs supported from 3.8.3+
-        if version >= (3, 8, 3):
-            capabilities.add_cte([
-                CTECapability.BASIC_CTE,
-                CTECapability.RECURSIVE_CTE
-            ])
-
-        # JSON operations supported from 3.9.0+
-        if version >= (3, 9, 0):
-            capabilities.add_json([
-                JSONCapability.JSON_EXTRACT,
-                JSONCapability.JSON_CONTAINS,
-                JSONCapability.JSON_EXISTS,
-                JSONCapability.JSON_KEYS,
-                JSONCapability.JSON_ARRAY,
-                JSONCapability.JSON_OBJECT
-            ])
-            
-        # UPSERT (ON CONFLICT) supported from 3.24.0+
-        if version >= (3, 24, 0):
-            capabilities.add_bulk_operation(BulkOperationCapability.UPSERT)
-
-        # Window functions supported from 3.25.0+
-        if version >= (3, 25, 0):
-            capabilities.add_window_function(ALL_WINDOW_FUNCTIONS)
-
-        # RETURNING clause and built-in math functions supported from 3.35.0+
-        if version >= (3, 35, 0):
-            capabilities.add_returning(ALL_RETURNING_FEATURES)
-            capabilities.add_mathematical_function([
-                MathematicalFunctionCapability.ABS,
-                MathematicalFunctionCapability.ROUND,
-                MathematicalFunctionCapability.CEIL,
-                MathematicalFunctionCapability.FLOOR,
-                MathematicalFunctionCapability.POWER,
-                MathematicalFunctionCapability.SQRT
-            ])
-
-        # STRICT tables supported from 3.37.0+
-        if version >= (3, 37, 0):
-            capabilities.add_constraint(ConstraintCapability.STRICT_TABLES)
-
-        # Additional JSON functions from 3.38.0+
-        if version >= (3, 38, 0):
-            capabilities.add_json([
-                JSONCapability.JSON_SET,
-                JSONCapability.JSON_INSERT,
-                JSONCapability.JSON_REPLACE,
-                JSONCapability.JSON_REMOVE
-            ])
-
-        # RIGHT and FULL OUTER JOIN supported from 3.39.0+
-        if version >= (3, 39, 0):
-            capabilities.add_join_operation([
-                JoinCapability.RIGHT_OUTER_JOIN,
-                JoinCapability.FULL_OUTER_JOIN
-            ])
-            
-        # CONCAT functions supported from 3.44.0+
-        if version >= (3, 44, 0):
-            capabilities.add_string_function([
-                StringFunctionCapability.CONCAT,
-                StringFunctionCapability.CONCAT_WS
-            ])
-            
-        # JSONB support from 3.45.0+
-        if version >= (3, 45, 0):
-            capabilities.add_json(JSONCapability.JSONB_SUPPORT)
-
-        return capabilities
 
     def _register_sqlite_adapters(self):
         """Register SQLite-specific type adapters to the adapter_registry."""
@@ -237,6 +129,10 @@ class SQLiteBackend(StorageBackend):
 
         type_mappings = [
             (bool, int),        # Python bool -> DB driver int (SQLite INTEGER)
+            # Why TEXT for date/time?
+            # 1. SQLite's TIMESTAMP has limited range.
+            # 2. SQLite's flexible typing allows TIMESTAMP to accept TEXT.
+            # To avoid ambiguity, we explicitly use TEXT.
             (datetime, str),    # Python datetime -> DB driver str (SQLite TEXT)
             (date, str),        # Python date -> DB driver str (SQLite TEXT)
             (time, str),        # Python time -> DB driver str (SQLite TEXT)
@@ -315,6 +211,7 @@ class SQLiteBackend(StorageBackend):
     def connect(self) -> None:
         """Establish a connection to the SQLite database."""
         try:
+            sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode('utf-8')))
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
             self._connection = sqlite3.connect(
                 self.config.database,
@@ -328,7 +225,7 @@ class SQLiteBackend(StorageBackend):
             self._apply_pragmas()
 
             self._connection.row_factory = sqlite3.Row
-            self._connection.text_factory = str
+
             self.log(logging.INFO, "Connected to SQLite database successfully")
         except sqlite3.Error as e:
             self.log(logging.ERROR, f"Failed to connect to SQLite database: {str(e)}")
@@ -445,52 +342,8 @@ class SQLiteBackend(StorageBackend):
             return False
 
     @property
-    def is_sqlite(self) -> bool:
-        """Flag to identify SQLite backend for compatibility checks"""
-        return True
 
-    def _get_statement_type(self, sql: str) -> str:
-        """
-        Parse the SQL statement type from the query.
 
-        SQLite supports pragmas which start with 'PRAGMA'.
-        Also handles CTE queries that start with 'WITH'.
-
-        Args:
-            sql: SQL statement
-
-        Returns:
-            str: Statement type in uppercase
-        """
-        # Strip comments and whitespace for better detection
-        clean_sql = re.sub(r'--.*$', '', sql, flags=re.MULTILINE).strip()
-
-        # Check if SQL is empty after cleaning
-        if not clean_sql:
-            return ""
-
-        upper_sql = clean_sql.upper()
-
-        # Check for PRAGMA statements
-        if upper_sql.startswith('PRAGMA'):
-            return 'PRAGMA'
-
-        # Check for CTE queries (WITH ... SELECT)
-        if upper_sql.startswith('WITH'):
-            # Find the main statement type after WITH clause
-            # Look for SELECT, INSERT, UPDATE, DELETE after the closing parenthesis
-            # of the CTE definition
-            for main_type in ['SELECT', 'INSERT', 'UPDATE', 'DELETE']:
-                if main_type in upper_sql:
-                    # Find the position of the main statement type
-                    # This is a simple approach that works for most cases
-                    # More complex cases might need a SQL parser
-                    return main_type
-            # If no main type found, default to SELECT (most common)
-            return 'SELECT'
-
-        # Default to base implementation
-        return super()._get_statement_type(clean_sql)
 
     def _is_select_statement(self, stmt_type: str) -> bool:
         """
@@ -506,7 +359,7 @@ class SQLiteBackend(StorageBackend):
         """
         return stmt_type in ("SELECT", "EXPLAIN", "PRAGMA", "ANALYZE")
 
-    def _check_returning_compatibility(self, options: ReturningOptions) -> None:
+    def _check_returning_compatibility(self, returning_clause: Optional['ReturningClause']) -> None:
         """
         Check compatibility issues with RETURNING clause in SQLite.
 
@@ -514,27 +367,25 @@ class SQLiteBackend(StorageBackend):
         affected_rows is always reported as 0.
 
         Args:
-            options: RETURNING options
+            returning_clause: ReturningClause object to check compatibility for
 
         Raises:
-            ReturningNotSupportedError: If compatibility issues found and not forced
+            ReturningNotSupportedError: If compatibility issues found
         """
         # Check SQLite version support
         version = sqlite3.sqlite_version_info
-        if version < (3, 35, 0) and not options.force:
+        if version < (3, 35, 0):
             error_msg = (
                 f"RETURNING clause requires SQLite 3.35.0+. Current version: {sqlite3.sqlite_version}. "
-                f"Use force=True to attempt anyway if your SQLite binary supports it."
             )
             self.log(logging.WARNING, error_msg)
             raise ReturningNotSupportedError(error_msg)
 
         # Check Python version compatibility
-        if sys.version_info < (3, 10) and not options.force:
+        if sys.version_info < (3, 10):
             error_msg = (
                 "RETURNING clause has known issues in Python < 3.10 with SQLite: "
-                "affected_rows always reports 0 regardless of actual rows affected. "
-                "Use force=True to use anyway if you understand these limitations."
+                "affected_rows always reports 0 regardless of actual rows affected."
             )
             self.log(logging.WARNING, error_msg)
             raise ReturningNotSupportedError(error_msg)
@@ -546,12 +397,8 @@ class SQLiteBackend(StorageBackend):
         Returns:
             sqlite3.Cursor: SQLite cursor with row factory
         """
-        if self._cursor:
-            return self._cursor
-
-        # Create cursor with SQLite Row factory for dict-like access
-        cursor = self._connection.cursor()
-        return cursor
+        # Always create a new cursor to avoid state-related issues.
+        return self._connection.cursor()
 
     def _handle_auto_commit_if_needed(self) -> None:
         """
@@ -732,12 +579,74 @@ class SQLiteBackend(StorageBackend):
             self._transaction_manager = SQLiteTransactionManager(self._connection, self.logger)
         return self._transaction_manager
 
-    @property
-    def supports_returning(self) -> bool:
-        """Check if SQLite version supports RETURNING clause"""
-        supported = tuple(map(int, sqlite3.sqlite_version.split('.'))) >= (3, 35, 0)
-        self.log(logging.DEBUG, f"RETURNING clause support: {supported}")
-        return supported
+    def insert(self, options: InsertOptions) -> QueryResult:
+        """
+        Insert a record with special handling for RETURNING clause behavior across Python versions.
+
+        In some Python versions (e.g., 3.8) with RETURNING clauses, cursor.rowcount may return 0
+        even when the operation is successful. This method ensures consistent behavior by
+        checking if data was returned when affected_rows is 0, and adjusting accordingly.
+        """
+        # Call the parent implementation
+        result = super().insert(options)
+
+        # Special handling for RETURNING clause: if affected_rows is 0 but we have returned data,
+        # this indicates the operation was successful despite cursor.rowcount behavior
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            # Adjust affected_rows to reflect the successful operation
+            result.affected_rows = len(result.data)
+
+        return result
+
+    def update(self, options: UpdateOptions) -> QueryResult:
+        """
+        Update records with special handling for RETURNING clause behavior across Python versions.
+
+        In some Python versions (e.g., 3.8) with RETURNING clauses, cursor.rowcount may return 0
+        even when the operation is successful. This method ensures consistent behavior by
+        checking if data was returned when affected_rows is 0, and adjusting accordingly.
+        """
+        # Call the parent implementation
+        result = super().update(options)
+
+        # Special handling for RETURNING clause: if affected_rows is 0 but we have returned data,
+        # this indicates the operation was successful despite cursor.rowcount behavior
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            # Adjust affected_rows to reflect the successful operation
+            result.affected_rows = len(result.data)
+
+        return result
+
+    def delete(self, options: DeleteOptions) -> QueryResult:
+        """
+        Delete records with special handling for RETURNING clause behavior across Python versions.
+
+        In some Python versions (e.g., 3.8) with RETURNING clauses, cursor.rowcount may return 0
+        even when the operation is successful. This method ensures consistent behavior by
+        checking if data was returned when affected_rows is 0, and adjusting accordingly.
+        """
+        # Call the parent implementation
+        result = super().delete(options)
+
+        # Special handling for RETURNING clause: if affected_rows is 0 but we have returned data,
+        # this indicates the operation was successful despite cursor.rowcount behavior
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            # Adjust affected_rows to reflect the successful operation
+            result.affected_rows = len(result.data)
+
+        return result
 
     def get_server_version(self) -> tuple:
         """Get SQLite version

@@ -1,9 +1,12 @@
 # src/rhosocial/activerecord/field/version.py
 """Module providing version control functionality."""
-from typing import Tuple, Any, Dict, List, Optional
+from typing import Any, Dict, List
 
-from ..backend import DatabaseError, StorageBackend, SQLExpressionBase
-from ..interface import IActiveRecord, IUpdateBehavior, ModelEvent
+from ..backend.errors import DatabaseError
+from ..backend.expression import SQLPredicate, SQLValueExpression
+from ..backend.result import QueryResult
+from ..interface import IActiveRecord, ModelEvent
+from ..interface.update import IUpdateBehavior
 
 
 class Version:
@@ -44,24 +47,31 @@ class Version:
         """Increment version number by increment_by"""
         self.value += self.increment_by
 
-    def get_update_condition(self) -> Tuple[str, tuple]:
-        """Get SQL condition for version check
-
-        Returns:
-            Tuple of (condition_sql, params)
-        """
-        return f"{self.db_column} = ?", (self.value,)
-
-    def get_update_expression(self, backend: StorageBackend) -> SQLExpressionBase:
-        """Get SQL expression for version update
+    def get_update_condition(self, dialect):
+        """Get SQL condition for version check using expression system
 
         Args:
-            backend: Storage backend instance
+            dialect: The SQL dialect instance
 
         Returns:
-            SQL expression to increment version
+            Expression object representing the version condition
         """
-        return backend.create_expression(f"{self.db_column} + {self.increment_by}")
+        from ..backend.expression.core import Column
+        # Use operator overloading: Column == value (automatically converted to Literal)
+        return Column(dialect, self.db_column) == self.value
+
+    def get_update_expression(self, dialect):
+        """Get SQL expression for version update using expression system
+
+        Args:
+            dialect: The SQL dialect instance
+
+        Returns:
+            Expression object to increment version
+        """
+        from ..backend.expression.core import Column
+        # Use operator overloading: Column + value (automatically converted to Literal)
+        return Column(dialect, self.db_column) + self.increment_by
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Version):
@@ -77,7 +87,7 @@ class Version:
         return f"Version(value={self.value}, increment_by={self.increment_by}, db_column='{self.db_column}')"
 
 
-class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
+class OptimisticLockMixin(IUpdateBehavior):
     """Optimistic locking mixin that uses Version class
 
     Uses VersionField (a PrivateAttr) to manage a Version instance.
@@ -98,23 +108,25 @@ class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
         """Read-only access to current version number"""
         return self._version.value
 
-    def get_update_conditions(self) -> List[Tuple[str, Optional[tuple]]]:
-        """Add version check to update conditions"""
+    def get_update_conditions(self) -> List[SQLPredicate]:
+        """Add version check to update conditions using expression system"""
         if not self.is_new_record:
-            condition, params = self._version.get_update_condition()
-            return [(condition, params)]
+            backend = self.backend()
+            condition_expr = self._version.get_update_condition(backend.dialect)
+            return [condition_expr]
         return []
 
-    def get_update_expressions(self) -> Dict[str, Any]:
-        """Add version increment to update expressions"""
+    def get_update_expressions(self) -> Dict[str, SQLValueExpression]:
+        """Add version increment to update expressions using expression system"""
         if not self.is_new_record:
+            backend = self.backend()
             return {
-                self._version.db_column: self._version.get_update_expression(self.backend())
+                self._version.db_column: self._version.get_update_expression(backend.dialect)
             }
         return {}
 
     def _handle_version_after_save(self, instance: 'OptimisticLockMixin', *,
-                                   is_new: bool = False, result: Any = None, **kwargs) -> None:
+                                   is_new: bool = False, result: 'QueryResult' = None, **kwargs) -> None:
         """Handle version management after save
 
         Args:
@@ -130,16 +142,34 @@ class OptimisticLockMixin(IUpdateBehavior, IActiveRecord):
             if result.affected_rows == 0:
                 raise DatabaseError("Record was updated by another process")
 
-            if hasattr(result, 'data') and result.data:
-                new_version = result.data.get(self._version.db_column)
-                if new_version is not None:
-                    self._version = Version(
-                        value=new_version,
-                        increment_by=self._version.increment_by,
-                        db_column=self._version.db_column
-                    )
-            else:
-                self._version.increment()
+            # Check if result has data and contains the version column
+            if result.data is not None:
+                # If result.data is a list (e.g., from RETURNING clause with multiple rows)
+                if isinstance(result.data, list) and len(result.data) > 0:
+                    # Take the first row if it's a list of rows
+                    first_row = result.data[0]
+                    if isinstance(first_row, dict) and self._version.db_column in first_row:
+                        new_version = first_row[self._version.db_column]
+                        if new_version is not None:
+                            self._version = Version(
+                                value=new_version,
+                                increment_by=self._version.increment_by,
+                                db_column=self._version.db_column
+                            )
+                            return  # Successfully updated from returned data
+                # If result.data is a dictionary (single row)
+                elif isinstance(result.data, dict) and self._version.db_column in result.data:
+                    new_version = result.data[self._version.db_column]
+                    if new_version is not None:
+                        self._version = Version(
+                            value=new_version,
+                            increment_by=self._version.increment_by,
+                            db_column=self._version.db_column
+                        )
+                        return  # Successfully updated from returned data
+
+            # If we couldn't get the version from the returned data, increment locally
+            self._version.increment()
 
     def model_dump(self, **kwargs) -> Dict[str, Any]:
         """Include version in serialized data"""

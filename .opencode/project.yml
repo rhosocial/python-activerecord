@@ -1,0 +1,79 @@
+project:
+  name: rhosocial-activerecord
+  type: python-package
+  description: Modern, Pydantic-based Python ActiveRecord ORM with no external ORM dependencies
+
+  # Core documentation auto-loaded on startup
+  auto_load:
+    - .gemini/architecture.md
+    - .gemini/code_style.md
+    - .gemini/testing.md
+    - .gemini/version_control.md
+    - .gemini/backend_development.md
+
+  # Key source code paths (for code analysis)
+  source_paths:
+    - src/rhosocial/activerecord
+    - tests
+
+  # Python environment configuration
+  python:
+    min_version: "3.8"
+    max_version: "3.14"
+    free_threaded_supported: true  # Python 3.13t, 3.14t
+    test_runner: pytest
+    test_env:
+      PYTHONPATH: "src"
+
+  # Core dependencies
+  dependencies:
+    primary:
+      - pydantic>=2.0
+      - typing-extensions>=4.0  # For Python 3.8 compatibility
+    test:
+      - pytest>=7.0
+      - pytest-asyncio>=0.21
+
+  # Key architectural concepts
+  architecture:
+    pattern: "Standalone ActiveRecord Implementation"
+    no_orm_dependencies: true
+    design_principles:
+      - Expression-Dialect Separation
+      - Protocol-Based Design
+      - Sync/Async Dual APIs
+      - Namespace Package Architecture
+      - Backend Abstraction Layer
+
+  # Project-specific validation rules
+  rules:
+    # Mandatory rules
+    must:
+      - "Every .py file must start with path comment: # src/path/to/file.py"
+      - "Sync API must have async counterpart (same method names, Async class prefix)"
+      - "Query building uses Expression → Dialect separation"
+      - "Type annotations use Python 3.8+ compatible syntax"
+      - "Line width must not exceed 100 characters"
+      - "Tests must follow sync/async parity (fixtures/test classes/methods/schema sharing)"
+
+    # Forbidden rules
+    must_not:
+      - "Import SQLAlchemy/Django ORM or other ORM dependencies"
+      - "Concatenate SQL strings directly in Expression classes"
+      - "Access model.get_backend() directly (use model.backend() or model.__backend__)"
+      - "Import tests module using absolute paths in tests"
+
+    # Recommended rules
+    should:
+      - "Add corresponding protocol declarations for new features"
+      - "Use Provider pattern for tests"
+      - "Follow Testsuite architecture"
+      - "Create changelog.d/{issue}.{type}.md fragments"
+
+  # Shortcut mappings
+  shortcuts:
+    test: "Run test suite"
+    test-feature: "Run specific feature tests"
+    lint: "Run code linting"
+    check-backend: "Check backend implementation completeness"
+    new-feature: "Create new feature standard workflow"

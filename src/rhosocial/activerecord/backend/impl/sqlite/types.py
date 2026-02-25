@@ -3,8 +3,7 @@ from typing import Dict
 
 # TypeMapping is used here for DDL generation (defining schema),
 # distinct from runtime type adaptation.
-from ...dialect import TypeMapping
-from ...typing import DatabaseType
+from ...schema import DatabaseType, TypeMapping
 from ...helpers import format_with_length
 
 # This dictionary defines the mapping from generic DatabaseType (used by the ORM)

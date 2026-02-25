@@ -1,0 +1,380 @@
+hints:
+  # Architecture-related hints
+  - trigger: "modify.*query|query.*modify|add.*query"
+    priority: high
+    suggest: |
+      🔍 Modifying Query layer code, please note:
+      
+      1. **Expression-Dialect Separation** - Query uses Expression for building, doesn't generate SQL directly
+      2. **Sync/Async pairs** - When modifying ActiveQuery, must check AsyncActiveQuery
+      3. **Reference architecture**:
+         - ActiveQuery inherits from QueryBase
+         - CTEQuery for WITH clauses
+         - SetOperationQuery for UNION/INTERSECT/EXCEPT
+
+      Key files:
+      - `src/rhosocial/activerecord/query/active_query.py`
+      - `src/rhosocial/activerecord/query/cte_query.py`
+      - `src/rhosocial/activerecord/backend/expression/query_parts.py`
+
+  - trigger: "modify.*backend|backend.*modify|add.*backend"
+    priority: high
+    suggest: |
+      🔧 Modifying Backend layer code, please note:
+      
+      1. **Expression-Dialect Separation**: Expression doesn't generate SQL, delegates to dialect
+      2. **Required methods**:
+         - `execute()` / `async_execute()`
+         - `begin_transaction()` / `commit()` / `rollback()`
+         - `supports_*` protocol methods
+      3. **TypeAdapter registration**: If supporting new types, register in type_adapter.py
+
+      Reference implementation:
+      - SQLite: `src/rhosocial/activerecord/backend/impl/sqlite/`
+
+  - trigger: "add.*field|field.*type|new.*field"
+    priority: high
+    suggest: |
+      📦 Adding new field type, please note:
+      
+      1. **Inheritance structure**:
+         - Base types inherit from `BaseField`
+         - Complex types may inherit from `TimestampMixin`, `VersionMixin`, `SoftDeleteMixin`
+      2. **TypeAdapter**: If special database mapping needed, create corresponding TypeAdapter
+      3. **Pydantic compatibility**: Ensure compatibility with Pydantic v2 Field system
+
+      Reference implementations:
+      - `src/rhosocial/activerecord/field/timestamp.py`
+      - `src/rhosocial/activerecord/field/uuid.py`
+      - `src/rhosocial/activerecord/field/soft_delete.py`
+
+  - trigger: "modify.*expression|expression.*system"
+    priority: high
+    suggest: |
+      🔤 Modifying Expression system, this is the most critical part:
+      
+      ⚠️ **Mandatory rules**:
+      1. Expression classes must **never** concatenate SQL strings directly
+      2. Must generate SQL via `self.dialect.format_*()` methods
+      3. Return type must be `SQLQueryAndParams` (SQL string, parameter tuple)
+
+      File structure:
+      - `bases.py` - Abstract base classes
+      - `core.py` - Column, Literal
+      - `operators.py` - AND, OR, comparison
+      - `predicates.py` - Condition predicates
+      - `aggregates.py` - COUNT, SUM, etc.
+
+  - trigger: "modify.*relation|relation.*modify|association.*modify"
+    priority: high
+    suggest: |
+      🔗 Modifying Relation system:
+      
+      Key concepts:
+      1. **Relation** - Define relationships between models
+      2. **RelationCache** - Cache relationship query results
+      3. **Descriptor pattern** - Use `__get__` for lazy loading
+      
+      Relationship types:
+      - belongs_to
+      - has_one
+      - has_many
+      - has_many_through
+
+      Reference files:
+      - `src/rhosocial/activerecord/relation/relation.py`
+      - `src/rhosocial/activerecord/relation/cache.py`
+
+  # Development workflow hints
+  - trigger: "create.*test|add.*test|new.*test"
+    priority: high
+    suggest: |
+      🧪 Creating tests, follow Testsuite architecture:
+      
+      1. **Must set PYTHONPATH**: `export PYTHONPATH=src`
+      2. **Use Provider pattern**: Tests don't create models directly, get via fixtures
+      3. **Protocol declarations**: Use `@requires_protocol(ProtocolClass)` to declare requirements
+      4. **Sync/Async pairs**: Each test must have sync and async versions
+
+      Example:
+      ```python
+      def test_basic_query(order_fixtures):
+          User, Order, OrderItem = order_fixtures
+          # test code
+      
+      @pytest.mark.asyncio
+      async def test_basic_query(async_order_fixtures):
+          AsyncUser, AsyncOrder, AsyncOrderItem = async_order_fixtures
+          # async test code - method name same as sync
+      ```
+
+      **Testing Parity Principles**:
+      
+      1. **Fixture parity**:
+         - Each sync fixture must have corresponding async fixture
+         - Naming: `order_fixtures` → `async_order_fixtures` (add `async_` prefix)
+         - Schema files shared
+      
+      2. **Test class parity**:
+         ```python
+         class TestQuery:
+             '''Sync tests'''
+             pass
+         
+         class TestAsyncQuery:
+             '''Async tests - same method names'''
+             pass
+         ```
+      
+      3. **Test method parity**:
+         - Method names completely identical
+         - Async version uses `@pytest.mark.asyncio` decorator
+         - Logic must be equivalent
+
+  - trigger: "run.*test|execute.*test|pytest"
+    priority: high
+    suggest: |
+      🚀 Before running tests, check:
+      
+      1. **Set PYTHONPATH**: `export PYTHONPATH=src` (Linux/macOS) or `$env:PYTHONPATH="src"` (PowerShell)
+      2. **Install dependencies**: `pip install -e .` and `pip install pytest pytest-asyncio`
+      3. **Run specific tests**: `pytest tests/path/to/test.py -v`
+
+      Quick commands:
+      - `/test` - Run all tests
+      - `/test-feature basic` - Run basic feature tests
+      - `/test-feature query` - Run query feature tests
+
+  # Code style hints
+  - trigger: "create.*file|new.*py|add.*py"
+    priority: medium
+    suggest: |
+      📝 When creating new Python files:
+      
+      1. **File header path comment** (mandatory):
+         ```python
+         # src/rhosocial/activerecord/module/file.py
+         ```
+      
+      2. **Import order**:
+         - Standard library
+         - typing module
+         - Third-party (Pydantic only)
+         - Local absolute imports
+         - Relative imports
+      
+      3. **Class docstrings** (Google style):
+         ```python
+         class MyClass:
+             """Class description.
+             
+             Attributes:
+                 attr1: Description
+                 
+             Example:
+                 >>> obj = MyClass()
+             """
+         ```
+
+  - trigger: "line.*width|exceed.*100|too.*long.*line"
+    priority: medium
+    suggest: |
+      📏 Line width limit is 100 characters, wrap when exceeded:
+      
+      ```python
+      # Good
+      result = (
+          very_long_function_name(
+              argument_one, argument_two,
+              argument_three, argument_four
+          )
+          .chain_method()
+          .another_method()
+      )
+      
+      # Bad - exceeds 100 characters without wrapping
+      result = very_long_function_name(argument_one, argument_two, argument_three, argument_four).chain_method().another_method()
+      ```
+
+  # Troubleshooting hints
+  - trigger: "ModuleNotFoundError|No module named|import.*error"
+    priority: high
+    suggest: |
+      🔴 Import error encountered?
+      
+      **Most common cause**: PYTHONPATH not set
+      
+      Solution:
+      ```bash
+      # Linux/macOS
+      export PYTHONPATH=src
+      pytest tests/
+      
+      # Windows PowerShell
+      $env:PYTHONPATH="src"
+      pytest tests/
+      ```
+      
+      Other possibilities:
+      1. Check if running from project root
+      2. Check if installed: `pip install -e .`
+      3. Check if src/rhosocial/activerecord exists
+
+  - trigger: "No backend configured|backend.*config"
+    priority: high
+    suggest: |
+      🔴 "No backend configured" error?
+      
+      Model must be configured with backend before use:
+      
+      ```python
+      from rhosocial.activerecord import ActiveRecord
+      from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+      
+      class User(ActiveRecord):
+          __table_name__ = 'users'
+          
+      # Must configure backend
+      backend = SQLiteBackend("sqlite:///test.db")
+      User.configure(backend)
+      
+      # Now ready to use
+      user = User(name="John")
+      user.save()
+      ```
+
+  - trigger: "sync.*async|async.*sync|missing.*async"
+    priority: high
+    suggest: |
+      ⚠️ Sync/Async API must be implemented in pairs!
+      
+      **Parity Rules**:
+      
+      1. **Class names**: Async version adds `Async` prefix
+         - `BaseActiveRecord` → `AsyncBaseActiveRecord`
+         - `ActiveQuery` → `AsyncActiveQuery`
+      
+      2. **Method names**: Remain completely identical (**no** `_async` suffix)
+         ```python
+         # Sync version
+         def save(self) -> int:
+             ...
+         
+         # Async version - same method name, add async keyword
+         async def save(self) -> int:
+             ...
+         ```
+      
+      3. **Docstrings**: Must be equivalent, async version notes "asynchronously" in first sentence
+         ```python
+         def save(self) -> int:
+             '''Save the record to database...'''
+             
+         async def save(self) -> int:
+             '''Save the record to database asynchronously...'''
+         ```
+      
+      4. **Field order**: Declaration order of methods and fields must be identical
+      
+      Checklist:
+      - [ ] Class name: Added Async prefix?
+      - [ ] Method name: Identical to sync version?
+      - [ ] Docstring: Notes "asynchronously"?
+      - [ ] Order: Field and method order matches sync version?
+      - [ ] Logic: Functionality equivalent to sync version?
+
+  - trigger: "circular.*import|ImportError"
+    priority: high
+    suggest: |
+      🔄 Circular import encountered?
+      
+      Solutions:
+      1. **Use TYPE_CHECKING**:
+         ```python
+         from typing import TYPE_CHECKING
+         if TYPE_CHECKING:
+             from .other_module import OtherClass
+         ```
+      
+      2. **Lazy import**:
+         ```python
+         def some_function():
+             from .other_module import OtherClass
+             return OtherClass()
+         ```
+      
+      3. **Redesign module structure** - Move shared code to independent module
+
+  # Feature development hints
+  - trigger: "add.*protocol|protocol.*declare|new.*protocol"
+    priority: medium
+    suggest: |
+      📜 Adding Protocol for feature detection:
+      
+      1. **Define Protocol**:
+         ```python
+         from typing import Protocol
+         
+         class MyFeatureSupport(Protocol):
+             def supports_my_feature(self) -> bool: ...
+         ```
+      
+      2. **Implement in Dialect**:
+         ```python
+         class MyDialect(MyFeatureSupport):
+             def supports_my_feature(self) -> bool:
+                 return self.version >= (1, 0, 0)
+         ```
+      
+      3. **Use in tests**:
+         ```python
+         @requires_protocol(MyFeatureSupport, 'supports_my_feature')
+         def test_my_feature():
+             pass
+         ```
+
+  - trigger: "changelog|change.*log|version.*log"
+    priority: medium
+    suggest: |
+      📝 Create Changelog fragment:
+      
+      File format: `changelog.d/{issue_number}.{type}.md`
+      
+      Types:
+      - added - New feature
+      - fixed - Bug fix
+      - changed - Change
+      - deprecated - Deprecation
+      - removed - Removal
+      - security - Security fix
+      - performance - Performance optimization
+      - docs - Documentation
+      - internal - Internal changes
+      
+      Example:
+      ```bash
+      echo "Added recursive CTE support for hierarchical queries" > changelog.d/123.added.md
+      ```
+
+  # Performance optimization hints
+  - trigger: "performance.*optimize|slow.*query|optimize.*query"
+    priority: medium
+    suggest: |
+      ⚡ Performance optimization suggestions:
+      
+      1. **Query only needed fields**:
+         ```python
+         User.select('id', 'name').all()  # Don't query all fields
+         ```
+      
+      2. **Batch operations**:
+         ```python
+         User.insert_many([...])  # Instead of loop save()
+         ```
+      
+      3. **Relation cache**:
+         ```python
+         user.clear_relation_cache()  # Clear manually when needed
+         ```
+      
+      4. **Connection pool configuration** - See backend config docs

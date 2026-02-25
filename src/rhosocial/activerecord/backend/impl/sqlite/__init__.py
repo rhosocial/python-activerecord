@@ -1,24 +1,25 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/__init__.py
 """
-SQLite backend implementation for rhosocial-activerecord.
+SQLite backend implementation for ActiveRecord.
 
-This package contains the concrete implementation of the storage backend
-for SQLite, including the backend class, dialect, and specific type adapters.
+This module provides a complete SQLite backend implementation for the ActiveRecord ORM,
+including connection management, dialect support, type adapters, and query execution.
 """
-from .adapters import (
-    SQLiteBlobAdapter,
-    SQLiteJSONAdapter,
-    SQLiteUUIDAdapter,
-)
+
 from .backend import SQLiteBackend
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect
+from .adapters import (
+    SQLiteBlobAdapter,
+    SQLiteJSONAdapter,
+    SQLiteUUIDAdapter
+)
 
 __all__ = [
-    "SQLiteBackend",
-    "SQLiteDialect",
-    "SQLiteConnectionConfig",
-    "SQLiteBlobAdapter",
-    "SQLiteJSONAdapter",
-    "SQLiteUUIDAdapter",
+    'SQLiteBackend',
+    'SQLiteConnectionConfig', 
+    'SQLiteDialect',
+    'SQLiteBlobAdapter',
+    'SQLiteJSONAdapter',
+    'SQLiteUUIDAdapter',
 ]

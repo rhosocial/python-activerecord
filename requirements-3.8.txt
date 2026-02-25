@@ -17,3 +17,5 @@ typing-extensions>=4.12.0
 # Python 3.8 lacks native zoneinfo support, this provides compatibility
 # Version ~=0.2.1 backports Python 3.9+ timezone functionality
 backports.zoneinfo~=0.2.1
+
+typing-extensions
