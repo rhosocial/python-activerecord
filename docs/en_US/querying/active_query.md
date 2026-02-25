@@ -350,6 +350,84 @@ users = User.query().with_(
     *   Relation names must match `HasOne`, `HasMany`, `BelongsTo` field names defined in the model.
     *   The modifier function must return the query object.
 
+### 4. Advanced: Parameter Expansion and Precedence Rules
+
+The `with_()` method has specific rules for handling multiple parameters with modifiers. Understanding these rules helps avoid common pitfalls.
+
+#### Parameter Expansion Rule
+
+Each parameter is expanded to its full path chain. The query modifier only applies to the **target relation** (the last one in the path), not to intermediate relations:
+
+```python
+# Parameter 'posts.comments' expands to:
+# - 'posts' -> None (intermediate, no modifier)
+# - 'posts.comments' -> modifier1 (target, has modifier)
+
+User.query().with_(
+    ('posts.comments', lambda q: q.where(Comment.c.is_deleted == False))
+)
+# Result: posts has no modifier, posts.comments has the modifier
+```
+
+#### Later Parameters Take Precedence
+
+When later parameters overwrite earlier ones, the newer parameter always wins. This follows Yii2 behavior:
+
+```python
+# When later parameters overwrite earlier ones:
+('posts.comments', m1) + ('posts.comments.user', m2) results in:
+- 'posts' -> None (from 2nd, overwrites!)
+- 'posts.comments' -> m2 (from 2nd, overwrites m1!)
+- 'posts.comments.user' -> m2
+```
+
+**Therefore, if you don't want a modifier to be overwritten, place it later in the parameter list:**
+
+```python
+# Correct order: m1 will be used
+User.query().with_(
+    ('posts.comments.user', m2),  # Later - applied first
+    ('posts.comments', m1),        # Earlier - applied second (wins)
+)
+
+# Wrong order: m2 will overwrite m1
+User.query().with_(
+    ('posts.comments', m1),        # Earlier - will be overwritten
+    ('posts.comments.user', m2),  # Later - wins
+)
+```
+
+#### Named Functions vs Lambdas
+
+For complex modifiers, prefer using **named functions** instead of lambdas. Named functions provide better debuggability:
+
+```python
+# Recommended: named function (shown with full name in warnings)
+def filter_published(q):
+    return q.where(Post.c.status == 'published')
+
+User.query().with_(('posts', filter_published))
+
+# Avoid for complex cases: lambda (shown as <lambda> in warnings)
+User.query().with_(('posts', lambda q: q.where(...)))
+```
+
+When a modifier is overwritten, the system logs a warning showing the function names. Named functions will display their fully qualified name (e.g., `module.filter_published`), while lambdas only show `<lambda>`, making debugging harder.
+
+#### Validation and Error Handling
+
+The `with_()` method performs full validation of relation paths:
+
+- **Invalid Relation Path**: Raises `InvalidRelationPathError` for empty strings, leading/trailing dots, or consecutive dots
+- **Relation Not Found**: Raises `RelationNotFoundError` if any relation in the path doesn't exist on its respective model
+
+```python
+# These will raise errors:
+User.query().with_('')  # InvalidRelationPathError: Relation path cannot be empty
+User.query().with_('.posts')  # InvalidRelationPathError: cannot start with dot
+User.query().with_('invalid_relation')  # RelationNotFoundError
+```
+
 ## Set Operation Initiation
 
 `ActiveQuery` instances can serve as the left operand for set operations, performing set operations with another `ActiveQuery`, `CTEQuery`, or `SetOperationQuery` instance. In addition to method calls, it also supports using Python operator overloading to initiate set operations.

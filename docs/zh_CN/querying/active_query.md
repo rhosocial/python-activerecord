@@ -347,8 +347,86 @@ users = User.query().with_(
 ```
 
 *   **注意事项**：
-    *   关联名称必须与模型中定义的 `HasOne`, `HasMany`, `BelongsTo` 字段名一致。
+    *   关联名称必须与模型中定义的 `HasOne`、`HasMany`、`BelongsTo` 字段名一致。
     *   修改器函数必须返回查询对象。
+
+### 4. 高级：参数展开与优先级规则
+
+`with_()` 方法在处理多个带修改器的参数时有特定的规则。了解这些规则有助于避免常见问题。
+
+#### 参数展开规则
+
+每个参数都会展开为其完整的路径链。查询修改器仅适用于**目标关联**（路径中的最后一个），不适用于中间关联：
+
+```python
+# 参数 'posts.comments' 展开为：
+# - 'posts' -> None（中间关联，无修改器）
+# - 'posts.comments' -> modifier1（目标关联，有修改器）
+
+User.query().with_(
+    ('posts.comments', lambda q: q.where(Comment.c.is_deleted == False))
+)
+# 结果：posts 无修改器，posts.comments 有修改器
+```
+
+#### 后参数优先原则
+
+当后面的参数覆盖前面的参数时，较新的参数始终获胜。这遵循 Yii2 行为：
+
+```python
+# 当后面的参数覆盖前面的参数时：
+('posts.comments', m1) + ('posts.comments.user', m2) 结果为：
+- 'posts' -> None（来自第二个，覆盖！）
+- 'posts.comments' -> m2（来自第二个，覆盖 m1！）
+- 'posts.comments.user' -> m2
+```
+
+**因此，如果不想让修改器被覆盖，请将其放在参数列表的后面：**
+
+```python
+# 正确顺序：m1 会被使用
+User.query().with_(
+    ('posts.comments.user', m2),  # 后面 - 先应用
+    ('posts.comments', m1),        # 前面 - 后应用（获胜）
+)
+
+# 错误顺序：m2 会覆盖 m1
+User.query().with_(
+    ('posts.comments', m1),        # 前面 - 会被覆盖
+    ('posts.comments.user', m2),  # 后面 - 获胜
+)
+```
+
+#### 命名函数 vs 匿名函数（Lambda）
+
+对于复杂的修改器，建议使用**命名函数**而非匿名函数。命名函数提供更好的调试体验：
+
+```python
+# 推荐：命名函数（在警告中显示完整名称）
+def filter_published(q):
+    return q.where(Post.c.status == 'published')
+
+User.query().with_(('posts', filter_published))
+
+# 复杂情况避免使用：lambda（在警告中只显示 <lambda>）
+User.query().with_(('posts', lambda q: q.where(...)))
+```
+
+当修改器被覆盖时，系统会记录警告并显示函数名称。命名函数会显示其完整限定名称（例如 `module.filter_published`），而匿名函数只显示 `<lambda>`，使调试更加困难。
+
+#### 验证与错误处理
+
+`with_()` 方法会对关联路径进行完整验证：
+
+- **无效关联路径**：对于空字符串、开头/结尾的点号或连续的点号，抛出 `InvalidRelationPathError`
+- **关联不存在**：如果路径中任何关联在对应模型上不存在，抛出 `RelationNotFoundError`
+
+```python
+# 以下会抛出错误：
+User.query().with_('')  # InvalidRelationPathError: 关联路径不能为空
+User.query().with_('.posts')  # InvalidRelationPathError: 不能以点号开头
+User.query().with_('invalid_relation')  # RelationNotFoundError
+```
 
 ## 集合操作发起
 
