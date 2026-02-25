@@ -38,3 +38,7 @@ pydantic[email]
 # Used for configuration file handling and test data
 # Version ~=6.0.3 provides safe YAML parsing and generation
 pyyaml~=6.0.3
+
+# Rich terminal output library
+# Enhanced output formatting for test results and debugging
+rich

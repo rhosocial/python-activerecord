@@ -36,3 +36,7 @@ pydantic[email]
 # Used for configuration file handling and test data
 # No version constraint for Python 3.8 compatibility
 pyyaml
+
+# Rich terminal output library
+# Enhanced output formatting for test results and debugging
+rich
