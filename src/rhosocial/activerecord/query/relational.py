@@ -318,38 +318,37 @@ class RelationalQueryMixin(IQuery):
         if query_modifier is not None:
             # Check if modifier is changing and warn if so
             if existing.query_modifier is not None and existing.query_modifier != query_modifier:
-                if existing.query_modifier != query_modifier:
-                    # Try to get meaningful function info
-                    def get_func_info(func: Callable) -> str:
-                        # First try to get fully qualified name (includes class for methods)
-                        qualname = getattr(func, '__qualname__', None)
-                        module = getattr(func, '__module__', None)
-                        if qualname and module and not qualname.startswith('<'):
-                            return f"{module}.{qualname}"
+                # Try to get meaningful function info
+                def get_func_info(func: Callable) -> str:
+                    # First try to get fully qualified name (includes class for methods)
+                    qualname = getattr(func, '__qualname__', None)
+                    module = getattr(func, '__module__', None)
+                    if qualname and module and not qualname.startswith('<'):
+                        return f"{module}.{qualname}"
 
-                        # For lambdas or functions without qualname, try signature
-                        func_name = getattr(func, '__name__', None)
-                        if func_name and func_name != '<lambda>':
-                            try:
-                                import inspect
-                                sig = str(inspect.signature(func))
-                                return f"{func_name}{sig}"
-                            except Exception:
-                                return func_name
+                    # For lambdas or functions without qualname, try signature
+                    func_name = getattr(func, '__name__', None)
+                    if func_name and func_name != '<lambda>':
+                        try:
+                            import inspect
+                            sig = str(inspect.signature(func))
+                            return f"{func_name}{sig}"
+                        except Exception:
+                            return func_name
 
-                        # Fallback: show memory address
-                        return f"<lambda at 0x{hex(id(func))[-8:]}>"
+                    # Fallback: show memory address
+                    return f"<lambda at 0x{hex(id(func))[-8:]}>"
 
-                    old_info = get_func_info(existing.query_modifier)
-                    new_info = get_func_info(query_modifier)
-                    self._log(
-                        logging.WARNING,
-                        f"Relation '{path}' modifier is being overwritten. "
-                        f"Previous modifier: {old_info}, "
-                        f"New modifier: {new_info}. "
-                        f"Later parameter takes precedence. "
-                        f"If you don't want it to be overwritten, place it later in the parameter list."
-                    )
+                old_info = get_func_info(existing.query_modifier)
+                new_info = get_func_info(query_modifier)
+                self._log(
+                    logging.WARNING,
+                    f"Relation '{path}' modifier is being overwritten. "
+                    f"Previous modifier: {old_info}, "
+                    f"New modifier: {new_info}. "
+                    f"Later parameter takes precedence. "
+                    f"If you don't want it to be overwritten, place it later in the parameter list."
+                )
             # Always update the modifier if this is the target relation,
             # whether it's a new modifier or explicitly None
             existing.query_modifier = query_modifier
