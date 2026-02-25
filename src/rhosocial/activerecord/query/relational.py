@@ -5,6 +5,7 @@ from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Callable, Union, Type, Tuple
 
 from ..interface import IQuery, ThreadSafeDict, IActiveQuery
+from ..relation.cache import InstanceCache
 
 
 class InvalidRelationPathError(Exception):
@@ -93,6 +94,48 @@ class RelationalQueryMixin(IQuery):
                 - Ordering: Order comments by creation date
                 - Selective fields: Only load specific columns
 
+                Note: For complex modifiers, prefer using named functions instead of lambdas.
+                Named functions will be displayed with their fully qualified name in warnings
+                when a modifier is overwritten, making debugging easier:
+
+                    # Recommended: named function
+                    def filter_published(q):
+                        return q.where(Post.c.status == 'published')
+                    User.query().with_(('posts', filter_published))
+
+                    # Avoid for complex cases: lambda (shown as <lambda> in warnings)
+                    User.query().with_(('posts', lambda q: q.where(...)))
+
+                Parameter Expansion Rule:
+                    Each parameter is expanded to its full path chain. The query modifier
+                    only applies to the target relation (the last one in the path),
+                    not to intermediate relations:
+
+                        ('posts.comments', modifier1) expands to:
+                        - 'posts' -> None (intermediate, no modifier)
+                        - 'posts.comments' -> modifier1 (target, has modifier)
+
+                    When later parameters overwrite earlier ones:
+                        ('posts.comments', m1) + ('posts.comments.user', m2) results in:
+                        - 'posts' -> None (from 2nd, overwrites!)
+                        - 'posts.comments' -> m2 (from 2nd, overwrites m1!)
+                        - 'posts.comments.user' -> m2
+
+                    Therefore, if you don't want a modifier to be overwritten, place it
+                    later in the parameter list:
+
+                        # m1 will be used (correct order)
+                        User.query().with_(
+                            ('posts.comments.user', m2),
+                            ('posts.comments', m1),
+                        )
+
+                        # m2 will overwrite m1 (wrong order - m1 is lost)
+                        User.query().with_(
+                            ('posts.comments', m1),
+                            ('posts.comments.user', m2),
+                        )
+
         Returns:
             IActiveQuery: Returns self to enable method chaining
 
@@ -111,11 +154,15 @@ class RelationalQueryMixin(IQuery):
             # Nested relations
             users = User.query().with_('posts.comments').all()
 
-            # With query modifier
-            users = User.query().with_(('posts', lambda q: q.where(Post.c.status == 'published'))).all()
+            # With query modifier (named function recommended for complex cases)
+            def filter_published(q):
+                return q.where(Post.c.status == 'published')
+            users = User.query().with_(('posts', filter_published)).all()
 
-            # Complex scenario
-            users = User.query().with_('posts', ('posts.comments', lambda q: q.order_by(Comment.c.created_at.desc()))).all()
+            # Complex scenario with nested relations and modifiers
+            def order_comments(q):
+                return q.order_by(Comment.c.created_at.desc())
+            users = User.query().with_('posts', ('posts.comments', order_comments)).all()
         """
         # First validate all paths to ensure transactional behavior
         validated_relations = []
@@ -266,9 +313,43 @@ class RelationalQueryMixin(IQuery):
             if next_part not in existing.nested:
                 existing.nested.append(next_part)
 
-        # Update query modifier only if this is the targeted relation level
-        # and a modifier was provided or is explicitly set to None
-        if is_target_relation:
+        # Always update the modifier if a modifier was provided (not None).
+        # This follows Yii2 behavior: later parameters take precedence.
+        if query_modifier is not None:
+            # Check if modifier is changing and warn if so
+            if existing.query_modifier is not None and existing.query_modifier != query_modifier:
+                if existing.query_modifier != query_modifier:
+                    # Try to get meaningful function info
+                    def get_func_info(func: Callable) -> str:
+                        # First try to get fully qualified name (includes class for methods)
+                        qualname = getattr(func, '__qualname__', None)
+                        module = getattr(func, '__module__', None)
+                        if qualname and module and not qualname.startswith('<'):
+                            return f"{module}.{qualname}"
+
+                        # For lambdas or functions without qualname, try signature
+                        func_name = getattr(func, '__name__', None)
+                        if func_name and func_name != '<lambda>':
+                            try:
+                                import inspect
+                                sig = str(inspect.signature(func))
+                                return f"{func_name}{sig}"
+                            except Exception:
+                                return func_name
+
+                        # Fallback: show memory address
+                        return f"<lambda at 0x{hex(id(func))[-8:]}>"
+
+                    old_info = get_func_info(existing.query_modifier)
+                    new_info = get_func_info(query_modifier)
+                    self._log(
+                        logging.WARNING,
+                        f"Relation '{path}' modifier is being overwritten. "
+                        f"Previous modifier: {old_info}, "
+                        f"New modifier: {new_info}. "
+                        f"Later parameter takes precedence. "
+                        f"If you don't want it to be overwritten, place it later in the parameter list."
+                    )
             # Always update the modifier if this is the target relation,
             # whether it's a new modifier or explicitly None
             existing.query_modifier = query_modifier
@@ -337,10 +418,30 @@ class RelationalQueryMixin(IQuery):
             # Check if this is the exact target relation we want to modify
             is_target_relation = (full_path == relation_path)
 
-            # Apply query modifier only to the target relation, not to intermediate relations
-            current_modifier = query_modifier if is_target_relation else None
+            # Apply query modifier based on rules:
+            # 1. If this is the target relation (last part), always apply modifier
+            # 2. If this relation exists AND we're adding a NEW nested relation (not already configured),
+            #    apply modifier per Yii2 behavior (later takes precedence)
+            # 3. Otherwise, don't apply modifier
+            existing = full_path in self._eager_loads
 
-            if full_path in self._eager_loads:
+            # Check if we're adding a NEW nested relation (one that doesn't already exist)
+            is_adding_new_nested = False
+            if existing and next_level:
+                existing_config = self._eager_loads[full_path]
+                next_part = next_level[0] if next_level else None
+                if next_part and next_part not in existing_config.nested:
+                    is_adding_new_nested = True
+
+            if is_target_relation:
+                current_modifier = query_modifier
+            elif is_adding_new_nested:
+                # We're extending an existing relation with a NEW nested relation
+                current_modifier = query_modifier
+            else:
+                current_modifier = None
+
+            if existing:
                 # Update existing relation configuration
                 self._update_existing_relation_config(full_path, next_level, current_modifier, is_target_relation)
             else:
@@ -569,6 +670,13 @@ class RelationalQueryMixin(IQuery):
 
         # Configure query for nested relations
         self._configure_query_for_nested_relations(base_query, relation_name, config)
+
+        # If there's a query modifier, we need to clear the instance cache
+        # because different modifiers should return different results
+        if config.query_modifier:
+            self._log(logging.DEBUG, f"Clearing cache for relation '{base_relation_name}' due to query modifier")
+            for record in records:
+                InstanceCache.delete(record, base_relation_name, relation._cache_config)
 
         # Delegate batch loading to relation descriptor
         try:

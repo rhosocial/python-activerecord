@@ -39,8 +39,8 @@ class BasicProvider(IBasicProvider):
     """
     
     def __init__(self):
-        # Track the actual database file used for each scenario in the current test
         self._scenario_db_files = {}
+        self._active_async_backends = []
 
     def get_test_scenarios(self) -> List[str]:
         """Returns a list of names for all enabled scenarios for this backend."""
@@ -141,6 +141,9 @@ class BasicProvider(IBasicProvider):
 
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
         await model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        if model_class.__backend__ not in self._active_async_backends:
+            self._active_async_backends.append(model_class.__backend__)
 
         return model_class
 
@@ -299,25 +302,25 @@ class BasicProvider(IBasicProvider):
         Performs async cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
         """
-        # Use the dynamically generated database file if available, otherwise use the original config
+        for backend_instance in self._active_async_backends:
+            try:
+                await backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_async_backends.clear()
+
         if scenario_name in self._scenario_db_files:
             db_file = self._scenario_db_files[scenario_name]
             if os.path.exists(db_file):
                 try:
-                    # Attempt to remove the temp db file.
                     os.remove(db_file)
-                    # Remove from tracking dict
                     del self._scenario_db_files[scenario_name]
                 except OSError:
-                    # Ignore errors if the file is already gone or locked, etc.
                     pass
         else:
-            # Fallback to original behavior for in-memory databases
             _, config = get_scenario(scenario_name)
             if config.delete_on_close and config.database != ":memory:" and os.path.exists(config.database):
                 try:
-                    # Attempt to remove the temp db file.
                     os.remove(config.database)
                 except OSError:
-                    # Ignore errors if the file is already gone or locked, etc.
                     pass
