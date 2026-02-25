@@ -2,8 +2,6 @@
 """
 This module defines the metaclass for the ActiveRecord base model.
 """
-import inspect
-from typing import get_origin, get_args, Dict, Any, Tuple, Type, Optional, List
 
 from pydantic._internal._model_construction import ModelMetaclass
 

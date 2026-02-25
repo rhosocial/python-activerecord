@@ -206,13 +206,17 @@ class InstanceCache(Generic[T]):
         cache["entry"] = CacheEntry(value, config.ttl)
 
     @staticmethod
-    def delete(instance: Any, relation_name: str) -> None:
+    def delete(instance: Any, relation_name: str, config: Optional[CacheConfig] = None) -> None:
         """Remove cached relation value from the instance.
 
         Args:
             instance: Model instance
             relation_name: Name of the relation
+            config: Cache configuration (optional, if provided and disabled, no action taken)
         """
+        if config is not None and not config.enabled:
+            return
+
         cache_attr = InstanceCache.get_cache_attr_name(relation_name)
 
         if hasattr(instance, cache_attr):

@@ -1,14 +1,15 @@
 # src/rhosocial/activerecord/field/soft_delete.py
 """Module providing soft delete functionality."""
 from datetime import datetime, timezone
-from typing import Dict, Any, Optional
 from pydantic import Field
+from typing import Dict, Any, Optional
 
+from ..backend.expression.core import Column
+from ..interface import ModelEvent
 from ..query import ActiveQuery
-from ..interface import IActiveRecord, ModelEvent
 
 
-class SoftDeleteMixin(IActiveRecord):
+class SoftDeleteMixin:
     """Implements soft delete functionality.
 
     Instead of actual deletion, marks records as deleted using timestamp.
@@ -35,8 +36,12 @@ class SoftDeleteMixin(IActiveRecord):
 
     @classmethod
     def query(cls) -> 'ActiveQuery':
-        """Return query builder with soft delete condition"""
-        return super().query().where("deleted_at IS NULL")
+        """Return query builder excluding soft-deleted records using expression system."""
+        backend = cls.backend()
+        # Use is_null() method from ComparisonMixin to check for non-deleted records
+        # Records where deleted_at is NULL are considered not deleted
+        non_deleted_condition = Column(backend.dialect, "deleted_at").is_null()
+        return super().query().where(non_deleted_condition)
 
     @classmethod
     def query_with_deleted(cls) -> 'ActiveQuery':
@@ -45,34 +50,35 @@ class SoftDeleteMixin(IActiveRecord):
 
     @classmethod
     def query_only_deleted(cls) -> 'ActiveQuery':
-        """Return query for only deleted records"""
-        return super().query().where("deleted_at IS NOT NULL")
+        """Return query for only soft-deleted records using expression system."""
+        backend = cls.backend()
+        # Use is_not_null() method from ComparisonMixin to check for deleted records
+        # Records where deleted_at is NOT NULL are considered deleted
+        deleted_condition = Column(backend.dialect, "deleted_at").is_not_null()
+        return super().query().where(deleted_condition)
 
     def restore(self) -> int:
-        """Restore a soft-deleted record"""
+        """Restore a soft-deleted record using expression system."""
         if self.deleted_at is None:
             return 0
 
         # Get the backend
         backend = self.backend()
 
-        # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_placeholder()
+        # Create the condition using expression system
+        pk_column = Column(backend.dialect, self.primary_key())
+        pk_value = getattr(self, self.primary_key())
+        condition_expr = pk_column == pk_value
 
-        # Create the condition with the standard question mark
-        condition = f"{self.primary_key()} = ?"
-
-        # Only convert if the placeholder is not a question mark
-        if placeholder != '?':
-            from ..interface.model import replace_question_marks
-            condition = replace_question_marks(condition, placeholder)
-
-        result = backend.update(
-            self.table_name(),
-            {'deleted_at': None},
-            condition,
-            (getattr(self, self.primary_key()),)
+        # Use UpdateOptions for the update operation
+        from ..backend.options import UpdateOptions
+        update_options = UpdateOptions(
+            table=self.table_name(),
+            data={'deleted_at': None},
+            where=condition_expr
         )
+
+        result = backend.update(update_options)
 
         if result.affected_rows > 0:
             self.deleted_at = None

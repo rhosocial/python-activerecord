@@ -4,8 +4,8 @@ import logging
 from dataclasses import dataclass
 from typing import Dict, Any, Optional, List, Callable, Union, Type, Tuple
 
-from ..interface import ModelT, IQuery
-from ..interface.query import ThreadSafeDict
+from ..interface import IQuery, ThreadSafeDict, IActiveQuery
+from ..relation.cache import InstanceCache
 
 
 class InvalidRelationPathError(Exception):
@@ -26,12 +26,39 @@ class RelationConfig:
     query_modifier: Optional[Callable] = None  # Query modification function
 
 
-class RelationalQueryMixin(IQuery[ModelT]):
-    """Query methods for eager loading model relationships.
+class RelationalQueryMixin(IQuery):
+    """
+    Query mixin providing eager loading capabilities for model relationships.
 
-    This mixin adds the ability to eagerly load model relationships during queries.
-    It maintains the configuration for which relations should be loaded and how
-    they should be loaded.
+    This mixin implements a comprehensive eager loading system that allows loading
+    related model data alongside the primary query results. It solves the N+1 query
+    problem by batching related data loading efficiently.
+
+    Key Features:
+    - Support for simple relation loading (e.g., 'posts')
+    - Support for nested relation loading (e.g., 'posts.comments')
+    - Support for query modifiers to customize loading behavior
+    - Path validation to ensure relations exist and are accessible
+    - Efficient batch loading to minimize database queries
+    - Proper ordering of nested relation loading
+
+    The mixin works by:
+    1. Storing relation loading configurations when with_() is called
+    2. Validating relation paths to ensure they exist
+    3. Loading related data after the primary query execution
+    4. Maintaining proper ordering of nested relations during loading
+
+    Usage:
+    ```python
+    # Simple eager loading
+    users = User.query().with_('posts').all()
+
+    # Nested eager loading
+    users = User.query().with_('posts.comments').all()
+
+    # With query modifier
+    users = User.query().with_(('posts', lambda q: q.where(Post.c.status == 'published'))).all()
+    ```
     """
 
     def __init__(self, *args, **kwargs):
@@ -39,32 +66,103 @@ class RelationalQueryMixin(IQuery[ModelT]):
         # Stores relation loading configurations by relation path
         self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
 
-    def with_(self, *relations: Union[str, tuple]) -> 'IQuery[ModelT]':
-        """Configure eager loading for model relationships.
+    def with_(self, *relations: Union[str, tuple]) -> 'IActiveQuery':
+        """
+        Configure eager loading for model relationships to prevent N+1 queries.
 
-        This method allows specifying which relations should be loaded along with
-        the main query results, optimizing database queries by reducing N+1 problems.
+        This method enables efficient loading of related data by batching the related
+        queries together with the primary query. It accepts both simple relation names
+        and complex configurations with query modifiers.
 
-        The method supports:
-        1. Simple relation loading: Load a direct relation
-        2. Nested relation loading: Load relations of relations using dot notation
-        3. Query modification: Customize how relations are loaded using modifier functions
-        4. Multiple relation loading: Load several relations at once
-        5. Chainable calls: Build relation loading incrementally
+        The method performs full validation of relation paths before applying them,
+        ensuring all specified relations exist and are accessible from the appropriate
+        models in the path chain.
 
         Args:
-            *relations: Variable length argument that accepts either:
-                - strings: Relation paths using dot notation for nesting (e.g., "user", "user.posts")
-                - tuples: Pairs of (relation_path, query_modifier) where query_modifier is a callable
-                  that customizes the relation query
+            *relations: Variable-length argument accepting:
+                - str: Simple relation path (e.g., 'posts', 'posts.comments')
+                - tuple: Relation path with query modifier (e.g., ('posts', modifier_func))
+
+                The relation path supports dot notation for nested relations:
+                - 'posts' - Load posts for each user
+                - 'posts.comments' - Load posts and their comments for each user
+                - 'posts.author.profile' - Load nested relations three levels deep
+
+                Query modifiers are callable functions that accept and return a query object,
+                allowing customization of how related data is loaded:
+                - Filtering: Only load published posts
+                - Ordering: Order comments by creation date
+                - Selective fields: Only load specific columns
+
+                Note: For complex modifiers, prefer using named functions instead of lambdas.
+                Named functions will be displayed with their fully qualified name in warnings
+                when a modifier is overwritten, making debugging easier:
+
+                    # Recommended: named function
+                    def filter_published(q):
+                        return q.where(Post.c.status == 'published')
+                    User.query().with_(('posts', filter_published))
+
+                    # Avoid for complex cases: lambda (shown as <lambda> in warnings)
+                    User.query().with_(('posts', lambda q: q.where(...)))
+
+                Parameter Expansion Rule:
+                    Each parameter is expanded to its full path chain. The query modifier
+                    only applies to the target relation (the last one in the path),
+                    not to intermediate relations:
+
+                        ('posts.comments', modifier1) expands to:
+                        - 'posts' -> None (intermediate, no modifier)
+                        - 'posts.comments' -> modifier1 (target, has modifier)
+
+                    When later parameters overwrite earlier ones:
+                        ('posts.comments', m1) + ('posts.comments.user', m2) results in:
+                        - 'posts' -> None (from 2nd, overwrites!)
+                        - 'posts.comments' -> m2 (from 2nd, overwrites m1!)
+                        - 'posts.comments.user' -> m2
+
+                    Therefore, if you don't want a modifier to be overwritten, place it
+                    later in the parameter list:
+
+                        # m1 will be used (correct order)
+                        User.query().with_(
+                            ('posts.comments.user', m2),
+                            ('posts.comments', m1),
+                        )
+
+                        # m2 will overwrite m1 (wrong order - m1 is lost)
+                        User.query().with_(
+                            ('posts.comments', m1),
+                            ('posts.comments.user', m2),
+                        )
 
         Returns:
-            IQuery[ModelT]: The current query instance with updated eager loading configuration
+            IActiveQuery: Returns self to enable method chaining
 
         Raises:
-            InvalidRelationPathError: If an invalid relation path format is provided
-                (e.g., empty string, leading/trailing dots, consecutive dots)
-            RelationNotFoundError: If a relation specified in the path does not exist on the model
+            InvalidRelationPathError: If the relation path format is invalid (empty, leading/
+                                    trailing dots, consecutive dots)
+            RelationNotFoundError: If any relation in the path doesn't exist on its respective model
+
+        Example:
+            # Simple eager loading
+            users = User.query().with_('posts').all()
+
+            # Multiple relations
+            users = User.query().with_('posts', 'profile').all()
+
+            # Nested relations
+            users = User.query().with_('posts.comments').all()
+
+            # With query modifier (named function recommended for complex cases)
+            def filter_published(q):
+                return q.where(Post.c.status == 'published')
+            users = User.query().with_(('posts', filter_published)).all()
+
+            # Complex scenario with nested relations and modifiers
+            def order_comments(q):
+                return q.order_by(Comment.c.created_at.desc())
+            users = User.query().with_('posts', ('posts.comments', order_comments)).all()
         """
         # First validate all paths to ensure transactional behavior
         validated_relations = []
@@ -95,18 +193,22 @@ class RelationalQueryMixin(IQuery[ModelT]):
         return self
 
     def _validate_relation_path(self, relation_path: str) -> None:
-        """Validate a relation path format.
+        """
+        Validates the format of a relation path to ensure it follows the expected syntax.
 
-        Checks for common issues in relation path format:
-        - Empty string
-        - Leading/trailing dots
-        - Consecutive dots
+        This method performs syntactic validation of relation paths before they're
+        processed further. It checks for common formatting errors that would lead
+        to runtime issues.
 
         Args:
-            relation_path: The relation path to validate
+            relation_path: The relation path string to validate (e.g., 'posts', 'posts.comments')
 
         Raises:
-            InvalidRelationPathError: If the path format is invalid
+            InvalidRelationPathError: If the path format is invalid, including:
+                - Empty string: ""
+                - Leading dots: ".posts"
+                - Trailing dots: "posts."
+                - Consecutive dots: "posts..comments"
         """
         if not relation_path:
             raise InvalidRelationPathError("Relation path cannot be empty")
@@ -140,18 +242,24 @@ class RelationalQueryMixin(IQuery[ModelT]):
             raise RelationNotFoundError(f"Relation '{relation_name}' not found on {model_class.__name__}")
 
     def _validate_complete_relation_path(self, relation_path: str) -> None:
-        """Validate that all relations in a complete path exist on appropriate models.
+        """
+        Validates that all relations in a complete path exist on their respective models.
 
-        This method traverses the entire relation path, validating each part
-        on the correct model class. It handles circular references by properly
-        tracking the model class at each step in the chain.
+        This method performs semantic validation of the relation path by checking that
+        each relation in the path exists on the appropriate model class. It traverses
+        the path step by step, following the relationships from one model to the next.
+
+        For example, with path 'posts.comments':
+        1. Checks that 'posts' relation exists on the query's model class
+        2. Gets the related model for 'posts' (e.g., Post)
+        3. Checks that 'comments' relation exists on the Post model
 
         Args:
-            relation_path: The full relation path to validate
+            relation_path: The full relation path to validate (e.g., 'posts.comments')
 
         Raises:
-            RelationNotFoundError: If any relation in the path does not exist
-            on its respective model
+            RelationNotFoundError: If any relation in the path does not exist on its
+                                 respective model class
         """
         parts = relation_path.split('.')
         current_model_class = self.model_class
@@ -205,9 +313,39 @@ class RelationalQueryMixin(IQuery[ModelT]):
             if next_part not in existing.nested:
                 existing.nested.append(next_part)
 
-        # Update query modifier only if this is the targeted relation level
-        # and a modifier was provided or is explicitly set to None
-        if is_target_relation:
+        # Always update the modifier if a modifier was provided (not None).
+        # This follows Yii2 behavior: later parameters take precedence.
+        if query_modifier is not None:
+            # Check if modifier is changing and warn if so
+            if existing.query_modifier is not None and existing.query_modifier != query_modifier:
+                # Try to get meaningful function info
+                def get_func_info(func: Callable) -> str:
+                    qualname = getattr(func, '__qualname__', None)
+                    module = getattr(func, '__module__', None)
+                    if qualname and module and not qualname.startswith('<'):
+                        return f"{module}.{qualname}"
+
+                    func_name = getattr(func, '__name__', None)
+                    if func_name and not func_name.startswith('<'):
+                        try:
+                            import inspect
+                            sig = str(inspect.signature(func))
+                            return f"{func_name}{sig}"
+                        except Exception:
+                            return func_name
+
+                    return f"<lambda at 0x{hex(id(func))[-8:]}>"
+
+                old_info = get_func_info(existing.query_modifier)
+                new_info = get_func_info(query_modifier)
+                self._log(
+                    logging.WARNING,
+                    f"Relation '{path}' modifier is being overwritten. "
+                    f"Previous modifier: {old_info}, "
+                    f"New modifier: {new_info}. "
+                    f"Later parameter takes precedence. "
+                    f"If you don't want it to be overwritten, place it later in the parameter list."
+                )
             # Always update the modifier if this is the target relation,
             # whether it's a new modifier or explicitly None
             existing.query_modifier = query_modifier
@@ -229,19 +367,27 @@ class RelationalQueryMixin(IQuery[ModelT]):
         )
 
     def _process_relation_path(self, relation_path: str, query_modifier: Optional[Callable] = None) -> None:
-        """Process a relation path and add relation configurations.
+        """
+        Process a relation path and create appropriate configurations for loading.
 
-        This method handles the traversal of a relation path, generating configurations
-        for each part of the path. It ensures proper nesting and handles both direct
-        and nested relations, including circular references.
+        This method breaks down a relation path (like 'user.posts.comments') into its
+        components and creates configuration entries for each level of the path.
+        It handles both simple and nested relations, ensuring that the query modifier
+        is applied only to the target relation (the last one in the path).
+
+        The method creates a configuration for each segment of the path:
+        - For 'user.posts.comments', it creates configs for 'user', 'user.posts', and 'user.posts.comments'
+        - Each configuration tracks what nested relations need to be loaded
+        - The query modifier is only applied to the final relation ('user.posts.comments')
 
         Args:
-            relation_path: The full relation path (e.g., "user.posts.comments")
-            query_modifier: Optional query modifier function to apply to the target relation
+            relation_path: The full relation path to process (e.g., 'posts.comments')
+            query_modifier: Optional function to customize the query for the target relation
+                           (applied only to the deepest level of the relation path)
 
         Raises:
-            InvalidRelationPathError: If the path format is invalid
-            RelationNotFoundError: If any relation in the path does not exist
+            InvalidRelationPathError: If the relation path format is invalid
+            RelationNotFoundError: If any relation in the path does not exist on its respective model
         """
         # Validate the path format first
         self._validate_relation_path(relation_path)
@@ -268,248 +414,35 @@ class RelationalQueryMixin(IQuery[ModelT]):
             # Check if this is the exact target relation we want to modify
             is_target_relation = (full_path == relation_path)
 
-            # Apply query modifier only to the target relation, not to intermediate relations
-            current_modifier = query_modifier if is_target_relation else None
+            # Apply query modifier based on rules:
+            # 1. If this is the target relation (last part), always apply modifier
+            # 2. If this relation exists AND we're adding a NEW nested relation (not already configured),
+            #    apply modifier per Yii2 behavior (later takes precedence)
+            # 3. Otherwise, don't apply modifier
+            existing = full_path in self._eager_loads
 
-            if full_path in self._eager_loads:
+            # Check if we're adding a NEW nested relation (one that doesn't already exist)
+            is_adding_new_nested = False
+            if existing and next_level:
+                existing_config = self._eager_loads[full_path]
+                next_part = next_level[0] if next_level else None
+                if next_part and next_part not in existing_config.nested:
+                    is_adding_new_nested = True
+
+            if is_target_relation:
+                current_modifier = query_modifier
+            elif is_adding_new_nested:
+                # We're extending an existing relation with a NEW nested relation
+                current_modifier = query_modifier
+            else:
+                current_modifier = None
+
+            if existing:
                 # Update existing relation configuration
                 self._update_existing_relation_config(full_path, next_level, current_modifier, is_target_relation)
             else:
                 # Create new relation configuration
                 self._add_relation_config(full_path, next_level, current_modifier)
-
-    def _load_relations(self, records: List[ModelT]) -> None:
-        """Main entry point for loading relations for a set of records.
-
-        Orchestrates the loading of all configured relations, ensuring they are
-        loaded in the correct order (by nesting depth).
-
-        Args:
-            records: List of model instances to load relations for
-        """
-        if not records or not self._eager_loads:
-            return
-
-        self._log(logging.INFO, f"Loading eager relations: {list(self._eager_loads.keys())}...")
-
-        # Sort relations by nesting depth for proper loading order
-        sorted_relations = sorted(
-            self._eager_loads.items(),
-            key=lambda x: len(x[0].split('.'))
-        )
-
-        for relation_name, config in sorted_relations:
-            try:
-                self._load_single_relation(records, relation_name, config)
-            except Exception as e:
-                self._log(logging.ERROR, f"Error loading relation {relation_name}: {e}")
-
-    def _get_relation(self, relation_name: str, model_class: Type[ModelT] = None) -> Optional[Any]:
-        """Get relation descriptor by name.
-
-        Gets the direct relation descriptor for a base relation name.
-
-        Args:
-            relation_name: Base relation name
-            model_class: Model class to get relation from (defaults to query model)
-
-        Returns:
-            Relation descriptor or None if not found
-        """
-        if model_class is None:
-            model_class = self.model_class
-
-        if not hasattr(model_class, 'get_relation'):
-            return None
-
-        return model_class.get_relation(relation_name)
-
-    def _create_base_query(self, related_model: Type[ModelT], config: RelationConfig) -> Optional['IQuery[ModelT]']:
-        """Create and configure base query for related records.
-
-        Creates a query for the related model and applies any configured modifiers.
-
-        Args:
-            related_model: Model class for the related records
-            config: Configuration containing optional query modifier
-
-        Returns:
-            Configured query instance or None if creation fails
-        """
-        if not hasattr(related_model, 'query'):
-            return None
-
-        base_query = related_model.query()
-
-        # Apply query modifier if configured
-        if config.query_modifier:
-            try:
-                # Apply the modifier and ensure it returns a query
-                self._log(logging.DEBUG, f"Applying query modifier for relation {config.name}: {config.query_modifier}")
-                modified_query = config.query_modifier(base_query)
-
-                # If modifier returns None or something invalid, use the original query
-                return modified_query if isinstance(modified_query, IQuery) else base_query
-            except Exception as e:
-                # Log error but continue with base query
-                self._log(logging.ERROR, f"Error applying query modifier: {e}")
-                return base_query
-
-        return base_query
-
-    def _configure_query_for_nested_relations(self, query: 'IQuery[ModelT]', relation_name: str,
-                                              config: RelationConfig) -> None:
-        """Configure a query to load nested relations.
-
-        Args:
-            query: Base query to configure
-            relation_name: Current relation path
-            config: Relation configuration
-        """
-        # Only needed for nested relations
-        if '.' not in relation_name:
-            return
-
-        # If there are nested relations, add them to the query
-        if config.nested:
-            for nested_rel in config.nested:
-                # Build full path for the nested relation
-                full_nested_path = f"{relation_name}.{nested_rel}"
-
-                # Check if we have a configuration for this nested relation
-                if full_nested_path in self._eager_loads:
-                    nested_config = self._eager_loads[full_nested_path]
-
-                    # Apply with modifier if one exists
-                    if nested_config.query_modifier:
-                        query = query.with_((nested_rel, nested_config.query_modifier))
-                    else:
-                        query = query.with_(nested_rel)
-                else:
-                    # Simple addition without modifier
-                    query = query.with_(nested_rel)
-
-    def _load_single_relation(self, records: List[ModelT], relation_name: str, config: RelationConfig) -> None:
-        """Load a single relation for all records.
-
-        Handles the complete process of loading one relation, including:
-        - Setting up cache
-        - Getting relation metadata
-        - Loading related records
-        - Processing nested relations
-
-        Args:
-            records: List of parent records to load relation for
-            relation_name: Name/path of the relation to load
-            config: Configuration for the relation loading
-        """
-        # Extract base relation name (e.g., "user" from "user.posts.comments")
-        parts = relation_name.split('.')
-        base_relation_name = parts[0]
-
-        # Skip if this is a nested relation but not the first level we're processing
-        # Those will be handled by the recursive loading
-        if len(parts) > 1 and parts[0] != relation_name.split('.')[0]:
-            return
-
-        # Get relation descriptor
-        relation = self._get_relation(base_relation_name)
-        if not relation:
-            self._log(logging.WARNING, f"Relation name {base_relation_name} not found in {self.model_class.__name__}")
-            return
-
-        # Get related model class
-        related_model = relation.get_related_model(self.model_class)
-        if not related_model:
-            self._log(logging.WARNING, f"Related model for {self.model_class.__name__} not found")
-            return
-
-        # Create base query and apply modifier if configured
-        base_query = self._create_base_query(related_model, config)
-        if not base_query:
-            return
-
-        # Clone the query to avoid modifying the original
-        if hasattr(base_query, 'clone'):
-            base_query = base_query.clone()
-
-        # Configure query for nested relations
-        self._configure_query_for_nested_relations(base_query, relation_name, config)
-
-        # Delegate batch loading to relation descriptor
-        try:
-            loaded_data = relation.batch_load(records, base_query)
-        except Exception as e:
-            self._log(logging.ERROR, f"Error batch loading relation '{relation_name}': {e}")
-            return
-
-        # Process nested relations if there are any in the configuration
-        if loaded_data and config.nested:
-            self._process_nested_relations(loaded_data, config, related_model)
-
-    def _process_nested_relations(
-            self,
-            loaded_data: Dict[int, Any],
-            config: RelationConfig,
-            related_model: Type[ModelT]
-    ) -> None:
-        """Process nested relations if any exist.
-
-        Handles the loading of nested relations by:
-        1. Collecting all loaded related records
-        2. Creating a new query for the nested relations
-        3. Recursively loading the nested relations
-
-        Args:
-            loaded_data: Dictionary mapping parent record IDs to loaded related records
-            config: Configuration containing nested relations info
-            related_model: Model class for the current relation
-        """
-        if not config.nested or not loaded_data:
-            return
-
-        # Collect all loaded records
-        loaded_records = []
-        for data in loaded_data.values():
-            if isinstance(data, list):
-                loaded_records.extend(data)
-            else:
-                loaded_records.append(data)
-
-        # Skip if no records were loaded
-        if not loaded_records:
-            return
-
-        # For each nested relation, create and execute a query to load it
-        for nested_relation in config.nested:
-            # Debug information to help identify where issues occur
-            self._log(logging.DEBUG,
-                      f"Processing nested relation '{nested_relation}' for config '{config.name}' on model {related_model.__name__}")
-
-            # Build full nested path
-            full_nested_path = f"{config.name}.{nested_relation}"
-
-            # Check if we have a configuration for this nested relation
-            nested_config = self._eager_loads.get(full_nested_path)
-            if not nested_config:
-                self._log(logging.WARNING, f"Missing configuration for nested relation: {full_nested_path}")
-                continue
-
-            # Create query for this nested relation
-            next_query = related_model.query()
-
-            # Apply the nested relation with its modifier (if any)
-            if nested_config.query_modifier:
-                next_query = next_query.with_((nested_relation, nested_config.query_modifier))
-            else:
-                next_query = next_query.with_(nested_relation)
-
-            # Execute the query to load this nested relation for all records
-            try:
-                next_query._load_relations(loaded_records)
-            except Exception as e:
-                # Catch and log errors but allow other relations to be processed
-                self._log(logging.ERROR, f"Error loading nested relation '{nested_relation}': {e}")
 
     def get_relation_configs(self) -> Dict[str, RelationConfig]:
         """Get all relation configurations.

@@ -2,86 +2,34 @@
 """
 Core ActiveRecord model interface definition.
 """
-import inspect
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
-from typing import Any, Dict, TypeVar, ClassVar, Optional, Type, Set, get_origin, Union, List, Callable, Tuple, \
-    TYPE_CHECKING, get_args
-
 from pydantic import BaseModel
-from pydantic.fields import FieldInfo
+from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable, TYPE_CHECKING
+from typing import Protocol
+from typing_extensions import runtime_checkable
 
 from .base import ModelEvent
-from ..backend.base import StorageBackend
-from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.typing import DatabaseType
+from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-
-if TYPE_CHECKING:
-    from ..backend.type_adapter import SQLTypeAdapter
-
-
-class CustomModuleFormatter(logging.Formatter):
-    def format(self, record):
-        import os
-        module_dir = os.path.basename(os.path.dirname(record.pathname))
-        record.subpackage_module = f"{module_dir}-{record.filename}"
-        return super().format(record)
+from ..backend.errors import DatabaseError, RecordNotFound
+from ..backend.schema import DatabaseType
 
 
-# Type variable for interface
-ModelT = TypeVar('ModelT', bound='IActiveRecord')
+class ActiveRecordBase(BaseModel, ABC):
+    """Base class for ActiveRecord models (Sync and Async).
 
-"""Utility functions for database placeholder handling."""
-
-
-def replace_question_marks(sql: str, placeholder: str) -> str:
-    """Replace question mark placeholders with database-specific placeholders.
-
-    This utility function carefully replaces question marks that are used as parameter
-    placeholders, while preserving question marks that might appear in string literals.
-
-    Args:
-        sql: Original SQL with question mark placeholders
-        placeholder: Database-specific placeholder to use
-
-    Returns:
-        SQL with replaced placeholders
-    """
-    # Check if we need indexed placeholders (e.g., $1, $2, $3 for PostgreSQL)
-    if placeholder.find('%d') != -1:
-        # For indexed placeholders
-        parts = []
-        param_index = 1
-        i = 0
-        while i < len(sql):
-            if sql[i] == '?':
-                # Replace with indexed placeholder
-                parts.append(placeholder % param_index)
-                param_index += 1
-            else:
-                parts.append(sql[i])
-            i += 1
-        return ''.join(parts)
-    else:
-        # For non-indexed placeholders
-        return sql.replace('?', placeholder)
-
-
-class IActiveRecord(BaseModel, ABC):
-    """Base interface for ActiveRecord models.
-
-    Defines core functionality that all ActiveRecord models must implement, including:
+    Defines core functionality common to both synchronous and asynchronous ActiveRecord models, including:
     - Database connection and configuration
-    - CRUD operations
     - Field tracking for changes
     - Event handling
     - Validation
+    - Data preparation for saving
 
     Attributes:
         __table_name__ (str): Database table name
-        __primary_key__ (str): Primary key column name
+        __primary_key__ (str): Primary key column name (single-column primary keys only)
         __backend__ (StorageBackend): Database storage backend
         __backend_class__ (Type[StorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
@@ -93,467 +41,33 @@ class IActiveRecord(BaseModel, ABC):
     """
     __table_name__: ClassVar[Optional[str]] = None
     __primary_key__: ClassVar[str] = 'id'
-    __backend__: Optional[StorageBackend] = None
-    __backend_class__: ClassVar[Type[StorageBackend]] = None
+    __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
+    __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
     __logger__: ClassVar[logging.Logger] = logging.getLogger('activerecord')
 
-
-    # Change tracking attributes
-    _dirty_fields = set()  # Set of field names that have been modified
-    __no_track_fields__: ClassVar[Set[str]] = set()  # Fields to exclude from change tracking
-    _original_values = {}  # Original values of fields before modification
-
     def __init__(self, **data):
+        """Initialize ActiveRecord instance."""
         super().__init__(**data)
+        self._dirty_fields = set()
+        self._original_values = {}
+        self.reset_tracking()
         # Initialize instance event handlers
-        self._is_from_db = False  # Flag indicating if record was loaded from database
-        self._event_handlers = {event: [] for event in ModelEvent}  # Stores event handlers for model instance
+        self._is_from_db = False
+        self._event_handlers = {event: [] for event in ModelEvent}
 
     def __init_subclass__(cls) -> None:
-        """Initialize subclass"""
+        """Initialize subclass by merging all non-tracking fields."""
         super().__init_subclass__()
-
-    def __setattr__(self, name: str, value: Any):
-        """Overridden to track field changes.
-
-        When a field is modified, stores the original value and marks the field as dirty.
-        """
-        if (name in self.__class__.model_fields and
-                hasattr(self, '_original_values') and
-                name not in self.__class__.__no_track_fields__):
-            if name not in self._original_values:
-                self._original_values[name] = getattr(self, name, None)
-            if value != self._original_values[name]:
-                self._dirty_fields.add(name)
-        super().__setattr__(name, value)
-
-    def reset_tracking(self):
-        """Reset change tracking state by clearing dirty fields and storing current values."""
-        self._dirty_fields.clear()
-        self._original_values = self.model_dump()
-
-    @classmethod
-    def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
-        """Setup logger with custom formatter.
-
-        Args:
-            cls: Class that needs logging
-            formatter: Optional custom formatter. If None, will use CustomModuleFormatter
-        """
-        if not hasattr(cls, '__logger__'):
-            return
-
-        logger = getattr(cls, '__logger__')
-        if logger is None or not isinstance(logger, logging.Logger):
-            return
-
-        # Create default formatter if none provided
-        if formatter is None:
-            formatter = CustomModuleFormatter(
-                '%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s'
-            )
-
-        # Apply formatter to all existing handlers if any
-        if logger.handlers:
-            for handler in logger.handlers:
-                handler.setFormatter(formatter)
-
-        # Apply formatter to root logger's handlers for cases when no handlers present
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers:
-            if not isinstance(handler.formatter, CustomModuleFormatter):
-                handler.setFormatter(formatter)
-
-    @classmethod
-    def set_logger(cls, logger: logging.Logger) -> None:
-        """Set logger instance.
-
-        Args:
-            logger: Logger instance or None
-        """
-        if logger is not None and not isinstance(logger, logging.Logger):
-            raise ValueError("logger must be an instance of logging.Logger")
-        cls.__logger__ = logger
-
-    @classmethod
-    def log(cls, level: int, msg: str, *args, **kwargs) -> None:
-        """Log message.
-
-        Args:
-            level: Log level
-            msg: Log message
-            *args: Format args
-            **kwargs: Extra args
-        """
-        # Check if __logger__ attribute exists
-        if not hasattr(cls, '__logger__'):
-            return
-
-        logger = getattr(cls, '__logger__')
-        # Check if logger is None
-        if logger is None:
-            return
-
-        # Check if logger is Logger type
-        if not isinstance(logger, logging.Logger):
-            return
-
-        # Calculate stack level
-        current_frame = inspect.currentframe().f_back
-        stack_level = 1  # Include log_info itself
-        while current_frame:
-            if current_frame.f_globals['__name__'] != 'ActiveRecord':
-                break
-            current_frame = current_frame.f_back
-            stack_level += 1
-        if current_frame:
-            stack_level += 1  # Pointed to the frame of the user code.
-
-        # Handle offset if provided
-        if "offset" in kwargs:
-            stack_level += kwargs.pop("offset")
-
-        # Ensure custom formatter is set
-        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or \
-                (not logger.handlers and not any(
-                    isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)):
-            cls.setup_logger()
-
-        # Get appropriate logging method
-        level_name = logging.getLevelName(level).lower()
-        method = getattr(logger, level_name, None)
-
-        # Log message
-        if method is not None:
-            method(msg, *args, stacklevel=stack_level, **kwargs)
-        else:
-            logger.log(level, msg, *args, **kwargs)
-
-    @property
-    def is_dirty(self) -> bool:
-        """Check if record has changes"""
-        return len(self._dirty_fields) > 0
-
-    @property
-    def dirty_fields(self) -> Set[str]:
-        """Get set of changed fields"""
-        return self._dirty_fields.copy()
-
-    def get_old_attribute(self, field_name: str) -> Optional[Any]:
-        """Get old attribute value."""
-        return deepcopy(self._original_values[field_name])
-
-    @classmethod
-    def get_column_adapters(cls) -> Dict[str, Tuple['SQLTypeAdapter', Type]]:
-        """
-        Derives a mapping of database column names to their corresponding SQLTypeAdapter
-        and the original Python type of the field for result processing.
-
-        This method queries the backend for its default type adapter suggestions
-        and uses these to build a model-specific map for converting database
-        results back into Python objects. It prioritizes user-defined adapters
-        specified via annotations.
-
-        The keys of the returned dictionary are database column names.
-        """
-        adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
-        model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
-        all_suggestions = cls.backend().get_default_adapter_suggestions()
-
-        for field_name, field_info in model_fields.items():
-            # Get the database column name for this field
-            column_name = cls._get_column_name(field_name)
-
-            # Get the original Python type of the field.
-            field_py_type = field_info.annotation
-            original_type = field_py_type # Keep the full original type for from_database
-
-            # Handle complex types like Optional[T] to get the base type for suggestion lookup.
-            origin = get_origin(field_py_type)
-            if origin is Union:
-                args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
-                if len(args) == 1:
-                    field_py_type = args[0]
-                else:
-                    continue # Skip complex Unions for now.
-
-            # Priority 1: Check for a field-specific adapter from annotations.
-            custom_adapter_tuple = cls._get_adapter_for_field(field_name)
-            if custom_adapter_tuple:
-                adapter_instance, _ = custom_adapter_tuple
-                # For reading from DB, we pair the adapter with the field's original Python type.
-                adapters_map[column_name] = (adapter_instance, original_type) # Key by column_name
-                continue
-
-            # Priority 2: Fallback to the backend's default suggestion.
-            suggestion = all_suggestions.get(field_py_type)
-            if suggestion:
-                adapter_instance, _ = suggestion
-                # The 'original_type' is crucial for 'from_database' conversion.
-                adapters_map[column_name] = (adapter_instance, original_type) # Key by column_name
-
-        return adapters_map
-
-    def _insert_internal(self, data) -> Any:
-        self.log(logging.DEBUG, f"1. Raw data for insert: {data}")
-
-        # Step 2: Resolve parameter adapters with the new prioritized logic.
-        param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
-        all_suggestions = self.backend().get_default_adapter_suggestions()
-
-        for field_name, py_value in data.items():
-            resolved_adapter_info = None
-
-            # Priority 1: Check for a field-specific adapter from annotations.
-            custom_adapter_tuple = self.__class__._get_adapter_for_field(field_name)
-            if custom_adapter_tuple:
-                # User-specified adapter (adapter, target_db_type) found. Use it directly.
-                resolved_adapter_info = custom_adapter_tuple
-
-            # Priority 2: If no custom adapter was found, fall back to default suggestion.
-            if not resolved_adapter_info:
-                value_type = type(py_value)
-                resolved_adapter_info = all_suggestions.get(value_type)
-
-            if resolved_adapter_info:
-                param_adapters[field_name] = resolved_adapter_info
-
-        self.log(logging.DEBUG, f"2. Resolved parameter adapters: {len(param_adapters)} adapters found")
-
-        # Step 3: Prepare the INPUT parameters using the resolved adapters.
-        prepared_data = self.backend().prepare_parameters(data, param_adapters)
-        self.log(logging.DEBUG, f"3. Prepared data with Python field names and adapted values: {prepared_data}")
-
-        # Step 4: Translate Python field names to database column names.
-        prepared_data = self.__class__._map_fields_to_columns(prepared_data)
-        self.log(logging.DEBUG, f"4. Prepared data with database column names and adapted values: {prepared_data}")
-
-        self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
-
-        # Step 5: Create column_mapping for result processing (maps column names back to field names).
-        # This is derived from the model's get_column_to_field_map.
-        column_mapping = self.__class__.get_column_to_field_map()
-        self.log(logging.DEBUG, f"5. Column mapping for result processing: {column_mapping}")
-
-        # Step 6: Get the column adapters for processing output (e.g., RETURNING clauses).
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"6. Column adapters map: {column_adapters}")
-
-        # Step 7: Call `insert` with the prepared data, column mapping, and column adapters.
-        result = self.backend().insert(
-            self.table_name(),
-            prepared_data,
-            column_mapping=column_mapping, # Pass column_mapping for result processing.
-            column_adapters=column_adapters, # Pass column_adapters for output processing.
-            returning=False,
-            primary_key=self.primary_key()
-        )
-
-        # Step 8: Handle auto-increment primary key if needed.
-        pk_column = self.primary_key()
-        pk_field_name = self.__class__._get_field_name(pk_column)
-        if (result is not None and result.affected_rows > 0 and
-                pk_field_name in self.__class__.model_fields and
-                prepared_data.get(pk_column) is None and
-                getattr(self, pk_field_name, None) is None):
-
-            pk_retrieved = False
-            self.log(logging.DEBUG, f"8. Attempting to retrieve primary key '{pk_column}' for new record")
-
-            # Get the Python field name corresponding to the primary key column
-            pk_field_name = self.__class__._get_field_name(pk_column)
-            self.log(logging.DEBUG, f"8.1 Primary key column '{pk_column}' maps to field '{pk_field_name}'")
-
-            # Step 8.1: Priority 1: Check for RETURNING data (e.g., from PostgreSQL)
-            if result.data and isinstance(result.data, list) and len(result.data) > 0:
-                first_row = result.data[0]
-                # Result data will have already been mapped back to field names if column_mapping was used.
-                if isinstance(first_row, dict) and pk_field_name in first_row:
-                    pk_value = first_row[pk_field_name]
-                    setattr(self, pk_field_name, pk_value)
-                    pk_retrieved = True
-                    self.log(logging.DEBUG, f"8.1 Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
-                else:
-                    self.log(logging.WARNING, f"8.1 RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
-
-            # Step 8.2: Priority 2: Fallback to last_insert_id (e.g., from MySQL/SQLite)
-            if not pk_retrieved and result.last_insert_id is not None:
-                field_type = self.__class__.model_fields[pk_field_name].annotation
-                # Handle Optional[int]
-                if get_origin(field_type) in (Union, Optional):
-                    types = [t for t in get_args(field_type) if t is not type(None)]
-                    if types:
-                        field_type = types[0]
-
-                # last_insert_id is for integer keys.
-                if field_type is int:
-                    pk_value = result.last_insert_id
-                    setattr(self, pk_field_name, pk_value)
-                    pk_retrieved = True
-                    self.log(logging.DEBUG, f"8.2 Retrieved primary key '{pk_field_name}' from last_insert_id: {pk_value}")
-
-            # Step 8.3: If PK still not retrieved, it's an error.
-            if not pk_retrieved:
-                error_msg = f"Failed to retrieve primary key '{pk_field_name}' for new record after insert."
-                self.log(logging.ERROR, f"8.3 {error_msg}")
-                raise DatabaseError(error_msg)
-
-        self._is_from_db = True
-        self.reset_tracking()
-        return result
-
-    def _update_internal(self, data) -> Any:
-        """Internal method for updating an existing record with enhanced conditions and expressions.
-
-        This method handles the construction of the update query with all necessary conditions
-        and special expressions from model mixins. It properly converts placeholders to match
-        the database backend's requirements.
-
-        Args:
-            data: The data dictionary to be updated
-
-        Returns:
-            The result of the update operation
-        """
-        # Update existing record with enhanced conditions and expressions
-        update_conditions = []
-        update_expressions = {}
-
-        # Collect additional conditions and expressions from mixins
-        mro = self.__class__.__mro__
-        activerecord_idx = mro.index(IActiveRecord)
-        for cls in mro[:activerecord_idx]:
-            if (hasattr(cls, 'get_update_conditions') and
-                    hasattr(cls, 'get_update_expressions')):
-                # Get conditions and expressions from this class
-                behavior_conditions = cls.get_update_conditions(self)
-                behavior_expressions = cls.get_update_expressions(self)
-
-                # Add to update conditions and expressions
-                if behavior_conditions:
-                    update_conditions.extend(behavior_conditions)
-                if behavior_expressions:
-                    update_expressions.update(behavior_expressions)
-
-        # Combine data with additional expressions. This 'data' becomes the SET clause values.
-        data.update(update_expressions)
-
-        # Step 1: Map Python field names in `data` to database column names.
-        # This `mapped_set_data` will be used for preparing parameters.
-        mapped_set_data = self.__class__._map_fields_to_columns(data)
-        self.log(logging.DEBUG, f"1. SET clause raw data (Python field names): {data}")
-        self.log(logging.DEBUG, f"1. SET clause mapped data (DB column names): {mapped_set_data}")
-
-        # Step 2: Resolve and prepare the SET clause parameters using the new prioritized logic.
-        set_param_adapters: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
-        all_suggestions = self.backend().get_default_adapter_suggestions()
-
-        for field_name, py_value in mapped_set_data.items(): # Iterate over mapped data to get DB column names
-            resolved_adapter_info = None
-
-            # Priority 1: Check for a field-specific adapter.
-            # NOTE: Custom adapters are defined for Python field names.
-            # We need to get the original field name from the mapped column name for adapter lookup.
-            original_field_name = self.__class__._get_field_name(field_name)
-            custom_adapter_tuple = self.__class__._get_adapter_for_field(original_field_name)
-            if custom_adapter_tuple:
-                resolved_adapter_info = custom_adapter_tuple
-
-            # Priority 2: If no custom adapter was found, fall back to default suggestion.
-            if not resolved_adapter_info:
-                value_type = type(py_value)
-                resolved_adapter_info = all_suggestions.get(value_type)
-
-            if resolved_adapter_info:
-                set_param_adapters[field_name] = resolved_adapter_info
-
-        self.log(logging.DEBUG, f"2. Resolved SET clause parameter adapters: {len(set_param_adapters)} adapters found")
-
-        prepared_set_data = self.backend().prepare_parameters(mapped_set_data, set_param_adapters)
-        self.log(logging.DEBUG, f"2. Prepared SET clause data: {prepared_set_data}")
-
-        # Step 3: Prepare the WHERE clause parameters.
-        # (WHERE clause adaptation remains type-based as field context is not available here)
-        raw_where_params_list = []
-        where_conditions_list = []
-
-        # Add primary key condition.
-        pk_column = self.primary_key() # Use DB column name for WHERE clause
-        pk_value = getattr(self, self.__class__.primary_key_field()) # Get value from Python field
-        
-        where_conditions_list.append(f"{pk_column} = ?")
-        raw_where_params_list.append(pk_value)
-
-        # Add additional conditions from mixins.
-        for condition_str, condition_params in update_conditions:
-            where_conditions_list.append(condition_str)
-            if condition_params:
-                raw_where_params_list.extend(condition_params)
-        
-        # Build param_adapters for the WHERE clause parameters.
-        where_param_adapters_sequence: List[Optional[Tuple['SQLTypeAdapter', Type]]] = []
-        for raw_value in raw_where_params_list:
-            value_type = type(raw_value)
-            suggestion = all_suggestions.get(value_type)
-            where_param_adapters_sequence.append(suggestion)
-
-        # Prepare the WHERE clause parameters using the resolved adapters.
-        prepared_where_params = self.backend().prepare_parameters(
-            tuple(raw_where_params_list), # Pass as a tuple for prepare_parameters
-            where_param_adapters_sequence
-        )
-
-        self.log(logging.DEBUG, f"3. Prepared WHERE clause parameters: {len(prepared_where_params)} parameters prepared")
-
-        # Step 4: Create column_mapping for result processing (maps column names back to field names).
-        column_mapping = self.__class__.get_column_to_field_map()
-        self.log(logging.DEBUG, f"4. Column mapping for result processing: {column_mapping}")
-
-        # Step 5: Get the column adapters for processing output.
-        column_adapters = self.get_column_adapters()
-        self.log(logging.DEBUG, f"5. Column adapters map: {column_adapters}")
-
-        # Get the database backend
-        backend = self.backend()
-
-        # Get the appropriate placeholder for this database
-        placeholder = backend.dialect.get_placeholder()
-
-        # Combine base condition with additional conditions
-        final_where_clause = " AND ".join(where_conditions_list)
-        if placeholder != '?':
-            final_where_clause = replace_question_marks(final_where_clause, placeholder)
-
-        self.log(logging.INFO,
-                 f"Updating {self.__class__.__name__}#{getattr(self, self.__class__.primary_key_field())}: "
-                 f"set_data={prepared_set_data}, where_clause={final_where_clause}, where_params={prepared_where_params}")
-
-        # Step 6: Execute update with prepared SET data, prepared WHERE clause, and column adapters.
-        result = backend.update(
-            self.table_name(),
-            prepared_set_data,
-            final_where_clause,
-            prepared_where_params,
-            column_mapping=column_mapping, # Pass column_mapping for result processing.
-            column_adapters=column_adapters
-        )
-        return result
-
-    def _save_internal(self) -> int:
-        is_new = self.is_new_record
-
-        # Prepare data for saving (including mixin processing)
-        data = self._prepare_save_data()
-        result = self._insert_internal(data) if is_new else self._update_internal(data)
-
-        if result is not None and result.affected_rows > 0:
-            self._after_save(is_new)
-            self.reset_tracking()
-
-        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
-
-        return result.affected_rows
+        # Collect non-tracking fields from all parent classes
+        no_track_fields = set()
+        for base in cls.__mro__:
+            if hasattr(base, '__no_track_fields__'):
+                no_track_fields.update(base.__no_track_fields__)
+        cls.__no_track_fields__ = no_track_fields
+        cls.__column_types_cache__ = None
+        # Initialize _dummy_backend to None for each subclass
+        cls._dummy_backend = None
 
     @classmethod
     def table_name(cls) -> str:
@@ -587,10 +101,13 @@ class IActiveRecord(BaseModel, ABC):
 
     @classmethod
     def primary_key(cls) -> str:
-        """Get primary key name.
+        """Get the primary key column name.
 
         Returns the class's __primary_key__ attribute by default. Subclasses can override
         for dynamic primary keys.
+
+        Note: This implementation currently supports single-column primary keys only.
+        For composite primary keys, a different approach would be required.
 
         Example:
             @classmethod
@@ -600,7 +117,7 @@ class IActiveRecord(BaseModel, ABC):
         return cls.__primary_key__
 
     @classmethod
-    def backend(cls) -> Optional[StorageBackend]:
+    def backend(cls) -> Union[StorageBackend, AsyncStorageBackend]:
         """Get storage backend instance.
 
         Returns the class's __backend__ attribute by default. Subclasses can override
@@ -621,20 +138,7 @@ class IActiveRecord(BaseModel, ABC):
         return cls.__backend__
 
     @classmethod
-    def create_from_database(cls: Type[ModelT], row: Dict[str, Any]) -> ModelT:
-        """Create instance from database record"""
-        instance = cls(**row)
-        instance._is_from_db = True
-        instance.reset_tracking()
-        return instance
-
-    @classmethod
-    def create_collection_from_database(cls: Type[ModelT], rows: List[Dict[str, Any]]) -> List[ModelT]:
-        """Create instance collection from database records"""
-        return [cls.create_from_database(row) for row in rows]
-
-    @classmethod
-    def validate_record(cls: Type[ModelT], value: Any) -> None:
+    def validate_record(cls, value: Any) -> None:
         """Execute business rule validation.
 
         Unlike Pydantic's data type validation, this method focuses on business rules like:
@@ -679,67 +183,6 @@ class IActiveRecord(BaseModel, ABC):
         self.validate_record(self)
         self._trigger_event(ModelEvent.AFTER_VALIDATE)
 
-    @abstractmethod
-    def save(self) -> int:
-        """Save the record to database.
-
-        Returns:
-            Number of affected rows
-        """
-        pass
-
-    @abstractmethod
-    def delete(self) -> int:
-        """Delete the record from database.
-
-        Returns:
-            Number of affected rows
-        """
-        pass
-
-    @classmethod
-    @abstractmethod
-    def find_one(cls: Type[ModelT], condition: Union[Any, Dict[str, Any]]) -> Optional[ModelT]:
-        """Find single record by condition"""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def find_all(cls: Type[ModelT], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List[ModelT]:
-        """Find all records matching condition"""
-        pass
-
-    @classmethod
-    @abstractmethod
-    def find_one_or_fail(cls: Type[ModelT], condition: Union[Any, Dict[str, Any]]) -> ModelT:
-        """Find single record or raise exception"""
-        pass
-
-    def refresh(self) -> None:
-        """Reload record from database"""
-        pk_value = getattr(self, self.primary_key(), None)
-        if pk_value is None:
-            raise DatabaseError("Cannot refresh unsaved record")
-
-        self.log(logging.DEBUG, f"Refreshing {self.__class__.__name__}#{pk_value}")
-
-        record: __class__ = self.find_one(pk_value)
-
-        if record is None:
-            raise RecordNotFound(f"Record not found: {self.__class__.__name__}#{pk_value}")
-
-        # Update all field values
-        self.__dict__.update(record.__dict__)
-
-        self._is_from_db = True
-        self.reset_tracking()
-
-    @property
-    @abstractmethod
-    def is_new_record(self) -> bool:
-        """Check if this is a new record"""
-        pass
-
     def on(self, event: ModelEvent, handler: Callable) -> None:
         """Register event handler (instance level)"""
         if not hasattr(self, '_event_handlers'):
@@ -768,9 +211,9 @@ class IActiveRecord(BaseModel, ABC):
             Dict containing the fields to be saved
         """
         data = {}
-        if self.is_dirty:
+        if getattr(self, 'is_dirty', False):
             # Only include changed fields for existing records
-            for field in self._dirty_fields:
+            for field in getattr(self, '_dirty_fields', []):
                 value = getattr(self, field)
                 data[field] = value
         else:
@@ -813,3 +256,442 @@ class IActiveRecord(BaseModel, ABC):
                 for handler in mro_class._feature_handlers:
                     collected_handlers[handler] = True  # Use dict for ordered set
         return list(collected_handlers.keys())
+
+    @classmethod
+    def primary_key_field(cls) -> str:
+        """Get the Python field name that maps to the primary key column."""
+        return cls.primary_key()
+
+    @property
+    def is_new_record(self) -> bool:
+        """
+        Check if this is a new record that hasn't been saved to the database yet.
+
+        Returns:
+            bool: True if this is a new record that hasn't been saved to the database,
+                  False if this record already exists in the database
+        """
+        pk_field_name = self.__class__.primary_key_field()
+        pk_value = getattr(self, pk_field_name)
+        # A record is new if its primary key field is None OR if it hasn't been loaded from the DB
+        return pk_value is None or not self._is_from_db
+
+    def __setattr__(self, name: str, value: Any):
+        """Overridden to track field changes."""
+        if (name in self.__class__.model_fields and
+                hasattr(self, '_original_values') and
+                name not in self.__class__.__no_track_fields__):
+            if name not in self._original_values:
+                self._original_values[name] = getattr(self, name, None)
+            if value != self._original_values[name]:
+                self._dirty_fields.add(name)
+        super().__setattr__(name, value)
+
+    def reset_tracking(self):
+        """Reset change tracking state by clearing dirty fields and storing current values."""
+        self._dirty_fields.clear()
+        self._original_values = self.model_dump()
+
+    @property
+    def is_dirty(self) -> bool:
+        """Check if record has changes"""
+        return len(self._dirty_fields) > 0
+
+    @property
+    def dirty_fields(self) -> Set[str]:
+        """Get set of changed fields"""
+        return self._dirty_fields.copy()
+
+    def get_old_attribute(self, field_name: str) -> Optional[Any]:
+        """Get old attribute value."""
+        return deepcopy(self._original_values[field_name])
+
+    @property
+    def is_from_db(self) -> bool:
+        """Indicates if record was loaded from database"""
+        return self._is_from_db
+
+
+class IActiveRecord(ActiveRecordBase):
+    """Base interface for ActiveRecord models.
+
+    Defines core functionality that all ActiveRecord models must implement, including:
+    - Database connection and configuration
+    - CRUD operations
+    - Field tracking for changes
+    - Event handling
+    - Validation
+
+    Attributes:
+        __table_name__ (str): Database table name
+        __primary_key__ (str): Primary key column name (single-column primary keys only)
+        __backend__ (StorageBackend): Database storage backend
+        __backend_class__ (Type[StorageBackend]): Backend implementation class
+        __connection_config__ (ConnectionConfig): Connection configuration
+        __logger__ (Logger): Logger instance
+        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        _dirty_fields (Set[str]): Set of modified field names
+        __no_track_fields__ (Set[str]): Fields excluded from change tracking
+        _original_values (Dict): Original field values before modification
+    """
+
+    def _save_internal(self) -> int:
+        """
+        Internal method for saving the record (either insert or update).
+
+        This method determines whether to perform an insert or update operation based on
+        whether this is a new record or an existing one. It handles the complete save
+        process including:
+        1. Data preparation with mixin processing
+        2. Conditional execution of insert or update based on record state
+        3. Post-save processing and event triggering
+        4. Tracking reset after successful save
+
+        For both insert and update operations, if the backend supports RETURNING clauses,
+        the methods will utilize them to retrieve relevant data efficiently.
+
+        Returns:
+            int: Number of affected rows from the underlying insert or update operation
+        """
+        is_new = self.is_new_record
+
+        # Prepare data for saving (including mixin processing)
+        data = self._prepare_save_data()
+        result = self._insert_internal(data) if is_new else self._update_internal(data)
+
+        if result is not None and result.affected_rows > 0:
+            self._after_save(is_new)
+            self.reset_tracking()
+
+        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
+
+        return result.affected_rows
+
+    @abstractmethod
+    def save(self) -> int:
+        """
+        Save the record to database, performing insert or update as appropriate.
+
+        This method implements the core persistence functionality. If the record is
+        new (determined by is_new_record property), it performs an INSERT operation.
+        If the record already exists, it performs an UPDATE operation with only
+        the changed fields.
+
+        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
+        and handles dirty field tracking to optimize updates.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If the model fails validation before saving
+        """
+        pass
+
+    @abstractmethod
+    def delete(self) -> int:
+        """
+        Delete the record from database.
+
+        This method performs a DELETE operation for the current record. It identifies
+        the record to delete using the primary key value and removes it from the database.
+        The operation is performed using the model's configured backend.
+
+        The delete operation triggers appropriate model events (BEFORE_DELETE, AFTER_DELETE)
+        and updates the internal state of the record.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - Returns 1 if the record was successfully deleted
+                 - Returns 0 if no record matched the primary key (record didn't exist)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValueError: If the record doesn't have a valid primary key value
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def find_one(cls: Type['IActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> Optional['IActiveRecord']:
+        """
+        Find a single record that matches the specified condition.
+
+        This method queries the database for a record that matches the given condition
+        and returns it as an instance of the model class. If no matching record is found,
+        it returns None.
+
+        The condition can be specified in multiple ways:
+        - As a primary key value (e.g., find_one(123) for primary key = 123)
+        - As a dictionary of field-value pairs (e.g., find_one({'username': 'john'}))
+        - As a more complex condition using expression objects
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            Optional[IActiveRecord]: A model instance if a matching record is found, None otherwise
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def find_all(cls: Type['IActiveRecord'], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List['IActiveRecord']:
+        """
+        Find all records that match the specified condition.
+
+        This method queries the database for all records that match the given condition
+        and returns them as a list of model instances. If no condition is provided,
+        it returns all records from the table.
+
+        Args:
+            condition: Optional condition to match. Can be:
+                      - A dictionary of field-value pairs (e.g., {'status': 'active'})
+                      - A list of conditions for complex queries
+                      - None to return all records
+
+        Returns:
+            List[IActiveRecord]: A list of model instances that match the condition.
+                         Returns an empty list if no records match.
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    def find_one_or_fail(cls: Type['IActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> 'IActiveRecord':
+        """
+        Find a single record that matches the specified condition or raise an exception.
+
+        This method behaves like find_one() but raises a RecordNotFound exception
+        if no matching record is found, instead of returning None.
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            IActiveRecord: A model instance if a matching record is found
+
+        Raises:
+            RecordNotFound: If no record matches the specified condition
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    def refresh(self) -> None:
+        """Reload record from database"""
+        pk_value = getattr(self, self.primary_key(), None)
+        if pk_value is None:
+            raise DatabaseError("Cannot refresh unsaved record")
+
+        self.log(logging.DEBUG, f"Refreshing {self.__class__.__name__}#{pk_value}")
+
+        record: __class__ = self.find_one(pk_value)
+
+        if record is None:
+            raise RecordNotFound(f"Record not found: {self.__class__.__name__}#{pk_value}")
+
+        # Update all field values
+        self.__dict__.update(record.__dict__)
+
+        self._is_from_db = True
+        self.reset_tracking()
+
+
+class IAsyncActiveRecord(ActiveRecordBase):
+    """Base interface for Asynchronous ActiveRecord models.
+
+    Defines core functionality that all asynchronous ActiveRecord models must implement, including:
+    - Asynchronous database connection and configuration
+    - Asynchronous CRUD operations
+    - Field tracking for changes
+    - Event handling
+    - Validation
+
+    Attributes:
+        __table_name__ (str): Database table name
+        __primary_key__ (str): Primary key column name (single-column primary keys only)
+        __backend__ (AsyncStorageBackend): Asynchronous database storage backend
+        __backend_class__ (Type[AsyncStorageBackend]): Backend implementation class
+        __connection_config__ (ConnectionConfig): Connection configuration
+        __logger__ (Logger): Logger instance
+        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        _dirty_fields (Set[str]): Set of modified field names
+        __no_track_fields__ (Set[str]): Fields excluded from change tracking
+        _original_values (Dict): Original field values before modification
+    """
+
+    async def _save_internal(self) -> int:
+        """
+        Internal method for saving the record (either insert or update).
+        """
+        is_new = self.is_new_record
+
+        # Prepare data for saving (including mixin processing)
+        data = self._prepare_save_data()
+        result = await self._insert_internal(data) if is_new else await self._update_internal(data)
+
+        if result is not None and result.affected_rows > 0:
+            self._after_save(is_new)
+            self.reset_tracking()
+
+        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
+
+        return result.affected_rows
+        
+    @abstractmethod
+    async def save(self) -> int:
+        """
+        Save the record to database asynchronously, performing insert or update as appropriate.
+
+        This method implements the core persistence functionality. If the record is
+        new (determined by is_new_record property), it performs an INSERT operation.
+        If the record already exists, it performs an UPDATE operation with only
+        the changed fields.
+
+        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
+        and handles dirty field tracking to optimize updates.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - For INSERT operations: typically returns 1 if successful
+                 - For UPDATE operations: returns the actual number of updated rows
+                   (could be 0 if no fields were changed)
+        """
+        pass
+
+    @abstractmethod
+    async def delete(self) -> int:
+        """
+        Delete the record from database asynchronously.
+
+        This method performs a DELETE operation for the current record. It identifies
+        the record to delete using the primary key value and removes it from the database.
+        The operation is performed using the model's configured backend.
+
+        The delete operation triggers appropriate model events (BEFORE_DELETE, AFTER_DELETE)
+        and updates the internal state of the record.
+
+        Returns:
+            int: Number of affected rows in the database
+                 - Returns 1 if the record was successfully deleted
+                 - Returns 0 if no record matched the primary key (record didn't exist)
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValueError: If the record doesn't have a valid primary key value
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def find_one(cls: Type['IAsyncActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> Optional['IAsyncActiveRecord']:
+        """
+        Find a single record that matches the specified condition asynchronously.
+
+        This method queries the database for a record that matches the given condition
+        and returns it as an instance of the model class. If no matching record is found,
+        it returns None.
+
+        The condition can be specified in multiple ways:
+        - As a primary key value (e.g., find_one(123) for primary key = 123)
+        - As a dictionary of field-value pairs (e.g., find_one({'username': 'john'}))
+        - As a more complex condition using expression objects
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            Optional[IAsyncActiveRecord]: A model instance if a matching record is found, None otherwise
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def find_all(cls: Type['IAsyncActiveRecord'], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List['IAsyncActiveRecord']:
+        """
+        Find all records that match the specified condition asynchronously.
+
+        This method queries the database for all records that match the given condition
+        and returns them as a list of model instances. If no condition is provided,
+        it returns all records from the table.
+
+        Args:
+            condition: Optional condition to match. Can be:
+                      - A dictionary of field-value pairs (e.g., {'status': 'active'})
+                      - A list of conditions for complex queries
+                      - None to return all records
+
+        Returns:
+            List[IAsyncActiveRecord]: A list of model instances that match the condition.
+                         Returns an empty list if no records match.
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    @classmethod
+    @abstractmethod
+    async def find_one_or_fail(cls: Type['IAsyncActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> 'IAsyncActiveRecord':
+        """
+        Find a single record that matches the specified condition or raise an exception asynchronously.
+
+        This method behaves like find_one() but raises a RecordNotFound exception
+        if no matching record is found, instead of returning None.
+
+        Args:
+            condition: The condition to match. Can be a primary key value, a dictionary
+                      of field-value pairs, or a more complex condition expression
+
+        Returns:
+            IAsyncActiveRecord: A model instance if a matching record is found
+
+        Raises:
+            RecordNotFound: If no record matches the specified condition
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+        """
+        pass
+
+    async def refresh(self) -> None:
+        """Reload record from database asynchronously"""
+        pk_value = getattr(self, self.primary_key(), None)
+        if pk_value is None:
+            raise DatabaseError("Cannot refresh unsaved record")
+
+        self.log(logging.DEBUG, f"Refreshing {self.__class__.__name__}#{pk_value}")
+
+        record: __class__ = await self.find_one(pk_value)
+
+        if record is None:
+            raise RecordNotFound(f"Record not found: {self.__class__.__name__}#{pk_value}")
+
+        # Update all field values
+        self.__dict__.update(record.__dict__)
+
+        self._is_from_db = True
+        self.reset_tracking()

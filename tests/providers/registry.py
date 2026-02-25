@@ -6,23 +6,22 @@ The registry system allows the test suite to be decoupled from specific
 backend implementations, enabling the same tests to run against different
 database backends.
 
-Capability Negotiation in Testing
----------------------------------
-The test suite uses the capability negotiation system to determine which
-tests should run against which backends. Each backend declares its capabilities
-through the DatabaseCapabilities system, and tests can check for required
-capabilities before execution.
+Feature Detection in Testing
+----------------------------
+The test suite uses protocol-based feature detection to determine which
+tests should run against which backends. Each backend implements various
+protocols that indicate feature support, and tests can check for required
+features before execution using isinstance() checks.
 
 This approach enables:
-1. Automatic test skipping for unsupported features
+1. Runtime feature detection based on protocol implementation
 2. Backend-specific test execution
-3. Fine-grained feature testing
-4. Single source of truth for feature support
+3. Flexible feature testing
+4. Direct protocol-based feature checking
 
-When a test needs to check for a capability, it can access the backend's
-capabilities property and use the appropriate checking methods. Tests that
-require specific capabilities will automatically be skipped on backends
-that don't support those features.
+When a test needs to check for a feature, it can use isinstance() checks
+against the appropriate protocol. Tests that require specific features
+can check protocol implementation before execution.
 """
 from rhosocial.activerecord.testsuite.core.registry import ProviderRegistry
 from .basic import BasicProvider

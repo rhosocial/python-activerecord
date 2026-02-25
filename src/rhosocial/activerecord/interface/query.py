@@ -4,15 +4,32 @@ Query building interfaces for ActiveRecord implementation.
 """
 from abc import ABC, abstractmethod
 from threading import local
-from typing import Any, Dict, List, Optional, Set, Tuple, Union, Generic, TypeVar, Type, Iterator, ItemsView, KeysView, \
-    ValuesView, Mapping
+from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type, Iterator, ItemsView, KeysView, \
+    ValuesView, Mapping, overload
+from typing import Protocol
+from typing_extensions import runtime_checkable
+
+from .model import IActiveRecord, IAsyncActiveRecord
+from ..backend.base import StorageBackend, AsyncStorageBackend
+from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
+from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 
 K = TypeVar('K')
 V = TypeVar('V')
 
 
 class ThreadSafeDict(Dict[K, V]):
-    """A thread-safe dictionary that behaves exactly like a normal dict."""
+    """
+    A thread-safe dictionary implementation using thread-local storage.
+
+    This class provides a dictionary-like interface that maintains separate data
+    for each thread, ensuring thread safety by isolating data per thread.
+    Each thread gets its own copy of the data, so changes in one thread
+    don't affect other threads.
+
+    Note: This is not a shared thread-safe dictionary but rather a thread-isolated
+    dictionary where each thread has its own instance of the data.
+    """
 
     def __init__(self, *args, **kwargs):
         """Initialize thread-safe dictionary.
@@ -23,64 +40,87 @@ class ThreadSafeDict(Dict[K, V]):
         - From iterable: ThreadSafeDict([('a', 1), ('b', 2)])
         - From kwargs: ThreadSafeDict(a=1, b=2)
         """
+        # Initialize the thread-local storage
         self._local = local()
-        if not hasattr(self._local, 'data'):
-            self._local.data = {}
-        if args or kwargs:
-            self.update(*args, **kwargs)
+        # Call parent constructor with initial data
+        super().__init__()
+        # Store initial data in thread-local storage
+        initial_data = {}
+        if args:
+            if len(args) > 1:
+                raise TypeError('ThreadSafeDict expected at most 1 argument, got %d' % len(args))
+            arg = args[0]
+            if hasattr(arg, 'items'):
+                # Mapping-like object
+                initial_data.update(arg)
+            else:
+                # Iterable of pairs
+                for key, value in arg:
+                    initial_data[key] = value
+        initial_data.update(kwargs)
+        self._local.data = initial_data
 
     def __ensure_data(self) -> dict:
         """Ensure thread-local data exists.
 
         Returns:
-            dict: Thread-local dictionary
+            dict: Thread-local dictionary for the current thread
         """
         if not hasattr(self._local, 'data'):
             self._local.data = {}
         return self._local.data
 
     def __getitem__(self, key: K) -> V:
+        """Get item from thread-local storage."""
         return self.__ensure_data()[key]
 
     def __setitem__(self, key: K, value: V) -> None:
+        """Set item in thread-local storage."""
         self.__ensure_data()[key] = value
 
     def __delitem__(self, key: K) -> None:
+        """Delete item from thread-local storage."""
         del self.__ensure_data()[key]
 
     def __iter__(self) -> Iterator[K]:
+        """Iterate over thread-local storage."""
         return iter(self.__ensure_data())
 
     def __len__(self) -> int:
+        """Get length of thread-local storage."""
         return len(self.__ensure_data())
 
     def __contains__(self, key: K) -> bool:
+        """Check if key exists in thread-local storage."""
         return key in self.__ensure_data()
 
     def __bool__(self) -> bool:
+        """Check if thread-local storage is non-empty."""
         return bool(self.__ensure_data())
 
     def __eq__(self, other: object) -> bool:
-        if not isinstance(other, (Dict, ThreadSafeDict)):
+        """Compare with another dict-like object."""
+        if not isinstance(other, (dict, ThreadSafeDict)):
             return NotImplemented
-        return self.__ensure_data() == other
+        return self.__ensure_data() == dict(other)
 
     def __repr__(self) -> str:
+        """String representation of the thread-local data."""
         return f"ThreadSafeDict({repr(self.__ensure_data())})"
 
     def __str__(self) -> str:
+        """String representation of the thread-local data."""
         return str(self.__ensure_data())
 
     # Standard dict methods
     def clear(self) -> None:
-        """Remove all items from the dictionary."""
-        if hasattr(self._local, 'data'):
-            self._local.data.clear()
+        """Remove all items from the thread-local dictionary."""
+        self.__ensure_data().clear()
 
     def copy(self) -> 'ThreadSafeDict[K, V]':
-        """Return a shallow copy of the dictionary."""
+        """Return a shallow copy of the thread-local dictionary."""
         result = ThreadSafeDict()
-        result.update(self.__ensure_data())
+        result._local.data = self.__ensure_data().copy()
         return result
 
     def get(self, key: K, default: Any = None) -> Optional[V]:
@@ -88,41 +128,42 @@ class ThreadSafeDict(Dict[K, V]):
         return self.__ensure_data().get(key, default)
 
     def items(self) -> ItemsView[K, V]:
-        """Return a view of dictionary's items (key-value pairs)."""
+        """Return a view of thread-local dictionary's items (key-value pairs)."""
         return self.__ensure_data().items()
 
     def keys(self) -> KeysView[K]:
-        """Return a view of dictionary's keys."""
+        """Return a view of thread-local dictionary's keys."""
         return self.__ensure_data().keys()
 
     def values(self) -> ValuesView[V]:
-        """Return a view of dictionary's values."""
+        """Return a view of thread-local dictionary's values."""
         return self.__ensure_data().values()
 
     def pop(self, key: K, default: Any = ...) -> V:
-        """Remove specified key and return the corresponding value.
+        """Remove specified key and return the corresponding value from thread-local storage.
 
         If default is provided and key doesn't exist, return default.
         If default is not provided and key doesn't exist, raise KeyError.
         """
+        data = self.__ensure_data()
         if default is ...:
-            return self.__ensure_data().pop(key)
-        return self.__ensure_data().pop(key, default)
+            return data.pop(key)
+        return data.pop(key, default)
 
     def popitem(self) -> Tuple[K, V]:
-        """Remove and return an arbitrary (key, value) pair.
+        """Remove and return an arbitrary (key, value) pair from thread-local storage.
 
         Raises:
-            KeyError: If dictionary is empty
+            KeyError: If thread-local dictionary is empty
         """
         return self.__ensure_data().popitem()
 
     def setdefault(self, key: K, default: V = None) -> V:
-        """Return value for key if it exists, else set and return default."""
+        """Return value for key if it exists, else set and return default in thread-local storage."""
         return self.__ensure_data().setdefault(key, default)
 
     def update(self, *args, **kwargs) -> None:
-        """Update dictionary with elements from args and kwargs.
+        """Update thread-local dictionary with elements from args and kwargs.
 
         Args can be:
         - another dictionary
@@ -132,33 +173,30 @@ class ThreadSafeDict(Dict[K, V]):
         data = self.__ensure_data()
         if args:
             if len(args) > 1:
-                raise TypeError('update expected at most 1 argument, got ' + str(len(args)))
+                raise TypeError('update expected at most 1 argument, got %d' % len(args))
             other = args[0]
             if isinstance(other, Mapping):
-                for key in other:
-                    data[key] = other[key]
+                data.update(other)
             elif hasattr(other, 'keys'):
-                for key in other.keys():
-                    data[key] = other[key]
+                data.update({k: other[k] for k in other.keys()})
             else:
                 for key, value in other:
                     data[key] = value
-        for key, value in kwargs.items():
-            data[key] = value
+        data.update(kwargs)
 
     # Additional useful methods
     def to_dict(self) -> Dict[K, V]:
-        """Convert to a regular dictionary."""
+        """Convert thread-local data to a regular dictionary."""
         return dict(self.__ensure_data())
 
     def set_many(self, items: List[Tuple[K, V]]) -> None:
-        """Set multiple items at once from a list of tuples."""
+        """Set multiple items at once from a list of tuples in thread-local storage."""
         data = self.__ensure_data()
         for key, value in items:
             data[key] = value
 
     def get_many(self, keys: List[K], default: Any = None) -> List[V]:
-        """Get multiple values at once.
+        """Get multiple values at once from thread-local storage.
 
         Args:
             keys: List of keys to retrieve
@@ -171,410 +209,886 @@ class ThreadSafeDict(Dict[K, V]):
         return [data.get(key, default) for key in keys]
 
 
-ModelT = TypeVar('ModelT', bound='IActiveRecord')
+@runtime_checkable
+class IBackend(Protocol):
+    """Protocol that provides backend access for query objects.
 
-
-class IQuery(Generic[ModelT], ABC):
-    """Interface for building and executing database queries.
-
-    Provides a fluent interface for constructing SQL queries with:
-    - Conditions (WHERE clauses)
-    - Sorting (ORDER BY)
-    - Grouping (GROUP BY)
-    - Joins
-    - Pagination (LIMIT/OFFSET)
+    This protocol defines a method for accessing the storage backend
+    associated with a query object, which is necessary for consistent
+    query execution across different database systems.
     """
 
-    def __init__(self, model_class: Type[ModelT]):
-        self.model_class = model_class
-        self.conditions: List[Tuple[str, tuple]] = []
-        self.order_clauses: List[str] = []
-        self.limit_count: Optional[int] = None
-        self.offset_count: Optional[int] = None
-        self.join_clauses: List[str] = []
-        self.select_columns: List[str] = ["*"]
-        self._params: List[Any] = []  # Query parameters
-        self._eager_loads: ThreadSafeDict[str, List[str]] = ThreadSafeDict  # Relations to be eager loaded
-        self._loaded_relations: ThreadSafeDict[
-            str, ThreadSafeDict[int, Any]] = ThreadSafeDict  # Cache of loaded relation data
-        # Extended condition storage for OR logic support
-        self.condition_groups: List[List[Tuple[str, tuple, str]]] = [[]]  # [[(condition, params, operator), ...], ...]
-        self.current_group = 0
-        # Explain configuration
-        self._explain_enabled: bool = False
-        self._explain_options: Dict[str, Any] = {}
+    def backend(self) -> 'StorageBackend':
+        """Get the storage backend for this query.
 
-    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
-        """Internal logging helper"""
-        pass
+        Returns:
+            StorageBackend: The backend instance for this query
+        """
+        ...
 
-    @abstractmethod
-    def query(self, conditions: Optional[Dict[str, Any]] = None) -> 'IQuery[ModelT]':
-        """Configure query with given conditions.
+
+@runtime_checkable
+class IAsyncBackend(Protocol):
+    """Protocol that provides backend access for async query objects.
+
+    This protocol defines a method for accessing the async storage backend
+    associated with a query object, which is necessary for consistent
+    query execution across different database systems.
+    """
+
+    def backend(self) -> 'AsyncStorageBackend':
+        """Get the async storage backend for this query.
+
+        Returns:
+            AsyncStorageBackend: The async backend instance for this query
+        """
+        ...
+
+
+@runtime_checkable
+class IQueryBuilding(Protocol):
+    """Protocol for query building operations.
+
+    This protocol defines the basic query building methods (WHERE, SELECT, ORDER BY, etc.)
+    without database access. It's designed to be mixed into query classes that need
+    query construction capabilities.
+    """
+
+    # region Instance Attributes
+    _backend: StorageBackend
+    # Query clause attributes
+    where_clause: Optional[WhereClause]
+    order_by_clause: Optional[OrderByClause]
+    join_clauses: List[Union[str, type]]
+    select_columns: Optional[List[BaseExpression]]
+    limit_offset_clause: Optional[LimitOffsetClause]
+    group_by_having_clause: Optional[GroupByHavingClause]
+    _adapt_params: bool
+    _explain_enabled: bool
+    _explain_options: dict
+    # endregion
+
+    @overload
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQueryBuilding':
+        """
+        Add AND condition to the query using a SQL placeholder string.
+
+        This method allows adding WHERE conditions using raw SQL strings with parameter placeholders.
+        It's important to use parameter placeholders (typically '?') instead of directly concatenating
+        values to prevent SQL injection attacks.
 
         Args:
-            conditions: Optional dictionary of conditions to apply
+            condition: A SQL placeholder string with parameters (e.g., "name = ? AND age > ?")
+            params: Query parameters for the placeholders
 
         Returns:
-            Configured query instance
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.query({'status': 'active', 'type': 'user'})
-            # Results in: WHERE status = ? AND type = ?
+        Note:
+            For beginners, it's not recommended to use this overload directly unless you are very clear
+            about how to avoid security risks like SQL injection. Consider using the predicate-based
+            overload instead (where(condition: SQLPredicate)), which provides better type safety and
+            automatic protection against injection attacks.
+
+        Example:
+            >>> query = User.query().where("status = ? AND age > ?", ("active", 18))
+            >>> # Generates: SELECT * FROM users WHERE status = ? AND age > ?
+            >>> # With parameters: ("active", 18)
         """
-        pass
+        ...
 
-    @abstractmethod
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
-        """Add WHERE condition to the query.
+    @overload
+    def where(self, condition: SQLPredicate, params: None = None) -> 'IQueryBuilding':
+        """
+        Add AND condition to the query using a predicate expression.
+
+        This method allows adding WHERE conditions using predicate expressions that are
+        generated by the expression system. These expressions provide type safety and
+        proper SQL generation without manual string manipulation.
 
         Args:
-            condition: SQL condition string with placeholders
-            params: Parameter values for the condition placeholders
+            condition: A predicate expression (e.g., User.c.age > 25, which is a SQLPredicate instance)
+            params: Should be None when using predicate expressions
 
         Returns:
-            Query instance with WHERE condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.where('status = ?', (1,))
-            query.where('created_at > ? AND updated_at < ?', (start_date, end_date))
+        Example:
+            >>> query = User.query().where(User.c.status == 'active')
+            >>> query = User.query().where(User.c.age >= 18)
+            >>> query = User.query().where(User.c.name.like('%john%'))
         """
-        pass
+        ...
 
-    @abstractmethod
-    def order_by(self, *clauses: str) -> 'IQuery[ModelT]':
-        """Add ORDER BY clauses to the query.
+    def where(self, condition, params=None):
+        """
+        Add AND condition to the query.
+
+        This method supports two ways of adding WHERE conditions:
+        1. Using a SQL placeholder string with parameters (e.g., "name = ? AND age > ?")
+        2. Using a predicate expression (e.g., User.c.age > 25)
+
+        When using SQL strings, always use parameter placeholders to prevent SQL injection.
+        When using predicate expressions, the system handles parameterization automatically.
 
         Args:
-            *clauses: Order expressions (e.g., 'id DESC', 'name ASC')
+            condition: Condition expression. Can be:
+                      1. A predicate expression (e.g., User.c.age > 25, which is a SQLPredicate instance)
+                      2. A SQL placeholder string with parameters (e.g., "name = ? AND age > ?")
+            params: Query parameters for placeholder strings (not used with expression objects)
 
         Returns:
-            Query instance with ORDER BY clauses added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.order_by('created_at DESC')
-            query.order_by('status ASC', 'priority DESC')
+        Example:
+            # Using predicate expressions (recommended)
+            >>> query = User.query().where(User.c.status == 'active')
+            >>> query = User.query().where(User.c.age >= 18)
+            >>> query = User.query().where(User.c.name.like('%john%'))
+
+            # Using raw SQL strings (use with caution)
+            >>> query = User.query().where('status = ?', ('active',))
+            >>> query = User.query().where('age >= ?', (18,))
         """
         pass
 
-    @abstractmethod
-    def limit(self, count: int) -> 'IQuery[ModelT]':
-        """Set result limit (LIMIT clause).
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQueryBuilding':
+        """
+        Select specific columns or expressions to retrieve from the query.
+
+        This method allows specifying which columns or expressions to include in the result set.
+        By default, it replaces any previously selected columns, but can be configured to append
+        to existing selections using the append parameter.
 
         Args:
-            count: Maximum number of records to return
+            *columns: Variable number of column names or expressions to select.
+                    Can be:
+                    - String column names (e.g., 'id', 'name')
+                    - BaseExpression objects (e.g., generated by FieldProxy)
+                    - Function expressions (e.g., COUNT, SUM, etc.)
+            append: If True, adds the specified columns to existing selections.
+                   If False (default), replaces existing selections with the new ones.
 
         Returns:
-            Query instance with LIMIT clause added
+            IQueryBuilding: Returns self for method chaining
 
-        Raises:
-            QueryError: If count is negative
+        Example:
+            # Select specific columns
+            >>> query = User.query().select('id', 'name', 'email')
 
-        Examples:
-            query.limit(10) # Return at most 10 records
+            # Select with expressions
+            >>> from rhosocial.activerecord.backend.expression.functions import count
+            >>> query = User.query().select(count(User.c.id).as_('total'))
+
+            # Append to existing selection
+            >>> query = User.query().select('id').select('name', append=True)
         """
         pass
 
-    @abstractmethod
-    def offset(self, count: int) -> 'IQuery[ModelT]':
-        """Set result offset (OFFSET clause).
+    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQueryBuilding':
+        """
+        Add ORDER BY clauses to the query.
+
+        This method allows specifying the sort order for the result set. It supports multiple
+        ways to define sorting criteria, including simple column names, expressions, and
+        explicit sort directions.
 
         Args:
-            count: Number of records to skip
+            *clauses: Variable number of ordering clauses. Each clause can be:
+                    - String column name (e.g., 'name', 'created_at')
+                    - BaseExpression object (e.g., generated by FieldProxy)
+                    - Tuple of (expression, direction) where direction is 'ASC' or 'DESC'
 
         Returns:
-            Query instance with OFFSET clause added
+            IQueryBuilding: Returns self for method chaining
 
-        Raises:
-            QueryError: If count is negative
+        Example:
+            # Simple ascending order
+            >>> query = User.query().order_by('name')
 
-        Examples:
-            query.offset(10) # Skip first 10 records
-            query.limit(10).offset(20) # Records 21-30
+            # Multiple columns
+            >>> query = User.query().order_by('status', 'name')
+
+            # With explicit direction
+            >>> query = User.query().order_by(('created_at', 'DESC'))
+
+            # Mixed approach
+            >>> query = User.query().order_by('status', ('created_at', 'DESC'), 'name')
         """
         pass
 
-    @abstractmethod
-    def one(self) -> Optional[ModelT]:
-        """Execute query and return first matching record.
-
-        Returns:
-            Single model instance or None if no matches
-
-        Raises:
-            DatabaseError: If query execution fails
+    def limit(self, count: Union[int, BaseExpression]) -> 'IQueryBuilding':
         """
-        pass
+        Add LIMIT clause to restrict the number of rows returned.
 
-    @abstractmethod
-    def all(self) -> List[ModelT]:
-        """Execute query and return all matching records.
-
-        Returns:
-            List of model instances for matching records
-
-        Raises:
-            DatabaseError: If query execution fails
-        """
-        pass
-
-    @abstractmethod
-    def to_dict(self, include: Optional[Set[str]] = None, exclude: Optional[Set[str]] = None) -> 'IDictQuery[ModelT]':
-        """Convert query results to dictionary format.
+        This method limits the result set to a specified number of rows. It's particularly
+        useful for pagination, performance optimization, or when only a subset of results is needed.
 
         Args:
-            include: Optional set of fields to include
-            exclude: Optional set of fields to exclude
+            count: Maximum number of rows to return. Can be:
+                   - Integer literal (e.g., 10, 100)
+                   - BaseExpression object (e.g., a parameterized value)
 
         Returns:
-            DictQuery instance for dictionary results
+            IQueryBuilding: Returns self for method chaining
+
+        Example:
+            # Limit to 10 results
+            >>> query = User.query().limit(10)
+
+            # Use with offset for pagination
+            >>> query = User.query().limit(20).offset(40)  # Skip first 40, return next 20
         """
         pass
 
-    @abstractmethod
-    def one_or_fail(self) -> Optional[ModelT]:
-        """Execute query and return first match, raising error if none found.
-
-        Returns:
-            Single model instance
-
-        Raises:
-            RecordNotFound: If no matching record exists
-            DatabaseError: If query execution fails
+    def offset(self, count: Union[int, BaseExpression]) -> 'IQueryBuilding':
         """
-        pass
+        Add OFFSET clause to skip a specified number of rows.
 
-    @abstractmethod
-    def in_list(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
-                empty_result: bool = True) -> 'IQuery[ModelT]':
-        """Add IN condition to the query.
+        This method skips a specified number of rows in the result set before returning results.
+        It's commonly used with LIMIT for pagination, allowing retrieval of specific pages of data.
 
         Args:
-            column: Column name to check
-            values: List or tuple of values to match against
-            empty_result: Behavior when values list is empty:
-                         True - Return empty result set
-                         False - Ignore this condition
+            count: Number of rows to skip. Can be:
+                   - Integer literal (e.g., 10, 100)
+                   - BaseExpression object (e.g., a parameterized value)
 
         Returns:
-            Query instance with IN condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.in_list('status', [1, 2, 3])
-            query.in_list('type', ('admin', 'staff'))
+        Example:
+            # Skip first 10 results
+            >>> query = User.query().offset(10)
+
+            # Use with limit for pagination
+            >>> query = User.query().limit(20).offset(40)  # Skip first 40, return next 20
+            >>> # This would get the third page of 20-item pages
         """
         pass
 
-    @abstractmethod
-    def not_in(self, column: str, values: Union[List[Any], Tuple[Any, ...]],
-               empty_result: bool = False) -> 'IQuery[ModelT]':
-        """Add NOT IN condition to the query.
+    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQueryBuilding':
+        """
+        Add GROUP BY columns for complex aggregations.
+
+        This method groups the result set by specified columns, which is essential for
+        aggregate functions like COUNT, SUM, AVG, etc. When using GROUP BY, all selected
+        columns that are not aggregate functions should be included in the GROUP BY clause.
 
         Args:
-            column: Column name to check
-            values: List or tuple of values to exclude
-            empty_result: Behavior when values list is empty:
-                         True - Return empty result
-                         False - Ignore this condition (default)
+            *columns: Variable number of column names or expressions to group by.
+                    Can be:
+                    - String column names (e.g., 'status', 'department')
+                    - BaseExpression objects (e.g., generated by FieldProxy)
 
         Returns:
-            Query instance with NOT IN condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.not_in('status', [3, 4]) # Exclude status 3 and 4
-            query.not_in('type', ['deleted', 'banned'])
+        Example:
+            # Group by status
+            >>> from rhosocial.activerecord.backend.expression.functions import count
+            >>> query = User.query().select(User.c.status, count(User.c.id).as_('count')).group_by('status')
+
+            # Group by multiple columns
+            >>> query = User.query().select('department', 'status', count(User.c.id).as_('count')).group_by('department', 'status')
         """
         pass
 
-    @abstractmethod
-    def or_where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQuery[ModelT]':
-        """Add OR condition to the query.
+    @overload
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQueryBuilding':
+        """
+        Add HAVING condition using a SQL placeholder string for complex aggregations.
+
+        The HAVING clause is used to filter groups in a GROUP BY query, similar to how WHERE
+        filters individual rows. This overload accepts raw SQL strings with parameter placeholders.
 
         Args:
-            condition: SQL condition string with placeholders
-            params: Parameter values for condition placeholders
+            condition: A SQL placeholder string with parameters (e.g., "COUNT(*) > ?")
+            params: Query parameters for the placeholders
 
         Returns:
-            Query instance with OR condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.where('status = ?', [1]).or_where('status = ?', [2])
-            # Results in: WHERE status = 1 OR status = 2
+        Note:
+            For beginners, it's not recommended to use this overload directly unless you are very clear
+            about how to avoid security risks like SQL injection. Consider using the predicate-based
+            overload instead (having(condition: SQLPredicate)), which provides better type safety and
+            automatic protection against injection attacks.
+
+        Example:
+            >>> query = User.query().group_by('status').having("COUNT(*) > ?", (5,))
         """
-        pass
+        ...
 
-    @abstractmethod
-    def start_or_group(self) -> 'IQuery[ModelT]':
-        """Start new OR condition group (with parentheses).
-
-        Used for complex OR logic combinations with AND conditions.
-
-        Returns:
-            Query instance with new OR group started
-
-        Examples:
-            query.where('status = ?', [1])\\
-                 .start_or_group()\\
-                 .where('type = ?', ['admin'])\\
-                 .or_where('type = ?', ['staff'])\\
-                 .end_or_group()
-            # Results in: WHERE status = 1 AND (type = 'admin' OR type = 'staff')
+    @overload
+    def having(self, condition: SQLPredicate, params: None = None) -> 'IQueryBuilding':
         """
-        pass
+        Add HAVING condition using a predicate expression for complex aggregations.
 
-    @abstractmethod
-    def end_or_group(self) -> 'IQuery[ModelT]':
-        """End current OR condition group.
-
-        Must be called after start_or_group() to close the parentheses.
-
-        Returns:
-            Query instance with current OR group ended
-        """
-        pass
-
-    @abstractmethod
-    def between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
-        """Add a BETWEEN condition to the query.
+        The HAVING clause is used to filter groups in a GROUP BY query, similar to how WHERE
+        filters individual rows. This overload accepts predicate expressions generated by
+        the expression system.
 
         Args:
-            column: Column name
-            start: Start value
-            end: End value
+            condition: A predicate expression (e.g., count(User.c.id) > 5)
+            params: Should be None when using predicate expressions
 
         Returns:
-            Query instance with BETWEEN condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.between('age', 18, 30)
-            # Results in: WHERE age BETWEEN ? AND ?
+        Example:
+            >>> from rhosocial.activerecord.backend.expression.functions import count
+            >>> query = User.query().group_by('status').having(count(User.c.id) > 5)
         """
-        pass
+        ...
 
-    @abstractmethod
-    def not_between(self, column: str, start: Any, end: Any) -> 'IQuery[ModelT]':
-        """Add a NOT BETWEEN condition to the query.
+    def having(self, condition, params=None) -> 'IQueryBuilding':
+        """
+        Add HAVING condition for complex aggregations.
+
+        The HAVING clause is used to filter groups in a GROUP BY query, similar to how WHERE
+        filters individual rows. It's typically used with aggregate functions like COUNT, SUM, AVG, etc.
 
         Args:
-            column: Column name
-            start: Start value
-            end: End value
+            condition: Condition expression. Can be:
+                      1. A predicate expression (e.g., count(User.c.id) > 5)
+                      2. A SQL placeholder string with parameters (e.g., "COUNT(*) > ?")
+            params: Query parameters for placeholder strings (not used with expression objects)
 
         Returns:
-            Query instance with NOT BETWEEN condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.not_between('price', 100, 200)
-            # Results in: WHERE price NOT BETWEEN ? AND ?
+        Example:
+            # Using predicate expressions (recommended)
+            >>> from rhosocial.activerecord.backend.expression.functions import count
+            >>> query = User.query().group_by('status').having(count(User.c.id) > 5)
+
+            # Using raw SQL strings (use with caution)
+            >>> query = User.query().group_by('status').having("COUNT(*) > ?", (5,))
         """
         pass
 
-    @abstractmethod
-    def like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
-        """Add a LIKE condition to the query.
+    def explain(self, **kwargs) -> 'IQueryBuilding':
+        """
+        Enable EXPLAIN for the subsequent query execution.
+
+        This method enables the EXPLAIN functionality for the query, which provides information
+        about how the database will execute the query. This is extremely useful for performance
+        analysis and optimization, showing details like which indexes are used, join algorithms,
+        and the estimated cost of different operations.
+
+        The specific output format and options may vary depending on the database backend.
+        Common options include:
+        - FORMAT: Output format (TEXT, JSON, XML, etc.)
+        - ANALYZE: Whether to execute the query and show actual vs estimated costs
+        - BUFFERS: Whether to show buffer usage statistics
+        - VERBOSE: Whether to show additional details
 
         Args:
-            column: Column name
-            pattern: LIKE pattern (can include % and _ wildcards)
+            **kwargs: Backend-specific EXPLAIN options. Common options include:
+                     - format: Output format ('TEXT', 'JSON', 'XML', etc.)
+                     - analyze: Whether to execute and analyze the query ('True', 'False')
+                     - buffers: Whether to show buffer statistics ('True', 'False')
+                     - verbose: Whether to show additional details ('True', 'False')
 
         Returns:
-            Query instance with LIKE condition added
+            IQueryBuilding: Returns self for method chaining
 
-        Examples:
-            query.like('name', 'John%')
-            # Results in: WHERE name LIKE ?
+        Example:
+            # Basic explain
+            >>> query = User.query().where(User.c.status == 'active').explain()
+            >>> result = query.all()  # This will return execution plan info instead of data
+
+            # Explain with options
+            >>> query = User.query().where(User.c.status == 'active').explain(analyze=True, buffers=True)
         """
         pass
 
-    @abstractmethod
-    def not_like(self, column: str, pattern: str) -> 'IQuery[ModelT]':
-        """Add a NOT LIKE condition to the query.
+
+class IQuery(IBackend, ToSQLProtocol, ABC):
+    """
+    Basic interface for query objects.
+
+    This interface defines the minimal contract for query objects,
+    including backend access and SQL generation. All query implementations
+    should extend this interface to ensure consistent behavior across
+    different query types and database backends.
+
+    The interface combines:
+    - IBackend: Provides access to the storage backend
+    - ToSQLProtocol: Enables SQL generation functionality
+    - ABC: Abstract base class for enforceable contracts
+    """
+
+    _backend: StorageBackend
+
+    def __init__(self, backend: StorageBackend):
+        """
+        Initialize the query with a backend.
 
         Args:
-            column: Column name  
-            pattern: LIKE pattern (can include % and _ wildcards)
-
-        Returns:
-            Query instance with NOT LIKE condition added
-
-        Examples:
-            query.not_like('email', '%@spam.com')
-            # Results in: WHERE email NOT LIKE ?
+            backend: The storage backend to use for query execution
         """
-        pass
+        super().__init__()
+        self._backend = backend
 
     @abstractmethod
-    def is_null(self, column: str) -> 'IQuery[ModelT]':
-        """Add an IS NULL condition to the query.
-
-        Args:
-            column: Column name
-
-        Returns:
-            Query instance with IS NULL condition added
-
-        Examples:
-            query.is_null('deleted_at')
-            # Results in: WHERE deleted_at IS NULL
+    def to_sql(self) -> Tuple[str, tuple]:
         """
-        pass
-
-    @abstractmethod
-    def is_not_null(self, column: str) -> 'IQuery[ModelT]':
-        """Add an IS NOT NULL condition to the query.
-
-        Args:
-            column: Column name
-
-        Returns:
-            Query instance with IS NOT NULL condition added
-
-        Examples:
-            query.is_not_null('email')
-            # Results in: WHERE email IS NOT NULL
-        """
-        pass
-
-    @abstractmethod
-    def to_sql(self) -> Tuple[str, Tuple[Any, ...]]:
-        """Get complete SQL query with parameters.
+        Generate the complete SQL query with parameters.
 
         This method returns the full SQL statement with parameter values
-        ready for execution.
+        ready for execution, following the ToSQLProtocol from the expression system.
+        The parameters are returned separately to prevent SQL injection attacks
+        and allow proper parameter binding by the database driver.
 
         Returns:
-            Tuple of (sql_query, params) where:
-            - sql_query: Complete SQL string with placeholders
-            - params: Tuple of parameter values
+            Tuple[str, tuple]: A tuple containing:
+            - sql_query: Complete SQL string with placeholders (usually '?')
+            - params: Tuple of parameter values in the correct order
 
         Examples:
-            sql, params = User.query().where('status = ?', (1,)).to_sql()
-            print(f"SQL: {sql}")
-            print(f"Params: {params}")
+            >>> query = User.query().where(User.c.status == 'active')
+            >>> sql, params = query.to_sql()
+            >>> print(f"SQL: {sql}")
+            >>> print(f"Params: {params}")
+            SQL: SELECT * FROM users WHERE status = ?
+            Params: ('active',)
+
+        Note:
+            The method should never return user data directly embedded in the SQL string,
+            always use parameter placeholders to ensure security against SQL injection.
         """
         pass
 
 
-class IDictQuery(Generic[ModelT], ABC):
-    """Interface for queries that return dictionary results instead of model instances.
+class IAsyncQuery(IAsyncBackend, ToSQLProtocol, ABC):
+    """
+    Basic interface for async query objects.
 
-    Useful for operations that don't require full model instantiation.
+    This interface defines the minimal contract for async query objects,
+    including backend access and SQL generation. All async query implementations
+    should extend this interface to ensure consistent behavior across
+    different query types and database backends.
+
+    The interface combines:
+    - IAsyncBackend: Provides access to the async storage backend
+    - ToSQLProtocol: Enables SQL generation functionality
+    - ABC: Abstract base class for enforceable contracts
+    """
+
+    _backend: 'AsyncStorageBackend'
+
+    def __init__(self, backend: 'AsyncStorageBackend'):
+        """
+        Initialize the query with a backend.
+
+        Args:
+            backend: The async storage backend to use for query execution
+        """
+        super().__init__()
+        self._backend = backend
+
+    @abstractmethod
+    def to_sql(self) -> Tuple[str, tuple]:
+        """
+        Generate the complete SQL query with parameters.
+
+        This method returns the full SQL statement with parameter values
+        ready for execution, following the ToSQLProtocol from the expression system.
+        The parameters are returned separately to prevent SQL injection attacks
+        and allow proper parameter binding by the database driver.
+
+        Returns:
+            Tuple[str, tuple]: A tuple containing:
+            - sql_query: Complete SQL string with placeholders (usually '?')
+            - params: Tuple of parameter values in the correct order
+
+        Note:
+            The method should never return user data directly embedded in the SQL string,
+            always use parameter placeholders to ensure security against SQL injection.
+        """
+        pass
+
+
+# Define specialized interfaces for different query types
+class IActiveQuery(IQuery, IQueryBuilding):
+    """
+    Interface for model-based queries that return ActiveRecord instances.
+
+    This interface extends the general IQuery interface with model-specific
+    functionality, including the model_class attribute and methods that
+    return model instances instead of raw dictionaries.
+
+    This interface is designed for queries that operate on ActiveRecord models
+    and need to return properly instantiated model objects with all their
+    methods and properties intact.
+    """
+
+    model_class: Type['IActiveRecord']
+    """
+    The model class that this query operates on and returns instances of.
+
+    This attribute specifies which ActiveRecord model class the query is
+    associated with. It's used internally to instantiate the correct model
+    types when executing the query.
     """
 
     @abstractmethod
-    def all(self) -> List[Dict[str, Any]]:
-        """Execute query and return all results as dictionaries.
+    def all(self) -> List['IActiveRecord']:
+        """
+        Execute the query and return all matching records as model instances.
+
+        This method executes the query against the database and returns all
+        matching records wrapped in instances of the appropriate ActiveRecord
+        model class. Each returned instance will have full ActiveRecord
+        functionality including change tracking, validation, and persistence methods.
 
         Returns:
-            List of dictionaries containing record data
+            List[IActiveRecord]: List of model instances that match the query criteria.
+                               Returns an empty list if no records match.
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If there are issues instantiating model instances
+                           from the database data
+
+        Example:
+            >>> users = User.query().where(User.c.status == 'active').all()
+            >>> for user in users:
+            ...     print(f"User: {user.username}")
         """
         pass
 
     @abstractmethod
-    def one(self) -> Optional[Dict[str, Any]]:
-        """Execute query and return first result as dictionary.
+    def one(self) -> Optional['IActiveRecord']:
+        """
+        Execute the query and return the first matching record as a model instance.
+
+        This method executes the query against the database and returns the first
+        matching record wrapped in an ActiveRecord model instance. If no matching
+        record is found, it returns None.
+
+        Unlike the 'first' method (if available), this method is intended to be
+        used when exactly one result is expected (though None is acceptable).
 
         Returns:
-            Dictionary containing record data or None if no match
+            Optional[IActiveRecord]: Single model instance if a matching record is found,
+                                   None if no records match
+
+        Raises:
+            DatabaseError: If there are issues connecting to or executing against
+                          the database
+            ValidationError: If there are issues instantiating the model instance
+                           from the database data
+
+        Example:
+            >>> user = User.query().where(User.c.username == 'john').one()
+            >>> if user:
+            ...     print(f"Found user: {user.username}")
         """
         pass
+
+
+class IAsyncActiveQuery(IAsyncQuery, IQueryBuilding):
+    """Interface for asynchronous model-based queries that return ActiveRecord instances.
+
+    This interface extends the general IAsyncQuery interface with model-specific
+    functionality, including the model_class attribute and async methods that
+    return model instances instead of raw dictionaries.
+    """
+
+    model_class: Type['IAsyncActiveRecord']
+
+    @abstractmethod
+    async def all(self) -> List['IAsyncActiveRecord']:
+        """Execute query asynchronously and return all matching records as model instances.
+
+        Returns:
+            List[IAsyncActiveRecord]: List of model instances (empty if no matches)
+        """
+        pass
+
+    @abstractmethod
+    async def one(self) -> Optional['IAsyncActiveRecord']:
+        """Execute query asynchronously and return the first matching record as a model instance.
+
+        Returns:
+            Optional[IAsyncActiveRecord]: Single model instance or None
+        """
+        pass
+
+
+class ICTEQuery(IQuery, IQueryBuilding):
+    """Interface for Common Table Expression queries.
+
+    CTE queries return raw data as dictionaries, not model instances.
+    """
+
+
+class IAsyncCTEQuery(IAsyncQuery, IQueryBuilding):
+    """Interface for asynchronous Common Table Expression queries.
+
+    Async CTE queries return raw data as dictionaries, not model instances.
+    """
+
+    @abstractmethod
+    async def aggregate(self) -> List[Dict[str, Any]]:
+        """
+        Execute aggregate query asynchronously and return results as a list of dictionaries.
+
+        Returns:
+            List[Dict[str, Any]]: Aggregated query results
+        """
+        pass
+
+
+class ISetOperationQuery(IQuery):
+    """
+    Interface for set operation queries (UNION, INTERSECT, EXCEPT).
+
+    This interface defines methods for performing SQL set operations between queries.
+    Set operations allow combining results from multiple queries in specific ways:
+    - UNION: Combines results from both queries, removing duplicates
+    - UNION ALL: Combines results from both queries, keeping duplicates
+    - INTERSECT: Returns only rows that exist in both queries
+    - EXCEPT/MINUS: Returns rows from the first query that don't exist in the second
+
+    Classes implementing this interface should support chaining set operations
+    and provide operator overloading for more Pythonic syntax.
+    """
+
+    @abstractmethod
+    def union(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """
+        Perform a UNION operation with another query, combining results and removing duplicates.
+
+        The UNION operation combines the result sets of two queries, removing duplicate rows.
+        Both queries must have the same number of columns with compatible data types.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery) to union with
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the UNION operation
+
+        Example:
+            >>> users_query = User.query().select(User.c.username)
+            >>> admins_query = Admin.query().select(Admin.c.username)
+            >>> combined = users_query.union(admins_query)
+            >>> # Returns all unique usernames from both tables
+        """
+        ...
+
+    @abstractmethod
+    def intersect(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """
+        Perform an INTERSECT operation with another query, returning only common rows.
+
+        The INTERSECT operation returns only the rows that exist in both queries.
+        Both queries must have the same number of columns with compatible data types.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery) to intersect with
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the INTERSECT operation
+
+        Example:
+            >>> active_users = User.query().where(User.c.status == 'active')
+            >>> premium_users = User.query().where(User.c.plan == 'premium')
+            >>> active_premium = active_users.intersect(premium_users)
+            >>> # Returns users who are both active AND on premium plan
+        """
+        ...
+
+    @abstractmethod
+    def except_(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """
+        Perform an EXCEPT operation with another query, returning rows from first query not in second.
+
+        The EXCEPT operation returns rows from the first query that do not exist in the second query.
+        Both queries must have the same number of columns with compatible data types.
+        Note: This method is named 'except_' to avoid conflict with Python's 'except' keyword.
+
+        Args:
+            other: Another query object (either ISetOperationQuery or IQuery) to subtract
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the EXCEPT operation
+
+        Example:
+            >>> all_users = User.query()
+            >>> admin_users = User.query().where(User.c.role == 'admin')
+            >>> non_admin_users = all_users.except_(admin_users)
+            >>> # Returns all users who are not admins
+        """
+        ...
+
+    def __or__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """
+        Implement the | operator for UNION operations.
+
+        This enables Pythonic syntax for UNION operations: query1 | query2
+
+        Args:
+            other: Another query object to union with
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the UNION operation
+        """
+        return self.union(other)
+
+    def __and__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """
+        Implement the & operator for INTERSECT operations.
+
+        This enables Pythonic syntax for INTERSECT operations: query1 & query2
+
+        Args:
+            other: Another query object to intersect with
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the INTERSECT operation
+        """
+        return self.intersect(other)
+
+    def __sub__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+        """
+        Implement the - operator for EXCEPT operations.
+
+        This enables Pythonic syntax for EXCEPT operations: query1 - query2
+
+        Args:
+            other: Another query object to subtract
+
+        Returns:
+            ISetOperationQuery: A new query instance representing the EXCEPT operation
+        """
+        return self.except_(other)
+
+
+class IAsyncSetOperationQuery(IAsyncQuery):
+    """
+    Interface for asynchronous set operation queries (UNION, INTERSECT, EXCEPT).
+
+    This interface defines methods for performing SQL set operations between async queries.
+    Set operations allow combining results from multiple queries in specific ways:
+    - UNION: Combines results from both queries, removing duplicates
+    - UNION ALL: Combines results from both queries, keeping duplicates
+    - INTERSECT: Returns only rows that exist in both queries
+    - EXCEPT/MINUS: Returns rows from the first query that don't exist in the second
+
+    This interface is specifically designed for asynchronous operations and should be used
+    with async backends. Classes implementing this interface should support chaining set operations
+    and provide operator overloading for more Pythonic syntax.
+    """
+
+    @abstractmethod
+    def union(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Perform a UNION operation with another async query, combining results and removing duplicates.
+
+        The UNION operation combines the result sets of two async queries, removing duplicate rows.
+        Both queries must have the same number of columns with compatible data types.
+
+        Args:
+            other: Another async query object (either IAsyncSetOperationQuery or IAsyncQuery) to union with
+
+        Returns:
+            IAsyncSetOperationQuery: A new async query instance representing the UNION operation
+
+        Example:
+            >>> users_query = User.async_query().select(User.c.username)
+            >>> admins_query = Admin.async_query().select(Admin.c.username)
+            >>> combined = users_query.union(admins_query)
+            >>> # Returns all unique usernames from both tables
+        """
+        ...
+
+    @abstractmethod
+    def intersect(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Perform an INTERSECT operation with another async query, returning only common rows.
+
+        The INTERSECT operation returns only the rows that exist in both async queries.
+        Both queries must have the same number of columns with compatible data types.
+
+        Args:
+            other: Another async query object (either IAsyncSetOperationQuery or IAsyncQuery) to intersect with
+
+        Returns:
+            IAsyncSetOperationQuery: A new async query instance representing the INTERSECT operation
+
+        Example:
+            >>> active_users = User.async_query().where(User.c.status == 'active')
+            >>> premium_users = User.async_query().where(User.c.plan == 'premium')
+            >>> active_premium = active_users.intersect(premium_users)
+            >>> # Returns users who are both active AND on premium plan
+        """
+        ...
+
+    @abstractmethod
+    def except_(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Perform an EXCEPT operation with another async query, returning rows from first query not in second.
+
+        The EXCEPT operation returns rows from the first async query that do not exist in the second async query.
+        Both queries must have the same number of columns with compatible data types.
+        Note: This method is named 'except_' to avoid conflict with Python's 'except' keyword.
+
+        Args:
+            other: Another async query object (either IAsyncSetOperationQuery or IAsyncQuery) to subtract
+
+        Returns:
+            IAsyncSetOperationQuery: A new async query instance representing the EXCEPT operation
+
+        Example:
+            >>> all_users = User.async_query()
+            >>> admin_users = User.async_query().where(User.c.role == 'admin')
+            >>> non_admin_users = all_users.except_(admin_users)
+            >>> # Returns all users who are not admins
+        """
+        ...
+
+    def __or__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Implement the | operator for UNION operations.
+
+        This enables Pythonic syntax for UNION operations: query1 | query2
+
+        Args:
+            other: Another async query object to union with
+
+        Returns:
+            IAsyncSetOperationQuery: A new query instance representing the UNION operation
+        """
+        return self.union(other)
+
+    def __and__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Implement the & operator for INTERSECT operations.
+
+        This enables Pythonic syntax for INTERSECT operations: query1 & query2
+
+        Args:
+            other: Another async query object to intersect with
+
+        Returns:
+            IAsyncSetOperationQuery: A new query instance representing the INTERSECT operation
+        """
+        return self.intersect(other)
+
+    def __sub__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+        """
+        Implement the - operator for EXCEPT operations.
+
+        This enables Pythonic syntax for EXCEPT operations: query1 - query2
+
+        Args:
+            other: Another async query object to subtract
+
+        Returns:
+            IAsyncSetOperationQuery: A new query instance representing the EXCEPT operation
+        """
+        return self.except_(other)

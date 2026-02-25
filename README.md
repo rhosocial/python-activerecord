@@ -1,185 +1,293 @@
 <!-- README.md -->
 # rhosocial-activerecord ($\rho_{\mathbf{AR}}$)
 
-> **⚠️ Development Stage Notice:** This project is currently in the development stage. Features may be added or removed at any time, and there may be defects or inconsistencies with the actual implementation. Therefore, the documentation content may be subject to change at any time and is currently for reference only.
-
 [![PyPI version](https://badge.fury.io/py/rhosocial-activerecord.svg)](https://badge.fury.io/py/rhosocial-activerecord)
 [![Python](https://img.shields.io/pypi/pyversions/rhosocial-activerecord.svg)](https://pypi.org/project/rhosocial-activerecord/)
 [![Tests](https://github.com/rhosocial/python-activerecord/actions/workflows/test.yml/badge.svg)](https://github.com/rhosocial/python-activerecord/actions)
 [![Coverage Status](https://codecov.io/gh/rhosocial/python-activerecord/branch/main/graph/badge.svg)](https://app.codecov.io/gh/rhosocial/python-activerecord/tree/main)
-[![License](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
+[![Apache 2.0 License](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
 [![Powered by vistart](https://img.shields.io/badge/Powered_by-vistart-blue.svg)](https://github.com/vistart)
 
 <div align="center">
     <img src="docs/images/logo.svg" alt="rhosocial ActiveRecord Logo" width="200"/>
-    <p>A modern, Pythonic implementation of the ActiveRecord pattern, providing an elegant and intuitive interface for database operations with type safety and rich features.</p>
+    <h3>A Modern, Standalone ActiveRecord Implementation for Python</h3>
+    <p><b>Built on Pydantic Only · Full Type Safety · True Sync-Async Parity · AI-Native Design</b></p>
 </div>
 
-## Key Features
+> **⚠️ Development Stage:** This project is under active development. APIs may change, and some features are not yet production-ready.
 
-- 🎯 Pure Python implementation with no external ORM dependencies
-- 🚀 Modern Python features with comprehensive type hints
-- 🔒 Type-safe field definitions using Pydantic
-- 💾 Built-in SQLite support for immediate use
-- 🔄 Rich relationship support (BelongsTo, HasOne, HasMany)
-- 🔍 Fluent query builder interface
-- 📦 Advanced transaction support with savepoints
-- 🎯 Event system for model lifecycle hooks
-- 🛡️ Enterprise features: optimistic locking, soft delete, UUID support
-- 🔌 Expandable to other databases through optional backend packages
+## Why This Project?
 
-## Requirements
+### 1. ActiveRecord Pattern Is Intuitive
 
-- Python 3.8+
-- Pydantic 2.10+
-- SQLite 3.25+ (if using SQLite backend)
+The ActiveRecord pattern—where a class represents a table and an instance represents a row—maps directly to how developers think:
 
-All dependencies are handled through the package manager with no external ORM requirements.
-
-Note that the sqlite3 version must be greater than 3.25, otherwise it will not work.
-You can run the following command to check the sqlite3 version:
-
-```shell
-python3 -c "import sqlite3; print(sqlite3.sqlite_version);"
+```python
+user = User(name="Alice")  # Create
+user.save()                # Persist
+user.name = "Bob"          # Modify  
+user.save()                # Update
 ```
 
-### Python Version Support
+Simple, consistent, and easy to reason about. **This is what Python's been missing.**
 
-**Python 3.8 Support**: Although Python 3.8 has reached end-of-life, we continue to support it in the current major version due to its widespread user base. However, the next major version will be the last to support Python 3.8, and future versions will not guarantee compatibility.
+### 2. Python Lacks a Standalone ActiveRecord Ecosystem
 
-Specifically for Python 3.8:
-- `pydantic==2.10.6` (latest compatible version)
-- `pydantic-core==2.27.2` (matching pydantic requirements)
+| | rhosocial-activerecord | SQLAlchemy | Django ORM |
+|---|---|---|---|
+| **Pattern** | ActiveRecord | Data Mapper | ActiveRecord (coupled) |
+| **Standalone** | ✅ Yes | ✅ Yes | ❌ Django only |
+| **Dependencies** | Pydantic only | Self-contained | Django framework |
+| **Async** | Native parity | 2.0 via greenlet | Django 4.1+ only |
 
-For Python 3.9+:
-- `pydantic>=2.12.0` (minimum required version, no upper limit on minor versions as long as major version remains 2.x)
-- `pydantic-core>=2.41.0` (minimum required version, no upper limit on minor versions as long as major version remains 2.x)
+*   **SQLAlchemy** is excellent but follows the Data Mapper pattern—not ActiveRecord
+*   **Django ORM** is ActiveRecord but **tightly coupled** to Django; can't use it in FastAPI, Flask, or scripts without the entire Django stack
+*   **We fill the gap**: A **standalone, modern, feature-complete ActiveRecord** for all Python applications
 
-**Python 3.13/3.14 Compatibility**: Python 3.13+ introduces significant changes including free-threaded mode (PEP 703), which impacts core dependencies. Specifically, `pydantic`, `pydantic-core`, and `PyO3` require major version updates to maintain compatibility. This is why we maintain separate dependency lists for Python 3.13+ in our requirements specifications.
+### 3. Built From Scratch, Not a Wrapper
 
-As of the release of this software, the latest version of pydantic is 2.12.x. This version supports Python 3.13+ free-threaded mode (PEP 703).
+**Traditional ORM Architecture**: Your Code → ORM API → SQLAlchemy/Django → Database Driver → Database
 
-Note that pydantic 2.11+ has dropped support for Python 3.8. If you need to use Python 3.8, please stick with pydantic 2.10.6.
+**Our Architecture**: Your Code → rhosocial-activerecord → Database Driver → Database
 
-Also note that according to Python's official development plan (https://peps.python.org/pep-0703/), the free-threaded mode will remain experimental for several years and is not recommended for production environments, even though both pydantic and this project support it.
+We built this from the ground up with **Pydantic as the only dependency**. No SQLAlchemy underneath. No Django ORM wrapper. This means zero hidden complexity, complete SQL control, a smaller footprint, and a simpler mental model — one layer to understand, not three.
 
-## Free-Threading Python Support
+| | rhosocial-activerecord | SQLAlchemy | Django ORM |
+|---|---|---|---|
+| Core dependency | Pydantic only | Standalone | Django framework |
+| Query style | Expression objects + `.to_sql()` | Expression language or ORM | QuerySet chaining |
+| SQL transparency | Every query exposes `.to_sql()` | Via `compile()` | Limited via `.query` |
+| Sync/Async | Native parity (same API surface) | 2.0 async via greenlet | Async views (Django 4.1+) |
 
-This library supports Free-Threading Python (available from Python 3.13+), but support may be limited by backend database drivers. For example, SQLite and MySQL backends support Free-Threading mode, but PostgreSQL's psycopg driver may not. Free-Threading Python removes the Global Interpreter Lock (GIL), allowing true parallel execution. The library uses `threading.local` and `threading.Lock` for thread-safe operations, which are compatible with Free-Threading Python.
+## Architecture Highlights
 
-### Installing Free-Threading Python on Windows
+**Expression-Dialect Separation** — Query structure and SQL generation are completely decoupled. Expressions define _what_ you want; Dialects handle backend-specific SQL (SQLite, MySQL, PostgreSQL). Call `.to_sql()` on any query to inspect the generated SQL before execution.
 
-To install Free-Threading Python 3.14t on Windows (recommended: use PowerShell 7 instead of CMD):
+**True Sync-Async Parity** — Native implementations, not async wrappers around sync code. Same method names, same patterns, just add `await`.
 
-1. Install the Python Installation Manager:
-   ```
-   winget install 9NQ7512CXL7T
-   ```
-
-2. Install Python 3.14t:
-   ```
-   py install 3.14t
-   ```
-
-3. Verify the installation:
-   ```
-   py -3.14t --version
-   ```
-
-## Installation
-
-```bash
-# Core package with SQLite support
-pip install rhosocial-activerecord
-
-# Optional database backends
-pip install rhosocial-activerecord[mysql]     # MySQL support
-pip install rhosocial-activerecord[mariadb]   # MariaDB support
-pip install rhosocial-activerecord[postgres]     # PostgreSQL support
-pip install rhosocial-activerecord[oracle]    # Oracle support
-pip install rhosocial-activerecord[mssql]     # SQL Server support
-
-# All database backends
-pip install rhosocial-activerecord[databases]
-
-# Additional features
-pip install rhosocial-activerecord[migration]  # Database migrations
-
-# Everything
-pip install rhosocial-activerecord[all]
-```
+**Type-First Design with Pydantic v2** — Every field is type-safe, validated, and IDE-friendly. Full autocomplete support, runtime validation, and no `Any` types in public APIs.
 
 ## Quick Start
 
+### Installation
+
+```bash
+pip install rhosocial-activerecord
+```
+
+### End-to-End Example
+
 ```python
+"""Save as demo.py and run with: python demo.py"""
 from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.typing import ConnectionConfig
-from datetime import datetime
-from typing import Optional
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.base import FieldProxy
+from typing import ClassVar, Optional
+from pydantic import Field
+
 
 class User(ActiveRecord):
-    __table_name__ = 'users'
-    
-    id: int
-    name: str
+    __table_name__ = "users"
+    id: Optional[int] = None  # Primary key
+    name: str = Field(max_length=100)
     email: str
-    created_at: datetime
-    deleted_at: Optional[datetime] = None
+    age: int = 0
+    c: ClassVar[FieldProxy] = FieldProxy()
 
-# Configure with built-in SQLite backend
-User.configure(
-    ConnectionConfig(database='database.sqlite3'),
-    backend_class=SQLiteBackend
+
+# Configure backend (in-memory SQLite for demo)
+config = SQLiteConnectionConfig(database=":memory:")
+User.configure(config, SQLiteBackend)
+
+# Create table
+User.__backend__.execute(
+    "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT, age INTEGER)",
+    options=ExecutionOptions(stmt_type=StatementType.DDL)
 )
 
-# Create a new user
-user = User(name='John Doe', email='john@example.com')
-user.save()
+# Insert
+alice = User(name="Alice", email="alice@example.com", age=30)
+alice.save()
 
-# Query users
-active_users = User.query()
-    .where('deleted_at IS NULL')
-    .order_by('created_at DESC')
-    .all()
+# Query with type-safe expressions
+adults = User.query().where(User.c.age >= 18).all()
 
-# Update user
-user.name = 'Jane Doe'
-user.save()
-
-# Delete user
-user.delete()
+# Inspect generated SQL without executing
+sql, params = User.query().where(User.c.age >= 18).to_sql()
+# SQL: SELECT * FROM "users" WHERE "users"."age" >= ?
+# Params: (18,)
 ```
+
+### Relationships
+
+```python
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.base import FieldProxy
+from rhosocial.activerecord.relation import HasMany, BelongsTo
+from typing import ClassVar, Optional
+
+
+class Author(ActiveRecord):
+    __table_name__ = "authors"
+    id: Optional[int] = None
+    name: str
+    c: ClassVar[FieldProxy] = FieldProxy()
+    # Use ClassVar to prevent Pydantic from tracking these as model fields
+    posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
+
+
+class Post(ActiveRecord):
+    __table_name__ = "posts"
+    id: Optional[int] = None
+    title: str
+    author_id: int
+    c: ClassVar[FieldProxy] = FieldProxy()
+    # Use ClassVar to prevent Pydantic from tracking these as model fields
+    author: ClassVar[BelongsTo["Author"]] = BelongsTo(foreign_key="author_id")
+
+
+# Configure backend
+config = SQLiteConnectionConfig(database=":memory:")
+Author.configure(config, SQLiteBackend)
+Post.__backend__ = Author.__backend__  # Share the same backend
+
+# Create tables
+Author.__backend__.execute("""
+    CREATE TABLE authors (id INTEGER PRIMARY KEY, name TEXT)
+""", options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+Author.__backend__.execute("""
+    CREATE TABLE posts (
+        id INTEGER PRIMARY KEY,
+        title TEXT,
+        author_id INTEGER,
+        FOREIGN KEY (author_id) REFERENCES authors(id)
+    )
+""", options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+# Eager loading — one query, no N+1
+authors = Author.query().with_("posts").all()
+for author in authors:
+    print(f"{author.name}: {[p.title for p in author.posts()]}")
+```
+
+> **Async Parity:** All sync APIs have async counterparts. For async models, use `AsyncActiveRecord`, `AsyncHasMany`, and `AsyncBelongsTo` instead. The API surface is identical—just add `await`.
+>
+> ⚠️ **Note:** The built-in SQLite async backend is currently for testing only. For other backends (MySQL, PostgreSQL, etc.), async support depends on the specific implementation.
+
+## Features
+
+All features support both **sync** and **async** APIs with identical method names—just add `await`.
+
+### Query Builders
+
+Three core query types, each with full sync/async parity:
+
+- **[ActiveQuery](src/rhosocial/activerecord/query/active_query.py)** / **[AsyncActiveQuery](src/rhosocial/activerecord/query/active_query.py)** — Model-based queries with WHERE, JOIN, ORDER BY, LIMIT, aggregations, and [eager loading](src/rhosocial/activerecord/query/relational.py) via `.with_()`
+- **[CTEQuery](src/rhosocial/activerecord/query/cte_query.py)** / **[AsyncCTEQuery](src/rhosocial/activerecord/query/cte_query.py)** — Common Table Expressions (WITH clauses) for recursive queries and complex multi-step operations
+- **[SetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** / **[AsyncSetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** — UNION, INTERSECT, EXCEPT operations
+
+### Relationships
+
+Type-safe relationship descriptors with eager loading support:
+
+- **[BelongsTo](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncBelongsTo](src/rhosocial/activerecord/relation/__init__.py)** — Child-to-parent associations
+- **[HasOne](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasOne](src/rhosocial/activerecord/relation/__init__.py)** — One-to-one parent-to-child
+- **[HasMany](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasMany](src/rhosocial/activerecord/relation/__init__.py)** — One-to-many parent-to-children
+
+### Field Mixins
+
+Reusable mixins for common model behaviors:
+
+- **[OptimisticLockMixin](src/rhosocial/activerecord/field/version.py)** — Version-based concurrency control
+- **[SoftDeleteMixin](src/rhosocial/activerecord/field/soft_delete.py)** — Logical deletion with `deleted_at` timestamp
+- **[TimestampMixin](src/rhosocial/activerecord/field/timestamp.py)** — Auto-managed `created_at` and `updated_at`
+- **[UUIDMixin](src/rhosocial/activerecord/field/uuid.py)** — UUID primary keys
+
+### Model Events
+
+Lifecycle hooks for custom business logic:
+
+- **[Model Events](src/rhosocial/activerecord/interface/model.py)** — `before_save`, `after_save`, `before_delete`, `after_delete`
+
+For details, see the [documentation](docs/en_US/).
+
+## Backend Support
+
+| Backend | Package | Sync | Async |
+|---|---|---|---|
+| **SQLite** | Built-in | ✅ Stable | ⚠️ Testing only |
+| **MySQL/MariaDB** | `rhosocial-activerecord-mysql` | 🔄 In progress | 🔄 In progress |
+| **PostgreSQL** | `rhosocial-activerecord-postgres` | 🔄 In progress | 🔄 In progress |
+| **Oracle** | `rhosocial-activerecord-oracle` | 📋 Planned | 📋 Planned |
+| **SQL Server** | `rhosocial-activerecord-mssql` | 📋 Planned | 📋 Planned |
+
+## Requirements
+
+- **Python**: 3.8+ (including 3.13t/3.14t free-threaded builds)
+- **Core Dependency**: Pydantic 2.10+ (Python 3.8) or 2.12+ (Python 3.9+)
+- **SQLite**: 3.25+ (for the built-in backend)
+
+See [Python Version Support](docs/en_US/introduction/python_version_support.md) for detailed compatibility.
+
+## Get Started with AI Code Agents
+
+This project ships with built-in configurations for AI code agents and editors. Clone the repo and launch your preferred tool — project-specific skills, commands, and context files are discovered automatically.
+
+```bash
+git clone https://github.com/rhosocial/python-activerecord.git
+cd python-activerecord
+```
+
+### CLI Code Agents
+
+| Tool | How to start | What's included |
+|---|---|---|
+| [Claude Code](https://docs.anthropic.com/en/docs/claude-code) | `claude` | `CLAUDE.md` project instructions + `.claude/skills/` (5 skills) + `.claude/commands/` |
+| [OpenCode](https://github.com/opencode-ai/opencode) | `opencode` | `.opencode/commands/` (8 slash commands) + `.opencode/hints.yml` |
+| [Codex](https://github.com/openai/codex) | `codex` | `AGENTS.md` project context |
+
+### Editors
+
+[Cursor](https://cursor.com) and [Windsurf](https://windsurf.com) users can open the project folder directly. Both editors benefit from the `CLAUDE.md` and `AGENTS.md` context files at the project root, as well as the `docs/LLM_CONTEXT.md` structured reference.
+
+### For Any LLM
+
+Feed [`docs/LLM_CONTEXT.md`](docs/LLM_CONTEXT.md) to your preferred LLM for a structured overview of the project's architecture, module map, and key concepts.
+
+### What can AI agents do?
+
+See the **[AI-Assisted Development Guide](docs/en_US/introduction/ai_assistance.md)** for concrete examples of what AI agents can help you accomplish with this project — from generating models and queries to implementing new backends and running tests.
 
 ## Documentation
 
-Complete documentation is available at [python-activerecord](https://docs.python-activerecord.dev.rho.social/)
-
-- [Getting Started Guide](https://rhosocial-activerecord.readthedocs.io/en/latest/getting_started.html)
-- [API Reference](https://rhosocial-activerecord.readthedocs.io/en/latest/api/)
-- [Backend Implementation Guide](https://rhosocial-activerecord.readthedocs.io/en/latest/storage_backends/implementing.html)
-- [Available Backends](https://rhosocial-activerecord.readthedocs.io/en/latest/storage_backends/available.html)
-
-## Features in Detail
-For detailed information about features, including built-in SQLite support, modular backend system, and type safety, please see our [Features Documentation](https://rhosocial-activerecord.readthedocs.io/en/latest/features/).
+- **[Getting Started Guide](docs/en_US/getting_started/)** — Installation and basic usage
+- **[AI-Assisted Development](docs/en_US/introduction/ai_assistance.md)** — Using AI code agents with this project
+- **[Modeling Guide](docs/en_US/modeling/)** — Defining models, fields, and relationships
+- **[Querying Guide](docs/en_US/querying/)** — Complete query builder documentation
+- **[Backend Development](docs/en_US/backend/)** — Creating custom database backends
+- **[Architecture Overview](docs/ARCHITECTURE.md)** — Module structure and design decisions
+- **[LLM Context](docs/LLM_CONTEXT.md)** — Structured context for AI assistants
+- **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — Full API documentation
 
 ## Contributing
-We welcome and value all forms of contributions! For details on how to contribute, please see our [Contributing Guide](CONTRIBUTING.md).
 
-### Sponsor the Project
-
-Support development through:
-- GitHub Sponsors
-- Open Collective
-- One-time donations
-- Commercial support
-
-Your logo will appear here with a link to your website:
-
-[![Donate](https://liberapay.com/assets/widgets/donate.svg)](https://liberapay.com/vistart/donate)
+We welcome contributions! Please see [CONTRIBUTING.md](CONTRIBUTING.md) for guidelines.
 
 ## License
 
-[![license](https://img.shields.io/github/license/rhosocial/python-activerecord.svg)](https://github.com/rhosocial/python-activerecord/blob/main/LICENSE)
+[Apache License 2.0](LICENSE) — Copyright © 2026 [vistart](https://github.com/vistart)
 
-Copyright © 2025 [vistart](https://github.com/vistart)
+---
+
+<div align="center">
+    <p><b>Built with ❤️ by the rhosocial team</b></p>
+    <p><a href="https://github.com/rhosocial/python-activerecord">GitHub</a> · <a href="https://docs.python-activerecord.dev.rho.social/">Documentation</a> · <a href="https://pypi.org/project/rhosocial-activerecord/">PyPI</a></p>
+</div>

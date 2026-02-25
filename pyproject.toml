@@ -112,9 +112,9 @@ test = [
     # Measures test coverage and generates coverage reports
     "coverage>=7.0.0",
 
-    # Asyncio support for pytest
+# Asyncio support for pytest
     # Enables testing of asynchronous code
-    "pytest-asyncio>=0.21.0",
+    "pytest-asyncio",
 
     # Async SQLite support
     "aiosqlite>=0.19.0",
@@ -205,8 +205,9 @@ namespaces = true
 [tool.pytest.ini_options]
 minversion = "7.0"
 testpaths = ["tests"]
+asyncio_mode = "auto"
 
-addopts = "-ra -q"
+addopts = "-ra -q -m 'not benchmark'"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -229,6 +230,7 @@ markers = [
     "cte: marks tests for CTE query functionality",
     "aggregate: marks tests for aggregate queries",
     "cache: marks tests for caching mechanisms",
+    "benchmark: marks tests as performance benchmarks that should be excluded by default",
 
     # Database backend-specific markers
     "sqlite: marks tests specific to SQLite backend",
@@ -287,6 +289,15 @@ warn_return_any = true
 warn_unused_configs = true
 disallow_untyped_defs = true
 check_untyped_defs = true
+
+[tool.pyright]
+include = ["src"]
+exclude = ["**/__pycache__", "**/tests", "**/test_*"]
+venvPath = "."
+venv = ".venv3.8"
+pythonVersion = "3.8"
+typeCheckingMode = "standard"
+useLibraryCodeForTypes = true
 
 [tool.towncrier]
 package = "rhosocial.activerecord"

@@ -3,6 +3,7 @@
 This module provides a mixin for handling custom column names for model fields.
 """
 from typing import ClassVar, Dict, Optional, Type, Any
+from functools import lru_cache
 
 from .fields import UseColumn
 
@@ -173,6 +174,7 @@ class ColumnNameMixin:
         return mapping
 
     @classmethod
+    @lru_cache(maxsize=None)
     def get_column_to_field_map(cls) -> Dict[str, str]:
         """
         Get complete column-to-field name mapping, giving precedence to
