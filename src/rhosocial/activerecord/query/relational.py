@@ -222,25 +222,6 @@ class RelationalQueryMixin(IQuery):
         if '..' in relation_path:
             raise InvalidRelationPathError(f"Relation path cannot contain consecutive dots: '{relation_path}'")
 
-    def _validate_relation_exists(self, relation_name: str, model_class=None) -> None:
-        """Validate that a relation exists on the model.
-
-        Args:
-            relation_name: The name of the relation to check
-            model_class: The model class to check (defaults to the query's model class)
-
-        Raises:
-            RelationNotFoundError: If the relation does not exist on the model
-        """
-        if model_class is None:
-            model_class = self.model_class
-
-        # Check if the relation exists on the model
-        if not hasattr(model_class, relation_name) or not hasattr(model_class,
-                                                                  'get_relation') or not model_class.get_relation(
-            relation_name):
-            raise RelationNotFoundError(f"Relation '{relation_name}' not found on {model_class.__name__}")
-
     def _validate_complete_relation_path(self, relation_path: str) -> None:
         """
         Validates that all relations in a complete path exist on their respective models.
