@@ -95,6 +95,25 @@ class SetOperationQuery(ISetOperationQuery):
         """Perform an EXCEPT operation with another query."""
         return SetOperationQuery(self, other, "EXCEPT")
 
+    def explain(self, **kwargs) -> 'SetOperationQuery':
+        """Enable EXPLAIN for the set operation query.
+
+        This method enables the EXPLAIN functionality for the query, which provides information
+        about how the database will execute the set operation query.
+
+        Args:
+            **kwargs: Backend-specific EXPLAIN options (e.g., format='TEXT', analyze=True)
+
+        Returns:
+            SetOperationQuery: Returns self for method chaining
+
+        Example:
+            plan = query1.union(query2).explain().aggregate()
+        """
+        self._explain_enabled = True
+        self._explain_options = kwargs
+        return self
+
     def aggregate(self) -> List[Dict[str, Any]]:
         """Execute the set operation query and return results as a list of dictionaries.
 
@@ -184,7 +203,7 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
         right_backend = right.backend()
 
         # Check that both operands use async backends (not sync backends)
-        from ..backend.base import AsyncStorageBackend, StorageBackend
+        from ..backend.base import AsyncStorageBackend
         if not isinstance(left_backend, AsyncStorageBackend):
             raise TypeError(f"AsyncSetOperationQuery requires async backends. Left operand uses {type(left_backend).__name__}")
         if not isinstance(right_backend, AsyncStorageBackend):
@@ -247,6 +266,25 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
     def except_(self, other: 'IAsyncQuery') -> 'AsyncSetOperationQuery':
         """Perform an EXCEPT operation with another async query."""
         return AsyncSetOperationQuery(self, other, "EXCEPT")
+
+    def explain(self, **kwargs) -> 'AsyncSetOperationQuery':
+        """Enable EXPLAIN for the async set operation query.
+
+        This method enables the EXPLAIN functionality for the async query, which provides information
+        about how the database will execute the set operation query.
+
+        Args:
+            **kwargs: Backend-specific EXPLAIN options (e.g., format='TEXT', analyze=True)
+
+        Returns:
+            AsyncSetOperationQuery: Returns self for method chaining
+
+        Example:
+            plan = await query1.union(query2).explain().aggregate()
+        """
+        self._explain_enabled = True
+        self._explain_options = kwargs
+        return self
 
     async def aggregate(self) -> List[Dict[str, Any]]:
         """Execute the async set operation query and return results as a list of dictionaries.

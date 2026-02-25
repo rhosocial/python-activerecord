@@ -320,15 +320,13 @@ class RelationalQueryMixin(IQuery):
             if existing.query_modifier is not None and existing.query_modifier != query_modifier:
                 # Try to get meaningful function info
                 def get_func_info(func: Callable) -> str:
-                    # First try to get fully qualified name (includes class for methods)
                     qualname = getattr(func, '__qualname__', None)
                     module = getattr(func, '__module__', None)
                     if qualname and module and not qualname.startswith('<'):
                         return f"{module}.{qualname}"
 
-                    # For lambdas or functions without qualname, try signature
                     func_name = getattr(func, '__name__', None)
-                    if func_name and func_name != '<lambda>':
+                    if func_name and not func_name.startswith('<'):
                         try:
                             import inspect
                             sig = str(inspect.signature(func))
@@ -336,7 +334,6 @@ class RelationalQueryMixin(IQuery):
                         except Exception:
                             return func_name
 
-                    # Fallback: show memory address
                     return f"<lambda at 0x{hex(id(func))[-8:]}>"
 
                 old_info = get_func_info(existing.query_modifier)
