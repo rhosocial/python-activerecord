@@ -48,6 +48,8 @@ class BaseActiveRecord(IActiveRecord):
         if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
             cls._dummy_backend = None
 
+        backend_instance.introspect_and_adapt()
+
     @classmethod
     def backend(cls) -> StorageBackend:
         return super().backend()
@@ -516,7 +518,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
     """
 
     @classmethod
-    def configure(cls, config: ConnectionConfig, backend_class: Type[AsyncStorageBackend]) -> None:
+    async def configure(cls, config: ConnectionConfig, backend_class: Type[AsyncStorageBackend]) -> None:
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -530,6 +532,8 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         cls.__backend__ = backend_instance
         if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
             cls._dummy_backend = None
+
+        await backend_instance.introspect_and_adapt()
 
     @classmethod
     def backend(cls) -> AsyncStorageBackend:

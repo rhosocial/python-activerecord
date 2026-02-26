@@ -65,6 +65,14 @@ class DummyBackend(StorageBackend):
         # Return a dummy version, as this backend doesn't connect to a real server.
         return (0, 0, 0) # Indicates a dummy/mock version
 
+    def introspect_and_adapt(self) -> None:
+        """Introspect backend and adapt backend instance.
+
+        For DummyBackend, no adaptation is needed as it doesn't connect to a real server.
+        This method exists to satisfy the interface contract.
+        """
+        pass
+
     def _get_cursor(self) -> Any:
         raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
@@ -116,6 +124,14 @@ class AsyncDummyBackend(AsyncStorageBackend):
 
     async def get_server_version(self) -> Tuple[int, int, int]:
         return (0, 0, 0)
+
+    async def introspect_and_adapt(self) -> None:
+        """Introspect backend and adapt backend instance.
+
+        For AsyncDummyBackend, no adaptation is needed as it doesn't connect to a real server.
+        This method exists to satisfy the interface contract.
+        """
+        pass
 
     async def _get_cursor(self) -> Any:
         raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)

@@ -3,7 +3,19 @@
 要支持新的数据库（如 PostgreSQL, MySQL），你需要：
 
 1.  **继承 `SQLDialectBase`**: 定义该数据库特定的 SQL 语法（引号风格、类型映射）。
-2.  **继承 `StorageBackend`**: 实现 `connect`, `execute`, `fetch` 等底层 I/O 操作。
+2.  **继承 `StorageBackend`**: 实现 `connect`, `execute`, `fetch`, `introspect_and_adapt` 等底层 I/O 操作。
+
+## 后端自适配 (introspect_and_adapt)
+
+`introspect_and_adapt()` 方法是后端实现 sync/async 对称性的关键。它在模型配置时自动调用，确保后端能够根据实际数据库服务器版本调整其行为：
+
+1. **连接数据库**（如尚未连接）
+2. **查询实际服务器版本**
+3. **重新初始化方言和类型适配器**以匹配实际版本
+
+例如，MySQL 5.6 不支持 JSON 类型，而 MySQL 8.0 支持。通过 `introspect_and_adapt()`，后端可以查询实际版本并相应调整其功能支持。
+
+对于不需要版本特定适配的后端（如 SQLite、Dummy），可以实现为空操作（no-op）。
 
 ## 参考实现
 

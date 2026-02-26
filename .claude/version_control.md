@@ -1680,6 +1680,18 @@ Release version 1.2.0 with following changes:
 
 **Reverts**:
 
+Although revert commits are allowed, they should rarely occur in practice. By maintaining good development habits on feature and bugfix branches:
+
+- Keep linear commits throughout development
+- Squash and fix issues before pushing
+- Resolve problems locally using rebase or amend
+
+Reversions typically only appear on protected branches (main, release/*, hotfix/*) when:
+- A critical issue is discovered after merge
+- Quick rollback with explicit history is needed
+
+In most cases, if development branches follow good practices, reversions will not be necessary on main or release branches.
+
 ```
 revert: undo "feat: add recursive CTE support"
 

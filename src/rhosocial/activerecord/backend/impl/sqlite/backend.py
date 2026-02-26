@@ -689,6 +689,17 @@ class SQLiteBackend(StorageBackend):
 
         return SQLiteBackend._sqlite_version_cache
 
+    def introspect_and_adapt(self) -> None:
+        """Introspect backend and adapt backend instance to actual server capabilities.
+
+        For SQLite, the version is determined by the library itself and does not change,
+        so this method performs no additional adaptation. It exists to satisfy the
+        interface contract.
+        """
+        # SQLite version is determined by the library, not the database file
+        # No adaptation needed
+        pass
+
     def format_json_operation(self, column: Union[str, Any], path: Optional[str] = None,
                               operation: str = "extract", value: Any = None,
                               alias: Optional[str] = None) -> str:

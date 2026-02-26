@@ -168,7 +168,7 @@ class QueryProvider(IQueryProvider):
             )
 
         if shared_backend is None:
-            model_class.configure(config, AsyncSQLiteBackend)
+            await model_class.configure(config, AsyncSQLiteBackend)
             await model_class.__backend__.connect()
         else:
             model_class.__connection_config__ = config
