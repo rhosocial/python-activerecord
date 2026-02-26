@@ -3,7 +3,19 @@
 To support a new database (e.g., PostgreSQL, MySQL), you need to:
 
 1.  **Inherit `SQLDialectBase`**: Define the SQL syntax specific to that database (quote style, type mapping).
-2.  **Inherit `StorageBackend`**: Implement low-level I/O operations such as `connect`, `execute`, `fetch`.
+2.  **Inherit `StorageBackend`**: Implement low-level I/O operations such as `connect`, `execute`, `fetch`, `introspect_and_adapt`.
+
+## Backend Self-Adaptation (introspect_and_adapt)
+
+The `introspect_and_adapt()` method is key to achieving sync/async symmetry in backend implementations. It's called automatically during model configuration to ensure the backend adapts to the actual database server version:
+
+1. **Connect to the database** (if not already connected)
+2. **Query the actual server version**
+3. **Re-initialize dialect and type adapters** to match the actual version
+
+For example, MySQL 5.6 doesn't support JSON type, while MySQL 8.0 does. With `introspect_and_adapt()`, the backend can query the actual version and adjust its feature support accordingly.
+
+For backends that don't need version-specific adaptation (e.g., SQLite, Dummy), this can be implemented as a no-op.
 
 ## Reference Implementations
 
