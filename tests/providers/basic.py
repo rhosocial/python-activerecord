@@ -127,7 +127,7 @@ class BasicProvider(IBasicProvider):
 
         # 2. Configure the generic async model class with our specific async backend and config.
         #    This is the key step that links the testsuite's async model to our database.
-        model_class.configure(config, backend_class)
+        await model_class.configure(config, backend_class)
 
         # 3. Prepare the database schema. To ensure tests are isolated, we drop
         #    the table if it exists and recreate it from the schema file.

@@ -158,6 +158,20 @@ class MyBackend(StorageBackend):
         """Get database server version as (major, minor, patch)."""
         pass
 
+    def introspect_and_adapt(self) -> None:
+        """Introspect backend and adapt to actual database server capabilities.
+
+        This method is called during model configuration to ensure the backend
+        adapts to the actual database server version and capabilities. It should:
+        1. Connect to the database (if not already connected)
+        2. Query the actual server version
+        3. Re-initialize dialect and type adapters based on actual version
+
+        Backends that don't need version-specific adaptation (e.g., SQLite, Dummy)
+        can implement this as a no-op.
+        """
+        pass
+
     def _initialize_capabilities(self) -> DatabaseCapabilities:
         """Declare all features supported by this backend."""
         pass
@@ -410,7 +424,7 @@ Beyond implementing the core components, a production-quality backend intended f
 This checklist summarizes all the required and recommended steps for creating a high-quality backend.
 
 ### Required Implementation
-- [ ] Implement all `StorageBackend` abstract methods (`connect`, `disconnect`, `ping`, `get_server_version`, etc.).
+- [ ] Implement all `StorageBackend` abstract methods (`connect`, `disconnect`, `ping`, `get_server_version`, `introspect_and_adapt`, etc.).
 - [ ] Provide a `Connection Configuration` class.
 - [ ] Implement a `SQL Dialect` for syntax differences.
 - [ ] Implement the full **Type Adaptation System**:
