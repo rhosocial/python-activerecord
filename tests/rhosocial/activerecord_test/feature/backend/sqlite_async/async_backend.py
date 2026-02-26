@@ -522,6 +522,17 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
             # Default version if error
             return 3, 35, 0
 
+    async def introspect_and_adapt(self) -> None:
+        """Introspect backend and adapt backend instance to actual server capabilities.
+
+        For SQLite, the version is determined by the library itself and does not change,
+        so this method performs no additional adaptation. It exists to satisfy the
+        interface contract.
+        """
+        # SQLite version is determined by the library, not the database file
+        # No adaptation needed
+        pass
+
 
 
     def _convert_params(self, params: Union[Dict[str, Any], Tuple, List]) -> Union[Tuple, List]:
