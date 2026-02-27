@@ -1,3 +1,12 @@
+## [v1.0.0.dev15] - 2026-02-27
+
+
+### Added
+
+- Completed major refactoring: expression-dialect system with 100% coverage, AsyncBaseActiveRecord with full async CRUD support, ActiveQuery/CTEQuery/SetOperationQuery with async versions, relation system refactoring, and Protocol-based backend feature detection. ([#32](https://github.com/rhosocial/python-activerecord/issues/32))
+- Added `introspect_and_adapt()` method to backends for self-adaptation to actual database server capabilities, achieving full sync/async symmetry. ([#33](https://github.com/rhosocial/python-activerecord/issues/33))
+
+
 ## [1.0.0.dev14] - 2025-12-11
 
 ### Added
