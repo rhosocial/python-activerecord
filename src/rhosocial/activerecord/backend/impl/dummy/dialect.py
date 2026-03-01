@@ -4,8 +4,39 @@ Dummy backend SQL dialect implementation.
 
 This dialect implements all protocols and supports all features.
 It is used for to_sql() testing and does not involve actual database connections.
+
+Architecture Notes:
+===================
+
+The dialect mixins in rhosocial.activerecord.backend.dialect.mixins provide
+standard SQL implementations for various features. Each mixin includes:
+
+1. supports_* methods: Return False by default, indicating the feature is
+   not supported. Concrete dialects override these to enable features.
+
+2. format_* methods: Provide standard SQL generation for the feature.
+   These follow SQL standard syntax and are designed to work with the
+   Expression classes in rhosocial.activerecord.backend.expression.
+
+This DummyDialect class serves a specific purpose:
+
+- It inherits ALL mixins to provide complete SQL standard coverage
+- It overrides ALL supports_* methods to return True, effectively
+  "enabling all switches"
+- No additional format_* implementations are needed since the mixins
+  already provide standard SQL generation
+
+In essence, this file is a "switch board" that combines all mixins and
+turns on every feature flag. The actual SQL generation logic resides in
+the mixin classes, making this dialect a pure composition of standard
+SQL capabilities.
+
+For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
+1. Inherit the same mixins
+2. Override supports_* methods based on actual database capabilities
+3. Override format_* methods where the database deviates from SQL standard
 """
-from typing import Tuple, Optional, List, Dict, Any
+from typing import List
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -14,6 +45,9 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
     JoinSupport, SetOperationSupport,
+    # DDL Protocols
+    TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
+    IndexSupport, SequenceSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
@@ -21,7 +55,11 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin, JoinMixin,
     SetOperationMixin,
+    # DDL Mixins
+    TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
+    IndexMixin, SequenceMixin,
 )
+
 
 class DummyDialect(
     SQLDialectBase,
@@ -30,18 +68,24 @@ class DummyDialect(
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
     JoinMixin, SetOperationMixin,
+    # DDL Mixins
+    TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
+    IndexMixin, SequenceMixin,
     # Protocols for type checking
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
     JoinSupport, SetOperationSupport,
+    # DDL Protocols
+    TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
+    IndexSupport, SequenceSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
     """
 
-    # region Protocol Support Checks
+    # region Protocol Support Checks - Core Features
     def supports_window_functions(self) -> bool: return True
     def supports_window_frame_clause(self) -> bool: return True
     def supports_basic_cte(self) -> bool: return True
@@ -77,3 +121,77 @@ class DummyDialect(
     def supports_natural_join(self) -> bool: return True
     # endregion
 
+    # region Table DDL Support
+    def supports_create_table(self) -> bool: return True
+    def supports_drop_table(self) -> bool: return True
+    def supports_alter_table(self) -> bool: return True
+    def supports_temporary_table(self) -> bool: return True
+    def supports_if_not_exists_table(self) -> bool: return True
+    def supports_if_exists_table(self) -> bool: return True
+    def supports_table_inheritance(self) -> bool: return True
+    def supports_table_partitioning(self) -> bool: return True
+    def supports_table_tablespace(self) -> bool: return True
+    def supports_drop_column(self) -> bool: return True
+    def supports_alter_column_type(self) -> bool: return True
+    def supports_rename_column(self) -> bool: return True
+    def supports_rename_table(self) -> bool: return True
+    def supports_add_constraint(self) -> bool: return True
+    def supports_drop_constraint(self) -> bool: return True
+    # endregion
+
+    # region View DDL Support
+    def supports_create_view(self) -> bool: return True
+    def supports_drop_view(self) -> bool: return True
+    def supports_or_replace_view(self) -> bool: return True
+    def supports_temporary_view(self) -> bool: return True
+    def supports_materialized_view(self) -> bool: return True
+    def supports_if_exists_view(self) -> bool: return True
+    def supports_view_check_option(self) -> bool: return True
+    def supports_cascade_view(self) -> bool: return True
+    # endregion
+
+    # region Truncate DDL Support
+    def supports_truncate(self) -> bool: return True
+    def supports_truncate_table_keyword(self) -> bool: return True
+    def supports_truncate_restart_identity(self) -> bool: return True
+    def supports_truncate_cascade(self) -> bool: return True
+    # endregion
+
+    # region Schema DDL Support
+    def supports_create_schema(self) -> bool: return True
+    def supports_drop_schema(self) -> bool: return True
+    def supports_schema_if_not_exists(self) -> bool: return True
+    def supports_schema_if_exists(self) -> bool: return True
+    def supports_schema_cascade(self) -> bool: return True
+    def supports_schema_authorization(self) -> bool: return True
+    # endregion
+
+    # region Index DDL Support
+    def supports_create_index(self) -> bool: return True
+    def supports_drop_index(self) -> bool: return True
+    def supports_unique_index(self) -> bool: return True
+    def supports_index_if_not_exists(self) -> bool: return True
+    def supports_index_if_exists(self) -> bool: return True
+    def supports_index_type(self) -> bool: return True
+    def supports_partial_index(self) -> bool: return True
+    def supports_functional_index(self) -> bool: return True
+    def supports_index_include(self) -> bool: return True
+    def supports_index_tablespace(self) -> bool: return True
+    def supports_concurrent_index(self) -> bool: return True
+
+    def get_supported_index_types(self) -> List[str]:
+        return ['BTREE', 'HASH', 'GIN', 'GIST', 'SPGIST', 'BRIN']
+    # endregion
+
+    # region Sequence DDL Support
+    def supports_sequence(self) -> bool: return True
+    def supports_create_sequence(self) -> bool: return True
+    def supports_drop_sequence(self) -> bool: return True
+    def supports_alter_sequence(self) -> bool: return True
+    def supports_sequence_if_not_exists(self) -> bool: return True
+    def supports_sequence_if_exists(self) -> bool: return True
+    def supports_sequence_cycle(self) -> bool: return True
+    def supports_sequence_cache(self) -> bool: return True
+    def supports_sequence_order(self) -> bool: return True
+    def supports_sequence_owned_by(self) -> bool: return True
+    # endregion
