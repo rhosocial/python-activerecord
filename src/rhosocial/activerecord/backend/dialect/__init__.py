@@ -54,6 +54,14 @@ from .protocols import (
     GraphSupport,
     WildcardSupport,
     JoinSupport,
+    SetOperationSupport,
+    # DDL Protocols
+    TableSupport,
+    ViewSupport,
+    TruncateSupport,
+    SchemaSupport,
+    IndexSupport,
+    SequenceSupport,
 )
 from .mixins import (
     WindowFunctionMixin,
@@ -73,6 +81,14 @@ from .mixins import (
     LockingMixin,
     GraphMixin,
     JoinMixin,
+    SetOperationMixin,
+    # DDL Mixins
+    TableMixin,
+    ViewMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
 )
 
 # Import Explain types from expression module to make them available in dialect module
@@ -109,6 +125,14 @@ __all__ = [
     'GraphSupport',
     'WildcardSupport',
     'JoinSupport',
+    'SetOperationSupport',
+    # DDL Protocols
+    'TableSupport',
+    'ViewSupport',
+    'TruncateSupport',
+    'SchemaSupport',
+    'IndexSupport',
+    'SequenceSupport',
 
     # Mixins
     'WindowFunctionMixin',
@@ -128,4 +152,12 @@ __all__ = [
     'LockingMixin',
     'GraphMixin',
     'JoinMixin',
+    'SetOperationMixin',
+    # DDL Mixins
+    'TableMixin',
+    'ViewMixin',
+    'TruncateMixin',
+    'SchemaMixin',
+    'IndexMixin',
+    'SequenceMixin',
 ]

@@ -13,15 +13,17 @@ from .exceptions import UnsupportedFeatureError
 from ..expression import bases
 from ..expression.statements import ReturningClause
 
-if TYPE_CHECKING:  # pragma: no cover
-    from ..expression.advanced_functions import (
-        WindowFunctionCall, WindowSpecification, WindowFrameSpecification,
-        WindowDefinition, WindowClause
-    )
-    from ..expression.query_parts import (
-        QualifyClause, JoinExpression, OrderByClause
-    )
+if TYPE_CHECKING: # pragma: no cover
+    from ..expression.advanced_functions import OrderedSetAggregation
+    from ..expression.query_parts import QualifyClause, JoinExpression, OrderByClause
     from ..expression.graph import GraphEdgeDirection, MatchClause
+    from ..expression.statements import (
+        CreateTableExpression, DropTableExpression, AlterTableExpression,
+        CreateViewExpression, DropViewExpression, TruncateExpression,
+        CreateSchemaExpression, DropSchemaExpression,
+        CreateIndexExpression, DropIndexExpression,
+        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression
+    )
 
 
 class WindowFunctionMixin:
@@ -1119,3 +1121,363 @@ class SetOperationMixin:
 
         sql = " ".join(sql_parts)
         return sql, tuple(all_params)
+
+
+# ============================================================
+# DDL (Data Definition Language) Mixins
+# ============================================================
+
+class TableMixin:
+    """Mixin for table DDL support."""
+
+    def supports_create_table(self) -> bool:
+        """Whether CREATE TABLE is supported."""
+        return True
+
+    def supports_drop_table(self) -> bool:
+        """Whether DROP TABLE is supported."""
+        return True
+
+    def supports_alter_table(self) -> bool:
+        """Whether ALTER TABLE is supported."""
+        return True
+
+    def supports_temporary_table(self) -> bool:
+        """Whether TEMPORARY tables are supported."""
+        return True
+
+    def supports_if_not_exists_table(self) -> bool:
+        """Whether CREATE TABLE IF NOT EXISTS is supported."""
+        return False
+
+    def supports_if_exists_table(self) -> bool:
+        """Whether DROP TABLE IF EXISTS is supported."""
+        return False
+
+    def supports_table_inheritance(self) -> bool:
+        """Whether table inheritance is supported."""
+        return False
+
+    def supports_table_partitioning(self) -> bool:
+        """Whether table partitioning is supported."""
+        return False
+
+    def supports_table_tablespace(self) -> bool:
+        """Whether tablespace specification is supported."""
+        return False
+
+    def supports_drop_column(self) -> bool:
+        """Whether DROP COLUMN is supported."""
+        return True
+
+    def supports_alter_column_type(self) -> bool:
+        """Whether altering column data type is supported."""
+        return True
+
+    def supports_rename_column(self) -> bool:
+        """Whether RENAME COLUMN is supported."""
+        return True
+
+    def supports_rename_table(self) -> bool:
+        """Whether RENAME TABLE is supported."""
+        return True
+
+    def supports_add_constraint(self) -> bool:
+        """Whether ADD CONSTRAINT is supported."""
+        return True
+
+    def supports_drop_constraint(self) -> bool:
+        """Whether DROP CONSTRAINT is supported."""
+        return True
+
+    def format_create_table_statement(
+        self,
+        expr: "CreateTableExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "CREATE TABLE")
+
+    def format_drop_table_statement(
+        self,
+        expr: "DropTableExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP TABLE statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "DROP TABLE")
+
+    def format_alter_table_statement(
+        self,
+        expr: "AlterTableExpression"
+    ) -> Tuple[str, tuple]:
+        """Format ALTER TABLE statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "ALTER TABLE")
+
+
+class ViewMixin:
+    """Mixin for view DDL support."""
+
+    def supports_create_view(self) -> bool:
+        """Whether CREATE VIEW is supported."""
+        return True
+
+    def supports_drop_view(self) -> bool:
+        """Whether DROP VIEW is supported."""
+        return True
+
+    def supports_or_replace_view(self) -> bool:
+        """Whether CREATE OR REPLACE VIEW is supported."""
+        return False
+
+    def supports_temporary_view(self) -> bool:
+        """Whether TEMPORARY views are supported."""
+        return False
+
+    def supports_materialized_view(self) -> bool:
+        """Whether materialized views are supported."""
+        return False
+
+    def supports_if_exists_view(self) -> bool:
+        """Whether DROP VIEW IF EXISTS is supported."""
+        return False
+
+    def supports_view_check_option(self) -> bool:
+        """Whether WITH CHECK OPTION is supported."""
+        return False
+
+    def supports_cascade_view(self) -> bool:
+        """Whether DROP VIEW CASCADE is supported."""
+        return False
+
+    def format_create_view_statement(
+        self,
+        expr: "CreateViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIEW statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "CREATE VIEW")
+
+    def format_drop_view_statement(
+        self,
+        expr: "DropViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP VIEW statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "DROP VIEW")
+
+
+class TruncateMixin:
+    """Mixin for TRUNCATE support."""
+
+    def supports_truncate(self) -> bool:
+        """Whether TRUNCATE is supported."""
+        return True
+
+    def supports_truncate_table_keyword(self) -> bool:
+        """Whether TABLE keyword is supported."""
+        return True
+
+    def supports_truncate_restart_identity(self) -> bool:
+        """Whether RESTART IDENTITY is supported."""
+        return False
+
+    def supports_truncate_cascade(self) -> bool:
+        """Whether CASCADE option is supported."""
+        return False
+
+    def format_truncate_statement(
+        self,
+        expr: "TruncateExpression"
+    ) -> Tuple[str, tuple]:
+        """Format TRUNCATE statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "TRUNCATE")
+
+
+class SchemaMixin:
+    """Mixin for schema DDL support."""
+
+    def supports_create_schema(self) -> bool:
+        """Whether CREATE SCHEMA is supported."""
+        return False
+
+    def supports_drop_schema(self) -> bool:
+        """Whether DROP SCHEMA is supported."""
+        return False
+
+    def supports_schema_if_not_exists(self) -> bool:
+        """Whether CREATE SCHEMA IF NOT EXISTS is supported."""
+        return False
+
+    def supports_schema_if_exists(self) -> bool:
+        """Whether DROP SCHEMA IF EXISTS is supported."""
+        return False
+
+    def supports_schema_cascade(self) -> bool:
+        """Whether DROP SCHEMA CASCADE is supported."""
+        return False
+
+    def supports_schema_authorization(self) -> bool:
+        """Whether AUTHORIZATION clause is supported."""
+        return False
+
+    def format_create_schema_statement(
+        self,
+        expr: "CreateSchemaExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE SCHEMA statement."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "CREATE SCHEMA",
+            "This database does not support schema namespaces."
+        )
+
+    def format_drop_schema_statement(
+        self,
+        expr: "DropSchemaExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP SCHEMA statement."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "DROP SCHEMA",
+            "This database does not support schema namespaces."
+        )
+
+
+class IndexMixin:
+    """Mixin for index DDL support."""
+
+    def supports_create_index(self) -> bool:
+        """Whether CREATE INDEX is supported."""
+        return True
+
+    def supports_drop_index(self) -> bool:
+        """Whether DROP INDEX is supported."""
+        return True
+
+    def supports_unique_index(self) -> bool:
+        """Whether UNIQUE indexes are supported."""
+        return True
+
+    def supports_index_if_not_exists(self) -> bool:
+        """Whether CREATE INDEX IF NOT EXISTS is supported."""
+        return False
+
+    def supports_index_if_exists(self) -> bool:
+        """Whether DROP INDEX IF EXISTS is supported."""
+        return False
+
+    def supports_index_type(self) -> bool:
+        """Whether index type specification is supported."""
+        return False
+
+    def supports_partial_index(self) -> bool:
+        """Whether partial indexes are supported."""
+        return False
+
+    def supports_functional_index(self) -> bool:
+        """Whether functional indexes are supported."""
+        return False
+
+    def supports_index_include(self) -> bool:
+        """Whether INCLUDE clause is supported."""
+        return False
+
+    def supports_index_tablespace(self) -> bool:
+        """Whether tablespace specification is supported."""
+        return False
+
+    def supports_concurrent_index(self) -> bool:
+        """Whether CREATE INDEX CONCURRENTLY is supported."""
+        return False
+
+    def get_supported_index_types(self) -> List[str]:
+        """Return list of supported index types."""
+        return ['BTREE']
+
+    def format_create_index_statement(
+        self,
+        expr: "CreateIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE INDEX statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "CREATE INDEX")
+
+    def format_drop_index_statement(
+        self,
+        expr: "DropIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP INDEX statement. Override in dialect."""
+        raise UnsupportedFeatureError(self.name, "DROP INDEX")
+
+
+class SequenceMixin:
+    """Mixin for sequence DDL support."""
+
+    def supports_sequence(self) -> bool:
+        """Whether sequence objects are supported."""
+        return False
+
+    def supports_create_sequence(self) -> bool:
+        """Whether CREATE SEQUENCE is supported."""
+        return False
+
+    def supports_drop_sequence(self) -> bool:
+        """Whether DROP SEQUENCE is supported."""
+        return False
+
+    def supports_alter_sequence(self) -> bool:
+        """Whether ALTER SEQUENCE is supported."""
+        return False
+
+    def supports_sequence_if_not_exists(self) -> bool:
+        """Whether CREATE SEQUENCE IF NOT EXISTS is supported."""
+        return False
+
+    def supports_sequence_if_exists(self) -> bool:
+        """Whether DROP SEQUENCE IF EXISTS is supported."""
+        return False
+
+    def supports_sequence_cycle(self) -> bool:
+        """Whether CYCLE option is supported."""
+        return False
+
+    def supports_sequence_cache(self) -> bool:
+        """Whether CACHE option is supported."""
+        return False
+
+    def supports_sequence_order(self) -> bool:
+        """Whether ORDER option is supported."""
+        return False
+
+    def supports_sequence_owned_by(self) -> bool:
+        """Whether OWNED BY clause is supported."""
+        return False
+
+    def format_create_sequence_statement(
+        self,
+        expr: "CreateSequenceExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE SEQUENCE statement."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "CREATE SEQUENCE",
+            "This database does not support sequence objects. "
+            "Use AUTO_INCREMENT or similar column attributes instead."
+        )
+
+    def format_drop_sequence_statement(
+        self,
+        expr: "DropSequenceExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP SEQUENCE statement."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "DROP SEQUENCE",
+            "This database does not support sequence objects."
+        )
+
+    def format_alter_sequence_statement(
+        self,
+        expr: "AlterSequenceExpression"
+    ) -> Tuple[str, tuple]:
+        """Format ALTER SEQUENCE statement."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "ALTER SEQUENCE",
+            "This database does not support sequence objects."
+        )
