@@ -127,6 +127,14 @@ from .statements import (
     DropIndex,
     AlterTableExpression,
     TruncateExpression,
+    # New DDL Expressions
+    CreateSchemaExpression,
+    DropSchemaExpression,
+    CreateIndexExpression,
+    DropIndexExpression,
+    CreateSequenceExpression,
+    DropSequenceExpression,
+    AlterSequenceExpression,
 )
 from .graph import (
     GraphEdgeDirection,
@@ -176,32 +184,32 @@ __all__ = [
 
     # Literals
     "Identifier",
-    
+
     # Operators
     "SQLOperation", "BinaryExpression", "UnaryExpression", "RawSQLExpression", "RawSQLPredicate", "BinaryArithmeticExpression",
-    
+
     # Core expressions
     "Column", "FunctionCall", "Subquery", "TableExpression", "Literal", "WildcardExpression",
-    
+
     # Predicates
     "ComparisonPredicate", "LogicalPredicate", "LikePredicate", "InPredicate", "BetweenPredicate", "IsNullPredicate",
-    
+
     # Aggregates
     "AggregateFunctionCall",
-    
+
     # Advanced functions
     "CaseExpression", "CastExpression", "ExistsExpression", "AnyExpression", "AllExpression",
     "WindowFrameSpecification", "WindowSpecification", "WindowDefinition", "WindowClause", "WindowFunctionCall",
     "JSONExpression", "ArrayExpression", "OrderedSetAggregation",
-    
+
     # Query parts
     "GroupingExpression", "JoinExpression", "JoinType",
     "WhereClause", "GroupByHavingClause", "OrderByClause", "LimitOffsetClause", "QualifyClause", "ForUpdateClause",
-    
+
     # Query sources
     "SetOperationExpression", "CTEExpression", "WithQueryExpression", "ValuesExpression",
     "TableFunctionExpression", "LateralExpression", "JSONTableColumn", "JSONTableExpression",
-    
+
     # Statements
     "QueryExpression", "DeleteExpression", "UpdateExpression", "InsertExpression", "ExplainExpression",
     "MergeActionType", "MergeAction", "MergeExpression", "SelectModifier",
@@ -211,10 +219,15 @@ __all__ = [
     "CreateViewExpression", "DropViewExpression", "ViewOptions", "ViewCheckOption",
     "AlterTableAction", "AddColumn", "DropColumn", "AlterColumn", "AddConstraint", "DropConstraint",
     "RenameObject", "AddIndex", "DropIndex", "AlterTableExpression", "TruncateExpression",
-    
+
+    # New DDL Expressions
+    "CreateSchemaExpression", "DropSchemaExpression",
+    "CreateIndexExpression", "DropIndexExpression",
+    "CreateSequenceExpression", "DropSequenceExpression", "AlterSequenceExpression",
+
     # Graph
     "GraphEdgeDirection", "GraphVertex", "GraphEdge", "MatchClause",
-    
+
     # Functions
     "count", "sum_", "avg", "min_", "max_", "lower", "upper", "concat", "coalesce",
     "length", "substring", "trim", "replace", "initcap", "left", "right", "lpad", "rpad", "reverse", "strpos",
