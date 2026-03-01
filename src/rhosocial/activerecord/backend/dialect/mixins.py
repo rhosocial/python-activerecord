@@ -1320,23 +1320,27 @@ class SchemaMixin:
         self,
         expr: "CreateSchemaExpression"
     ) -> Tuple[str, tuple]:
-        """Format CREATE SCHEMA statement."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "CREATE SCHEMA",
-            "This database does not support schema namespaces."
-        )
+        """Format CREATE SCHEMA statement per SQL standard."""
+        parts = ["CREATE SCHEMA"]
+        if expr.if_not_exists:
+            parts.append("IF NOT EXISTS")
+        parts.append(self.format_identifier(expr.schema_name))
+        if expr.authorization:
+            parts.append(f"AUTHORIZATION {self.format_identifier(expr.authorization)}")
+        return ' '.join(parts), ()
 
     def format_drop_schema_statement(
         self,
         expr: "DropSchemaExpression"
     ) -> Tuple[str, tuple]:
-        """Format DROP SCHEMA statement."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "DROP SCHEMA",
-            "This database does not support schema namespaces."
-        )
+        """Format DROP SCHEMA statement per SQL standard."""
+        parts = ["DROP SCHEMA"]
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+        parts.append(self.format_identifier(expr.schema_name))
+        if expr.cascade:
+            parts.append("CASCADE")
+        return ' '.join(parts), ()
 
 
 class IndexMixin:
@@ -1394,15 +1398,59 @@ class IndexMixin:
         self,
         expr: "CreateIndexExpression"
     ) -> Tuple[str, tuple]:
-        """Format CREATE INDEX statement. Override in dialect."""
-        raise UnsupportedFeatureError(self.name, "CREATE INDEX")
+        """Format CREATE INDEX statement per SQL standard."""
+        all_params = []
+        parts = ["CREATE"]
+
+        if expr.unique:
+            parts.append("UNIQUE")
+        parts.append("INDEX")
+        if expr.if_not_exists:
+            parts.append("IF NOT EXISTS")
+        parts.append(self.format_identifier(expr.index_name))
+        parts.append("ON")
+        parts.append(self.format_identifier(expr.table_name))
+
+        if expr.index_type:
+            parts.append(f"USING {expr.index_type}")
+
+        col_parts = []
+        for col in expr.columns:
+            if hasattr(col, 'to_sql'):
+                col_sql, col_params = col.to_sql()
+                col_parts.append(col_sql)
+                all_params.extend(col_params)
+            else:
+                col_parts.append(self.format_identifier(str(col)))
+        parts.append(f"({', '.join(col_parts)})")
+
+        if expr.include:
+            include_cols = ', '.join(self.format_identifier(c) for c in expr.include)
+            parts.append(f"INCLUDE ({include_cols})")
+
+        if expr.where:
+            where_sql, where_params = expr.where.to_sql()
+            parts.append(f"WHERE {where_sql}")
+            all_params.extend(where_params)
+
+        if expr.tablespace:
+            parts.append(f"TABLESPACE {self.format_identifier(expr.tablespace)}")
+
+        return ' '.join(parts), tuple(all_params)
 
     def format_drop_index_statement(
         self,
         expr: "DropIndexExpression"
     ) -> Tuple[str, tuple]:
-        """Format DROP INDEX statement. Override in dialect."""
-        raise UnsupportedFeatureError(self.name, "DROP INDEX")
+        """Format DROP INDEX statement per SQL standard."""
+        parts = ["DROP INDEX"]
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+        parts.append(self.format_identifier(expr.index_name))
+        if expr.table_name:
+            parts.append("ON")
+            parts.append(self.format_identifier(expr.table_name))
+        return ' '.join(parts), ()
 
 
 class SequenceMixin:
@@ -1452,32 +1500,71 @@ class SequenceMixin:
         self,
         expr: "CreateSequenceExpression"
     ) -> Tuple[str, tuple]:
-        """Format CREATE SEQUENCE statement."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "CREATE SEQUENCE",
-            "This database does not support sequence objects. "
-            "Use AUTO_INCREMENT or similar column attributes instead."
-        )
+        """Format CREATE SEQUENCE statement per SQL standard."""
+        parts = ["CREATE SEQUENCE"]
+        if expr.if_not_exists:
+            parts.append("IF NOT EXISTS")
+        parts.append(self.format_identifier(expr.sequence_name))
+
+        if expr.start is not None:
+            parts.append(f"START WITH {expr.start}")
+        if expr.increment is not None:
+            parts.append(f"INCREMENT BY {expr.increment}")
+        if expr.minvalue is not None:
+            parts.append(f"MINVALUE {expr.minvalue}")
+        if expr.maxvalue is not None:
+            parts.append(f"MAXVALUE {expr.maxvalue}")
+        if expr.cycle:
+            parts.append("CYCLE")
+        else:
+            parts.append("NO CYCLE")
+        if expr.cache is not None:
+            parts.append(f"CACHE {expr.cache}")
+        if expr.order:
+            parts.append("ORDER")
+        if expr.owned_by:
+            parts.append(f"OWNED BY {expr.owned_by}")
+
+        return ' '.join(parts), ()
 
     def format_drop_sequence_statement(
         self,
         expr: "DropSequenceExpression"
     ) -> Tuple[str, tuple]:
-        """Format DROP SEQUENCE statement."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "DROP SEQUENCE",
-            "This database does not support sequence objects."
-        )
+        """Format DROP SEQUENCE statement per SQL standard."""
+        parts = ["DROP SEQUENCE"]
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+        parts.append(self.format_identifier(expr.sequence_name))
+        return ' '.join(parts), ()
 
     def format_alter_sequence_statement(
         self,
         expr: "AlterSequenceExpression"
     ) -> Tuple[str, tuple]:
-        """Format ALTER SEQUENCE statement."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "ALTER SEQUENCE",
-            "This database does not support sequence objects."
-        )
+        """Format ALTER SEQUENCE statement per SQL standard."""
+        parts = [f"ALTER SEQUENCE {self.format_identifier(expr.sequence_name)}"]
+
+        if expr.restart is not None:
+            parts.append(f"RESTART WITH {expr.restart}")
+        if expr.start is not None:
+            parts.append(f"START WITH {expr.start}")
+        if expr.increment is not None:
+            parts.append(f"INCREMENT BY {expr.increment}")
+        if expr.minvalue is not None:
+            parts.append(f"MINVALUE {expr.minvalue}")
+        if expr.maxvalue is not None:
+            parts.append(f"MAXVALUE {expr.maxvalue}")
+        if expr.cycle is not None:
+            parts.append("CYCLE" if expr.cycle else "NO CYCLE")
+        if expr.cache is not None:
+            parts.append(f"CACHE {expr.cache}")
+        if expr.order is not None:
+            parts.append("ORDER" if expr.order else "NO ORDER")
+        if expr.owned_by is not None:
+            if expr.owned_by:
+                parts.append(f"OWNED BY {expr.owned_by}")
+            else:
+                parts.append("OWNED BY NONE")
+
+        return ' '.join(parts), ()

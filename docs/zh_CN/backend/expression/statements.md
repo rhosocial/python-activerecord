@@ -205,6 +205,243 @@ sql, params = create_view.to_sql()
 # params: ()
 ```
 
+### TruncateExpression
+
+`TruncateExpression` 表示 `TRUNCATE TABLE` 语句，用于快速删除表中所有行。
+
+```python
+from rhosocial.activerecord.backend.expression import TruncateExpression
+
+# 基本 TRUNCATE
+truncate = TruncateExpression(
+    dialect,
+    table_name="logs"
+)
+sql, params = truncate.to_sql()
+# sql: 'TRUNCATE TABLE "logs"'
+# params: ()
+
+# 带 RESTART IDENTITY 和 CASCADE 的 TRUNCATE
+truncate = TruncateExpression(
+    dialect,
+    table_name="orders",
+    restart_identity=True,
+    cascade=True
+)
+sql, params = truncate.to_sql()
+# sql: 'TRUNCATE TABLE "orders" RESTART IDENTITY CASCADE'
+# params: ()
+```
+
+### Schema DDL（模式定义语言）
+
+#### CreateSchemaExpression
+
+`CreateSchemaExpression` 表示 `CREATE SCHEMA` 语句，用于创建数据库模式（命名空间）。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import CreateSchemaExpression
+
+# 基本 CREATE SCHEMA
+create_schema = CreateSchemaExpression(
+    dialect,
+    schema_name="my_schema"
+)
+sql, params = create_schema.to_sql()
+# sql: 'CREATE SCHEMA "my_schema"'
+# params: ()
+
+# 带 IF NOT EXISTS 和 AUTHORIZATION 的 CREATE SCHEMA
+create_schema = CreateSchemaExpression(
+    dialect,
+    schema_name="app_schema",
+    if_not_exists=True,
+    authorization="app_user"
+)
+sql, params = create_schema.to_sql()
+# sql: 'CREATE SCHEMA IF NOT EXISTS "app_schema" AUTHORIZATION "app_user"'
+# params: ()
+```
+
+#### DropSchemaExpression
+
+`DropSchemaExpression` 表示 `DROP SCHEMA` 语句。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import DropSchemaExpression
+
+# 带 CASCADE 的 DROP SCHEMA
+drop_schema = DropSchemaExpression(
+    dialect,
+    schema_name="old_schema",
+    if_exists=True,
+    cascade=True
+)
+sql, params = drop_schema.to_sql()
+# sql: 'DROP SCHEMA IF EXISTS "old_schema" CASCADE'
+# params: ()
+```
+
+### Index DDL（索引定义语言）
+
+#### CreateIndexExpression
+
+`CreateIndexExpression` 表示 `CREATE INDEX` 语句，支持多种索引类型和选项。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import CreateIndexExpression
+
+# 基本 CREATE INDEX
+create_index = CreateIndexExpression(
+    dialect,
+    index_name="idx_users_email",
+    table_name="users",
+    columns=["email"]
+)
+sql, params = create_index.to_sql()
+# sql: 'CREATE INDEX "idx_users_email" ON "users" ("email")'
+# params: ()
+
+# 带 WHERE 子句的 UNIQUE INDEX（部分索引）
+create_index = CreateIndexExpression(
+    dialect,
+    index_name="idx_active_users",
+    table_name="users",
+    columns=["email"],
+    unique=True,
+    where=Column(dialect, "status") == Literal(dialect, "active")
+)
+sql, params = create_index.to_sql()
+# sql: 'CREATE UNIQUE INDEX "idx_active_users" ON "users" ("email") WHERE "status" = ?'
+# params: ("active",)
+
+# 带索引类型的复合索引
+create_index = CreateIndexExpression(
+    dialect,
+    index_name="idx_orders_user_date",
+    table_name="orders",
+    columns=["user_id", "created_at"],
+    index_type="BTREE"
+)
+sql, params = create_index.to_sql()
+# sql: 'CREATE INDEX "idx_orders_user_date" ON "orders" USING BTREE ("user_id", "created_at")'
+# params: ()
+
+# 带 INCLUDE 子句的索引（覆盖索引）
+create_index = CreateIndexExpression(
+    dialect,
+    index_name="idx_users_email",
+    table_name="users",
+    columns=["email"],
+    include=["id", "name"]
+)
+sql, params = create_index.to_sql()
+# sql: 'CREATE INDEX "idx_users_email" ON "users" ("email") INCLUDE ("id", "name")'
+# params: ()
+```
+
+#### DropIndexExpression
+
+`DropIndexExpression` 表示 `DROP INDEX` 语句。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import DropIndexExpression
+
+# DROP INDEX
+drop_index = DropIndexExpression(
+    dialect,
+    index_name="idx_old_index",
+    if_exists=True,
+    table_name="users"  # 可选：提供表上下文
+)
+sql, params = drop_index.to_sql()
+# sql: 'DROP INDEX IF EXISTS "idx_old_index" ON "users"'
+# params: ()
+```
+
+### Sequence DDL（序列定义语言）
+
+#### CreateSequenceExpression
+
+`CreateSequenceExpression` 表示 `CREATE SEQUENCE` 语句，用于生成唯一数字标识符。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import CreateSequenceExpression
+
+# 基本 CREATE SEQUENCE
+create_seq = CreateSequenceExpression(
+    dialect,
+    sequence_name="user_id_seq"
+)
+sql, params = create_seq.to_sql()
+# sql: 'CREATE SEQUENCE "user_id_seq" NO CYCLE'
+# params: ()
+
+# 带所有选项的 CREATE SEQUENCE
+create_seq = CreateSequenceExpression(
+    dialect,
+    sequence_name="order_seq",
+    if_not_exists=True,
+    start=1000,
+    increment=1,
+    minvalue=1000,
+    maxvalue=999999,
+    cycle=True,
+    cache=20,
+    owned_by="orders.id"
+)
+sql, params = create_seq.to_sql()
+# sql: 'CREATE SEQUENCE IF NOT EXISTS "order_seq" START WITH 1000 INCREMENT BY 1 MINVALUE 1000 MAXVALUE 999999 CYCLE CACHE 20 OWNED BY orders.id'
+# params: ()
+```
+
+#### DropSequenceExpression
+
+`DropSequenceExpression` 表示 `DROP SEQUENCE` 语句。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import DropSequenceExpression
+
+drop_seq = DropSequenceExpression(
+    dialect,
+    sequence_name="old_seq",
+    if_exists=True
+)
+sql, params = drop_seq.to_sql()
+# sql: 'DROP SEQUENCE IF EXISTS "old_seq"'
+# params: ()
+```
+
+#### AlterSequenceExpression
+
+`AlterSequenceExpression` 表示 `ALTER SEQUENCE` 语句，用于修改现有序列。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import AlterSequenceExpression
+
+# 重启序列
+alter_seq = AlterSequenceExpression(
+    dialect,
+    sequence_name="user_id_seq",
+    restart=1000
+)
+sql, params = alter_seq.to_sql()
+# sql: 'ALTER SEQUENCE "user_id_seq" RESTART WITH 1000'
+# params: ()
+
+# 多项修改
+alter_seq = AlterSequenceExpression(
+    dialect,
+    sequence_name="order_seq",
+    increment=2,
+    maxvalue=1000000,
+    cycle=True
+)
+sql, params = alter_seq.to_sql()
+# sql: 'ALTER SEQUENCE "order_seq" INCREMENT BY 2 MAXVALUE 1000000 CYCLE'
+# params: ()
+```
+
 ### MergeExpression (MERGE)
 
 `MergeExpression` 表示 `MERGE` 语句 (Upsert)。
