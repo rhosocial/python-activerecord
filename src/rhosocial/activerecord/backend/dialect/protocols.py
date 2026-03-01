@@ -9,12 +9,21 @@ detection and graceful error handling.
 from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING: # pragma: no cover
     from ..expression import (
         bases, ExplainExpression, OnConflictClause, MergeExpression, MatchClause, QualifyClause, GraphEdgeDirection,
         JoinExpression,
         WindowFunctionCall, WindowSpecification, WindowFrameSpecification,
         WindowDefinition, WindowClause
+    )
+    from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
+    from ..expression.advanced_functions import OrderedSetAggregation
+    from ..expression.statements import (
+        CreateTableExpression, DropTableExpression, AlterTableExpression,
+        CreateViewExpression, DropViewExpression, TruncateExpression,
+        CreateSchemaExpression, DropSchemaExpression,
+        CreateIndexExpression, DropIndexExpression,
+        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression
     )
 
 
@@ -653,5 +662,405 @@ class SetOperationSupport(Protocol):
         for_update_clause: Optional["ForUpdateClause"] = None
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
+
+
+# ============================================================
+# DDL (Data Definition Language) Support Protocols
+# ============================================================
+
+@runtime_checkable
+class TableSupport(Protocol):
+    """
+    Protocol for table DDL support.
+    
+    This protocol covers CREATE TABLE, DROP TABLE, and ALTER TABLE operations.
+    Most SQL databases support these operations, but feature support varies:
+    - IF NOT EXISTS / IF EXISTS clauses
+    - TEMPORARY tables
+    - Table inheritance (PostgreSQL)
+    - Partitioning
+    - Storage options
+    """
+    
+    def supports_create_table(self) -> bool:
+        """Whether CREATE TABLE is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_table(self) -> bool:
+        """Whether DROP TABLE is supported."""
+        ... # pragma: no cover
+    
+    def supports_alter_table(self) -> bool:
+        """Whether ALTER TABLE is supported."""
+        ... # pragma: no cover
+    
+    def supports_temporary_table(self) -> bool:
+        """Whether TEMPORARY tables are supported."""
+        ... # pragma: no cover
+    
+    def supports_if_not_exists_table(self) -> bool:
+        """Whether CREATE TABLE IF NOT EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_if_exists_table(self) -> bool:
+        """Whether DROP TABLE IF EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_table_inheritance(self) -> bool:
+        """Whether table inheritance (PostgreSQL INHERITS) is supported."""
+        ... # pragma: no cover
+    
+    def supports_table_partitioning(self) -> bool:
+        """Whether table partitioning is supported."""
+        ... # pragma: no cover
+    
+    def supports_table_tablespace(self) -> bool:
+        """Whether tablespace specification is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_column(self) -> bool:
+        """Whether DROP COLUMN is supported in ALTER TABLE."""
+        ... # pragma: no cover
+    
+    def supports_alter_column_type(self) -> bool:
+        """Whether altering column data type is supported."""
+        ... # pragma: no cover
+    
+    def supports_rename_column(self) -> bool:
+        """Whether RENAME COLUMN is supported."""
+        ... # pragma: no cover
+    
+    def supports_rename_table(self) -> bool:
+        """Whether RENAME TABLE is supported."""
+        ... # pragma: no cover
+    
+    def supports_add_constraint(self) -> bool:
+        """Whether ADD CONSTRAINT is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_constraint(self) -> bool:
+        """Whether DROP CONSTRAINT is supported."""
+        ... # pragma: no cover
+    
+    def format_create_table_statement(
+        self,
+        expr: "CreateTableExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TABLE statement."""
+        ... # pragma: no cover
+    
+    def format_drop_table_statement(
+        self,
+        expr: "DropTableExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP TABLE statement."""
+        ... # pragma: no cover
+    
+    def format_alter_table_statement(
+        self,
+        expr: "AlterTableExpression"
+    ) -> Tuple[str, tuple]:
+        """Format ALTER TABLE statement."""
+        ... # pragma: no cover
+
+
+@runtime_checkable
+class ViewSupport(Protocol):
+    """
+    Protocol for view DDL support.
+    
+    This protocol covers CREATE VIEW and DROP VIEW operations.
+    Feature support varies across databases:
+    - CREATE OR REPLACE VIEW
+    - TEMPORARY views
+    - Materialized views (PostgreSQL)
+    - WITH CHECK OPTION
+    - Algorithm options (MySQL)
+    """
+    
+    def supports_create_view(self) -> bool:
+        """Whether CREATE VIEW is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_view(self) -> bool:
+        """Whether DROP VIEW is supported."""
+        ... # pragma: no cover
+    
+    def supports_or_replace_view(self) -> bool:
+        """Whether CREATE OR REPLACE VIEW is supported."""
+        ... # pragma: no cover
+    
+    def supports_temporary_view(self) -> bool:
+        """Whether TEMPORARY views are supported."""
+        ... # pragma: no cover
+    
+    def supports_materialized_view(self) -> bool:
+        """Whether materialized views are supported."""
+        ... # pragma: no cover
+    
+    def supports_if_exists_view(self) -> bool:
+        """Whether DROP VIEW IF EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_view_check_option(self) -> bool:
+        """Whether WITH CHECK OPTION is supported."""
+        ... # pragma: no cover
+    
+    def supports_cascade_view(self) -> bool:
+        """Whether DROP VIEW CASCADE is supported."""
+        ... # pragma: no cover
+    
+    def format_create_view_statement(
+        self,
+        expr: "CreateViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIEW statement."""
+        ... # pragma: no cover
+    
+    def format_drop_view_statement(
+        self,
+        expr: "DropViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP VIEW statement."""
+        ... # pragma: no cover
+
+
+@runtime_checkable
+class TruncateSupport(Protocol):
+    """
+    Protocol for TRUNCATE TABLE support.
+    
+    TRUNCATE provides a fast way to delete all rows from a table.
+    Feature support varies:
+    - TRUNCATE TABLE keyword requirement
+    - RESTART IDENTITY (PostgreSQL)
+    - CASCADE option (PostgreSQL)
+    """
+    
+    def supports_truncate(self) -> bool:
+        """Whether TRUNCATE is supported."""
+        ... # pragma: no cover
+    
+    def supports_truncate_table_keyword(self) -> bool:
+        """Whether TABLE keyword is required or optional in TRUNCATE."""
+        ... # pragma: no cover
+    
+    def supports_truncate_restart_identity(self) -> bool:
+        """Whether RESTART IDENTITY is supported."""
+        ... # pragma: no cover
+    
+    def supports_truncate_cascade(self) -> bool:
+        """Whether CASCADE option is supported."""
+        ... # pragma: no cover
+    
+    def format_truncate_statement(
+        self,
+        expr: "TruncateExpression"
+    ) -> Tuple[str, tuple]:
+        """Format TRUNCATE TABLE statement."""
+        ... # pragma: no cover
+
+
+@runtime_checkable
+class SchemaSupport(Protocol):
+    """
+    Protocol for schema (namespace) DDL support.
+    
+    Schemas are database namespaces that contain tables, views, and other objects.
+    Support varies significantly:
+    - PostgreSQL: Native schema support
+    - MySQL: CREATE SCHEMA is synonym for CREATE DATABASE
+    - SQLite: No schema concept (database file is the entire database)
+    """
+    
+    def supports_create_schema(self) -> bool:
+        """Whether CREATE SCHEMA is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_schema(self) -> bool:
+        """Whether DROP SCHEMA is supported."""
+        ... # pragma: no cover
+    
+    def supports_schema_if_not_exists(self) -> bool:
+        """Whether CREATE SCHEMA IF NOT EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_schema_if_exists(self) -> bool:
+        """Whether DROP SCHEMA IF EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_schema_cascade(self) -> bool:
+        """Whether DROP SCHEMA CASCADE is supported."""
+        ... # pragma: no cover
+    
+    def supports_schema_authorization(self) -> bool:
+        """Whether AUTHORIZATION clause is supported."""
+        ... # pragma: no cover
+    
+    def format_create_schema_statement(
+        self,
+        expr: "CreateSchemaExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE SCHEMA statement."""
+        ... # pragma: no cover
+    
+    def format_drop_schema_statement(
+        self,
+        expr: "DropSchemaExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP SCHEMA statement."""
+        ... # pragma: no cover
+
+
+@runtime_checkable
+class IndexSupport(Protocol):
+    """
+    Protocol for index DDL support.
+    
+    Note: This protocol is for standalone CREATE INDEX / DROP INDEX statements.
+    Inline index definitions in CREATE TABLE are handled separately.
+    
+    Feature support varies:
+    - PostgreSQL: BTREE, HASH, GIN, GIST, SPGIST, BRIN; partial indexes; INCLUDE
+    - MySQL: BTREE, HASH; USING clause; no partial indexes
+    - SQLite: Partial indexes (WHERE); functional indexes; always B-tree
+    """
+    
+    def supports_create_index(self) -> bool:
+        """Whether CREATE INDEX is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_index(self) -> bool:
+        """Whether DROP INDEX is supported."""
+        ... # pragma: no cover
+    
+    def supports_unique_index(self) -> bool:
+        """Whether UNIQUE indexes are supported."""
+        ... # pragma: no cover
+    
+    def supports_index_if_not_exists(self) -> bool:
+        """Whether CREATE INDEX IF NOT EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_index_if_exists(self) -> bool:
+        """Whether DROP INDEX IF EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_index_type(self) -> bool:
+        """Whether index type specification (USING BTREE/HASH) is supported."""
+        ... # pragma: no cover
+    
+    def supports_partial_index(self) -> bool:
+        """Whether partial indexes (WHERE clause) are supported."""
+        ... # pragma: no cover
+    
+    def supports_functional_index(self) -> bool:
+        """Whether functional/expression indexes are supported."""
+        ... # pragma: no cover
+    
+    def supports_index_include(self) -> bool:
+        """Whether INCLUDE clause (covering columns) is supported."""
+        ... # pragma: no cover
+    
+    def supports_index_tablespace(self) -> bool:
+        """Whether tablespace specification for indexes is supported."""
+        ... # pragma: no cover
+    
+    def supports_concurrent_index(self) -> bool:
+        """Whether CREATE INDEX CONCURRENTLY (PostgreSQL) is supported."""
+        ... # pragma: no cover
+    
+    def get_supported_index_types(self) -> List[str]:
+        """Return list of supported index types (e.g., ['BTREE', 'HASH'])."""
+        ... # pragma: no cover
+    
+    def format_create_index_statement(
+        self,
+        expr: "CreateIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE INDEX statement."""
+        ... # pragma: no cover
+    
+    def format_drop_index_statement(
+        self,
+        expr: "DropIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP INDEX statement."""
+        ... # pragma: no cover
+
+
+@runtime_checkable
+class SequenceSupport(Protocol):
+    """
+    Protocol for sequence object DDL support.
+    
+    Sequences are used for generating unique numbers, typically for auto-increment.
+    Support varies:
+    - PostgreSQL: Native SEQUENCE objects with full options
+    - MySQL: No sequence objects (uses AUTO_INCREMENT)
+    - SQLite: No sequences (uses AUTOINCREMENT keyword)
+    - Oracle: SEQUENCE objects with many options
+    """
+    
+    def supports_sequence(self) -> bool:
+        """Whether sequence objects are supported."""
+        ... # pragma: no cover
+    
+    def supports_create_sequence(self) -> bool:
+        """Whether CREATE SEQUENCE is supported."""
+        ... # pragma: no cover
+    
+    def supports_drop_sequence(self) -> bool:
+        """Whether DROP SEQUENCE is supported."""
+        ... # pragma: no cover
+    
+    def supports_alter_sequence(self) -> bool:
+        """Whether ALTER SEQUENCE is supported."""
+        ... # pragma: no cover
+    
+    def supports_sequence_if_not_exists(self) -> bool:
+        """Whether CREATE SEQUENCE IF NOT EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_sequence_if_exists(self) -> bool:
+        """Whether DROP SEQUENCE IF EXISTS is supported."""
+        ... # pragma: no cover
+    
+    def supports_sequence_cycle(self) -> bool:
+        """Whether CYCLE/NO CYCLE option is supported."""
+        ... # pragma: no cover
+    
+    def supports_sequence_cache(self) -> bool:
+        """Whether CACHE option is supported."""
+        ... # pragma: no cover
+    
+    def supports_sequence_order(self) -> bool:
+        """Whether ORDER option is supported."""
+        ... # pragma: no cover
+    
+    def supports_sequence_owned_by(self) -> bool:
+        """Whether OWNED BY clause is supported."""
+        ... # pragma: no cover
+    
+    def format_create_sequence_statement(
+        self,
+        expr: "CreateSequenceExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE SEQUENCE statement."""
+        ... # pragma: no cover
+    
+    def format_drop_sequence_statement(
+        self,
+        expr: "DropSequenceExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP SEQUENCE statement."""
+        ... # pragma: no cover
+    
+    def format_alter_sequence_statement(
+        self,
+        expr: "AlterSequenceExpression"
+    ) -> Tuple[str, tuple]:
+        """Format ALTER SEQUENCE statement."""
+        ... # pragma: no cover
 

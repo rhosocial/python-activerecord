@@ -1531,4 +1531,387 @@ class AlterTableExpression(bases.BaseExpression):
         """
         return self.dialect.format_alter_table_statement(self)
 
-# endregion DDL Expressions
+    # endregion DDL Expressions
+
+
+# region Schema DDL Expressions
+
+class CreateSchemaExpression(bases.BaseExpression):
+    """
+    Represents a CREATE SCHEMA statement.
+
+    Schemas are database namespaces that contain tables, views, and other objects.
+    Support varies by database:
+    - PostgreSQL: Full schema support with AUTHORIZATION
+    - MySQL: CREATE SCHEMA is synonym for CREATE DATABASE
+    - SQLite: Not supported (database file is the entire database)
+
+    Examples:
+        # Basic schema creation
+        create_schema = CreateSchemaExpression(
+            dialect,
+            schema_name="my_schema"
+        )
+
+        # Schema with authorization
+        create_schema = CreateSchemaExpression(
+            dialect,
+            schema_name="app_schema",
+            authorization="app_user"
+        )
+
+        # Safe schema creation
+        create_schema = CreateSchemaExpression(
+            dialect,
+            schema_name="reporting",
+            if_not_exists=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 schema_name: str,
+                 if_not_exists: bool = False,
+                 authorization: Optional[str] = None,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.schema_name = schema_name
+        self.if_not_exists = if_not_exists
+        self.authorization = authorization
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_create_schema_statement(self)
+
+
+class DropSchemaExpression(bases.BaseExpression):
+    """
+    Represents a DROP SCHEMA statement.
+
+    Examples:
+        # Basic schema drop
+        drop_schema = DropSchemaExpression(
+            dialect,
+            schema_name="old_schema"
+        )
+
+        # Safe drop with IF EXISTS
+        drop_schema = DropSchemaExpression(
+            dialect,
+            schema_name="test_schema",
+            if_exists=True
+        )
+
+        # Cascade drop (removes all objects in schema)
+        drop_schema = DropSchemaExpression(
+            dialect,
+            schema_name="legacy",
+            cascade=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 schema_name: str,
+                 if_exists: bool = False,
+                 cascade: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.schema_name = schema_name
+        self.if_exists = if_exists
+        self.cascade = cascade
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_drop_schema_statement(self)
+
+# endregion Schema DDL Expressions
+
+
+# region Index DDL Expressions
+
+class CreateIndexExpression(bases.BaseExpression):
+    """
+    Represents a CREATE INDEX statement for standalone index creation.
+
+    Note: This is for creating indexes on existing tables. For inline
+    index definitions during table creation, use CreateTableExpression
+    with the indexes parameter.
+
+    Examples:
+        # Basic index
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_users_email",
+            table_name="users",
+            columns=["email"]
+        )
+
+        # Unique index
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_users_username",
+            table_name="users",
+            columns=["username"],
+            unique=True
+        )
+
+        # Composite index
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_orders_user_date",
+            table_name="orders",
+            columns=["user_id", "created_at"]
+        )
+
+        # Partial index (PostgreSQL)
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_active_users",
+            table_name="users",
+            columns=["email"],
+            where=Column(dialect, "status") == Literal(dialect, "active")
+        )
+
+        # Index with specific type
+        create_idx = CreateIndexExpression(
+            dialect,
+            index_name="idx_users_name_hash",
+            table_name="users",
+            columns=["name"],
+            index_type="HASH"
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 index_name: str,
+                 table_name: str,
+                 columns: List[Union[str, "bases.BaseExpression"]],
+                 unique: bool = False,
+                 if_not_exists: bool = False,
+                 index_type: Optional[str] = None,
+                 where: Optional["bases.SQLPredicate"] = None,
+                 include: Optional[List[str]] = None,
+                 tablespace: Optional[str] = None,
+                 concurrent: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.index_name = index_name
+        self.table_name = table_name
+        self.columns = columns
+        self.unique = unique
+        self.if_not_exists = if_not_exists
+        self.index_type = index_type
+        self.where = where
+        self.include = include
+        self.tablespace = tablespace
+        self.concurrent = concurrent
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_create_index_statement(self)
+
+
+class DropIndexExpression(bases.BaseExpression):
+    """
+    Represents a DROP INDEX statement.
+
+    Examples:
+        # Basic drop
+        drop_idx = DropIndexExpression(
+            dialect,
+            index_name="idx_users_email"
+        )
+
+        # Drop with IF EXISTS
+        drop_idx = DropIndexExpression(
+            dialect,
+            index_name="idx_old_index",
+            if_exists=True
+        )
+
+        # Drop with table context (some databases require this)
+        drop_idx = DropIndexExpression(
+            dialect,
+            index_name="idx_orders_status",
+            table_name="orders"
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 index_name: str,
+                 table_name: Optional[str] = None,
+                 if_exists: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.index_name = index_name
+        self.table_name = table_name
+        self.if_exists = if_exists
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_drop_index_statement(self)
+
+# endregion Index DDL Expressions
+
+
+# region Sequence DDL Expressions
+
+class CreateSequenceExpression(bases.BaseExpression):
+    """
+    Represents a CREATE SEQUENCE statement.
+
+    Sequences are used for generating unique numbers, typically for
+    auto-increment columns. Not all databases support standalone sequences.
+
+    Examples:
+        # Basic sequence
+        create_seq = CreateSequenceExpression(
+            dialect,
+            sequence_name="user_id_seq"
+        )
+
+        # Sequence with options
+        create_seq = CreateSequenceExpression(
+            dialect,
+            sequence_name="order_id_seq",
+            start=1000,
+            increment=1,
+            minvalue=1000,
+            maxvalue=999999,
+            cycle=False
+        )
+
+        # Sequence with cache
+        create_seq = CreateSequenceExpression(
+            dialect,
+            sequence_name="high_throughput_seq",
+            start=1,
+            cache=100
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 sequence_name: str,
+                 if_not_exists: bool = False,
+                 start: Optional[int] = None,
+                 increment: Optional[int] = None,
+                 minvalue: Optional[int] = None,
+                 maxvalue: Optional[int] = None,
+                 cycle: bool = False,
+                 cache: Optional[int] = None,
+                 order: bool = False,
+                 owned_by: Optional[str] = None,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.sequence_name = sequence_name
+        self.if_not_exists = if_not_exists
+        self.start = start
+        self.increment = increment
+        self.minvalue = minvalue
+        self.maxvalue = maxvalue
+        self.cycle = cycle
+        self.cache = cache
+        self.order = order
+        self.owned_by = owned_by
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_create_sequence_statement(self)
+
+
+class DropSequenceExpression(bases.BaseExpression):
+    """
+    Represents a DROP SEQUENCE statement.
+
+    Examples:
+        # Basic drop
+        drop_seq = DropSequenceExpression(
+            dialect,
+            sequence_name="old_seq"
+        )
+
+        # Safe drop
+        drop_seq = DropSequenceExpression(
+            dialect,
+            sequence_name="deprecated_seq",
+            if_exists=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 sequence_name: str,
+                 if_exists: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.sequence_name = sequence_name
+        self.if_exists = if_exists
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_drop_sequence_statement(self)
+
+
+class AlterSequenceExpression(bases.BaseExpression):
+    """
+    Represents an ALTER SEQUENCE statement.
+
+    Examples:
+        # Restart sequence
+        alter_seq = AlterSequenceExpression(
+            dialect,
+            sequence_name="user_id_seq",
+            restart=1000
+        )
+
+        # Change increment
+        alter_seq = AlterSequenceExpression(
+            dialect,
+            sequence_name="order_num_seq",
+            increment=2
+        )
+
+        # Set options
+        alter_seq = AlterSequenceExpression(
+            dialect,
+            sequence_name="my_seq",
+            minvalue=1,
+            maxvalue=1000000,
+            cycle=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 sequence_name: str,
+                 restart: Optional[int] = None,
+                 start: Optional[int] = None,
+                 increment: Optional[int] = None,
+                 minvalue: Optional[int] = None,
+                 maxvalue: Optional[int] = None,
+                 cycle: Optional[bool] = None,
+                 cache: Optional[int] = None,
+                 order: Optional[bool] = None,
+                 owned_by: Optional[str] = None,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.sequence_name = sequence_name
+        self.restart = restart
+        self.start = start
+        self.increment = increment
+        self.minvalue = minvalue
+        self.maxvalue = maxvalue
+        self.cycle = cycle
+        self.cache = cache
+        self.order = order
+        self.owned_by = owned_by
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_alter_sequence_statement(self)
+
+# endregion Sequence DDL Expressions
