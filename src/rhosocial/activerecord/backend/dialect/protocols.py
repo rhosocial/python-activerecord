@@ -23,7 +23,9 @@ if TYPE_CHECKING: # pragma: no cover
         CreateViewExpression, DropViewExpression, TruncateExpression,
         CreateSchemaExpression, DropSchemaExpression,
         CreateIndexExpression, DropIndexExpression,
-        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression
+        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
+        CreateMaterializedViewExpression, DropMaterializedViewExpression,
+        RefreshMaterializedViewExpression
     )
 
 
@@ -769,7 +771,7 @@ class TableSupport(Protocol):
 class ViewSupport(Protocol):
     """
     Protocol for view DDL support.
-    
+
     This protocol covers CREATE VIEW and DROP VIEW operations.
     Feature support varies across databases:
     - CREATE OR REPLACE VIEW
@@ -778,51 +780,88 @@ class ViewSupport(Protocol):
     - WITH CHECK OPTION
     - Algorithm options (MySQL)
     """
-    
+
     def supports_create_view(self) -> bool:
         """Whether CREATE VIEW is supported."""
         ... # pragma: no cover
-    
+
     def supports_drop_view(self) -> bool:
         """Whether DROP VIEW is supported."""
         ... # pragma: no cover
-    
+
     def supports_or_replace_view(self) -> bool:
         """Whether CREATE OR REPLACE VIEW is supported."""
         ... # pragma: no cover
-    
+
     def supports_temporary_view(self) -> bool:
         """Whether TEMPORARY views are supported."""
         ... # pragma: no cover
-    
+
     def supports_materialized_view(self) -> bool:
         """Whether materialized views are supported."""
         ... # pragma: no cover
-    
+
+    def supports_refresh_materialized_view(self) -> bool:
+        """Whether REFRESH MATERIALIZED VIEW is supported."""
+        ... # pragma: no cover
+
+    def supports_materialized_view_concurrent_refresh(self) -> bool:
+        """Whether concurrent refresh for materialized views is supported."""
+        ... # pragma: no cover
+
+    def supports_materialized_view_tablespace(self) -> bool:
+        """Whether tablespace specification for materialized views is supported."""
+        ... # pragma: no cover
+
+    def supports_materialized_view_storage_options(self) -> bool:
+        """Whether storage options for materialized views are supported."""
+        ... # pragma: no cover
+
     def supports_if_exists_view(self) -> bool:
         """Whether DROP VIEW IF EXISTS is supported."""
         ... # pragma: no cover
-    
+
     def supports_view_check_option(self) -> bool:
         """Whether WITH CHECK OPTION is supported."""
         ... # pragma: no cover
-    
+
     def supports_cascade_view(self) -> bool:
         """Whether DROP VIEW CASCADE is supported."""
         ... # pragma: no cover
-    
+
     def format_create_view_statement(
         self,
         expr: "CreateViewExpression"
     ) -> Tuple[str, tuple]:
         """Format CREATE VIEW statement."""
         ... # pragma: no cover
-    
+
     def format_drop_view_statement(
         self,
         expr: "DropViewExpression"
     ) -> Tuple[str, tuple]:
         """Format DROP VIEW statement."""
+        ... # pragma: no cover
+
+    def format_create_materialized_view_statement(
+        self,
+        expr: "CreateMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE MATERIALIZED VIEW statement."""
+        ... # pragma: no cover
+
+    def format_drop_materialized_view_statement(
+        self,
+        expr: "DropMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP MATERIALIZED VIEW statement."""
+        ... # pragma: no cover
+
+    def format_refresh_materialized_view_statement(
+        self,
+        expr: "RefreshMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format REFRESH MATERIALIZED VIEW statement."""
         ... # pragma: no cover
 
 
