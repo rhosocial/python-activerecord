@@ -26,6 +26,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     UpsertSupport,
     LateralJoinSupport,
     WildcardSupport, JoinSupport, SetOperationSupport,
+    ViewSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -43,7 +44,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     QualifyClauseMixin,
     TemporalTableMixin,
     UpsertMixin,
-    LateralJoinMixin, JoinMixin,
+    LateralJoinMixin, JoinMixin, ViewMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -69,6 +70,7 @@ class SQLiteDialect(
     UpsertMixin,
     LateralJoinMixin,
     JoinMixin,
+    ViewMixin,
     # Protocols for type checking
     CTESupport,
     FilterClauseSupport,
@@ -89,6 +91,7 @@ class SQLiteDialect(
     WildcardSupport,
     JoinSupport,
     SetOperationSupport,
+    ViewSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -501,4 +504,147 @@ class SQLiteDialect(
 
         sql = " ".join(sql_parts)
         return sql, tuple(all_params)
+    # endregion
+
+    # region View Support (SQLite supports basic views but not materialized views)
+    def supports_create_view(self) -> bool:
+        """SQLite supports CREATE VIEW."""
+        return True
+
+    def supports_drop_view(self) -> bool:
+        """SQLite supports DROP VIEW."""
+        return True
+
+    def supports_or_replace_view(self) -> bool:
+        """SQLite supports CREATE VIEW IF NOT EXISTS (similar to OR REPLACE)."""
+        return True
+
+    def supports_temporary_view(self) -> bool:
+        """SQLite supports TEMPORARY views."""
+        return True
+
+    def supports_materialized_view(self) -> bool:
+        """SQLite does not support materialized views."""
+        return False
+
+    def supports_refresh_materialized_view(self) -> bool:
+        """SQLite does not support REFRESH MATERIALIZED VIEW."""
+        return False
+
+    def supports_materialized_view_concurrent_refresh(self) -> bool:
+        """SQLite does not support concurrent refresh."""
+        return False
+
+    def supports_materialized_view_tablespace(self) -> bool:
+        """SQLite does not support tablespace for materialized views."""
+        return False
+
+    def supports_materialized_view_storage_options(self) -> bool:
+        """SQLite does not support storage options for materialized views."""
+        return False
+
+    def supports_if_exists_view(self) -> bool:
+        """SQLite supports DROP VIEW IF EXISTS."""
+        return True
+
+    def supports_view_check_option(self) -> bool:
+        """SQLite does not support WITH CHECK OPTION."""
+        return False
+
+    def supports_cascade_view(self) -> bool:
+        """SQLite does not support CASCADE for DROP VIEW."""
+        return False
+
+    def format_create_view_statement(
+        self,
+        expr: "CreateViewExpression"
+    ) -> Tuple[str, tuple]:
+        """
+        Format CREATE VIEW statement for SQLite.
+        
+        Note: SQLite does not allow parameters (placeholders like ?) in VIEW definitions.
+        Any condition values must be inlined directly in the SQL string. Use RawSQLPredicate
+        for conditions that need literal values instead of parameterized comparisons.
+        
+        Example:
+            # Wrong - will fail with "parameters are not allowed in views"
+            where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "active"))
+            
+            # Correct - use RawSQLPredicate to inline the value
+            from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+            where=WhereClause(dialect, condition=RawSQLPredicate(dialect, '"status" = \'active\''))
+        """
+        parts = ["CREATE"]
+        if expr.temporary:
+            parts.append("TEMPORARY")
+        if expr.replace:
+            parts.append("VIEW IF NOT EXISTS")
+        else:
+            parts.append("VIEW")
+        parts.append(self.format_identifier(expr.view_name))
+
+        if expr.column_aliases:
+            cols = ', '.join(self.format_identifier(c) for c in expr.column_aliases)
+            parts.append(f"({cols})")
+
+        query_sql, query_params = expr.query.to_sql()
+        parts.append(f"AS {query_sql}")
+
+        # Warn if there are parameters - SQLite doesn't support them in views
+        if query_params:
+            import warnings
+            warnings.warn(
+                "SQLite does not allow parameters in VIEW definitions. "
+                "The query contains parameters which will cause a runtime error. "
+                "Use RawSQLPredicate to inline literal values instead.",
+                UserWarning,
+                stacklevel=3
+            )
+
+        return ' '.join(parts), query_params
+
+    def format_drop_view_statement(
+        self,
+        expr: "DropViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP VIEW statement for SQLite."""
+        parts = ["DROP VIEW"]
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+        parts.append(self.format_identifier(expr.view_name))
+        return ' '.join(parts), ()
+
+    def format_create_materialized_view_statement(
+        self,
+        expr: "CreateMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE MATERIALIZED VIEW statement - not supported by SQLite."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "CREATE MATERIALIZED VIEW",
+            "SQLite does not support materialized views. "
+            "Consider using regular views or creating tables to store precomputed results."
+        )
+
+    def format_drop_materialized_view_statement(
+        self,
+        expr: "DropMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP MATERIALIZED VIEW statement - not supported by SQLite."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "DROP MATERIALIZED VIEW",
+            "SQLite does not support materialized views."
+        )
+
+    def format_refresh_materialized_view_statement(
+        self,
+        expr: "RefreshMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format REFRESH MATERIALIZED VIEW statement - not supported by SQLite."""
+        raise UnsupportedFeatureError(
+            self.name,
+            "REFRESH MATERIALIZED VIEW",
+            "SQLite does not support materialized views."
+        )
     # endregion
