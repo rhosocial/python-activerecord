@@ -22,7 +22,9 @@ if TYPE_CHECKING: # pragma: no cover
         CreateViewExpression, DropViewExpression, TruncateExpression,
         CreateSchemaExpression, DropSchemaExpression,
         CreateIndexExpression, DropIndexExpression,
-        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression
+        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
+        CreateMaterializedViewExpression, DropMaterializedViewExpression,
+        RefreshMaterializedViewExpression
     )
 
 
@@ -1235,6 +1237,22 @@ class ViewMixin:
         """Whether materialized views are supported."""
         return False
 
+    def supports_refresh_materialized_view(self) -> bool:
+        """Whether REFRESH MATERIALIZED VIEW is supported."""
+        return False
+
+    def supports_materialized_view_concurrent_refresh(self) -> bool:
+        """Whether concurrent refresh for materialized views is supported."""
+        return False
+
+    def supports_materialized_view_tablespace(self) -> bool:
+        """Whether tablespace specification for materialized views is supported."""
+        return False
+
+    def supports_materialized_view_storage_options(self) -> bool:
+        """Whether storage options for materialized views are supported."""
+        return False
+
     def supports_if_exists_view(self) -> bool:
         """Whether DROP VIEW IF EXISTS is supported."""
         return False
@@ -1260,6 +1278,66 @@ class ViewMixin:
     ) -> Tuple[str, tuple]:
         """Format DROP VIEW statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "DROP VIEW")
+
+    def format_create_materialized_view_statement(
+        self,
+        expr: "CreateMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE MATERIALIZED VIEW statement."""
+        if not self.supports_materialized_view():
+            raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
+
+        parts = ["CREATE MATERIALIZED VIEW"]
+        parts.append(self.format_identifier(expr.view_name))
+
+        if expr.column_aliases:
+            cols = ', '.join(self.format_identifier(c) for c in expr.column_aliases)
+            parts.append(f"({cols})")
+
+        if expr.tablespace and self.supports_materialized_view_tablespace():
+            parts.append(f"TABLESPACE {self.format_identifier(expr.tablespace)}")
+
+        query_sql, query_params = expr.query.to_sql()
+        parts.append(f"AS {query_sql}")
+
+        if expr.with_data:
+            parts.append("WITH DATA")
+        else:
+            parts.append("WITH NO DATA")
+
+        return ' '.join(parts), query_params
+
+    def format_drop_materialized_view_statement(
+        self,
+        expr: "DropMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP MATERIALIZED VIEW statement."""
+        if not self.supports_materialized_view():
+            raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW")
+
+        parts = ["DROP MATERIALIZED VIEW"]
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+        parts.append(self.format_identifier(expr.view_name))
+        if expr.cascade:
+            parts.append("CASCADE")
+        return ' '.join(parts), ()
+
+    def format_refresh_materialized_view_statement(
+        self,
+        expr: "RefreshMaterializedViewExpression"
+    ) -> Tuple[str, tuple]:
+        """Format REFRESH MATERIALIZED VIEW statement."""
+        if not self.supports_refresh_materialized_view():
+            raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW")
+
+        parts = ["REFRESH MATERIALIZED VIEW"]
+        if expr.concurrent and self.supports_materialized_view_concurrent_refresh():
+            parts.append("CONCURRENTLY")
+        parts.append(self.format_identifier(expr.view_name))
+        if expr.with_data is not None:
+            parts.append("WITH DATA" if expr.with_data else "WITH NO DATA")
+        return ' '.join(parts), ()
 
 
 class TruncateMixin:

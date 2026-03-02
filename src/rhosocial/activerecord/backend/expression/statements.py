@@ -1359,6 +1359,163 @@ class DropViewExpression(bases.BaseExpression):
         return self.dialect.format_drop_view_statement(self)
 
 
+class CreateMaterializedViewExpression(bases.BaseExpression):
+    """
+    Represents a CREATE MATERIALIZED VIEW statement.
+
+    Materialized views are database objects that contain the results of a query.
+    Unlike regular views, materialized views store data physically and can be
+    refreshed to update their contents. They are useful for precomputing and
+    caching complex query results.
+
+    Support varies by database:
+    - PostgreSQL: Full support with storage options
+    - Oracle: Full support with refresh options
+    - SQL Server: Uses indexed views (different syntax)
+    - MySQL: Not supported (uses different mechanisms)
+    - SQLite: Not supported
+
+    Examples:
+        # Basic materialized view
+        create_mv = CreateMaterializedViewExpression(
+            dialect,
+            view_name="user_order_summary",
+            query=QueryExpression(
+                dialect,
+                select=[
+                    Column(dialect, "user_id"),
+                    FunctionCall(dialect, "COUNT", Column(dialect, "order_id"))
+                ],
+                from_=TableExpression(dialect, "orders"),
+                group_by_having=GroupByHavingClause(
+                    dialect,
+                    group_by=[Column(dialect, "user_id")]
+                )
+            )
+        )
+
+        # Materialized view with storage options
+        create_mv = CreateMaterializedViewExpression(
+            dialect,
+            view_name="sales_summary",
+            query=sales_query,
+            tablespace="slow_storage",
+            with_data=True  # Populate immediately
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 view_name: str,
+                 query: "QueryExpression",
+                 column_aliases: Optional[List[str]] = None,
+                 tablespace: Optional[str] = None,
+                 with_data: bool = True,  # Whether to populate immediately
+                 storage_options: Optional[Dict[str, Any]] = None,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.view_name = view_name
+        self.query = query
+        self.column_aliases = column_aliases or []
+        self.tablespace = tablespace
+        self.with_data = with_data
+        self.storage_options = storage_options or {}
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        """Delegates SQL generation for CREATE MATERIALIZED VIEW to the dialect."""
+        return self.dialect.format_create_materialized_view_statement(self)
+
+
+class DropMaterializedViewExpression(bases.BaseExpression):
+    """
+    Represents a DROP MATERIALIZED VIEW statement.
+
+    Examples:
+        # Basic drop
+        drop_mv = DropMaterializedViewExpression(
+            dialect,
+            view_name="old_summary"
+        )
+
+        # Drop with IF EXISTS
+        drop_mv = DropMaterializedViewExpression(
+            dialect,
+            view_name="possibly_missing",
+            if_exists=True
+        )
+
+        # Cascade drop
+        drop_mv = DropMaterializedViewExpression(
+            dialect,
+            view_name="parent_view",
+            cascade=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 view_name: str,
+                 if_exists: bool = False,
+                 cascade: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.view_name = view_name
+        self.if_exists = if_exists
+        self.cascade = cascade
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        """Delegates SQL generation for DROP MATERIALIZED VIEW to the dialect."""
+        return self.dialect.format_drop_materialized_view_statement(self)
+
+
+class RefreshMaterializedViewExpression(bases.BaseExpression):
+    """
+    Represents a REFRESH MATERIALIZED VIEW statement.
+
+    This statement updates the contents of a materialized view by re-executing
+    its defining query. Different databases offer different refresh strategies.
+
+    Examples:
+        # Basic refresh
+        refresh_mv = RefreshMaterializedViewExpression(
+            dialect,
+            view_name="sales_summary"
+        )
+
+        # Refresh with concurrent option (PostgreSQL)
+        refresh_mv = RefreshMaterializedViewExpression(
+            dialect,
+            view_name="user_stats",
+            concurrent=True
+        )
+
+        # Refresh without data (PostgreSQL)
+        refresh_mv = RefreshMaterializedViewExpression(
+            dialect,
+            view_name="empty_view",
+            with_data=False
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 view_name: str,
+                 concurrent: bool = False,  # Refresh concurrently (PostgreSQL)
+                 with_data: Optional[bool] = None,  # WITH DATA or WITH NO DATA
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.view_name = view_name
+        self.concurrent = concurrent
+        self.with_data = with_data
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        """Delegates SQL generation for REFRESH MATERIALIZED VIEW to the dialect."""
+        return self.dialect.format_refresh_materialized_view_statement(self)
+
+
 class TruncateExpression(bases.BaseExpression):
     """
     Represents a TRUNCATE TABLE statement supporting SQL standard and database-specific features.
