@@ -15,10 +15,15 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal, FunctionCall, TableExpression, QueryExpression,
     CreateViewExpression, DropViewExpression,
     CreateMaterializedViewExpression, DropMaterializedViewExpression,
-    RefreshMaterializedViewExpression
+    RefreshMaterializedViewExpression,
+    CreateTableExpression, DropTableExpression, InsertExpression,
+    ColumnDefinition, ColumnConstraint, ColumnConstraintType,
+    TableConstraint, TableConstraintType, ForeignKeyConstraint,
+    ValuesSource
 )
-from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate, RawSQLExpression
 from rhosocial.activerecord.backend.expression.query_parts import GroupByHavingClause, WhereClause
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -29,62 +34,111 @@ def sqlite_backend():
     """Provides a SQLiteBackend instance connected to an in-memory database."""
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
-    
-    # Create test tables
-    backend.execute(
-        """
-        CREATE TABLE users (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            name TEXT NOT NULL,
-            email TEXT,
-            status TEXT DEFAULT 'active'
+    dialect = backend.dialect
+
+    # Create users table using expression system
+    users_columns = [
+        ColumnDefinition(
+            name="id",
+            data_type="INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)
+            ]
+        ),
+        ColumnDefinition(
+            name="name",
+            data_type="TEXT",
+            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
+        ),
+        ColumnDefinition(name="email", data_type="TEXT"),
+        ColumnDefinition(
+            name="status",
+            data_type="TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.DEFAULT, default_value=RawSQLExpression(dialect, "'active'"))
+            ]
+        ),
+    ]
+
+    create_users = CreateTableExpression(
+        dialect,
+        table_name="users",
+        columns=users_columns
+    )
+
+    sql, params = create_users.to_sql()
+    backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+    # Create orders table using expression system
+    orders_columns = [
+        ColumnDefinition(
+            name="id",
+            data_type="INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY, is_auto_increment=True)
+            ]
+        ),
+        ColumnDefinition(name="user_id", data_type="INTEGER"),
+        ColumnDefinition(name="amount", data_type="REAL"),
+        ColumnDefinition(name="order_date", data_type="TEXT"),
+    ]
+
+    orders_fk_constraint = ForeignKeyConstraint(
+        constraint_type=TableConstraintType.FOREIGN_KEY,
+        columns=["user_id"],
+        foreign_key_table="users",
+        foreign_key_columns=["id"]
+    )
+
+    create_orders = CreateTableExpression(
+        dialect,
+        table_name="orders",
+        columns=orders_columns,
+        table_constraints=[orders_fk_constraint]
+    )
+
+    sql, params = create_orders.to_sql()
+    backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+    # Insert test data using expression system
+    insert_users = [
+        ('Alice', 'alice@example.com', 'active'),
+        ('Bob', 'bob@example.com', 'inactive'),
+        ('Charlie', 'charlie@example.com', 'active'),
+    ]
+
+    for name, email, status in insert_users:
+        insert_expr = InsertExpression(
+            dialect,
+            into="users",
+            source=ValuesSource(dialect, [
+                [Literal(dialect, name), Literal(dialect, email), Literal(dialect, status)]
+            ]),
+            columns=["name", "email", "status"]
         )
-        """,
-        options=ExecutionOptions(stmt_type=StatementType.DDL)
-    )
-    
-    backend.execute(
-        """
-        CREATE TABLE orders (
-            id INTEGER PRIMARY KEY AUTOINCREMENT,
-            user_id INTEGER,
-            amount REAL,
-            order_date TEXT,
-            FOREIGN KEY (user_id) REFERENCES users(id)
+        sql, params = insert_expr.to_sql()
+        backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
+
+    insert_orders = [
+        (1, 100.0, '2024-01-01'),
+        (1, 200.0, '2024-01-15'),
+        (2, 50.0, '2024-01-10'),
+    ]
+
+    for user_id, amount, order_date in insert_orders:
+        insert_expr = InsertExpression(
+            dialect,
+            into="orders",
+            source=ValuesSource(dialect, [
+                [Literal(dialect, user_id), Literal(dialect, amount), Literal(dialect, order_date)]
+            ]),
+            columns=["user_id", "amount", "order_date"]
         )
-        """,
-        options=ExecutionOptions(stmt_type=StatementType.DDL)
-    )
-    
-    # Insert test data
-    backend.execute(
-        "INSERT INTO users (name, email, status) VALUES ('Alice', 'alice@example.com', 'active')",
-        options=ExecutionOptions(stmt_type=StatementType.DML)
-    )
-    backend.execute(
-        "INSERT INTO users (name, email, status) VALUES ('Bob', 'bob@example.com', 'inactive')",
-        options=ExecutionOptions(stmt_type=StatementType.DML)
-    )
-    backend.execute(
-        "INSERT INTO users (name, email, status) VALUES ('Charlie', 'charlie@example.com', 'active')",
-        options=ExecutionOptions(stmt_type=StatementType.DML)
-    )
-    
-    backend.execute(
-        "INSERT INTO orders (user_id, amount, order_date) VALUES (1, 100.0, '2024-01-01')",
-        options=ExecutionOptions(stmt_type=StatementType.DML)
-    )
-    backend.execute(
-        "INSERT INTO orders (user_id, amount, order_date) VALUES (1, 200.0, '2024-01-15')",
-        options=ExecutionOptions(stmt_type=StatementType.DML)
-    )
-    backend.execute(
-        "INSERT INTO orders (user_id, amount, order_date) VALUES (2, 50.0, '2024-01-10')",
-        options=ExecutionOptions(stmt_type=StatementType.DML)
-    )
-    
+        sql, params = insert_expr.to_sql()
+        backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
+
     yield backend
-    
+
     backend.disconnect()
 
 
@@ -130,22 +184,22 @@ class TestSQLiteViewExecution:
     def test_create_view_with_where(self, sqlite_backend):
         """Test CREATE VIEW with WHERE clause executes successfully."""
         # Note: SQLite does not allow parameters in VIEW definitions
-        # So we use RawSQLPredicate for the condition to inline the value
+        # Using RawSQLPredicate to inline the condition value
         dialect = sqlite_backend.dialect
-        
+
         query = QueryExpression(
             dialect,
             select=[Column(dialect, "id"), Column(dialect, "name")],
             from_=TableExpression(dialect, "users"),
             where=WhereClause(dialect, condition=RawSQLPredicate(dialect, '"status" = \'active\''))
         )
-        
+
         create_view = CreateViewExpression(
             dialect,
             view_name="active_users",
             query=query
         )
-        
+
         sql, params = create_view.to_sql()
         
         # Execute CREATE VIEW
