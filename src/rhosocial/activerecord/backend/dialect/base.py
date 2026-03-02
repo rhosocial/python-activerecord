@@ -1062,11 +1062,10 @@ class SQLDialectBase:
 
             column_parts.append(col_sql)
 
-        # Combine column definitions
-        full_column_def = "(" + ", ".join(column_parts) + ")"
+        # Combine column definitions (without closing parenthesis yet)
+        all_def_parts = [", ".join(column_parts)]
 
         # Add table constraints
-        table_constraint_parts = []
         for t_const in expr.table_constraints:
             const_parts = []
             if t_const.name:
@@ -1100,11 +1099,10 @@ class SQLDialectBase:
                 const_parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})")
 
             if const_parts:
-                table_constraint_parts.append(" ".join(const_parts))
+                all_def_parts.append(" ".join(const_parts))
 
-        if table_constraint_parts:
-            full_column_def += ", " + ", ".join(table_constraint_parts)
-
+        # Combine all parts with comma separator and wrap in parentheses
+        full_column_def = "(" + ", ".join(all_def_parts) + ")"
         parts.append(table_part + full_column_def)
 
         # Add storage options if present
