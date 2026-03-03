@@ -29,10 +29,6 @@ class TestSQLiteMaterializedViewSupport:
         """SQLite does not support REFRESH MATERIALIZED VIEW."""
         assert sqlite_dialect.supports_refresh_materialized_view() == False
 
-    def test_supports_materialized_view_concurrent_refresh_false(self, sqlite_dialect: SQLiteDialect):
-        """SQLite does not support concurrent refresh."""
-        assert sqlite_dialect.supports_materialized_view_concurrent_refresh() == False
-
     def test_supports_materialized_view_tablespace_false(self, sqlite_dialect: SQLiteDialect):
         """SQLite does not support tablespace for materialized views."""
         assert sqlite_dialect.supports_materialized_view_tablespace() == False

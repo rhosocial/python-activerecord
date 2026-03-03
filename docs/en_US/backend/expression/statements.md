@@ -476,3 +476,136 @@ sql, params = merge.to_sql()
 # sql: 'MERGE INTO "target" AS "t" USING "source" AS "s" ON "t"."id" = "s"."id" ...'
 # params: ()
 ```
+
+### Materialized View DDL
+
+Materialized views are database objects that pre-compute and store query results, suitable for caching complex query results.
+
+> **Note**: Materialized view support varies by database:
+> - PostgreSQL: Full support (including CONCURRENTLY refresh, TABLESPACE, etc.)
+> - Oracle: Full support
+> - MySQL: Not supported (use tables as alternative)
+> - SQLite: Not supported
+
+#### CreateMaterializedViewExpression
+
+`CreateMaterializedViewExpression` represents a `CREATE MATERIALIZED VIEW` statement.
+
+```python
+from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewExpression
+
+# Basic CREATE MATERIALIZED VIEW
+query = QueryExpression(
+    dialect,
+    select=[Column(dialect, "user_id"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
+    from_=TableExpression(dialect, "orders"),
+    group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")])
+)
+create_mv = CreateMaterializedViewExpression(
+    dialect,
+    view_name="order_counts",
+    query=query
+)
+sql, params = create_mv.to_sql()
+# sql: 'CREATE MATERIALIZED VIEW "order_counts" AS SELECT "user_id", COUNT("id") FROM "orders" GROUP BY "user_id" WITH DATA'
+# params: ()
+
+# Materialized view with TABLESPACE (PostgreSQL)
+create_mv = CreateMaterializedViewExpression(
+    dialect,
+    view_name="user_summary",
+    query=query,
+    tablespace="fast_storage",
+    with_data=False
+)
+sql, params = create_mv.to_sql()
+# sql: 'CREATE MATERIALIZED VIEW "user_summary" TABLESPACE "fast_storage" AS SELECT ... WITH NO DATA'
+# params: ()
+```
+
+#### DropMaterializedViewExpression
+
+`DropMaterializedViewExpression` represents a `DROP MATERIALIZED VIEW` statement.
+
+```python
+from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewExpression
+
+# DROP MATERIALIZED VIEW
+drop_mv = DropMaterializedViewExpression(
+    dialect,
+    view_name="old_summary",
+    if_exists=True,
+    cascade=True
+)
+sql, params = drop_mv.to_sql()
+# sql: 'DROP MATERIALIZED VIEW IF EXISTS "old_summary" CASCADE'
+# params: ()
+```
+
+#### RefreshMaterializedViewExpression
+
+`RefreshMaterializedViewExpression` represents a `REFRESH MATERIALIZED VIEW` statement for refreshing materialized view data.
+
+```python
+from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewExpression
+
+# Basic refresh
+refresh_mv = RefreshMaterializedViewExpression(
+    dialect,
+    view_name="order_counts"
+)
+sql, params = refresh_mv.to_sql()
+# sql: 'REFRESH MATERIALIZED VIEW "order_counts"'
+# params: ()
+
+# CONCURRENTLY refresh (PostgreSQL 9.4+, requires unique index)
+refresh_mv = RefreshMaterializedViewExpression(
+    dialect,
+    view_name="order_counts",
+    concurrent=True
+)
+sql, params = refresh_mv.to_sql()
+# sql: 'REFRESH MATERIALIZED VIEW CONCURRENTLY "order_counts"'
+# params: ()
+
+# WITH DATA/WITH NO DATA option
+refresh_mv = RefreshMaterializedViewExpression(
+    dialect,
+    view_name="order_counts",
+    with_data=True
+)
+sql, params = refresh_mv.to_sql()
+# sql: 'REFRESH MATERIALIZED VIEW "order_counts" WITH DATA'
+# params: ()
+```
+
+#### Checking Materialized View Support
+
+Before using materialized views, check if the database supports the relevant features:
+
+```python
+# Check basic materialized view support
+if dialect.supports_materialized_view():
+    # Can create materialized view
+    pass
+
+# Check refresh support
+if dialect.supports_refresh_materialized_view():
+    # Can refresh materialized view
+    pass
+
+# Check CONCURRENTLY refresh support (PostgreSQL 9.4+)
+if dialect.supports_materialized_view_concurrent_refresh():
+    # Can use CONCURRENTLY option
+    pass
+
+# Check TABLESPACE support
+if dialect.supports_materialized_view_tablespace():
+    # Can specify tablespace for materialized view
+    pass
+
+# Check storage options support
+if dialect.supports_materialized_view_storage_options():
+    # Can specify storage parameters
+    pass
+```

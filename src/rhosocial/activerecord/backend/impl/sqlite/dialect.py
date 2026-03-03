@@ -9,42 +9,21 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
-    CTESupport,
-    FilterClauseSupport,
-    WindowFunctionSupport,
-    JSONSupport,
-    ReturningSupport,
-    AdvancedGroupingSupport,
-    ArraySupport,
-    ExplainSupport,
-    GraphSupport,
-    LockingSupport,
-    MergeSupport,
-    OrderedSetAggregationSupport,
-    QualifyClauseSupport,
-    TemporalTableSupport,
-    UpsertSupport,
-    LateralJoinSupport,
-    WildcardSupport, JoinSupport, SetOperationSupport,
-    ViewSupport,
+    CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport,
+    ReturningSupport, AdvancedGroupingSupport, ArraySupport, ExplainSupport,
+    GraphSupport, LockingSupport, MergeSupport, OrderedSetAggregationSupport,
+    QualifyClauseSupport, TemporalTableSupport, UpsertSupport, LateralJoinSupport,
+    WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
+    # DDL Protocols
+    TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    CTEMixin,
-    FilterClauseMixin,
-    WindowFunctionMixin,
-    JSONMixin,
-    ReturningMixin,
-    AdvancedGroupingMixin,
-    ArrayMixin,
-    ExplainMixin,
-    GraphMixin,
-    LockingMixin,
-    MergeMixin,
-    OrderedSetAggregationMixin,
-    QualifyClauseMixin,
-    TemporalTableMixin,
-    UpsertMixin,
-    LateralJoinMixin, JoinMixin, ViewMixin,
+    CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
+    AdvancedGroupingMixin, ArrayMixin, ExplainMixin, GraphMixin, LockingMixin,
+    MergeMixin, OrderedSetAggregationMixin, QualifyClauseMixin, TemporalTableMixin,
+    UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
+    # DDL Mixins
+    TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -52,46 +31,20 @@ from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeature
 class SQLiteDialect(
     SQLDialectBase,
     # Include mixins for features that SQLite supports (with version-dependent implementations)
-    CTEMixin,
-    FilterClauseMixin,
-    WindowFunctionMixin,
-    JSONMixin,
-    ReturningMixin,
+    CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
-    AdvancedGroupingMixin,
-    ArrayMixin,
-    ExplainMixin,
-    GraphMixin,
-    LockingMixin,
-    MergeMixin,
-    OrderedSetAggregationMixin,
-    QualifyClauseMixin,
-    TemporalTableMixin,
-    UpsertMixin,
-    LateralJoinMixin,
-    JoinMixin,
-    ViewMixin,
+    AdvancedGroupingMixin, ArrayMixin, ExplainMixin, GraphMixin, LockingMixin,
+    MergeMixin, OrderedSetAggregationMixin, QualifyClauseMixin, TemporalTableMixin,
+    UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
+    # DDL Mixins
+    TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
     # Protocols for type checking
-    CTESupport,
-    FilterClauseSupport,
-    WindowFunctionSupport,
-    JSONSupport,
-    ReturningSupport,
-    AdvancedGroupingSupport,
-    ArraySupport,
-    ExplainSupport,
-    GraphSupport,
-    LockingSupport,
-    MergeSupport,
-    OrderedSetAggregationSupport,
-    QualifyClauseSupport,
-    TemporalTableSupport,
-    UpsertSupport,
-    LateralJoinSupport,
-    WildcardSupport,
-    JoinSupport,
-    SetOperationSupport,
-    ViewSupport,
+    CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport, ReturningSupport,
+    AdvancedGroupingSupport, ArraySupport, ExplainSupport, GraphSupport, LockingSupport,
+    MergeSupport, OrderedSetAggregationSupport, QualifyClauseSupport, TemporalTableSupport,
+    UpsertSupport, LateralJoinSupport, WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
+    # DDL Protocols
+    TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -529,10 +482,6 @@ class SQLiteDialect(
 
     def supports_refresh_materialized_view(self) -> bool:
         """SQLite does not support REFRESH MATERIALIZED VIEW."""
-        return False
-
-    def supports_materialized_view_concurrent_refresh(self) -> bool:
-        """SQLite does not support concurrent refresh."""
         return False
 
     def supports_materialized_view_tablespace(self) -> bool:

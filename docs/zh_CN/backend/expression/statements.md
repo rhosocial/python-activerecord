@@ -476,3 +476,136 @@ sql, params = merge.to_sql()
 # sql: 'MERGE INTO "target" AS "t" USING "source" AS "s" ON "t"."id" = "s"."id" ...'
 # params: ()
 ```
+
+### Materialized View DDL（物化视图定义语言）
+
+物化视图是预先计算并存储结果的数据库对象，适用于复杂查询结果的缓存。
+
+> **注意**: 物化视图支持因数据库而异：
+> - PostgreSQL: 完整支持（包括 CONCURRENTLY 刷新、TABLESPACE 等）
+> - Oracle: 完整支持
+> - MySQL: 不支持（可使用表替代）
+> - SQLite: 不支持
+
+#### CreateMaterializedViewExpression
+
+`CreateMaterializedViewExpression` 表示 `CREATE MATERIALIZED VIEW` 语句。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import CreateMaterializedViewExpression
+
+# 基本 CREATE MATERIALIZED VIEW
+query = QueryExpression(
+    dialect,
+    select=[Column(dialect, "user_id"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
+    from_=TableExpression(dialect, "orders"),
+    group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "user_id")])
+)
+create_mv = CreateMaterializedViewExpression(
+    dialect,
+    view_name="order_counts",
+    query=query
+)
+sql, params = create_mv.to_sql()
+# sql: 'CREATE MATERIALIZED VIEW "order_counts" AS SELECT "user_id", COUNT("id") FROM "orders" GROUP BY "user_id" WITH DATA'
+# params: ()
+
+# 带 TABLESPACE 的物化视图（PostgreSQL）
+create_mv = CreateMaterializedViewExpression(
+    dialect,
+    view_name="user_summary",
+    query=query,
+    tablespace="fast_storage",
+    with_data=False
+)
+sql, params = create_mv.to_sql()
+# sql: 'CREATE MATERIALIZED VIEW "user_summary" TABLESPACE "fast_storage" AS SELECT ... WITH NO DATA'
+# params: ()
+```
+
+#### DropMaterializedViewExpression
+
+`DropMaterializedViewExpression` 表示 `DROP MATERIALIZED VIEW` 语句。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import DropMaterializedViewExpression
+
+# DROP MATERIALIZED VIEW
+drop_mv = DropMaterializedViewExpression(
+    dialect,
+    view_name="old_summary",
+    if_exists=True,
+    cascade=True
+)
+sql, params = drop_mv.to_sql()
+# sql: 'DROP MATERIALIZED VIEW IF EXISTS "old_summary" CASCADE'
+# params: ()
+```
+
+#### RefreshMaterializedViewExpression
+
+`RefreshMaterializedViewExpression` 表示 `REFRESH MATERIALIZED VIEW` 语句，用于刷新物化视图的数据。
+
+```python
+from rhosocial.activerecord.backend.expression.statement import RefreshMaterializedViewExpression
+
+# 基本刷新
+refresh_mv = RefreshMaterializedViewExpression(
+    dialect,
+    view_name="order_counts"
+)
+sql, params = refresh_mv.to_sql()
+# sql: 'REFRESH MATERIALIZED VIEW "order_counts"'
+# params: ()
+
+# CONCURRENTLY 刷新（PostgreSQL 9.4+，需要唯一索引）
+refresh_mv = RefreshMaterializedViewExpression(
+    dialect,
+    view_name="order_counts",
+    concurrent=True
+)
+sql, params = refresh_mv.to_sql()
+# sql: 'REFRESH MATERIALIZED VIEW CONCURRENTLY "order_counts"'
+# params: ()
+
+# 带 WITH DATA/WITH NO DATA 选项
+refresh_mv = RefreshMaterializedViewExpression(
+    dialect,
+    view_name="order_counts",
+    with_data=True
+)
+sql, params = refresh_mv.to_sql()
+# sql: 'REFRESH MATERIALIZED VIEW "order_counts" WITH DATA'
+# params: ()
+```
+
+#### 检查物化视图支持
+
+在使用物化视图之前，应检查数据库是否支持相关功能：
+
+```python
+# 检查基本物化视图支持
+if dialect.supports_materialized_view():
+    # 可以创建物化视图
+    pass
+
+# 检查刷新支持
+if dialect.supports_refresh_materialized_view():
+    # 可以刷新物化视图
+    pass
+
+# 检查 CONCURRENTLY 刷新支持（PostgreSQL 9.4+）
+if dialect.supports_materialized_view_concurrent_refresh():
+    # 可以使用 CONCURRENTLY 选项
+    pass
+
+# 检查 TABLESPACE 支持
+if dialect.supports_materialized_view_tablespace():
+    # 可以为物化视图指定表空间
+    pass
+
+# 检查存储参数支持
+if dialect.supports_materialized_view_storage_options():
+    # 可以指定存储参数
+    pass
+```

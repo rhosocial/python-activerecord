@@ -93,6 +93,48 @@ result = (
 | Protected | Single underscore | `_protected_method` |
 | Magic | Double underscore | `__table_name__`, `__primary_key__` |
 
+### Sync/Async Function Signature Naming Rules
+
+**CRITICAL**: For functions that need to distinguish between synchronous and asynchronous versions (e.g., I/O operations), the naming convention is strictly defined:
+
+1. **Method names must be IDENTICAL** - No `_async` suffix or similar distinctions
+2. **Only the `async`/`await` keywords differ** - Everything else in the signature must match
+3. **This applies to**: 
+   - Method names
+   - Parameter names and types
+   - Return type annotations (except `async` methods return `Coroutine`)
+
+```python
+# CORRECT: Sync/Async methods with identical names
+class StorageBackend:
+    def connect(self) -> None:
+        """Establish connection to database."""
+        pass
+    
+    def execute(self, sql: str, params: Optional[Tuple] = None) -> QueryResult:
+        """Execute a SQL query."""
+        pass
+
+class AsyncStorageBackend:
+    async def connect(self) -> None:
+        """Establish connection to database asynchronously."""
+        pass
+    
+    async def execute(self, sql: str, params: Optional[Tuple] = None) -> QueryResult:
+        """Execute a SQL query asynchronously."""
+        pass
+
+# WRONG: Do NOT use _async suffix
+class BadExample:
+    async def connect_async(self):  # ❌ WRONG
+        pass
+    
+    async def execute_async(self, sql: str):  # ❌ WRONG
+        pass
+```
+
+**Rationale**: This convention ensures that sync and async APIs are strictly equivalent, making it easier for users to switch between them without learning different method names. The only difference users need to be aware of is the `async`/`await` keywords.
+
 ### Special Naming Patterns
 
 ```python

@@ -112,11 +112,29 @@ graph LR
 
 ```
 project-root/
-├── src/rhosocial/activerecord/    # ← Python can import this
-└── tests/                          # ← NOT importable by default
+├── src/rhosocial/activerecord/  # ← Python can import this
+└── tests/                       # ← NOT importable by default
 ```
 
 Tests import from `rhosocial.activerecord`, but the test files themselves are not in the package structure. Without PYTHONPATH, pytest cannot find the source code.
+
+### Why PYTHONPATH=src?
+
+For the `python-activerecord` project, the source code is located in the `src/` directory, which is not on Python's default module search path. Therefore, `PYTHONPATH=src` must be set temporarily before running tests.
+
+The same applies to extension projects like `python-activerecord-mysql`, `python-activerecord-postgres`, etc. Each extension project has its own `src/` directory that needs to be added to PYTHONPATH.
+
+**Important**: When developing extension projects, the development environment typically has `python-activerecord` installed as a dependency. In this case, you only need to add the extension project's own `src/` directory to PYTHONPATH:
+
+```bash
+# For extension project development (e.g., python-activerecord-postgres)
+# Only need to add the extension's src directory
+PYTHONPATH=src pytest
+
+# If running tests that need both main and extension source
+# (e.g., when main package is not installed)
+PYTHONPATH=src:../python-activerecord/src pytest
+```
 
 ### Platform-Specific Commands
 

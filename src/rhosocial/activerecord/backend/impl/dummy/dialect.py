@@ -128,7 +128,6 @@ class DummyDialect(
     def supports_temporary_table(self) -> bool: return True
     def supports_if_not_exists_table(self) -> bool: return True
     def supports_if_exists_table(self) -> bool: return True
-    def supports_table_inheritance(self) -> bool: return True
     def supports_table_partitioning(self) -> bool: return True
     def supports_table_tablespace(self) -> bool: return True
     def supports_drop_column(self) -> bool: return True
@@ -146,7 +145,6 @@ class DummyDialect(
     def supports_temporary_view(self) -> bool: return True
     def supports_materialized_view(self) -> bool: return True
     def supports_refresh_materialized_view(self) -> bool: return True
-    def supports_materialized_view_concurrent_refresh(self) -> bool: return True
     def supports_materialized_view_tablespace(self) -> bool: return True
     def supports_materialized_view_storage_options(self) -> bool: return True
     def supports_if_exists_view(self) -> bool: return True
