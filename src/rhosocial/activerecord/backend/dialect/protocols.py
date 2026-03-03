@@ -708,11 +708,7 @@ class TableSupport(Protocol):
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
         ... # pragma: no cover
-    
-    def supports_table_inheritance(self) -> bool:
-        """Whether table inheritance (PostgreSQL INHERITS) is supported."""
-        ... # pragma: no cover
-    
+
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported."""
         ... # pragma: no cover
@@ -803,10 +799,6 @@ class ViewSupport(Protocol):
 
     def supports_refresh_materialized_view(self) -> bool:
         """Whether REFRESH MATERIALIZED VIEW is supported."""
-        ... # pragma: no cover
-
-    def supports_materialized_view_concurrent_refresh(self) -> bool:
-        """Whether concurrent refresh for materialized views is supported."""
         ... # pragma: no cover
 
     def supports_materialized_view_tablespace(self) -> bool:

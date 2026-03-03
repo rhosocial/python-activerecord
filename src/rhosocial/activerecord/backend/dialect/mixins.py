@@ -1156,10 +1156,6 @@ class TableMixin:
         """Whether DROP TABLE IF EXISTS is supported."""
         return False
 
-    def supports_table_inheritance(self) -> bool:
-        """Whether table inheritance is supported."""
-        return False
-
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported."""
         return False
@@ -1239,10 +1235,6 @@ class ViewMixin:
 
     def supports_refresh_materialized_view(self) -> bool:
         """Whether REFRESH MATERIALIZED VIEW is supported."""
-        return False
-
-    def supports_materialized_view_concurrent_refresh(self) -> bool:
-        """Whether concurrent refresh for materialized views is supported."""
         return False
 
     def supports_materialized_view_tablespace(self) -> bool:
@@ -1332,7 +1324,7 @@ class ViewMixin:
             raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW")
 
         parts = ["REFRESH MATERIALIZED VIEW"]
-        if expr.concurrent and self.supports_materialized_view_concurrent_refresh():
+        if expr.concurrent:
             parts.append("CONCURRENTLY")
         parts.append(self.format_identifier(expr.view_name))
         if expr.with_data is not None:
