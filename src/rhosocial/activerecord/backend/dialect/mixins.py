@@ -11,6 +11,7 @@ from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
 
 from .exceptions import UnsupportedFeatureError
 from ..expression import bases
+from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause
 
 if TYPE_CHECKING: # pragma: no cover
@@ -367,7 +368,7 @@ class UpsertMixin:
                 if isinstance(target, str):
                     # Column name as string
                     target_parts.append(self.format_identifier(target))
-                elif hasattr(target, 'to_sql'):
+                elif isinstance(target, ToSQLProtocol):
                     # Column expression
                     target_sql, target_params = target.to_sql()
                     target_parts.append(target_sql)
@@ -1030,7 +1031,7 @@ class LockingMixin:
             for col in clause.of_columns:
                 if isinstance(col, str):
                     of_parts.append(self.format_identifier(col))
-                elif hasattr(col, 'to_sql'):  # BaseExpression
+                elif isinstance(col, ToSQLProtocol):  # BaseExpression
                     col_sql, col_params = col.to_sql()
                     of_parts.append(col_sql)
                     all_params.extend(col_params)
@@ -1486,7 +1487,7 @@ class IndexMixin:
 
         col_parts = []
         for col in expr.columns:
-            if hasattr(col, 'to_sql'):
+            if isinstance(col, ToSQLProtocol):
                 col_sql, col_params = col.to_sql()
                 col_parts.append(col_sql)
                 all_params.extend(col_params)
@@ -1638,3 +1639,47 @@ class SequenceMixin:
                 parts.append("OWNED BY NONE")
 
         return ' '.join(parts), ()
+
+
+class ILIKEMixin:
+    """Mixin for ILIKE (case-insensitive LIKE) support."""
+
+    def supports_ilike(self) -> bool:
+        """Whether ILIKE operator is supported."""
+        return False
+
+    def format_ilike_expression(
+        self,
+        column: Any,
+        pattern: str,
+        negate: bool = False
+    ) -> Tuple[str, Tuple]:
+        """
+        Format ILIKE expression (case-insensitive pattern matching).
+        
+        Default implementation uses LOWER() function for databases without native ILIKE.
+        Override this method for databases with native ILIKE support (e.g., PostgreSQL).
+        """
+        if not self.supports_ilike():
+            from .exceptions import UnsupportedFeatureError
+            raise UnsupportedFeatureError(self.name, "ILIKE")
+        
+        # Default implementation for databases without native ILIKE
+        # Uses LOWER(column) LIKE LOWER(pattern)
+        if isinstance(column, str):
+            col_sql = self.format_identifier(column)
+        elif isinstance(column, ToSQLProtocol):
+            # Expression object
+            col_sql, col_params = column.to_sql()
+        else:
+            # Fallback to string representation
+            col_sql = str(column)
+            col_params = ()
+
+        # Use LOWER() for case-insensitive comparison
+        if negate:
+            sql = f"LOWER({col_sql}) NOT LIKE LOWER(?)"
+        else:
+            sql = f"LOWER({col_sql}) LIKE LOWER(?)"
+
+        return sql, (pattern.lower(),)
