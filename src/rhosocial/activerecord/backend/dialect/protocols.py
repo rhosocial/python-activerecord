@@ -1087,11 +1087,48 @@ class SequenceSupport(Protocol):
     ) -> Tuple[str, tuple]:
         """Format DROP SEQUENCE statement."""
         ... # pragma: no cover
-    
     def format_alter_sequence_statement(
         self,
         expr: "AlterSequenceExpression"
     ) -> Tuple[str, tuple]:
         """Format ALTER SEQUENCE statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class ILIKESupport(Protocol):
+    """
+    Protocol for ILIKE (case-insensitive LIKE) support.
+    
+    ILIKE is a PostgreSQL extension for case-insensitive pattern matching.
+    Support varies across databases:
+    - PostgreSQL: Native ILIKE operator
+    - MySQL: Uses LIKE with case-insensitive collation or LOWER() function
+    - SQLite: No native ILIKE (requires LOWER() workaround)
+    - Oracle: Uses UPPER() or LOWER() with LIKE
+    """
+
+    def supports_ilike(self) -> bool:
+        """Whether ILIKE operator is supported."""
+        ...  # pragma: no cover
+
+    def format_ilike_expression(
+        self,
+        column: Any,
+        pattern: str,
+        negate: bool = False
+    ) -> Tuple[str, Tuple]:
+        """
+        Format ILIKE expression (case-insensitive pattern matching).
+        
+        Args:
+            column: Column expression or name
+            pattern: Pattern to match (with % and _ wildcards)
+            negate: If True, format NOT ILIKE expression
+            
+        Returns:
+            Tuple of (SQL string, parameters tuple) for the formatted expression.
+        """
+        ...  # pragma: no cover
+
 
