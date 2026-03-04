@@ -9,6 +9,7 @@ from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..expression import bases, ForUpdateClause
+from ..expression.bases import ToSQLProtocol
 from ..expression.statements import QueryExpression, ColumnDefinition
 
 if TYPE_CHECKING:
@@ -387,7 +388,7 @@ class SQLDialectBase:
                 # Handle literal strings
                 column_part += f" {self.get_parameter_placeholder()}"
                 all_params.append(action.new_value)
-            elif hasattr(action.new_value, 'to_sql') and callable(getattr(action.new_value, 'to_sql')):
+            elif isinstance(action.new_value, ToSQLProtocol):
                 # If it's an expression (like FunctionCall), format it
                 value_sql, value_params = action.new_value.to_sql()
                 column_part += f" {value_sql}"
@@ -670,7 +671,7 @@ class SQLDialectBase:
 
         if clause.limit is not None:
             # Handle limit value - might be int or expression
-            if hasattr(clause.limit, 'to_sql'):
+            if isinstance(clause.limit, ToSQLProtocol):
                 limit_sql, limit_params = clause.limit.to_sql()
                 parts.append(f"LIMIT {limit_sql}")
                 all_params.extend(limit_params)
@@ -680,7 +681,7 @@ class SQLDialectBase:
 
         if clause.offset is not None:
             # Handle offset value - might be int or expression
-            if hasattr(clause.offset, 'to_sql'):
+            if isinstance(clause.offset, ToSQLProtocol):
                 offset_sql, offset_params = clause.offset.to_sql()
                 parts.append(f"OFFSET {offset_sql}")
                 all_params.extend(offset_params)
