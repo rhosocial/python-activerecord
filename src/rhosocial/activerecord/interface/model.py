@@ -14,7 +14,6 @@ from .base import ModelEvent
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound
-from ..backend.schema import DatabaseType
 
 
 class ActiveRecordBase(BaseModel, ABC):
@@ -34,7 +33,7 @@ class ActiveRecordBase(BaseModel, ABC):
         __backend_class__ (Type[StorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
         __logger__ (Logger): Logger instance
-        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        __column_types_cache__ (Dict[str, Any]): Column type cache
         _dirty_fields (Set[str]): Set of modified field names
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification
@@ -329,7 +328,7 @@ class IActiveRecord(ActiveRecordBase):
         __backend_class__ (Type[StorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
         __logger__ (Logger): Logger instance
-        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        __column_types_cache__ (Dict[str, Any]): Column type cache
         _dirty_fields (Set[str]): Set of modified field names
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification
@@ -531,7 +530,7 @@ class IAsyncActiveRecord(ActiveRecordBase):
         __backend_class__ (Type[AsyncStorageBackend]): Backend implementation class
         __connection_config__ (ConnectionConfig): Connection configuration
         __logger__ (Logger): Logger instance
-        __column_types_cache__ (Dict[str, DatabaseType]): Column type cache
+        __column_types_cache__ (Dict[str, Any]): Column type cache
         _dirty_fields (Set[str]): Set of modified field names
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification
