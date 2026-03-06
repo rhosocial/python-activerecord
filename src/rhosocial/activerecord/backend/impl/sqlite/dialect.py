@@ -16,6 +16,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
+    TriggerSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
@@ -24,6 +25,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
+    TriggerMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -38,6 +40,7 @@ class SQLiteDialect(
     UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
+    TriggerMixin,
     # Protocols for type checking
     CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport, ReturningSupport,
     AdvancedGroupingSupport, ArraySupport, ExplainSupport, GraphSupport, LockingSupport,
@@ -45,6 +48,7 @@ class SQLiteDialect(
     UpsertSupport, LateralJoinSupport, WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
+    TriggerSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -596,4 +600,101 @@ class SQLiteDialect(
             "REFRESH MATERIALIZED VIEW",
             "SQLite does not support materialized views."
         )
+    # endregion
+
+    # region Trigger Support (SQLite supports triggers)
+    def supports_trigger(self) -> bool:
+        """SQLite supports triggers."""
+        return True
+
+    def supports_create_trigger(self) -> bool:
+        """SQLite supports CREATE TRIGGER."""
+        return True
+
+    def supports_drop_trigger(self) -> bool:
+        """SQLite supports DROP TRIGGER."""
+        return True
+
+    def supports_instead_of_trigger(self) -> bool:
+        """SQLite supports INSTEAD OF triggers (for views)."""
+        return True
+
+    def supports_statement_trigger(self) -> bool:
+        """SQLite does NOT support FOR EACH STATEMENT triggers."""
+        return False
+
+    def supports_trigger_referencing(self) -> bool:
+        """SQLite supports referencing OLD and NEW rows."""
+        return True
+
+    def supports_trigger_when(self) -> bool:
+        """SQLite supports WHEN condition in triggers."""
+        return True
+
+    def supports_trigger_if_not_exists(self) -> bool:
+        """SQLite supports CREATE TRIGGER IF NOT EXISTS."""
+        return True
+
+    def format_create_trigger_statement(
+        self,
+        expr
+    ):
+        """Format CREATE TRIGGER statement for SQLite.
+
+        SQLite trigger syntax:
+        CREATE TRIGGER [IF NOT EXISTS] trigger_name
+        {BEFORE | AFTER | INSTEAD OF}
+        {DELETE | INSERT | UPDATE [OF column_list]} ON table_name
+        [FOR EACH ROW] [WHEN condition]
+        BEGIN ... END
+        """
+        from rhosocial.activerecord.backend.expression.statements import TriggerLevel
+
+        parts = ["CREATE TRIGGER"]
+
+        if expr.if_not_exists:
+            parts.append("IF NOT EXISTS")
+
+        parts.append(self.format_identifier(expr.trigger_name))
+
+        parts.append(expr.timing.value)
+
+        if expr.update_columns:
+            cols = ", ".join(self.format_identifier(c) for c in expr.update_columns)
+            events_str = f"UPDATE OF {cols}"
+        else:
+            events_str = " OR ".join(e.value for e in expr.events)
+        parts.append(events_str)
+
+        parts.append("ON")
+        parts.append(self.format_identifier(expr.table_name))
+
+        if expr.level == TriggerLevel.ROW:
+            parts.append("FOR EACH ROW")
+
+        all_params = []
+        if expr.condition:
+            cond_sql, cond_params = expr.condition.to_sql()
+            parts.append(f"WHEN ({cond_sql})")
+            all_params.extend(cond_params)
+
+        parts.append("BEGIN")
+        parts.append(f"CALL {expr.function_name}();")
+        parts.append("END")
+
+        return " ".join(parts), tuple(all_params)
+
+    def format_drop_trigger_statement(
+        self,
+        expr
+    ):
+        """Format DROP TRIGGER statement for SQLite."""
+        parts = ["DROP TRIGGER"]
+
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+
+        parts.append(self.format_identifier(expr.trigger_name))
+
+        return " ".join(parts), ()
     # endregion

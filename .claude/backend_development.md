@@ -232,6 +232,113 @@ class MyDatabaseConfig(BaseConfig):
 
 The SQL Dialect is the backend's "translator" for database-specific syntax. This is where you define how your backend speaks SQL.
 
+#### Protocol and Mixin Architecture
+
+The dialect system uses a **Protocol-Mixin** architecture:
+
+- **Protocols** (`protocols.py`): Define the interface contract - what methods a dialect must implement
+- **Mixins** (`mixins.py`): Provide default SQL standard implementations that dialects can override
+
+Every dialect inherits from:
+1. `SQLDialectBase` - Core dialect functionality
+2. Relevant Mixins - Default implementations for supported features
+3. Relevant Protocols - Interface contracts for type checking
+
+##### Current Protocols and Mixins (Main Package)
+
+| Protocol | Mixin | Description |
+|----------|-------|-------------|
+| `WindowFunctionSupport` | `WindowFunctionMixin` | Window functions (OVER, PARTITION BY) |
+| `CTESupport` | `CTEMixin` | Common Table Expressions (WITH clause) |
+| `AdvancedGroupingSupport` | `AdvancedGroupingMixin` | ROLLUP, CUBE, GROUPING SETS |
+| `ReturningSupport` | `ReturningMixin` | RETURNING clause |
+| `UpsertSupport` | `UpsertMixin` | UPSERT operations (ON CONFLICT) |
+| `LateralJoinSupport` | `LateralJoinMixin` | LATERAL joins |
+| `ArraySupport` | `ArrayMixin` | Array types and operations |
+| `JSONSupport` | `JSONMixin` | JSON types and operations |
+| `ExplainSupport` | `ExplainMixin` | EXPLAIN statement |
+| `FilterClauseSupport` | `FilterClauseMixin` | FILTER clause for aggregates |
+| `OrderedSetAggregationSupport` | `OrderedSetAggregationMixin` | WITHIN GROUP (ORDER BY) |
+| `MergeSupport` | `MergeMixin` | MERGE statement |
+| `TemporalTableSupport` | `TemporalTableMixin` | FOR SYSTEM_TIME queries |
+| `QualifyClauseSupport` | `QualifyClauseMixin` | QUALIFY clause |
+| `LockingSupport` | `LockingMixin` | FOR UPDATE, SKIP LOCKED |
+| `GraphSupport` | `GraphMixin` | Graph queries (MATCH) |
+| `JoinSupport` | `JoinMixin` | JOIN operations |
+| `SetOperationSupport` | `SetOperationMixin` | UNION, INTERSECT, EXCEPT |
+| `ILIKESupport` | `ILIKEMixin` | Case-insensitive LIKE |
+| `TableSupport` | `TableMixin` | CREATE/DROP/ALTER TABLE |
+| `ViewSupport` | `ViewMixin` | CREATE/DROP VIEW |
+| `TruncateSupport` | `TruncateMixin` | TRUNCATE TABLE |
+| `SchemaSupport` | `SchemaMixin` | CREATE/DROP SCHEMA |
+| `IndexSupport` | `IndexMixin` | CREATE/DROP INDEX |
+| `SequenceSupport` | `SequenceMixin` | CREATE/DROP/ALTER SEQUENCE |
+| `TriggerSupport` | `TriggerMixin` | CREATE/DROP TRIGGER (SQL:1999) |
+| `FunctionSupport` | `FunctionMixin` | CREATE/DROP FUNCTION (SQL/PSM) |
+
+##### Principles for Adding New Protocols/Mixins
+
+**When to add to Main Package:**
+1. Feature is defined in **SQL standard** (SQL:1999, SQL:2003, SQL:2008, SQL:2011, SQL:2016)
+2. Feature is widely supported across multiple database systems
+3. Feature is a **DDL (Data Definition Language)** or **DML (Data Manipulation Language)** construct
+
+**When to add to Dialect-Specific Extension:**
+1. Feature is **dialect-specific** (not in SQL standard)
+2. Feature is implemented differently across databases
+3. Feature is proprietary to a specific database vendor
+
+**Example Analysis:**
+
+| Feature | SQL Standard? | Location |
+|---------|---------------|----------|
+| `CREATE TRIGGER` | Yes (SQL:1999) | Main Package (`TriggerSupport`) |
+| `CREATE FUNCTION` | Yes (SQL/PSM) | Main Package (`FunctionSupport`) |
+| `COMMENT ON` | No (PostgreSQL/Oracle) | PostgreSQL Extension |
+| `CREATE TYPE ... AS ENUM` | No (PostgreSQL-specific) | PostgreSQL Extension |
+| `AUTO_INCREMENT` | No (MySQL-specific) | MySQL Extension |
+| `BIGSERIAL` | No (PostgreSQL-specific) | PostgreSQL Extension |
+
+##### Implementation Steps for New Protocols
+
+1. **Add to Main Package** (if SQL standard):
+   ```python
+   # protocols.py
+   @runtime_checkable
+   class NewFeatureSupport(Protocol):
+       def supports_new_feature(self) -> bool: ...
+       def format_new_feature_statement(self, expr) -> Tuple[str, tuple]: ...
+
+   # mixins.py
+   class NewFeatureMixin:
+       def supports_new_feature(self) -> bool: return False
+       def format_new_feature_statement(self, expr) -> Tuple[str, tuple]:
+           # SQL standard implementation
+           ...
+   ```
+
+2. **Add to Dialect Extension** (if dialect-specific):
+   ```python
+   # postgres/dialect.py
+   def supports_dialect_feature(self) -> bool: return True
+   def format_dialect_statement(self, ...): ...
+   ```
+
+3. **Update DummyDialect** (for main package protocols):
+   ```python
+   # impl/dummy/dialect.py
+   class DummyDialect(
+       ...,
+       NewFeatureMixin,
+       NewFeatureSupport,
+   ):
+       def supports_new_feature(self) -> bool: return True
+   ```
+
+4. **Add Tests**:
+   - `tests/.../dummy2/test_new_feature.py` - Expression tests
+   - `tests/.../dummy/test_dummy_protocol_support.py` - Protocol support verification
+
 ```python
 # dialect.py
 from rhosocial.activerecord.backend.dialect import (

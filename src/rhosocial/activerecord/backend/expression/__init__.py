@@ -247,6 +247,13 @@ __all__ = [
     "DropIndexExpression", "CreateSequenceExpression", "DropSequenceExpression",
     "AlterSequenceExpression",
 
+    # Trigger DDL Expressions
+    "CreateTriggerExpression", "DropTriggerExpression",
+    "TriggerTiming", "TriggerEvent", "TriggerLevel",
+
+    # Function DDL Expressions
+    "CreateFunctionExpression", "DropFunctionExpression",
+
     # Materialized View DDL Expressions
     "CreateMaterializedViewExpression", "DropMaterializedViewExpression",
     "RefreshMaterializedViewExpression",
