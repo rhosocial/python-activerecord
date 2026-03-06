@@ -25,7 +25,9 @@ if TYPE_CHECKING: # pragma: no cover
         CreateIndexExpression, DropIndexExpression,
         CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
         CreateMaterializedViewExpression, DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression
+        RefreshMaterializedViewExpression,
+        CreateTriggerExpression, DropTriggerExpression,
+        CreateFunctionExpression, DropFunctionExpression
     )
 
 
@@ -35,46 +37,136 @@ class WindowFunctionSupport(Protocol):
 
     def supports_window_functions(self) -> bool:
         """Whether window functions are supported."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
     def supports_window_frame_clause(self) -> bool:
         """Whether window frame clauses (ROWS/RANGE) are supported."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
     def format_window_function_call(
-            self,
-            call: "WindowFunctionCall"
+        self,
+        call: "WindowFunctionCall"
     ) -> Tuple[str, tuple]:
         """Format window function call."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
     def format_window_specification(
-            self,
-            spec: "WindowSpecification"
+        self,
+        spec: "WindowSpecification"
     ) -> Tuple[str, tuple]:
         """Format window specification."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
     def format_window_frame_specification(
-            self,
-            spec: "WindowFrameSpecification"
+        self,
+        spec: "WindowFrameSpecification"
     ) -> Tuple[str, tuple]:
         """Format window frame specification."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
     def format_window_clause(
-            self,
-            clause: "WindowClause"
+        self,
+        clause: "WindowClause"
     ) -> Tuple[str, tuple]:
         """Format complete WINDOW clause."""
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
     def format_window_definition(
-            self,
-            spec: "WindowDefinition"
+        self,
+        spec: "WindowDefinition"
     ) -> Tuple[str, tuple]:
         """Format named window definition."""
+        ... # pragma: no cover
+
+
+@runtime_checkable
+class TriggerSupport(Protocol):
+    """Protocol for trigger DDL support (SQL:1999/PSM)."""
+
+    def supports_trigger(self) -> bool:
+        """Whether triggers are supported."""
         ...  # pragma: no cover
+
+    def supports_create_trigger(self) -> bool:
+        """Whether CREATE TRIGGER is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_trigger(self) -> bool:
+        """Whether DROP TRIGGER is supported."""
+        ...  # pragma: no cover
+
+    def supports_instead_of_trigger(self) -> bool:
+        """Whether INSTEAD OF triggers are supported (for views)."""
+        ...  # pragma: no cover
+
+    def supports_statement_trigger(self) -> bool:
+        """Whether FOR EACH STATEMENT triggers are supported."""
+        ...  # pragma: no cover
+
+    def supports_trigger_referencing(self) -> bool:
+        """Whether REFERENCING clause is supported."""
+        ...  # pragma: no cover
+
+    def supports_trigger_when(self) -> bool:
+        """Whether WHEN condition is supported."""
+        ...  # pragma: no cover
+
+    def supports_trigger_if_not_exists(self) -> bool:
+        """Whether CREATE TRIGGER IF NOT EXISTS is supported."""
+        ...  # pragma: no cover
+
+    def format_create_trigger_statement(
+        self,
+        expr: "CreateTriggerExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TRIGGER statement."""
+        ...  # pragma: no cover
+
+    def format_drop_trigger_statement(
+        self,
+        expr: "DropTriggerExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP TRIGGER statement."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class FunctionSupport(Protocol):
+    """Protocol for function DDL support (SQL/PSM)."""
+
+    def supports_function(self) -> bool:
+        """Whether functions are supported."""
+        ...  # pragma: no cover
+
+    def supports_create_function(self) -> bool:
+        """Whether CREATE FUNCTION is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_function(self) -> bool:
+        """Whether DROP FUNCTION is supported."""
+        ...  # pragma: no cover
+
+    def supports_function_or_replace(self) -> bool:
+        """Whether CREATE OR REPLACE FUNCTION is supported."""
+        ...  # pragma: no cover
+
+    def supports_function_parameters(self) -> bool:
+        """Whether function parameters are supported."""
+        ...  # pragma: no cover
+
+    def format_create_function_statement(
+        self,
+        expr: "CreateFunctionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE FUNCTION statement."""
+        ...  # pragma: no cover
+
+    def format_drop_function_statement(
+        self,
+        expr: "DropFunctionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP FUNCTION statement."""
+        ... # pragma: no cover
 
 
 @runtime_checkable

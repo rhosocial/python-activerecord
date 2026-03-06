@@ -25,7 +25,9 @@ if TYPE_CHECKING: # pragma: no cover
         CreateIndexExpression, DropIndexExpression,
         CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
         CreateMaterializedViewExpression, DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression
+        RefreshMaterializedViewExpression,
+        CreateTriggerExpression, DropTriggerExpression,
+        CreateFunctionExpression, DropFunctionExpression
     )
 
 
@@ -1683,3 +1685,187 @@ class ILIKEMixin:
             sql = f"LOWER({col_sql}) LIKE LOWER(?)"
 
         return sql, (pattern.lower(),)
+
+
+class TriggerMixin:
+    """Mixin for trigger DDL support (SQL:1999/PSM)."""
+
+    def supports_trigger(self) -> bool:
+        return False
+
+    def supports_create_trigger(self) -> bool:
+        return False
+
+    def supports_drop_trigger(self) -> bool:
+        return False
+
+    def supports_instead_of_trigger(self) -> bool:
+        return False
+
+    def supports_statement_trigger(self) -> bool:
+        return False
+
+    def supports_trigger_referencing(self) -> bool:
+        return False
+
+    def supports_trigger_when(self) -> bool:
+        return False
+
+    def supports_trigger_if_not_exists(self) -> bool:
+        return False
+
+    def format_create_trigger_statement(
+        self,
+        expr: "CreateTriggerExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE TRIGGER statement per SQL:1999."""
+        from .exceptions import UnsupportedFeatureError
+
+        if not self.supports_trigger():
+            raise UnsupportedFeatureError(self.name, "triggers")
+
+        parts = ["CREATE TRIGGER"]
+
+        if expr.if_not_exists and self.supports_trigger_if_not_exists():
+            parts.append("IF NOT EXISTS")
+
+        parts.append(self.format_identifier(expr.trigger_name))
+
+        parts.append(expr.timing.value)
+
+        if expr.update_columns:
+            cols = ", ".join(self.format_identifier(c) for c in expr.update_columns)
+            events_str = f"UPDATE OF {cols}"
+        else:
+            events_str = " OR ".join(e.value for e in expr.events)
+        parts.append(events_str)
+
+        parts.append("ON")
+        parts.append(self.format_identifier(expr.table_name))
+
+        if expr.referencing and self.supports_trigger_referencing():
+            parts.append(expr.referencing)
+
+        parts.append(expr.level.value)
+
+        all_params = []
+        if expr.condition and self.supports_trigger_when():
+            cond_sql, cond_params = expr.condition.to_sql()
+            parts.append(f"WHEN ({cond_sql})")
+            all_params.extend(cond_params)
+
+        parts.append("EXECUTE")
+        parts.append(self.format_identifier(expr.function_name))
+
+        return " ".join(parts), tuple(all_params)
+
+    def format_drop_trigger_statement(
+        self,
+        expr: "DropTriggerExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP TRIGGER statement per SQL:1999."""
+        from .exceptions import UnsupportedFeatureError
+
+        if not self.supports_trigger():
+            raise UnsupportedFeatureError(self.name, "triggers")
+
+        parts = ["DROP TRIGGER"]
+
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+
+        parts.append(self.format_identifier(expr.trigger_name))
+
+        if expr.table_name:
+            parts.append("ON")
+            parts.append(self.format_identifier(expr.table_name))
+
+        return " ".join(parts), ()
+
+
+class FunctionMixin:
+    """Mixin for function DDL support (SQL/PSM)."""
+
+    def supports_function(self) -> bool:
+        return False
+
+    def supports_create_function(self) -> bool:
+        return False
+
+    def supports_drop_function(self) -> bool:
+        return False
+
+    def supports_function_or_replace(self) -> bool:
+        return False
+
+    def supports_function_parameters(self) -> bool:
+        return False
+
+    def format_create_function_statement(
+        self,
+        expr: "CreateFunctionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE FUNCTION statement per SQL/PSM."""
+        from .exceptions import UnsupportedFeatureError
+
+        if not self.supports_function():
+            raise UnsupportedFeatureError(self.name, "functions")
+
+        parts = ["CREATE FUNCTION"]
+
+        if expr.or_replace and self.supports_function_or_replace():
+            parts.insert(1, "OR REPLACE")
+
+        parts.append(self.format_identifier(expr.function_name))
+
+        if expr.parameters and self.supports_function_parameters():
+            param_strs = []
+            for p in expr.parameters:
+                name = p.get("name", "")
+                param_type = p.get("type", "")
+                if name and param_type:
+                    param_strs.append(f"{name} {param_type}")
+                elif param_type:
+                    param_strs.append(param_type)
+            parts.append(f"({', '.join(param_strs)})")
+        else:
+            parts.append("()")
+
+        if expr.returns:
+            parts.append(f"RETURNS {expr.returns}")
+
+        if expr.language:
+            parts.append(f"LANGUAGE {expr.language}")
+
+        if expr.body:
+            parts.append("AS")
+            parts.append(f"$${expr.body}$$")
+
+        return " ".join(parts), ()
+
+    def format_drop_function_statement(
+        self,
+        expr: "DropFunctionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP FUNCTION statement per SQL/PSM."""
+        from .exceptions import UnsupportedFeatureError
+
+        if not self.supports_function():
+            raise UnsupportedFeatureError(self.name, "functions")
+
+        parts = ["DROP FUNCTION"]
+
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+
+        parts.append(self.format_identifier(expr.function_name))
+
+        if expr.parameters:
+            param_types = ", ".join(expr.parameters)
+            parts.append(f"({param_types})")
+
+        if expr.cascade:
+            parts.append("CASCADE")
+
+        return " ".join(parts), ()
+
