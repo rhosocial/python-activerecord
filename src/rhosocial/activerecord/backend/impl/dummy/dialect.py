@@ -44,20 +44,20 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
-    JoinSupport, SetOperationSupport,
+    JoinSupport, SetOperationSupport, ILIKESupport,
     # DDL Protocols
     TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
-    IndexSupport, SequenceSupport,
+    IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
     UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin, JoinMixin,
-    SetOperationMixin,
+    SetOperationMixin, ILIKEMixin,
     # DDL Mixins
     TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
-    IndexMixin, SequenceMixin,
+    IndexMixin, SequenceMixin, TriggerMixin, FunctionMixin,
 )
 
 
@@ -67,19 +67,19 @@ class DummyDialect(
     UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
     FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
     TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
-    JoinMixin, SetOperationMixin,
+    JoinMixin, SetOperationMixin, ILIKEMixin,
     # DDL Mixins
     TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
-    IndexMixin, SequenceMixin,
+    IndexMixin, SequenceMixin, TriggerMixin, FunctionMixin,
     # Protocols for type checking
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
     FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
     TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
-    JoinSupport, SetOperationSupport,
+    JoinSupport, SetOperationSupport, ILIKESupport,
     # DDL Protocols
     TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
-    IndexSupport, SequenceSupport,
+    IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -119,6 +119,14 @@ class DummyDialect(
     def supports_full_join(self) -> bool: return True
     def supports_cross_join(self) -> bool: return True
     def supports_natural_join(self) -> bool: return True
+    def supports_union(self) -> bool: return True
+    def supports_union_all(self) -> bool: return True
+    def supports_intersect(self) -> bool: return True
+    def supports_except(self) -> bool: return True
+    def supports_set_operation_order_by(self) -> bool: return True
+    def supports_set_operation_limit_offset(self) -> bool: return True
+    def supports_set_operation_for_update(self) -> bool: return True
+    def supports_ilike(self) -> bool: return True
     # endregion
 
     # region Table DDL Support
@@ -196,4 +204,23 @@ class DummyDialect(
     def supports_sequence_cache(self) -> bool: return True
     def supports_sequence_order(self) -> bool: return True
     def supports_sequence_owned_by(self) -> bool: return True
+    # endregion
+
+    # region Trigger DDL Support
+    def supports_trigger(self) -> bool: return True
+    def supports_create_trigger(self) -> bool: return True
+    def supports_drop_trigger(self) -> bool: return True
+    def supports_instead_of_trigger(self) -> bool: return True
+    def supports_statement_trigger(self) -> bool: return True
+    def supports_trigger_referencing(self) -> bool: return True
+    def supports_trigger_when(self) -> bool: return True
+    def supports_trigger_if_not_exists(self) -> bool: return True
+    # endregion
+
+    # region Function DDL Support
+    def supports_function(self) -> bool: return True
+    def supports_create_function(self) -> bool: return True
+    def supports_drop_function(self) -> bool: return True
+    def supports_function_or_replace(self) -> bool: return True
+    def supports_function_parameters(self) -> bool: return True
     # endregion

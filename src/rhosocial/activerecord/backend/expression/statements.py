@@ -2072,3 +2072,185 @@ class AlterSequenceExpression(bases.BaseExpression):
         return self.dialect.format_alter_sequence_statement(self)
 
 # endregion Sequence DDL Expressions
+
+
+# region Trigger DDL Expressions
+
+class TriggerTiming(Enum):
+    """Trigger execution timing."""
+    BEFORE = "BEFORE"
+    AFTER = "AFTER"
+    INSTEAD_OF = "INSTEAD OF"
+
+
+class TriggerEvent(Enum):
+    """Trigger event types."""
+    INSERT = "INSERT"
+    UPDATE = "UPDATE"
+    DELETE = "DELETE"
+    TRUNCATE = "TRUNCATE"
+
+
+class TriggerLevel(Enum):
+    """Trigger execution level."""
+    ROW = "FOR EACH ROW"
+    STATEMENT = "FOR EACH STATEMENT"
+
+
+class CreateTriggerExpression(bases.BaseExpression):
+    """SQL:1999 标准的 CREATE TRIGGER 语句。
+
+    Examples:
+        # Basic trigger
+        create_trigger = CreateTriggerExpression(
+            dialect,
+            trigger_name="update_timestamp",
+            table_name="users",
+            timing=TriggerTiming.BEFORE,
+            events=[TriggerEvent.UPDATE],
+            function_name="update_updated_at_column"
+        )
+
+        # Trigger with condition
+        create_trigger = CreateTriggerExpression(
+            dialect,
+            trigger_name="check_status",
+            table_name="orders",
+            timing=TriggerTiming.BEFORE,
+            events=[TriggerEvent.UPDATE],
+            update_columns=["status"],
+            function_name="validate_status",
+            level=TriggerLevel.ROW,
+            condition=Column(dialect, "new.status") != Column(dialect, "old.status")
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 trigger_name: str,
+                 table_name: str,
+                 timing: TriggerTiming,
+                 events: List[TriggerEvent],
+                 function_name: str,
+                 level: TriggerLevel = TriggerLevel.ROW,
+                 condition: Optional["bases.SQLPredicate"] = None,
+                 update_columns: Optional[List[str]] = None,
+                 referencing: Optional[str] = None,
+                 if_not_exists: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.trigger_name = trigger_name
+        self.table_name = table_name
+        self.timing = timing
+        self.events = events
+        self.function_name = function_name
+        self.level = level
+        self.condition = condition
+        self.update_columns = update_columns
+        self.referencing = referencing
+        self.if_not_exists = if_not_exists
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_create_trigger_statement(self)
+
+
+class DropTriggerExpression(bases.BaseExpression):
+    """SQL:1999 标准的 DROP TRIGGER 语句。
+
+    Examples:
+        drop_trigger = DropTriggerExpression(
+            dialect,
+            trigger_name="update_timestamp",
+            table_name="users"
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 trigger_name: str,
+                 table_name: Optional[str] = None,
+                 if_exists: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.trigger_name = trigger_name
+        self.table_name = table_name
+        self.if_exists = if_exists
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_drop_trigger_statement(self)
+
+# endregion Trigger DDL Expressions
+
+
+# region Function DDL Expressions
+
+class CreateFunctionExpression(bases.BaseExpression):
+    """SQL/PSM 标准的 CREATE FUNCTION 语句。
+
+    Examples:
+        create_func = CreateFunctionExpression(
+            dialect,
+            function_name="calculate_total",
+            parameters=[
+                {"name": "price", "type": "DECIMAL(10,2)"},
+                {"name": "quantity", "type": "INTEGER"}
+            ],
+            returns="DECIMAL(10,2)",
+            body="RETURN price * quantity;",
+            language="plpgsql"
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 function_name: str,
+                 parameters: Optional[List[Dict[str, str]]] = None,
+                 returns: Optional[str] = None,
+                 body: str = "",
+                 language: str = "plpgsql",
+                 or_replace: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.function_name = function_name
+        self.parameters = parameters or []
+        self.returns = returns
+        self.body = body
+        self.language = language
+        self.or_replace = or_replace
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_create_function_statement(self)
+
+
+class DropFunctionExpression(bases.BaseExpression):
+    """SQL/PSM 标准的 DROP FUNCTION 语句。
+
+    Examples:
+        drop_func = DropFunctionExpression(
+            dialect,
+            function_name="calculate_total",
+            if_exists=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 function_name: str,
+                 if_exists: bool = False,
+                 parameters: Optional[List[str]] = None,
+                 cascade: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.function_name = function_name
+        self.if_exists = if_exists
+        self.parameters = parameters
+        self.cascade = cascade
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_drop_function_statement(self)
+
+# endregion Function DDL Expressions
