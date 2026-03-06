@@ -197,12 +197,13 @@ class CTEMixin:
         return False
 
     def format_cte(
-            self,
-            name: str,
-            query_sql: str,
-            columns: Optional[List[str]] = None,
-            materialized: Optional[bool] = None,
-            dialect_options: Optional[Dict[str, Any]] = None
+        self,
+        name: str,
+        query_sql: str,
+        columns: Optional[List[str]] = None,
+        recursive: bool = False,
+        materialized: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None
     ) -> str:
         """Format a single CTE definition."""
         materialized_hint = ""
