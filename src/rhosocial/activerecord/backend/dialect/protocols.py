@@ -27,7 +27,8 @@ if TYPE_CHECKING: # pragma: no cover
         CreateMaterializedViewExpression, DropMaterializedViewExpression,
         RefreshMaterializedViewExpression,
         CreateTriggerExpression, DropTriggerExpression,
-        CreateFunctionExpression, DropFunctionExpression
+        CreateFunctionExpression, DropFunctionExpression,
+        ReturningClause
     )
 
 
@@ -261,19 +262,19 @@ class ReturningSupport(Protocol):
         ...  # pragma: no cover
 
     def format_returning_clause(
-            self,
-            columns: List[str]
+        self,
+        clause: "ReturningClause"
     ) -> Tuple[str, Tuple]:
         """
         Format a RETURNING clause.
 
         Args:
-            columns: List of column names to return
+            clause: ReturningClause object containing expressions to return
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        ...  # pragma: no cover
+        ... # pragma: no cover
 
 
 @runtime_checkable
@@ -699,18 +700,19 @@ class LockingSupport(Protocol):
 
     def format_for_update_clause(
         self,
-        options: Dict[str, Any]
+        clause: "ForUpdateClause"
     ) -> Tuple[str, tuple]:
         """
         Formats a FOR UPDATE/FOR SHARE clause with optional locking modifiers.
 
         Args:
-            options: A dictionary of locking options.
+            clause: ForUpdateClause object containing locking options
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ...  # pragma: no cover
+        ... # pragma: no cover
+
 
 @runtime_checkable
 class SetOperationSupport(Protocol):
