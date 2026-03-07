@@ -23,7 +23,12 @@ class TypeRegistry:
     ) -> None:
         type_pair = (py_type, db_type)
         if not allow_override and type_pair in self._adapters:
-            raise ValueError(f"Type pair already registered.")
+            existing_adapter = self._adapters[type_pair]
+            raise ValueError(
+                f"Type pair ({py_type.__name__}, {db_type.__name__}) already registered. "
+                f"Existing adapter: {existing_adapter.__class__.__name__}, "
+                f"New adapter: {adapter.__class__.__name__}"
+            )
         self._adapters[type_pair] = adapter
 
     def get_adapter(self, py_type: Type, db_type: Type) -> Optional[SQLTypeAdapter]:
