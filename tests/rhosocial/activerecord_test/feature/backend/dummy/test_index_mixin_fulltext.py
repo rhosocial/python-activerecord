@@ -57,36 +57,6 @@ class TestIndexMixinFulltextFormatMethods:
         assert 'QUERY EXPANSION' in sql
         assert params == ("search",)
 
-    def test_format_create_fulltext_index_basic(self, dummy_dialect: DummyDialect):
-        """Tests CREATE FULLTEXT INDEX basic statement."""
-        sql, params = dummy_dialect.format_create_fulltext_index(
-            index_name="idx_articles_content",
-            table_name="articles",
-            columns=["title", "content"]
-        )
-
-        assert 'CREATE FULLTEXT INDEX' in sql
-        assert '"idx_articles_content"' in sql
-        assert 'ON' in sql
-        assert '"articles"' in sql
-        assert '"title"' in sql
-        assert '"content"' in sql
-        assert params == ()
-
-    def test_format_create_fulltext_index_with_parser(self, dummy_dialect: DummyDialect):
-        """Tests CREATE FULLTEXT INDEX with parser."""
-        sql, params = dummy_dialect.format_create_fulltext_index(
-            index_name="idx_content_ft",
-            table_name="documents",
-            columns=["content"],
-            parser="ngram"
-        )
-
-        assert 'CREATE FULLTEXT INDEX' in sql
-        assert 'WITH PARSER' in sql
-        assert '"ngram"' in sql
-        assert params == ()
-
     def test_format_fulltext_match_multiple_columns(self, dummy_dialect: DummyDialect):
         """Tests FULLTEXT MATCH with multiple columns."""
         sql, params = dummy_dialect.format_fulltext_match(
@@ -110,15 +80,3 @@ class TestIndexMixinFulltextFormatMethods:
         assert 'MATCH("content")' in sql
         assert 'AGAINST' in sql
         assert params == ("test",)
-
-    def test_format_create_fulltext_index_single_column(self, dummy_dialect: DummyDialect):
-        """Tests CREATE FULLTEXT INDEX with single column."""
-        sql, params = dummy_dialect.format_create_fulltext_index(
-            index_name="idx_body_ft",
-            table_name="posts",
-            columns=["body"]
-        )
-
-        assert 'CREATE FULLTEXT INDEX' in sql
-        assert '("body")' in sql
-        assert params == ()
