@@ -1911,6 +1911,102 @@ class DropIndexExpression(bases.BaseExpression):
     def to_sql(self) -> 'bases.SQLQueryAndParams':
         return self.dialect.format_drop_index_statement(self)
 
+
+class CreateFulltextIndexExpression(bases.BaseExpression):
+    """
+    Represents a CREATE FULLTEXT INDEX statement.
+
+    FULLTEXT indexes are specialized indexes for full-text search capabilities.
+    Support varies by database:
+    - MySQL: Full support with MATCH ... AGAINST syntax
+    - PostgreSQL: Uses GIN/GIST indexes with to_tsvector
+    - SQLite: Requires FTS5 extension
+    - SQL Server: Uses CONTAINS and FREETEXT predicates
+
+    Examples:
+        # Basic FULLTEXT index
+        create_ft = CreateFulltextIndexExpression(
+            dialect,
+            index_name="idx_articles_content",
+            table_name="articles",
+            columns=["title", "content"]
+        )
+
+        # FULLTEXT index with parser (MySQL)
+        create_ft = CreateFulltextIndexExpression(
+            dialect,
+            index_name="idx_documents_body",
+            table_name="documents",
+            columns=["body"],
+            parser="ngram"
+        )
+
+        # FULLTEXT index with IF NOT EXISTS
+        create_ft = CreateFulltextIndexExpression(
+            dialect,
+            index_name="idx_posts_content",
+            table_name="posts",
+            columns=["content"],
+            if_not_exists=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 index_name: str,
+                 table_name: str,
+                 columns: List[str],
+                 parser: Optional[str] = None,
+                 if_not_exists: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.index_name = index_name
+        self.table_name = table_name
+        self.columns = columns
+        self.parser = parser
+        self.if_not_exists = if_not_exists
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_create_fulltext_index_statement(self)
+
+
+class DropFulltextIndexExpression(bases.BaseExpression):
+    """
+    Represents a DROP FULLTEXT INDEX statement.
+
+    Examples:
+        # Basic drop
+        drop_ft = DropFulltextIndexExpression(
+            dialect,
+            index_name="idx_articles_content",
+            table_name="articles"
+        )
+
+        # Drop with IF EXISTS
+        drop_ft = DropFulltextIndexExpression(
+            dialect,
+            index_name="idx_old_fulltext",
+            table_name="old_table",
+            if_exists=True
+        )
+    """
+    def __init__(self,
+                 dialect: "SQLDialectBase",
+                 index_name: str,
+                 table_name: str,
+                 if_exists: bool = False,
+                 *,
+                 dialect_options: Optional[Dict[str, Any]] = None):
+        super().__init__(dialect)
+        self.index_name = index_name
+        self.table_name = table_name
+        self.if_exists = if_exists
+        self.dialect_options = dialect_options or {}
+
+    def to_sql(self) -> 'bases.SQLQueryAndParams':
+        return self.dialect.format_drop_fulltext_index_statement(self)
+
 # endregion Index DDL Expressions
 
 

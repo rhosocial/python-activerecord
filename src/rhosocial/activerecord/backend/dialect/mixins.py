@@ -1530,6 +1530,46 @@ class IndexMixin:
         
         return ' '.join(parts), ()
 
+    def format_create_fulltext_index_statement(
+        self,
+        expr: "CreateFulltextIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format CREATE FULLTEXT INDEX statement from expression object."""
+        if not self.supports_fulltext_index():
+            raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
+
+        parts = ["CREATE FULLTEXT INDEX"]
+        if expr.if_not_exists and self.supports_index_if_not_exists():
+            parts.append("IF NOT EXISTS")
+        parts.append(self.format_identifier(expr.index_name))
+        parts.append("ON")
+        parts.append(self.format_identifier(expr.table_name))
+
+        cols_str = ', '.join(self.format_identifier(c) for c in expr.columns)
+        parts.append(f"({cols_str})")
+
+        if expr.parser and self.supports_fulltext_parser():
+            parts.append(f"WITH PARSER {self.format_identifier(expr.parser)}")
+
+        return ' '.join(parts), ()
+
+    def format_drop_fulltext_index_statement(
+        self,
+        expr: "DropFulltextIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP FULLTEXT INDEX statement from expression object."""
+        if not self.supports_fulltext_index():
+            raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
+
+        parts = ["DROP INDEX"]
+        if expr.if_exists and self.supports_index_if_exists():
+            parts.append("IF EXISTS")
+        parts.append(self.format_identifier(expr.index_name))
+        parts.append("ON")
+        parts.append(self.format_identifier(expr.table_name))
+
+        return ' '.join(parts), ()
+
     def format_create_index_statement(
         self,
         expr: "CreateIndexExpression"
