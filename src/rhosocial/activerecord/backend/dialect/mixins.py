@@ -1467,6 +1467,68 @@ class IndexMixin:
     def get_supported_index_types(self) -> List[str]:
         """Return list of supported index types."""
         return ['BTREE']
+    
+    def supports_fulltext_index(self) -> bool:
+        """Whether FULLTEXT indexes are supported."""
+        return False
+    
+    def supports_fulltext_parser(self) -> bool:
+        """Whether FULLTEXT parser plugin is supported."""
+        return False
+    
+    def supports_fulltext_boolean_mode(self) -> bool:
+        """Whether BOOLEAN MODE is supported."""
+        return self.supports_fulltext_index()
+    
+    def supports_fulltext_query_expansion(self) -> bool:
+        """Whether QUERY EXPANSION is supported."""
+        return self.supports_fulltext_index()
+    
+    def format_fulltext_match(
+        self,
+        columns: List[str],
+        search_term: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """Format MATCH ... AGAINST expression."""
+        if not self.supports_fulltext_index():
+            raise UnsupportedFeatureError(self.name, "FULLTEXT search")
+        
+        cols_str = ', '.join(self.format_identifier(c) for c in columns)
+        
+        if mode:
+            mode_upper = mode.upper()
+            if mode_upper == 'BOOLEAN':
+                return f"MATCH({cols_str}) AGAINST(? IN BOOLEAN MODE)", (search_term,)
+            elif mode_upper in ('QUERY EXPANSION', 'WITH QUERY EXPANSION'):
+                return f"MATCH({cols_str}) AGAINST(? WITH QUERY EXPANSION)", (search_term,)
+        
+        # Default: NATURAL LANGUAGE MODE
+        return f"MATCH({cols_str}) AGAINST(? IN NATURAL LANGUAGE MODE)", (search_term,)
+    
+    def format_create_fulltext_index(
+        self,
+        index_name: str,
+        table_name: str,
+        columns: List[str],
+        parser: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        """Format CREATE FULLTEXT INDEX statement."""
+        if not self.supports_fulltext_index():
+            raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
+        
+        parts = ["CREATE FULLTEXT INDEX"]
+        parts.append(self.format_identifier(index_name))
+        parts.append("ON")
+        parts.append(self.format_identifier(table_name))
+        
+        cols_str = ', '.join(self.format_identifier(c) for c in columns)
+        parts.append(f"({cols_str})")
+        
+        if parser and self.supports_fulltext_parser():
+            parts.append(f"WITH PARSER {self.format_identifier(parser)}")
+        
+        return ' '.join(parts), ()
 
     def format_create_index_statement(
         self,

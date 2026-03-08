@@ -1100,13 +1100,67 @@ class IndexSupport(Protocol):
         """Return list of supported index types (e.g., ['BTREE', 'HASH'])."""
         ... # pragma: no cover
     
+    def supports_fulltext_index(self) -> bool:
+        """Whether FULLTEXT indexes are supported."""
+        ... # pragma: no cover
+    
+    def supports_fulltext_parser(self) -> bool:
+        """Whether FULLTEXT parser plugin is supported."""
+        ... # pragma: no cover
+    
+    def supports_fulltext_boolean_mode(self) -> bool:
+        """Whether BOOLEAN MODE in MATCH is supported."""
+        ... # pragma: no cover
+    
+    def supports_fulltext_query_expansion(self) -> bool:
+        """Whether QUERY EXPANSION in MATCH is supported."""
+        ... # pragma: no cover
+    
+    def format_fulltext_match(
+        self,
+        columns: List[str],
+        search_term: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
+        """Format MATCH ... AGAINST expression for full-text search.
+        
+        Args:
+            columns: Columns to search
+            search_term: Search term or query
+            mode: Search mode ('NATURAL LANGUAGE', 'BOOLEAN', 'QUERY EXPANSION')
+        
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        ... # pragma: no cover
+    
+    def format_create_fulltext_index(
+        self,
+        index_name: str,
+        table_name: str,
+        columns: List[str],
+        parser: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        """Format CREATE FULLTEXT INDEX statement.
+        
+        Args:
+            index_name: Name of the index
+            table_name: Table name
+            columns: Columns to index
+            parser: Optional parser plugin name
+        
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        ... # pragma: no cover
+
     def format_create_index_statement(
         self,
         expr: "CreateIndexExpression"
     ) -> Tuple[str, tuple]:
         """Format CREATE INDEX statement."""
         ... # pragma: no cover
-    
+
     def format_drop_index_statement(
         self,
         expr: "DropIndexExpression"
