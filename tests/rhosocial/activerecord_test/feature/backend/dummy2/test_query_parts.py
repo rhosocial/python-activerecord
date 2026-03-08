@@ -231,18 +231,19 @@ class TestQueryParts:
         assert params == (10, 5)
 
     def test_limit_offset_clause_with_offset_only_validation(self, dummy_dialect: DummyDialect):
-        """Test LIMIT/OFFSET clause validation with only OFFSET (should raise ValueError)."""
-        # Offset without limit should raise error for dialects that don't support it
-        with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in this dialect"):
-            LimitOffsetClause(dummy_dialect, offset=20)
+        """Test LIMIT/OFFSET clause validation with only OFFSET."""
+        # DummyDialect supports all features, including offset without limit
+        # So creating with only offset should work
+        limit_offset = LimitOffsetClause(dummy_dialect, offset=20)
 
-    def test_limit_offset_clause_with_offset_only_allowed(self, dummy_dialect: DummyDialect, monkeypatch):
+        sql, params = limit_offset.to_sql()
+
+        assert "OFFSET" in sql
+        assert params == (20,)
+
+    def test_limit_offset_clause_with_offset_only_allowed(self, dummy_dialect: DummyDialect):
         """Test LIMIT/OFFSET clause with only OFFSET when dialect allows it."""
-        # Patch the dialect to support offset without limit
-        def mock_supports_offset_without_limit():
-            return True
-        monkeypatch.setattr(dummy_dialect, "supports_offset_without_limit", mock_supports_offset_without_limit)
-
+        # DummyDialect already supports offset without limit
         # Now creating with only offset should work
         limit_offset = LimitOffsetClause(dummy_dialect, offset=20)
 
