@@ -229,7 +229,14 @@ class TestDummyProtocolSupport:
         assert isinstance(index_types, list)
         assert len(index_types) > 0
         assert 'BTREE' in index_types
-    # endregion
+
+    def test_fulltext_index_support_methods(self, dialect):
+        """Test FULLTEXT index support methods."""
+        assert dialect.supports_fulltext_index() is True
+        assert dialect.supports_fulltext_parser() is True
+        assert dialect.supports_fulltext_boolean_mode() is True
+        assert dialect.supports_fulltext_query_expansion() is True
+        # endregion
 
     # region Sequence DDL Support
     def test_sequence_support_methods(self, dialect):
