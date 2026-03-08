@@ -1,6 +1,97 @@
 # Advanced Expressions
 
-This document covers advanced SQL features such as Window Functions, CTEs (Common Table Expressions), Set Operations, and JSON functions.
+This document covers advanced SQL features such as Window Functions, CTEs (Common Table Expressions), Set Operations, Type Casting, and JSON functions.
+
+## Type Casting (CastExpression)
+
+`CastExpression` represents SQL type casting operations. It supports method chaining, allowing multi-level type conversions.
+
+### Basic Usage
+
+```python
+from rhosocial.activerecord.backend.expression import CastExpression, Column
+
+# Direct creation of CastExpression
+col = Column(dialect, "price")
+expr = CastExpression(dialect, col, "integer")
+sql, params = expr.to_sql()
+# PostgreSQL: ("price"::integer, ())
+# Other backends: (CAST("price" AS integer), ())
+```
+
+### Using TypeCastingMixin
+
+The preferred way is through the `cast()` method:
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+col = Column(dialect, "amount")
+expr = col.cast("money")
+sql, params = expr.to_sql()
+# PostgreSQL: ("amount"::money, ())
+```
+
+### Chained Type Conversions
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+col = Column(dialect, "amount")
+# Multi-level type conversion: money -> numeric -> float8
+expr = col.cast("money").cast("numeric").cast("float8")
+sql, params = expr.to_sql()
+# PostgreSQL: ("amount"::money::numeric::float8, ())
+```
+
+### With Type Modifiers
+
+Type modifiers should be included directly in the type string:
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+col = Column(dialect, "name")
+expr = col.cast("VARCHAR(100)")
+sql, params = expr.to_sql()
+# PostgreSQL: ("name"::VARCHAR(100), ())
+
+col2 = Column(dialect, "price")
+expr2 = col2.cast("NUMERIC(10,2)")
+sql, params = expr2.to_sql()
+# PostgreSQL: ("price"::NUMERIC(10,2), ())
+```
+
+### Using in Queries
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+# Use in WHERE clause
+col = Column(dialect, "amount")
+predicate = col.cast("numeric") > 100
+sql, params = predicate.to_sql()
+# PostgreSQL: ("amount"::numeric > %s, (100,))
+
+# Use in arithmetic expressions
+col1 = Column(dialect, "price1")
+col2 = Column(dialect, "price2")
+expr = col1.cast("numeric") + col2.cast("numeric")
+sql, params = expr.to_sql()
+# PostgreSQL: ("price1"::numeric + "price2"::numeric, ())
+```
+
+### PostgreSQL Type Casting Syntax
+
+PostgreSQL uses the `::` operator for type casting, which is PostgreSQL-specific syntax:
+
+| Standard SQL | PostgreSQL |
+|--------------|------------|
+| `CAST(x AS integer)` | `x::integer` |
+| `CAST(x AS VARCHAR(100))` | `x::VARCHAR(100)` |
+| `CAST(CAST(x AS money) AS numeric)` | `x::money::numeric` |
+
+The PostgreSQL dialect automatically uses the `::` syntax to generate more concise SQL.
 
 ## Window Functions
 
