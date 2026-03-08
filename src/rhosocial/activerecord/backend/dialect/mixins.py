@@ -1505,30 +1505,6 @@ class IndexMixin:
         
         # Default: NATURAL LANGUAGE MODE
         return f"MATCH({cols_str}) AGAINST(? IN NATURAL LANGUAGE MODE)", (search_term,)
-    
-    def format_create_fulltext_index(
-        self,
-        index_name: str,
-        table_name: str,
-        columns: List[str],
-        parser: Optional[str] = None
-    ) -> Tuple[str, tuple]:
-        """Format CREATE FULLTEXT INDEX statement."""
-        if not self.supports_fulltext_index():
-            raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
-        
-        parts = ["CREATE FULLTEXT INDEX"]
-        parts.append(self.format_identifier(index_name))
-        parts.append("ON")
-        parts.append(self.format_identifier(table_name))
-        
-        cols_str = ', '.join(self.format_identifier(c) for c in columns)
-        parts.append(f"({cols_str})")
-        
-        if parser and self.supports_fulltext_parser():
-            parts.append(f"WITH PARSER {self.format_identifier(parser)}")
-        
-        return ' '.join(parts), ()
 
     def format_create_fulltext_index_statement(
         self,

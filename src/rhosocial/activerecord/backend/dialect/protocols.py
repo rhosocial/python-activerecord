@@ -25,9 +25,9 @@ if TYPE_CHECKING: # pragma: no cover
         CreateIndexExpression, DropIndexExpression,
         CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
         CreateMaterializedViewExpression, DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression,
-        CreateTriggerExpression, DropTriggerExpression,
+        RefreshMaterializedViewExpression, CreateTriggerExpression, DropTriggerExpression,
         CreateFunctionExpression, DropFunctionExpression,
+        CreateFulltextIndexExpression, DropFulltextIndexExpression,
         ReturningClause
     )
 
@@ -1123,32 +1123,40 @@ class IndexSupport(Protocol):
         mode: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format MATCH ... AGAINST expression for full-text search.
-        
+
         Args:
             columns: Columns to search
             search_term: Search term or query
             mode: Search mode ('NATURAL LANGUAGE', 'BOOLEAN', 'QUERY EXPANSION')
-        
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
         ... # pragma: no cover
-    
-    def format_create_fulltext_index(
+
+    def format_create_fulltext_index_statement(
         self,
-        index_name: str,
-        table_name: str,
-        columns: List[str],
-        parser: Optional[str] = None
+        expr: "CreateFulltextIndexExpression"
     ) -> Tuple[str, tuple]:
         """Format CREATE FULLTEXT INDEX statement.
-        
+
         Args:
-            index_name: Name of the index
-            table_name: Table name
-            columns: Columns to index
-            parser: Optional parser plugin name
-        
+            expr: CreateFulltextIndexExpression object
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        ... # pragma: no cover
+
+    def format_drop_fulltext_index_statement(
+        self,
+        expr: "DropFulltextIndexExpression"
+    ) -> Tuple[str, tuple]:
+        """Format DROP FULLTEXT INDEX statement.
+
+        Args:
+            expr: DropFulltextIndexExpression object
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
