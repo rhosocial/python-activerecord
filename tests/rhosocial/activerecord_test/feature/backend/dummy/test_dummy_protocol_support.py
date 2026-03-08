@@ -135,7 +135,8 @@ class TestDummyProtocolSupport:
         assert dialect.supports_full_join() is True
         assert dialect.supports_cross_join() is True
         assert dialect.supports_natural_join() is True
-    # endregion
+        assert dialect.supports_explicit_inner_join() is True
+        # endregion
 
     # region Set Operation Support
     def test_set_operation_support_methods(self, dialect):
@@ -274,6 +275,12 @@ class TestDummyProtocolSupport:
         assert dialect.supports_drop_function() is True
         assert dialect.supports_function_or_replace() is True
         assert dialect.supports_function_parameters() is True
+    # endregion
+
+    # region Base Dialect Methods
+    def test_base_dialect_methods(self, dialect):
+        """Test base dialect support methods not in protocols."""
+        assert dialect.supports_offset_without_limit() is True
     # endregion
 
 
