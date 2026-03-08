@@ -119,6 +119,7 @@ class DummyDialect(
     def supports_full_join(self) -> bool: return True
     def supports_cross_join(self) -> bool: return True
     def supports_natural_join(self) -> bool: return True
+    def supports_explicit_inner_join(self) -> bool: return True
     def supports_union(self) -> bool: return True
     def supports_union_all(self) -> bool: return True
     def supports_intersect(self) -> bool: return True
@@ -127,6 +128,7 @@ class DummyDialect(
     def supports_set_operation_limit_offset(self) -> bool: return True
     def supports_set_operation_for_update(self) -> bool: return True
     def supports_ilike(self) -> bool: return True
+    def supports_offset_without_limit(self) -> bool: return True
     # endregion
 
     # region Table DDL Support
