@@ -48,8 +48,22 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         return self.dialect.format_case_expression(value_sql, value_params, conditions_results, else_sql, else_params, self.alias)
 
 
-class CastExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
-    """Represents a CAST expression (e.g., CAST(expr AS type))."""
+class CastExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
+    """Represents a CAST expression (e.g., CAST(expr AS type)).
+
+    This class supports chained type conversions via the cast() method
+    inherited from TypeCastingMixin.
+
+    Example:
+        >>> col = Column(dialect, "value")
+        >>> expr = CastExpression(dialect, col, "money")
+        >>> # Generates: CAST(value AS money) or value::money (PostgreSQL)
+        >>>
+        >>> # Chained conversions
+        >>> chained = expr.cast("numeric").cast("float8")
+        >>> # Generates: CAST(CAST(CAST(value AS money) AS numeric) AS float8)
+    """
+
     def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", target_type: str, alias: Optional[str] = None):
         super().__init__(dialect)
         self.expr = expr

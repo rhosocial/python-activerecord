@@ -519,3 +519,61 @@ class StringMixin:
         from .core import Literal
         from .predicates import LikePredicate
         return LikePredicate(self.dialect, "ILIKE", self, Literal(self.dialect, pattern))
+
+
+class TypeCastingMixin:
+    """Provides type casting capability to SQL value expressions.
+
+    This mixin enables expressions to be cast to different SQL types using
+    method chaining. The resulting CastExpression inherits the dialect from
+    the source expression, ensuring consistent SQL generation.
+
+    Example:
+        >>> col = Column(dialect, "price")
+        >>> expr = col.cast("INTEGER")
+        >>> # PostgreSQL generates: price::integer
+        >>> # Other dialects generate: CAST(price AS INTEGER)
+        >>>
+        >>> # Chained conversions
+        >>> col3 = Column(dialect, "amount")
+        >>> expr3 = col3.cast("money").cast("numeric").cast("float8")
+        >>> # PostgreSQL generates: amount::money::numeric::float8
+    """
+
+    def cast(self: "SQLValueExpression", target_type: str) -> "CastExpression":
+        """Generate a type cast expression for this expression.
+
+        Creates a CastExpression that converts this expression to the
+        specified target type. The result is a CastExpression that can be
+        further chained for multiple type conversions.
+
+        Args:
+            target_type: Target SQL type name (e.g., 'INTEGER', 'VARCHAR(100)',
+                'NUMERIC(10,2)'). Type modifiers should be included in the
+                type string.
+
+        Returns:
+            CastExpression representing the type cast. The CastExpression
+            itself inherits TypeCastingMixin, enabling chained conversions.
+
+        Example:
+            >>> col = Column(dialect, "name")
+            >>> expr = col.cast("VARCHAR(100)")
+            >>> # Generates type cast expression using dialect's format method
+            >>>
+            >>> col2 = Column(dialect, "price")
+            >>> expr2 = col2.cast("NUMERIC(10,2)")
+            >>>
+            >>> # Chained conversions
+            >>> col3 = Column(dialect, "value")
+            >>> expr3 = col3.cast("money").cast("numeric")
+            >>> # Generates: CAST(CAST(value AS money) AS numeric)
+            >>> # Or for PostgreSQL: value::money::numeric
+
+        Note:
+            The actual SQL syntax is determined by the dialect's
+            format_cast_expression method. PostgreSQL uses expr::type syntax,
+            while other databases use CAST(expr AS type) syntax.
+        """
+        from .advanced_functions import CastExpression
+        return CastExpression(self.dialect, self, target_type)

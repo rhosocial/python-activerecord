@@ -11,7 +11,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents a literal value in a SQL query."""
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
@@ -27,7 +27,7 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
         return f"Literal({self.value!r})"
 
 
-class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents a column in a SQL query."""
     def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None):
         super().__init__(dialect)
@@ -39,7 +39,7 @@ class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMix
         return self.dialect.format_column(self.name, self.table, self.alias)
 
 
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents a scalar SQL function call, such as LOWER, CONCAT, etc."""
     def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression",
                  is_distinct: bool = False, alias: Optional[str] = None):

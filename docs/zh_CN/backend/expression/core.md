@@ -12,6 +12,7 @@
   - [ArithmeticMixin](#arithmeticmixin)
   - [LogicalMixin](#logicalmixin)
   - [StringMixin](#stringmixin)
+  - [TypeCastingMixin](#typecastingmixin)
 - [核心表达式](#核心表达式)
   - [TableExpression](#tableexpression)
   - [Column](#column)
@@ -228,6 +229,36 @@ Column(dialect, "name").like("John%")
 # email ILIKE '%@gmail.com'
 Column(dialect, "email").ilike("%@gmail.com")
 ```
+
+### TypeCastingMixin
+
+提供类型转换能力，允许表达式转换为不同的 SQL 类型。遵循 Expression-Dialect 分离架构，实际的 SQL 语法由各后端的 `format_cast_expression` 方法生成。
+
+```python
+# 基本类型转换
+Column(dialect, "price").cast("integer")
+# PostgreSQL 生成: "price"::integer
+# 其他后端生成: CAST("price" AS integer)
+
+# 带类型修饰符的转换
+Column(dialect, "name").cast("VARCHAR(100)")
+# PostgreSQL 生成: "name"::VARCHAR(100)
+
+# 链式类型转换
+Column(dialect, "amount").cast("money").cast("numeric").cast("float8")
+# PostgreSQL 生成: "amount"::money::numeric::float8
+
+# 类型转换支持链式调用
+expr = Column(dialect, "value").cast("numeric")
+result = expr * 1.1  # 算术运算
+predicate = expr > 100  # 比较运算
+```
+
+**重要说明**：
+- `TypeCastingMixin` 不直接拼接 SQL 字符串
+- 类型修饰符（如 `VARCHAR(100)`）应直接包含在类型字符串中
+- 实际的 SQL 语法由 dialect 的 `format_cast_expression` 方法决定
+- PostgreSQL 使用 `::` 语法，其他数据库使用 `CAST()` 函数
 
 ## 核心表达式
 

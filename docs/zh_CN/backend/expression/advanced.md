@@ -1,6 +1,97 @@
 # 高级表达式 (Advanced Expressions)
 
-本文档涵盖了高级 SQL 功能，如窗口函数、CTE（公用表表达式）、集合操作和 JSON 函数。
+本文档涵盖了高级 SQL 功能，如窗口函数、CTE（公用表表达式）、集合操作、类型转换和 JSON 函数。
+
+## 类型转换表达式 (CastExpression)
+
+`CastExpression` 表示 SQL 类型转换操作。它支持链式调用，允许进行多级类型转换。
+
+### 基本用法
+
+```python
+from rhosocial.activerecord.backend.expression import CastExpression, Column
+
+# 直接创建 CastExpression
+col = Column(dialect, "price")
+expr = CastExpression(dialect, col, "integer")
+sql, params = expr.to_sql()
+# PostgreSQL: ("price"::integer, ())
+# 其他后端: (CAST("price" AS integer), ())
+```
+
+### 通过 TypeCastingMixin 使用
+
+更推荐的方式是通过 `cast()` 方法：
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+col = Column(dialect, "amount")
+expr = col.cast("money")
+sql, params = expr.to_sql()
+# PostgreSQL: ("amount"::money, ())
+```
+
+### 链式类型转换
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+col = Column(dialect, "amount")
+# 多级类型转换：money -> numeric -> float8
+expr = col.cast("money").cast("numeric").cast("float8")
+sql, params = expr.to_sql()
+# PostgreSQL: ("amount"::money::numeric::float8, ())
+```
+
+### 带类型修饰符
+
+类型修饰符应直接包含在类型字符串中：
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+col = Column(dialect, "name")
+expr = col.cast("VARCHAR(100)")
+sql, params = expr.to_sql()
+# PostgreSQL: ("name"::VARCHAR(100), ())
+
+col2 = Column(dialect, "price")
+expr2 = col2.cast("NUMERIC(10,2)")
+sql, params = expr2.to_sql()
+# PostgreSQL: ("price"::NUMERIC(10,2), ())
+```
+
+### 在查询中使用
+
+```python
+from rhosocial.activerecord.backend.expression import Column
+
+# 在 WHERE 子句中使用
+col = Column(dialect, "amount")
+predicate = col.cast("numeric") > 100
+sql, params = predicate.to_sql()
+# PostgreSQL: ("amount"::numeric > %s, (100,))
+
+# 在算术表达式中使用
+col1 = Column(dialect, "price1")
+col2 = Column(dialect, "price2")
+expr = col1.cast("numeric") + col2.cast("numeric")
+sql, params = expr.to_sql()
+# PostgreSQL: ("price1"::numeric + "price2"::numeric, ())
+```
+
+### PostgreSQL 类型转换语法
+
+PostgreSQL 使用 `::` 操作符进行类型转换，这是 PostgreSQL 特有的语法：
+
+| 标准 SQL | PostgreSQL |
+|----------|------------|
+| `CAST(x AS integer)` | `x::integer` |
+| `CAST(x AS VARCHAR(100))` | `x::VARCHAR(100)` |
+| `CAST(CAST(x AS money) AS numeric)` | `x::money::numeric` |
+
+PostgreSQL dialect 会自动使用 `::` 语法生成更简洁的 SQL。
 
 ## 窗口函数 (Window Functions)
 
