@@ -188,6 +188,10 @@ class DummyDialect(
     def supports_index_include(self) -> bool: return True
     def supports_index_tablespace(self) -> bool: return True
     def supports_concurrent_index(self) -> bool: return True
+    def supports_fulltext_index(self) -> bool: return True
+    def supports_fulltext_parser(self) -> bool: return True
+    def supports_fulltext_boolean_mode(self) -> bool: return True
+    def supports_fulltext_query_expansion(self) -> bool: return True
 
     def get_supported_index_types(self) -> List[str]:
         return ['BTREE', 'HASH', 'GIN', 'GIST', 'SPGIST', 'BRIN']
