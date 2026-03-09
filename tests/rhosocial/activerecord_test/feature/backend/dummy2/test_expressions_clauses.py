@@ -130,7 +130,7 @@ class TestClauseExpressions:
     # --- MergeExpression ---
     def test_merge_expression_basic(self, dummy_dialect: DummyDialect):
         """Tests a basic MERGE statement with WHEN MATCHED UPDATE and WHEN NOT MATCHED INSERT."""
-        target_table = TableExpression(dummy_dialect, "products", "p")
+        target_table = TableExpression(dummy_dialect, "products", alias="p")
         source_values = ValuesExpression(dummy_dialect, [(1, "New Product A", 15.0)], "new_prods", ["id", "name", "price"])
         on_condition = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id", "p"), Column(dummy_dialect, "id", "new_prods"))
 
