@@ -2,26 +2,13 @@
 
 This document covers advanced SQL features such as Window Functions, CTEs (Common Table Expressions), Set Operations, Type Casting, and JSON functions.
 
-## Type Casting (CastExpression)
+## Type Casting
 
-`CastExpression` represents SQL type casting operations. It supports method chaining, allowing multi-level type conversions.
+Type casting in rhosocial-activerecord uses the `TypeCastingMixin` which provides the `cast()` method for SQL type conversion operations. The cast operations are stored internally and applied during SQL generation, supporting multi-level type conversions through method chaining.
 
-### Basic Usage
+### Basic Usage with cast() Method
 
-```python
-from rhosocial.activerecord.backend.expression import CastExpression, Column
-
-# Direct creation of CastExpression
-col = Column(dialect, "price")
-expr = CastExpression(dialect, col, "integer")
-sql, params = expr.to_sql()
-# PostgreSQL: ("price"::integer, ())
-# Other backends: (CAST("price" AS integer), ())
-```
-
-### Using TypeCastingMixin
-
-The preferred way is through the `cast()` method:
+The preferred way is through the `cast()` method on expressions:
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
@@ -30,6 +17,35 @@ col = Column(dialect, "amount")
 expr = col.cast("money")
 sql, params = expr.to_sql()
 # PostgreSQL: ("amount"::money, ())
+# Other backends: (CAST("amount" AS money), ())
+```
+
+### Using the cast() Function
+
+For more flexibility, you can use the `cast()` function from the functions module:
+
+```python
+from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression.functions import cast
+
+# Cast a column
+col = Column(dialect, "price")
+expr = cast(dialect, col, "integer")
+sql, params = expr.to_sql()
+# PostgreSQL: ("price"::integer, ())
+# Other backends: (CAST("price" AS integer), ())
+
+# Cast a literal value
+expr = cast(dialect, "123", "INTEGER")
+sql, params = expr.to_sql()
+# PostgreSQL: ('123'::INTEGER, ())
+# Other backends: (CAST('123' AS INTEGER), ())
+
+# Cast an arithmetic expression
+expr = cast(dialect, Column(dialect, "value") + Literal(dialect, 1), "TEXT")
+sql, params = expr.to_sql()
+# PostgreSQL: ("value" + 1)::TEXT, ())
+# Other backends: (CAST("value" + 1 AS TEXT), ())
 ```
 
 ### Chained Type Conversions

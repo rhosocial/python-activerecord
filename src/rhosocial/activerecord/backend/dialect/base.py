@@ -220,43 +220,55 @@ class SQLDialectBase:
 
     def format_function_call(
         self,
-        func_name: str,
-        args_sql: List[str],
-        args_params: List[tuple],
-        is_distinct: bool,
-        alias: Optional[str] = None,
-        filter_sql: Optional[str] = None,
-        filter_params: Optional[tuple] = None
+        expr: "bases.BaseExpression",
+        filter_predicate: Optional["bases.SQLPredicate"] = None
     ) -> Tuple[str, Tuple]:
-        """Format function call."""
-        distinct = "DISTINCT " if is_distinct else ""
-        args_sql_str = ", ".join(args_sql)
-        func_call_sql = f"{func_name.upper()}({distinct}{args_sql_str})"
+        """Format function call.
 
+        Args:
+            expr: The function call expression (AggregateFunctionCall or FunctionCall)
+            filter_predicate: Optional FILTER clause predicate (for aggregate functions)
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        from ..expression import aggregates, core, operators
+        from .protocols import FilterClauseSupport
+        from .mixins import FilterClauseMixin
+
+        # Handle arguments - special case for COUNT(*) to preserve the asterisk
+        if isinstance(expr, aggregates.AggregateFunctionCall) and \
+           expr.func_name.upper() == "COUNT" and len(expr.args) == 1 and \
+           ((isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*") or
+            isinstance(expr.args[0], core.WildcardExpression)):
+            args_sql = ["*"]
+            args_params = []
+        else:
+            args_sql = []
+            args_params = []
+            for arg in expr.args:
+                sql_part, params_part = arg.to_sql()
+                args_sql.append(sql_part)
+                args_params.append(params_part)
+
+        # Build function call SQL
+        distinct = "DISTINCT " if expr.is_distinct else ""
+        args_sql_str = ", ".join(args_sql)
+        func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
+
+        # Collect all parameters
         all_params: List[Any] = []
         for param_tuple in args_params:
             all_params.extend(param_tuple)
 
-        # Handle FILTER clause - this requires the FilterClauseMixin
-        if filter_sql:
-            # Check if the dialect supports filter clause
-            from .protocols import FilterClauseSupport
-            if isinstance(self, FilterClauseSupport):
-                if hasattr(self, 'supports_filter_clause') and self.supports_filter_clause():
-                    # If the dialect supports filter clause, it should have the format_filter_clause method
-                    if hasattr(self, 'format_filter_clause'):
-                        # Ensure filter_params is a tuple, default to empty tuple if None
-                        actual_filter_params = filter_params if filter_params is not None else ()
-                        filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_sql, actual_filter_params)
-                        func_call_sql += f" {filter_clause_sql}"
-                        all_params.extend(filter_clause_params)
-                    else:
-                        # If the method doesn't exist despite protocol implementation, raise error
-                        raise UnsupportedFeatureError(
-                            self.name,
-                            "FILTER clause in aggregate functions",
-                            "Dialect implements FilterClauseSupport but missing format_filter_clause method."
-                        )
+        # Handle FILTER clause
+        if filter_predicate:
+            if isinstance(self, FilterClauseSupport) and isinstance(self, FilterClauseMixin):
+                if self.supports_filter_clause():
+                    filter_sql, filter_params = filter_predicate.to_sql()
+                    filter_clause_sql, filter_clause_params = self.format_filter_clause(filter_sql, filter_params)
+                    func_call_sql += f" {filter_clause_sql}"
+                    all_params.extend(filter_clause_params)
                 else:
                     raise UnsupportedFeatureError(
                         self.name,
@@ -264,15 +276,22 @@ class SQLDialectBase:
                         "Use a CASE expression inside the aggregate function instead."
                     )
             else:
-                # If the dialect doesn't implement FilterClauseSupport, raise error
                 raise UnsupportedFeatureError(
                     self.name,
                     "FILTER clause in aggregate functions",
                     "Use a CASE expression inside the aggregate function instead."
                 )
 
-        if alias:
-            return f"{func_call_sql} AS {self.format_identifier(alias)}", tuple(all_params)
+        # Apply type casts if any (before alias)
+        if expr.cast_types:
+            for target_type in expr.cast_types:
+                func_call_sql, all_params_tuple = self.format_cast_expression(func_call_sql, target_type, tuple(all_params), None)
+                all_params = list(all_params_tuple)
+
+        # Apply alias if any (after type casts)
+        if expr.alias:
+            func_call_sql = f"{func_call_sql} AS {self.format_identifier(expr.alias)}"
+
         return func_call_sql, tuple(all_params)
 
     def format_comparison_predicate(

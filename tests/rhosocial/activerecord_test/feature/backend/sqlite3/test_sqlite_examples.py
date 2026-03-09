@@ -428,7 +428,57 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     """
     from rhosocial.activerecord.backend.expression import (
         Literal, ValuesExpression, QueryExpression, TableExpression, Column, FunctionCall,
-        CTEExpression, WithQueryExpression, SetOperationExpression, CastExpression, concat_op
+        CTEExpression, WithQueryExpression, SetOperationExpression, concat_op
+    )
+    from rhosocial.activerecord.backend.expression.functions import cast
+
+    backend = sqlite_backend
+
+    print("\n--- Building Sudoku Solver SQL with Expression System ---")
+
+    dialect = backend.dialect
+
+    # Define the Sudoku input
+    sudoku_input = '53..7....6..195....98....6.8...6...34..8.3..17...2...6.6....28....419..5....8..79'
+
+    print(f"Sudoku input: {sudoku_input}")
+
+    # Build the input CTE: input(sud) AS (VALUES(?))
+    input_cte = CTEExpression(
+        dialect=dialect,
+        name="input",
+        query=ValuesExpression(
+            dialect=dialect,
+            values=[(sudoku_input,)],
+            alias=None, # No alias to avoid extra parentheses
+            column_names=None # No column names in VALUES, but specified in CTE
+        ),
+        columns=["sud"]
+    )
+
+    # Build the digits CTE: digits(z, lp) AS (VALUES('1', 1) UNION ALL SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9)
+    # Initial value part
+    initial_digits_values = ValuesExpression(
+        dialect=dialect,
+        values=[('1', 1)],
+        alias=None,
+        column_names=None
+    )
+
+    # Recursive part
+    digits_table = TableExpression(dialect, "digits")
+    lp_column = Column(dialect, "lp", table="digits")
+
+    # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
+    # Use the new cast() function which returns expression with cast_types
+    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), "TEXT")
+    lp_plus_one = lp_column + Literal(dialect, 1)
+
+    recursive_query = QueryExpression(
+        dialect=dialect,
+        select=[cast_expr, lp_plus_one],
+        from_=digits_table,
+        where=(lp_column < Literal(dialect, 9))
     )
 
     backend = sqlite_backend
@@ -469,7 +519,7 @@ def test_sudoku_full_cte_expression(sqlite_backend):
     lp_column = Column(dialect, "lp", table="digits")
 
     # SELECT CAST(lp+1 AS TEXT), lp+1 FROM digits WHERE lp<9
-    cast_expr = CastExpression(dialect, lp_column + Literal(dialect, 1), "TEXT")
+    cast_expr = cast(dialect, lp_column + Literal(dialect, 1), "TEXT")
     lp_plus_one = lp_column + Literal(dialect, 1)
 
     recursive_query = QueryExpression(
@@ -745,8 +795,9 @@ SELECT group_concat(rtrim(t),x'0a') FROM a;
         """
         from rhosocial.activerecord.backend.expression import (
             Literal, ValuesExpression, QueryExpression, TableExpression, Column, FunctionCall,
-            CTEExpression, WithQueryExpression, SetOperationExpression, CastExpression, concat_op
+            CTEExpression, WithQueryExpression, SetOperationExpression, concat_op
         )
+        from rhosocial.activerecord.backend.expression.functions import cast
 
         backend = sqlite_backend
 

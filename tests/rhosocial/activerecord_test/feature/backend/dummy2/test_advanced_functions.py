@@ -6,7 +6,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseExpression, CastExpression, ExistsExpression,
+    CaseExpression, ExistsExpression,
     AnyExpression, AllExpression, JSONExpression, ArrayExpression,
     OrderedSetAggregation
 )
@@ -72,21 +72,21 @@ class TestCaseExpression:
 
 
 class TestCastExpression:
-    """Tests for CastExpression class."""
+    """Tests for cast functionality using cast() method."""
 
     def test_cast_expression_basic(self, dummy_dialect: DummyDialect):
         """Test basic CAST expression functionality."""
         col = Column(dummy_dialect, "id")
-        cast_expr = CastExpression(dummy_dialect, col, "INTEGER")
-        sql, params = cast_expr.to_sql()
+        col.cast("INTEGER")
+        sql, params = col.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
 
     def test_cast_expression_with_literal(self, dummy_dialect: DummyDialect):
         """Test CAST expression with literal value."""
         literal = Literal(dummy_dialect, "123")
-        cast_expr = CastExpression(dummy_dialect, literal, "INTEGER")
-        sql, params = cast_expr.to_sql()
+        literal.cast("INTEGER")
+        sql, params = literal.to_sql()
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
         assert params == ("123",)

@@ -525,55 +525,59 @@ class TypeCastingMixin:
     """Provides type casting capability to SQL value expressions.
 
     This mixin enables expressions to be cast to different SQL types using
-    method chaining. The resulting CastExpression inherits the dialect from
-    the source expression, ensuring consistent SQL generation.
+    method chaining. Each call to cast() appends a target type to the
+    _cast_types list, which is processed during to_sql() generation.
+
+    The type conversions are applied in order, with the last conversion
+    being the outermost CAST. This follows SQL standard nested type casting.
 
     Example:
-        >>> col = Column(dialect, "price")
-        >>> expr = col.cast("INTEGER")
-        >>> # PostgreSQL generates: price::integer
-        >>> # Other dialects generate: CAST(price AS INTEGER)
-        >>>
-        >>> # Chained conversions
-        >>> col3 = Column(dialect, "amount")
-        >>> expr3 = col3.cast("money").cast("numeric").cast("float8")
-        >>> # PostgreSQL generates: amount::money::numeric::float8
+    >>> col = Column(dialect, "price")
+    >>> expr = col.cast("INTEGER")
+    >>> # Generates: CAST("price" AS INTEGER)
+    >>> # PostgreSQL generates: "price"::INTEGER
+    >>>
+    >>> # Chained conversions (each cast is nested)
+    >>> col3 = Column(dialect, "amount")
+    >>> expr3 = col3.cast("money").cast("numeric").cast("float8")
+    >>> # Generates: CAST(CAST(CAST("amount" AS money) AS numeric) AS float8)
+    >>> # PostgreSQL generates: "amount"::money::numeric::float8
     """
 
-    def cast(self: "SQLValueExpression", target_type: str) -> "CastExpression":
-        """Generate a type cast expression for this expression.
+    @property
+    def cast_types(self: "SQLValueExpression") -> List[str]:
+        """Get the list of target types for casting."""
+        return self._cast_types
 
-        Creates a CastExpression that converts this expression to the
-        specified target type. The result is a CastExpression that can be
-        further chained for multiple type conversions.
+    def cast(self: "SQLValueExpression", target_type: str) -> "SQLValueExpression":
+        """Append a type cast to this expression.
+
+        Appends the target type to the _cast_types list. Multiple calls
+        result in nested type conversions. The actual CAST SQL is generated
+        during to_sql() by the dialect's format_cast_expression method.
 
         Args:
             target_type: Target SQL type name (e.g., 'INTEGER', 'VARCHAR(100)',
-                'NUMERIC(10,2)'). Type modifiers should be included in the
-                type string.
+            'NUMERIC(10,2)'). Type modifiers should be included in the
+            type string.
 
         Returns:
-            CastExpression representing the type cast. The CastExpression
-            itself inherits TypeCastingMixin, enabling chained conversions.
+            Self with the type cast appended, enabling method chaining.
 
         Example:
-            >>> col = Column(dialect, "name")
-            >>> expr = col.cast("VARCHAR(100)")
-            >>> # Generates type cast expression using dialect's format method
-            >>>
-            >>> col2 = Column(dialect, "price")
-            >>> expr2 = col2.cast("NUMERIC(10,2)")
-            >>>
-            >>> # Chained conversions
-            >>> col3 = Column(dialect, "value")
-            >>> expr3 = col3.cast("money").cast("numeric")
-            >>> # Generates: CAST(CAST(value AS money) AS numeric)
-            >>> # Or for PostgreSQL: value::money::numeric
+        >>> col = Column(dialect, "name")
+        >>> expr = col.cast("VARCHAR(100)")
+        >>> # Generates: CAST("name" AS VARCHAR(100))
+        >>>
+        >>> # Chained conversions
+        >>> col2 = Column(dialect, "value")
+        >>> expr2 = col2.cast("money").cast("numeric")
+        >>> # Generates: CAST(CAST("value" AS money) AS numeric)
 
         Note:
-            The actual SQL syntax is determined by the dialect's
-            format_cast_expression method. PostgreSQL uses expr::type syntax,
-            while other databases use CAST(expr AS type) syntax.
+        The actual SQL syntax is determined by the dialect's
+        format_cast_expression method. PostgreSQL uses expr::type syntax,
+        while other databases use CAST(expr AS type) syntax.
         """
-        from .advanced_functions import CastExpression
-        return CastExpression(self.dialect, self, target_type)
+        self._cast_types.append(target_type)
+        return self
