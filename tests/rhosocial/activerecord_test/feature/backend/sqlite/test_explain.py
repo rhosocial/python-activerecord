@@ -166,7 +166,7 @@ def test_format_explain_integration():
     query_expr = QueryExpression(
         dialect=backend.dialect,
         select=[Column(backend.dialect, "name", "u1")],
-        from_=TableExpression(backend.dialect, "users", "u1"),
+        from_=TableExpression(backend.dialect, "users", alias="u1"),
         # Additional join logic would be implemented differently
     )
 

@@ -107,16 +107,47 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
 
 
 class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
-    """Represents a table or view in a SQL query, optionally with an alias."""
-    def __init__(self, dialect: "SQLDialectBase", name: str, alias: Optional[str] = None,
+    """Represents a table or view in a SQL query, optionally with schema and alias.
+    
+    Supports SQL standard schema-qualified table names (schema_name.table_name).
+    All major databases support this syntax.
+    
+    Args:
+        dialect: The SQL dialect to use for formatting
+        name: The table or view name
+        schema_name: Optional schema/database name qualifier (SQL standard)
+        alias: Optional table alias
+        temporal_options: Optional temporal table options (e.g., FOR SYSTEM_TIME)
+    
+    Examples:
+        # Simple table reference
+        TableExpression(dialect, "users")
+        # -> users
+        
+        # Schema-qualified table
+        TableExpression(dialect, "users", schema_name="public")
+        # -> public.users
+        
+        # With alias
+        TableExpression(dialect, "users", alias="u")
+        # -> users AS u
+        
+        # Schema-qualified with alias
+        TableExpression(dialect, "users", schema_name="public", alias="u")
+        # -> public.users AS u
+    """
+    def __init__(self, dialect: "SQLDialectBase", name: str, 
+                 schema_name: Optional[str] = None,
+                 alias: Optional[str] = None,
                  temporal_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
         self.name = name
+        self.schema_name = schema_name
         self.alias = alias
         self.temporal_options = temporal_options or {}
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        table_sql, params = self.dialect.format_table(self.name, self.alias)
+        table_sql, params = self.dialect.format_table(self.name, self.alias, self.schema_name)
         if self.temporal_options:
             result = self.dialect.format_temporal_options(self.temporal_options)
             if result is not None:

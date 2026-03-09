@@ -194,7 +194,7 @@ class TestDropTableStatements:
         )
         
         # Check that properties are accessible
-        assert drop_expr.table_name == "test_table"
+        assert drop_expr.table.name == "test_table"
         assert drop_expr.if_exists is True
         
         # Generate SQL to verify it still works after accessing properties

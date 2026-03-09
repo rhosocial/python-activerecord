@@ -15,7 +15,7 @@ class TestMergeStatements:
         """Tests a basic MERGE statement with WHEN MATCHED UPDATE and WHEN NOT MATCHED INSERT."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "products", "p")
+        target_table = TableExpression(dummy_dialect, "products", alias="p")
         source_values = ValuesExpression(dummy_dialect, [(1, "New Product A", 15.0)], "new_prods", ["id", "name", "price"])
         on_condition = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id", "p"), Column(dummy_dialect, "id", "new_prods"))
 
@@ -54,7 +54,7 @@ class TestMergeStatements:
         """Tests MERGE with UPDATE action in WHEN MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "products", "p")
+        target_table = TableExpression(dummy_dialect, "products", alias="p")
         source_values = ValuesExpression(dummy_dialect, [(1, "Updated Product", 25.0)], "new_prods", ["id", "name", "price"])
         on_condition = ComparisonPredicate(dummy_dialect, "=",
                                          Column(dummy_dialect, "id", "p"),
@@ -85,7 +85,7 @@ class TestMergeStatements:
         """Tests MERGE with INSERT action in WHEN NOT MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "products", "p")
+        target_table = TableExpression(dummy_dialect, "products", alias="p")
         source_values = ValuesExpression(dummy_dialect, [(2, "New Product B", 35.0)], "new_prods", ["id", "name", "price"])
         on_condition = ComparisonPredicate(dummy_dialect, "=",
                                          Column(dummy_dialect, "id", "p"),
@@ -117,7 +117,7 @@ class TestMergeStatements:
         """Tests MERGE with DELETE action in WHEN MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "orders", "ord")
+        target_table = TableExpression(dummy_dialect, "orders", alias="ord")
         source_values = ValuesExpression(dummy_dialect, [(555,)], "cancel_orders", ["order_id"])
         on_condition = ComparisonPredicate(dummy_dialect, "=",
                                          Column(dummy_dialect, "order_id", "ord"),
@@ -150,7 +150,7 @@ class TestMergeStatements:
         """Tests MERGE with conditions in WHEN clauses."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "employees", "emp")
+        target_table = TableExpression(dummy_dialect, "employees", alias="emp")
         source_values = ValuesExpression(dummy_dialect, [(101, "John Doe", 60000)], "new_emps", ["id", "name", "salary"])
         on_condition = ComparisonPredicate(dummy_dialect, "=",
                                          Column(dummy_dialect, "id", "emp"),
@@ -206,7 +206,7 @@ class TestMergeStatements:
         """Tests MERGE with DELETE action in WHEN MATCHED clause."""
         from rhosocial.activerecord.backend.expression import ValuesExpression
 
-        target_table = TableExpression(dummy_dialect, "orders", "ord")
+        target_table = TableExpression(dummy_dialect, "orders", alias="ord")
         source_cancel = ValuesExpression(dummy_dialect, [(555,)], "cancel_orders", ["order_id"])
         on_condition = ComparisonPredicate(dummy_dialect, "=",
                                          Column(dummy_dialect, "order_id", "ord"),
@@ -242,7 +242,7 @@ class TestMergeNotMatchedBySource:
 
     def test_merge_with_not_matched_by_source_delete(self, dummy_dialect: DummyDialect):
         """Tests MERGE with WHEN NOT MATCHED BY SOURCE DELETE action."""
-        target_table = TableExpression(dummy_dialect, "existing_products", "ep")
+        target_table = TableExpression(dummy_dialect, "existing_products", alias="ep")
         source_values = ValuesExpression(
             dummy_dialect,
             values=[(Literal(dummy_dialect, 1), Literal(dummy_dialect, "Product A")), (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Product B"))],
@@ -297,7 +297,7 @@ class TestMergeNotMatchedBySource:
 
     def test_merge_with_not_matched_by_source_update(self, dummy_dialect: DummyDialect):
         """Tests MERGE with WHEN NOT MATCHED BY SOURCE UPDATE action."""
-        target_table = TableExpression(dummy_dialect, "customers", "c")
+        target_table = TableExpression(dummy_dialect, "customers", alias="c")
         source_values = ValuesExpression(
             dummy_dialect,
             values=[(Literal(dummy_dialect, 1), Literal(dummy_dialect, "Active")), (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Active"))],
@@ -337,7 +337,7 @@ class TestMergeNotMatchedBySource:
 
     def test_merge_with_not_matched_by_source_and_condition(self, dummy_dialect: DummyDialect):
         """Tests MERGE with WHEN NOT MATCHED BY SOURCE and additional condition."""
-        target_table = TableExpression(dummy_dialect, "inventory", "inv")
+        target_table = TableExpression(dummy_dialect, "inventory", alias="inv")
         source_values = ValuesExpression(
             dummy_dialect,
             values=[(Literal(dummy_dialect, 1), Literal(dummy_dialect, "Widget A"), Literal(dummy_dialect, 10)), (Literal(dummy_dialect, 2), Literal(dummy_dialect, "Widget B"), Literal(dummy_dialect, 5))],
