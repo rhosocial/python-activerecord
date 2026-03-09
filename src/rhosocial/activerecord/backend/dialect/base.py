@@ -187,10 +187,33 @@ class SQLDialectBase:
     def format_table(
         self,
         table_name: str,
-        alias: Optional[str] = None
+        alias: Optional[str] = None,
+        schema_name: Optional[str] = None
     ) -> Tuple[str, Tuple]:
-        """Format table reference."""
-        table_sql = self.format_identifier(table_name)
+        """Format table reference with optional schema and alias.
+        
+        Supports SQL standard schema-qualified table names (schema_name.table_name).
+        
+        Args:
+            table_name: The table or view name
+            alias: Optional table alias
+            schema_name: Optional schema/database name qualifier (SQL standard)
+        
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        
+        Examples:
+            format_table("users") -> "users"
+            format_table("users", alias="u") -> "users AS u"
+            format_table("users", schema_name="public") -> "public.users"
+            format_table("users", schema_name="public", alias="u") -> "public.users AS u"
+        """
+        # Build schema-qualified table name if schema is provided
+        if schema_name:
+            table_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table_name)}"
+        else:
+            table_sql = self.format_identifier(table_name)
+        
         if alias:
             return f"{table_sql} AS {self.format_identifier(alias)}", ()
         return table_sql, ()
@@ -1004,6 +1027,7 @@ class SQLDialectBase:
         - IF NOT EXISTS clause
         - Storage options, tablespace, partitioning
         - CREATE TABLE AS queries
+        - Schema-qualified table names
         """
         all_params = []
 
@@ -1015,7 +1039,11 @@ class SQLDialectBase:
         temp_part = "TEMPORARY " if expr.temporary else ""
         not_exists_part = "IF NOT EXISTS " if expr.if_not_exists else ""
 
-        table_part = f"CREATE {temp_part}TABLE {not_exists_part}{self.format_identifier(expr.table_name)} "
+        # Get table SQL (handles schema-qualified names)
+        table_sql, table_params = expr.table.to_sql()
+        all_params.extend(table_params)
+
+        table_part = f"CREATE {temp_part}TABLE {not_exists_part}{table_sql} "
 
         # Build column definitions
         column_parts = []
@@ -1144,9 +1172,38 @@ class SQLDialectBase:
         return "".join(parts), tuple(all_params)
 
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
-        if_exists_part = "IF EXISTS " if expr.if_exists else ""
-        sql = f"DROP TABLE {if_exists_part}{self.format_identifier(expr.table_name)}"
-        return sql.strip(), ()
+        """Format DROP TABLE statement with SQL standard options.
+        
+        Supports:
+        - IF EXISTS clause
+        - CASCADE/RESTRICT options (SQL standard)
+        - Schema-qualified table names
+        - Dialect-specific options
+        
+        Note: Different databases handle CASCADE/RESTRICT differently:
+        - PostgreSQL: Full support
+        - MySQL: Keywords accepted but ignored
+        - SQLite: Not supported (ignored)
+        - Oracle: Uses CASCADE CONSTRAINTS
+        - SQL Server: Not supported (manual FK handling)
+        """
+        parts = ["DROP TABLE"]
+        
+        # IF EXISTS clause
+        if expr.if_exists:
+            parts.append("IF EXISTS")
+        
+        # Table name (handle TableExpression with schema)
+        table_sql, table_params = expr.table.to_sql()
+        parts.append(table_sql)
+        
+        # CASCADE/RESTRICT clause
+        if expr.cascade is True:
+            parts.append("CASCADE")
+        elif expr.cascade is False:
+            parts.append("RESTRICT")
+        
+        return " ".join(parts), table_params
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement with comprehensive support for different actions."""
