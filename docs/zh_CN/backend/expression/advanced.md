@@ -2,26 +2,13 @@
 
 本文档涵盖了高级 SQL 功能，如窗口函数、CTE（公用表表达式）、集合操作、类型转换和 JSON 函数。
 
-## 类型转换表达式 (CastExpression)
+## 类型转换
 
-`CastExpression` 表示 SQL 类型转换操作。它支持链式调用，允许进行多级类型转换。
+rhosocial-activerecord 中的类型转换使用 `TypeCastingMixin`，它提供了 `cast()` 方法用于 SQL 类型转换操作。类型转换操作在内部存储，并在 SQL 生成时应用，支持通过链式调用进行多级类型转换。
 
-### 基本用法
+### 基本用法：cast() 方法
 
-```python
-from rhosocial.activerecord.backend.expression import CastExpression, Column
-
-# 直接创建 CastExpression
-col = Column(dialect, "price")
-expr = CastExpression(dialect, col, "integer")
-sql, params = expr.to_sql()
-# PostgreSQL: ("price"::integer, ())
-# 其他后端: (CAST("price" AS integer), ())
-```
-
-### 通过 TypeCastingMixin 使用
-
-更推荐的方式是通过 `cast()` 方法：
+推荐的方式是在表达式上使用 `cast()` 方法：
 
 ```python
 from rhosocial.activerecord.backend.expression import Column
@@ -30,6 +17,35 @@ col = Column(dialect, "amount")
 expr = col.cast("money")
 sql, params = expr.to_sql()
 # PostgreSQL: ("amount"::money, ())
+# 其他后端: (CAST("amount" AS money), ())
+```
+
+### 使用 cast() 函数
+
+如需更灵活的控制，可以使用 functions 模块中的 `cast()` 函数：
+
+```python
+from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.expression.functions import cast
+
+# 转换列
+col = Column(dialect, "price")
+expr = cast(dialect, col, "integer")
+sql, params = expr.to_sql()
+# PostgreSQL: ("price"::integer, ())
+# 其他后端: (CAST("price" AS integer), ())
+
+# 转换字面值
+expr = cast(dialect, "123", "INTEGER")
+sql, params = expr.to_sql()
+# PostgreSQL: ('123'::INTEGER, ())
+# 其他后端: (CAST('123' AS INTEGER), ())
+
+# 转换算术表达式
+expr = cast(dialect, Column(dialect, "value") + Literal(dialect, 1), "TEXT")
+sql, params = expr.to_sql()
+# PostgreSQL: ("value" + 1)::TEXT, ())
+# 其他后端: (CAST("value" + 1 AS TEXT), ())
 ```
 
 ### 链式类型转换

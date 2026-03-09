@@ -1,6 +1,6 @@
 # src/rhosocial/activerecord/backend/expression/advanced_functions.py
 """
-Advanced SQL functions and expressions like CASE, CAST, EXISTS, ANY/ALL, Window functions,
+Advanced SQL functions and expressions like CASE, EXISTS, ANY/ALL, Window functions,
 JSON operations, and Array operations.
 """
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
@@ -46,33 +46,6 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         if else_params:
             all_params.extend(else_params)
         return self.dialect.format_case_expression(value_sql, value_params, conditions_results, else_sql, else_params, self.alias)
-
-
-class CastExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
-    """Represents a CAST expression (e.g., CAST(expr AS type)).
-
-    This class supports chained type conversions via the cast() method
-    inherited from TypeCastingMixin.
-
-    Example:
-        >>> col = Column(dialect, "value")
-        >>> expr = CastExpression(dialect, col, "money")
-        >>> # Generates: CAST(value AS money) or value::money (PostgreSQL)
-        >>>
-        >>> # Chained conversions
-        >>> chained = expr.cast("numeric").cast("float8")
-        >>> # Generates: CAST(CAST(CAST(value AS money) AS numeric) AS float8)
-    """
-
-    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", target_type: str, alias: Optional[str] = None):
-        super().__init__(dialect)
-        self.expr = expr
-        self.target_type = target_type
-        self.alias = alias
-
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
-        expr_sql, expr_params = self.expr.to_sql()
-        return self.dialect.format_cast_expression(expr_sql, self.target_type, expr_params, self.alias)
 
 
 class ExistsExpression(bases.SQLPredicate):
@@ -199,20 +172,20 @@ class WindowClause(bases.BaseExpression):
         return self.dialect.format_window_clause(self)
 
 
-class WindowFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class WindowFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """
     Window function call, supporting inline window specification or named window reference
     """
     def __init__(self, dialect: "SQLDialectBase",
                  function_name: str,
                  args: Optional[List[Union["bases.BaseExpression", Any]]] = None,
-                 window_spec: Optional[Union[WindowSpecification, str]] = None,  # Window spec or named window reference
+                 window_spec: Optional[Union[WindowSpecification, str]] = None,
                  alias: Optional[str] = None,
                  dialect_options: Optional[Dict[str, Any]] = None):
         super().__init__(dialect)
         self.function_name = function_name
         self.args = args or []
-        self.window_spec = window_spec  # Can be WindowSpecification object or str (named window reference)
+        self.window_spec = window_spec
         self.alias = alias
         self.dialect_options = dialect_options or {}
 
@@ -221,7 +194,7 @@ class WindowFunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.C
         return self.dialect.format_window_function_call(self)
 
 
-class JSONExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class JSONExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents JSON operations like json->, json->>."""
     def __init__(self, dialect: "SQLDialectBase",
                  column: Union["bases.BaseExpression", str],
@@ -236,10 +209,10 @@ class JSONExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.Compa
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_json_expression method
-        return self.dialect.format_json_expression(self.column, self.path, self.operation, self.alias)
+        return self.dialect.format_json_expression(self)
 
 
-class ArrayExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class ArrayExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents array operations like ANY, ALL, and array access."""
     def __init__(self, dialect: "SQLDialectBase",
                  operation: str,
@@ -256,15 +229,15 @@ class ArrayExpression(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.Comp
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
         # Delegate to the dialect's format_array_expression method
-        return self.dialect.format_array_expression(self.operation, self.elements, self.base_expr, self.index_expr, self.alias)
+        return self.dialect.format_array_expression(self)
 
 
-class OrderedSetAggregation(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class OrderedSetAggregation(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents an ordered-set aggregate function call with WITHIN GROUP (ORDER BY ...)."""
     def __init__(self, dialect: "SQLDialectBase",
                  func_name: str,
                  args: List["bases.BaseExpression"],
-                 order_by: Union["OrderByClause", str],  # Accept OrderByClause or str
+                 order_by: Union["OrderByClause", str],
                  alias: Optional[str] = None):
         super().__init__(dialect)
         self.func_name = func_name
@@ -272,7 +245,6 @@ class OrderedSetAggregation(mixins.AliasableMixin, mixins.ArithmeticMixin, mixin
 
         # Strictly validate and process order_by parameter - accept OrderByClause or str
         if isinstance(order_by, str):
-            # Convert string to OrderByClause - create a column expression from the string
             self.order_by = OrderByClause(dialect, [core.Column(dialect, order_by)])
         elif isinstance(order_by, OrderByClause):
             self.order_by = order_by

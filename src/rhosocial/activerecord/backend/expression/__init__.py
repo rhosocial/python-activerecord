@@ -52,7 +52,6 @@ from .aggregates import (
 )
 from .advanced_functions import (
     CaseExpression,
-    CastExpression,
     ExistsExpression,
     AnyExpression,
     AllExpression,
@@ -211,7 +210,7 @@ __all__ = [
     "AggregateFunctionCall",
 
     # Advanced functions
-    "CaseExpression", "CastExpression", "ExistsExpression", "AnyExpression",
+    "CaseExpression", "ExistsExpression", "AnyExpression",
     "AllExpression", "WindowFrameSpecification", "WindowSpecification",
     "WindowDefinition", "WindowClause", "WindowFunctionCall", "JSONExpression",
     "ArrayExpression", "OrderedSetAggregation",

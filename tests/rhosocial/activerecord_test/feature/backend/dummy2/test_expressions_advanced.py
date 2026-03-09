@@ -2,10 +2,10 @@
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, Subquery, ComparisonPredicate, CaseExpression, CastExpression, ExistsExpression, AnyExpression,
-    AllExpression,
-    WindowFunctionCall, WindowSpecification, WindowFrameSpecification, JSONExpression, ArrayExpression,
-    BinaryArithmeticExpression,
+Column, Literal, Subquery, ComparisonPredicate, CaseExpression, ExistsExpression, AnyExpression,
+AllExpression,
+WindowFunctionCall, WindowSpecification, WindowFrameSpecification, JSONExpression, ArrayExpression,
+BinaryArithmeticExpression,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -48,38 +48,22 @@ class TestAdvancedExpressions:
         assert sql == expected
         assert params == (1, "Pending", 2, "Approved", "Rejected")
 
-    # --- CastExpression ---
-    @pytest.mark.parametrize("expr_data, target_type, expected_sql, expected_params", [
-        (("Column", ("price",)), "INTEGER", 'CAST("price" AS INTEGER)', ()),
-        (("Literal", ("2023-01-01",)), "DATE", 'CAST(? AS DATE)', ("2023-01-01",)),
-        (("BinaryArithmeticExpression", ("*", ("Column", "value"), ("Literal", 100))), "DECIMAL(10,2)", 'CAST("value" * ? AS DECIMAL(10,2))', (100,)),
-    ])
-    def test_cast_expression(self, dummy_dialect: DummyDialect, expr_data, target_type, expected_sql, expected_params):
-        """Tests CAST expression to convert types."""
-        expr_class_name, expr_args = expr_data
-        
-        if expr_class_name == "BinaryArithmeticExpression":
-            op, left_data, right_data = expr_args
-            
-            def get_arg_instance(data_tuple):
-                arg_class = globals()[data_tuple[0]]
-                arg_value = data_tuple[1]
-                if isinstance(arg_value, tuple):
-                    return arg_class(dummy_dialect, *arg_value)
-                return arg_class(dummy_dialect, arg_value)
-
-            left = get_arg_instance(left_data)
-            right = get_arg_instance(right_data)
-            
-            expr_to_cast = BinaryArithmeticExpression(dummy_dialect, op, left, right)
-        else:
-            expr_class = globals()[expr_class_name]
-            expr_to_cast = expr_class(dummy_dialect, *expr_args)
-
-        cast_expr = CastExpression(dummy_dialect, expr_to_cast, target_type)
+    # --- Cast via cast() method ---
+    def test_cast_column(self, dummy_dialect: DummyDialect):
+        """Tests cast() method on Column."""
+        col = Column(dummy_dialect, "price")
+        cast_expr = col.cast("INTEGER")
         sql, params = cast_expr.to_sql()
-        assert sql == expected_sql
-        assert params == expected_params
+        assert sql == 'CAST("price" AS INTEGER)'
+        assert params == ()
+
+    def test_cast_literal(self, dummy_dialect: DummyDialect):
+        """Tests cast() method on Literal."""
+        lit = Literal(dummy_dialect, "2023-01-01")
+        cast_expr = lit.cast("DATE")
+        sql, params = cast_expr.to_sql()
+        assert sql == 'CAST(? AS DATE)'
+        assert params == ("2023-01-01",)
 
     # --- ExistsExpression ---
     @pytest.mark.parametrize("is_not, expected_prefix", [

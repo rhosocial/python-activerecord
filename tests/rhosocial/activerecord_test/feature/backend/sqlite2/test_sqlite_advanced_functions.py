@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     Column, Literal
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CaseExpression, CastExpression, ExistsExpression,
+    CaseExpression, ExistsExpression,
     AnyExpression, AllExpression, JSONExpression, ArrayExpression,
     OrderedSetAggregation
 )
@@ -64,14 +64,14 @@ class TestCaseExpression:
         assert len(params) == 5  # 1, "Active", 0, "Inactive", "Unknown"
 
 
-class TestCastExpression:
-    """Tests for CastExpression class."""
+class TestCastMethod:
+    """Tests for cast() method."""
 
-    def test_cast_expression_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test basic CAST expression functionality."""
-        cast_expr = CastExpression(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), "INTEGER")
+    def test_cast_method_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test basic CAST via cast() method."""
+        col = Column(sqlite_dialect_3_8_0, "price")
+        cast_expr = col.cast("INTEGER")
         sql, params = cast_expr.to_sql()
-        # SQLite uses CAST(expr AS type)
         assert "CAST(" in sql
         assert "AS INTEGER" in sql
         assert params == ()
@@ -170,6 +170,9 @@ class TestArrayExpression:
             elements=[Literal(sqlite_dialect_3_8_0, 1), Literal(sqlite_dialect_3_8_0, 2), Literal(sqlite_dialect_3_8_0, 3)]
         )
         # Try to generate SQL - this should raise UnsupportedFeatureError in SQLite
+        # The error is raised inside format_array_expression when checking supports_array_constructor
+        # Since SQLite's ArrayMixin implementation returns False for supports_array_constructor,
+        # the error should be raised when trying to format
         with pytest.raises(UnsupportedFeatureError):
             array_expr.to_sql()
 

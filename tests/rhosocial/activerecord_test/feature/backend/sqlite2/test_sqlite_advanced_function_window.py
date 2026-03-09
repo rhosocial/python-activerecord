@@ -4,7 +4,7 @@ import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, TableExpression, QueryExpression, BinaryArithmeticExpression,
     # Import new classes for window functions and advanced features
-    CaseExpression, CastExpression, ExistsExpression, AnyExpression, AllExpression,
+    CaseExpression, ExistsExpression, AnyExpression, AllExpression,
     SelectModifier, ForUpdateClause,
     # Window-related classes
     WindowFrameSpecification, WindowSpecification, WindowDefinition,
@@ -51,10 +51,11 @@ class TestAdvancedFunctionWindow:
         assert "CASE" in sql
         assert len(params) == 5  # status value, "A", "Active", "I", "Inactive", "Unknown" - wait, let me check this again
 
-    # --- CastExpression ---
-    def test_cast_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Tests CAST expression."""
-        cast_expr = CastExpression(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), "REAL")
+    # --- Cast via cast() method ---
+    def test_cast_method(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Tests cast() method."""
+        col = Column(sqlite_dialect_3_8_0, "price")
+        cast_expr = col.cast("REAL")
         sql, params = cast_expr.to_sql()
         assert "CAST" in sql.upper()
         assert params == ()

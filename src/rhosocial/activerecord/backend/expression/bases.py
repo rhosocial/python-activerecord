@@ -122,4 +122,6 @@ class SQLValueExpression(BaseExpression):
     Abstract base class for SQL expressions that return a non-boolean value
     (e.g., integer, string, date).
     """
-    pass
+    def __init__(self, dialect: "SQLDialectBase"):
+        super().__init__(dialect)
+        self._cast_types: list = []

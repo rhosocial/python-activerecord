@@ -577,8 +577,11 @@ class TestTypeConversionFunctionFactories:
     
     def test_cast_function(self, dummy_dialect: DummyDialect):
         """Test CAST function."""
+        from rhosocial.activerecord.backend.expression.core import Column
         func = cast(dummy_dialect, "value", "INTEGER")
-        assert func.target_type == "INTEGER"
+        # cast() now returns a Column with cast_types set
+        assert isinstance(func, Column)
+        assert "INTEGER" in func.cast_types
         sql, params = func.to_sql()
         assert "CAST(" in sql
     
@@ -920,23 +923,25 @@ class TestJsonFunctionFactoriesExtended:
         """Tests that format_function_call raises UnsupportedFeatureError when filter clause is used on non-supporting dialect."""
         from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
         from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
+        from rhosocial.activerecord.backend.expression.core import FunctionCall, Column
+        from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+        from rhosocial.activerecord.backend.expression import Literal
 
         # Create a dialect that doesn't implement FilterClauseSupport protocol
         class MockDialect(SQLDialectBase):
             def get_placeholder(self) -> str:
                 return "?"
 
-            def get_parameter_placeholder(self, position: int) -> str:
+            def get_parameter_placeholder(self, position: int = 0) -> str:
                 return f"${position}"
 
         mock_dialect = MockDialect()
 
+        # Create a function call expression - args are passed as positional arguments
+        func = FunctionCall(mock_dialect, "COUNT", Column(mock_dialect, "id"))
+
+        # Create a filter predicate: value > 100
+        filter_pred = ComparisonPredicate(mock_dialect, ">", Column(mock_dialect, "value"), Literal(mock_dialect, 100))
+
         with pytest.raises(UnsupportedFeatureError, match=r".*FILTER clause in aggregate functions.*"):
-            mock_dialect.format_function_call(
-                func_name="COUNT",
-                args_sql=["id"],
-                args_params=[()],
-                is_distinct=False,
-                filter_sql="WHERE value > ?",  # Providing filter_sql should trigger the else branch
-                filter_params=(100,)
-            )
+            mock_dialect.format_function_call(func, filter_predicate=filter_pred)

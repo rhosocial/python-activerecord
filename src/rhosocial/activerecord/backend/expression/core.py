@@ -18,10 +18,14 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
         self.value = value
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        # Always return a single placeholder and the value itself.
-        # It's up to higher-level expressions (like InPredicate or ValuesExpression)
-        # to decide if this value needs to be expanded or formatted differently.
-        return self.dialect.get_parameter_placeholder(), (self.value,)
+        sql = self.dialect.get_parameter_placeholder()
+        params = (self.value,)
+
+        # Apply type casts if any
+        for target_type in self._cast_types:
+            sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
+
+        return sql, params
 
     def __repr__(self) -> str:
         return f"Literal({self.value!r})"
@@ -36,7 +40,22 @@ class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMix
         self.alias = alias
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        return self.dialect.format_column(self.name, self.table, self.alias)
+        # Generate base column SQL
+        if self.table:
+            sql = f'{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}'
+        else:
+            sql = self.dialect.format_identifier(self.name)
+        params = ()
+
+        # Apply type casts if any
+        for target_type in self._cast_types:
+            sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
+
+        # Apply alias if any (after type casts)
+        if self.alias:
+            sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
+
+        return sql, params
 
 
 class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
@@ -50,12 +69,7 @@ class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.Compari
         self.alias = alias
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        formatted_args_sql = [arg.to_sql()[0] for arg in self.args]
-        args_params = [arg.to_sql()[1] for arg in self.args]
-        return self.dialect.format_function_call(
-            self.func_name, formatted_args_sql, args_params, self.is_distinct, self.alias,
-            filter_sql=None, filter_params=None
-        )
+        return self.dialect.format_function_call(self)
 
 
 class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
@@ -65,7 +79,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
                  query_params: Optional[Tuple[Any, ...]] = None,
                  alias: Optional[str] = None):
         super().__init__(dialect)
-        self.alias = alias  # Store alias as an instance attribute
+        self.alias = alias
 
         # Handle backward compatibility: if query_input is not a tuple but query_params is provided,
         # treat query_input as a string and query_params as the parameters
@@ -100,10 +114,18 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
                 self.query_params = ()
 
     def to_sql(self) -> 'bases.SQLQueryAndParams':
-        subquery_sql = f"({self.query_sql})"
+        sql = f"({self.query_sql})"
+        params = self.query_params
+
+        # Apply type casts if any
+        for target_type in self._cast_types:
+            sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
+
+        # Apply alias if any (after type casts)
         if self.alias:
-            return self.dialect.format_subquery(subquery_sql, self.query_params, self.alias)
-        return subquery_sql, self.query_params
+            sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
+
+        return sql, params
 
 
 class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
