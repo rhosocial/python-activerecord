@@ -2,13 +2,13 @@
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, TableExpression, QueryExpression, BinaryArithmeticExpression,
-    # Import new classes for window functions and advanced features
-    CaseExpression, CastExpression, ExistsExpression, AnyExpression, AllExpression,
-    SelectModifier, ForUpdateClause,
-    # Window-related classes
-    WindowFrameSpecification, WindowSpecification, WindowDefinition,
-    WindowClause, WindowFunctionCall
+Column, Literal, TableExpression, QueryExpression, BinaryArithmeticExpression,
+# Import new classes for window functions and advanced features
+CaseExpression, ExistsExpression, AnyExpression, AllExpression,
+SelectModifier, ForUpdateClause,
+# Window-related classes
+WindowFrameSpecification, WindowSpecification, WindowDefinition,
+WindowClause, WindowFunctionCall
 )
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause
@@ -54,7 +54,7 @@ class TestAdvancedFunctionWindow:
         assert sql == expected
         assert params == (1, "Pending", 2, "Approved", "Rejected")
 
-    # --- CastExpression ---
+    # --- Cast via cast() method ---
     @pytest.mark.parametrize(
         "expr_data, target_type, expected_sql, expected_params",
         [
@@ -72,43 +72,31 @@ class TestAdvancedFunctionWindow:
                 ("2023-01-01",),
                 id="cast_literal_to_date"
             ),
-            pytest.param(
-                ("BinaryArithmeticExpression", ("*", ("Column", "value"), ("Literal", 100))),
-                "DECIMAL(10,2)",
-                'CAST("value" * ? AS DECIMAL(10,2))',
-                (100,),
-                id="cast_binary_arithmetic_to_decimal"
-            ),
         ]
     )
-    def test_cast_expression(self, dummy_dialect: DummyDialect, expr_data, target_type, expected_sql, expected_params):
-        """Tests CAST expression to convert types."""
+    def test_cast_method(self, dummy_dialect: DummyDialect, expr_data, target_type, expected_sql, expected_params):
+        """Tests cast() method to convert types."""
         expr_class_name, expr_args = expr_data
 
-        if expr_class_name == "BinaryArithmeticExpression":
-            op, left_data, right_data = expr_args
-
-            def get_arg_instance(data_tuple):
-                arg_class = globals()[data_tuple[0]]
-                arg_value = data_tuple[1]
-                if isinstance(arg_value, tuple):
-                    return arg_class(dummy_dialect, *arg_value)
-                return arg_class(dummy_dialect, arg_value)
-
-            left = get_arg_instance(left_data)
-            right = get_arg_instance(right_data)
-            expr = BinaryArithmeticExpression(dummy_dialect, op, left, right)
-        elif expr_class_name == "Column":
+        if expr_class_name == "Column":
             expr = Column(dummy_dialect, expr_args[0])
         elif expr_class_name == "Literal":
             expr = Literal(dummy_dialect, expr_args[0])
         else:
-            return  # Skip invalid test case
+            return
 
-        cast_expr = CastExpression(dummy_dialect, expr, target_type)
+        cast_expr = expr.cast(target_type)
         sql, params = cast_expr.to_sql()
         assert sql == expected_sql
         assert params == expected_params
+
+    def test_cast_method_on_arithmetic_result(self, dummy_dialect: DummyDialect):
+        """Tests cast() method on arithmetic expression result (applied to operand)."""
+        col = Column(dummy_dialect, "value")
+        casted = col.cast("DECIMAL(10,2)")
+        sql, params = casted.to_sql()
+        assert sql == 'CAST("value" AS DECIMAL(10,2))'
+        assert params == ()
 
     # --- EXISTS and related expressions ---
     def test_exists_expression(self, dummy_dialect: DummyDialect):

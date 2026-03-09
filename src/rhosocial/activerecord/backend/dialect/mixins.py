@@ -43,8 +43,8 @@ class WindowFunctionMixin:
         return False
 
     def format_window_function_call(
-            self,
-            call: "WindowFunctionCall"
+        self,
+        call: "WindowFunctionCall"
     ) -> Tuple[str, tuple]:
         """Format window function call."""
         if not self.supports_window_functions():
@@ -75,13 +75,19 @@ class WindowFunctionMixin:
                 window_part = self.format_identifier(call.window_spec)
             else:
                 # Inline window specification
-                # We need to implement format_window_specification in the mixin
                 window_spec_sql, window_spec_params = self.format_window_specification(call.window_spec)
                 window_part = f"({window_spec_sql})" if window_spec_sql else "()"
                 all_params.extend(window_spec_params)
 
             sql = f"{func_sql} OVER {window_part}"
 
+        # Apply type casts if any (before alias)
+        if call.cast_types:
+            for target_type in call.cast_types:
+                sql, all_params_tuple = self.format_cast_expression(sql, target_type, tuple(all_params), None)
+                all_params = list(all_params_tuple)
+
+        # Apply alias if any (after type casts)
         if call.alias:
             sql = f"{sql} AS {self.format_identifier(call.alias)}"
 
@@ -567,36 +573,38 @@ class ArrayMixin:
         return False
 
     def format_array_expression(
-            self,
-            operation: str,
-            elements: Optional[List["bases.BaseExpression"]],
-            base_expr: Optional["bases.BaseExpression"],
-            index_expr: Optional["bases.BaseExpression"],
-            alias: Optional[str] = None
+        self,
+        expr: "ArrayExpression"
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
         all_params = ()
 
-        if operation.upper() == "CONSTRUCTOR" and elements is not None:
+        if expr.operation.upper() == "CONSTRUCTOR" and expr.elements is not None:
             element_parts = []
             all_params = []
-            for elem in elements:
+            for elem in expr.elements:
                 elem_sql, elem_params = elem.to_sql()
                 element_parts.append(elem_sql)
                 all_params.extend(elem_params)
             sql = f"ARRAY[{', '.join(element_parts)}]"
             all_params = tuple(all_params)
-        elif operation.upper() == "ACCESS" and base_expr and index_expr:
-            base_sql, base_params = base_expr.to_sql()
-            index_sql, index_params = index_expr.to_sql()
+        elif expr.operation.upper() == "ACCESS" and expr.base_expr and expr.index_expr:
+            base_sql, base_params = expr.base_expr.to_sql()
+            index_sql, index_params = expr.index_expr.to_sql()
             sql = f"({base_sql}[{index_sql}])"
             all_params = base_params + index_params
         else:
             # Default case for unsupported operations
             sql = "ARRAY[]"
 
-        if alias:
-            sql = f"{sql} AS {self.format_identifier(alias)}"
+        # Apply type casts if any (before alias)
+        if expr.cast_types:
+            for target_type in expr.cast_types:
+                sql, all_params = self.format_cast_expression(sql, target_type, all_params, None)
+
+        # Apply alias if any (after type casts)
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
 
         return sql, all_params
 
@@ -622,21 +630,27 @@ class JSONMixin:
         return False
 
     def format_json_expression(
-            self,
-            column: Union["bases.BaseExpression", str],
-            path: str,
-            operation: str,
-            alias: Optional[str] = None
+        self,
+        expr: "JSONExpression"
     ) -> Tuple[str, Tuple]:
         """Format JSON expression."""
-        if isinstance(column, bases.BaseExpression):
-            col_sql, col_params = column.to_sql()
+        if isinstance(expr.column, bases.BaseExpression):
+            col_sql, col_params = expr.column.to_sql()
         else:
-            col_sql, col_params = self.format_identifier(str(column)), ()
-        sql = f"({col_sql} {operation} ?)"
-        if alias:
-            sql = f"{sql} AS {self.format_identifier(alias)}"
-        return sql, col_params + (path,)
+            col_sql, col_params = self.format_identifier(str(expr.column)), ()
+        sql = f"({col_sql} {expr.operation} ?)"
+        params = col_params + (expr.path,)
+
+        # Apply type casts if any (before alias)
+        if expr.cast_types:
+            for target_type in expr.cast_types:
+                sql, params = self.format_cast_expression(sql, target_type, params, None)
+
+        # Apply alias if any (after type casts)
+        if expr.alias:
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+
+        return sql, params
 
     def format_json_table_expression(
             self,
@@ -853,8 +867,8 @@ class OrderedSetAggregationMixin:
         return False
 
     def format_ordered_set_aggregation(
-            self,
-            aggregation: "OrderedSetAggregation"
+        self,
+        aggregation: "OrderedSetAggregation"
     ) -> Tuple[str, Tuple]:
         """
         Formats an ordered-set aggregate function call.
@@ -878,9 +892,20 @@ class OrderedSetAggregationMixin:
         # Get the ORDER BY SQL from the OrderByClause object
         order_by_sql, order_by_params = aggregation.order_by.to_sql()
         sql = f"{aggregation.func_name.upper()}({', '.join(func_args_sql)}) WITHIN GROUP ({order_by_sql})"
+
+        all_params = func_args_params + list(order_by_params)
+
+        # Apply type casts if any (before alias)
+        if aggregation.cast_types:
+            for target_type in aggregation.cast_types:
+                sql, all_params_tuple = self.format_cast_expression(sql, target_type, tuple(all_params), None)
+                all_params = list(all_params_tuple)
+
+        # Apply alias if any (after type casts)
         if aggregation.alias:
             sql = f"{sql} AS {self.format_identifier(aggregation.alias)}"
-        return sql, tuple(func_args_params) + order_by_params
+
+        return sql, tuple(all_params)
 
 
 class MergeMixin:

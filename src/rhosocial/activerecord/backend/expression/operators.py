@@ -103,7 +103,7 @@ class RawSQLPredicate(bases.SQLPredicate):
         return self.expression, self.params
 
 
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
     """Represents a binary arithmetic operation."""
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"):
         super().__init__(dialect)
@@ -128,7 +128,13 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
         if right_needs_parens:
             right_sql = f"({right_sql})"
 
-        return self.dialect.format_binary_arithmetic_expression(self.op, left_sql, right_sql, left_params, right_params)
+        sql, params = self.dialect.format_binary_arithmetic_expression(self.op, left_sql, right_sql, left_params, right_params)
+
+        # Apply type casts if any
+        for target_type in self._cast_types:
+            sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
+
+        return sql, params
 
     def _needs_parens(self, operand, current_precedence):
         """Check if an operand needs parentheses based on precedence."""

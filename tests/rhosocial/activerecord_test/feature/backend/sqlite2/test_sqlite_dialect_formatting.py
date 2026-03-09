@@ -125,10 +125,21 @@ class TestSQLiteDialectFormatting:
 
     def test_format_array_expression_error(self):
         """Test array expression formatting error"""
+        from unittest.mock import MagicMock
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
         dialect = SQLiteDialect()
 
+        # Create a mock ArrayExpression to pass to format_array_expression
+        mock_expr = MagicMock(spec=ArrayExpression)
+        mock_expr.operation = "CONSTRUCTOR"
+        mock_expr.elements = []
+        mock_expr.base_expr = None
+        mock_expr.index_expr = None
+        mock_expr.alias = None
+        mock_expr.cast_types = []
+
         with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_array_expression("operation", [], None, None)
+            dialect.format_array_expression(mock_expr)
 
         assert "Array operations" in str(exc_info.value)
         assert "SQLite does not support native array types" in str(exc_info.value)
@@ -188,12 +199,21 @@ class TestSQLiteDialectFormatting:
     ])
     def test_formatting_methods_unsupported(self, operation, method_name, expected_error_part):
         """Parametrized test for unsupported formatting methods"""
+        from unittest.mock import MagicMock
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             if method_name == "format_array_expression":
-                method(operation, [], None, None)
+                mock_expr = MagicMock(spec=ArrayExpression)
+                mock_expr.operation = "CONSTRUCTOR"
+                mock_expr.elements = []
+                mock_expr.base_expr = None
+                mock_expr.index_expr = None
+                mock_expr.alias = None
+                mock_expr.cast_types = []
+                method(mock_expr)
             elif method_name == "format_json_table_expression":
                 method("json_col", "$.path", [], "alias", ())
             elif method_name == "format_ordered_set_aggregation":

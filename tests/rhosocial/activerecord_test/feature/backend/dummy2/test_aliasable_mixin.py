@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.expression import (
     Literal, Column, FunctionCall, Subquery
 )
 from rhosocial.activerecord.backend.expression.advanced_functions import (
-    CastExpression, JSONExpression, ArrayExpression, OrderedSetAggregation
+    JSONExpression, ArrayExpression, OrderedSetAggregation
 )
 from rhosocial.activerecord.backend.expression.aggregates import AggregateFunctionCall
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -81,16 +81,16 @@ class TestAliasableMixin:
         assert params == ()
 
     def test_cast_expression_alias_initialization(self, dummy_dialect: DummyDialect):
-        """Test CastExpression with alias specified during initialization."""
-        cast = CastExpression(dummy_dialect, Column(dummy_dialect, "id"), "TEXT", alias="id_text")
+        """Test cast() method with alias specified during initialization."""
+        cast = Column(dummy_dialect, "id", alias="id_text").cast("TEXT")
         assert cast.alias == "id_text"
         sql, params = cast.to_sql()
         assert sql == 'CAST("id" AS TEXT) AS "id_text"'
         assert params == ()
 
     def test_cast_expression_alias_with_as_method(self, dummy_dialect: DummyDialect):
-        """Test CastExpression with alias specified using as_() method."""
-        cast = CastExpression(dummy_dialect, Column(dummy_dialect, "id"), "TEXT").as_("id_text")
+        """Test cast() method with alias specified using as_() method."""
+        cast = Column(dummy_dialect, "id").as_("id_text").cast("TEXT")
         assert cast.alias == "id_text"
         sql, params = cast.to_sql()
         assert sql == 'CAST("id" AS TEXT) AS "id_text"'

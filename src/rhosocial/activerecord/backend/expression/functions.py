@@ -1264,12 +1264,16 @@ def array_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpressi
 # region Type Conversion Function Factories
 
 def cast(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
-         target_type: str) -> "advanced_functions.CastExpression":
+         target_type: str) -> "bases.SQLValueExpression":
     """
-    Creates a CAST expression.
+    Creates a type cast on an expression.
+
+    This function applies a type cast using the cast() method on the expression.
+    The cast is stored in the _cast_types list and applied during to_sql().
 
     Usage rules:
     - To generate CAST(column AS type), pass a Column object: cast(dialect, Column(dialect, "column_name"), "INTEGER")
+    - To generate CAST("col" AS type), pass a string: cast(dialect, "column_name", "INTEGER")
 
     Args:
         dialect: The SQL dialect instance
@@ -1278,10 +1282,11 @@ def cast(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
         target_type: The target data type to cast to.
 
     Returns:
-        A CastExpression instance representing the CAST operation
+        The expression with the type cast applied (same object, modified in-place)
     """
     target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Column(dialect, expr)
-    return advanced_functions.CastExpression(dialect, target_expr, target_type)
+    target_expr.cast(target_type)
+    return target_expr
 
 def to_char(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"],
             format: Optional[str] = None) -> "core.FunctionCall":

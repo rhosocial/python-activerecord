@@ -87,6 +87,8 @@ class TestSQLiteDialectComprehensive:
     ])
     def test_formatting_methods_unsupported_comprehensive(self, operation, method_name, expected_error_part):
         """Comprehensive test for unsupported formatting methods"""
+        from unittest.mock import MagicMock
+        from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression
         dialect = SQLiteDialect()
         method = getattr(dialect, method_name)
 
@@ -94,7 +96,14 @@ class TestSQLiteDialectComprehensive:
             if method_name == "format_grouping_expression":
                 method(operation, [])
             elif method_name == "format_array_expression":
-                method(operation, [], None, None)
+                mock_expr = MagicMock(spec=ArrayExpression)
+                mock_expr.operation = "CONSTRUCTOR"
+                mock_expr.elements = []
+                mock_expr.base_expr = None
+                mock_expr.index_expr = None
+                mock_expr.alias = None
+                mock_expr.cast_types = []
+                method(mock_expr)
             elif method_name == "format_json_table_expression":
                 method("json_col", "$.path", [], "alias", ())
             elif method_name == "format_ordered_set_aggregation":

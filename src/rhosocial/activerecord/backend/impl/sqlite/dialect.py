@@ -5,7 +5,7 @@ SQLite backend SQL dialect implementation.
 This dialect implements only the protocols for features that SQLite actually supports,
 based on the SQLite version provided at initialization.
 """
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -28,6 +28,21 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression import bases
+    from rhosocial.activerecord.backend.expression.advanced_functions import (
+        ArrayExpression, OrderedSetAggregation
+    )
+    from rhosocial.activerecord.backend.expression.graph import MatchClause
+    from rhosocial.activerecord.backend.expression.query_parts import (
+        OrderByClause, LimitOffsetClause, ForUpdateClause, QualifyClause
+    )
+    from rhosocial.activerecord.backend.expression.statements import (
+        CreateViewExpression, DropViewExpression,
+        CreateMaterializedViewExpression, DropMaterializedViewExpression,
+        RefreshMaterializedViewExpression, ReturningClause
+    )
 
 
 class SQLiteDialect(
@@ -272,11 +287,7 @@ class SQLiteDialect(
 
     def format_array_expression(
         self,
-        operation: str,
-        elements: Optional[List["bases.BaseExpression"]],
-        base_expr: Optional["bases.BaseExpression"],
-        index_expr: Optional["bases.BaseExpression"],
-        alias: Optional[str] = None
+        expr: "ArrayExpression"
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
