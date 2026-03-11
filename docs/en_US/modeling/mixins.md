@@ -27,10 +27,39 @@ from rhosocial.activerecord.field import TimestampMixin
 
 class Post(TimestampMixin, ActiveRecord):
     # Automatically gets:
-    # created_at: int (default milliseconds timestamp, configurable)
-    # updated_at: int
+    # created_at: datetime (UTC timezone)
+    # updated_at: datetime (UTC timezone)
     pass
 ```
+
+#### Timestamp Generation Strategy
+
+`TimestampMixin` uses **Python-side timestamp generation** instead of relying on database `CURRENT_TIMESTAMP` functions.
+
+**Design Rationale**:
+
+1. **Format Consistency**: Insert and update operations use the same UTC datetime format (ISO 8601), avoiding data format inconsistencies.
+   
+   If using database `CURRENT_TIMESTAMP`:
+   - On insert: Python generates UTC datetime (e.g., `2024-01-15T10:30:00+00:00`)
+   - On update: Database generates timestamp (format may vary by database)
+   - Result: Same field has two different formats
+
+2. **Cross-Database Compatibility**: Different databases handle `CURRENT_TIMESTAMP` differently:
+   - SQLite: Returns local time string
+   - PostgreSQL: Returns timestamp with timezone
+   - MySQL: Returns server timezone time
+   
+   Using Python generation ensures consistent behavior across all database backends.
+
+3. **Predictability**: Timestamp values are available before saving, facilitating business logic handling.
+
+**Implementation Details**:
+
+- All timestamps use UTC timezone `datetime` objects
+- `_update_timestamps` method is called during `BEFORE_SAVE` event
+- New records: Sets both `created_at` and `updated_at`
+- Update records: Only updates `updated_at`, `created_at` remains unchanged
 
 ### SoftDeleteMixin
 

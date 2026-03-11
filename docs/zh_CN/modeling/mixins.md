@@ -27,10 +27,39 @@ from rhosocial.activerecord.field import TimestampMixin
 
 class Post(TimestampMixin, ActiveRecord):
     # 自动获得:
-    # created_at: int (默认毫秒级时间戳，可配置)
-    # updated_at: int
+    # created_at: datetime (UTC 时区)
+    # updated_at: datetime (UTC 时区)
     pass
 ```
+
+#### 时间戳生成策略
+
+`TimestampMixin` 使用 **Python 端生成时间戳** 的策略，而非依赖数据库的 `CURRENT_TIMESTAMP` 函数。
+
+**设计原因**：
+
+1. **格式一致性**：插入和更新操作使用相同的 UTC datetime 格式（ISO 8601），避免数据格式不一致。
+   
+   如果使用数据库的 `CURRENT_TIMESTAMP`：
+   - 插入时：Python 生成 UTC datetime（如 `2024-01-15T10:30:00+00:00`）
+   - 更新时：数据库生成时间戳（格式可能因数据库而异）
+   - 结果：同一字段出现两种不同的格式
+
+2. **跨数据库兼容**：不同数据库对 `CURRENT_TIMESTAMP` 的处理方式不同：
+   - SQLite：返回本地时间字符串
+   - PostgreSQL：返回带时区的时间戳
+   - MySQL：返回服务器时区时间
+   
+   使用 Python 生成可确保所有数据库后端行为一致。
+
+3. **可预测性**：在保存前即可获取时间戳值，便于业务逻辑处理。
+
+**实现细节**：
+
+- 所有时间戳使用 UTC 时区的 `datetime` 对象
+- `_update_timestamps` 方法在 `BEFORE_SAVE` 事件中被调用
+- 新记录：设置 `created_at` 和 `updated_at`
+- 更新记录：仅更新 `updated_at`，`created_at` 保持不变
 
 ### SoftDeleteMixin (软删除)
 
