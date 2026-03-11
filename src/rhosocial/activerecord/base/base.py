@@ -18,6 +18,7 @@ from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ActiveRecordBase, ModelEvent
 from ..interface.update import IUpdateBehavior
+from ..relation.base import RelationManagementMixin
 
 
 class CustomModuleFormatter(logging.Formatter):

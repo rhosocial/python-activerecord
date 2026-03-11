@@ -97,7 +97,7 @@ class BasicProvider(IBasicProvider):
     async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario_name: str, table_name: str) -> Type[ActiveRecord]:
         """A generic helper method to handle the setup for any given async model."""
         # 1. Get the async backend class (AsyncSQLiteBackend) and connection config for the requested scenario.
-        from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
         backend_class = AsyncSQLiteBackend
         _, original_config = get_scenario(scenario_name)
 
