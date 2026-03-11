@@ -6,7 +6,8 @@ This module provides a complete SQLite backend implementation for the ActiveReco
 including connection management, dialect support, type adapters, and query execution.
 """
 
-from .backend import SQLiteBackend
+from .backend.sync import SQLiteBackend
+from .backend.async_backend import AsyncSQLiteBackend
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect
 from .adapters import (
@@ -14,12 +15,21 @@ from .adapters import (
     SQLiteJSONAdapter,
     SQLiteUUIDAdapter
 )
+from .transaction import (
+    SQLiteTransactionManager,
+    AsyncSQLiteTransactionManager,
+    SQLiteTransactionMixin
+)
 
 __all__ = [
     'SQLiteBackend',
-    'SQLiteConnectionConfig', 
+    'AsyncSQLiteBackend',
+    'SQLiteConnectionConfig',
     'SQLiteDialect',
     'SQLiteBlobAdapter',
     'SQLiteJSONAdapter',
     'SQLiteUUIDAdapter',
+    'SQLiteTransactionManager',
+    'AsyncSQLiteTransactionManager',
+    'SQLiteTransactionMixin',
 ]

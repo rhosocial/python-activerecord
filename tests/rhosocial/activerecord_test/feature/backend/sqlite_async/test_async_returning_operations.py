@@ -13,7 +13,7 @@ import os
 from datetime import datetime
 
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
 from rhosocial.activerecord.backend.expression import ComparisonPredicate, Column, Literal
 from rhosocial.activerecord.backend.schema import StatementType
