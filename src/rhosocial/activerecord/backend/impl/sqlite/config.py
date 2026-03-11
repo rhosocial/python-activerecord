@@ -70,6 +70,7 @@ class SQLiteDriverMixin:
     timeout: float = 5.0
     isolation_level: Optional[str] = None
     detect_types: int = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
+    check_same_thread: bool = True
 
 
 @dataclass

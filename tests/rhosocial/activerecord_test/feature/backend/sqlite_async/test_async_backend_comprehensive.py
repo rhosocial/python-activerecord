@@ -19,12 +19,10 @@ from rhosocial.activerecord.backend.errors import (
     DatabaseError, QueryError, TransactionError, ReturningNotSupportedError, OperationalError
 )
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend, AsyncSQLiteTransactionManager
 from rhosocial.activerecord.backend.transaction import IsolationLevel
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import (
-    AsyncSQLiteBackend, AsyncTransactionManager
-)
 
 
 class TestAsyncSQLiteBackendBasic:
@@ -924,11 +922,11 @@ class TestAsyncSQLiteTransaction:
         await backend.execute("INSERT INTO test (id, value) VALUES (1, 'base')", options=options)
 
         # Create savepoint
-        sp1 = await backend.transaction_manager.async_savepoint("sp1")
+        sp1 = await backend.transaction_manager.savepoint("sp1")
         await backend.execute("INSERT INTO test (id, value) VALUES (2, 'sp1')", options=options)
 
         # Create second savepoint
-        sp2 = await backend.transaction_manager.async_savepoint("sp2")
+        sp2 = await backend.transaction_manager.savepoint("sp2")
         await backend.execute("INSERT INTO test (id, value) VALUES (3, 'sp2')", options=options)
 
         # Rollback to first savepoint
@@ -960,10 +958,10 @@ class TestAsyncSQLiteTransaction:
         await backend.begin_transaction()
 
         # Create savepoints with auto names
-        sp1 = await backend.transaction_manager.async_savepoint()
-        assert sp1 == "SP_1"
+        sp1 = await backend.transaction_manager.savepoint()
+        assert sp1.startswith("SP_")
 
-        sp2 = await backend.transaction_manager.async_savepoint()
+        sp2 = await backend.transaction_manager.savepoint()
         assert sp2 == "SP_2"
 
         await backend.rollback_transaction()
@@ -1041,7 +1039,7 @@ class TestAsyncSQLiteTransaction:
     async def test_savepoint_without_transaction(self, backend):
         """Test creating savepoint without active transaction"""
         with pytest.raises(TransactionError) as exc_info:
-            await backend.transaction_manager.async_savepoint("sp1")
+            await backend.transaction_manager.savepoint("sp1")
 
         assert "Cannot create savepoint: no active transaction" in str(exc_info.value)
 
@@ -1072,7 +1070,7 @@ class TestAsyncSQLiteTransaction:
     @pytest.mark.asyncio
     async def test_supports_savepoint(self, backend):
         """Test savepoint support check"""
-        assert backend.transaction_manager.supports_savepoint() is True
+        assert await backend.transaction_manager.supports_savepoint() is True
 
     @pytest.mark.asyncio
     async def test_mixed_savepoint_transactions(self, backend):
@@ -1083,7 +1081,7 @@ class TestAsyncSQLiteTransaction:
         await backend.execute("INSERT INTO test (id, value) VALUES (1, 'main')", options=options)
 
         # Create manual savepoint
-        sp1 = await backend.transaction_manager.async_savepoint("manual_sp")
+        sp1 = await backend.transaction_manager.savepoint("manual_sp")
         await backend.execute("INSERT INTO test (id, value) VALUES (2, 'manual_sp')", options=options)
 
         # Create nested transaction

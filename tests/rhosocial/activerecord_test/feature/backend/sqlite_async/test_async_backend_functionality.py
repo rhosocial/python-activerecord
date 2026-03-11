@@ -2,7 +2,7 @@
 Tests for AsyncSQLiteBackend functionality
 """
 import pytest
-from rhosocial.activerecord_test.feature.backend.sqlite_async.async_backend import AsyncSQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
 
 @pytest.mark.asyncio

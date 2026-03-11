@@ -29,8 +29,7 @@ class TestSQLiteVersion:
     def test_get_version_parsing(self, temp_db_path):
         """Test that the method correctly parses the SQLite version string"""
         # Reset class-level cache to ensure clean test
-        if hasattr(SQLiteBackend, '_sqlite_version_cache'):
-            delattr(SQLiteBackend, '_sqlite_version_cache')
+        SQLiteBackend._sqlite_version_cache = None
 
         # Create a backend
         config = ConnectionConfig(database=temp_db_path)
@@ -56,8 +55,7 @@ class TestSQLiteVersion:
     def test_version_caching(self, temp_db_path):
         """Test that the version is cached at class level between instances"""
         # Reset class-level cache to ensure clean test
-        if hasattr(SQLiteBackend, '_sqlite_version_cache'):
-            delattr(SQLiteBackend, '_sqlite_version_cache')
+        SQLiteBackend._sqlite_version_cache = None
 
         # Create first backend and get version
         config1 = ConnectionConfig(database=temp_db_path)
@@ -77,7 +75,7 @@ class TestSQLiteVersion:
         assert version1 == version2
 
         # Both should be the cached version
-        assert hasattr(SQLiteBackend, '_sqlite_version_cache')
+        assert SQLiteBackend._sqlite_version_cache is not None
         assert SQLiteBackend._sqlite_version_cache == version1
 
         backend1.disconnect()
@@ -85,8 +83,7 @@ class TestSQLiteVersion:
     def test_version_error_handling(self, temp_db_path):
         """Test error handling by simulating a connection error"""
         # Reset class-level cache to ensure clean test
-        if hasattr(SQLiteBackend, '_sqlite_version_cache'):
-            delattr(SQLiteBackend, '_sqlite_version_cache')
+        SQLiteBackend._sqlite_version_cache = None
 
         # Create backend
         config = ConnectionConfig(database=temp_db_path)
@@ -107,8 +104,7 @@ class TestSQLiteVersion:
     def test_version_parsing_variants(self, temp_db_path):
         """Test parsing of different version string formats"""
         # Reset class-level cache to ensure clean test
-        if hasattr(SQLiteBackend, '_sqlite_version_cache'):
-            delattr(SQLiteBackend, '_sqlite_version_cache')
+        SQLiteBackend._sqlite_version_cache = None
 
         # Create backend
         config = ConnectionConfig(database=temp_db_path)
@@ -131,8 +127,7 @@ class TestSQLiteVersion:
                 mock_conn.cursor.return_value = mock_cursor
 
                 # Reset class-level cache for each test case
-                if hasattr(SQLiteBackend, '_sqlite_version_cache'):
-                    delattr(SQLiteBackend, '_sqlite_version_cache')
+                SQLiteBackend._sqlite_version_cache = None
 
                 # Get the parsed version
                 version = backend.get_server_version()
@@ -145,8 +140,7 @@ class TestSQLiteVersion:
     def test_version_comparison(self, temp_db_path):
         """Test that version can be compared correctly for feature detection"""
         # Reset class-level cache to ensure clean test
-        if hasattr(SQLiteBackend, '_sqlite_version_cache'):
-            delattr(SQLiteBackend, '_sqlite_version_cache')
+        SQLiteBackend._sqlite_version_cache = None
 
         # Create backend
         config = ConnectionConfig(database=temp_db_path)
