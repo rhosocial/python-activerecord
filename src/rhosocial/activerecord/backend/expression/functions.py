@@ -1459,3 +1459,427 @@ def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpressio
 
     return result
 # endregion Grouping Function Factories
+
+
+# region SQL Standard Function Factories (Additional)
+def mod(
+    dialect: "SQLDialectBase",
+    dividend: Union[int, float, "bases.BaseExpression"],
+    divisor: Union[int, float, "bases.BaseExpression"]
+) -> "core.FunctionCall":
+    """
+    Creates a MOD function call (modulo operation).
+
+    SQL:2003 standard modulo function.
+
+    Usage rules:
+    - To generate MOD(column, divisor): mod(dialect, Column(dialect, "column"), 10)
+    - To generate MOD(?, ?): mod(dialect, 100, 7)
+
+    Args:
+        dialect: The SQL dialect instance
+        dividend: The number to be divided
+        divisor: The number to divide by
+
+    Returns:
+        A FunctionCall instance representing the MOD function
+    """
+    dividend_expr = dividend if isinstance(dividend, bases.BaseExpression) else core.Literal(dialect, dividend)
+    divisor_expr = divisor if isinstance(divisor, bases.BaseExpression) else core.Literal(dialect, divisor)
+    return core.FunctionCall(dialect, "MOD", dividend_expr, divisor_expr)
+
+
+def sign(
+    dialect: "SQLDialectBase",
+    expr: Union[int, float, "bases.BaseExpression"]
+) -> "core.FunctionCall":
+    """
+    Creates a SIGN function call.
+
+    SQL:2003 standard function returning -1, 0, or 1.
+
+    Usage rules:
+    - To generate SIGN(column): sign(dialect, Column(dialect, "column"))
+    - To generate SIGN(?): sign(dialect, -42)
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The numeric expression
+
+    Returns:
+        A FunctionCall instance representing the SIGN function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    return core.FunctionCall(dialect, "SIGN", target_expr)
+
+
+def truncate(
+    dialect: "SQLDialectBase",
+    expr: Union[int, float, "bases.BaseExpression"],
+    precision: Optional[int] = None
+) -> "core.FunctionCall":
+    """
+    Creates a TRUNCATE function call.
+
+    SQL:2008 standard function to truncate a number to specified precision.
+
+    Usage rules:
+    - To generate TRUNCATE(column): truncate(dialect, Column(dialect, "column"))
+    - To generate TRUNCATE(column, 2): truncate(dialect, Column(dialect, "column"), 2)
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The numeric expression to truncate
+        precision: Optional number of decimal places (default is 0)
+
+    Returns:
+        A FunctionCall instance representing the TRUNCATE function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    if precision is not None:
+        precision_expr = core.Literal(dialect, precision)
+        return core.FunctionCall(dialect, "TRUNCATE", target_expr, precision_expr)
+    return core.FunctionCall(dialect, "TRUNCATE", target_expr)
+
+
+def chr_(dialect: "SQLDialectBase", code: Union[int, "bases.BaseExpression"]) -> "core.FunctionCall":
+    """
+    Creates a CHR function call.
+
+    SQL:2003 standard function converting integer code to character.
+
+    Usage rules:
+    - To generate CHR(column): chr_(dialect, Column(dialect, "code"))
+    - To generate CHR(65): chr_(dialect, 65)  # Returns 'A'
+
+    Args:
+        dialect: The SQL dialect instance
+        code: The character code (integer)
+
+    Returns:
+        A FunctionCall instance representing the CHR function
+    """
+    code_expr = code if isinstance(code, bases.BaseExpression) else core.Literal(dialect, code)
+    return core.FunctionCall(dialect, "CHR", code_expr)
+
+
+def ascii(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+    """
+    Creates an ASCII function call.
+
+    SQL:2003 standard function returning the ASCII code of the first character.
+
+    Usage rules:
+    - To generate ASCII(column): ascii(dialect, Column(dialect, "char"))
+    - To generate ASCII('A'): ascii(dialect, "A")  # Returns 65
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The string expression
+
+    Returns:
+        A FunctionCall instance representing the ASCII function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    return core.FunctionCall(dialect, "ASCII", target_expr)
+
+
+def octet_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+    """
+    Creates an OCTET_LENGTH function call.
+
+    SQL:2003 standard function returning the byte length of a string.
+
+    Usage rules:
+    - To generate OCTET_LENGTH(column): octet_length(dialect, Column(dialect, "text"))
+    - To generate OCTET_LENGTH('hello'): octet_length(dialect, "hello")
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The string expression
+
+    Returns:
+        A FunctionCall instance representing the OCTET_LENGTH function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    return core.FunctionCall(dialect, "OCTET_LENGTH", target_expr)
+
+
+def bit_length(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> "core.FunctionCall":
+    """
+    Creates a BIT_LENGTH function call.
+
+    SQL:2003 standard function returning the bit length of a string.
+
+    Usage rules:
+    - To generate BIT_LENGTH(column): bit_length(dialect, Column(dialect, "text"))
+    - To generate BIT_LENGTH('hello'): bit_length(dialect, "hello")
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The string expression
+
+    Returns:
+        A FunctionCall instance representing the BIT_LENGTH function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    return core.FunctionCall(dialect, "BIT_LENGTH", target_expr)
+
+
+def position(
+    dialect: "SQLDialectBase",
+    substring: Union[str, "bases.BaseExpression"],
+    expr: Union[str, "bases.BaseExpression"]
+) -> "core.FunctionCall":
+    """
+    Creates a POSITION function call.
+
+    SQL:2003 standard function finding substring position (1-based).
+
+    Usage rules:
+    - To generate POSITION('abc' IN column): position(dialect, "abc", Column(dialect, "text"))
+    - To generate POSITION('world' IN 'hello world'): position(dialect, "world", "hello world")
+
+    Args:
+        dialect: The SQL dialect instance
+        substring: The substring to find
+        expr: The string to search in
+
+    Returns:
+        A FunctionCall instance representing the POSITION function
+    """
+    substr_expr = substring if isinstance(substring, bases.BaseExpression) else core.Literal(dialect, substring)
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    return core.FunctionCall(dialect, "POSITION", substr_expr, target_expr)
+
+
+def overlay(
+    dialect: "SQLDialectBase",
+    expr: Union[str, "bases.BaseExpression"],
+    replacement: Union[str, "bases.BaseExpression"],
+    start: int,
+    length: Optional[int] = None
+) -> "core.FunctionCall":
+    """
+    Creates an OVERLAY function call.
+
+    SQL:2003 standard function replacing a substring.
+
+    Usage rules:
+    - To generate OVERLAY(column PLACING 'xxx' FROM 1): overlay(dialect, Column("text"), "xxx", 1)
+    - To generate OVERLAY(column PLACING 'xx' FROM 1 FOR 2): overlay(dialect, Column("text"), "xx", 1, 2)
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The source string
+        replacement: The replacement string
+        start: Starting position (1-based)
+        length: Optional length to replace
+
+    Returns:
+        A FunctionCall instance representing the OVERLAY function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    replace_expr = replacement if isinstance(replacement, bases.BaseExpression) else core.Literal(dialect, replacement)
+    start_expr = core.Literal(dialect, start)
+    if length is not None:
+        length_expr = core.Literal(dialect, length)
+        return core.FunctionCall(dialect, "OVERLAY", target_expr, replace_expr, start_expr, length_expr)
+    return core.FunctionCall(dialect, "OVERLAY", target_expr, replace_expr, start_expr)
+
+
+def translate(
+    dialect: "SQLDialectBase",
+    expr: Union[str, "bases.BaseExpression"],
+    from_chars: str,
+    to_chars: str
+) -> "core.FunctionCall":
+    """
+    Creates a TRANSLATE function call.
+
+    SQL:2003 standard function for character-by-character replacement.
+
+    Usage rules:
+    - To generate TRANSLATE(column, 'abc', 'xyz'): translate(dialect, Column("text"), "abc", "xyz")
+    - To generate TRANSLATE('hello', 'el', 'ip'): translate(dialect, "hello", "el", "ip")
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The source string
+        from_chars: Characters to replace
+        to_chars: Replacement characters
+
+    Returns:
+        A FunctionCall instance representing the TRANSLATE function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    from_expr = core.Literal(dialect, from_chars)
+    to_expr = core.Literal(dialect, to_chars)
+    return core.FunctionCall(dialect, "TRANSLATE", target_expr, from_expr, to_expr)
+
+
+def repeat(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], count: int) -> "core.FunctionCall":
+    """
+    Creates a REPEAT function call.
+
+    SQL:2003 standard function repeating a string.
+
+    Usage rules:
+    - To generate REPEAT(column, 3): repeat(dialect, Column("text"), 3)
+    - To generate REPEAT('ab', 5): repeat(dialect, "ab", 5)
+
+    Args:
+        dialect: The SQL dialect instance
+        expr: The string to repeat
+        count: Number of repetitions
+
+    Returns:
+        A FunctionCall instance representing the REPEAT function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    count_expr = core.Literal(dialect, count)
+    return core.FunctionCall(dialect, "REPEAT", target_expr, count_expr)
+
+
+def space(dialect: "SQLDialectBase", count: int) -> "core.FunctionCall":
+    """
+    Creates a SPACE function call.
+
+    SQL standard function generating spaces.
+
+    Usage rules:
+    - To generate SPACE(5): space(dialect, 5)  # Returns '     '
+
+    Args:
+        dialect: The SQL dialect instance
+        count: Number of spaces
+
+    Returns:
+        A FunctionCall instance representing the SPACE function
+    """
+    return core.FunctionCall(dialect, "SPACE", core.Literal(dialect, count))
+
+
+def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall":
+    """
+    Creates a CURRENT_TIMESTAMP function call.
+
+    SQL:2003 standard current timestamp function.
+
+    Usage rules:
+    - To generate CURRENT_TIMESTAMP: current_timestamp(dialect)
+    - To generate CURRENT_TIMESTAMP(6): current_timestamp(dialect, 6)
+
+    Args:
+        dialect: The SQL dialect instance
+        precision: Optional fractional seconds precision
+
+    Returns:
+        A FunctionCall instance representing the CURRENT_TIMESTAMP function
+    """
+    if precision is not None:
+        return core.FunctionCall(dialect, "CURRENT_TIMESTAMP", core.Literal(dialect, precision))
+    return core.FunctionCall(dialect, "CURRENT_TIMESTAMP")
+
+
+def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall":
+    """
+    Creates a LOCALTIMESTAMP function call.
+
+    SQL:2003 standard local timestamp function.
+
+    Usage rules:
+    - To generate LOCALTIMESTAMP: localtimestamp(dialect)
+    - To generate LOCALTIMESTAMP(6): localtimestamp(dialect, 6)
+
+    Args:
+        dialect: The SQL dialect instance
+        precision: Optional fractional seconds precision
+
+    Returns:
+        A FunctionCall instance representing the LOCALTIMESTAMP function
+    """
+    if precision is not None:
+        return core.FunctionCall(dialect, "LOCALTIMESTAMP", core.Literal(dialect, precision))
+    return core.FunctionCall(dialect, "LOCALTIMESTAMP")
+
+
+def current_user(dialect: "SQLDialectBase") -> "core.FunctionCall":
+    """
+    Creates a CURRENT_USER function call.
+
+    SQL:2003 standard function returning the current user name.
+
+    Usage rules:
+    - To generate CURRENT_USER: current_user(dialect)
+
+    Args:
+        dialect: The SQL dialect instance
+
+    Returns:
+        A FunctionCall instance representing the CURRENT_USER function
+    """
+    return core.FunctionCall(dialect, "CURRENT_USER")
+
+
+def session_user(dialect: "SQLDialectBase") -> "core.FunctionCall":
+    """
+    Creates a SESSION_USER function call.
+
+    SQL:2003 standard function returning the session user name.
+
+    Usage rules:
+    - To generate SESSION_USER: session_user(dialect)
+
+    Args:
+        dialect: The SQL dialect instance
+
+    Returns:
+        A FunctionCall instance representing the SESSION_USER function
+    """
+    return core.FunctionCall(dialect, "SESSION_USER")
+
+
+def system_user(dialect: "SQLDialectBase") -> "core.FunctionCall":
+    """
+    Creates a SYSTEM_USER function call.
+
+    SQL:2003 standard function returning the system user name.
+
+    Usage rules:
+    - To generate SYSTEM_USER: system_user(dialect)
+
+    Args:
+        dialect: The SQL dialect instance
+
+    Returns:
+        A FunctionCall instance representing the SYSTEM_USER function
+    """
+    return core.FunctionCall(dialect, "SYSTEM_USER")
+
+
+def extract(
+    dialect: "SQLDialectBase",
+    field: str,
+    expr: Union[str, "bases.BaseExpression"]
+) -> "core.FunctionCall":
+    """
+    Creates an EXTRACT function call.
+
+    SQL:2003 standard function extracting datetime fields.
+
+    Usage rules:
+    - To generate EXTRACT(YEAR FROM column): extract(dialect, "YEAR", Column("date"))
+    - To generate EXTRACT(MONTH FROM CURRENT_DATE): extract(dialect, "MONTH", "CURRENT_DATE")
+
+    Args:
+        dialect: The SQL dialect instance
+        field: The field to extract (YEAR, MONTH, DAY, HOUR, MINUTE, SECOND, etc.)
+        expr: The datetime expression
+
+    Returns:
+        A FunctionCall instance representing the EXTRACT function
+    """
+    target_expr = expr if isinstance(expr, bases.BaseExpression) else core.Literal(dialect, expr)
+    return core.FunctionCall(dialect, "EXTRACT", core.Literal(dialect, field), target_expr)
+# endregion SQL Standard Function Factories (Additional)
