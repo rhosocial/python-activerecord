@@ -1,3 +1,10 @@
+## [v1.0.0.dev16] - 2026-03-12
+
+### Added
+
+- Added comprehensive DDL support including schema, index, sequence, trigger, function DDL expressions, materialized views, and SQL standard functions with full protocol-based backend abstraction. ([#36](https://github.com/rhosocial/python-activerecord/issues/36))
+
+
 ## [v1.0.0.dev15] - 2026-02-27
 
 
