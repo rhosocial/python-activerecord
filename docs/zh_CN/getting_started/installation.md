@@ -14,12 +14,19 @@
     *   Python 3.9+: pydantic 2.12+ (完整功能支持)
 
 ### 数据库要求
-*   **SQLite**: 3.25+ (内置支持)
-*   **其他数据库**: 需要安装对应的后端包
-    *   MySQL/MariaDB: `rhosocial-activerecord-mysql`
-    *   PostgreSQL: `rhosocial-activerecord-postgres`
-    *   Oracle: `rhosocial-activerecord-oracle` (计划中)
-    *   SQL Server: `rhosocial-activerecord-mssql` (计划中)
+* **SQLite**: 3.25+ (内置支持)
+  * 同步后端: 使用标准 `sqlite3` 模块（无需额外依赖）
+  * 异步后端: 需要安装 `aiosqlite` 包（需单独安装）
+* **其他数据库**: 需要安装对应的后端包
+* MySQL/MariaDB: `rhosocial-activerecord-mysql`
+* PostgreSQL: `rhosocial-activerecord-postgres`
+* Oracle: `rhosocial-activerecord-oracle` (计划中)
+* SQL Server: `rhosocial-activerecord-mssql` (计划中)
+
+> ⚠️ **注意**: 异步 SQLite 后端需要 `aiosqlite` 包。它不包含在核心依赖中，如果您计划使用异步 SQLite，需要手动安装：
+> ```bash
+> pip install aiosqlite
+> ```
 
 ## 通过 pip 安装
 

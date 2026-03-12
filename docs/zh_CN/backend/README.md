@@ -4,15 +4,38 @@
 
 ## 后端生态系统
 
-rhosocial-activerecord 的设计初衷是支持多数据库后端。除了核心库中包含的 SQLite 实现（其中异步 SQLite 主要用于测试验证），我们还提供或计划提供以下独立的后端包：
+rhosocial-activerecord 的设计初衷是支持多数据库后端。除了核心库中包含的 SQLite 实现，我们还提供或计划提供以下独立的后端包：
 
-*   `rhosocial-activerecord-mysql`
-*   `rhosocial-activerecord-postgres`
-*   `rhosocial-activerecord-oracle` (计划中)
-*   `rhosocial-activerecord-sqlserver` (计划中)
-*   `rhosocial-activerecord-mariadb` (计划中)
+* `rhosocial-activerecord-mysql`
+* `rhosocial-activerecord-postgres`
+* `rhosocial-activerecord-oracle` (计划中)
+* `rhosocial-activerecord-sqlserver` (计划中)
+* `rhosocial-activerecord-mariadb` (计划中)
 
 这些独立的包也可以作为您开发自定义第三方后端的范例。
+
+## 同步与异步对等
+
+核心库中包含的 SQLite 后端同时提供**同步**和**异步**实现，两者具有完全对等的 API：
+
+- **同步 API**: `SQLiteBackend` — 使用标准 `sqlite3` 模块（内置）
+- **异步 API**: `AsyncSQLiteBackend` — 需要安装 `aiosqlite` 包
+
+两种实现拥有相同的方法签名、返回类型和行为，便于在需要时在同步和异步模式之间切换。
+
+### 异步 SQLite 依赖
+
+异步 SQLite 后端需要 `aiosqlite` 作为额外依赖。由于它不在核心依赖中，您需要手动安装：
+
+```bash
+pip install aiosqlite
+```
+
+或安装包含所有可选依赖的完整包：
+
+```bash
+pip install rhosocial-activerecord[all]
+```
 
 ## 目录
 

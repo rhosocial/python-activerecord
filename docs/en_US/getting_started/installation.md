@@ -14,12 +14,19 @@ Getting started with `rhosocial-activerecord` is straightforward. This guide pro
     *   Python 3.9+: pydantic 2.12+ (full feature support)
 
 ### Database Requirements
-*   **SQLite**: 3.25+ (built-in support)
-*   **Other Databases**: Require corresponding backend packages
-    *   MySQL/MariaDB: `rhosocial-activerecord-mysql`
-    *   PostgreSQL: `rhosocial-activerecord-postgres`
-    *   Oracle: `rhosocial-activerecord-oracle` (planned)
-    *   SQL Server: `rhosocial-activerecord-mssql` (planned)
+* **SQLite**: 3.25+ (built-in support)
+  * Sync backend: Uses standard `sqlite3` module (no extra dependencies)
+  * Async backend: Requires `aiosqlite` package (install separately)
+* **Other Databases**: Require corresponding backend packages
+* MySQL/MariaDB: `rhosocial-activerecord-mysql`
+* PostgreSQL: `rhosocial-activerecord-postgres`
+* Oracle: `rhosocial-activerecord-oracle` (planned)
+* SQL Server: `rhosocial-activerecord-mssql` (planned)
+
+> ⚠️ **Note**: The asynchronous SQLite backend requires the `aiosqlite` package. It is not included in the core dependencies and must be installed manually if you plan to use async SQLite:
+> ```bash
+> pip install aiosqlite
+> ```
 
 ## Install via pip
 
