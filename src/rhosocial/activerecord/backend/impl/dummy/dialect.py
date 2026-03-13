@@ -48,6 +48,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # DDL Protocols
     TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
     IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
+    GeneratedColumnSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
@@ -58,6 +59,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # DDL Mixins
     TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
     IndexMixin, SequenceMixin, TriggerMixin, FunctionMixin,
+    GeneratedColumnMixin,
 )
 
 
@@ -71,6 +73,7 @@ class DummyDialect(
     # DDL Mixins
     TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
     IndexMixin, SequenceMixin, TriggerMixin, FunctionMixin,
+    GeneratedColumnMixin,
     # Protocols for type checking
     WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
     UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
@@ -80,6 +83,7 @@ class DummyDialect(
     # DDL Protocols
     TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
     IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
+    GeneratedColumnSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -229,4 +233,73 @@ class DummyDialect(
     def supports_drop_function(self) -> bool: return True
     def supports_function_or_replace(self) -> bool: return True
     def supports_function_parameters(self) -> bool: return True
+    # endregion
+
+    # region Generated Column Support
+    def supports_generated_columns(self) -> bool: return True
+    def supports_stored_generated_columns(self) -> bool: return True
+    def supports_virtual_generated_columns(self) -> bool: return True
+    # endregion
+
+    # region Column Definition with Generated Columns
+    def format_column_definition(self, col_def) -> tuple:
+        """Format a column definition including generated columns."""
+        from rhosocial.activerecord.backend.expression.statements import (
+            ColumnConstraintType, GeneratedColumnType
+        )
+        from rhosocial.activerecord.backend.expression import bases
+
+        all_params = []
+
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+
+        for constraint in col_def.constraints:
+            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
+                col_sql += " PRIMARY KEY"
+            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
+                col_sql += " NOT NULL"
+            elif constraint.constraint_type == ColumnConstraintType.NULL:
+                col_sql += " NULL"
+            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
+                col_sql += " UNIQUE"
+            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
+                if constraint.default_value is None:
+                    raise ValueError("DEFAULT constraint must have a default value specified.")
+                if isinstance(constraint.default_value, bases.BaseExpression):
+                    default_sql, default_params = constraint.default_value.to_sql()
+                    col_sql += f" DEFAULT {default_sql}"
+                    all_params.extend(default_params)
+                else:
+                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
+                    all_params.append(constraint.default_value)
+            elif constraint.constraint_type == ColumnConstraintType.CHECK:
+                if constraint.check_condition is None:
+                    raise ValueError("CHECK constraint must have a check condition specified.")
+                check_sql, check_params = constraint.check_condition.to_sql()
+                col_sql += f" CHECK ({check_sql})"
+                all_params.extend(check_params)
+            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
+                if constraint.foreign_key_reference is None:
+                    raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
+                ref_table, ref_cols = constraint.foreign_key_reference
+                ref_cols_str = ", ".join(
+                    self.format_identifier(col) for col in ref_cols
+                )
+                col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str})"
+
+        if col_def.generated_expression is not None:
+            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            all_params.extend(gen_params)
+
+            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
+            if col_def.generated_type == GeneratedColumnType.STORED:
+                col_sql += " STORED"
+            else:
+                col_sql += " VIRTUAL"
+
+        # Add comment if present
+        if col_def.comment:
+            col_sql += f" COMMENT '{col_def.comment}'"
+
+        return col_sql, tuple(all_params)
     # endregion

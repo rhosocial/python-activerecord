@@ -947,6 +947,12 @@ class ColumnConstraint:
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
+class GeneratedColumnType(Enum):
+    """Types of generated columns (computed columns)."""
+    STORED = "STORED"      # Stored on disk, can be indexed
+    VIRTUAL = "VIRTUAL"    # Computed on read, not stored
+
+
 @dataclass
 class ColumnDefinition:
     """Represents a column's definition within a CREATE/ALTER TABLE statement."""
@@ -955,6 +961,9 @@ class ColumnDefinition:
     constraints: List[ColumnConstraint] = field(default_factory=list)  # Column constraints
     comment: Optional[str] = None  # Column comment
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
+    # Generated column support (SQLite 3.31.0+, PostgreSQL, MySQL)
+    generated_expression: Optional["bases.BaseExpression"] = None  # Expression for generated column
+    generated_type: Optional[GeneratedColumnType] = None  # STORED or VIRTUAL
 
 
 class TableConstraintType(Enum):

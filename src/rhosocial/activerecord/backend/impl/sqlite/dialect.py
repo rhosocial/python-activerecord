@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport,
+    TriggerSupport, GeneratedColumnSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
-    TriggerMixin,
+    TriggerMixin, GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
@@ -55,7 +55,7 @@ class SQLiteDialect(
     UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
-    TriggerMixin,
+    TriggerMixin, GeneratedColumnMixin,
     # Protocols for type checking
     CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport, ReturningSupport,
     AdvancedGroupingSupport, ArraySupport, ExplainSupport, GraphSupport, LockingSupport,
@@ -63,7 +63,7 @@ class SQLiteDialect(
     UpsertSupport, LateralJoinSupport, WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport,
+    TriggerSupport, GeneratedColumnSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -228,6 +228,20 @@ class SQLiteDialect(
     def supports_ordered_set_aggregation(self) -> bool:
         """Whether ordered-set aggregate functions are supported."""
         return False
+
+    def supports_generated_columns(self) -> bool:
+        """Whether generated columns are supported."""
+        # Generated columns (STORED/VIRTUAL) are supported since SQLite 3.31.0
+        return self.version >= (3, 31, 0)
+
+    def supports_stored_generated_columns(self) -> bool:
+        """Whether STORED generated columns are supported."""
+        return self.supports_generated_columns()
+
+    def supports_virtual_generated_columns(self) -> bool:
+        """Whether VIRTUAL generated columns are supported."""
+        return self.supports_generated_columns()
+
 
     # SetOperationSupport protocol implementation
     def supports_union(self) -> bool:
@@ -708,4 +722,70 @@ class SQLiteDialect(
         parts.append(self.format_identifier(expr.trigger_name))
 
         return " ".join(parts), ()
+
+    # region Generated Columns Support
+
+    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
+        """Format a column definition for SQLite, including generated columns support."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
+        from rhosocial.activerecord.backend.expression import bases
+
+        all_params = []
+
+        # Basic column definition: name data_type
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+
+        # Handle constraints
+        for constraint in col_def.constraints:
+            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
+                col_sql += " PRIMARY KEY"
+            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
+                col_sql += " NOT NULL"
+            elif constraint.constraint_type == ColumnConstraintType.NULL:
+                col_sql += " NULL"
+            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
+                col_sql += " UNIQUE"
+            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
+                if constraint.default_value is None:
+                    raise ValueError("DEFAULT constraint must have a default value specified.")
+                if isinstance(constraint.default_value, bases.BaseExpression):
+                    default_sql, default_params = constraint.default_value.to_sql()
+                    col_sql += f" DEFAULT {default_sql}"
+                    all_params.extend(default_params)
+                else:
+                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
+                    all_params.append(constraint.default_value)
+            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
+                check_sql, check_params = constraint.check_condition.to_sql()
+                col_sql += f" CHECK ({check_sql})"
+                all_params.extend(check_params)
+            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
+                if constraint.foreign_key_reference is None:
+                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
+                referenced_table, referenced_columns = constraint.foreign_key_reference
+                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+
+        # Handle generated columns (SQLite 3.31.0+)
+        if col_def.generated_expression is not None:
+            if not self.supports_generated_columns():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "Generated columns",
+                    "Generated columns require SQLite 3.31.0 or later."
+                )
+
+            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            all_params.extend(gen_params)
+
+            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
+            if col_def.generated_type == GeneratedColumnType.STORED:
+                col_sql += " STORED"
+            else:
+                # Default to VIRTUAL if not specified
+                col_sql += " VIRTUAL"
+
+        return col_sql, tuple(all_params)
+
     # endregion
+# endregion
