@@ -28,6 +28,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin, GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from .protocols import FTS5Support
+from .mixins import FTS5Mixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -56,6 +58,8 @@ class SQLiteDialect(
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
     TriggerMixin, GeneratedColumnMixin,
+    # SQLite-specific mixins
+    FTS5Mixin,
     # Protocols for type checking
     CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport, ReturningSupport,
     AdvancedGroupingSupport, ArraySupport, ExplainSupport, GraphSupport, LockingSupport,
@@ -64,6 +68,8 @@ class SQLiteDialect(
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
     TriggerSupport, GeneratedColumnSupport,
+    # SQLite-specific protocols
+    FTS5Support,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.

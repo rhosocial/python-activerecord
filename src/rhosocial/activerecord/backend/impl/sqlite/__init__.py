@@ -20,6 +20,8 @@ from .transaction import (
     AsyncSQLiteTransactionManager,
     SQLiteTransactionMixin
 )
+from .protocols import FTS5Support
+from .mixins import FTS5Mixin
 
 # SQLite-specific function factories
 from .functions import (
@@ -63,6 +65,9 @@ __all__ = [
     'SQLiteTransactionManager',
     'AsyncSQLiteTransactionManager',
     'SQLiteTransactionMixin',
+    # SQLite-specific protocols and mixins
+    'FTS5Support',
+    'FTS5Mixin',
     # SQLite-specific functions
     'substr',
     'instr',
