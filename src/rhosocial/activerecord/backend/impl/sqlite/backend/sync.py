@@ -393,26 +393,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
 
     def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance."""
-        pass
-
-    def format_json_operation(
-        self,
-        column: Union[str, Any],
-        path: Optional[str] = None,
-        operation: str = "extract",
-        value: Any = None,
-        alias: Optional[str] = None
-    ) -> str:
-        """Format JSON operation according to database dialect."""
-        if not hasattr(self.dialect, 'json_operation_handler'):
-            raise JsonOperationNotSupportedError(
-                f"JSON operations not supported by {self.dialect.__class__.__name__}"
-            )
-
-        return self.dialect.json_operation_handler.format_json_operation(
-            column=column,
-            path=path,
-            operation=operation,
-            value=value,
-            alias=alias
-        )
+        # Get the actual SQLite version and update the dialect
+        version = self.get_server_version()
+        self._dialect.version = version
+        self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")

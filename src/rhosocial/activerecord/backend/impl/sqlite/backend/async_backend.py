@@ -185,7 +185,10 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
 
     async def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance."""
-        pass
+        # Get the actual SQLite version and update the dialect
+        version = self.get_server_version()
+        self._dialect.version = version
+        self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")
 
     async def _get_cursor(self):
         """Get database cursor for async operations."""

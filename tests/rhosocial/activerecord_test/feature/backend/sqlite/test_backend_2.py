@@ -7,10 +7,7 @@ import uuid
 from datetime import datetime
 from unittest.mock import patch, MagicMock
 
-from rhosocial.activerecord.backend.errors import (
-    ReturningNotSupportedError,
-    JsonOperationNotSupportedError
-)
+from rhosocial.activerecord.backend.errors import ReturningNotSupportedError
 from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -280,64 +277,6 @@ class TestSQLiteBackendCoveragePart2:
 
         # Should not raise exception
         backend._handle_auto_commit()
-
-    def test_format_json_operation(self):
-        """Test format_json_operation() method"""
-        # This test may need adjustment based on current implementation
-        backend = SQLiteBackend(database=":memory:")
-
-        # Check if json operations are supported
-        if hasattr(backend.dialect, 'json_operation_handler') and backend.dialect.json_operation_handler:
-            # Test with valid JSON operation
-            result = backend.format_json_operation(
-                column="data",
-                path="$.key",
-                operation="extract"
-            )
-
-            # Should delegate to dialect's json_operation_handler
-            # First check if arrow operators are supported
-            if hasattr(backend.dialect.json_operation_handler, 'supports_json_arrows') and backend.dialect.json_operation_handler.supports_json_arrows:
-                assert "->" in result or "json_extract" in result
-            else:
-                assert "json_extract" in result
-        else:
-            # If no json operation handler, expect error
-            with pytest.raises(JsonOperationNotSupportedError):
-                backend.format_json_operation(
-                    column="data",
-                    path="$.key",
-                    operation="extract"
-                )
-
-    def test_format_json_operation_without_handler(self):
-        """Test format_json_operation() without json handler"""
-        backend = SQLiteBackend(database=":memory:")
-
-        # Check if the dialect has json_operation_handler
-        if hasattr(backend.dialect, 'json_operation_handler'):
-            # Temporarily set to None to simulate missing handler
-            original_handler = getattr(backend.dialect, '_json_operation_handler', None)
-            backend.dialect._json_operation_handler = None
-
-            try:
-                with pytest.raises(JsonOperationNotSupportedError) as exc_info:
-                    backend.format_json_operation(
-                        column="data",
-                        path="$.key"
-                    )
-
-                assert "JSON operations not supported" in str(exc_info.value)
-            finally:
-                # Restore the handler
-                backend.dialect._json_operation_handler = original_handler
-        else:
-            # If no json_operation_handler attribute, just expect the error
-            with pytest.raises(JsonOperationNotSupportedError):
-                backend.format_json_operation(
-                    column="data",
-                    path="$.key"
-                )
 
     def test_process_result_set_error_handling(self):
         """Test error handling in _process_result_set"""
