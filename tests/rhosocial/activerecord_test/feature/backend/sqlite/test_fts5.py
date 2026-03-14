@@ -6,7 +6,7 @@ import sqlite3
 from rhosocial.activerecord.backend.impl.sqlite import (
     SQLiteDialect,
     SQLiteBackend,
-    FTS5Support,
+    SQLiteExtensionSupport,
     FTS5Mixin,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -17,9 +17,9 @@ class TestFTS5Support:
     """Test FTS5 support detection and protocol."""
 
     def test_fts5_support_protocol(self):
-        """Test that SQLiteDialect implements FTS5Support protocol."""
+        """Test that SQLiteDialect implements SQLiteExtensionSupport protocol."""
         dialect = SQLiteDialect()
-        assert isinstance(dialect, FTS5Support)
+        assert isinstance(dialect, SQLiteExtensionSupport)
 
     def test_fts5_mixin_included(self):
         """Test that SQLiteDialect includes FTS5Mixin."""
@@ -264,7 +264,7 @@ class TestFTS5HighlightExpression:
             'sqlite'
         )
         assert 'highlight(' in sql
-        assert len(params) == 3
+        assert len(params) == 2  # prefix_marker and suffix_marker
 
     def test_highlight_custom_markers(self):
         """Test highlight() with custom markers."""
@@ -292,7 +292,7 @@ class TestFTS5SnippetExpression:
             'sqlite'
         )
         assert 'snippet(' in sql
-        assert len(params) == 5
+        assert len(params) == 4  # prefix_marker, suffix_marker, ellipsis, context_tokens
 
     def test_snippet_custom_options(self):
         """Test snippet() with custom options."""
