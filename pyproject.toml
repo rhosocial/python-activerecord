@@ -220,6 +220,7 @@ markers = [
     # Feature-specific markers
     "backend: marks tests as backend-specific tests",
     "basic: marks tests for basic CRUD operations",
+    "basic_mapped_models: marks tests for models with custom column name mappings in basic feature",
     "query: marks tests for query functionality",
     "relation: marks tests for relation management",
     "field: marks tests for field type handling",
