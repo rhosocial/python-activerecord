@@ -19,7 +19,9 @@ class TestSQLiteTransactionManager:
         conn.isolation_level = None
         # Create test table
         conn.execute("CREATE TABLE test (id INTEGER PRIMARY KEY, value TEXT)")
-        return conn
+        yield conn
+        # Cleanup: close connection after test
+        conn.close()
 
     @pytest.fixture
     def logger(self):
