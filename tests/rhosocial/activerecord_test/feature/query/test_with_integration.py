@@ -133,7 +133,7 @@ class TestWithAsyncIntegration:
         assert len(posts) == 1
         user_loader = posts[0].author
         assert callable(user_loader)
-        loaded_user = user_loader()
+        loaded_user = await user_loader()
         assert loaded_user is not None
 
     @pytest.mark.asyncio

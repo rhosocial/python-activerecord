@@ -206,6 +206,7 @@ namespaces = true
 minversion = "7.0"
 testpaths = ["tests"]
 asyncio_mode = "auto"
+asyncio_default_fixture_loop_scope = "function"
 
 addopts = "-ra -q -m 'not benchmark'"
 python_files = ["test_*.py", "*_test.py"]
@@ -239,6 +240,16 @@ markers = [
     "mssql: marks tests specific to SQL Server backend",
     "oracle: marks tests specific to Oracle backend",
     "mariadb: marks tests specific to MariaDB backend",
+
+    # Protocol requirement markers (from testsuite)
+    "requires_protocol: marks tests requiring specific protocol support",
+    "requires_inner_join: marks tests requiring INNER JOIN support",
+    "requires_left_join: marks tests requiring LEFT JOIN support",
+    "requires_right_join: marks tests requiring RIGHT JOIN support",
+    "requires_full_join: marks tests requiring FULL JOIN support",
+    "requires_cross_join: marks tests requiring CROSS JOIN support",
+    "requires_natural_join: marks tests requiring NATURAL JOIN support",
+    "requires_lateral_join: marks tests requiring LATERAL join support",
 ]
 
 [tool.coverage.run]
