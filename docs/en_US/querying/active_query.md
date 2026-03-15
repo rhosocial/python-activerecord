@@ -85,7 +85,7 @@ User.query().order_by(User.c.role, (User.c.age, "DESC"))
 
 Pagination query.
 
-*   **Usage Examples**:
+* **Usage Examples**:
 
 ```python
 # Get first 10 records
@@ -93,9 +93,20 @@ User.query().limit(10)
 
 # Skip first 20, take 10 (i.e., Page 3)
 User.query().limit(10, offset=20)
-# Or
-User.query().offset(20).limit(10)
+# Or (recommended)
+User.query().limit(10).offset(20)
 ```
+
+* **Notes**:
+  * **SQLite Backend Limitation**: In SQLite backend, `OFFSET` must be used together with `LIMIT`. Make sure to call `.limit()` first or use the `.limit(limit, offset=offset)` parameter form.
+  ```python
+  # Wrong: SQLite does not support OFFSET-only queries
+  User.query().offset(20)  # Will raise ValueError
+
+  # Correct usage
+  User.query().limit(10).offset(20)  # Recommended
+  User.query().limit(10, offset=20)  # Or use parameter form
+  ```
 
 ### `group_by(*columns)` / `having(condition)`
 

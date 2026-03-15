@@ -16,7 +16,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport,
+    TriggerSupport, GeneratedColumnSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
@@ -25,9 +25,11 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
-    TriggerMixin,
+    TriggerMixin, GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
+from .mixins import FTS5Mixin, SQLitePragmaMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -55,7 +57,9 @@ class SQLiteDialect(
     UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
     # DDL Mixins
     TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
-    TriggerMixin,
+    TriggerMixin, GeneratedColumnMixin,
+    # SQLite-specific mixins
+    FTS5Mixin, SQLitePragmaMixin,
     # Protocols for type checking
     CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport, ReturningSupport,
     AdvancedGroupingSupport, ArraySupport, ExplainSupport, GraphSupport, LockingSupport,
@@ -63,7 +67,9 @@ class SQLiteDialect(
     UpsertSupport, LateralJoinSupport, WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
     # DDL Protocols
     TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport,
+    TriggerSupport, GeneratedColumnSupport,
+    # SQLite-specific protocols
+    SQLiteExtensionSupport, SQLitePragmaSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -84,7 +90,16 @@ class SQLiteDialect(
             version: SQLite version tuple (major, minor, patch)
         """
         self.version = version
+        self._runtime_params: Dict[str, Any] = {}
         super().__init__()
+
+    def set_runtime_param(self, key: str, value: Any) -> None:
+        """Set a runtime parameter (detected after connection)."""
+        self._runtime_params[key] = value
+
+    def get_runtime_param(self, key: str, default: Any = None) -> Any:
+        """Get a runtime parameter."""
+        return self._runtime_params.get(key, default)
 
     def get_parameter_placeholder(self, position: int = 0) -> str:
         """SQLite uses '?' for placeholders."""
@@ -124,8 +139,16 @@ class SQLiteDialect(
         return self.version >= (3, 10, 0)
 
     def supports_json_type(self) -> bool:
-        """JSON is supported with JSON1 extension."""
-        return self.version >= (3, 38, 0)  # JSON1 extension available since 3.38.0
+        """JSON is supported with JSON1 extension.
+
+        Detection logic:
+        - SQLite >= 3.38.0: JSON1 is built-in, always available
+        - SQLite < 3.38.0: Check runtime detection result (json1_available)
+        """
+        if self.version >= (3, 38, 0):
+            return True
+        # For older versions, use runtime detection result
+        return self.get_runtime_param('json1_available', False)
 
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
@@ -227,6 +250,134 @@ class SQLiteDialect(
 
     def supports_ordered_set_aggregation(self) -> bool:
         """Whether ordered-set aggregate functions are supported."""
+        return False
+
+    def supports_generated_columns(self) -> bool:
+        """Whether generated columns are supported."""
+        # Generated columns (STORED/VIRTUAL) are supported since SQLite 3.31.0
+        return self.version >= (3, 31, 0)
+
+    def supports_stored_generated_columns(self) -> bool:
+        """Whether STORED generated columns are supported."""
+        return self.supports_generated_columns()
+
+    def supports_virtual_generated_columns(self) -> bool:
+        """Whether VIRTUAL generated columns are supported."""
+        return self.supports_generated_columns()
+
+    # TableSupport protocol implementation
+    def supports_create_table(self) -> bool:
+        """Whether CREATE TABLE is supported."""
+        return True
+
+    def supports_drop_table(self) -> bool:
+        """Whether DROP TABLE is supported."""
+        return True
+
+    def supports_alter_table(self) -> bool:
+        """Whether ALTER TABLE is supported."""
+        return True
+
+    def supports_temporary_table(self) -> bool:
+        """Whether TEMPORARY tables are supported."""
+        return True
+
+    def supports_if_not_exists_table(self) -> bool:
+        """Whether CREATE TABLE IF NOT EXISTS is supported."""
+        return True
+
+    def supports_if_exists_table(self) -> bool:
+        """Whether DROP TABLE IF EXISTS is supported."""
+        return True
+
+    def supports_rename_table(self) -> bool:
+        """Whether RENAME TABLE is supported."""
+        return True
+
+    def supports_rename_column(self) -> bool:
+        """Whether RENAME COLUMN is supported."""
+        # RENAME COLUMN is supported since SQLite 3.25.0
+        return self.version >= (3, 25, 0)
+
+    def supports_drop_column(self) -> bool:
+        """Whether DROP COLUMN is supported."""
+        # DROP COLUMN is supported since SQLite 3.35.0
+        return self.version >= (3, 35, 0)
+
+    def supports_table_partitioning(self) -> bool:
+        """Whether table partitioning is supported."""
+        return False
+
+    def supports_table_tablespace(self) -> bool:
+        """Whether table tablespace is supported."""
+        return False
+
+    # IndexSupport protocol implementation
+    def supports_create_index(self) -> bool:
+        """Whether CREATE INDEX is supported."""
+        return True
+
+    def supports_drop_index(self) -> bool:
+        """Whether DROP INDEX is supported."""
+        return True
+
+    def supports_unique_index(self) -> bool:
+        """Whether UNIQUE indexes are supported."""
+        return True
+
+    def supports_index_if_exists(self) -> bool:
+        """Whether DROP INDEX IF EXISTS is supported."""
+        return True
+
+    def supports_index_if_not_exists(self) -> bool:
+        """Whether CREATE INDEX IF NOT EXISTS is supported."""
+        return True
+
+    def supports_partial_index(self) -> bool:
+        """Whether partial indexes (WHERE clause) are supported."""
+        # Partial indexes are supported since SQLite 3.8.0
+        return self.version >= (3, 8, 0)
+
+    def supports_functional_index(self) -> bool:
+        """Whether functional/expression indexes are supported."""
+        return True
+
+    def supports_concurrent_index(self) -> bool:
+        """Whether concurrent index creation is supported."""
+        return False
+
+    def supports_index_type(self) -> bool:
+        """Whether index type (BTREE, HASH, etc.) is supported."""
+        return False
+
+    def supports_index_tablespace(self) -> bool:
+        """Whether index tablespace is supported."""
+        return False
+
+    def supports_fulltext_index(self) -> bool:
+        """Whether fulltext indexes are supported."""
+        # SQLite uses FTS virtual tables instead of fulltext indexes
+        return False
+
+    def supports_fulltext_boolean_mode(self) -> bool:
+        """Whether fulltext boolean mode is supported."""
+        return False
+
+    def supports_fulltext_parser(self) -> bool:
+        """Whether custom fulltext parser is supported."""
+        return False
+
+    def supports_fulltext_query_expansion(self) -> bool:
+        """Whether fulltext query expansion is supported."""
+        return False
+
+    def supports_index_include(self) -> bool:
+        """Whether INCLUDE clause for indexes is supported."""
+        return False
+
+    # ILIKESupport protocol implementation
+    def supports_ilike(self) -> bool:
+        """Whether ILIKE (case-insensitive LIKE) is supported."""
         return False
 
     # SetOperationSupport protocol implementation
@@ -708,4 +859,70 @@ class SQLiteDialect(
         parts.append(self.format_identifier(expr.trigger_name))
 
         return " ".join(parts), ()
+
+    # region Generated Columns Support
+
+    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
+        """Format a column definition for SQLite, including generated columns support."""
+        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
+        from rhosocial.activerecord.backend.expression import bases
+
+        all_params = []
+
+        # Basic column definition: name data_type
+        col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
+
+        # Handle constraints
+        for constraint in col_def.constraints:
+            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
+                col_sql += " PRIMARY KEY"
+            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
+                col_sql += " NOT NULL"
+            elif constraint.constraint_type == ColumnConstraintType.NULL:
+                col_sql += " NULL"
+            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
+                col_sql += " UNIQUE"
+            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
+                if constraint.default_value is None:
+                    raise ValueError("DEFAULT constraint must have a default value specified.")
+                if isinstance(constraint.default_value, bases.BaseExpression):
+                    default_sql, default_params = constraint.default_value.to_sql()
+                    col_sql += f" DEFAULT {default_sql}"
+                    all_params.extend(default_params)
+                else:
+                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
+                    all_params.append(constraint.default_value)
+            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
+                check_sql, check_params = constraint.check_condition.to_sql()
+                col_sql += f" CHECK ({check_sql})"
+                all_params.extend(check_params)
+            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
+                if constraint.foreign_key_reference is None:
+                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
+                referenced_table, referenced_columns = constraint.foreign_key_reference
+                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+
+        # Handle generated columns (SQLite 3.31.0+)
+        if col_def.generated_expression is not None:
+            if not self.supports_generated_columns():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "Generated columns",
+                    "Generated columns require SQLite 3.31.0 or later."
+                )
+
+            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            all_params.extend(gen_params)
+
+            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
+            if col_def.generated_type == GeneratedColumnType.STORED:
+                col_sql += " STORED"
+            else:
+                # Default to VIRTUAL if not specified
+                col_sql += " VIRTUAL"
+
+        return col_sql, tuple(all_params)
+
     # endregion
+# endregion

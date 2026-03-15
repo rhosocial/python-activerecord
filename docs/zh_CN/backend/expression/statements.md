@@ -163,6 +163,56 @@ sql, params = create.to_sql()
 # params: ()
 ```
 
+#### 生成列（SQLite 3.31.0+、PostgreSQL、MySQL）
+
+SQLite 3.31.0+ 支持生成列（计算列）。使用 `GeneratedColumnType` 指定存储类型：
+
+```python
+from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, GeneratedColumnType
+from rhosocial.activerecord.backend.expression import Column, Literal, CaseExpression
+
+# 创建带生成列的表
+columns = [
+    ColumnDefinition(name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+    ColumnDefinition(name="price", data_type="REAL"),
+    ColumnDefinition(name="quantity", data_type="INTEGER"),
+    # STORED 生成列 - 计算并存储在磁盘上
+    ColumnDefinition(
+        name="total",
+        data_type="REAL",
+        generated_expression=Column(dialect, "price") * Column(dialect, "quantity"),
+        generated_type=GeneratedColumnType.STORED
+    ),
+    # VIRTUAL 生成列 - 使用 CaseExpression 表达条件逻辑
+    ColumnDefinition(
+        name="status_label",
+        data_type="TEXT",
+        generated_expression=CaseExpression(
+            dialect,
+            cases=[
+                (Column(dialect, "quantity") > Literal(dialect, 0), Literal(dialect, "有货")),
+            ],
+            default=Literal(dialect, "缺货")
+        ),
+        generated_type=GeneratedColumnType.VIRTUAL
+    )
+]
+
+create = CreateTableExpression(
+    dialect=dialect,
+    table_name="products",
+    columns=columns
+)
+sql, params = create.to_sql()
+# sql: 'CREATE TABLE "products" ("id" INTEGER PRIMARY KEY, "price" REAL, "quantity" INTEGER, 
+# "total" REAL GENERATED ALWAYS AS ("price" * "quantity") STORED,
+# "status_label" TEXT GENERATED ALWAYS AS (CASE WHEN "quantity" > ? THEN ? ELSE ? END) VIRTUAL)'
+# params: (0, "有货", "缺货")
+
+# 注意：生成列需要 SQLite 3.31.0+
+# 使用 dialect.supports_generated_columns() 检查可用性
+```
+
 ### DropTableExpression
 
 `DropTableExpression` 表示 `DROP TABLE` 语句。

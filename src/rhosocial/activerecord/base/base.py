@@ -240,7 +240,7 @@ class BaseActiveRecord(IActiveRecord):
         pk_column = self.primary_key()
         pk_field = self.__class__._get_field_name(pk_column)
         if is_new:
-            data = self.model_dump(exclude={pk_field} if pk_field in self.model_fields else set())
+            data = self.model_dump(exclude={pk_field} if pk_field in self.__class__.model_fields else set())
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
@@ -725,7 +725,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         pk_column = self.primary_key()
         pk_field = self.__class__._get_field_name(pk_column)
         if is_new:
-            data = self.model_dump(exclude={pk_field} if pk_field in self.model_fields else set())
+            data = self.model_dump(exclude={pk_field} if pk_field in self.__class__.model_fields else set())
         else:
             all_data = self.model_dump()
             data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}

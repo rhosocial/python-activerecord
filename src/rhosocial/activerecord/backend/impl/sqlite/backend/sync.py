@@ -392,27 +392,41 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
         return SQLiteBackend._sqlite_version_cache
 
     def introspect_and_adapt(self) -> None:
-        """Introspect backend and adapt backend instance."""
-        pass
+        """Introspect backend and adapt backend instance to actual server capabilities.
 
-    def format_json_operation(
-        self,
-        column: Union[str, Any],
-        path: Optional[str] = None,
-        operation: str = "extract",
-        value: Any = None,
-        alias: Optional[str] = None
-    ) -> str:
-        """Format JSON operation according to database dialect."""
-        if not hasattr(self.dialect, 'json_operation_handler'):
-            raise JsonOperationNotSupportedError(
-                f"JSON operations not supported by {self.dialect.__class__.__name__}"
-            )
+        This method ensures a connection exists (if not already cached), queries
+        the actual SQLite version, and updates the backend's internal state.
 
-        return self.dialect.json_operation_handler.format_json_operation(
-            column=column,
-            path=path,
-            operation=operation,
-            value=value,
-            alias=alias
-        )
+        Note: SQLite version is cached at class level for efficiency. If the version
+        is already cached, a new connection is only needed for extension detection
+        on SQLite < 3.38.0.
+        """
+        # Ensure connection exists for version detection or extension checks
+        if not self._connection:
+            self.connect()
+
+        # Get the actual SQLite version and update the dialect
+        version = self.get_server_version()
+        self._dialect.version = version
+        self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")
+
+        # For SQLite < 3.38.0, detect json1 extension availability at runtime
+        if version < (3, 38, 0):
+            json1_available = self._detect_json1_extension()
+            self._dialect.set_runtime_param('json1_available', json1_available)
+            self.log(logging.INFO, f"JSON1 extension runtime detection: {'available' if json1_available else 'unavailable'}")
+
+    def _detect_json1_extension(self) -> bool:
+        """Detect if json1 extension is available at runtime.
+
+        Returns False if no connection is established.
+        """
+        if self._connection is None:
+            return False
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute("SELECT json('{}')")
+            cursor.close()
+            return True
+        except sqlite3.Error:
+            return False

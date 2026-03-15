@@ -12,25 +12,25 @@ Architecture:
 - Exceptions provide clear error messages when features aren't available
 
 Usage:
-    from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
-    from rhosocial.activerecord.backend.dialect.protocols import WindowFunctionSupport
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteDialect
+from rhosocial.activerecord.backend.dialect.protocols import WindowFunctionSupport
 
-    dialect = SQLiteDialect()
+dialect = SQLiteDialect()
 
-    # Check protocol implementation
-    if isinstance(dialect, WindowFunctionSupport):
-        if dialect.supports_window_functions():
-            # Use window functions
-            pass
+# Check protocol implementation
+if isinstance(dialect, WindowFunctionSupport):
+    if dialect.supports_window_functions():
+        # Use window functions
+        pass
 
-    # Or use helper methods
-    try:
-        dialect.require_protocol(WindowFunctionSupport, "window functions", "MyQuery")
-        dialect.check_feature_support("supports_rollup", "ROLLUP")
-    except ProtocolNotImplementedError as e:
-        print(f"Protocol not implemented: {e}")
-    except UnsupportedFeatureError as e:
-        print(f"Feature not supported: {e}")
+# Or use helper methods
+try:
+    dialect.require_protocol(WindowFunctionSupport, "window functions", "MyQuery")
+    dialect.check_feature_support("supports_rollup", "ROLLUP")
+except ProtocolNotImplementedError as e:
+    print(f"Protocol not implemented: {e}")
+except UnsupportedFeatureError as e:
+    print(f"Feature not supported: {e}")
 """
 
 from .base import SQLDialectBase
@@ -62,6 +62,10 @@ from .protocols import (
     SchemaSupport,
     IndexSupport,
     SequenceSupport,
+    TriggerSupport,
+    FunctionSupport,
+    ILIKESupport,
+    GeneratedColumnSupport,
 )
 from .mixins import (
     WindowFunctionMixin,
@@ -89,6 +93,10 @@ from .mixins import (
     SchemaMixin,
     IndexMixin,
     SequenceMixin,
+    TriggerMixin,
+    FunctionMixin,
+    ILIKEMixin,
+    GeneratedColumnMixin,
 )
 
 # Import Explain types from expression module to make them available in dialect module
@@ -133,6 +141,10 @@ __all__ = [
     'SchemaSupport',
     'IndexSupport',
     'SequenceSupport',
+    'TriggerSupport',
+    'FunctionSupport',
+    'ILIKESupport',
+    'GeneratedColumnSupport',
 
     # Mixins
     'WindowFunctionMixin',
@@ -160,4 +172,8 @@ __all__ = [
     'SchemaMixin',
     'IndexMixin',
     'SequenceMixin',
+    'TriggerMixin',
+    'FunctionMixin',
+    'ILIKEMixin',
+    'GeneratedColumnMixin',
 ]

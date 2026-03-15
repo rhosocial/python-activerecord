@@ -194,7 +194,10 @@ class LimitOffsetClause(bases.BaseExpression):
         # Validate that offset requires limit in dialects that don't support offset without limit
         if offset is not None and limit is None:
             if not dialect.supports_offset_without_limit():
-                raise ValueError("OFFSET clause requires LIMIT clause in this dialect")
+                raise ValueError(
+                    f"OFFSET clause requires LIMIT clause in {dialect.name} dialect. "
+                    f"Call .limit() before .offset(), or use .limit(limit, offset=offset)."
+                )
 
         self.limit = limit  # Maximum number of rows to return (optional)
         self.offset = offset  # Number of rows to skip (optional, requires LIMIT in most dialects)

@@ -1064,51 +1064,12 @@ class SQLDialectBase:
 
         table_part = f"CREATE {temp_part}TABLE {not_exists_part}{table_sql} "
 
-        # Build column definitions
+        # Build column definitions using format_column_definition for extensibility
         column_parts = []
         for col_def in expr.columns:
-            # Basic column: name type
-            col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
-
-            # Add column constraints
-            constraint_parts = []
-            for constraint in col_def.constraints:
-                if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                    constraint_parts.append("PRIMARY KEY")
-                elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                    constraint_parts.append("NOT NULL")
-                elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                    constraint_parts.append("UNIQUE")
-                elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                    if constraint.default_value is None:
-                        raise ValueError("DEFAULT constraint must have a default value specified.")
-                    if isinstance(constraint.default_value, bases.BaseExpression):
-                        default_sql, default_params = constraint.default_value.to_sql()
-                        constraint_parts.append(f"DEFAULT {default_sql}")
-                        all_params.extend(default_params)
-                    else:
-                        constraint_parts.append("DEFAULT ?")
-                        all_params.append(constraint.default_value)
-                elif constraint.constraint_type == ColumnConstraintType.CHECK:
-                    if constraint.check_condition is None:
-                        raise ValueError("CHECK constraint must have a check condition specified.")
-                    check_sql, check_params = constraint.check_condition.to_sql()
-                    constraint_parts.append(f"CHECK ({check_sql})")
-                    all_params.extend(check_params)
-                elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                    if constraint.foreign_key_reference is None:
-                        raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
-                    referenced_table, referenced_columns = constraint.foreign_key_reference
-                    ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-                    constraint_parts.append(f"REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})")
-
-            if constraint_parts:
-                col_sql += " " + " ".join(constraint_parts)
-
-            if col_def.comment:
-                col_sql += f" COMMENT '{col_def.comment}'"
-
+            col_sql, col_params = self.format_column_definition(col_def)
             column_parts.append(col_sql)
+            all_params.extend(col_params)
 
         # Combine column definitions (without closing parenthesis yet)
         all_def_parts = [", ".join(column_parts)]
