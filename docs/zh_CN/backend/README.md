@@ -39,8 +39,12 @@ pip install rhosocial-activerecord[all]
 
 ## 目录
 
-*   **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。
-*   **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
+* **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。
+* **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
+* **[SQLite 后端](sqlite/README.md)**: SQLite 特定功能和特性。
+  * **[Pragma 系统](sqlite/pragma.md)**: SQLite PRAGMA 配置和查询。
+  * **[扩展框架](sqlite/extension.md)**: 扩展检测和管理。
+  * **[全文搜索 (FTS5)](sqlite/fts5.md)**: FTS5 全文搜索功能。
 
 ## 示例代码
 
