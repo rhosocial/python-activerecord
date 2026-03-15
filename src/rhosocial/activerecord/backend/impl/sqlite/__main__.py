@@ -6,57 +6,53 @@ import logging
 import sqlite3
 import sys
 import time
-from typing import Dict, List, Tuple, Any, Protocol, runtime_checkable
+from typing import Dict, List, Any
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite.config import (
+    SQLiteConnectionConfig
+)
 from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
-from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
+from rhosocial.activerecord.backend.output import (
+    JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
+)
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry, ExtensionType
+from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry
 from rhosocial.activerecord.backend.impl.sqlite.pragma import (
     get_all_pragma_infos, PragmaCategory
 )
 from rhosocial.activerecord.backend.dialect.protocols import (
-    WindowFunctionSupport, CTESupport, WildcardSupport, AdvancedGroupingSupport,
-    ReturningSupport, UpsertSupport, LateralJoinSupport, JoinSupport, ArraySupport,
+    WindowFunctionSupport, CTESupport,
+    ReturningSupport, UpsertSupport, LateralJoinSupport, JoinSupport,
     JSONSupport, ExplainSupport, GraphSupport, FilterClauseSupport,
-    OrderedSetAggregationSupport, MergeSupport, TemporalTableSupport,
-    QualifyClauseSupport, LockingSupport, SetOperationSupport, ViewSupport,
-    TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport, GeneratedColumnSupport, ILIKESupport, FunctionSupport,
+    SetOperationSupport, ViewSupport,
+    TableSupport, TruncateSupport, GeneratedColumnSupport,
+    TriggerSupport, FunctionSupport,
 )
 
 try:
-    from rich.console import Console
     from rich.logging import RichHandler
-    from rich.table import Table
     from rhosocial.activerecord.backend.output_rich import RichOutputProvider
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
-    RichOutputProvider = None
+    RichOutputProvider = None  # type: ignore[misc,assignment]
 
 logger = logging.getLogger(__name__)
 
-PROTOCOL_FAMILY_GROUPS = {
+PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
     "Query Features": [
         WindowFunctionSupport, CTESupport, FilterClauseSupport,
-        SetOperationSupport, WildcardSupport, ILIKESupport,
+        SetOperationSupport,
     ],
     "JOIN Support": [JoinSupport, LateralJoinSupport],
-    "Data Types": [ArraySupport, JSONSupport],
-    "DML Features": [
-        ReturningSupport, UpsertSupport, MergeSupport,
-        OrderedSetAggregationSupport,
-    ],
-    "Transaction & Locking": [LockingSupport, TemporalTableSupport],
-    "Query Analysis": [ExplainSupport, GraphSupport, QualifyClauseSupport],
+    "Data Types": [JSONSupport],
+    "DML Features": [ReturningSupport, UpsertSupport],
+    "Query Analysis": [ExplainSupport, GraphSupport],
     "DDL - Table": [TableSupport, TruncateSupport, GeneratedColumnSupport],
     "DDL - View": [ViewSupport],
-    "DDL - Schema & Index": [SchemaSupport, IndexSupport],
-    "DDL - Sequence & Trigger": [SequenceSupport, TriggerSupport, FunctionSupport],
+    "DDL - Sequence & Trigger": [TriggerSupport, FunctionSupport],
 }
 
 
@@ -81,7 +77,7 @@ def parse_args():
         'query',
         nargs='?',
         default=None,
-        help='SQL query to execute. If not provided, reads from --file or stdin.'
+        help='SQL query to execute. If not provided, reads from --file.'
     )
     parser.add_argument(
         '-f', '--file',
@@ -91,35 +87,56 @@ def parse_args():
     parser.add_argument(
         '--db-file',
         default=None,
-        help='Path to the SQLite database file. If not provided, an in-memory database will be used.'
+        help=('Path to the SQLite database file. '
+              'If not provided, an in-memory database will be used.')
     )
     parser.add_argument(
         '--executescript',
         action='store_true',
-        help='Execute the input as a multi-statement script. Use for files from dumps.'
+        help='Execute the input as a multi-statement script.'
     )
     parser.add_argument(
         '--output',
         choices=['table', 'json', 'csv', 'tsv'],
         default='table',
-        help='Output format. Defaults to "table" if rich is installed, otherwise "json".'
+        help='Output format. Defaults to "table" if rich is installed.'
     )
-    parser.add_argument('--log-level', default='INFO', help='Set logging level (e.g., DEBUG, INFO)')
-    parser.add_argument('--rich-ascii', action='store_true', help='Use ASCII characters for rich table borders.')
-    parser.add_argument('--info', action='store_true', help='Display SQLite environment information.')
-    parser.add_argument('-v', '--verbose', action='count', default=0,
-                        help='Increase verbosity level. -v for protocol families, -vv for detailed protocols.')
+    parser.add_argument(
+        '--log-level',
+        default='INFO',
+        help='Set logging level (e.g., DEBUG, INFO)'
+    )
+    parser.add_argument(
+        '--rich-ascii',
+        action='store_true',
+        help='Use ASCII characters for rich table borders.'
+    )
+    parser.add_argument(
+        '--info',
+        action='store_true',
+        help='Display SQLite environment information.'
+    )
+    parser.add_argument(
+        '-v', '--verbose',
+        action='count',
+        default=0,
+        help='Increase verbosity. -v for families, -vv for details.'
+    )
 
     return parser.parse_args()
 
 
 def get_provider(args):
+    """Factory function to get the correct output provider."""
     output_format = args.output
     if output_format == 'table' and not RICH_AVAILABLE:
         output_format = 'json'
 
     if output_format == 'table' and RICH_AVAILABLE:
-        return RichOutputProvider(console=Console(), ascii_borders=args.rich_ascii)
+        from rich.console import Console
+        return RichOutputProvider(
+            console=Console(), ascii_borders=args.rich_ascii
+        )
     if output_format == 'json':
         return JsonOutputProvider()
     if output_format == 'csv':
@@ -130,7 +147,7 @@ def get_provider(args):
     return JsonOutputProvider()
 
 
-def execute_query(sql_query: str, backend: SQLiteBackend, provider: 'OutputProvider', **kwargs):
+def execute_query(sql_query: str, backend: SQLiteBackend, provider, **kwargs):
     try:
         backend.connect()
         provider.display_query(sql_query, is_async=False)
@@ -164,7 +181,7 @@ def execute_query(sql_query: str, backend: SQLiteBackend, provider: 'OutputProvi
         provider.display_disconnect(is_async=False)
 
 
-def execute_script(sql_script: str, backend: SQLiteBackend, provider: 'OutputProvider'):
+def execute_script(sql_script: str, backend: SQLiteBackend, provider):
     try:
         backend.connect()
         provider.display_query(sql_script, is_async=False)
@@ -278,19 +295,21 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
             supported_count = sum(1 for v in support_methods.values() if v)
             total_count = len(support_methods)
 
-            if verbose >= 2:
-                info["protocols"][group_name][protocol_name] = {
-                    "supported": supported_count,
-                    "total": total_count,
-                    "percentage": round(supported_count / total_count * 100, 1) if total_count > 0 else 0,
-                    "methods": support_methods
-                }
-            else:
-                info["protocols"][group_name][protocol_name] = {
-                    "supported": supported_count,
-                    "total": total_count,
-                    "percentage": round(supported_count / total_count * 100, 1) if total_count > 0 else 0
-                }
+        if verbose >= 2:
+            info["protocols"][group_name][protocol_name] = {
+                "supported": supported_count,
+                "total": total_count,
+                "percentage": (round(supported_count / total_count * 100, 1)
+                               if total_count > 0 else 0),
+                "methods": support_methods
+            }
+        else:
+            info["protocols"][group_name][protocol_name] = {
+                "supported": supported_count,
+                "total": total_count,
+                "percentage": (round(supported_count / total_count * 100, 1)
+                               if total_count > 0 else 0)
+            }
 
     if output_format == 'json' or not RICH_AVAILABLE:
         print(json.dumps(info, indent=2))
@@ -301,11 +320,13 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
 
 
 def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
+    """Display info using rich console."""
+    from rich.console import Console
+
     console = Console(force_terminal=True)
 
     SYM_OK = "[OK]"
     SYM_PARTIAL = "[~]"
-    SYM_NONE = "[--]"
     SYM_FAIL = "[X]"
 
     console.print("\n[bold cyan]SQLite Environment Information[/bold cyan]\n")
@@ -320,12 +341,13 @@ def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
         if ext["available"] and "features" in ext:
             console.print(f"      [dim]Features: {', '.join(ext['features'])}[/dim]")
 
-    console.print(f"\n[bold green]Pragma System:[/bold green]")
+    console.print("\n[bold green]Pragma System:[/bold green]")
     console.print(f"  Total pragmas documented: {info['pragmas']['total_count']}")
     for cat_name, cat_info in info["pragmas"]["categories"].items():
         console.print(f"  [bold]{cat_name}:[/bold] {cat_info['count']} pragmas")
 
-    console.print(f"\n[bold green]Protocol Support ({'Detailed' if verbose >= 2 else 'Family Overview'}):[/bold green]")
+    label = 'Detailed' if verbose >= 2 else 'Family Overview'
+    console.print(f"\n[bold green]Protocol Support ({label}):[/bold green]")
 
     for group_name, protocols in info["protocols"].items():
         console.print(f"\n  [bold underline]{group_name}:[/bold underline]")
@@ -348,7 +370,12 @@ def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
             filled = int(pct / 100 * bar_len)
             bar = "#" * filled + "-" * (bar_len - filled)
 
-            console.print(f"    [{color}]{symbol}[/{color}] {protocol_name}: [{color}]{bar}[/{color}] {pct:.0f}% ({stats['supported']}/{stats['total']})")
+            sup = stats['supported']
+            tot = stats['total']
+            console.print(
+                f"    [{color}]{symbol}[/{color}] {protocol_name}: "
+                f"[{color}]{bar}[/{color}] {pct:.0f}% ({sup}/{tot})"
+            )
 
             if verbose >= 2 and "methods" in stats:
                 for method, supported in stats["methods"].items():
@@ -374,11 +401,17 @@ def main():
     provider = get_provider(args)
 
     if RICH_AVAILABLE and isinstance(provider, RichOutputProvider):
+        from rich.console import Console
+        handler = RichHandler(
+            rich_tracebacks=True,
+            show_path=False,
+            console=Console(stderr=True)
+        )
         logging.basicConfig(
             level=numeric_level,
             format="%(message)s",
             datefmt="[%X]",
-            handlers=[RichHandler(rich_tracebacks=True, show_path=False, console=Console(stderr=True))]
+            handlers=[handler]
         )
     else:
         logging.basicConfig(
@@ -403,7 +436,9 @@ def main():
         sql_source = sys.stdin.read()
 
     if not sql_source:
-        print("Error: No SQL query provided. Use a positional argument, the --file flag, or pipe from stdin.", file=sys.stderr)
+        msg = ("Error: No SQL query provided. "
+               "Use a positional argument, the --file flag, or pipe from stdin.")
+        print(msg, file=sys.stderr)
         sys.exit(1)
 
     db_path = args.db_file if args.db_file else ":memory:"
