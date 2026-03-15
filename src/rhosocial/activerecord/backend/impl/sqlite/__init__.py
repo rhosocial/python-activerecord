@@ -17,8 +17,52 @@ from .adapters import (
 )
 from .transaction import (
     SQLiteTransactionManager,
-    AsyncSQLiteTransactionManager,
     SQLiteTransactionMixin
+)
+from .async_transaction import AsyncSQLiteTransactionManager
+from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
+from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteExtensionMixin
+
+# Extension framework
+from .extension import (
+    ExtensionType,
+    SQLiteExtensionInfo,
+    SQLiteExtensionProtocol,
+    SQLiteExtensionBase,
+    SQLiteExtensionRegistry,
+    get_registry,
+    reset_registry,
+    KNOWN_EXTENSIONS,
+)
+
+# Extension implementations
+from .extension.extensions import (
+    FTS5Extension,
+    get_fts5_extension,
+    FTS3Extension,
+    FTS4Extension,
+    get_fts3_extension,
+    get_fts4_extension,
+    JSON1Extension,
+    get_json1_extension,
+    RTreeExtension,
+    get_rtree_extension,
+    GeopolyExtension,
+    get_geopoly_extension,
+)
+
+# Pragma framework
+from .pragma import (
+    PragmaCategory,
+    PragmaInfo,
+    PragmaProtocol,
+    PragmaBase,
+    SQLitePragmaSupport as PragmaSQLitePragmaSupport,
+    ALL_PRAGMAS,
+    get_pragma_info,
+    get_all_pragma_infos,
+    get_pragma_names,
+    get_pragmas_by_category,
 )
 
 # SQLite-specific function factories
@@ -63,6 +107,44 @@ __all__ = [
     'SQLiteTransactionManager',
     'AsyncSQLiteTransactionManager',
     'SQLiteTransactionMixin',
+    # SQLite-specific protocols and mixins
+    'SQLiteExtensionSupport',
+    'SQLitePragmaSupport',
+    'FTS5Mixin',
+    'SQLitePragmaMixin',
+    'SQLiteExtensionMixin',
+    # Extension framework
+    'ExtensionType',
+    'SQLiteExtensionInfo',
+    'SQLiteExtensionProtocol',
+    'SQLiteExtensionBase',
+    'SQLiteExtensionRegistry',
+    'get_registry',
+    'reset_registry',
+    'KNOWN_EXTENSIONS',
+    # Extension implementations
+    'FTS5Extension',
+    'get_fts5_extension',
+    'FTS3Extension',
+    'FTS4Extension',
+    'get_fts3_extension',
+    'get_fts4_extension',
+    'JSON1Extension',
+    'get_json1_extension',
+    'RTreeExtension',
+    'get_rtree_extension',
+    'GeopolyExtension',
+    'get_geopoly_extension',
+    # Pragma framework
+    'PragmaCategory',
+    'PragmaInfo',
+    'PragmaProtocol',
+    'PragmaBase',
+    'ALL_PRAGMAS',
+    'get_pragma_info',
+    'get_all_pragma_infos',
+    'get_pragma_names',
+    'get_pragmas_by_category',
     # SQLite-specific functions
     'substr',
     'instr',

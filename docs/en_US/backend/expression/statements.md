@@ -163,6 +163,56 @@ sql, params = create.to_sql()
 # params: ()
 ```
 
+#### Generated Columns (SQLite 3.31.0+, PostgreSQL, MySQL)
+
+SQLite 3.31.0+ supports generated columns (computed columns). Use `GeneratedColumnType` to specify the storage type:
+
+```python
+from rhosocial.activerecord.backend.expression import CreateTableExpression, ColumnDefinition, ColumnConstraint, ColumnConstraintType, GeneratedColumnType
+from rhosocial.activerecord.backend.expression import Column, Literal, CaseExpression
+
+# Create table with generated columns
+columns = [
+    ColumnDefinition(name="id", data_type="INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+    ColumnDefinition(name="price", data_type="REAL"),
+    ColumnDefinition(name="quantity", data_type="INTEGER"),
+    # STORED generated column - computed and stored on disk
+    ColumnDefinition(
+        name="total",
+        data_type="REAL",
+        generated_expression=Column(dialect, "price") * Column(dialect, "quantity"),
+        generated_type=GeneratedColumnType.STORED
+    ),
+    # VIRTUAL generated column - using CaseExpression for conditional logic
+    ColumnDefinition(
+        name="status_label",
+        data_type="TEXT",
+        generated_expression=CaseExpression(
+            dialect,
+            cases=[
+                (Column(dialect, "quantity") > Literal(dialect, 0), Literal(dialect, "in_stock")),
+            ],
+            default=Literal(dialect, "out_of_stock")
+        ),
+        generated_type=GeneratedColumnType.VIRTUAL
+    )
+]
+
+create = CreateTableExpression(
+    dialect=dialect,
+    table_name="products",
+    columns=columns
+)
+sql, params = create.to_sql()
+# sql: 'CREATE TABLE "products" ("id" INTEGER PRIMARY KEY, "price" REAL, "quantity" INTEGER,
+# "total" REAL GENERATED ALWAYS AS ("price" * "quantity") STORED,
+# "status_label" TEXT GENERATED ALWAYS AS (CASE WHEN "quantity" > ? THEN ? ELSE ? END) VIRTUAL)'
+# params: (0, "in_stock", "out_of_stock")
+
+# Note: Generated columns require SQLite 3.31.0+
+# Use dialect.supports_generated_columns() to check availability
+```
+
 ### DropTableExpression
 
 `DropTableExpression` represents a `DROP TABLE` statement.

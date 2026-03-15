@@ -959,5 +959,5 @@ class TestAlterTableStatements:
         )
 
         # Should raise ValueError when to_sql() is called
-        with pytest.raises(ValueError, match=r"Foreign key constraint must have a foreign_key_reference specified."):
+        with pytest.raises(ValueError, match=r"FOREIGN KEY constraint must have a foreign key reference specified."):
             alter_expr.to_sql()

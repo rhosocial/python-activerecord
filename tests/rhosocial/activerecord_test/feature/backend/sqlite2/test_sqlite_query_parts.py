@@ -108,7 +108,7 @@ class TestQueryParts:
     def test_limit_offset_clause_offset_only(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test OFFSET only - this should raise an error in SQLite dialects that don't support it."""
         # In SQLite, offset requires limit, so this should raise an error
-        with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause"):
+        with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in SQLite dialect"):
             LimitOffsetClause(
                 sqlite_dialect_3_8_0,
                 offset=20

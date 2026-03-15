@@ -1,10 +1,8 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/transaction.py
 import logging
-from typing import Dict, List, Optional
+from typing import Dict, Optional
 
-import aiosqlite
-
-from ...transaction import TransactionManager, AsyncTransactionManager, IsolationLevel
+from ...transaction import TransactionManager, IsolationLevel
 from ...errors import TransactionError
 
 
@@ -52,14 +50,16 @@ class SQLiteTransactionMixin:
         level = self._ISOLATION_LEVELS.get(self._isolation_level)
         if level:
             return f"BEGIN {level} TRANSACTION"
-        raise TransactionError(f"Unsupported isolation level: {self._isolation_level}")
+        raise TransactionError(
+            f"Unsupported isolation level: {self._isolation_level}"
+        )
 
 
 class SQLiteTransactionManager(SQLiteTransactionMixin, TransactionManager):
     """SQLite transaction manager implementation."""
 
     def __init__(self, connection, logger=None):
-        """Initialize SQLite transaction manager
+        """Initialize SQLite transaction manager.
 
         Args:
             connection: SQLite database connection
@@ -139,78 +139,5 @@ class SQLiteTransactionManager(SQLiteTransactionMixin, TransactionManager):
             raise TransactionError(error_msg) from e
 
     def supports_savepoint(self) -> bool:
-        """Check if savepoints are supported by SQLite."""
-        return True
-
-
-class AsyncSQLiteTransactionManager(SQLiteTransactionMixin, AsyncTransactionManager):
-    """Async transaction manager for SQLite using aiosqlite."""
-
-    def __init__(
-        self,
-        connection: aiosqlite.Connection,
-        logger: Optional[logging.Logger] = None
-    ):
-        super().__init__(connection, logger)
-        self._isolation_level = IsolationLevel.SERIALIZABLE
-
-    @property
-    def isolation_level(self) -> IsolationLevel:
-        """Get isolation level."""
-        return self._isolation_level
-
-    @isolation_level.setter
-    def isolation_level(self, level: IsolationLevel):
-        """Set isolation level."""
-        self.log(logging.DEBUG, f"Setting isolation level to {level}")
-        self._check_no_active_transaction()
-        self._validate_isolation_level(level)
-        self._isolation_level = level
-
-    async def _do_begin(self) -> None:
-        """Begin SQLite transaction."""
-        if self._isolation_level == IsolationLevel.SERIALIZABLE:
-            await self.connection.execute("BEGIN IMMEDIATE")
-            await self.connection.execute("PRAGMA read_uncommitted = 0")
-        else:
-            await self.connection.execute("BEGIN DEFERRED")
-            await self.connection.execute("PRAGMA read_uncommitted = 1")
-
-    async def _do_commit(self) -> None:
-        """Commit SQLite transaction."""
-        await self.connection.commit()
-
-    async def _do_rollback(self) -> None:
-        """Rollback SQLite transaction."""
-        await self.connection.rollback()
-
-    async def _do_create_savepoint(self, name: str) -> None:
-        """Create SQLite savepoint."""
-        try:
-            await self.connection.execute(f"SAVEPOINT {name}")
-        except Exception as e:
-            error_msg = f"Failed to create savepoint {name}: {str(e)}"
-            self.log(logging.ERROR, error_msg)
-            raise TransactionError(error_msg) from e
-
-    async def _do_release_savepoint(self, name: str) -> None:
-        """Release SQLite savepoint."""
-        try:
-            await self.connection.execute(f"RELEASE SAVEPOINT {name}")
-        except Exception as e:
-            error_msg = f"Failed to release savepoint {name}: {str(e)}"
-            self.log(logging.ERROR, error_msg)
-            raise TransactionError(error_msg) from e
-
-    async def _do_rollback_savepoint(self, name: str) -> None:
-        """Rollback to SQLite savepoint."""
-        try:
-            await self.connection.execute(f"ROLLBACK TO SAVEPOINT {name}")
-        except Exception as e:
-            error_msg = f"Failed to rollback to savepoint {name}: {str(e)}"
-            self.log(logging.ERROR, error_msg)
-            raise TransactionError(error_msg) from e
-
-    async def supports_savepoint(self) -> bool:
         """Check if savepoints are supported by SQLite."""
         return True

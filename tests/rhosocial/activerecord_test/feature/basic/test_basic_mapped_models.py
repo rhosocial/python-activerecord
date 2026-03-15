@@ -17,8 +17,7 @@ from rhosocial.activerecord.testsuite.feature.basic.conftest import mapped_model
 # Wildcard import all test cases from the testsuite's test file.
 from rhosocial.activerecord.testsuite.feature.basic.test_example_basic_fixtures import *
 
-# Define markers to categorize these tests
-pytest.mark.basic_mapped_models = pytest.mark.mark(name="basic_mapped_models", description="Tests for models with custom column name mappings in basic feature.")
+
 
 # You can optionally add a fixture here if needed to ensure specific setup/teardown
 # for ALL basic_mapped_models tests in this backend, but generally this should be handled
