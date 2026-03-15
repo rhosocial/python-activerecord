@@ -187,6 +187,22 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         self._dialect.version = version
         self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")
 
+        # For SQLite < 3.38.0, detect json1 extension availability at runtime
+        if version < (3, 38, 0):
+            json1_available = await self._detect_json1_extension()
+            self._dialect.set_runtime_param('json1_available', json1_available)
+            self.log(logging.INFO, f"JSON1 extension runtime detection: {'available' if json1_available else 'unavailable'}")
+
+    async def _detect_json1_extension(self) -> bool:
+        """Detect if json1 extension is available at runtime."""
+        try:
+            cursor = await self._connection.cursor()
+            await cursor.execute("SELECT json('{}')")
+            await cursor.close()
+            return True
+        except Exception:
+            return False
+
     async def _get_cursor(self):
         """Get database cursor for async operations."""
         if not self._connection:

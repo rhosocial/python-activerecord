@@ -90,7 +90,16 @@ class SQLiteDialect(
             version: SQLite version tuple (major, minor, patch)
         """
         self.version = version
+        self._runtime_params: Dict[str, Any] = {}
         super().__init__()
+
+    def set_runtime_param(self, key: str, value: Any) -> None:
+        """Set a runtime parameter (detected after connection)."""
+        self._runtime_params[key] = value
+
+    def get_runtime_param(self, key: str, default: Any = None) -> Any:
+        """Get a runtime parameter."""
+        return self._runtime_params.get(key, default)
 
     def get_parameter_placeholder(self, position: int = 0) -> str:
         """SQLite uses '?' for placeholders."""
@@ -130,8 +139,16 @@ class SQLiteDialect(
         return self.version >= (3, 10, 0)
 
     def supports_json_type(self) -> bool:
-        """JSON is supported with JSON1 extension."""
-        return self.version >= (3, 38, 0)  # JSON1 extension available since 3.38.0
+        """JSON is supported with JSON1 extension.
+
+        Detection logic:
+        - SQLite >= 3.38.0: JSON1 is built-in, always available
+        - SQLite < 3.38.0: Check runtime detection result (json1_available)
+        """
+        if self.version >= (3, 38, 0):
+            return True
+        # For older versions, use runtime detection result
+        return self.get_runtime_param('json1_available', False)
 
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
@@ -248,6 +265,120 @@ class SQLiteDialect(
         """Whether VIRTUAL generated columns are supported."""
         return self.supports_generated_columns()
 
+    # TableSupport protocol implementation
+    def supports_create_table(self) -> bool:
+        """Whether CREATE TABLE is supported."""
+        return True
+
+    def supports_drop_table(self) -> bool:
+        """Whether DROP TABLE is supported."""
+        return True
+
+    def supports_alter_table(self) -> bool:
+        """Whether ALTER TABLE is supported."""
+        return True
+
+    def supports_temporary_table(self) -> bool:
+        """Whether TEMPORARY tables are supported."""
+        return True
+
+    def supports_if_not_exists_table(self) -> bool:
+        """Whether CREATE TABLE IF NOT EXISTS is supported."""
+        return True
+
+    def supports_if_exists_table(self) -> bool:
+        """Whether DROP TABLE IF EXISTS is supported."""
+        return True
+
+    def supports_rename_table(self) -> bool:
+        """Whether RENAME TABLE is supported."""
+        return True
+
+    def supports_rename_column(self) -> bool:
+        """Whether RENAME COLUMN is supported."""
+        # RENAME COLUMN is supported since SQLite 3.25.0
+        return self.version >= (3, 25, 0)
+
+    def supports_drop_column(self) -> bool:
+        """Whether DROP COLUMN is supported."""
+        # DROP COLUMN is supported since SQLite 3.35.0
+        return self.version >= (3, 35, 0)
+
+    def supports_table_partitioning(self) -> bool:
+        """Whether table partitioning is supported."""
+        return False
+
+    def supports_table_tablespace(self) -> bool:
+        """Whether table tablespace is supported."""
+        return False
+
+    # IndexSupport protocol implementation
+    def supports_create_index(self) -> bool:
+        """Whether CREATE INDEX is supported."""
+        return True
+
+    def supports_drop_index(self) -> bool:
+        """Whether DROP INDEX is supported."""
+        return True
+
+    def supports_unique_index(self) -> bool:
+        """Whether UNIQUE indexes are supported."""
+        return True
+
+    def supports_index_if_exists(self) -> bool:
+        """Whether DROP INDEX IF EXISTS is supported."""
+        return True
+
+    def supports_index_if_not_exists(self) -> bool:
+        """Whether CREATE INDEX IF NOT EXISTS is supported."""
+        return True
+
+    def supports_partial_index(self) -> bool:
+        """Whether partial indexes (WHERE clause) are supported."""
+        # Partial indexes are supported since SQLite 3.8.0
+        return self.version >= (3, 8, 0)
+
+    def supports_functional_index(self) -> bool:
+        """Whether functional/expression indexes are supported."""
+        return True
+
+    def supports_concurrent_index(self) -> bool:
+        """Whether concurrent index creation is supported."""
+        return False
+
+    def supports_index_type(self) -> bool:
+        """Whether index type (BTREE, HASH, etc.) is supported."""
+        return False
+
+    def supports_index_tablespace(self) -> bool:
+        """Whether index tablespace is supported."""
+        return False
+
+    def supports_fulltext_index(self) -> bool:
+        """Whether fulltext indexes are supported."""
+        # SQLite uses FTS virtual tables instead of fulltext indexes
+        return False
+
+    def supports_fulltext_boolean_mode(self) -> bool:
+        """Whether fulltext boolean mode is supported."""
+        return False
+
+    def supports_fulltext_parser(self) -> bool:
+        """Whether custom fulltext parser is supported."""
+        return False
+
+    def supports_fulltext_query_expansion(self) -> bool:
+        """Whether fulltext query expansion is supported."""
+        return False
+
+    def supports_index_include(self) -> bool:
+        """Whether INCLUDE clause for indexes is supported."""
+        return False
+
+    # ILIKESupport protocol implementation
+    def supports_ilike(self) -> bool:
+        """Whether ILIKE (case-insensitive LIKE) is supported."""
+        return False
 
     # SetOperationSupport protocol implementation
     def supports_union(self) -> bool:

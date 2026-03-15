@@ -85,7 +85,7 @@ User.query().order_by(User.c.role, (User.c.age, "DESC"))
 
 分页查询。
 
-*   **用法示例**：
+* **用法示例**：
 
 ```python
 # 获取前 10 条
@@ -93,9 +93,20 @@ User.query().limit(10)
 
 # 跳过前 20 条，取 10 条 (即第 3 页)
 User.query().limit(10, offset=20)
-# 或者
-User.query().offset(20).limit(10)
+# 或者（推荐写法）
+User.query().limit(10).offset(20)
 ```
+
+* **注意事项**：
+  * **SQLite 后端限制**：在 SQLite 后端中，`OFFSET` 必须与 `LIMIT` 一起使用。请确保先调用 `.limit()` 或使用 `.limit(limit, offset=offset)` 参数形式。
+  ```python
+  # 错误：SQLite 不支持仅有 OFFSET 的查询
+  User.query().offset(20)  # 会抛出 ValueError
+
+  # 正确写法
+  User.query().limit(10).offset(20)  # 推荐
+  User.query().limit(10, offset=20)  # 或使用参数形式
+  ```
 
 ### `group_by(*columns)` / `having(condition)`
 

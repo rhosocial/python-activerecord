@@ -29,6 +29,11 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SetOperationSupport, ViewSupport,
     TableSupport, TruncateSupport, GeneratedColumnSupport,
     TriggerSupport, FunctionSupport,
+    # Additional protocols for complete coverage
+    AdvancedGroupingSupport, ArraySupport, ILIKESupport,
+    IndexSupport, LockingSupport, MergeSupport,
+    OrderedSetAggregationSupport, QualifyClauseSupport,
+    SchemaSupport, SequenceSupport, TemporalTableSupport,
 )
 
 try:
@@ -44,15 +49,21 @@ logger = logging.getLogger(__name__)
 PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
     "Query Features": [
         WindowFunctionSupport, CTESupport, FilterClauseSupport,
-        SetOperationSupport,
+        SetOperationSupport, AdvancedGroupingSupport,
     ],
     "JOIN Support": [JoinSupport, LateralJoinSupport],
-    "Data Types": [JSONSupport],
-    "DML Features": [ReturningSupport, UpsertSupport],
-    "Query Analysis": [ExplainSupport, GraphSupport],
+    "Data Types": [JSONSupport, ArraySupport],
+    "DML Features": [
+        ReturningSupport, UpsertSupport, MergeSupport,
+        OrderedSetAggregationSupport,
+    ],
+    "Transaction & Locking": [LockingSupport, TemporalTableSupport],
+    "Query Analysis": [ExplainSupport, GraphSupport, QualifyClauseSupport],
     "DDL - Table": [TableSupport, TruncateSupport, GeneratedColumnSupport],
     "DDL - View": [ViewSupport],
-    "DDL - Sequence & Trigger": [TriggerSupport, FunctionSupport],
+    "DDL - Schema & Index": [SchemaSupport, IndexSupport],
+    "DDL - Sequence & Trigger": [SequenceSupport, TriggerSupport, FunctionSupport],
+    "String Matching": [ILIKESupport],
 }
 
 
@@ -295,21 +306,21 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
             supported_count = sum(1 for v in support_methods.values() if v)
             total_count = len(support_methods)
 
-        if verbose >= 2:
-            info["protocols"][group_name][protocol_name] = {
-                "supported": supported_count,
-                "total": total_count,
-                "percentage": (round(supported_count / total_count * 100, 1)
-                               if total_count > 0 else 0),
-                "methods": support_methods
-            }
-        else:
-            info["protocols"][group_name][protocol_name] = {
-                "supported": supported_count,
-                "total": total_count,
-                "percentage": (round(supported_count / total_count * 100, 1)
-                               if total_count > 0 else 0)
-            }
+            if verbose >= 2:
+                info["protocols"][group_name][protocol_name] = {
+                    "supported": supported_count,
+                    "total": total_count,
+                    "percentage": (round(supported_count / total_count * 100, 1)
+                                   if total_count > 0 else 0),
+                    "methods": support_methods
+                }
+            else:
+                info["protocols"][group_name][protocol_name] = {
+                    "supported": supported_count,
+                    "total": total_count,
+                    "percentage": (round(supported_count / total_count * 100, 1)
+                                   if total_count > 0 else 0)
+                }
 
     if output_format == 'json' or not RICH_AVAILABLE:
         print(json.dumps(info, indent=2))

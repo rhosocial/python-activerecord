@@ -397,3 +397,19 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
         version = self.get_server_version()
         self._dialect.version = version
         self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")
+
+        # For SQLite < 3.38.0, detect json1 extension availability at runtime
+        if version < (3, 38, 0):
+            json1_available = self._detect_json1_extension()
+            self._dialect.set_runtime_param('json1_available', json1_available)
+            self.log(logging.INFO, f"JSON1 extension runtime detection: {'available' if json1_available else 'unavailable'}")
+
+    def _detect_json1_extension(self) -> bool:
+        """Detect if json1 extension is available at runtime."""
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute("SELECT json('{}')")
+            cursor.close()
+            return True
+        except sqlite3.Error:
+            return False

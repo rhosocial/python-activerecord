@@ -370,8 +370,8 @@ class TestQueryStatements:
 
         # Creating the LimitOffsetClause with offset only should raise error when dialect doesn't support it
         # The validation happens in the LimitOffsetClause constructor
-        with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in this dialect"):
-            limit_offset_clause = LimitOffsetClause(dummy_dialect, offset=10)
+        with pytest.raises(ValueError, match="OFFSET clause requires LIMIT clause in Dummy dialect"):
+            LimitOffsetClause(dummy_dialect, offset=10)
 
     def test_query_expression_order_by_simple_expressions(self, dummy_dialect: DummyDialect):
         """Tests QueryExpression with ORDER BY using simple expressions without directions."""
