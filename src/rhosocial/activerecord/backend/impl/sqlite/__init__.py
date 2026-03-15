@@ -17,9 +17,9 @@ from .adapters import (
 )
 from .transaction import (
     SQLiteTransactionManager,
-    AsyncSQLiteTransactionManager,
     SQLiteTransactionMixin
 )
+from .async_transaction import AsyncSQLiteTransactionManager
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteExtensionMixin
 

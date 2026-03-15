@@ -228,15 +228,15 @@ def check_protocol_support(dialect: Any, protocol_class: type) -> Dict[str, bool
 
 
 def display_info(verbose: int = 0, output_format: str = 'table'):
-    sqlite_version = sqlite3.sqlite_version
-    version_parts = sqlite_version.split('.')
-    version_tuple = (int(version_parts[0]), int(version_parts[1]), int(version_parts[2]))
-
+    """Display SQLite environment information."""
     config = SQLiteConnectionConfig(database=":memory:")
     backend = SQLiteBackend(connection_config=config)
     try:
         backend.connect()
+        backend.introspect_and_adapt()
         dialect = backend.dialect
+        version_tuple = dialect.version
+        sqlite_version = ".".join(map(str, version_tuple))
     except Exception as e:
         if output_format == 'json' or not RICH_AVAILABLE:
             print(json.dumps({"error": f"Failed to connect: {e}"}))
@@ -249,7 +249,7 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
     info = {
         "sqlite": {
             "version": sqlite_version,
-            "version_tuple": version_tuple,
+            "version_tuple": list(version_tuple),
         },
         "extensions": {},
         "pragmas": {

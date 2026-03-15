@@ -7,7 +7,6 @@ Uses aiosqlite library for async SQLite operations.
 """
 import logging
 import sqlite3
-from sqlite3 import ProgrammingError
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import aiosqlite
@@ -16,12 +15,10 @@ from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
 from ..adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
-from ..transaction import AsyncSQLiteTransactionManager
+from ..async_transaction import AsyncSQLiteTransactionManager
 from ....base import AsyncStorageBackend
 from ....config import ConnectionConfig
 from ....errors import ConnectionError
-from ....transaction import IsolationLevel
-from ....type_adapter import SQLTypeAdapter
 
 
 class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
