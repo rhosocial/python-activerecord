@@ -181,7 +181,19 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             return 3, 35, 0
 
     async def introspect_and_adapt(self) -> None:
-        """Introspect backend and adapt backend instance."""
+        """Introspect backend and adapt backend instance to actual server capabilities.
+
+        This method ensures a connection exists (if not already cached), queries
+        the actual SQLite version, and updates the backend's internal state.
+
+        Note: SQLite version is cached at class level for efficiency. If the version
+        is already cached, a new connection is only needed for extension detection
+        on SQLite < 3.38.0.
+        """
+        # Ensure connection exists for version detection or extension checks
+        if not self._connection:
+            await self.connect()
+
         # Get the actual SQLite version and update the dialect
         version = self.get_server_version()
         self._dialect.version = version
@@ -194,7 +206,12 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             self.log(logging.INFO, f"JSON1 extension runtime detection: {'available' if json1_available else 'unavailable'}")
 
     async def _detect_json1_extension(self) -> bool:
-        """Detect if json1 extension is available at runtime."""
+        """Detect if json1 extension is available at runtime.
+
+        Returns False if no connection is established.
+        """
+        if self._connection is None:
+            return False
         try:
             cursor = await self._connection.cursor()
             await cursor.execute("SELECT json('{}')")
