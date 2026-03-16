@@ -8,7 +8,6 @@ from datetime import datetime
 from unittest.mock import patch, MagicMock
 
 from rhosocial.activerecord.backend.errors import ConnectionError
-from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -91,23 +90,6 @@ class TestSQLiteBackendCoveragePart3Fixed:
         assert backend._connection is not None
 
         backend.disconnect()
-
-    def test_check_returning_compatibility_edge_cases(self):
-        """Test edge cases in _check_returning_compatibility"""
-        config = SQLiteConnectionConfig(database=":memory:")
-        backend = SQLiteBackend(connection_config=config)
-
-        # Create a mock ReturningClause object for testing
-        mock_returning_clause = ReturningClause(backend.dialect, expressions=[])
-        
-        # Test with exact boundary versions
-        with patch('sqlite3.sqlite_version_info', (3, 35, 0)), \
-                patch('sys.version_info', (3, 10, 0)):
-            # Should not raise exception for exact boundary versions
-            backend._check_returning_compatibility(mock_returning_clause)
-
-        # Test with force=True bypassing all checks - not applicable to current implementation
-        # The current implementation doesn't have a force parameter in ReturningClause
 
     def test_pragma_settings_edge_cases(self):
         """Test edge cases in pragma settings"""

@@ -7,6 +7,7 @@ Uses aiosqlite library for async SQLite operations.
 """
 import logging
 import sqlite3
+import time
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 import aiosqlite
@@ -19,6 +20,8 @@ from ..async_transaction import AsyncSQLiteTransactionManager
 from ....base import AsyncStorageBackend
 from ....config import ConnectionConfig
 from ....errors import ConnectionError
+from ....options import InsertOptions, UpdateOptions, DeleteOptions
+from ....result import QueryResult
 
 
 class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
@@ -177,8 +180,9 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
 
             AsyncSQLiteBackend._sqlite_version_cache = version
             return version
-        except Exception:
-            return 3, 35, 0
+        except Exception as e:
+            from rhosocial.activerecord.backend.errors import OperationalError
+            raise OperationalError(f"Failed to determine SQLite version: {str(e)}") from e
 
     async def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance to actual server capabilities.
@@ -276,3 +280,119 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                 await self._connection.commit()
             except Exception as e:
                 self.logger.warning(f"Auto-commit failed: {e}")
+
+    async def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
+        """Set a pragma parameter at runtime.
+
+        Args:
+            pragma_key: The pragma name to set.
+            pragma_value: The value to set for the pragma.
+
+        Raises:
+            ConnectionError: If the pragma cannot be set.
+        """
+        pragma_value_str = str(pragma_value)
+        self.config.pragmas[pragma_key] = pragma_value_str
+
+        if self._connection:
+            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
+            self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
+            try:
+                await self._connection.execute(pragma_statement)
+            except sqlite3.Error as e:
+                error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
+                self.log(logging.ERROR, error_msg)
+                raise ConnectionError(error_msg)
+
+    async def execute_many(
+        self, sql: str, params_list: List[Tuple]
+    ) -> Optional[QueryResult]:
+        """Execute batch operations with the same SQL statement and multiple parameter sets.
+
+        Args:
+            sql: The SQL statement to execute.
+            params_list: List of parameter tuples for each execution.
+
+        Returns:
+            QueryResult with affected_rows and duration, or None on error.
+        """
+        self.log(
+            logging.INFO,
+            f"Executing batch operation: {sql} with {len(params_list)} parameter sets"
+        )
+        start_time = time.perf_counter()
+        try:
+            if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
+                await self.connect()
+
+            cursor = await self._connection.cursor()
+            await cursor.executemany(sql, params_list)
+            duration = time.perf_counter() - start_time
+
+            self.log(
+                logging.INFO,
+                f"Batch operation completed, affected {cursor.rowcount} rows, "
+                f"duration={duration:.3f}s"
+            )
+            await self._handle_auto_commit_if_needed()
+
+            return QueryResult(affected_rows=cursor.rowcount, duration=duration)
+        except Exception as e:
+            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
+            await self._handle_error(e)
+            return None
+
+    async def insert(self, options: InsertOptions) -> QueryResult:
+        """Insert a record with special handling for RETURNING clause.
+
+        Args:
+            options: Insert options containing data and returning columns.
+
+        Returns:
+            QueryResult with proper affected_rows for RETURNING clause.
+        """
+        result = await super().insert(options)
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            result.affected_rows = len(result.data)
+        return result
+
+    async def update(self, options: UpdateOptions) -> QueryResult:
+        """Update records with special handling for RETURNING clause.
+
+        Args:
+            options: Update options containing data and returning columns.
+
+        Returns:
+            QueryResult with proper affected_rows for RETURNING clause.
+        """
+        result = await super().update(options)
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            result.affected_rows = len(result.data)
+        return result
+
+    async def delete(self, options: DeleteOptions) -> QueryResult:
+        """Delete records with special handling for RETURNING clause.
+
+        Args:
+            options: Delete options containing returning columns.
+
+        Returns:
+            QueryResult with proper affected_rows for RETURNING clause.
+        """
+        result = await super().delete(options)
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            result.affected_rows = len(result.data)
+        return result

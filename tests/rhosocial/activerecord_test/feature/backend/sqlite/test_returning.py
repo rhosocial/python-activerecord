@@ -4,7 +4,6 @@ import pytest
 from unittest.mock import patch, MagicMock
 
 from rhosocial.activerecord.backend.base.returning import ReturningClauseMixin
-from rhosocial.activerecord.backend.errors import ReturningNotSupportedError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -74,11 +73,6 @@ class TestReturningClauseMixin:
         new_sql = mixin_instance._prepare_returning_clause(sql, None, StatementType.DELETE)
         assert new_sql == sql
 
-    def test_check_returning_compatibility(self, mixin_instance):
-        mixin_instance._check_returning_compatibility(None)
-        returning_clause = ReturningClause(mixin_instance.dialect, expressions=[Column(mixin_instance.dialect, "id")])
-        mixin_instance._check_returning_compatibility(returning_clause)
-        # No assertion needed, just that it doesn't raise an exception
 
 
 # --- Integration tests for SQLite RETURNING functionality ---
@@ -154,14 +148,5 @@ def test_returning_with_delete(backend):
     assert len(result.data) == 1
     assert result.data[0]['id'] == 1
     assert result.data[0]['name'] == 'Charlie'
-
-
-@patch('sqlite3.sqlite_version_info', (3, 34, 0))
-def test_returning_unsupported_sqlite_version(backend):
-    """Tests that RETURNING raises an error on unsupported SQLite versions."""
-    returning_clause = ReturningClause(backend.dialect, [Column(backend.dialect, "id")])
-
-    with pytest.raises(ReturningNotSupportedError, match="RETURNING clause requires SQLite 3.35.0+"):
-        backend._check_returning_compatibility(returning_clause)
 
 

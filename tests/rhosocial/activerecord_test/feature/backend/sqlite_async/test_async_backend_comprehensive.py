@@ -16,7 +16,7 @@ import pytest_asyncio
 import aiofiles.os
 
 from rhosocial.activerecord.backend.errors import (
-    DatabaseError, QueryError, TransactionError, ReturningNotSupportedError, OperationalError
+    DatabaseError, QueryError, TransactionError, OperationalError
 )
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend, AsyncSQLiteTransactionManager

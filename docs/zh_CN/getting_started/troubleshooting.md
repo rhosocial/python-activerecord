@@ -406,6 +406,37 @@ AsyncUser.configure(async_config, AsyncSQLiteBackend)  # 使用异步后端
 
 ## 数据库连接问题
 
+### 错误 0：版本检测失败
+
+```python
+OperationalError: Failed to determine SQLite version: ...
+```
+
+**原因：** 后端无法获取数据库版本信息。可能的情况：
+- 数据库驱动异常
+- 数据库连接已断开
+- 数据库环境配置问题
+
+**解决：**
+
+```python
+# 确保数据库连接正常后再使用
+backend = SQLiteBackend(config)
+backend.connect()
+
+# 验证版本检测
+try:
+    version = backend.get_server_version()
+    print(f"SQLite version: {version}")
+except OperationalError as e:
+    print(f"版本检测失败: {e}")
+    # 检查数据库连接状态
+    if not backend.is_connected():
+        backend.connect()
+```
+
+> ⚠️ **重要**：版本检测失败不再返回默认值，而是抛出异常。这有助于及早发现数据库环境问题，而非掩盖错误。
+
 ### 错误 1：数据库文件路径错误
 
 ```python

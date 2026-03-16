@@ -8,7 +8,6 @@ specific behaviors and SQL dialect.
 """
 import logging
 import sqlite3
-import sys
 import time
 from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
@@ -19,12 +18,10 @@ from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect, SQLDialectBase
 from ..transaction import SQLiteTransactionManager
 from ....base import StorageBackend
-from ....errors import (
-    ConnectionError, JsonOperationNotSupportedError, ReturningNotSupportedError
-)
+from ....config import ConnectionConfig
+from ....errors import ConnectionError
 from ....options import DeleteOptions, InsertOptions, UpdateOptions
 from ....result import QueryResult
-from ....expression.statements import ReturningClause
 
 
 class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
@@ -33,38 +30,50 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
 
-    def __init__(self, **kwargs):
-        super().__init__(**kwargs)
+    def __init__(
+        self,
+        connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
+        database: Optional[str] = None,
+        **kwargs
+    ):
+        if connection_config is None and database is not None:
+            connection_config = SQLiteConnectionConfig(database=database, **kwargs)
+        elif connection_config is None:
+            raise ValueError("Either connection_config or database must be provided")
+
+        if not isinstance(connection_config, SQLiteConnectionConfig):
+            pragmas = {}
+            if hasattr(connection_config, 'pragmas'):
+                pragmas = connection_config.pragmas
+            connection_config = SQLiteConnectionConfig(
+                host=getattr(connection_config, 'host', None),
+                port=getattr(connection_config, 'port', None),
+                database=connection_config.database,
+                username=getattr(connection_config, 'username', None),
+                password=getattr(connection_config, 'password', None),
+                driver_type=getattr(connection_config, 'driver_type', None),
+                pragmas=pragmas,
+                delete_on_close=getattr(connection_config, 'delete_on_close', False),
+                options=getattr(connection_config, 'options', {}),
+            )
+
+        super().__init__(connection_config=connection_config)
         self._cursor = None
         self._dialect = SQLiteDialect()
-
-        if "connection_config" in kwargs and kwargs["connection_config"] is not None:
-            if not isinstance(kwargs["connection_config"], SQLiteConnectionConfig):
-                old_config = kwargs["connection_config"]
-                pragmas = {}
-                if hasattr(old_config, 'pragmas'):
-                    pragmas = old_config.pragmas
-                self.config = SQLiteConnectionConfig(
-                    host=old_config.host,
-                    port=old_config.port,
-                    database=old_config.database,
-                    username=old_config.username,
-                    password=old_config.password,
-                    driver_type=old_config.driver_type,
-                    pragmas=pragmas,
-                    delete_on_close=getattr(old_config, 'delete_on_close', False),
-                    options=old_config.options,
-                )
-            else:
-                self.config = kwargs["connection_config"]
-        else:
-            self.config = SQLiteConnectionConfig(**kwargs)
 
         self._register_sqlite_adapters()
 
     @property
     def dialect(self) -> SQLDialectBase:
         return self._dialect
+
+    def is_connected(self) -> bool:
+        """Check if connected to database.
+
+        Returns:
+            True if connection is established, False otherwise.
+        """
+        return self._connection is not None
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
         """Set a pragma parameter at runtime."""
@@ -218,27 +227,6 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                     return False
             return False
 
-    def _check_returning_compatibility(
-        self, returning_clause: Optional['ReturningClause']
-    ) -> None:
-        """Check compatibility issues with RETURNING clause in SQLite."""
-        version = sqlite3.sqlite_version_info
-        if version < (3, 35, 0):
-            error_msg = (
-                f"RETURNING clause requires SQLite 3.35.0+. "
-                f"Current version: {sqlite3.sqlite_version}."
-            )
-            self.log(logging.WARNING, error_msg)
-            raise ReturningNotSupportedError(error_msg)
-
-        if sys.version_info < (3, 10):
-            error_msg = (
-                "RETURNING clause has known issues in Python < 3.10 with SQLite: "
-                "affected_rows always reports 0 regardless of actual rows affected."
-            )
-            self.log(logging.WARNING, error_msg)
-            raise ReturningNotSupportedError(error_msg)
-
     def _get_cursor(self):
         """Get or create cursor for SQLite."""
         return self._connection.cursor()
@@ -360,8 +348,29 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
         return result
 
     def get_server_version(self) -> Tuple[int, int, int]:
-        """Get SQLite version."""
+        """Get SQLite version.
+
+        Uses the sqlite3 module's version info, which doesn't require a connection.
+        Falls back to querying the database only if the module version is unavailable.
+
+        Returns:
+            Tuple of (major, minor, patch) version numbers.
+        """
         if SQLiteBackend._sqlite_version_cache is None:
+            # Prefer module version (no connection needed)
+            try:
+                version_info = sqlite3.sqlite_version_info
+                if version_info and len(version_info) >= 3:
+                    SQLiteBackend._sqlite_version_cache = version_info[:3]
+                    self.log(
+                        logging.INFO,
+                        f"Detected SQLite version: {version_info[0]}.{version_info[1]}.{version_info[2]}"
+                    )
+                    return SQLiteBackend._sqlite_version_cache
+            except Exception:
+                pass
+
+            # Fallback to query if needed (for older Python versions)
             try:
                 if not self._connection:
                     self.connect()
@@ -378,16 +387,14 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                 SQLiteBackend._sqlite_version_cache = (major, minor, patch)
                 self.log(
                     logging.INFO,
-                    f"Detected SQLite version: {major}.{minor}.{patch}"
+                    f"Detected SQLite version (from query): {major}.{minor}.{patch}"
                 )
             except Exception as e:
+                error_msg = f"Failed to determine SQLite version: {str(e)}"
                 if hasattr(self, 'logger'):
-                    self.logger.warning(f"Failed to determine SQLite version: {str(e)}")
-                SQLiteBackend._sqlite_version_cache = (3, 35, 0)
-                self.log(
-                    logging.WARNING,
-                    f"Failed to determine SQLite version, defaulting to 3.35.0: {str(e)}"
-                )
+                    self.logger.error(error_msg)
+                from rhosocial.activerecord.backend.errors import OperationalError
+                raise OperationalError(error_msg) from e
 
         return SQLiteBackend._sqlite_version_cache
 

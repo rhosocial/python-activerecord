@@ -5,10 +5,8 @@ import pytest
 import sqlite3
 import uuid
 from datetime import datetime
-from unittest.mock import patch, MagicMock
+from unittest.mock import MagicMock
 
-from rhosocial.activerecord.backend.errors import ReturningNotSupportedError
-from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -21,28 +19,6 @@ class TestSQLiteBackendCoveragePart2:
         """Test _get_statement_type() default branch (calls super)"""
         # This method doesn't exist in current implementation, skipping test
         pass
-
-    def test_check_returning_compatibility_version_checks(self):
-        """Test _check_returning_compatibility() version checks"""
-        backend = SQLiteBackend(database=":memory:")
-
-        # Create a mock ReturningClause object for testing
-        mock_returning_clause = ReturningClause(backend.dialect, expressions=[])
-
-        # Test with SQLite version < 3.35.0 
-        with patch('sqlite3.sqlite_version_info', (3, 34, 0)), \
-                patch('sqlite3.sqlite_version', "3.34.0"):
-            with pytest.raises(ReturningNotSupportedError) as exc_info:
-                backend._check_returning_compatibility(mock_returning_clause)
-
-            assert "requires SQLite 3.35.0+" in str(exc_info.value)
-
-        # Test with Python version < 3.10
-        with patch('sys.version_info', (3, 9, 0)):
-            with pytest.raises(ReturningNotSupportedError) as exc_info:
-                backend._check_returning_compatibility(mock_returning_clause)
-
-            assert "known issues in Python < 3.10" in str(exc_info.value)
 
     def test_get_cursor_with_existing_cursor(self):
         """Test _get_cursor() when cursor already exists"""
