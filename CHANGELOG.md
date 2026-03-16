@@ -1,3 +1,16 @@
+## [v1.0.0.dev17] - 2026-03-16
+
+### Added
+
+- Enhance SQLite backend with FTS5, Pragma system, Generated Columns, and CLI improvements ([#39](https://github.com/rhosocial/python-activerecord/issues/39))
+
+
+
+### Changed
+
+- Changed `get_server_version()` to raise `OperationalError` on failure instead of returning a default version, ensuring database environment issues are detected early. Removed unused error classes (`ReturningNotSupportedError`, `VersionParseError`). ([#40](https://github.com/rhosocial/python-activerecord/issues/40))
+
+
 ## [v1.0.0.dev16] - 2026-03-12
 
 ### Added
