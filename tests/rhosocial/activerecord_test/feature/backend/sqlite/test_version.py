@@ -8,6 +8,7 @@ import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
+from rhosocial.activerecord.backend.errors import OperationalError
 
 
 class TestSQLiteVersion:
@@ -80,8 +81,8 @@ class TestSQLiteVersion:
 
         backend1.disconnect()
 
-    def test_version_error_handling(self, temp_db_path):
-        """Test error handling by simulating a connection error"""
+    def test_version_from_module_constant(self, temp_db_path):
+        """Test that version is obtained from module constant without connection"""
         # Reset class-level cache to ensure clean test
         SQLiteBackend._sqlite_version_cache = None
 
@@ -89,20 +90,44 @@ class TestSQLiteVersion:
         config = ConnectionConfig(database=temp_db_path)
         backend = SQLiteBackend(connection_config=config)
 
-        # Mock the connection cursor to raise an exception when execute is called
-        with mock.patch.object(backend, '_connection') as mock_conn:
+        # Get version without connecting (uses module constant)
+        version = backend.get_server_version()
+
+        # Should match module constant
+        expected = sqlite3.sqlite_version_info[:3]
+        assert version == expected
+
+        # Backend should not have connected
+        assert backend._connection is None
+
+    def test_version_error_handling(self, temp_db_path):
+        """Test error handling by simulating errors in both module constant and fallback"""
+        # Reset class-level cache to ensure clean test
+        SQLiteBackend._sqlite_version_cache = None
+
+        # Create backend
+        config = ConnectionConfig(database=temp_db_path)
+        backend = SQLiteBackend(connection_config=config)
+
+        # Mock sqlite_version_info to be None to force fallback path
+        with mock.patch.object(sqlite3, 'sqlite_version_info', None):
+            # Create a mock connection that will fail
+            mock_conn = mock.MagicMock()
             mock_cursor = mock.MagicMock()
             mock_cursor.execute.side_effect = sqlite3.Error("Test error")
             mock_conn.cursor.return_value = mock_cursor
 
-            # Should default to version (3, 35, 0) on error
-            version = backend.get_server_version()
-            assert version == (3, 35, 0)
+            # Set the mock connection
+            backend._connection = mock_conn
 
-        backend.disconnect()
+            # Should raise OperationalError when version detection fails
+            with pytest.raises(OperationalError, match="Failed to determine SQLite version"):
+                backend.get_server_version()
+
+        backend._connection = None
 
     def test_version_parsing_variants(self, temp_db_path):
-        """Test parsing of different version string formats"""
+        """Test parsing of different version string formats via fallback path"""
         # Reset class-level cache to ensure clean test
         SQLiteBackend._sqlite_version_cache = None
 
@@ -120,11 +145,16 @@ class TestSQLiteVersion:
         ]
 
         for version_str, expected_tuple in test_cases:
-            # Mock fetch_one to return a specific version
-            with mock.patch.object(backend, '_connection') as mock_conn:
+            # Mock sqlite_version_info to be None to force fallback to database query
+            with mock.patch.object(sqlite3, 'sqlite_version_info', None):
+                # Create a mock connection that returns the version string
+                mock_conn = mock.MagicMock()
                 mock_cursor = mock.MagicMock()
                 mock_cursor.fetchone.return_value = [version_str]
                 mock_conn.cursor.return_value = mock_cursor
+
+                # Set the mock connection
+                backend._connection = mock_conn
 
                 # Reset class-level cache for each test case
                 SQLiteBackend._sqlite_version_cache = None
@@ -135,7 +165,7 @@ class TestSQLiteVersion:
                 # Check that it matches expected tuple
                 assert version == expected_tuple
 
-        backend.disconnect()
+        backend._connection = None
 
     def test_version_comparison(self, temp_db_path):
         """Test that version can be compared correctly for feature detection"""
@@ -146,13 +176,8 @@ class TestSQLiteVersion:
         config = ConnectionConfig(database=temp_db_path)
         backend = SQLiteBackend(connection_config=config)
 
-        # Mock to return a specific version (3.35.0)
-        with mock.patch.object(backend, '_connection') as mock_conn:
-            mock_cursor = mock.MagicMock()
-            mock_cursor.fetchone.return_value = ["3.35.0"]
-            mock_conn.cursor.return_value = mock_cursor
-
-            # Get version
+        # Mock sqlite_version_info to return a specific version (3.35.0)
+        with mock.patch.object(sqlite3, 'sqlite_version_info', (3, 35, 0)):
             version = backend.get_server_version()
 
             # Should be exactly 3.35.0
@@ -166,5 +191,3 @@ class TestSQLiteVersion:
 
             # RETURNING clause support requires SQLite 3.35.0 or later
             assert version >= (3, 35, 0)
-
-        backend.disconnect()

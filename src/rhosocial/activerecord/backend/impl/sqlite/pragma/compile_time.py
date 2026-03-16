@@ -7,7 +7,7 @@ including available compile options and encoding settings.
 
 Reference: https://www.sqlite.org/pragma.html#toc
 """
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from .base import PragmaCategory, PragmaInfo
 

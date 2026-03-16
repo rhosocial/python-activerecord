@@ -38,8 +38,8 @@ import uuid
 from decimal import Decimal
 from typing import Any, Dict, Optional, Type
 
-from ...type_adapter import BaseSQLTypeAdapter
-from ...errors import TypeConversionError
+from rhosocial.activerecord.backend.type_adapter import BaseSQLTypeAdapter
+from rhosocial.activerecord.backend.errors import TypeConversionError
 
 
 class SQLiteBlobAdapter(BaseSQLTypeAdapter):
@@ -101,7 +101,7 @@ class SQLiteJSONAdapter(BaseSQLTypeAdapter):
         try:
             return json.dumps(value, default=self._extended_json_serializer)
         except TypeError as e:
-            raise TypeConversionError(f"Failed to serialize object to JSON: {e}")
+            raise TypeConversionError(f"Failed to serialize object to JSON: {e}") from e
 
     def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         """Converts a JSON string from the database back to a Python object."""
@@ -110,7 +110,7 @@ class SQLiteJSONAdapter(BaseSQLTypeAdapter):
         try:
             return json.loads(value)
         except json.JSONDecodeError as e:
-            raise TypeConversionError(f"Failed to decode JSON string '{value[:100]}...': {e}")
+            raise TypeConversionError(f"Failed to decode JSON string '{value[:100]}...': {e}") from e
 
 
 class SQLiteUUIDAdapter(BaseSQLTypeAdapter):
@@ -124,9 +124,9 @@ class SQLiteUUIDAdapter(BaseSQLTypeAdapter):
 
     def _do_to_database(self, value: uuid.UUID, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         """Converts a Python UUID to a string or bytes."""
-        if target_type == str:
+        if target_type is str:
             return str(value)
-        if target_type == bytes:
+        if target_type is bytes:
             return value.bytes
         raise TypeConversionError(f"Cannot convert UUID to unsupported target type: {target_type.__name__}")
 
@@ -138,6 +138,6 @@ class SQLiteUUIDAdapter(BaseSQLTypeAdapter):
             if isinstance(value, bytes):
                 return uuid.UUID(bytes=value)
         except (ValueError, TypeError) as e:
-            raise TypeConversionError(f"Could not convert value of type {type(value).__name__} to UUID: {e}")
+            raise TypeConversionError(f"Could not convert value of type {type(value).__name__} to UUID: {e}") from e
 
         raise TypeConversionError(f"Cannot convert {type(value).__name__} to UUID")

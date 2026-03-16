@@ -10,7 +10,7 @@ Available since SQLite 3.26.0 (2018-12-01).
 
 Reference: https://www.sqlite.org/geopoly.html
 """
-from typing import Optional, Tuple, List
+from typing import Optional, Tuple
 
 from ..base import ExtensionType, SQLiteExtensionBase
 

@@ -78,9 +78,11 @@ class RTreeExtension(SQLiteExtensionBase):
         
         if content_table:
             if content_rowid:
-                sql = f'CREATE VIRTUAL TABLE "{table_name}" USING rtree({", ".join(cols)}, content="{content_table}", content_rowid="{content_rowid}")'
+                sql = (f'CREATE VIRTUAL TABLE "{table_name}" USING rtree'
+                       f'({", ".join(cols)}, content="{content_table}", content_rowid="{content_rowid}")')
             else:
-                sql = f'CREATE VIRTUAL TABLE "{table_name}" USING rtree({", ".join(cols)}, content="{content_table}")'
+                sql = (f'CREATE VIRTUAL TABLE "{table_name}" USING rtree'
+                       f'({", ".join(cols)}, content="{content_table}")')
         else:
             sql = f'CREATE VIRTUAL TABLE "{table_name}" USING rtree({", ".join(cols)})'
         

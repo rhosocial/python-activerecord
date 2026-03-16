@@ -5,7 +5,7 @@ SQLite extension framework base classes and protocols.
 This module provides the foundation for SQLite extension support,
 including extension types, information classes, and protocols.
 """
-from abc import ABC, abstractmethod
+from abc import ABC
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable

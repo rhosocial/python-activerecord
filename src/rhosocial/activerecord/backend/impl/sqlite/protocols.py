@@ -5,7 +5,7 @@ SQLite-specific protocol definitions.
 This module defines protocol interfaces for SQLite-specific features
 that are not part of the standard SQL dialect protocols.
 """
-from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
 
 
 @runtime_checkable

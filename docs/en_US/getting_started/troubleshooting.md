@@ -406,6 +406,37 @@ AsyncUser.configure(async_config, AsyncSQLiteBackend)  # Use async backend
 
 ## Database Connection Issues
 
+### Error 0: Version Detection Failure
+
+```python
+OperationalError: Failed to determine SQLite version: ...
+```
+
+**Cause:** The backend cannot retrieve database version information. Possible scenarios:
+- Database driver malfunction
+- Database connection has been lost
+- Database environment configuration issues
+
+**Solution:**
+
+```python
+# Ensure database connection is established before use
+backend = SQLiteBackend(config)
+backend.connect()
+
+# Verify version detection
+try:
+    version = backend.get_server_version()
+    print(f"SQLite version: {version}")
+except OperationalError as e:
+    print(f"Version detection failed: {e}")
+    # Check database connection status
+    if not backend.is_connected():
+        backend.connect()
+```
+
+> ⚠️ **Important**: Version detection failure no longer returns a default value but raises an exception. This helps detect database environment issues early rather than masking errors.
+
 ### Error 1: Wrong Database File Path
 
 ```python

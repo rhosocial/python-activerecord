@@ -17,6 +17,30 @@ For example, MySQL 5.6 doesn't support JSON type, while MySQL 8.0 does. With `in
 
 For backends that don't need version-specific adaptation (e.g., SQLite, Dummy), this can be implemented as a no-op.
 
+### Version Detection Behavior
+
+The `get_server_version()` method is responsible for retrieving the database server version. **Important Change**: When version detection fails, this method raises an `OperationalError` exception instead of returning a default value.
+
+```python
+from rhosocial.activerecord.backend.errors import OperationalError
+
+try:
+    version = backend.get_server_version()
+except OperationalError as e:
+    # Version detection failed, handle the error
+    print(f"Unable to get database version: {e}")
+```
+
+This design ensures that issues are detected early rather than being masked. Returning a default version number could lead to:
+- Subsequent operations on unsupported database versions
+- Hard-to-track subtle errors
+- Poor user experience
+
+When implementing a custom backend, please ensure:
+1. Version detection logic is robust enough
+2. Meaningful error messages are provided
+3. Consider the impact of connection state on version detection
+
 ## Reference Implementations
 
 We recommend referring to the existing implementations in `src/rhosocial/activerecord/backend/impl/`:

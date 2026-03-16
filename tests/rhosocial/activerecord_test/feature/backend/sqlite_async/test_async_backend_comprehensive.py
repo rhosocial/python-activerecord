@@ -16,7 +16,7 @@ import pytest_asyncio
 import aiofiles.os
 
 from rhosocial.activerecord.backend.errors import (
-    DatabaseError, QueryError, TransactionError, ReturningNotSupportedError, OperationalError
+    DatabaseError, QueryError, TransactionError, OperationalError
 )
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend, AsyncSQLiteTransactionManager
@@ -1070,7 +1070,7 @@ class TestAsyncSQLiteTransaction:
     @pytest.mark.asyncio
     async def test_supports_savepoint(self, backend):
         """Test savepoint support check"""
-        assert await backend.transaction_manager.supports_savepoint() is True
+        assert backend.transaction_manager.supports_savepoint() is True
 
     @pytest.mark.asyncio
     async def test_mixed_savepoint_transactions(self, backend):

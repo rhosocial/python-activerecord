@@ -33,7 +33,6 @@ from rhosocial.activerecord.backend.errors import (
     IntegrityError,
     OperationalError,
     QueryError,
-    ReturningNotSupportedError,
     TransactionError, DeadlockError,
 )
 from rhosocial.activerecord.backend.impl.sqlite.adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter

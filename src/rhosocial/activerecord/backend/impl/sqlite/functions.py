@@ -15,10 +15,10 @@ SQLite Function Categories:
 """
 from typing import Union, Optional, TYPE_CHECKING
 
-from ...expression import bases, core
+from rhosocial.activerecord.backend.expression import bases, core
 
 if TYPE_CHECKING:
-    from ...dialect import SQLDialectBase
+    from rhosocial.activerecord.backend.dialect import SQLDialectBase
 
 
 def substr(
