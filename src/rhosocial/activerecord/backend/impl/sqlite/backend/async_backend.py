@@ -27,11 +27,8 @@ from ....result import QueryResult
 class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
     """Async SQLite backend implementation."""
 
+    DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
-
-    async def _handle_error(self, error: Exception) -> None:
-        """Handle SQLite-specific errors and convert to appropriate exceptions."""
-        self._handle_sqlite_error(error)
 
     def __init__(
         self,
@@ -63,16 +60,61 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         """Get SQL dialect."""
         return self._dialect
 
-    @property
-    def transaction_manager(self) -> AsyncSQLiteTransactionManager:
-        """Get transaction manager."""
-        if self._transaction_manager is None:
-            if self._connection is None:
-                raise ConnectionError("Not connected to database")
-            self._transaction_manager = AsyncSQLiteTransactionManager(
-                self._connection, self.logger
-            )
-        return self._transaction_manager
+    async def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
+        """Set a pragma parameter at runtime.
+
+        Args:
+            pragma_key: The pragma name to set.
+            pragma_value: The value to set for the pragma.
+
+        Raises:
+            ConnectionError: If the pragma cannot be set.
+
+        .. warning::
+            **SECURITY WARNING**: This method directly concatenates the pragma key and value
+            into SQL statements without parameterization. Users MUST NOT expose these parameters
+            to untrusted input, as this could lead to SQL injection vulnerabilities.
+
+            **Do NOT** accept pragma_key or pragma_value directly from user input without
+            proper validation and sanitization. Use a whitelist of allowed pragma names and
+            validate values against expected patterns.
+
+            Example of safe usage:
+
+            .. code-block:: python
+
+                # Safe: Using hardcoded or validated values
+                await backend.set_pragma('journal_mode', 'WAL')
+                await backend.set_pragma('foreign_keys', 'ON')
+
+                # Dangerous: Accepting user input directly
+                # await backend.set_pragma(user_input_key, user_input_value)  # NEVER do this!
+        """
+        pragma_value_str = str(pragma_value)
+        self.config.pragmas[pragma_key] = pragma_value_str
+
+        if self._connection:
+            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
+            self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
+            try:
+                await self._connection.execute(pragma_statement)
+            except sqlite3.Error as e:
+                error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
+                self.log(logging.ERROR, error_msg)
+                raise ConnectionError(error_msg)
+
+    async def _apply_pragmas(self) -> None:
+        """Apply PRAGMA settings."""
+        for pragma_key, pragma_value in self.config.pragmas.items():
+            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
+            self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
+            try:
+                await self._connection.execute(pragma_statement)
+            except sqlite3.Error as e:
+                self.log(
+                    logging.WARNING,
+                    f"Failed to execute pragma {pragma_statement}: {str(e)}"
+                )
 
     async def connect(self) -> None:
         """Connect to database."""
@@ -94,6 +136,11 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         """Disconnect from database."""
         try:
             if self._connection is not None:
+                if self._transaction_manager is not None and self._transaction_manager.is_active:
+                    self.logger.warning(
+                        "Active transaction detected during disconnect, rolling back"
+                    )
+                    await self._transaction_manager.rollback()
                 await self._connection.close()
                 self._connection = None
                 self._cursor = None
@@ -101,6 +148,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
 
             if self.config.delete_on_close and not self.config.is_memory_db():
                 await self._delete_database_files()
+            self.logger.info("Disconnected from SQLite database")
         except Exception as e:
             self.logger.warning(f"Error during disconnect: {e}")
 
@@ -128,23 +176,6 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                     else:
                         self.logger.warning(f"Failed to delete {filepath}: {e}")
 
-    async def _apply_pragmas(self) -> None:
-        """Apply PRAGMA settings."""
-        for pragma_key, pragma_value in self.config.pragmas.items():
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value}"
-            self.log(logging.DEBUG, f"Executing pragma: {pragma_statement}")
-            try:
-                await self._connection.execute(pragma_statement)
-            except sqlite3.Error as e:
-                self.log(
-                    logging.WARNING,
-                    f"Failed to execute pragma {pragma_statement}: {str(e)}"
-                )
-
-    def is_connected(self) -> bool:
-        """Check if connected."""
-        return self._connection is not None
-
     async def ping(self, reconnect: bool = True) -> bool:
         """Test connection."""
         try:
@@ -164,6 +195,154 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                 except Exception:
                     return False
             return False
+
+    async def _get_cursor(self):
+        """Get database cursor for async operations."""
+        if not self._connection:
+            await self.connect()
+        return await self._connection.cursor()
+
+    async def _handle_auto_commit_if_needed(self):
+        """Handle auto-commit if needed."""
+        if not self.in_transaction:
+            try:
+                await self._connection.commit()
+            except Exception as e:
+                self.logger.warning(f"Auto-commit failed: {e}")
+
+    async def _handle_error(self, error: Exception) -> None:
+        """Handle SQLite-specific errors and convert to appropriate exceptions."""
+        self._handle_sqlite_error(error)
+
+    async def executescript(self, sql_script: str) -> None:
+        """Execute a multi-statement SQL script asynchronously."""
+        self.log(logging.INFO, "Executing SQL script asynchronously.")
+        start_time = time.perf_counter()
+        try:
+            if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
+                await self.connect()
+
+            await self._connection.executescript(sql_script)
+            duration = time.perf_counter() - start_time
+            self.log(logging.INFO, f"Async SQL script executed successfully, duration={duration:.3f}s")
+            await self._handle_auto_commit()
+
+        except Exception as e:
+            self.log(logging.ERROR, f"Error executing async SQL script: {str(e)}")
+            await self._handle_error(e)
+
+    async def execute_many(
+        self, sql: str, params_list: List[Tuple]
+    ) -> Optional[QueryResult]:
+        """Execute batch operations with the same SQL statement and multiple parameter sets.
+
+        Args:
+            sql: The SQL statement to execute.
+            params_list: List of parameter tuples for each execution.
+
+        Returns:
+            QueryResult with affected_rows and duration, or None on error.
+        """
+        self.log(
+            logging.INFO,
+            f"Executing batch operation: {sql} with {len(params_list)} parameter sets"
+        )
+        start_time = time.perf_counter()
+        try:
+            if not self._connection:
+                self.log(logging.DEBUG, "No active connection, establishing new connection")
+                await self.connect()
+
+            cursor = await self._connection.cursor()
+            await cursor.executemany(sql, params_list)
+            duration = time.perf_counter() - start_time
+
+            self.log(
+                logging.INFO,
+                f"Batch operation completed, affected {cursor.rowcount} rows, "
+                f"duration={duration:.3f}s"
+            )
+            await self._handle_auto_commit_if_needed()
+
+            return QueryResult(affected_rows=cursor.rowcount, duration=duration)
+        except Exception as e:
+            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
+            await self._handle_error(e)
+            return None
+
+    async def _handle_auto_commit(self):
+        """Handle auto-commit."""
+        if self._transaction_manager is None or not self._transaction_manager.is_active:
+            try:
+                await self._connection.commit()
+            except Exception as e:
+                self.logger.warning(f"Auto-commit failed: {e}")
+
+    @property
+    def transaction_manager(self) -> AsyncSQLiteTransactionManager:
+        """Get transaction manager."""
+        if self._transaction_manager is None:
+            if self._connection is None:
+                raise ConnectionError("Not connected to database")
+            self._transaction_manager = AsyncSQLiteTransactionManager(
+                self._connection, self.logger
+            )
+        return self._transaction_manager
+
+    async def insert(self, options: InsertOptions) -> QueryResult:
+        """Insert a record with special handling for RETURNING clause.
+
+        Args:
+            options: Insert options containing data and returning columns.
+
+        Returns:
+            QueryResult with proper affected_rows for RETURNING clause.
+        """
+        result = await super().insert(options)
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            result.affected_rows = len(result.data)
+        return result
+
+    async def update(self, options: UpdateOptions) -> QueryResult:
+        """Update records with special handling for RETURNING clause.
+
+        Args:
+            options: Update options containing data and returning columns.
+
+        Returns:
+            QueryResult with proper affected_rows for RETURNING clause.
+        """
+        result = await super().update(options)
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            result.affected_rows = len(result.data)
+        return result
+
+    async def delete(self, options: DeleteOptions) -> QueryResult:
+        """Delete records with special handling for RETURNING clause.
+
+        Args:
+            options: Delete options containing returning columns.
+
+        Returns:
+            QueryResult with proper affected_rows for RETURNING clause.
+        """
+        result = await super().delete(options)
+        if (result.affected_rows == 0 and
+            options.returning_columns is not None and
+            options.returning_columns and
+            result.data is not None and
+            len(result.data) > 0):
+            result.affected_rows = len(result.data)
+        return result
 
     def get_server_version(self) -> Tuple[int, int, int]:
         """Get SQLite version."""
@@ -224,11 +403,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         except Exception:
             return False
 
-    async def _get_cursor(self):
-        """Get database cursor for async operations."""
-        if not self._connection:
-            await self.connect()
-        return await self._connection.cursor()
+    # Async-specific helper methods (not present in sync version)
 
     async def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
         """Execute the query with prepared SQL and parameters."""
@@ -243,156 +418,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         from ....schema import StatementType
         self.log(logging.DEBUG, f"Query completed: {stmt_type.name}, duration: {duration:.4f}s")
 
-    async def _handle_auto_commit_if_needed(self):
-        """Handle auto-commit if needed."""
-        if not self.in_transaction:
-            try:
-                await self._connection.commit()
-            except Exception as e:
-                self.logger.warning(f"Auto-commit failed: {e}")
-
     async def _handle_execution_error(self, error: Exception):
         """Handle execution error and return appropriate result."""
         await self._handle_error(error)
         raise error
-
-    async def executescript(self, sql_script: str) -> None:
-        """Execute a multi-statement SQL script asynchronously."""
-        self.log(logging.INFO, "Executing SQL script asynchronously.")
-        try:
-            if not self._connection:
-                self.log(logging.DEBUG, "No active connection, establishing new connection")
-                await self.connect()
-
-            await self._connection.executescript(sql_script)
-            self.log(logging.INFO, "Async SQL script executed successfully.")
-
-            await self._handle_auto_commit()
-
-        except Exception as e:
-            self.log(logging.ERROR, f"Error executing async SQL script: {str(e)}")
-            await self._handle_error(e)
-
-    async def _handle_auto_commit(self):
-        """Handle auto-commit."""
-        if self._transaction_manager is None or not self._transaction_manager.is_active:
-            try:
-                await self._connection.commit()
-            except Exception as e:
-                self.logger.warning(f"Auto-commit failed: {e}")
-
-    async def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
-        """Set a pragma parameter at runtime.
-
-        Args:
-            pragma_key: The pragma name to set.
-            pragma_value: The value to set for the pragma.
-
-        Raises:
-            ConnectionError: If the pragma cannot be set.
-        """
-        pragma_value_str = str(pragma_value)
-        self.config.pragmas[pragma_key] = pragma_value_str
-
-        if self._connection:
-            pragma_statement = f"PRAGMA {pragma_key} = {pragma_value_str}"
-            self.log(logging.DEBUG, f"Setting pragma: {pragma_statement}")
-            try:
-                await self._connection.execute(pragma_statement)
-            except sqlite3.Error as e:
-                error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
-                self.log(logging.ERROR, error_msg)
-                raise ConnectionError(error_msg)
-
-    async def execute_many(
-        self, sql: str, params_list: List[Tuple]
-    ) -> Optional[QueryResult]:
-        """Execute batch operations with the same SQL statement and multiple parameter sets.
-
-        Args:
-            sql: The SQL statement to execute.
-            params_list: List of parameter tuples for each execution.
-
-        Returns:
-            QueryResult with affected_rows and duration, or None on error.
-        """
-        self.log(
-            logging.INFO,
-            f"Executing batch operation: {sql} with {len(params_list)} parameter sets"
-        )
-        start_time = time.perf_counter()
-        try:
-            if not self._connection:
-                self.log(logging.DEBUG, "No active connection, establishing new connection")
-                await self.connect()
-
-            cursor = await self._connection.cursor()
-            await cursor.executemany(sql, params_list)
-            duration = time.perf_counter() - start_time
-
-            self.log(
-                logging.INFO,
-                f"Batch operation completed, affected {cursor.rowcount} rows, "
-                f"duration={duration:.3f}s"
-            )
-            await self._handle_auto_commit_if_needed()
-
-            return QueryResult(affected_rows=cursor.rowcount, duration=duration)
-        except Exception as e:
-            self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
-            await self._handle_error(e)
-            return None
-
-    async def insert(self, options: InsertOptions) -> QueryResult:
-        """Insert a record with special handling for RETURNING clause.
-
-        Args:
-            options: Insert options containing data and returning columns.
-
-        Returns:
-            QueryResult with proper affected_rows for RETURNING clause.
-        """
-        result = await super().insert(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
-            result.affected_rows = len(result.data)
-        return result
-
-    async def update(self, options: UpdateOptions) -> QueryResult:
-        """Update records with special handling for RETURNING clause.
-
-        Args:
-            options: Update options containing data and returning columns.
-
-        Returns:
-            QueryResult with proper affected_rows for RETURNING clause.
-        """
-        result = await super().update(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
-            result.affected_rows = len(result.data)
-        return result
-
-    async def delete(self, options: DeleteOptions) -> QueryResult:
-        """Delete records with special handling for RETURNING clause.
-
-        Args:
-            options: Delete options containing returning columns.
-
-        Returns:
-            QueryResult with proper affected_rows for RETURNING clause.
-        """
-        result = await super().delete(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
-            result.affected_rows = len(result.data)
-        return result

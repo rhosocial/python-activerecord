@@ -186,3 +186,13 @@ class SQLiteBackendMixin:
             last_insert_id=last_insert_id,
             duration=duration
         )
+
+    def is_connected(self) -> bool:
+        """Check if connected to database.
+
+        This is a non-I/O operation that checks the connection state.
+
+        Returns:
+            True if connection is established, False otherwise.
+        """
+        return self._connection is not None

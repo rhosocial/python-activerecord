@@ -67,16 +67,36 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
     def dialect(self) -> SQLDialectBase:
         return self._dialect
 
-    def is_connected(self) -> bool:
-        """Check if connected to database.
-
-        Returns:
-            True if connection is established, False otherwise.
-        """
-        return self._connection is not None
-
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
-        """Set a pragma parameter at runtime."""
+        """Set a pragma parameter at runtime.
+
+        Args:
+            pragma_key: The pragma name to set.
+            pragma_value: The value to set for the pragma.
+
+        Raises:
+            ConnectionError: If the pragma cannot be set.
+
+        .. warning::
+            **SECURITY WARNING**: This method directly concatenates the pragma key and value
+            into SQL statements without parameterization. Users MUST NOT expose these parameters
+            to untrusted input, as this could lead to SQL injection vulnerabilities.
+
+            **Do NOT** accept pragma_key or pragma_value directly from user input without
+            proper validation and sanitization. Use a whitelist of allowed pragma names and
+            validate values against expected patterns.
+
+            Example of safe usage:
+
+            .. code-block:: python
+
+                # Safe: Using hardcoded or validated values
+                backend.set_pragma('journal_mode', 'WAL')
+                backend.set_pragma('foreign_keys', 'ON')
+
+                # Dangerous: Accepting user input directly
+                # backend.set_pragma(user_input_key, user_input_value)  # NEVER do this!
+        """
         pragma_value_str = str(pragma_value)
         self.config.pragmas[pragma_key] = pragma_value_str
 
