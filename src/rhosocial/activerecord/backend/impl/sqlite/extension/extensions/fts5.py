@@ -16,7 +16,7 @@ Reference: https://www.sqlite.org/fts5.html
 """
 from typing import Any, Dict, List, Optional, Tuple
 
-from ..base import ExtensionType, SQLiteExtensionBase, SQLiteExtensionInfo
+from ..base import ExtensionType, SQLiteExtensionBase
 
 
 class FTS5Extension(SQLiteExtensionBase):

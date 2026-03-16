@@ -17,6 +17,30 @@
 
 对于不需要版本特定适配的后端（如 SQLite、Dummy），可以实现为空操作（no-op）。
 
+### 版本检测行为
+
+`get_server_version()` 方法负责获取数据库服务器版本。**重要变更**：当版本检测失败时，该方法会抛出 `OperationalError` 异常，而非返回默认值。
+
+```python
+from rhosocial.activerecord.backend.errors import OperationalError
+
+try:
+    version = backend.get_server_version()
+except OperationalError as e:
+    # 版本检测失败，需要处理错误
+    print(f"无法获取数据库版本: {e}")
+```
+
+这种设计确保了问题能够被及早发现，而非被掩盖。返回默认版本号可能导致：
+- 后续操作在不受支持的数据库版本上执行
+- 难以追踪的隐蔽错误
+- 用户体验下降
+
+在实现自定义后端时，请确保：
+1. 版本检测逻辑足够健壮
+2. 提供有意义的错误信息
+3. 考虑连接状态对版本检测的影响
+
 ## 参考实现
 
 我们推荐参考 `src/rhosocial/activerecord/backend/impl/` 下现有的实现：

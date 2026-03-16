@@ -22,14 +22,12 @@ on:
           - testpypi
           - pypi
 
-permissions:
-  contents: write
-  packages: write
-
 jobs:
   # 检查测试工作流是否成功完成
   check-tests:
     runs-on: ubuntu-latest
+    permissions:
+      contents: read
     if: >
       (github.event_name == 'workflow_run' && github.event.workflow_run.conclusion == 'success') ||
       github.event_name == 'workflow_dispatch'
@@ -49,6 +47,7 @@ jobs:
     permissions:
       # Required for trusted publishing
       id-token: write
+      contents: read
 
     steps:
     - name: Check out the repository
@@ -84,6 +83,7 @@ jobs:
     permissions:
       # Required for trusted publishing
       id-token: write
+      contents: read
 
     steps:
     - name: Check out the repository

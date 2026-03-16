@@ -63,16 +63,3 @@ class ReturningClauseMixin:
             returning_sql, _ = returning_clause.to_sql()
             return f"{sql} {returning_sql}"
         return sql
-
-    def _check_returning_compatibility(self, returning_clause: Optional[ReturningClause]) -> None:
-        """
-        Check compatibility of RETURNING clause with current backend/dialect.
-
-        Args:
-            returning_clause: ReturningClause object to check compatibility for
-
-        Raises:
-            ReturningNotSupportedError: If RETURNING is not supported by this dialect
-        """
-        # Implementation would check against specific backend capabilities
-        pass

@@ -10,7 +10,7 @@ import sqlite3
 from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, ClassVar, Protocol, runtime_checkable
 
-from ...config import ConnectionConfig
+from rhosocial.activerecord.backend.config import ConnectionConfig
 
 
 # ==== SQLite-specific Protocols ====

@@ -5,7 +5,7 @@ SQLite backend SQL dialect implementation.
 This dialect implements only the protocols for features that SQLite actually supports,
 based on the SQLite version provided at initialization.
 """
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (

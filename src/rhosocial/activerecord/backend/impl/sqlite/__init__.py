@@ -57,7 +57,6 @@ from .pragma import (
     PragmaInfo,
     PragmaProtocol,
     PragmaBase,
-    SQLitePragmaSupport as PragmaSQLitePragmaSupport,
     ALL_PRAGMAS,
     get_pragma_info,
     get_all_pragma_infos,

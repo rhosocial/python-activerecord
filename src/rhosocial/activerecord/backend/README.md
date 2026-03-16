@@ -141,7 +141,6 @@ Benefits of this design:
 | `_get_statement_type` | ✅ Custom | ❌ Base | ❌ Base |
 | `_is_select_statement` | ✅ Custom | ✅ Custom | ✅ Custom |
 | `_is_dml_statement` | ❌ Base | ❌ Base | ❌ Base |
-| `_check_returning_compatibility` | ✅ Custom | ❌ Base | ✅ Custom |
 | `_prepare_returning_clause` | ❌ Base | ✅ Custom | ✅ Custom |
 | `_get_cursor` | ✅ Custom | ✅ Custom | ✅ Custom |
 | `_execute_query` | ✅ Custom | ❌ Base | ✅ Custom |
