@@ -11,12 +11,11 @@ from sqlite3 import ProgrammingError
 from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from ..adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
-from ..config import SQLiteConnectionConfig
-from ....errors import (
-    ConnectionError, DatabaseError, DeadlockError,
+from rhosocial.activerecord.backend.errors import (
+    DatabaseError, DeadlockError,
     IntegrityError, OperationalError, QueryError
 )
-from ....type_adapter import SQLTypeAdapter
+from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
 
 DEFAULT_PRAGMAS = {
@@ -171,7 +170,7 @@ class SQLiteBackendMixin:
 
     def _build_query_result(self, cursor, data, duration: float):
         """Build QueryResult from cursor, data and duration."""
-        from ....result import QueryResult
+        from rhosocial.activerecord.backend.result import QueryResult
 
         if data is not None:
             affected_rows = len(data) if data else 0

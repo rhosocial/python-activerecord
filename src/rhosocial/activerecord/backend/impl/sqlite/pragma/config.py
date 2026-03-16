@@ -7,7 +7,7 @@ modified at runtime. They affect how SQLite operates.
 
 Reference: https://www.sqlite.org/pragma.html#toc
 """
-from typing import Any, Dict, List, Optional
+from typing import Dict, List, Optional
 
 from .base import PragmaCategory, PragmaInfo
 

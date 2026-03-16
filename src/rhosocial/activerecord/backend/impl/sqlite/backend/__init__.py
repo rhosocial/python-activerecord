@@ -15,5 +15,3 @@ __all__ = [
     'DEFAULT_PRAGMAS',
 ]
 
-from .sync import SQLiteBackend
-from .async_backend import AsyncSQLiteBackend

@@ -10,11 +10,9 @@ from typing import Any, Dict, List, Optional, Tuple
 from .extension import (
     SQLiteExtensionRegistry,
     get_registry,
-    ExtensionType,
     SQLiteExtensionInfo,
 )
 from .extension.extensions import (
-    FTS5Extension,
     get_fts5_extension,
 )
 from .pragma import (

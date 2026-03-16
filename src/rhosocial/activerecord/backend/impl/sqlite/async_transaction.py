@@ -6,16 +6,13 @@ It is kept separate from the sync transaction module to avoid forcing
 aiosqlite as a dependency for users who only need synchronous operations.
 """
 import logging
-from typing import Optional, TYPE_CHECKING
+from typing import Optional
 
 import aiosqlite
 
 from .transaction import SQLiteTransactionMixin
-from ...transaction import AsyncTransactionManager, IsolationLevel
-from ...errors import TransactionError
-
-if TYPE_CHECKING:
-    pass
+from rhosocial.activerecord.backend.transaction import AsyncTransactionManager, IsolationLevel
+from rhosocial.activerecord.backend.errors import TransactionError
 
 
 class AsyncSQLiteTransactionManager(SQLiteTransactionMixin, AsyncTransactionManager):

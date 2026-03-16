@@ -12,7 +12,7 @@ Note: For new projects, use FTS5 instead.
 
 Reference: https://www.sqlite.org/fts3.html
 """
-from typing import Dict, List, Optional, Tuple
+from typing import Optional
 
 from ..base import ExtensionType, SQLiteExtensionBase
 

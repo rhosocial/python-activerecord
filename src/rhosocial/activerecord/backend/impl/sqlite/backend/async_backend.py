@@ -8,20 +8,19 @@ Uses aiosqlite library for async SQLite operations.
 import logging
 import sqlite3
 import time
-from typing import Any, Dict, List, Optional, Tuple, Type, Union
+from typing import Any, List, Optional, Tuple, Union
 
 import aiosqlite
 
 from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
-from ..adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
 from ..async_transaction import AsyncSQLiteTransactionManager
-from ....base import AsyncStorageBackend
-from ....config import ConnectionConfig
-from ....errors import ConnectionError
-from ....options import InsertOptions, UpdateOptions, DeleteOptions
-from ....result import QueryResult
+from rhosocial.activerecord.backend.base import AsyncStorageBackend
+from rhosocial.activerecord.backend.config import ConnectionConfig
+from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
+from rhosocial.activerecord.backend.result import QueryResult
 
 
 class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
@@ -42,9 +41,19 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             raise ValueError("Either connection_config or database must be provided")
 
         if not isinstance(connection_config, SQLiteConnectionConfig):
+            pragmas = {}
+            if hasattr(connection_config, 'pragmas'):
+                pragmas = connection_config.pragmas
             connection_config = SQLiteConnectionConfig(
+                host=getattr(connection_config, 'host', None),
+                port=getattr(connection_config, 'port', None),
                 database=connection_config.database,
-                **{k: v for k, v in connection_config.__dict__.items() if k != 'database'}
+                username=getattr(connection_config, 'username', None),
+                password=getattr(connection_config, 'password', None),
+                driver_type=getattr(connection_config, 'driver_type', None),
+                pragmas=pragmas,
+                delete_on_close=getattr(connection_config, 'delete_on_close', False),
+                options=getattr(connection_config, 'options', {}),
             )
 
         super().__init__(connection_config=connection_config)
@@ -101,7 +110,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             except sqlite3.Error as e:
                 error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
                 self.log(logging.ERROR, error_msg)
-                raise ConnectionError(error_msg)
+                raise ConnectionError(error_msg) from e
 
     async def _apply_pragmas(self) -> None:
         """Apply PRAGMA settings."""
@@ -117,7 +126,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                 )
 
     async def connect(self) -> None:
-        """Connect to database."""
+        """Establish a connection to the SQLite database asynchronously."""
         try:
             self._connection = await aiosqlite.connect(
                 self.config.database,
@@ -130,10 +139,10 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             await self._apply_pragmas()
             self.logger.info(f"Connected to SQLite database: {self.config.database}")
         except Exception as e:
-            raise ConnectionError(f"Failed to connect to database: {e}")
+            raise ConnectionError(f"Failed to connect to database: {e}") from e
 
     async def disconnect(self) -> None:
-        """Disconnect from database."""
+        """Close the connection to the SQLite database asynchronously."""
         try:
             if self._connection is not None:
                 if self._transaction_manager is not None and self._transaction_manager.is_active:
@@ -153,7 +162,10 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             self.logger.warning(f"Error during disconnect: {e}")
 
     async def _delete_database_files(self) -> None:
-        """Delete database files when delete_on_close is enabled."""
+        """Delete database files when delete_on_close is enabled.
+
+        Uses aiofiles.os for async file operations with retry logic.
+        """
         import asyncio
         import aiofiles.os
 
@@ -177,7 +189,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                         self.logger.warning(f"Failed to delete {filepath}: {e}")
 
     async def ping(self, reconnect: bool = True) -> bool:
-        """Test connection."""
+        """Test the database connection and optionally reconnect asynchronously."""
         try:
             if self._connection is None:
                 if reconnect:
@@ -345,7 +357,14 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         return result
 
     def get_server_version(self) -> Tuple[int, int, int]:
-        """Get SQLite version."""
+        """Get SQLite version.
+
+        Uses the aiosqlite module's version info, which doesn't require a connection.
+        Falls back to querying the database only if the module version is unavailable.
+
+        Returns:
+            Tuple of (major, minor, patch) version numbers.
+        """
         if AsyncSQLiteBackend._sqlite_version_cache is not None:
             return AsyncSQLiteBackend._sqlite_version_cache
 
@@ -358,10 +377,17 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                 version = version + (0,)
 
             AsyncSQLiteBackend._sqlite_version_cache = version
+            self.log(
+                logging.INFO,
+                f"Detected SQLite version: {version[0]}.{version[1]}.{version[2]}"
+            )
             return version
         except Exception as e:
+            error_msg = f"Failed to determine SQLite version: {str(e)}"
+            if hasattr(self, 'logger'):
+                self.logger.error(error_msg)
             from rhosocial.activerecord.backend.errors import OperationalError
-            raise OperationalError(f"Failed to determine SQLite version: {str(e)}") from e
+            raise OperationalError(error_msg) from e
 
     async def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance to actual server capabilities.
@@ -386,7 +412,8 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         if version < (3, 38, 0):
             json1_available = await self._detect_json1_extension()
             self._dialect.set_runtime_param('json1_available', json1_available)
-            self.log(logging.INFO, f"JSON1 extension runtime detection: {'available' if json1_available else 'unavailable'}")
+            status = 'available' if json1_available else 'unavailable'
+            self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
 
     async def _detect_json1_extension(self) -> bool:
         """Detect if json1 extension is available at runtime.
@@ -402,23 +429,3 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             return True
         except Exception:
             return False
-
-    # Async-specific helper methods (not present in sync version)
-
-    async def _execute_query(self, cursor, sql: str, params: Optional[Tuple]):
-        """Execute the query with prepared SQL and parameters."""
-        if params:
-            await cursor.execute(sql, params)
-        else:
-            await cursor.execute(sql)
-        return cursor
-
-    def _log_query_completion(self, stmt_type, cursor, data, duration: float):
-        """Log query completion information."""
-        from ....schema import StatementType
-        self.log(logging.DEBUG, f"Query completed: {stmt_type.name}, duration: {duration:.4f}s")
-
-    async def _handle_execution_error(self, error: Exception):
-        """Handle execution error and return appropriate result."""
-        await self._handle_error(error)
-        raise error

@@ -13,8 +13,8 @@ SQLite PRAGMA statements are used to:
 
 Reference: https://www.sqlite.org/pragma.html
 """
-from abc import ABC, abstractmethod
-from dataclasses import dataclass, field
+from abc import ABC
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 

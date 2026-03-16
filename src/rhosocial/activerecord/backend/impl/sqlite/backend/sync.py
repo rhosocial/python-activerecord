@@ -10,18 +10,17 @@ import logging
 import sqlite3
 import time
 from datetime import datetime
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import Any, List, Optional, Tuple, Union
 
 from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
-from ..adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect, SQLDialectBase
 from ..transaction import SQLiteTransactionManager
-from ....base import StorageBackend
-from ....config import ConnectionConfig
-from ....errors import ConnectionError
-from ....options import DeleteOptions, InsertOptions, UpdateOptions
-from ....result import QueryResult
+from rhosocial.activerecord.backend.base import StorageBackend
+from rhosocial.activerecord.backend.config import ConnectionConfig
+from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions, UpdateOptions
+from rhosocial.activerecord.backend.result import QueryResult
 
 
 class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
@@ -108,7 +107,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             except sqlite3.Error as e:
                 error_msg = f"Failed to set pragma {pragma_key}: {str(e)}"
                 self.log(logging.ERROR, error_msg)
-                raise ConnectionError(error_msg)
+                raise ConnectionError(error_msg) from e
 
     def _apply_pragmas(self) -> None:
         """Apply all pragma settings to the connection."""
@@ -144,7 +143,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             self.log(logging.INFO, "Connected to SQLite database successfully")
         except sqlite3.Error as e:
             self.log(logging.ERROR, f"Failed to connect to SQLite database: {str(e)}")
-            raise ConnectionError(f"Failed to connect: {str(e)}")
+            raise ConnectionError(f"Failed to connect: {str(e)}") from e
 
     def disconnect(self) -> None:
         """Close the connection to the SQLite database."""
@@ -169,7 +168,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                 self.log(logging.DEBUG, "Disconnect called on already closed connection")
         except sqlite3.Error as e:
             self.log(logging.ERROR, f"Error during disconnect: {str(e)}")
-            raise ConnectionError(f"Failed to disconnect: {str(e)}")
+            raise ConnectionError(f"Failed to disconnect: {str(e)}") from e
 
     def _delete_database_files(self) -> None:
         """Delete database files when delete_on_close is enabled."""
@@ -212,7 +211,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                 )
         except Exception as e:
             self.log(logging.ERROR, f"Failed to delete database files: {str(e)}")
-            raise ConnectionError(f"Failed to delete database files: {str(e)}")
+            raise ConnectionError(f"Failed to delete database files: {str(e)}") from e
 
     def ping(self, reconnect: bool = True) -> bool:
         """Test the database connection and optionally reconnect."""
@@ -441,7 +440,8 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
         if version < (3, 38, 0):
             json1_available = self._detect_json1_extension()
             self._dialect.set_runtime_param('json1_available', json1_available)
-            self.log(logging.INFO, f"JSON1 extension runtime detection: {'available' if json1_available else 'unavailable'}")
+            status = 'available' if json1_available else 'unavailable'
+            self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
 
     def _detect_json1_extension(self) -> bool:
         """Detect if json1 extension is available at runtime.

@@ -2,8 +2,8 @@
 import logging
 from typing import Dict, Optional
 
-from ...transaction import TransactionManager, IsolationLevel
-from ...errors import TransactionError
+from rhosocial.activerecord.backend.transaction import TransactionManager, IsolationLevel
+from rhosocial.activerecord.backend.errors import TransactionError
 
 
 _ISOLATION_LEVELS: Dict[IsolationLevel, str] = {

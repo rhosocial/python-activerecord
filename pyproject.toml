@@ -290,10 +290,12 @@ multi_line_output = 3
 line_length = 100
 
 [tool.ruff]
-line-length = 100
+line-length = 120
 target-version = "py38"
+
+[tool.ruff.lint]
 select = ["E", "F", "B"]
-ignore = []
+ignore = ["B024"]  # Abstract base classes without abstract methods are intentional
 
 [tool.mypy]
 python_version = "3.8"
