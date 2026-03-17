@@ -165,7 +165,7 @@ AsyncMixedAnnotationModel = _select_model_class(AsyncMixedAnnotationModelBase, A
 
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
 # ...and the scenarios are defined specifically for this backend.
-from tests.providers.scenarios import get_enabled_scenarios, get_scenario
+from .scenarios import get_enabled_scenarios, get_scenario
 
 
 class BasicProvider(IBasicProvider):
