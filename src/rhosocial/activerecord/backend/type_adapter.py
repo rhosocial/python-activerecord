@@ -131,7 +131,12 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
             return None
 
         origin = get_origin(target_type)
-        if origin is Union:
+        # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
+        import types
+        is_union_type = origin is Union or (
+            hasattr(types, 'UnionType') and origin is types.UnionType
+        )
+        if is_union_type:
             args = get_args(target_type)
             # Filter out NoneType
             non_none_args = [arg for arg in args if arg is not type(None)]

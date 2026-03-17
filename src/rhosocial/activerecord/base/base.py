@@ -498,7 +498,12 @@ class BaseActiveRecord(IActiveRecord):
             field_py_type = field_info.annotation
             original_type = field_py_type
             origin = get_origin(field_py_type)
-            if origin is Union:
+            # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
+            import types
+            is_union_type = origin in (Union, Optional) or (
+                hasattr(types, 'UnionType') and origin is types.UnionType
+            )
+            if is_union_type:
                 args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
                 if len(args) == 1:
                     field_py_type = args[0]
@@ -986,7 +991,12 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             field_py_type = field_info.annotation
             original_type = field_py_type
             origin = get_origin(field_py_type)
-            if origin is Union:
+            # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
+            import types
+            is_union_type = origin in (Union, Optional) or (
+                hasattr(types, 'UnionType') and origin is types.UnionType
+            )
+            if is_union_type:
                 args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
                 if len(args) == 1:
                     field_py_type = args[0]
