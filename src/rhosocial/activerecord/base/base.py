@@ -131,8 +131,11 @@ class BaseActiveRecord(IActiveRecord):
                     self.log(logging.WARNING, f"RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
 
             if not pk_retrieved and result.last_insert_id is not None:
+                import types
                 field_type = self.__class__.model_fields[pk_field_name].annotation
-                if get_origin(field_type) in (Union, Optional):
+                origin = get_origin(field_type)
+                # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
+                if origin in (Union, Optional) or origin is types.UnionType:
                     types = [t for t in get_args(field_type) if t is not type(None)]
                     if types:
                         field_type = types[0]
@@ -616,8 +619,11 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                     self.log(logging.WARNING, f"RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
 
             if not pk_retrieved and result.last_insert_id is not None:
+                import types
                 field_type = self.__class__.model_fields[pk_field_name].annotation
-                if get_origin(field_type) in (Union, Optional):
+                origin = get_origin(field_type)
+                # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
+                if origin in (Union, Optional) or origin is types.UnionType:
                     types = [t for t in get_args(field_type) if t is not type(None)]
                     if types:
                         field_type = types[0]
