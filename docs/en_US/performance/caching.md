@@ -2,8 +2,45 @@
 
 The library includes multi-level caching optimizations designed to improve application performance and reduce database load.
 
-1.  **Metadata Cache**: Field mappings and column information are parsed only once and reused for subsequent operations.
-2.  **Relation Cache**: Relation data on model instances (e.g., `user.posts()`) is cached after the first access or eager loading.
+1. **Metadata Cache**: Field mappings and column information are parsed only once and reused for subsequent operations.
+2. **Relation Cache**: Relation data on model instances (e.g., `user.posts()`) is cached after the first access or eager loading.
+
+## Cache Configuration
+
+Relation caching can be configured globally using `GlobalCacheConfig`:
+
+```python
+from rhosocial.activerecord.relation.cache import GlobalCacheConfig
+
+# Configure global cache settings
+GlobalCacheConfig.set_config(
+    enabled=True,
+    ttl=300,      # Time-to-live in seconds
+    max_size=1000 # Maximum number of cache entries
+)
+```
+
+### Configuration Parameters
+
+| Parameter | Type | Default | Description |
+|-----------|------|---------|-------------|
+| `enabled` | bool | `True` | Enable/disable caching |
+| `ttl` | int \| None | `300` | Cache entry TTL in seconds. `None` means no expiration |
+| `max_size` | int \| None | `1000` | Maximum cache entries. `None` means unlimited |
+
+### Disabling Cache
+
+In certain scenarios, you may want to disable caching:
+
+```python
+# Disable caching globally
+GlobalCacheConfig.set_config(enabled=False)
+
+# Or disable TTL (cache never expires)
+GlobalCacheConfig.set_config(ttl=None)
+```
+
+> 💡 **AI Prompt Example**: "How do I configure cache TTL and size limits? What are the trade-offs of different cache configurations?"
 
 ## N+1 Query Problem and Solution
 
@@ -44,11 +81,11 @@ for user in users:
 ### How Caching Works
 
 When using `with_`:
-1.  The main query executes, fetching the `users` list.
-2.  The ORM collects all user IDs.
-3.  The ORM executes a batch query to fetch `profile` data for these users.
-4.  The ORM maps `profile` data back to corresponding `user` instances and stores it in the internal dictionary (relation cache).
-5.  Subsequent calls to `user.profile()` check the cache, find existing data, and return it directly without accessing the database.
+1. The main query executes, fetching the `users` list.
+2. The ORM collects all user IDs.
+3. The ORM executes a batch query to fetch `profile` data for these users.
+4. The ORM maps `profile` data back to corresponding `user` instances and stores it in the internal dictionary (relation cache).
+5. Subsequent calls to `user.profile()` check the cache, find existing data, and return it directly without accessing the database.
 
 ## Clearing Relation Cache
 

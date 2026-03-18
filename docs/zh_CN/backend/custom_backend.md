@@ -87,6 +87,48 @@ class DummyDialect(
 *   如果您的数据库遵循标准 SQL（例如 `OVER (...)`），默认实现即可工作。
 *   如果有差异，请覆盖该特定方法。
 
+## RETURNING 子句支持（重要）
+
+当保存新记录（INSERT）时，框架需要获取数据库生成的主键值。这通过以下两种方式实现：
+
+### 主键获取策略
+
+| 优先级 | 方式 | 要求 |
+|--------|------|------|
+| 1 | RETURNING 子句 | 后端实现 `supports_returning_clause()` 返回 `True` |
+| 2 | last_insert_id | 后端从 `cursor.lastrowid` 提供整型主键 |
+
+### 后端实现要求
+
+**如果数据库支持 RETURNING 子句**（如 PostgreSQL、SQLite 3.35+、MySQL 8.0+）：
+
+```python
+from rhosocial.activerecord.backend.dialect.mixins import ReturningMixin
+from rhosocial.activerecord.backend.dialect.protocols import ReturningSupport
+
+class MyDialect(ReturningMixin, ReturningSupport):
+    def supports_returning_clause(self) -> bool:
+        """根据数据库版本判断是否支持 RETURNING"""
+        return self.version >= (x, y, z)  # 替换为实际版本号
+```
+
+**如果数据库不支持 RETURNING 子句**：
+
+- 必须确保 `cursor.lastrowid` 可用（大多数 Python 数据库驱动都支持）
+- 仅支持整型自增主键（`IntegerPKMixin`）
+- 不支持 RETURNING 的后端，使用非整型主键（如 UUID）的新记录保存会失败
+
+### 兼容性矩阵
+
+| 数据库 | RETURNING 支持 | 最低版本 |
+|--------|---------------|----------|
+| SQLite | ✅ | 3.35.0 |
+| PostgreSQL | ✅ | 所有版本 |
+| MySQL | ❌ | - (使用 last_insert_id) |
+| MariaDB | ❌ | - (使用 last_insert_id) |
+
+> 💡 **AI提示词示例**: "如何在自定义后端中实现 RETURNING 子句支持？如果不支持 RETURNING，有什么限制？"
+
 ## 测试与协议支持
 
 Rhosocial ActiveRecord 的测试套件被设计为能够感知协议。这意味着它会自动适应您的后端能力：

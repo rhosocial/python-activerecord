@@ -6,6 +6,41 @@
 
 框架提供了一些常用的 Mixin：
 
+### IntegerPKMixin
+
+使用自增整数作为主键（最常用的主键类型）。
+
+```python
+from rhosocial.activerecord.field import IntegerPKMixin
+
+class User(IntegerPKMixin, ActiveRecord):
+    # 自动获得: id: int (Primary Key, auto-increment)
+    username: str
+    pass
+
+# 使用示例
+user = User(username="alice")
+user.save()
+print(user.id)  # 数据库自动分配的整数 ID
+```
+
+**特点**：
+
+- 主键字段默认为 `id`，可通过 `__primary_key__` 类属性自定义
+- 新建实例时 `id` 初始化为 `None`
+- 保存后数据库自动分配整数 ID
+
+**后端兼容性**：
+
+保存新记录时，框架通过以下方式获取自增主键：
+
+1. **优先使用 RETURNING 子句**：如果后端支持 `RETURNING`（如 SQLite 3.35+、PostgreSQL），直接从 INSERT 语句返回结果中获取
+2. **回退到 last_insert_id**：如果后端不支持 `RETURNING`，则从 `cursor.lastrowid` 获取
+
+大多数数据库后端都支持其中一种方式，因此 `IntegerPKMixin` 可在所有主流数据库上正常工作。
+
+> 💡 **AI提示词示例**: "IntegerPKMixin 和 UUIDMixin 有什么区别？应该如何选择主键类型？"
+
 ### UUIDMixin
 
 使用 UUID 作为主键。
@@ -17,6 +52,12 @@ class User(UUIDMixin, ActiveRecord):
     # 自动获得: id: uuid.UUID (Primary Key)
     pass
 ```
+
+**后端兼容性**：
+
+UUID 主键在保存前由 Python 生成，不依赖数据库的自增机制。但如果需要在 INSERT 后获取其他数据库生成的值，仍需后端支持 `RETURNING` 子句。
+
+> 💡 **AI提示词示例**: "使用 UUID 主键时需要注意什么？哪些数据库后端支持 RETURNING 子句？"
 
 ### TimestampMixin
 
@@ -78,6 +119,26 @@ active_comments = Comment.all()
 # 物理删除
 comment.delete(hard=True)
 ```
+
+### OptimisticLockMixin (乐观锁)
+
+处理并发更新冲突。
+
+```python
+from rhosocial.activerecord.field import OptimisticLockMixin
+
+class Post(OptimisticLockMixin, ActiveRecord):
+    # 自动获得: version: int
+    title: str
+    pass
+
+# 使用示例
+post = Post.find(1)
+post.title = "New Title"
+post.save()  # 如果期间有其他更新，会抛出 StaleObjectError
+```
+
+> 💡 **AI提示词示例**: "如何处理多人同时编辑同一篇文章的情况？乐观锁的工作原理是什么？"
 
 ## 自定义 Mixin
 

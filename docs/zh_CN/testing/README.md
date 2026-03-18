@@ -5,6 +5,8 @@ rhosocial-activerecord 提倡 "Zero-IO" 测试理念。通过内置的 `DummyBac
 ## 目录
 
 *   [使用 DummyBackend 进行 SQL 检查 (Inspecting SQL with DummyBackend)](dummy.md): 学习如何使用虚拟后端验证 SQL 生成逻辑。
+*   [测试策略建议 (Testing Strategies)](strategies.md): 根据组件特性采取针对性的测试策略。
+*   [环境感知的 Fixture 选择系统 (Environment-Aware Fixture Selection)](fixtures.md): 根据运行时 Python 版本自动选择最合适的模型类。
 
 ## 测试策略建议
 

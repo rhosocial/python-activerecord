@@ -4,6 +4,20 @@
 
 与 `ActiveQuery` 不同，`CTEQuery` **不绑定到特定的 Model**，查询结果通常以**字典**形式返回。
 
+## 结果获取方式
+
+不同查询类型的结果获取方式有所不同：
+
+| 查询类型 | `.all()` | `.one()` | `.aggregate()` | `.to_sql()` |
+|---------|----------|----------|----------------|-------------|
+| ActiveQuery | ✅ List[Model] | ✅ Optional[Model] | ✅ List[Dict] | ✅ |
+| CTEQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+| SetOperationQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+
+**核心区别**：CTE 查询的结果无法保证映射到单一模型类型，因此只返回原始字典。
+
+> 💡 **AI提示词示例**: "CTEQuery 的结果如何获取？为什么没有 all() 方法？"
+
 ## 继承的能力
 
 `CTEQuery` 同样支持 `ActiveQuery` 中的大多数查询构建 Mixin，用法保持一致：
@@ -56,16 +70,12 @@ class Category(Model):
             .query(None) # 默认查询 CTE
 
 # 使用
-tree_data = Category.query_hierarchy(1).all()
+tree_data = Category.query_hierarchy(1).aggregate()
 ```
 
 ## 执行方法
 
 这些方法会触发数据库查询并返回结果。
-
-> **为什么没有 `one()` 和 `all()` 方法？**
-> 
-> 与 `ActiveQuery` 不同，`CTEQuery` 不支持 `one()` 和 `all()` 方法。这是因为 CTE 查询的结果是原始数据字典，而不是模型实例。`one()` 和 `all()` 方法专门用于返回模型实例，而 CTE 查询的结果无法保证能够映射回单一的模型类型。
 
 *   `aggregate() -> List[Dict[str, Any]]`: 执行查询并返回结果。
     *   支持 `explain()`：如果在调用此方法前调用了 `explain()`，将返回查询执行计划。
@@ -115,7 +125,7 @@ sequenceDiagram
 
 ### 1. 基础 CTE (简化复杂逻辑)
 
-假设我们要找出“高价值用户”（订单总额 > 1000），并查询他们的详细信息。
+假设我们要找出"高价值用户"（订单总额 > 1000），并查询他们的详细信息。
 
 ```python
 from rhosocial.activerecord.query import CTEQuery
@@ -136,7 +146,7 @@ query = CTEQuery(User.backend()) \
             .where("user_totals.total_amount > 1000")
     )
 
-results = query.all() # 返回字典列表
+results = query.aggregate() # 返回字典列表
 ```
 
 ### 2. 递归 CTE (层级遍历)

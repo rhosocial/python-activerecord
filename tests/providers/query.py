@@ -13,15 +13,96 @@ Its main responsibilities are:
 import asyncio
 
 import os
+import sys
 import time
 import uuid
 import tempfile
+import logging
 from typing import Type, List, Tuple
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
+
+# Setup logging for fixture selection debugging
+logger = logging.getLogger(__name__)
+
+# Import the fixture selector utility
+from rhosocial.activerecord.testsuite.utils import select_fixture
+
+# Import base version models (Python 3.8+)
+from rhosocial.activerecord.testsuite.feature.query.fixtures.models import (
+    User as UserBase, JsonUser as JsonUserBase,
+    Order as OrderBase, OrderItem as OrderItemBase,
+    Post as PostBase, Comment as CommentBase,
+    MappedUser as MappedUserBase, MappedPost as MappedPostBase, MappedComment as MappedCommentBase
+)
+
+# Conditionally import Python 3.10+ models
+User310 = JsonUser310 = Order310 = OrderItem310 = Post310 = Comment310 = None
+MappedUser310 = MappedPost310 = MappedComment310 = None
+
+if sys.version_info >= (3, 10):
+    try:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.models_py310 import (
+            User as User310, JsonUser as JsonUser310,
+            Order as Order310, OrderItem as OrderItem310,
+            Post as Post310, Comment as Comment310,
+            MappedUser as MappedUser310, MappedPost as MappedPost310, MappedComment as MappedComment310
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to import Python 3.10+ fixtures: {e}")
+
+# Conditionally import Python 3.11+ models
+User311 = JsonUser311 = Order311 = OrderItem311 = Post311 = Comment311 = None
+MappedUser311 = MappedPost311 = MappedComment311 = None
+
+if sys.version_info >= (3, 11):
+    try:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.models_py311 import (
+            User as User311, JsonUser as JsonUser311,
+            Order as Order311, OrderItem as OrderItem311,
+            Post as Post311, Comment as Comment311,
+            MappedUser as MappedUser311, MappedPost as MappedPost311, MappedComment as MappedComment311
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to import Python 3.11+ fixtures: {e}")
+
+# Conditionally import Python 3.12+ models
+User312 = JsonUser312 = Order312 = OrderItem312 = Post312 = Comment312 = None
+MappedUser312 = MappedPost312 = MappedComment312 = None
+
+if sys.version_info >= (3, 12):
+    try:
+        from rhosocial.activerecord.testsuite.feature.query.fixtures.models_py312 import (
+            User as User312, JsonUser as JsonUser312,
+            Order as Order312, OrderItem as OrderItem312,
+            Post as Post312, Comment as Comment312,
+            MappedUser as MappedUser312, MappedPost as MappedPost312, MappedComment as MappedComment312
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to import Python 3.12+ fixtures: {e}")
+
+
+# Select appropriate fixture classes based on Python version
+def _select_model_class(base_cls, py312_cls, py311_cls, py310_cls, model_name: str) -> Type:
+    """Select the most appropriate model class for the current Python version."""
+    candidates = [c for c in [py312_cls, py311_cls, py310_cls, base_cls] if c is not None]
+    selected = select_fixture(*candidates)
+    logger.info(f"Selected {model_name}: {selected.__name__} from {selected.__module__}")
+    return selected
+
+
+# Select sync models
+User = _select_model_class(UserBase, User312, User311, User310, "User")
+JsonUser = _select_model_class(JsonUserBase, JsonUser312, JsonUser311, JsonUser310, "JsonUser")
+Order = _select_model_class(OrderBase, Order312, Order311, Order310, "Order")
+OrderItem = _select_model_class(OrderItemBase, OrderItem312, OrderItem311, OrderItem310, "OrderItem")
+Post = _select_model_class(PostBase, Post312, Post311, Post310, "Post")
+Comment = _select_model_class(CommentBase, Comment312, Comment311, Comment310, "Comment")
+MappedUser = _select_model_class(MappedUserBase, MappedUser312, MappedUser311, MappedUser310, "MappedUser")
+MappedPost = _select_model_class(MappedPostBase, MappedPost312, MappedPost311, MappedPost310, "MappedPost")
+MappedComment = _select_model_class(MappedCommentBase, MappedComment312, MappedComment311, MappedComment310, "MappedComment")
+
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
-# Sync models are defined generically in the testsuite
-from rhosocial.activerecord.testsuite.feature.query.fixtures.models import MappedUser, MappedPost, MappedComment
 # Scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
 
@@ -101,17 +182,14 @@ class QueryProvider(IQueryProvider):
         return tuple(result)
 
     def setup_order_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], Type[ActiveRecord], Type[ActiveRecord]]:
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Order, OrderItem
         models_and_tables = [(User, "users"), (Order, "orders"), (OrderItem, "order_items")]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
     def setup_blog_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], Type[ActiveRecord], Type[ActiveRecord]]:
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Post, Comment
         models_and_tables = [(User, "users"), (Post, "posts"), (Comment, "comments")]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
     def setup_json_user_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.models import JsonUser
         return self._setup_multiple_models([(JsonUser, "json_users")], scenario_name)
 
     def setup_tree_fixtures(self, scenario_name: str) -> Tuple[Type[ActiveRecord], ...]:
@@ -124,7 +202,6 @@ class QueryProvider(IQueryProvider):
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
     def setup_combined_fixtures(self, scenario_name: str) -> Tuple:
-        from rhosocial.activerecord.testsuite.feature.query.fixtures.models import User, Order, OrderItem, Post, Comment
         models_and_tables = [(User, "users"), (Order, "orders"), (OrderItem, "order_items"), (Post, "posts"), (Comment, "comments")]
         return self._setup_multiple_models(models_and_tables, scenario_name)
 

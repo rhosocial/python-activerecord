@@ -12,11 +12,75 @@ Its main responsibilities are:
 3.  Cleaning up any resources (like temporary database files) after a test runs.
 """
 import os
+import sys
+import logging
 from typing import Type, List
+
 from rhosocial.activerecord.model import ActiveRecord
+
+# Setup logging for fixture selection debugging
+logger = logging.getLogger(__name__)
+
+# Import the fixture selector utility
+from rhosocial.activerecord.testsuite.utils import select_fixture
+
+# Import base version models (Python 3.8+)
+from rhosocial.activerecord.testsuite.feature.events.fixtures.models import (
+    EventTestModel as EventTestModelBase,
+    EventTrackingModel as EventTrackingModelBase
+)
+
+# Conditionally import Python 3.10+ models
+EventTestModel310 = EventTrackingModel310 = None
+
+if sys.version_info >= (3, 10):
+    try:
+        from rhosocial.activerecord.testsuite.feature.events.fixtures.models_py310 import (
+            EventTestModel as EventTestModel310,
+            EventTrackingModel as EventTrackingModel310
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to import Python 3.10+ fixtures: {e}")
+
+# Conditionally import Python 3.11+ models
+EventTestModel311 = EventTrackingModel311 = None
+
+if sys.version_info >= (3, 11):
+    try:
+        from rhosocial.activerecord.testsuite.feature.events.fixtures.models_py311 import (
+            EventTestModel as EventTestModel311,
+            EventTrackingModel as EventTrackingModel311
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to import Python 3.11+ fixtures: {e}")
+
+# Conditionally import Python 3.12+ models
+EventTestModel312 = EventTrackingModel312 = None
+
+if sys.version_info >= (3, 12):
+    try:
+        from rhosocial.activerecord.testsuite.feature.events.fixtures.models_py312 import (
+            EventTestModel as EventTestModel312,
+            EventTrackingModel as EventTrackingModel312
+        )
+    except ImportError as e:
+        logger.warning(f"Failed to import Python 3.12+ fixtures: {e}")
+
+
+# Select appropriate fixture classes based on Python version
+def _select_model_class(base_cls, py312_cls, py311_cls, py310_cls, model_name: str) -> Type:
+    """Select the most appropriate model class for the current Python version."""
+    candidates = [c for c in [py312_cls, py311_cls, py310_cls, base_cls] if c is not None]
+    selected = select_fixture(*candidates)
+    logger.info(f"Selected {model_name}: {selected.__name__} from {selected.__module__}")
+    return selected
+
+
+# Select models
+EventTestModel = _select_model_class(EventTestModelBase, EventTestModel312, EventTestModel311, EventTestModel310, "EventTestModel")
+EventTrackingModel = _select_model_class(EventTrackingModelBase, EventTrackingModel312, EventTrackingModel311, EventTrackingModel310, "EventTrackingModel")
+
 from rhosocial.activerecord.testsuite.feature.events.interfaces import IEventsProvider
-# The models are defined generically in the testsuite...
-from rhosocial.activerecord.testsuite.feature.events.fixtures.models import EventTestModel, EventTrackingModel
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
 

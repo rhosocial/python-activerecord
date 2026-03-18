@@ -4,6 +4,14 @@
 
 Unlike `ActiveQuery`, `CTEQuery` **is not bound to a specific Model**, and query results are typically returned as **dictionaries**.
 
+## Query Result Retrieval Methods
+
+| Query Type | `.all()` | `.one()` | `.aggregate()` | `.to_sql()` |
+|---------|----------|----------|----------------|-------------|
+| ActiveQuery | ✅ List[Model] | ✅ Optional[Model] | ✅ List[Dict] | ✅ |
+| CTEQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+| SetOperationQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+
 ## Inherited Capabilities
 
 `CTEQuery` supports most query building Mixins from `ActiveQuery`, and the usage is consistent:
@@ -56,16 +64,12 @@ class Category(Model):
             .query(None) # Default query CTE
 
 # Usage
-tree_data = Category.query_hierarchy(1).all()
+tree_data = Category.query_hierarchy(1).aggregate()
 ```
 
 ## Execution Methods
 
 These methods trigger database queries and return results.
-
-> **Why no `one()` and `all()` methods?**
-> 
-> Unlike `ActiveQuery`, `CTEQuery` does not support `one()` and `all()` methods. This is because CTE queries return raw data dictionaries rather than model instances. The `one()` and `all()` methods are specifically designed to return model instances, but the results of CTE queries cannot guarantee mapping back to a single model type.
 
 *   `aggregate() -> List[Dict[str, Any]]`: Executes the query and returns results.
     *   Supports `explain()`: If `explain()` is called before this method, it returns the query execution plan.
@@ -136,7 +140,7 @@ query = CTEQuery(User.backend()) \
             .where("user_totals.total_amount > 1000")
     )
 
-results = query.all() # Returns list of dictionaries
+results = query.aggregate() # Returns list of dictionaries
 ```
 
 ### 2. Recursive CTE (Hierarchical Traversal)
