@@ -228,3 +228,42 @@ pytest tests/test_expression/
 # Run with coverage
 pytest --cov=rhosocial.activerecord
 ```
+
+## Quick Reference Tables
+
+### Query Return Types
+
+| Query Type | `.all()` | `.one()` | `.aggregate()` | `.to_sql()` |
+|------------|----------|----------|----------------|-------------|
+| ActiveQuery | List[Model] | Optional[Model] | List[Dict] | Tuple[str, List] |
+| CTEQuery | ❌ | ❌ | List[Dict] | Tuple[str, List] |
+| SetOperationQuery | ❌ | ❌ | List[Dict] | Tuple[str, List] |
+
+### Field Mixins Summary
+
+| Mixin | Added Fields | Purpose |
+|-------|--------------|---------|
+| IntegerPKMixin | id: int | Auto-increment integer primary key |
+| UUIDMixin | id: UUID | UUID primary key |
+| TimestampMixin | created_at, updated_at | Auto-managed timestamps |
+| SoftDeleteMixin | deleted_at | Soft delete support |
+| OptimisticLockMixin | version: int | Concurrent update detection |
+
+### Event System Reference
+
+| Event Enum | Hook Method | Trigger Point |
+|------------|-------------|---------------|
+| BEFORE_VALIDATE | before_validate() | Before Pydantic validation |
+| AFTER_VALIDATE | after_validate() | After Pydantic validation |
+| BEFORE_SAVE | before_save() | Before INSERT/UPDATE |
+| AFTER_SAVE | after_save() | After INSERT/UPDATE |
+| BEFORE_DELETE | before_delete() | Before DELETE |
+| AFTER_DELETE | after_delete() | After DELETE |
+
+### Relation Descriptors
+
+| Sync | Async | Use Case |
+|------|-------|----------|
+| HasOne | AsyncHasOne | One-to-one, FK on related model |
+| HasMany | AsyncHasMany | One-to-many |
+| BelongsTo | AsyncBelongsTo | Many-to-one, FK on current model |

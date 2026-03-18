@@ -142,6 +142,39 @@ print(f"Post author: {post_author.username}")
 
 > 💡 **AI Prompt Example**: "Does accessing relationships execute database queries? How to avoid the N+1 query problem?"
 
+## Async Relations
+
+For asynchronous models, use the async counterparts of the relationship descriptors:
+
+| Sync Descriptor | Async Descriptor | Use Case |
+|-----------------|------------------|----------|
+| `BelongsTo` | `AsyncBelongsTo` | Many-to-one |
+| `HasOne` | `AsyncHasOne` | One-to-one (owning side) |
+| `HasMany` | `AsyncHasMany` | One-to-many |
+
+**Async Relationship Definition**:
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.model import AsyncActiveRecord
+from rhosocial.activerecord.relation import AsyncHasMany, AsyncBelongsTo
+
+class User(AsyncActiveRecord):
+    username: str
+    posts: ClassVar[AsyncHasMany['Post']] = AsyncHasMany(foreign_key='user_id', inverse_of='author')
+
+class Post(AsyncActiveRecord):
+    title: str
+    user_id: int
+    author: ClassVar[AsyncBelongsTo['User']] = AsyncBelongsTo(foreign_key='user_id', inverse_of='posts')
+
+# Async access
+user = await User.find(1)
+posts = await user.posts()
+```
+
+> 💡 **AI Prompt Example**: "How do I define relationships in async models? What's the difference between sync and async relationship access?"
+
 ## Important Notes
 
 **Note**: All relationship descriptors must be declared as `ClassVar` to avoid interfering with Pydantic's field validation.
@@ -162,5 +195,16 @@ class User(ActiveRecord):
     # This will not be treated as a field by Pydantic
     profile: ClassVar[HasOne['Profile']] = HasOne(foreign_key='user_id', inverse_of='user')
 ```
+
+### The `inverse_of` Parameter
+
+The `inverse_of` parameter specifies the name of the reverse relationship. This enables bidirectional navigation between related models.
+
+**Why use `inverse_of`**:
+- Enables cache synchronization when loading relationships from both sides
+- Prevents redundant database queries
+- Required for proper eager loading behavior
+
+> 💡 **AI Prompt Example**: "What happens if `inverse_of` doesn't match the actual relationship name? How do I debug relationship configuration issues?"
 
 > 💡 **AI Prompt Example**: "Why must relationship descriptors be declared with ClassVar? What are the consequences of not doing so?"

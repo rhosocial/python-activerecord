@@ -9,26 +9,62 @@ Our framework achieves excellent performance through architectural simplicity ra
 - **Stateless Expressions**: No object state management overhead during query building
 - **Predictable Performance**: Performance scales directly with expression count, without hidden factors
 
-## Strict Mode (Default)
+## Two Query Modes
 
-By default, all query results undergo Pydantic validation and instantiation. This guarantees data absolutely conforms to the model definition but incurs CPU overhead.
+### Strict Mode (Default)
+
+Returns Pydantic-validated model instances:
 
 ```python
-# Returns a list of User instances, fully validated
-users = User.find_all()
+# Returns list of User instances, fully validated
+users = User.query().all()
+
+# Returns a single User instance
+user = User.query().where(User.c.id == 1).one()
 ```
 
-## Raw/Aggregate Mode
+**Use Cases**: Business logic requiring model methods, validation, or relationship loading.
 
-When you need to process massive amounts of data (e.g., report export, ETL) and are confident in the database data validity, you can use `.aggregate()` mode (or `find_all(raw=True)`, depending on specific API) to return Python dictionaries or tuples directly.
+### Raw Mode (High Performance)
+
+Returns raw dictionaries, bypassing Pydantic validation:
 
 ```python
-# Bypass Pydantic, return list of dictionaries directly
-# Speed improvement is typically 5x - 10x
-users_data = User.query().aggregate()
+# Use aggregate() to get list of raw dictionaries
+users = User.query().select(User.c.id, User.c.name).aggregate()
+# Returns: [{'id': 1, 'name': 'Alice'}, ...]
+
+# Use aggregate() with aggregation functions
+from rhosocial.activerecord.backend.expression import sum_, avg
+stats = User.query().aggregate(
+    total=sum_(User.c.score),
+    avg_score=avg(User.c.score)
+)
+# Returns: {'total': 1000, 'avg_score': 85.5}
 ```
 
 **Use Cases**:
-*   Read-only list display
-*   Big data export
-*   Intermediate layer data processing
+
+- Read-only list display
+- Big data export
+- Intermediate layer data processing
+- Statistical analysis
+
+### Performance Comparison
+
+| Operation | Strict Mode | Raw Mode | Improvement |
+|-----------|-------------|----------|-------------|
+| 10,000 records query | ~500ms | ~50ms | 10x |
+| Validation overhead | Yes | No | - |
+| Relationship loading | Supported | Not supported | - |
+| Type adapters | Supported | Not supported | - |
+
+> 💡 **AI Prompt Example**: "What's the difference between `aggregate()` and `all()`? When should I use each?"
+
+## Important Notes
+
+1. **Type adapters don't apply**: In `.aggregate()` mode, custom type adapters (`UseAdapter`) won't execute. You get raw data directly from the database driver.
+
+2. **Relationship loading unavailable**: `.aggregate()` doesn't support `.with_()` eager loading because results aren't model instances.
+
+3. **CTEQuery and SetOperationQuery**: These query types only support `.aggregate()`, not `.all()` or `.one()`.

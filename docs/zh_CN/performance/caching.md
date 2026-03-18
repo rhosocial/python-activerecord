@@ -71,3 +71,45 @@ user.posts.clear_cache()
 ```
 
 > **注意**：关系缓存是**实例级别**的。不同的模型实例（即使代表同一行数据库记录）拥有各自独立的缓存。
+
+## 缓存配置
+
+可通过 `GlobalCacheConfig` 调整所有关系缓存的默认行为：
+
+```python
+from rhosocial.activerecord.relation.cache import GlobalCacheConfig
+
+# 调整全局缓存设置
+GlobalCacheConfig.set_config(
+    enabled=True,      # 启用缓存
+    ttl=300,           # 缓存有效期 5 分钟
+    max_size=1000      # 最大缓存条目数
+)
+```
+
+### 配置参数说明
+
+| 参数 | 类型 | 默认值 | 说明 |
+|------|------|--------|------|
+| `enabled` | bool | True | 是否启用缓存 |
+| `ttl` | Optional[int] | 300 | 缓存有效期（秒），None 表示永不过期 |
+| `max_size` | Optional[int] | 1000 | 最大缓存条目数，超出后清空重置 |
+
+### 禁用缓存场景
+
+在以下场景可能需要禁用或清除缓存：
+
+```python
+# 场景一：临时禁用缓存（如批量导入数据）
+GlobalCacheConfig.set_config(enabled=False)
+# ... 执行批量操作 ...
+GlobalCacheConfig.set_config(enabled=True)
+
+# 场景二：清除特定实例的关系缓存
+user.clear_relation_cache('posts')
+
+# 场景三：清除所有关系缓存
+user.clear_relation_cache()
+```
+
+> 💡 **AI提示词示例**: "如何配置关系缓存的有效期？如何在高并发场景下管理缓存？"

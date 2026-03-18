@@ -13,6 +13,26 @@ rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许
 *   `BEFORE_DELETE`: 删除前
 *   `AFTER_DELETE`: 删除后
 
+## 钩子方法与事件枚举对照
+
+你可以通过两种方式响应生命周期事件：
+
+| 钩子方法 | 事件枚举 | 触发时机 |
+|---------|---------|---------|
+| `before_validate()` | `BEFORE_VALIDATE` | Pydantic 验证前 |
+| `after_validate()` | `AFTER_VALIDATE` | Pydantic 验证后 |
+| `before_save()` | `BEFORE_SAVE` | INSERT/UPDATE 前 |
+| `after_save()` | `AFTER_SAVE` | INSERT/UPDATE 后 |
+| `before_delete()` | `BEFORE_DELETE` | DELETE 前 |
+| `after_delete()` | `AFTER_DELETE` | DELETE 后 |
+
+**两种方式的区别**：
+
+*   **钩子方法**：在模型类中覆写方法，适合简单的业务逻辑
+*   **事件监听**：通过 `self.on(ModelEvent.XXX, callback)` 注册，适合需要动态添加/移除监听器的场景
+
+> 💡 **AI提示词示例**: "如何在 before_save 中区分新建记录和更新记录？is_new 参数如何使用？"
+
 ## save() 方法生命周期
 
 下图展示了 `save()` 方法的完整执行流程及事件触发点：
