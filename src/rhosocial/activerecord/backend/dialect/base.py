@@ -79,7 +79,7 @@ class SQLDialectBase:
     def require_protocol(
         self,
         protocol_type: type,
-        feature_name: str,
+        _feature_name: str,
         required_by: str
     ) -> None:
         """
@@ -87,7 +87,7 @@ class SQLDialectBase:
 
         Args:
             protocol_type: Protocol class (e.g., WindowFunctionSupport)
-            feature_name: Feature name for error message
+            _feature_name: Feature name for error message (reserved for future use)
             required_by: Component name requiring the protocol
 
         Raises:
