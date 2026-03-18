@@ -46,6 +46,16 @@ if TYPE_CHECKING:
         RefreshMaterializedViewExpression, ReturningClause
     )
 
+# Module-level constants for error suggestions (SonarCloud S1192)
+_SUGGESTION_ARRAY_TYPES = "SQLite does not support native array types. Consider using JSON or comma-separated values."
+_SUGGESTION_JSON_TABLE = "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
+_SUGGESTION_GRAPH_MATCH = "SQLite does not support graph MATCH clause."
+_SUGGESTION_ORDERED_SET_AGG = "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
+_SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
+_SUGGESTION_MATERIALIZED_VIEW = "SQLite does not support materialized views."
+_SUGGESTION_MATERIALIZED_VIEW_ALT = "SQLite does not support materialized views. Consider using regular views or creating tables to store precomputed results."
+_SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
+
 
 class SQLiteDialect(
     SQLDialectBase,
@@ -101,7 +111,7 @@ class SQLiteDialect(
         """Get a runtime parameter."""
         return self._runtime_params.get(key, default)
 
-    def get_parameter_placeholder(self, position: int = 0) -> str:
+    def get_parameter_placeholder(self, _position: int = 0) -> str:
         """SQLite uses '?' for placeholders."""
         return "?"
 
@@ -415,7 +425,7 @@ class SQLiteDialect(
     def format_grouping_expression(
         self,
         operation: str,
-        expressions: List["bases.BaseExpression"]
+        _expressions: List["bases.BaseExpression"]
     ) -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         # Check feature support based on operation type
@@ -438,23 +448,23 @@ class SQLiteDialect(
 
     def format_array_expression(
         self,
-        expr: "ArrayExpression"
+        _expr: "ArrayExpression"
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
         raise UnsupportedFeatureError(
             self.name,
             "Array operations",
-            "SQLite does not support native array types. Consider using JSON or comma-separated values."
+            _SUGGESTION_ARRAY_TYPES
         )
 
     def format_json_table_expression(
         self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: Optional[str],
-        params: tuple
+        _json_col_sql: str,
+        _path: str,
+        _columns: List[Dict[str, Any]],
+        _alias: Optional[str],
+        _params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Format JSON_TABLE expression.
@@ -473,12 +483,12 @@ class SQLiteDialect(
         raise UnsupportedFeatureError(
             self.name,
             "JSON_TABLE function",
-            "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
+            _SUGGESTION_JSON_TABLE
         )
 
     def format_match_clause(
         self,
-        clause: "MatchClause"
+        _clause: "MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Format MATCH clause with expression.
@@ -493,12 +503,12 @@ class SQLiteDialect(
         raise UnsupportedFeatureError(
             self.name,
             "graph MATCH clause",
-            "SQLite does not support graph MATCH clause."
+            _SUGGESTION_GRAPH_MATCH
         )
 
     def format_ordered_set_aggregation(
         self,
-        aggregation: "OrderedSetAggregation"
+        _aggregation: "OrderedSetAggregation"
     ) -> Tuple[str, Tuple]:
         """
         Format ordered-set aggregation function call.
@@ -513,19 +523,19 @@ class SQLiteDialect(
         raise UnsupportedFeatureError(
             self.name,
             "ordered-set aggregate functions",
-            "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
+            _SUGGESTION_ORDERED_SET_AGG
         )
 
     def format_qualify_clause(
         self,
-        clause: "QualifyClause"
+        _clause: "QualifyClause"
     ) -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         # SQLite does not support QUALIFY clause
         raise UnsupportedFeatureError(
             self.name,
             "QUALIFY clause",
-            "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
+            _SUGGESTION_QUALIFY
         )
 
     def format_returning_clause(
@@ -618,7 +628,7 @@ class SQLiteDialect(
                 raise UnsupportedFeatureError(
                     self.name,
                     "FOR UPDATE in set operations",
-                    "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
+                    _SUGGESTION_FOR_UPDATE_SET_OP
                 )
 
         sql = " ".join(sql_parts)
@@ -731,36 +741,35 @@ class SQLiteDialect(
 
     def format_create_materialized_view_statement(
         self,
-        expr: "CreateMaterializedViewExpression"
+        _expr: "CreateMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(
             self.name,
             "CREATE MATERIALIZED VIEW",
-            "SQLite does not support materialized views. "
-            "Consider using regular views or creating tables to store precomputed results."
+            _SUGGESTION_MATERIALIZED_VIEW_ALT
         )
 
     def format_drop_materialized_view_statement(
         self,
-        expr: "DropMaterializedViewExpression"
+        _expr: "DropMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(
             self.name,
             "DROP MATERIALIZED VIEW",
-            "SQLite does not support materialized views."
+            _SUGGESTION_MATERIALIZED_VIEW
         )
 
     def format_refresh_materialized_view_statement(
         self,
-        expr: "RefreshMaterializedViewExpression"
+        _expr: "RefreshMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format REFRESH MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(
             self.name,
             "REFRESH MATERIALIZED VIEW",
-            "SQLite does not support materialized views."
+            _SUGGESTION_MATERIALIZED_VIEW
         )
     # endregion
 
