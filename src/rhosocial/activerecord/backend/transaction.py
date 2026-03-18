@@ -468,7 +468,7 @@ class TransactionManager(TransactionManagerBase):
             self.begin()
             yield
             self.commit()
-        except:
+        except BaseException:
             if self.is_active:
                 self.rollback()
             raise
@@ -688,7 +688,7 @@ class AsyncTransactionManager(TransactionManagerBase):
             await self.begin()
             yield
             await self.commit()
-        except:
+        except BaseException:
             if self.is_active:
                 await self.rollback()
             raise

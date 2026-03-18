@@ -143,6 +143,15 @@ from .statements import (
     CreateMaterializedViewExpression,
     DropMaterializedViewExpression,
     RefreshMaterializedViewExpression,
+    # Trigger DDL Expressions
+    CreateTriggerExpression,
+    DropTriggerExpression,
+    TriggerTiming,
+    TriggerEvent,
+    TriggerLevel,
+    # Function DDL Expressions
+    CreateFunctionExpression,
+    DropFunctionExpression,
 )
 from .graph import (
     GraphEdgeDirection,

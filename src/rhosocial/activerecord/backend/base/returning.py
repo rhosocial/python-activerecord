@@ -46,14 +46,14 @@ class ReturningClauseMixin:
             return returning
         raise ValueError(f"Unsupported returning type: {type(returning)}")
 
-    def _prepare_returning_clause(self, sql: str, returning_clause: Optional[ReturningClause], stmt_type: StatementType) -> str:
+    def _prepare_returning_clause(self, sql: str, returning_clause: Optional[ReturningClause], _stmt_type: StatementType) -> str:
         """
         Prepare SQL with RETURNING clause.
 
         Args:
             sql: Original SQL statement
             returning_clause: ReturningClause object to append, or None
-            stmt_type: Type of statement (SELECT, INSERT, UPDATE, DELETE)
+            _stmt_type: Type of statement (SELECT, INSERT, UPDATE, DELETE) - reserved for future use
 
         Returns:
             Modified SQL with RETURNING clause appended if applicable.
