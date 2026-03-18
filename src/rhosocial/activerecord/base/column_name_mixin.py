@@ -38,7 +38,7 @@ class ColumnNameAnnotationHandler:
         # which don't have __origin__, __args__, and __metadata__ attributes.
         try:
             hints = get_type_hints(new_class, include_extras=True)
-        except Exception:
+        except (NameError, AttributeError, TypeError):
             # Fallback to __annotations__ if get_type_hints fails
             # (e.g., due to forward references or other issues)
             hints = getattr(new_class, '__annotations__', {})
