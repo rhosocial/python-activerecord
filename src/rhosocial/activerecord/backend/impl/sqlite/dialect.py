@@ -871,65 +871,99 @@ class SQLiteDialect(
 
     # region Generated Columns Support
 
-    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
-        """Format a column definition for SQLite, including generated columns support."""
-        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
+    def _handle_primary_key_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle PRIMARY KEY constraint formatting."""
+        return " PRIMARY KEY", ()
+
+    def _handle_not_null_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle NOT NULL constraint formatting."""
+        return " NOT NULL", ()
+
+    def _handle_null_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle NULL constraint formatting."""
+        return " NULL", ()
+
+    def _handle_unique_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle UNIQUE constraint formatting."""
+        return " UNIQUE", ()
+
+    def _handle_default_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle DEFAULT constraint formatting."""
         from rhosocial.activerecord.backend.expression import bases
+
+        if constraint.default_value is None:
+            raise ValueError("DEFAULT constraint must have a default value specified.")
+        if isinstance(constraint.default_value, bases.BaseExpression):
+            default_sql, default_params = constraint.default_value.to_sql()
+            return f" DEFAULT {default_sql}", default_params
+        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+
+    def _handle_check_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle CHECK constraint formatting."""
+        if constraint.check_condition is None:
+            return "", ()
+        check_sql, check_params = constraint.check_condition.to_sql()
+        return f" CHECK ({check_sql})", check_params
+
+    def _handle_foreign_key_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle FOREIGN KEY constraint formatting."""
+        if constraint.foreign_key_reference is None:
+            raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
+        referenced_table, referenced_columns = constraint.foreign_key_reference
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+
+    def _handle_generated_column(self, col_def) -> Tuple[str, tuple]:
+        """Handle generated column formatting."""
+        from rhosocial.activerecord.backend.expression.statements import GeneratedColumnType
+
+        if not self.supports_generated_columns():
+            raise UnsupportedFeatureError(
+                self.name,
+                "Generated columns",
+                "Generated columns require SQLite 3.31.0 or later."
+            )
+        gen_sql, gen_params = col_def.generated_expression.to_sql()
+        gen_type = " STORED" if col_def.generated_type == GeneratedColumnType.STORED else " VIRTUAL"
+        return f" GENERATED ALWAYS AS ({gen_sql}){gen_type}", gen_params
+
+    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
+        """Format a column definition for SQLite, including generated columns support.
+
+        Uses a strategy pattern with dictionary dispatch to handle different constraint
+        types, reducing cognitive complexity compared to if-elif chains.
+        """
+        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
+        # Constraint handler mapping for dispatch
+        constraint_handlers = {
+            ColumnConstraintType.PRIMARY_KEY: self._handle_primary_key_constraint,
+            ColumnConstraintType.NOT_NULL: self._handle_not_null_constraint,
+            ColumnConstraintType.NULL: self._handle_null_constraint,
+            ColumnConstraintType.UNIQUE: self._handle_unique_constraint,
+            ColumnConstraintType.DEFAULT: self._handle_default_constraint,
+            ColumnConstraintType.CHECK: self._handle_check_constraint,
+            ColumnConstraintType.FOREIGN_KEY: self._handle_foreign_key_constraint,
+        }
 
         all_params = []
 
         # Basic column definition: name data_type
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
 
-        # Handle constraints
+        # Handle constraints using dispatch table
         for constraint in col_def.constraints:
-            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                col_sql += " PRIMARY KEY"
-            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                col_sql += " NOT NULL"
-            elif constraint.constraint_type == ColumnConstraintType.NULL:
-                col_sql += " NULL"
-            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                if constraint.default_value is None:
-                    raise ValueError("DEFAULT constraint must have a default value specified.")
-                if isinstance(constraint.default_value, bases.BaseExpression):
-                    default_sql, default_params = constraint.default_value.to_sql()
-                    col_sql += f" DEFAULT {default_sql}"
-                    all_params.extend(default_params)
-                else:
-                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
-                    all_params.append(constraint.default_value)
-            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
-                check_sql, check_params = constraint.check_condition.to_sql()
-                col_sql += f" CHECK ({check_sql})"
-                all_params.extend(check_params)
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                if constraint.foreign_key_reference is None:
-                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
-                referenced_table, referenced_columns = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+            handler = constraint_handlers.get(constraint.constraint_type)
+            if handler:
+                sql_part, params = handler(constraint)
+                col_sql += sql_part
+                all_params.extend(params)
 
         # Handle generated columns (SQLite 3.31.0+)
         if col_def.generated_expression is not None:
-            if not self.supports_generated_columns():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "Generated columns",
-                    "Generated columns require SQLite 3.31.0 or later."
-                )
-
-            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            gen_sql, gen_params = self._handle_generated_column(col_def)
+            col_sql += gen_sql
             all_params.extend(gen_params)
-
-            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
-            if col_def.generated_type == GeneratedColumnType.STORED:
-                col_sql += " STORED"
-            else:
-                # Default to VIRTUAL if not specified
-                col_sql += " VIRTUAL"
 
         return col_sql, tuple(all_params)
 

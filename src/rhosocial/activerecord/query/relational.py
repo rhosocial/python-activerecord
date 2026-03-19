@@ -66,6 +66,32 @@ class RelationalQueryMixin(IQuery):
         # Stores relation loading configurations by relation path
         self._eager_loads: ThreadSafeDict[str, RelationConfig] = ThreadSafeDict()
 
+    def _parse_relation_arg(self, relation: Union[str, tuple]) -> Tuple[str, Optional[Callable]]:
+        """Parse a single relation argument into path and modifier.
+
+        Args:
+            relation: Either a string path or a tuple of (path, modifier)
+
+        Returns:
+            Tuple of (relation_path, query_modifier)
+        """
+        if isinstance(relation, tuple):
+            return relation[0], relation[1]
+        return relation, None
+
+    def _validate_relation(self, relation_path: str) -> None:
+        """Validate a relation path for format and existence.
+
+        Args:
+            relation_path: The relation path to validate
+
+        Raises:
+            InvalidRelationPathError: If the path format is invalid
+            RelationNotFoundError: If the relation doesn't exist
+        """
+        self._validate_relation_path(relation_path)
+        self._validate_complete_relation_path(relation_path)
+
     def with_(self, *relations: Union[str, tuple]) -> 'IActiveQuery':
         """
         Configure eager loading for model relationships to prevent N+1 queries.
@@ -168,16 +194,11 @@ class RelationalQueryMixin(IQuery):
         validated_relations = []
 
         for relation in relations:
-            if isinstance(relation, tuple):
-                relation_path, query_modifier = relation
-            else:
-                relation_path, query_modifier = relation, None
+            relation_path, query_modifier = self._parse_relation_arg(relation)
 
             # Validate the path before processing
             try:
-                self._validate_relation_path(relation_path)
-                # Always validate relation existence
-                self._validate_complete_relation_path(relation_path)
+                self._validate_relation(relation_path)
                 validated_relations.append((relation_path, query_modifier))
             except InvalidRelationPathError as e:
                 self._log(logging.ERROR, f"Invalid relation path: {e}")
@@ -366,6 +387,59 @@ class RelationalQueryMixin(IQuery):
             query_modifier=query_modifier
         )
 
+    def _get_next_level_parts(self, parts: List[str], current_index: int) -> List[str]:
+        """Get the next level parts from the relation path.
+
+        Args:
+            parts: The full list of path parts
+            current_index: Current index in the iteration
+
+        Returns:
+            List containing the next part if exists, empty list otherwise
+        """
+        remaining_parts = parts[current_index + 1:]
+        return remaining_parts[:1] if remaining_parts else []
+
+    def _should_update_nested_relation(self, full_path: str, next_level: List[str]) -> bool:
+        """Check if we're adding a new nested relation to an existing config.
+
+        Args:
+            full_path: The current full relation path
+            next_level: The next level parts to check
+
+        Returns:
+            True if we should update with a new nested relation
+        """
+        if not next_level:
+            return False
+
+        existing_config = self._eager_loads[full_path]
+        next_part = next_level[0]
+        return next_part not in existing_config.nested
+
+    def _determine_modifier(self, is_target: bool, is_adding_new_nested: bool,
+                            query_modifier: Optional[Callable]) -> Optional[Callable]:
+        """Determine the appropriate query modifier based on context.
+
+        Rules:
+        1. If this is the target relation (last part), always apply modifier
+        2. If adding a NEW nested relation, apply modifier (Yii2 behavior)
+        3. Otherwise, don't apply modifier
+
+        Args:
+            is_target: Whether this is the target relation
+            is_adding_new_nested: Whether we're adding a new nested relation
+            query_modifier: The original query modifier
+
+        Returns:
+            The appropriate modifier or None
+        """
+        if is_target:
+            return query_modifier
+        if is_adding_new_nested:
+            return query_modifier
+        return None
+
     def _process_relation_path(self, relation_path: str, query_modifier: Optional[Callable] = None) -> None:
         """
         Process a relation path and create appropriate configurations for loading.
@@ -393,55 +467,37 @@ class RelationalQueryMixin(IQuery):
         self._validate_relation_path(relation_path)
 
         # Split the relation path into individual parts
-        # For example, "user.posts.comments" becomes ["user", "posts", "comments"]
         parts = relation_path.split('.')
         current_path = []
 
         # Process each part of the path to create configurations
         for i, part in enumerate(parts):
-            # Build the current path incrementally
             current_path.append(part)
-
-            # Join the current path parts to form the full relation path at this level
-            # e.g., ["user", "posts"] becomes "user.posts"
             full_path = '.'.join(current_path)
 
-            # Determine what relations should be loaded at the next level
-            # For "user.posts.comments", when processing "user", next_level would be ["posts"]
-            remaining_parts = parts[i + 1:]
-            next_level = remaining_parts[:1] if remaining_parts else []
-
-            # Check if this is the exact target relation we want to modify
+            # Check if this is the target relation
             is_target_relation = (full_path == relation_path)
 
-            # Apply query modifier based on rules:
-            # 1. If this is the target relation (last part), always apply modifier
-            # 2. If this relation exists AND we're adding a NEW nested relation (not already configured),
-            #    apply modifier per Yii2 behavior (later takes precedence)
-            # 3. Otherwise, don't apply modifier
+            # Get next level parts
+            next_level = self._get_next_level_parts(parts, i)
+
+            # Check if relation already exists
             existing = full_path in self._eager_loads
 
-            # Check if we're adding a NEW nested relation (one that doesn't already exist)
-            is_adding_new_nested = False
-            if existing and next_level:
-                existing_config = self._eager_loads[full_path]
-                next_part = next_level[0] if next_level else None
-                if next_part and next_part not in existing_config.nested:
-                    is_adding_new_nested = True
+            # Determine if we're adding a new nested relation
+            is_adding_new_nested = (
+                existing and
+                self._should_update_nested_relation(full_path, next_level)
+            )
 
-            if is_target_relation:
-                current_modifier = query_modifier
-            elif is_adding_new_nested:
-                # We're extending an existing relation with a NEW nested relation
-                current_modifier = query_modifier
-            else:
-                current_modifier = None
+            # Determine the appropriate modifier
+            current_modifier = self._determine_modifier(
+                is_target_relation, is_adding_new_nested, query_modifier
+            )
 
             if existing:
-                # Update existing relation configuration
                 self._update_existing_relation_config(full_path, next_level, current_modifier, is_target_relation)
             else:
-                # Create new relation configuration
                 self._add_relation_config(full_path, next_level, current_modifier)
 
     def get_relation_configs(self) -> Dict[str, RelationConfig]:
