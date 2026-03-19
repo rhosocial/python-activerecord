@@ -2,7 +2,7 @@
 """
 This module provides a mixin for handling custom column names for model fields.
 """
-from typing import ClassVar, Dict, Optional, Type, Any
+from typing import ClassVar, Dict, Optional, Type, Any, get_type_hints
 from functools import lru_cache
 
 from .fields import UseColumn
@@ -31,14 +31,25 @@ class ColumnNameAnnotationHandler:
         """
         field_column_names: Dict[str, str] = {}
 
-        if hasattr(new_class, '__annotations__'):
-            for field_name, field_type in new_class.__annotations__.items():
-                column_name = ColumnNameAnnotationHandler._extract_and_validate_column_name(
-                    field_name,
-                    field_type
-                )
-                if column_name:
-                    field_column_names[field_name] = column_name
+        # Use get_type_hints() with include_extras=True to properly resolve
+        # Annotated types. This is necessary because when using
+        # 'from __future__ import annotations', __annotations__ stores
+        # string representations of types rather than actual type objects,
+        # which don't have __origin__, __args__, and __metadata__ attributes.
+        try:
+            hints = get_type_hints(new_class, include_extras=True)
+        except (NameError, AttributeError, TypeError):
+            # Fallback to __annotations__ if get_type_hints fails
+            # (e.g., due to forward references or other issues)
+            hints = getattr(new_class, '__annotations__', {})
+
+        for field_name, field_type in hints.items():
+            column_name = ColumnNameAnnotationHandler._extract_and_validate_column_name(
+                field_name,
+                field_type
+            )
+            if column_name:
+                field_column_names[field_name] = column_name
 
         setattr(new_class, '__field_column_names__', field_column_names)
 

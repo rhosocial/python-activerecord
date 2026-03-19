@@ -2,7 +2,7 @@
 """
 This module provides a mixin for handling field-specific type adapters.
 """
-from typing import ClassVar, Dict, Optional, Tuple, Type, Any, get_origin, get_args, Union
+from typing import ClassVar, Dict, Optional, Tuple, Type, Any, get_origin, get_args, Union, get_type_hints
 
 from ..backend.type_adapter import SQLTypeAdapter
 from .fields import UseAdapter
@@ -19,11 +19,23 @@ class AdapterAnnotationHandler:
         Parses annotations and attaches the `__field_adapters__` dictionary.
         """
         field_adapters: Dict[str, Tuple[SQLTypeAdapter, Type]] = {}
-        if hasattr(new_class, '__annotations__'):
-            for field_name, field_type in new_class.__annotations__.items():
-                adapter_info = AdapterAnnotationHandler._extract_and_validate_adapter(field_name, field_type)
-                if adapter_info:
-                    field_adapters[field_name] = adapter_info
+
+        # Use get_type_hints() with include_extras=True to properly resolve
+        # Annotated types. This is necessary because when using
+        # 'from __future__ import annotations', __annotations__ stores
+        # string representations of types rather than actual type objects,
+        # which don't have __origin__, __args__, and __metadata__ attributes.
+        try:
+            hints = get_type_hints(new_class, include_extras=True)
+        except (NameError, AttributeError, TypeError):
+            # Fallback to __annotations__ if get_type_hints fails
+            # (e.g., due to forward references or other issues)
+            hints = getattr(new_class, '__annotations__', {})
+
+        for field_name, field_type in hints.items():
+            adapter_info = AdapterAnnotationHandler._extract_and_validate_adapter(field_name, field_type)
+            if adapter_info:
+                field_adapters[field_name] = adapter_info
 
         setattr(new_class, '__field_adapters__', field_adapters)
 

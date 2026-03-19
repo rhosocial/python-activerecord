@@ -164,3 +164,68 @@ class User(ActiveRecord):
 ```
 
 > 💡 **AI提示词示例**: "为什么关系描述符必须使用ClassVar声明？不这样做会有什么后果？"
+## 异步关系
+
+当使用 `AsyncActiveRecord` 时，需要使用对应的异步关系描述符：
+
+| 同步关系 | 异步关系 | 用途 |
+|---------|---------|------|
+| `HasOne` | `AsyncHasOne` | 一对一 |
+| `HasMany` | `AsyncHasMany` | 一对多 |
+| `BelongsTo` | `AsyncBelongsTo` | 多对一/反向 |
+
+### 定义异步关系
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.model import AsyncActiveRecord
+from rhosocial.activerecord.relation import AsyncHasMany, AsyncBelongsTo
+
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    
+    # 异步一对多关系
+    posts: ClassVar[AsyncHasMany['AsyncPost']] = AsyncHasMany(
+        foreign_key='user_id', 
+        inverse_of='author'
+    )
+
+class AsyncPost(AsyncActiveRecord):
+    title: str
+    user_id: int
+    
+    # 异步反向关系
+    author: ClassVar[AsyncBelongsTo['AsyncUser']] = AsyncBelongsTo(
+        foreign_key='user_id', 
+        inverse_of='posts'
+    )
+```
+
+### 访问异步关系
+
+异步关系的访问需要使用 `await`：
+
+```python
+# 获取用户的所有文章
+user = await AsyncUser.find(1)
+posts = await user.posts()  # 注意：需要 await
+
+# 预加载异步关系
+users = await AsyncUser.query().with_("posts").all()
+```
+
+> 💡 **AI提示词示例**: "同步和异步模型的关系定义有什么区别？如何正确使用异步关系？"
+
+## inverse_of 参数说明
+
+`inverse_of` 参数用于指定双向关系的另一端名称。正确设置这个参数可以：
+
+1. **验证关系一致性**：框架会检查双向关系是否正确对应
+2. **优化预加载**：帮助 ORM 正确关联预加载的数据
+
+**常见错误**：
+
+- 如果 `inverse_of` 指定的关系名不存在，会抛出验证错误
+- 如果双向关系的 `inverse_of` 不匹配，可能导致预加载数据无法正确关联
+
+> 💡 **AI提示词示例**: "inverse_of 参数有什么作用？如果设置错误会有什么后果？如何调试关系定义问题？"

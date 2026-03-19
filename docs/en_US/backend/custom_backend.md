@@ -87,6 +87,48 @@ After mixing in a protocol, verify the corresponding formatting methods. For exa
 *   If your database follows standard SQL (e.g., `OVER (...)`), the default implementation works.
 *   If it differs, override that specific method.
 
+## RETURNING Clause Support (Important)
+
+When saving new records (INSERT), the framework needs to retrieve the database-generated primary key value. This is achieved through two methods:
+
+### Primary Key Retrieval Strategy
+
+| Priority | Method | Requirement |
+|----------|--------|-------------|
+| 1 | RETURNING clause | Backend implements `supports_returning_clause()` returning `True` |
+| 2 | last_insert_id | Backend provides integer primary key via `cursor.lastrowid` |
+
+### Backend Implementation Requirements
+
+**If the database supports RETURNING clause** (e.g., PostgreSQL, SQLite 3.35+, MySQL 8.0+):
+
+```python
+from rhosocial.activerecord.backend.dialect.mixins import ReturningMixin
+from rhosocial.activerecord.backend.dialect.protocols import ReturningSupport
+
+class MyDialect(ReturningMixin, ReturningSupport):
+    def supports_returning_clause(self) -> bool:
+        """Determine RETURNING support based on database version"""
+        return self.version >= (x, y, z)  # Replace with actual version
+```
+
+**If the database doesn't support RETURNING clause**:
+
+- Must ensure `cursor.lastrowid` is available (most Python database drivers support this)
+- Only supports integer auto-increment primary keys (`IntegerPKMixin`)
+- Backends without RETURNING support will fail when saving new records with non-integer primary keys (e.g., UUID)
+
+### Compatibility Matrix
+
+| Database | RETURNING Support | Minimum Version |
+|----------|-------------------|-----------------|
+| SQLite | ✅ | 3.35.0 |
+| PostgreSQL | ✅ | All versions |
+| MySQL | ❌ | - (uses last_insert_id) |
+| MariaDB | ❌ | - (uses last_insert_id) |
+
+> 💡 **AI Prompt Example**: "How do I implement RETURNING clause support in a custom backend? What are the limitations if RETURNING is not supported?"
+
 ## Testing and Protocol Support
 
 The Rhosocial ActiveRecord test suite is designed to be protocol-aware. This means it automatically adapts to the capabilities of your backend:

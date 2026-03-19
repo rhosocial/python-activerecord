@@ -13,6 +13,26 @@ Defined in the `rhosocial.activerecord.interface.base.ModelEvent` enum:
 *   `BEFORE_DELETE`: Before delete
 *   `AFTER_DELETE`: After delete
 
+### Hook Methods vs Event Enum
+
+The event system provides two ways to hook into model lifecycle:
+
+| Hook Method | Event Enum | Description |
+|-------------|------------|-------------|
+| `before_validate()` | `BEFORE_VALIDATE` | Before Pydantic validation |
+| `after_validate()` | `AFTER_VALIDATE` | After Pydantic validation |
+| `before_save()` | `BEFORE_SAVE` | Before INSERT/UPDATE |
+| `after_save()` | `AFTER_SAVE` | After INSERT/UPDATE |
+| `before_delete()` | `BEFORE_DELETE` | Before DELETE |
+| `after_delete()` | `AFTER_DELETE` | After DELETE |
+
+**Usage Differences**:
+
+- **Hook Methods**: Override in your model class for simple logic
+- **Event Enum**: Use with `on()` method for dynamic registration, especially in Mixins
+
+> 💡 **AI Prompt Example**: "How to distinguish between new and existing records in before_save()? How does the is_new parameter work?"
+
 ## save() Lifecycle
 
 The following diagram illustrates the complete execution flow of the `save()` method and where events are triggered:

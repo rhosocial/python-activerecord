@@ -2,6 +2,20 @@
 
 `SetOperationQuery` 是在 `ActiveQuery` 或 `CTEQuery` 上调用集合操作方法（如 `union`）后返回的对象。它代表了两个或多个查询结果的集合运算。
 
+## 结果获取方式
+
+不同查询类型的结果获取方式有所不同：
+
+| 查询类型 | `.all()` | `.one()` | `.aggregate()` | `.to_sql()` |
+|---------|----------|----------|----------------|-------------|
+| ActiveQuery | ✅ List[Model] | ✅ Optional[Model] | ✅ List[Dict] | ✅ |
+| CTEQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+| SetOperationQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+
+**核心区别**：集合操作的结果无法保证映射到单一模型类型，因此只返回原始字典。
+
+> 💡 **AI提示词示例**: "为什么 SetOperationQuery 没有 all() 方法？如何获取集合操作的结果？"
+
 ## 支持的操作
 
 *   `union(other)`: 并集 (UNION)。会自动去重。
@@ -34,10 +48,6 @@ except_query = q1 - q2
 ### `aggregate() -> List[Dict[str, Any]]`
 
 执行集合查询并返回所有结果（字典列表）。
-
-> **为什么没有 `one()` 和 `all()` 方法？**
-> 
-> 与 `ActiveQuery` 不同，`SetOperationQuery` 不支持 `one()` 和 `all()` 方法。这是因为集合操作（UNION、INTERSECT、EXCEPT）的结果是原始数据字典，而不是模型实例。`one()` 和 `all()` 方法专门用于返回模型实例，而集合操作的结果无法保证能够映射回单一的模型类型，特别是在组合不同表的列时。
 
 **同步异步对等**：`SetOperationQuery` 也有对应的异步版本 `AsyncSetOperationQuery`，两者具有相同的 API 和功能，唯一的区别是在异步版本中需要使用 `await` 关键字来调用 `aggregate()` 方法。
 
@@ -80,6 +90,7 @@ results = union_query.aggregate() # 返回字典列表
     ```
 
 4.  **排序**：`SetOperationQuery` 本身不支持 `order_by`。如果需要对最终结果排序，通常需要将其包裹在另一个查询中。
+
 5.  **探索类成员**：如果您想了解 `SetOperationQuery` 类有哪些可用方法，可以使用 JetBrains PyCharm 或其他支持代码智能提示的 IDE。或者编写简单的脚本来检查类成员：
     ```python
     from rhosocial.activerecord.query.set_operation import SetOperationQuery

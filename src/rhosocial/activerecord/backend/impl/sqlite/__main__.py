@@ -305,10 +305,120 @@ def check_protocol_support(dialect: Any, protocol_class: type) -> Dict[str, Any]
     return results
 
 
+def _build_database_info(version_tuple: tuple) -> Dict[str, Any]:
+    """Build database basic information structure."""
+    return {
+        "type": "sqlite",
+        "version": ".".join(map(str, version_tuple)),
+        "version_tuple": list(version_tuple),
+    }
+
+
+def _build_extension_info(version_tuple: tuple) -> Dict[str, Any]:
+    """Build extension information structure."""
+    registry = get_registry()
+    extensions = registry.detect_extensions(version_tuple)
+    ext_info = {}
+
+    for name, ext in extensions.items():
+        ext_info[name] = {
+            "type": ext.extension_type.name,
+            "available": ext.installed,
+            "min_version": ".".join(map(str, ext.min_version)),
+            "deprecated": ext.deprecated,
+            "description": ext.description,
+        }
+        if ext.successor:
+            ext_info[name]["successor"] = ext.successor
+        if ext.installed:
+            features = registry.get_supported_features(name, version_tuple)
+            if features:
+                ext_info[name]["features"] = features
+
+    return ext_info
+
+
+def _build_pragma_info() -> Dict[str, Any]:
+    """Build pragma information structure."""
+    pragma_info = {
+        "total_count": len(get_all_pragma_infos()),
+        "categories": {}
+    }
+
+    for category in PragmaCategory:
+        pragmas_in_category = [
+            name for name, p in get_all_pragma_infos().items()
+            if p.category == category
+        ]
+        pragma_info["categories"][category.name] = {
+            "count": len(pragmas_in_category),
+            "names": pragmas_in_category
+        }
+
+    return pragma_info
+
+
+def _calculate_support_stats(support_methods: Dict[str, Any]) -> tuple:
+    """Calculate supported/total counts from support methods.
+
+    For no-arg methods: value is bool
+    For methods with parameters: value is dict with 'supported', 'total', 'args'
+    """
+    supported_count = 0
+    total_count = 0
+
+    for value in support_methods.values():
+        if isinstance(value, dict):
+            supported_count += value['supported']
+            total_count += value['total']
+        else:
+            total_count += 1
+            if value:
+                supported_count += 1
+
+    return supported_count, total_count
+
+
+def _build_protocol_info(dialect: Any, verbose: int) -> Dict[str, Any]:
+    """Build protocol support information structure."""
+    protocol_info = {}
+
+    for group_name, protocols in PROTOCOL_FAMILY_GROUPS.items():
+        protocol_info[group_name] = _build_protocol_group_info(
+            dialect, protocols, verbose
+        )
+
+    return protocol_info
+
+
+def _build_protocol_group_info(dialect: Any, protocols: list, verbose: int) -> Dict[str, Any]:
+    """Build information for a single protocol group."""
+    group_info = {}
+
+    for protocol in protocols:
+        protocol_name = protocol.__name__
+        support_methods = check_protocol_support(dialect, protocol)
+        supported_count, total_count = _calculate_support_stats(support_methods)
+
+        percentage = round(supported_count / total_count * 100, 1) if total_count > 0 else 0
+
+        group_info[protocol_name] = {
+            "supported": supported_count,
+            "total": total_count,
+            "percentage": percentage,
+        }
+
+        if verbose >= 2:
+            group_info[protocol_name]["methods"] = support_methods
+
+    return group_info
+
+
 def display_info(verbose: int = 0, output_format: str = 'table'):
     """Display SQLite environment information."""
     config = SQLiteConnectionConfig(database=":memory:")
     backend = SQLiteBackend(connection_config=config)
+
     try:
         backend.connect()
         backend.introspect_and_adapt()
@@ -324,95 +434,17 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
     finally:
         backend.disconnect()
 
-    # Unified structure for JSON output
+    # Build info structure using helper functions
     info = {
-        "database": {
-            "type": "sqlite",
-            "version": sqlite_version,
-            "version_tuple": list(version_tuple),
-        },
+        "database": _build_database_info(version_tuple),
         "features": {
-            "extensions": {},
-            "pragmas": {
-                "total_count": len(get_all_pragma_infos()),
-                "categories": {}
-            },
+            "extensions": _build_extension_info(version_tuple),
+            "pragmas": _build_pragma_info(),
         },
-        "protocols": {}
+        "protocols": _build_protocol_info(dialect, verbose),
     }
 
-    # Keep legacy structure for backward compatibility in rich display
-    info_legacy = {
-        "sqlite": info["database"],
-        "extensions": info["features"]["extensions"],
-        "pragmas": info["features"]["pragmas"],
-        "protocols": info["protocols"]
-    }
-
-    registry = get_registry()
-    extensions = registry.detect_extensions(version_tuple)
-
-    for name, ext_info in extensions.items():
-        info["features"]["extensions"][name] = {
-            "type": ext_info.extension_type.name,
-            "available": ext_info.installed,
-            "min_version": ".".join(map(str, ext_info.min_version)),
-            "deprecated": ext_info.deprecated,
-            "description": ext_info.description,
-        }
-        if ext_info.successor:
-            info["features"]["extensions"][name]["successor"] = ext_info.successor
-        if ext_info.installed:
-            features = registry.get_supported_features(name, version_tuple)
-            if features:
-                info["features"]["extensions"][name]["features"] = features
-
-    for category in PragmaCategory:
-        pragmas_in_category = [
-            name for name, p in get_all_pragma_infos().items()
-            if p.category == category
-        ]
-        info["features"]["pragmas"]["categories"][category.name] = {
-            "count": len(pragmas_in_category),
-            "names": pragmas_in_category
-        }
-
-    for group_name, protocols in PROTOCOL_FAMILY_GROUPS.items():
-        info["protocols"][group_name] = {}
-        for protocol in protocols:
-            protocol_name = protocol.__name__
-            support_methods = check_protocol_support(dialect, protocol)
-
-            # Calculate supported/total counts
-            # For no-arg methods: value is bool
-            # For methods with parameters: value is dict with 'supported', 'total', 'args'
-            supported_count = 0
-            total_count = 0
-            for _method_name, value in support_methods.items():
-                if isinstance(value, dict):
-                    supported_count += value['supported']
-                    total_count += value['total']
-                else:
-                    total_count += 1
-                    if value:
-                        supported_count += 1
-
-            if verbose >= 2:
-                info["protocols"][group_name][protocol_name] = {
-                    "supported": supported_count,
-                    "total": total_count,
-                    "percentage": (round(supported_count / total_count * 100, 1)
-                                   if total_count > 0 else 0),
-                    "methods": support_methods
-                }
-            else:
-                info["protocols"][group_name][protocol_name] = {
-                    "supported": supported_count,
-                    "total": total_count,
-                    "percentage": (round(supported_count / total_count * 100, 1)
-                                   if total_count > 0 else 0)
-                }
-
+    # Output result
     if output_format == 'json' or not RICH_AVAILABLE:
         print(json.dumps(info, indent=2))
     else:

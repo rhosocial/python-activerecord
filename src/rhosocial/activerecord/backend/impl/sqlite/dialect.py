@@ -46,6 +46,16 @@ if TYPE_CHECKING:
         RefreshMaterializedViewExpression, ReturningClause
     )
 
+# Module-level constants for error suggestions (SonarCloud S1192)
+_SUGGESTION_ARRAY_TYPES = "SQLite does not support native array types. Consider using JSON or comma-separated values."
+_SUGGESTION_JSON_TABLE = "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
+_SUGGESTION_GRAPH_MATCH = "SQLite does not support graph MATCH clause."
+_SUGGESTION_ORDERED_SET_AGG = "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
+_SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
+_SUGGESTION_MATERIALIZED_VIEW = "SQLite does not support materialized views."
+_SUGGESTION_MATERIALIZED_VIEW_ALT = "SQLite does not support materialized views. Consider using regular views or creating tables to store precomputed results."
+_SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
+
 
 class SQLiteDialect(
     SQLDialectBase,
@@ -101,7 +111,7 @@ class SQLiteDialect(
         """Get a runtime parameter."""
         return self._runtime_params.get(key, default)
 
-    def get_parameter_placeholder(self, position: int = 0) -> str:
+    def get_parameter_placeholder(self, _position: int = 0) -> str:
         """SQLite uses '?' for placeholders."""
         return "?"
 
@@ -415,7 +425,7 @@ class SQLiteDialect(
     def format_grouping_expression(
         self,
         operation: str,
-        expressions: List["bases.BaseExpression"]
+        _expressions: List["bases.BaseExpression"]
     ) -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         # Check feature support based on operation type
@@ -438,23 +448,23 @@ class SQLiteDialect(
 
     def format_array_expression(
         self,
-        expr: "ArrayExpression"
+        _expr: "ArrayExpression"
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
         raise UnsupportedFeatureError(
             self.name,
             "Array operations",
-            "SQLite does not support native array types. Consider using JSON or comma-separated values."
+            _SUGGESTION_ARRAY_TYPES
         )
 
     def format_json_table_expression(
         self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: Optional[str],
-        params: tuple
+        _json_col_sql: str,
+        _path: str,
+        _columns: List[Dict[str, Any]],
+        _alias: Optional[str],
+        _params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Format JSON_TABLE expression.
@@ -473,12 +483,12 @@ class SQLiteDialect(
         raise UnsupportedFeatureError(
             self.name,
             "JSON_TABLE function",
-            "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
+            _SUGGESTION_JSON_TABLE
         )
 
     def format_match_clause(
         self,
-        clause: "MatchClause"
+        _clause: "MatchClause"
     ) -> Tuple[str, tuple]:
         """
         Format MATCH clause with expression.
@@ -493,12 +503,12 @@ class SQLiteDialect(
         raise UnsupportedFeatureError(
             self.name,
             "graph MATCH clause",
-            "SQLite does not support graph MATCH clause."
+            _SUGGESTION_GRAPH_MATCH
         )
 
     def format_ordered_set_aggregation(
         self,
-        aggregation: "OrderedSetAggregation"
+        _aggregation: "OrderedSetAggregation"
     ) -> Tuple[str, Tuple]:
         """
         Format ordered-set aggregation function call.
@@ -513,19 +523,19 @@ class SQLiteDialect(
         raise UnsupportedFeatureError(
             self.name,
             "ordered-set aggregate functions",
-            "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
+            _SUGGESTION_ORDERED_SET_AGG
         )
 
     def format_qualify_clause(
         self,
-        clause: "QualifyClause"
+        _clause: "QualifyClause"
     ) -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         # SQLite does not support QUALIFY clause
         raise UnsupportedFeatureError(
             self.name,
             "QUALIFY clause",
-            "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
+            _SUGGESTION_QUALIFY
         )
 
     def format_returning_clause(
@@ -618,7 +628,7 @@ class SQLiteDialect(
                 raise UnsupportedFeatureError(
                     self.name,
                     "FOR UPDATE in set operations",
-                    "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
+                    _SUGGESTION_FOR_UPDATE_SET_OP
                 )
 
         sql = " ".join(sql_parts)
@@ -731,36 +741,35 @@ class SQLiteDialect(
 
     def format_create_materialized_view_statement(
         self,
-        expr: "CreateMaterializedViewExpression"
+        _expr: "CreateMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(
             self.name,
             "CREATE MATERIALIZED VIEW",
-            "SQLite does not support materialized views. "
-            "Consider using regular views or creating tables to store precomputed results."
+            _SUGGESTION_MATERIALIZED_VIEW_ALT
         )
 
     def format_drop_materialized_view_statement(
         self,
-        expr: "DropMaterializedViewExpression"
+        _expr: "DropMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(
             self.name,
             "DROP MATERIALIZED VIEW",
-            "SQLite does not support materialized views."
+            _SUGGESTION_MATERIALIZED_VIEW
         )
 
     def format_refresh_materialized_view_statement(
         self,
-        expr: "RefreshMaterializedViewExpression"
+        _expr: "RefreshMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format REFRESH MATERIALIZED VIEW statement - not supported by SQLite."""
         raise UnsupportedFeatureError(
             self.name,
             "REFRESH MATERIALIZED VIEW",
-            "SQLite does not support materialized views."
+            _SUGGESTION_MATERIALIZED_VIEW
         )
     # endregion
 
@@ -862,65 +871,99 @@ class SQLiteDialect(
 
     # region Generated Columns Support
 
-    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
-        """Format a column definition for SQLite, including generated columns support."""
-        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
+    def _handle_primary_key_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle PRIMARY KEY constraint formatting."""
+        return " PRIMARY KEY", ()
+
+    def _handle_not_null_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle NOT NULL constraint formatting."""
+        return " NOT NULL", ()
+
+    def _handle_null_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle NULL constraint formatting."""
+        return " NULL", ()
+
+    def _handle_unique_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle UNIQUE constraint formatting."""
+        return " UNIQUE", ()
+
+    def _handle_default_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle DEFAULT constraint formatting."""
         from rhosocial.activerecord.backend.expression import bases
+
+        if constraint.default_value is None:
+            raise ValueError("DEFAULT constraint must have a default value specified.")
+        if isinstance(constraint.default_value, bases.BaseExpression):
+            default_sql, default_params = constraint.default_value.to_sql()
+            return f" DEFAULT {default_sql}", default_params
+        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+
+    def _handle_check_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle CHECK constraint formatting."""
+        if constraint.check_condition is None:
+            return "", ()
+        check_sql, check_params = constraint.check_condition.to_sql()
+        return f" CHECK ({check_sql})", check_params
+
+    def _handle_foreign_key_constraint(self, constraint) -> Tuple[str, tuple]:
+        """Handle FOREIGN KEY constraint formatting."""
+        if constraint.foreign_key_reference is None:
+            raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
+        referenced_table, referenced_columns = constraint.foreign_key_reference
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+
+    def _handle_generated_column(self, col_def) -> Tuple[str, tuple]:
+        """Handle generated column formatting."""
+        from rhosocial.activerecord.backend.expression.statements import GeneratedColumnType
+
+        if not self.supports_generated_columns():
+            raise UnsupportedFeatureError(
+                self.name,
+                "Generated columns",
+                "Generated columns require SQLite 3.31.0 or later."
+            )
+        gen_sql, gen_params = col_def.generated_expression.to_sql()
+        gen_type = " STORED" if col_def.generated_type == GeneratedColumnType.STORED else " VIRTUAL"
+        return f" GENERATED ALWAYS AS ({gen_sql}){gen_type}", gen_params
+
+    def format_column_definition(self, col_def) -> Tuple[str, tuple]:
+        """Format a column definition for SQLite, including generated columns support.
+
+        Uses a strategy pattern with dictionary dispatch to handle different constraint
+        types, reducing cognitive complexity compared to if-elif chains.
+        """
+        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
+
+        # Constraint handler mapping for dispatch
+        constraint_handlers = {
+            ColumnConstraintType.PRIMARY_KEY: self._handle_primary_key_constraint,
+            ColumnConstraintType.NOT_NULL: self._handle_not_null_constraint,
+            ColumnConstraintType.NULL: self._handle_null_constraint,
+            ColumnConstraintType.UNIQUE: self._handle_unique_constraint,
+            ColumnConstraintType.DEFAULT: self._handle_default_constraint,
+            ColumnConstraintType.CHECK: self._handle_check_constraint,
+            ColumnConstraintType.FOREIGN_KEY: self._handle_foreign_key_constraint,
+        }
 
         all_params = []
 
         # Basic column definition: name data_type
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
 
-        # Handle constraints
+        # Handle constraints using dispatch table
         for constraint in col_def.constraints:
-            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                col_sql += " PRIMARY KEY"
-            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                col_sql += " NOT NULL"
-            elif constraint.constraint_type == ColumnConstraintType.NULL:
-                col_sql += " NULL"
-            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                if constraint.default_value is None:
-                    raise ValueError("DEFAULT constraint must have a default value specified.")
-                if isinstance(constraint.default_value, bases.BaseExpression):
-                    default_sql, default_params = constraint.default_value.to_sql()
-                    col_sql += f" DEFAULT {default_sql}"
-                    all_params.extend(default_params)
-                else:
-                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
-                    all_params.append(constraint.default_value)
-            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
-                check_sql, check_params = constraint.check_condition.to_sql()
-                col_sql += f" CHECK ({check_sql})"
-                all_params.extend(check_params)
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                if constraint.foreign_key_reference is None:
-                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
-                referenced_table, referenced_columns = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+            handler = constraint_handlers.get(constraint.constraint_type)
+            if handler:
+                sql_part, params = handler(constraint)
+                col_sql += sql_part
+                all_params.extend(params)
 
         # Handle generated columns (SQLite 3.31.0+)
         if col_def.generated_expression is not None:
-            if not self.supports_generated_columns():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "Generated columns",
-                    "Generated columns require SQLite 3.31.0 or later."
-                )
-
-            gen_sql, gen_params = col_def.generated_expression.to_sql()
+            gen_sql, gen_params = self._handle_generated_column(col_def)
+            col_sql += gen_sql
             all_params.extend(gen_params)
-
-            col_sql += f" GENERATED ALWAYS AS ({gen_sql})"
-            if col_def.generated_type == GeneratedColumnType.STORED:
-                col_sql += " STORED"
-            else:
-                # Default to VIRTUAL if not specified
-                col_sql += " VIRTUAL"
 
         return col_sql, tuple(all_params)
 

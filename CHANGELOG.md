@@ -1,3 +1,17 @@
+## [v1.0.0.dev18] - 2026-03-20
+
+### Added
+
+- Added Python 3.10+ UnionType syntax support (X | Y) for model field type annotations, with environment-aware fixture selection for Python version-specific features. ([#43](https://github.com/rhosocial/python-activerecord/issues/43))
+
+
+
+### Fixed
+
+- Resolve SonarCloud code quality issues (S5807, S5754, S1192, S1172): fix missing `__all__` exports, improve exception handling, reduce string duplication, and address unused parameters. ([#44](https://github.com/rhosocial/python-activerecord/issues/44))
+- Reduce cognitive complexity (S3776) for 4 high-complexity functions in SQLite dialect and relational query modules. ([#45](https://github.com/rhosocial/python-activerecord/issues/45))
+
+
 ## [v1.0.0.dev17] - 2026-03-16
 
 ### Added

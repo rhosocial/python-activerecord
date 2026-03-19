@@ -2,6 +2,14 @@
 
 `SetOperationQuery` is the object returned after calling set operation methods (like `union`) on `ActiveQuery` or `CTEQuery`. It represents the set operation of two or more query results.
 
+## Query Result Retrieval Methods
+
+| Query Type | `.all()` | `.one()` | `.aggregate()` | `.to_sql()` |
+|---------|----------|----------|----------------|-------------|
+| ActiveQuery | ✅ List[Model] | ✅ Optional[Model] | ✅ List[Dict] | ✅ |
+| CTEQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+| SetOperationQuery | ❌ | ❌ | ✅ List[Dict] | ✅ |
+
 ## Supported Operations
 
 *   `union(other)`: Union (UNION). Automatically removes duplicates.
@@ -34,10 +42,6 @@ except_query = q1 - q2
 ### `aggregate() -> List[Dict[str, Any]]`
 
 Executes the set query and returns all results (list of dictionaries).
-
-> **Why no `one()` and `all()` methods?**
-> 
-> Unlike `ActiveQuery`, `SetOperationQuery` does not support `one()` and `all()` methods. This is because set operations (UNION, INTERSECT, EXCEPT) return raw data dictionaries rather than model instances. The `one()` and `all()` methods are specifically designed to return model instances, but the results of set operations cannot guarantee mapping back to a single model type, especially when combining columns from different tables.
 
 **Sync-Async Parity**: `SetOperationQuery` also has an asynchronous counterpart `AsyncSetOperationQuery` with equivalent functionality and consistent APIs. The only difference is that the asynchronous version requires using the `await` keyword to call the `aggregate()` method.
 
