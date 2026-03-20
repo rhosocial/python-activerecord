@@ -30,7 +30,7 @@ from typing import Any, Union, List, TYPE_CHECKING, TypeVar
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
     from .core import Literal
-    from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate
+    from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, IsBooleanPredicate, LogicalPredicate, BetweenPredicate
 
 T = TypeVar('T')
 
@@ -222,6 +222,78 @@ class ComparisonMixin:
         """
         from .predicates import IsNullPredicate
         return IsNullPredicate(self.dialect, self, is_not=True)
+
+    def is_true(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS TRUE predicate for this expression.
+
+        IS TRUE matches only TRUE values, not FALSE or NULL.
+        This is different from = TRUE which would not match NULL values
+        but also wouldn't correctly handle three-valued logic.
+
+        Returns:
+            SQLPredicate representing the IS TRUE check
+
+        Example:
+            >>> col = Column(dialect, "is_active")
+            >>> predicate = col.is_true()  # Generates: "is_active IS TRUE"
+        """
+        from .predicates import IsBooleanPredicate
+        return IsBooleanPredicate(self.dialect, self, value=True, is_not=False)
+
+    def is_not_true(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS NOT TRUE predicate for this expression.
+
+        IS NOT TRUE matches FALSE values and NULL values.
+        This is useful for finding records where a boolean field is
+        either explicitly false or unset (NULL).
+
+        Returns:
+            SQLPredicate representing the IS NOT TRUE check
+
+        Example:
+            >>> col = Column(dialect, "is_active")
+            >>> predicate = col.is_not_true()  # Generates: "is_active IS NOT TRUE"
+        """
+        from .predicates import IsBooleanPredicate
+        return IsBooleanPredicate(self.dialect, self, value=True, is_not=True)
+
+    def is_false(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS FALSE predicate for this expression.
+
+        IS FALSE matches only FALSE values, not TRUE or NULL.
+        This is different from = FALSE which would not match NULL values
+        but also wouldn't correctly handle three-valued logic.
+
+        Returns:
+            SQLPredicate representing the IS FALSE check
+
+        Example:
+            >>> col = Column(dialect, "is_deleted")
+            >>> predicate = col.is_false()  # Generates: "is_deleted IS FALSE"
+        """
+        from .predicates import IsBooleanPredicate
+        return IsBooleanPredicate(self.dialect, self, value=False, is_not=False)
+
+    def is_not_false(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS NOT FALSE predicate for this expression.
+
+        IS NOT FALSE matches TRUE values and NULL values.
+        This is useful for finding records where a boolean field is
+        either explicitly true or unset (NULL).
+
+        Returns:
+            SQLPredicate representing the IS NOT FALSE check
+
+        Example:
+            >>> col = Column(dialect, "is_deleted")
+            >>> predicate = col.is_not_false()  # Generates: "is_deleted IS NOT FALSE"
+        """
+        from .predicates import IsBooleanPredicate
+        return IsBooleanPredicate(self.dialect, self, value=False, is_not=True)
 
     def in_(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
         """

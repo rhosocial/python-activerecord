@@ -46,6 +46,7 @@ from .predicates import (
     InPredicate,
     BetweenPredicate,
     IsNullPredicate,
+    IsBooleanPredicate,
 )
 from .aggregates import (
     AggregateFunctionCall,
@@ -213,7 +214,7 @@ __all__ = [
 
     # Predicates
     "ComparisonPredicate", "LogicalPredicate", "LikePredicate", "InPredicate",
-    "BetweenPredicate", "IsNullPredicate",
+    "BetweenPredicate", "IsNullPredicate", "IsBooleanPredicate",
 
     # Aggregates
     "AggregateFunctionCall",
