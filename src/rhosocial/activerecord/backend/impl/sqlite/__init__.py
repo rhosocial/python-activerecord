@@ -4,10 +4,14 @@ SQLite backend implementation for ActiveRecord.
 
 This module provides a complete SQLite backend implementation for the ActiveRecord ORM,
 including connection management, dialect support, type adapters, and query execution.
+
+Async components (AsyncSQLiteBackend, AsyncSQLiteTransactionManager) are loaded lazily
+to avoid requiring aiosqlite for users who only need synchronous operations.
+Install the async extra to use:
+    pip install rhosocial-activerecord[async]
 """
 
 from .backend.sync import SQLiteBackend
-from .backend.async_backend import AsyncSQLiteBackend
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect
 from .adapters import (
@@ -19,7 +23,6 @@ from .transaction import (
     SQLiteTransactionManager,
     SQLiteTransactionMixin
 )
-from .async_transaction import AsyncSQLiteTransactionManager
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteExtensionMixin
 
@@ -173,3 +176,39 @@ __all__ = [
     'rtrim',
     'iif',
 ]
+
+
+def __getattr__(name: str):
+    """Lazily load async components to avoid forcing aiosqlite dependency.
+
+    This allows users to import SQLiteBackend and other sync components without
+    having aiosqlite installed. Only when async components are actually accessed
+    will aiosqlite be required.
+
+    Lazily loaded components:
+    - AsyncSQLiteBackend: Async SQLite backend implementation
+    - AsyncSQLiteTransactionManager: Async transaction manager
+
+    Raises:
+        ImportError: If aiosqlite is not installed when accessing async components.
+        AttributeError: If the requested attribute doesn't exist.
+    """
+    _lazy_imports = {
+        'AsyncSQLiteBackend': ('.backend.async_backend', 'AsyncSQLiteBackend'),
+        'AsyncSQLiteTransactionManager': ('.async_transaction', 'AsyncSQLiteTransactionManager'),
+    }
+
+    if name in _lazy_imports:
+        module_path, class_name = _lazy_imports[name]
+        try:
+            import importlib
+            module = importlib.import_module(module_path, __name__)
+            return getattr(module, class_name)
+        except ImportError as e:
+            raise ImportError(
+                f"{name} requires 'aiosqlite' package. "
+                f"Install it with: pip install rhosocial-activerecord[async] "
+                f"or pip install aiosqlite"
+            ) from e
+
+    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
