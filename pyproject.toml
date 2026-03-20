@@ -72,6 +72,13 @@ dependencies = [
 ]
 
 [project.optional-dependencies]
+# Async support for SQLite backend
+# These are required only when using AsyncSQLiteBackend
+async = [
+    "aiosqlite>=0.19.0",
+    "aiofiles>=23.0.0",
+]
+
 # Database backend dependencies (provided by separate packages)
 # These are distributed as independent packages to maintain modularity
 mysql = ["rhosocial-activerecord-mysql>=1.0.0,<2.0.0"]
@@ -100,6 +107,8 @@ all = [
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
     "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
+    "aiosqlite>=0.19.0",
+    "aiofiles>=23.0.0",
 ]
 
 # Development dependencies - These will be installed automatically during pip install -e .

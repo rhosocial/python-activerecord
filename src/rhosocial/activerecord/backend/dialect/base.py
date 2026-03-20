@@ -379,6 +379,39 @@ class SQLDialectBase:
         sql = f"{expr_sql} IS{not_str} NULL"
         return sql, expr_params
 
+    def format_is_boolean_predicate(
+        self,
+        expr: "bases.BaseExpression",
+        value: bool,
+        is_not: bool
+    ) -> Tuple[str, Tuple]:
+        """Format IS TRUE/FALSE predicate.
+
+        Generates SQL for IS TRUE, IS NOT TRUE, IS FALSE, or IS NOT FALSE predicates.
+        These predicates properly handle three-valued logic (TRUE, FALSE, NULL).
+
+        Args:
+            expr: The expression to test
+            value: True for IS TRUE/FALSE, False for IS FALSE/TRUE
+            is_not: True for IS NOT TRUE/FALSE, False for IS TRUE/FALSE
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+
+        Example:
+            >>> # IS TRUE
+            >>> dialect.format_is_boolean_predicate(col, True, False)
+            ('"is_active" IS TRUE', ())
+            >>> # IS NOT TRUE
+            >>> dialect.format_is_boolean_predicate(col, True, True)
+            ('"is_active" IS NOT TRUE', ())
+        """
+        expr_sql, expr_params = expr.to_sql()
+        not_str = " NOT" if is_not else ""
+        bool_str = "TRUE" if value else "FALSE"
+        sql = f"{expr_sql} IS{not_str} {bool_str}"
+        return sql, expr_params
+
     def format_exists_expression(
         self,
         subquery: "bases.BaseExpression",

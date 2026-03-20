@@ -2,7 +2,8 @@
 import pytest
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, RawSQLExpression, Subquery,
-    ComparisonPredicate, LogicalPredicate, InPredicate, BetweenPredicate, IsNullPredicate, LikePredicate
+    ComparisonPredicate, LogicalPredicate, InPredicate, BetweenPredicate, IsNullPredicate, LikePredicate,
+    IsBooleanPredicate
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -129,4 +130,50 @@ class TestPredicateExpressions:
         sql, params = composite_pred.to_sql()
         assert sql == '"age" > ? AND "status" = ? OR "name" LIKE ?'
         assert params == (25, "active", "J%")
+
+    @pytest.mark.parametrize("expr_data, value, is_not, expected_sql, expected_params", [
+        ((Column, ("is_active",)), True, False, '"is_active" IS TRUE', ()),
+        ((Column, ("is_active",)), True, True, '"is_active" IS NOT TRUE', ()),
+        ((Column, ("is_deleted",)), False, False, '"is_deleted" IS FALSE', ()),
+        ((Column, ("is_deleted",)), False, True, '"is_deleted" IS NOT FALSE', ()),
+        ((RawSQLExpression, ("verified",)), True, False, 'verified IS TRUE', ()),
+        ((RawSQLExpression, ("verified",)), False, True, 'verified IS NOT FALSE', ()),
+    ])
+    def test_is_boolean_predicate(self, dummy_dialect: DummyDialect, expr_data, value, is_not, expected_sql, expected_params):
+        """Tests IS TRUE/FALSE predicates."""
+        expr = expr_data[0](dummy_dialect, *expr_data[1])
+        pred = IsBooleanPredicate(dummy_dialect, expr, value=value, is_not=is_not)
+        sql, params = pred.to_sql()
+        assert sql == expected_sql
+        assert params == expected_params
+
+    def test_is_boolean_mixin_methods(self, dummy_dialect: DummyDialect):
+        """Tests is_true(), is_not_true(), is_false(), is_not_false() methods."""
+        col = Column(dummy_dialect, "flag")
+
+        sql, params = col.is_true().to_sql()
+        assert sql == '"flag" IS TRUE'
+        assert params == ()
+
+        sql, params = col.is_not_true().to_sql()
+        assert sql == '"flag" IS NOT TRUE'
+        assert params == ()
+
+        sql, params = col.is_false().to_sql()
+        assert sql == '"flag" IS FALSE'
+        assert params == ()
+
+        sql, params = col.is_not_false().to_sql()
+        assert sql == '"flag" IS NOT FALSE'
+        assert params == ()
+
+    def test_is_boolean_with_logical_combination(self, dummy_dialect: DummyDialect):
+        """Tests IS TRUE/FALSE combined with logical predicates."""
+        is_active = Column(dummy_dialect, "is_active").is_true()
+        age_pred = ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+
+        combined = LogicalPredicate(dummy_dialect, "AND", is_active, age_pred)
+        sql, params = combined.to_sql()
+        assert sql == '"is_active" IS TRUE AND "age" > ?'
+        assert params == (18,)
 
