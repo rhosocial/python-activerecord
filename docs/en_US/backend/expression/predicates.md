@@ -136,3 +136,50 @@ class IsNullPredicate(bases.SQLPredicate):
     # pred = IsNullPredicate(dialect, Column(dialect, "email"), is_not=True)
     # -> ('"email" IS NOT NULL', ())
 ```
+
+### IsBooleanPredicate
+
+Represents boolean value tests (`IS TRUE`, `IS NOT TRUE`, `IS FALSE`, `IS NOT FALSE`).
+
+```python
+class IsBooleanPredicate(bases.SQLPredicate):
+    def __init__(self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", value: bool, is_not: bool = False): ...
+```
+
+**Parameters:**
+- `dialect`: The SQL dialect instance.
+- `expr`: The expression to test.
+- `value`: `True` for `IS TRUE`/`IS NOT TRUE`, `False` for `IS FALSE`/`IS NOT FALSE`.
+- `is_not`: If `True`, creates the negated form. Default is `False`.
+
+**Behavior:**
+This predicate properly handles SQL's three-valued logic (TRUE, FALSE, NULL):
+
+- `IS TRUE`: matches only TRUE values (not FALSE or NULL)
+- `IS NOT TRUE`: matches FALSE and NULL values
+- `IS FALSE`: matches only FALSE values (not TRUE or NULL)
+- `IS NOT FALSE`: matches TRUE and NULL values
+
+This is different from direct equality comparisons (`= TRUE` or `= FALSE`) which do not handle NULL values correctly.
+
+**Example:**
+```python
+# is_active IS TRUE
+pred = IsBooleanPredicate(dialect, Column(dialect, "is_active"), value=True, is_not=False)
+# -> ('"is_active" IS TRUE', ())
+
+# is_active IS NOT FALSE
+pred = IsBooleanPredicate(dialect, Column(dialect, "is_active"), value=False, is_not=True)
+# -> ('"is_active" IS NOT FALSE', ())
+```
+
+**Convenience Methods:**
+The `Column` class provides convenience methods for creating these predicates:
+
+```python
+col = Column(dialect, "is_active")
+col.is_true()       # IS TRUE
+col.is_not_true()   # IS NOT TRUE
+col.is_false()      # IS FALSE
+col.is_not_false()  # IS NOT FALSE
+```
