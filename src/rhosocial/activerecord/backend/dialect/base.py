@@ -6,7 +6,7 @@ This module defines the core dialect interfaces and provides default
 implementations for standard SQL features.
 """
 
-from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..expression import bases, ForUpdateClause
@@ -36,6 +36,9 @@ if TYPE_CHECKING:
         DropTableConstraint,
         RenameColumn,
         RenameTable,
+        # Constraint types
+        ColumnConstraint,
+        TableConstraint,
     )
     from ..expression.query_parts import WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause
 
@@ -974,6 +977,94 @@ class SQLDialectBase:
 
         return current_sql, tuple(all_params)
 
+    def _format_pk_constraint(self, t_const: "TableConstraint") -> str:
+        """Format PRIMARY KEY constraint."""
+        if not t_const.columns:
+            raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        return f"PRIMARY KEY ({cols_str})"
+
+    def _format_unique_constraint(self, t_const: "TableConstraint") -> str:
+        """Format UNIQUE constraint."""
+        if not t_const.columns:
+            raise ValueError("UNIQUE constraint must have at least one column specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        return f"UNIQUE ({cols_str})"
+
+    def _format_table_check_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
+        """Format CHECK constraint for table-level constraint."""
+        if t_const.check_condition is None:
+            raise ValueError("CHECK constraint must have a check condition specified.")
+        check_sql, check_params = t_const.check_condition.to_sql()
+        return f"CHECK ({check_sql})", tuple(check_params)
+
+    def _format_fk_table_constraint(self, t_const: "TableConstraint") -> str:
+        """Format FOREIGN KEY table constraint."""
+        if not t_const.columns:
+            raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
+        if not t_const.foreign_key_columns:
+            raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
+        if not t_const.foreign_key_table:
+            raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
+        return f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})"
+
+    def _format_table_constraint_sql(
+        self, t_const: "TableConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format a single table constraint.
+
+        Args:
+            t_const: The table constraint to format.
+
+        Returns:
+            Tuple of (constraint SQL string, parameters tuple).
+        """
+        from ..expression.statements import TableConstraintType
+
+        const_parts = []
+        params = []
+
+        if t_const.name:
+            const_parts.append(f"CONSTRAINT {self.format_identifier(t_const.name)}")
+
+        ctype = t_const.constraint_type
+        if ctype == TableConstraintType.PRIMARY_KEY:
+            const_parts.append(self._format_pk_constraint(t_const))
+        elif ctype == TableConstraintType.UNIQUE:
+            const_parts.append(self._format_unique_constraint(t_const))
+        elif ctype == TableConstraintType.CHECK:
+            sql, params = self._format_table_check_constraint(t_const)
+            const_parts.append(sql)
+        elif ctype == TableConstraintType.FOREIGN_KEY:
+            const_parts.append(self._format_fk_table_constraint(t_const))
+
+        return " ".join(const_parts) if const_parts else "", tuple(params)
+
+    def _format_storage_options(self, storage_options: Dict[str, Any]) -> Tuple[str, tuple]:
+        """Format storage options clause.
+
+        Args:
+            storage_options: Dictionary of storage option key-value pairs.
+
+        Returns:
+            Tuple of (storage options SQL string, parameters tuple).
+        """
+        storage_parts = []
+        params = []
+        for key, value in storage_options.items():
+            if isinstance(value, str):
+                storage_parts.append(f"{key.upper()} = '{value}'")
+            elif isinstance(value, (int, float)):
+                storage_parts.append(f"{key.upper()} = {value}")
+            else:
+                storage_parts.append(f"{key.upper()} = ?")
+                params.append(value)
+        if storage_parts:
+            return " WITH (" + ", ".join(storage_parts) + ")", tuple(params)
+        return "", ()
+
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """
         Format CREATE TABLE statement with all supported features.
@@ -988,9 +1079,6 @@ class SQLDialectBase:
         - Schema-qualified table names
         """
         all_params = []
-
-        # Import here to avoid circular imports
-        from ..expression.statements import TableConstraintType
 
         # Build the basic statement with flags
         parts = []
@@ -1013,43 +1101,12 @@ class SQLDialectBase:
         # Combine column definitions (without closing parenthesis yet)
         all_def_parts = [", ".join(column_parts)]
 
-        # Add table constraints
+        # Add table constraints using helper method
         for t_const in expr.table_constraints:
-            const_parts = []
-            if t_const.name:
-                const_parts.append(f"CONSTRAINT {self.format_identifier(t_const.name)}")
-
-            if t_const.constraint_type == TableConstraintType.PRIMARY_KEY:
-                if not t_const.columns:
-                    raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
-                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-                const_parts.append(f"PRIMARY KEY ({cols_str})")
-            elif t_const.constraint_type == TableConstraintType.UNIQUE:
-                if not t_const.columns:
-                    raise ValueError("UNIQUE constraint must have at least one column specified.")
-                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-                const_parts.append(f"UNIQUE ({cols_str})")
-            elif t_const.constraint_type == TableConstraintType.CHECK:
-                if t_const.check_condition is None:
-                    raise ValueError("CHECK constraint must have a check condition specified.")
-                check_sql, check_params = t_const.check_condition.to_sql()
-                const_parts.append(f"CHECK ({check_sql})")
-                all_params.extend(check_params)
-            elif t_const.constraint_type == TableConstraintType.FOREIGN_KEY:
-                if not t_const.columns:
-                    raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
-                if not t_const.foreign_key_columns:
-                    raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
-                if not t_const.foreign_key_table:
-                    raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
-                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
-                const_parts.append(
-                    f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})"
-                )
-
-            if const_parts:
-                all_def_parts.append(" ".join(const_parts))
+            const_sql, const_params = self._format_table_constraint_sql(t_const)
+            if const_sql:
+                all_def_parts.append(const_sql)
+                all_params.extend(const_params)
 
         # Combine all parts with comma separator and wrap in parentheses
         full_column_def = "(" + ", ".join(all_def_parts) + ")"
@@ -1057,17 +1114,10 @@ class SQLDialectBase:
 
         # Add storage options if present
         if expr.storage_options:
-            storage_parts = []
-            for key, value in expr.storage_options.items():
-                if isinstance(value, str):
-                    storage_parts.append(f"{key.upper()} = '{value}'")
-                elif isinstance(value, (int, float)):
-                    storage_parts.append(f"{key.upper()} = {value}")
-                else:
-                    storage_parts.append(f"{key.upper()} = ?")
-                    all_params.append(value)
-            if storage_parts:
-                parts.append(" WITH (" + ", ".join(storage_parts) + ")")
+            storage_sql, storage_params = self._format_storage_options(expr.storage_options)
+            if storage_sql:
+                parts.append(storage_sql)
+                all_params.extend(storage_params)
 
         # Add tablespace if present
         if expr.tablespace:
@@ -1337,6 +1387,67 @@ class SQLDialectBase:
         order_sql = f"ORDER BY {', '.join(expr_parts)}"
         return order_sql, tuple(all_params)
 
+    def _format_column_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format a single column constraint.
+
+        Args:
+            constraint: The column constraint to format.
+
+        Returns:
+            Tuple of (SQL suffix string, parameters tuple).
+        """
+        from ..expression.statements import ColumnConstraintType
+
+        ctype = constraint.constraint_type
+        # Simple constraint types that don't need parameters
+        simple_constraints = {
+            ColumnConstraintType.PRIMARY_KEY: " PRIMARY KEY",
+            ColumnConstraintType.NOT_NULL: " NOT NULL",
+            ColumnConstraintType.NULL: " NULL",
+            ColumnConstraintType.UNIQUE: " UNIQUE",
+        }
+        if ctype in simple_constraints:
+            return simple_constraints[ctype], ()
+        if ctype == ColumnConstraintType.DEFAULT:
+            return self._format_default_constraint(constraint)
+        if ctype == ColumnConstraintType.CHECK:
+            return self._format_column_check_constraint(constraint)
+        if ctype == ColumnConstraintType.FOREIGN_KEY:
+            return self._format_fk_constraint(constraint)
+        return "", ()
+
+    def _format_column_check_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format CHECK constraint for column-level constraint."""
+        if constraint.check_condition is None:
+            return "", ()
+        check_sql, check_params = constraint.check_condition.to_sql()
+        return f" CHECK ({check_sql})", tuple(check_params)
+
+    def _format_default_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format DEFAULT constraint."""
+        if constraint.default_value is None:
+            raise ValueError("DEFAULT constraint must have a default value specified.")
+        if isinstance(constraint.default_value, bases.BaseExpression):
+            default_sql, default_params = constraint.default_value.to_sql()
+            return f" DEFAULT {default_sql}", tuple(default_params)
+        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+
+    def _format_fk_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format FOREIGN KEY constraint."""
+        if constraint.foreign_key_reference is None:
+            raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
+        referenced_table, referenced_columns = constraint.foreign_key_reference
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition for use in ADD COLUMN clauses."""
         all_params = []
@@ -1344,38 +1455,11 @@ class SQLDialectBase:
         # Basic column definition: name data_type
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
 
-        # Handle constraints
-        from ..expression.statements import ColumnConstraintType
-
+        # Handle constraints using helper method
         for constraint in col_def.constraints:
-            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                col_sql += " PRIMARY KEY"
-            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                col_sql += " NOT NULL"
-            elif constraint.constraint_type == ColumnConstraintType.NULL:
-                col_sql += " NULL"  # Explicitly allow NULL (though redundant in most cases)
-            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                if constraint.default_value is None:
-                    raise ValueError("DEFAULT constraint must have a default value specified.")
-                if isinstance(constraint.default_value, bases.BaseExpression):
-                    default_sql, default_params = constraint.default_value.to_sql()
-                    col_sql += f" DEFAULT {default_sql}"
-                    all_params.extend(default_params)
-                else:
-                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
-                    all_params.append(constraint.default_value)
-            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
-                check_sql, check_params = constraint.check_condition.to_sql()
-                col_sql += f" CHECK ({check_sql})"
-                all_params.extend(check_params)
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                if constraint.foreign_key_reference is None:
-                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
-                referenced_table, referenced_columns = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+            suffix, params = self._format_column_constraint(constraint)
+            col_sql += suffix
+            all_params.extend(params)
 
         # Add comment if present
         if col_def.comment:
