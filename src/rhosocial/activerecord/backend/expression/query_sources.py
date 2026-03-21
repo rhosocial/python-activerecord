@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/expression/query_sources.py
 """
 Data source expressions for SQL queries like VALUES, table functions, lateral joins, and CTEs.
 

@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/feature/basic/test_type_adapter.py
 """
 This is a "bridge" file for the basic features test group, specifically for
 type adapter tests.

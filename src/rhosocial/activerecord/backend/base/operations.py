@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/base/operations.py
 """
 Defines mixins for high-level SQL data operations (INSERT, UPDATE, DELETE, FETCH),
 implementing an Options-based pattern for clean, extensible, and type-safe APIs.
