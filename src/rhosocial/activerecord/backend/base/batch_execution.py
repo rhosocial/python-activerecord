@@ -11,19 +11,15 @@ import time
 from dataclasses import dataclass
 from typing import (
     Optional, List, Dict, Any, Union, Type, Iterator, AsyncIterator,
-    TYPE_CHECKING, Tuple,
+    TYPE_CHECKING,
 )
 
 from ..result import QueryResult, BatchDMLResult, BatchDQLResult, BatchCommitMode
-from ..options import ExecutionOptions
-from ..schema import StatementType
 
 if TYPE_CHECKING:
-    from ..dialect import SQLDialectBase
     from ..expression import (
         InsertExpression, UpdateExpression, DeleteExpression,
         QueryExpression, WithQueryExpression, SetOperationExpression,
-        ReturningClause, Column,
     )
 
 
@@ -157,6 +153,7 @@ class BatchExecutionMixin:
 
         # Transaction management
         managed_tx = False
+        completed = False
         try:
             # Start transaction for WHOLE mode if not already in transaction
             if commit_mode == BatchCommitMode.WHOLE and not self.in_transaction:
@@ -224,11 +221,15 @@ class BatchExecutionMixin:
                         self.rollback_transaction()
                     raise
 
+            # Only reached when all batches have been yielded AND consumed
+            completed = True
+
         finally:
-            # Clean up: commit managed transaction if we started it
             if managed_tx and self.in_transaction:
-                if commit_mode == BatchCommitMode.WHOLE:
+                if completed:
                     self.commit_transaction()
+                else:
+                    self.rollback_transaction()
 
     def execute_batch_dql(
         self,
@@ -299,7 +300,7 @@ class BatchExecutionMixin:
 
         try:
             # Execute query
-            cursor.execute(final_sql, final_params if final_params else None)
+            cursor.execute(final_sql, final_params)
 
             # Get column names from cursor description
             column_names = []
@@ -395,7 +396,7 @@ class BatchExecutionMixin:
         # Stage 1: Type validation
         first_type = type(expressions[0])
         for i, expr in enumerate(expressions):
-            if type(expr) != first_type:
+            if type(expr) is not first_type:
                 raise TypeError(
                     f"Batch requires homogeneous expressions. "
                     f"Expected {first_type.__name__}, found {type(expr).__name__} at index {i}."
@@ -525,7 +526,7 @@ class BatchExecutionMixin:
 
             # Execute and get result
             cursor = self._get_cursor()
-            cursor.execute(final_sql, final_params if final_params else None)
+            cursor.execute(final_sql, final_params)
 
             # Process result set
             data = self._process_result_set(
@@ -633,6 +634,7 @@ class AsyncBatchExecutionMixin:
 
         # Transaction management
         managed_tx = False
+        completed = False
         try:
             if commit_mode == BatchCommitMode.WHOLE and not self.in_transaction:
                 await self.begin_transaction()
@@ -693,10 +695,15 @@ class AsyncBatchExecutionMixin:
                         await self.rollback_transaction()
                     raise
 
+            # Only reached when all batches have been yielded AND consumed
+            completed = True
+
         finally:
             if managed_tx and self.in_transaction:
-                if commit_mode == BatchCommitMode.WHOLE:
+                if completed:
                     await self.commit_transaction()
+                else:
+                    await self.rollback_transaction()
 
     async def execute_batch_dql(
         self,
@@ -732,7 +739,7 @@ class AsyncBatchExecutionMixin:
         cursor = await self._get_dql_cursor()
 
         try:
-            await cursor.execute(final_sql, final_params if final_params else None)
+            await cursor.execute(final_sql, final_params)
 
             column_names = []
             if cursor.description:
@@ -797,7 +804,7 @@ class AsyncBatchExecutionMixin:
         # Stage 1: Type validation
         first_type = type(expressions[0])
         for i, expr in enumerate(expressions):
-            if type(expr) != first_type:
+            if type(expr) is not first_type:
                 raise TypeError(
                     f"Batch requires homogeneous expressions. "
                     f"Expected {first_type.__name__}, found {type(expr).__name__} at index {i}."
@@ -899,7 +906,7 @@ class AsyncBatchExecutionMixin:
             final_sql, final_params = self._prepare_sql_and_params(sql, prepared_params)
 
             cursor = await self._get_cursor()
-            await cursor.execute(final_sql, final_params if final_params else None)
+            await cursor.execute(final_sql, final_params)
 
             data = await self._process_result_set(
                 cursor,

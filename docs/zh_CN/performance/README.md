@@ -4,6 +4,7 @@
 
 ## 目录
 
+*   **[批量操作 (Batch Operations)](batch_operations.md)**: 高效的批量操作，支持自动事务管理。
 *   **[运行模式 (Strict vs Raw)](modes.md)**: 何时使用 `.aggregate()` 绕过 Pydantic 开销。
 *   **[并发控制 (Concurrency)](concurrency.md)**: 使用乐观锁处理竞态条件。
 *   **[缓存机制 (Caching)](caching.md)**: 理解内部缓存以避免重复工作。
