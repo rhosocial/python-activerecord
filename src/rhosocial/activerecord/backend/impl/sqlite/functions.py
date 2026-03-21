@@ -13,6 +13,7 @@ SQLite Function Categories:
 5. Aggregate Functions: group_concat, total
 6. Other Functions: changes, last_insert_rowid, soundex
 """
+
 from typing import Union, Optional, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.expression import bases, core
@@ -22,10 +23,7 @@ if TYPE_CHECKING:
 
 
 def substr(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    start: int,
-    length: Optional[int] = None
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], start: int, length: Optional[int] = None
 ) -> "core.FunctionCall":
     """
     Creates a SUBSTR function call (SQLite's substring function).
@@ -54,9 +52,7 @@ def substr(
 
 
 def instr(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    substring: Union[str, "bases.BaseExpression"]
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], substring: Union[str, "bases.BaseExpression"]
 ) -> "core.FunctionCall":
     """
     Creates an INSTR function call (SQLite's string position function).
@@ -96,10 +92,7 @@ def printf(dialect: "SQLDialectBase", format_str: str, *args) -> "core.FunctionC
         A FunctionCall instance representing the PRINTF function
     """
     format_expr = core.Literal(dialect, format_str)
-    arg_exprs = [
-        arg if isinstance(arg, bases.BaseExpression) else core.Literal(dialect, arg)
-        for arg in args
-    ]
+    arg_exprs = [arg if isinstance(arg, bases.BaseExpression) else core.Literal(dialect, arg) for arg in args]
     return core.FunctionCall(dialect, "PRINTF", format_expr, *arg_exprs)
 
 
@@ -205,7 +198,7 @@ def group_concat(
     dialect: "SQLDialectBase",
     expr: Union[str, "bases.BaseExpression"],
     separator: Optional[str] = None,
-    is_distinct: bool = False
+    is_distinct: bool = False,
 ) -> "core.FunctionCall":
     """
     Creates a GROUP_CONCAT aggregate function call.
@@ -255,9 +248,7 @@ def total(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
 
 
 def date_func(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    *modifiers: str
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
 ) -> "core.FunctionCall":
     """
     Creates a DATE function call.
@@ -282,9 +273,7 @@ def date_func(
 
 
 def time_func(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    *modifiers: str
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
 ) -> "core.FunctionCall":
     """
     Creates a TIME function call.
@@ -309,9 +298,7 @@ def time_func(
 
 
 def datetime_func(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    *modifiers: str
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
 ) -> "core.FunctionCall":
     """
     Creates a DATETIME function call.
@@ -336,9 +323,7 @@ def datetime_func(
 
 
 def julianday(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    *modifiers: str
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], *modifiers: str
 ) -> "core.FunctionCall":
     """
     Creates a JULIANDAY function call.
@@ -363,10 +348,7 @@ def julianday(
 
 
 def strftime_func(
-    dialect: "SQLDialectBase",
-    format_str: str,
-    expr: Union[str, "bases.BaseExpression"],
-    *modifiers: str
+    dialect: "SQLDialectBase", format_str: str, expr: Union[str, "bases.BaseExpression"], *modifiers: str
 ) -> "core.FunctionCall":
     """
     Creates a STRFTIME function call.
@@ -548,9 +530,7 @@ def changes(dialect: "SQLDialectBase") -> "core.FunctionCall":
 
 
 def trim_sqlite(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    characters: Optional[str] = None
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], characters: Optional[str] = None
 ) -> "core.FunctionCall":
     """
     Creates a TRIM function call with SQLite-specific behavior.
@@ -577,9 +557,7 @@ def trim_sqlite(
 
 
 def ltrim(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    characters: Optional[str] = None
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], characters: Optional[str] = None
 ) -> "core.FunctionCall":
     """
     Creates an LTRIM function call.
@@ -606,9 +584,7 @@ def ltrim(
 
 
 def rtrim(
-    dialect: "SQLDialectBase",
-    expr: Union[str, "bases.BaseExpression"],
-    characters: Optional[str] = None
+    dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"], characters: Optional[str] = None
 ) -> "core.FunctionCall":
     """
     Creates an RTRIM function call.
@@ -638,7 +614,7 @@ def iif(
     dialect: "SQLDialectBase",
     condition: "bases.BaseExpression",
     true_value: Union[str, "bases.BaseExpression"],
-    false_value: Union[str, "bases.BaseExpression"]
+    false_value: Union[str, "bases.BaseExpression"],
 ) -> "core.FunctionCall":
     """
     Creates an IIF function call (SQLite's inline IF).
@@ -664,38 +640,38 @@ def iif(
 
 __all__ = [
     # String functions
-    'substr',
-    'instr',
-    'printf',
-    'unicode',
-    'hex',
-    'unhex',
-    'zeroblob',
-    'randomblob',
-    'soundex',
+    "substr",
+    "instr",
+    "printf",
+    "unicode",
+    "hex",
+    "unhex",
+    "zeroblob",
+    "randomblob",
+    "soundex",
     # Aggregate functions
-    'group_concat',
-    'total',
+    "group_concat",
+    "total",
     # Date/Time functions
-    'date_func',
-    'time_func',
-    'datetime_func',
-    'julianday',
-    'strftime_func',
+    "date_func",
+    "time_func",
+    "datetime_func",
+    "julianday",
+    "strftime_func",
     # Type functions
-    'typeof',
-    'quote',
+    "typeof",
+    "quote",
     # Math functions
-    'random_func',
-    'abs_sql',
-    'sign',
+    "random_func",
+    "abs_sql",
+    "sign",
     # System functions
-    'last_insert_rowid',
-    'changes',
+    "last_insert_rowid",
+    "changes",
     # Trim functions
-    'trim_sqlite',
-    'ltrim',
-    'rtrim',
+    "trim_sqlite",
+    "ltrim",
+    "rtrim",
     # Conditional functions
-    'iif',
+    "iif",
 ]

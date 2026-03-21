@@ -3,6 +3,7 @@ Defines mixins for high-level SQL data operations (INSERT, UPDATE, DELETE, FETCH
 implementing an Options-based pattern for clean, extensible, and type-safe APIs.
 These mixins are designed to be composed into StorageBackend classes.
 """
+
 from typing import Dict, Tuple, Type
 from typing import List, Optional
 
@@ -64,6 +65,7 @@ class SQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
@@ -72,7 +74,7 @@ class SQLOperationsMixin:
             into=options.table,
             source=values_source,
             columns=list(options.data.keys()),
-            returning=returning_clause
+            returning=returning_clause,
         )
 
         sql, params = insert_expr.to_sql()
@@ -81,7 +83,7 @@ class SQLOperationsMixin:
             stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
-            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
+            process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -120,6 +122,7 @@ class SQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
@@ -128,7 +131,7 @@ class SQLOperationsMixin:
             table=options.table,
             assignments=assignments,
             where=options.where,
-            returning=returning_clause
+            returning=returning_clause,
         )
 
         sql, params = update_expr.to_sql()
@@ -137,7 +140,7 @@ class SQLOperationsMixin:
             stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
-            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
+            process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -163,14 +166,12 @@ class SQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
         delete_expr = DeleteExpression(
-            dialect=self.dialect,
-            table=options.table,
-            where=options.where,
-            returning=returning_clause
+            dialect=self.dialect, table=options.table, where=options.where, returning=returning_clause
         )
 
         sql, params = delete_expr.to_sql()
@@ -179,7 +180,7 @@ class SQLOperationsMixin:
             stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
-            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
+            process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
         )
 
         result = self.execute(sql, params, options=exec_options)
@@ -189,9 +190,13 @@ class SQLOperationsMixin:
 
         return result
 
-    def fetch_one(self, sql: str, params: Optional[Tuple] = None,
-                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
-                  column_mapping: Optional[Dict[str, str]] = None) -> Optional[Dict]:
+    def fetch_one(
+        self,
+        sql: str,
+        params: Optional[Tuple] = None,
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+        column_mapping: Optional[Dict[str, str]] = None,
+    ) -> Optional[Dict]:
         """
         Fetches a single record from the database.
 
@@ -205,16 +210,18 @@ class SQLOperationsMixin:
             Optional[Dict]: A dictionary representing the fetched record, or None if no record found.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL,
-            column_adapters=column_adapters,
-            column_mapping=column_mapping
+            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
         )
         result = self.execute(sql, params, options=exec_options)
         return result.data[0] if result and result.data else None
 
-    def fetch_all(self, sql: str, params: Optional[Tuple] = None,
-                  column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
-                  column_mapping: Optional[Dict[str, str]] = None) -> List[Dict]:
+    def fetch_all(
+        self,
+        sql: str,
+        params: Optional[Tuple] = None,
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+        column_mapping: Optional[Dict[str, str]] = None,
+    ) -> List[Dict]:
         """
         Fetches all matching records from the database.
 
@@ -228,9 +235,7 @@ class SQLOperationsMixin:
             List[Dict]: A list of dictionaries, each representing a fetched record.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL,
-            column_adapters=column_adapters,
-            column_mapping=column_mapping
+            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
         )
         result = self.execute(sql, params, options=exec_options)
         return result.data or []
@@ -266,6 +271,7 @@ class AsyncSQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
@@ -274,7 +280,7 @@ class AsyncSQLOperationsMixin:
             into=options.table,
             source=values_source,
             columns=list(options.data.keys()),
-            returning=returning_clause
+            returning=returning_clause,
         )
 
         sql, params = insert_expr.to_sql()
@@ -283,7 +289,7 @@ class AsyncSQLOperationsMixin:
             stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
-            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
+            process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -319,6 +325,7 @@ class AsyncSQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
@@ -327,7 +334,7 @@ class AsyncSQLOperationsMixin:
             table=options.table,
             assignments=assignments,
             where=options.where,
-            returning=returning_clause
+            returning=returning_clause,
         )
 
         sql, params = update_expr.to_sql()
@@ -336,7 +343,7 @@ class AsyncSQLOperationsMixin:
             stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
-            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
+            process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -359,14 +366,12 @@ class AsyncSQLOperationsMixin:
         returning_clause = None
         if options.returning_columns:
             from ..expression import Column as ExprColumn
+
             returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
         delete_expr = DeleteExpression(
-            dialect=self.dialect,
-            table=options.table,
-            where=options.where,
-            returning=returning_clause
+            dialect=self.dialect, table=options.table, where=options.where, returning=returning_clause
         )
 
         sql, params = delete_expr.to_sql()
@@ -375,7 +380,7 @@ class AsyncSQLOperationsMixin:
             stmt_type=StatementType.DML,  # Keep as DML since it's still a data manipulation operation
             column_adapters=options.column_adapters,
             column_mapping=options.column_mapping,
-            process_result_set=bool(options.returning_columns)  # Process result set if returning columns specified
+            process_result_set=bool(options.returning_columns),  # Process result set if returning columns specified
         )
 
         result = await self.execute(sql, params, options=exec_options)
@@ -385,9 +390,13 @@ class AsyncSQLOperationsMixin:
 
         return result
 
-    async def fetch_one(self, sql: str, params: Optional[Tuple] = None,
-                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
-                        column_mapping: Optional[Dict[str, str]] = None) -> Optional[Dict]:
+    async def fetch_one(
+        self,
+        sql: str,
+        params: Optional[Tuple] = None,
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+        column_mapping: Optional[Dict[str, str]] = None,
+    ) -> Optional[Dict]:
         """
         Fetches a single record from the database asynchronously.
 
@@ -401,16 +410,18 @@ class AsyncSQLOperationsMixin:
             Optional[Dict]: A dictionary representing the fetched record, or None if no record found.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL,
-            column_adapters=column_adapters,
-            column_mapping=column_mapping
+            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
         )
         result = await self.execute(sql, params, options=exec_options)
         return result.data[0] if result and result.data else None
 
-    async def fetch_all(self, sql: str, params: Optional[Tuple] = None,
-                        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
-                        column_mapping: Optional[Dict[str, str]] = None) -> List[Dict]:
+    async def fetch_all(
+        self,
+        sql: str,
+        params: Optional[Tuple] = None,
+        column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None,
+        column_mapping: Optional[Dict[str, str]] = None,
+    ) -> List[Dict]:
         """
         Fetches all matching records from the database asynchronously.
 
@@ -424,9 +435,7 @@ class AsyncSQLOperationsMixin:
             List[Dict]: A list of dictionaries, each representing a fetched record.
         """
         exec_options = ExecutionOptions(
-            stmt_type=StatementType.DQL,
-            column_adapters=column_adapters,
-            column_mapping=column_mapping
+            stmt_type=StatementType.DQL, column_adapters=column_adapters, column_mapping=column_mapping
         )
         result = await self.execute(sql, params, options=exec_options)
         return result.data or []

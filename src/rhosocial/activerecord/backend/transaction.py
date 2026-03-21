@@ -19,6 +19,7 @@ a base class for shared logic:
 This structure ensures that the complex state management of nested transactions is
 written only once and shared, reducing duplication and potential for bugs.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from contextlib import contextmanager, asynccontextmanager
@@ -37,6 +38,7 @@ class IsolationLevel(Enum):
     - REPEATABLE_READ: Prevents non-repeatable reads
     - SERIALIZABLE: Highest isolation, prevents phantom reads
     """
+
     READ_UNCOMMITTED = auto()
     READ_COMMITTED = auto()
     REPEATABLE_READ = auto()
@@ -45,6 +47,7 @@ class IsolationLevel(Enum):
 
 class TransactionState(Enum):
     """Transaction states"""
+
     INACTIVE = auto()
     ACTIVE = auto()
     COMMITTED = auto()
@@ -59,7 +62,7 @@ class TransactionManagerBase(ABC):
         self._transaction_level = 0
         self._savepoint_prefix = "SP"
         self._isolation_level: Optional[IsolationLevel] = None
-        self._logger = logger or logging.getLogger('transaction')
+        self._logger = logger or logging.getLogger("transaction")
         self._savepoint_count = 0  # Track savepoint count
         self._active_savepoints = []  # Track active savepoints
         self._state = TransactionState.INACTIVE  # Track transaction state
@@ -74,7 +77,7 @@ class TransactionManagerBase(ABC):
         """Set the logger for this transaction manager"""
         if logger is not None and not isinstance(logger, logging.Logger):
             raise ValueError("logger must be an instance of logging.Logger")
-        self._logger = logger or logging.getLogger('transaction')
+        self._logger = logger or logging.getLogger("transaction")
 
     def log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log message with specified level.
@@ -449,7 +452,7 @@ class TransactionManager(TransactionManagerBase):
 
             # Remove all savepoints created after this one
             index = self._active_savepoints.index(name)
-            self._active_savepoints = self._active_savepoints[:index + 1]
+            self._active_savepoints = self._active_savepoints[: index + 1]
             self.log(logging.DEBUG, f"Active savepoints after rollback: {self._active_savepoints}")
         except Exception as e:
             error_msg = f"Failed to rollback to savepoint {name}: {str(e)}"
@@ -674,7 +677,7 @@ class AsyncTransactionManager(TransactionManagerBase):
             await self._do_rollback_savepoint(name)
 
             index = self._active_savepoints.index(name)
-            self._active_savepoints = self._active_savepoints[:index + 1]
+            self._active_savepoints = self._active_savepoints[: index + 1]
             self.log(logging.DEBUG, f"Active savepoints after rollback: {self._active_savepoints}")
         except Exception as e:
             error_msg = f"Failed to rollback to savepoint {name}: {str(e)}"

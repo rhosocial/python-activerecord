@@ -7,34 +7,55 @@ defined in the protocol interfaces. This allows dialects to compose
 only the features they support, rather than inheriting all functionality
 from a base class.
 """
-from typing import Any, List, Optional, Tuple, Dict, Union, TYPE_CHECKING
+
+from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
 
 from .exceptions import UnsupportedFeatureError
 from ..expression import bases
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause
 
-if TYPE_CHECKING: # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from ..expression.advanced_functions import (
-        OrderedSetAggregation, WindowFunctionCall, WindowSpecification,
-        WindowFrameSpecification, WindowClause, WindowDefinition
+        OrderedSetAggregation,
+        WindowFunctionCall,
+        WindowSpecification,
+        WindowFrameSpecification,
+        WindowClause,
+        WindowDefinition,
     )
     from ..expression.query_parts import (
-        QualifyClause, JoinExpression, OrderByClause,
-        LimitOffsetClause, ForUpdateClause
+        QualifyClause,
+        JoinExpression,
+        OrderByClause,
+        LimitOffsetClause,
+        ForUpdateClause,
     )
     from ..expression.graph import GraphEdgeDirection, MatchClause
     from ..expression.statements import (
-        CreateTableExpression, DropTableExpression, AlterTableExpression,
-        CreateViewExpression, DropViewExpression, TruncateExpression,
-        CreateSchemaExpression, DropSchemaExpression,
-        CreateIndexExpression, DropIndexExpression,
-        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
-        CreateMaterializedViewExpression, DropMaterializedViewExpression,
+        CreateTableExpression,
+        DropTableExpression,
+        AlterTableExpression,
+        CreateViewExpression,
+        DropViewExpression,
+        TruncateExpression,
+        CreateSchemaExpression,
+        DropSchemaExpression,
+        CreateIndexExpression,
+        DropIndexExpression,
+        CreateSequenceExpression,
+        DropSequenceExpression,
+        AlterSequenceExpression,
+        CreateMaterializedViewExpression,
+        DropMaterializedViewExpression,
         RefreshMaterializedViewExpression,
-        CreateTriggerExpression, DropTriggerExpression,
-        CreateFunctionExpression, DropFunctionExpression,
-        OnConflictClause, ExplainExpression, MergeExpression
+        CreateTriggerExpression,
+        DropTriggerExpression,
+        CreateFunctionExpression,
+        DropFunctionExpression,
+        OnConflictClause,
+        ExplainExpression,
+        MergeExpression,
     )
     from ..expression.advanced_functions import ArrayExpression, JSONExpression
     from ..expression import CreateFulltextIndexExpression, DropFulltextIndexExpression
@@ -51,10 +72,7 @@ class WindowFunctionMixin:
         """Whether window frame clauses (ROWS/RANGE) are supported."""
         return False
 
-    def format_window_function_call(
-        self,
-        call: "WindowFunctionCall"
-    ) -> Tuple[str, tuple]:
+    def format_window_function_call(self, call: "WindowFunctionCall") -> Tuple[str, tuple]:
         """Format window function call."""
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window functions")
@@ -102,10 +120,7 @@ class WindowFunctionMixin:
 
         return sql, tuple(all_params)
 
-    def format_window_specification(
-            self,
-            spec: "WindowSpecification"
-    ) -> Tuple[str, tuple]:
+    def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
         """Format window specification."""
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window functions")
@@ -147,10 +162,7 @@ class WindowFunctionMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_window_frame_specification(
-            self,
-            spec: "WindowFrameSpecification"
-    ) -> Tuple[str, tuple]:
+    def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
         """Format window frame specification."""
         if not self.supports_window_frame_clause():
             raise UnsupportedFeatureError(self.name, "window frame specification")
@@ -162,10 +174,7 @@ class WindowFunctionMixin:
             parts.append(spec.start_frame)
         return " ".join(parts), ()
 
-    def format_window_clause(
-            self,
-            clause: "WindowClause"
-    ) -> Tuple[str, tuple]:
+    def format_window_clause(self, clause: "WindowClause") -> Tuple[str, tuple]:
         """Format complete WINDOW clause."""
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "WINDOW clause")
@@ -183,10 +192,7 @@ class WindowFunctionMixin:
 
         return f"WINDOW {', '.join(def_parts)}", tuple(all_params)
 
-    def format_window_definition(
-            self,
-            spec: "WindowDefinition"
-    ) -> Tuple[str, tuple]:
+    def format_window_definition(self, spec: "WindowDefinition") -> Tuple[str, tuple]:
         """Format named window definition."""
         if not self.supports_window_functions():
             raise UnsupportedFeatureError(self.name, "window definition")
@@ -218,7 +224,7 @@ class CTEMixin:
         columns: Optional[List[str]] = None,
         recursive: bool = False,
         materialized: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None
+        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Format a single CTE definition."""
         materialized_hint = ""
@@ -230,11 +236,11 @@ class CTEMixin:
         return f"{name_part}{columns_part} AS {materialized_hint}({query_sql})"
 
     def format_with_query(
-            self,
-            cte_sql_parts: List[str],
-            main_query_sql: str,
-            dialect_options: Optional[Dict[str, Any]] = None,
-            has_recursive: bool = False  # Added parameter to indicate if any CTE is recursive
+        self,
+        cte_sql_parts: List[str],
+        main_query_sql: str,
+        dialect_options: Optional[Dict[str, Any]] = None,
+        has_recursive: bool = False,  # Added parameter to indicate if any CTE is recursive
     ) -> str:
         """Format a complete query with WITH clause."""
         if not cte_sql_parts:
@@ -266,9 +272,7 @@ class AdvancedGroupingMixin:
         return False
 
     def format_grouping_expression(
-            self,
-            operation: str,
-            expressions: List["bases.BaseExpression"]
+        self, operation: str, expressions: List["bases.BaseExpression"]
     ) -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
@@ -324,10 +328,7 @@ class ReturningMixin:
         """Whether RETURNING clause is supported."""
         return False
 
-    def format_returning_clause(
-            self,
-            clause: "ReturningClause"
-    ) -> Tuple[str, Tuple]:
+    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
         """
         Format a RETURNING clause.
 
@@ -435,11 +436,7 @@ class LateralJoinMixin:
         return False
 
     def format_lateral_expression(
-            self,
-            expr_sql: str,
-            expr_params: Tuple[Any, ...],
-            alias: Optional[str],
-            join_type: str
+        self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
     ) -> Tuple[str, Tuple]:
         """Format LATERAL expression."""
         if alias is not None:
@@ -449,12 +446,12 @@ class LateralJoinMixin:
         return sql, expr_params
 
     def format_table_function_expression(
-            self,
-            func_name: str,
-            args_sql: List[str],
-            args_params: Tuple[Any, ...],
-            alias: Optional[str],
-            column_names: Optional[List[str]]
+        self,
+        func_name: str,
+        args_sql: List[str],
+        args_params: Tuple[Any, ...],
+        alias: Optional[str],
+        column_names: Optional[List[str]],
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""
         args_str = ", ".join(args_sql)
@@ -503,6 +500,7 @@ class JoinMixin:
         This method validates support for the given join type using protocol methods.
         """
         from ..expression import QueryExpression, JoinExpression
+
         join_type_upper = join_expr.join_type.upper()
 
         # Use split to handle cases like "LEFT OUTER JOIN"
@@ -581,10 +579,7 @@ class ArrayMixin:
         """Whether array subscript access is supported."""
         return False
 
-    def format_array_expression(
-        self,
-        expr: "ArrayExpression"
-    ) -> Tuple[str, Tuple]:
+    def format_array_expression(self, expr: "ArrayExpression") -> Tuple[str, Tuple]:
         """Format array expression."""
         all_params = ()
 
@@ -638,10 +633,7 @@ class JSONMixin:
         """Whether JSON_TABLE function is supported."""
         return False
 
-    def format_json_expression(
-        self,
-        expr: "JSONExpression"
-    ) -> Tuple[str, Tuple]:
+    def format_json_expression(self, expr: "JSONExpression") -> Tuple[str, Tuple]:
         """Format JSON expression."""
         if isinstance(expr.column, bases.BaseExpression):
             col_sql, col_params = expr.column.to_sql()
@@ -662,12 +654,7 @@ class JSONMixin:
         return sql, params
 
     def format_json_table_expression(
-            self,
-            json_col_sql: str,
-            path: str,
-            columns: List[Dict[str, Any]],
-            alias: Optional[str],
-            params: tuple
+        self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: Optional[str], params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Formats a JSON_TABLE expression.
@@ -723,9 +710,10 @@ class ExplainMixin:
         parts = ["EXPLAIN"]
         # Import here to avoid circular imports
         from ..expression.statements import ExplainType
+
         # Determine if ANALYZE should be included based on the type field
         # If type is ANALYZE, or if the boolean analyze field is True
-        if (hasattr(options, 'type') and options.type == ExplainType.ANALYZE) or options.analyze:
+        if (hasattr(options, "type") and options.type == ExplainType.ANALYZE) or options.analyze:
             parts.append("ANALYZE")
         if options.format:
             parts.append(f"FORMAT {options.format.value.upper()}")
@@ -753,11 +741,7 @@ class GraphMixin:
         """Whether graph query MATCH clause is supported."""
         return False
 
-    def format_graph_vertex(
-            self,
-            variable: str,
-            table: str
-    ) -> Tuple[str, tuple]:
+    def format_graph_vertex(self, variable: str, table: str) -> Tuple[str, tuple]:
         """
         Formats a graph vertex expression.
 
@@ -774,12 +758,7 @@ class GraphMixin:
         sql = f"({variable} IS {self.format_identifier(table)})"
         return sql, ()
 
-    def format_graph_edge(
-            self,
-            variable: str,
-            table: str,
-            direction: "GraphEdgeDirection"
-    ) -> Tuple[str, tuple]:
+    def format_graph_edge(self, variable: str, table: str, direction: "GraphEdgeDirection") -> Tuple[str, tuple]:
         """
         Formats a graph edge expression.
 
@@ -812,10 +791,7 @@ class GraphMixin:
 
         return sql, ()
 
-    def format_match_clause(
-            self,
-            clause: "MatchClause"
-    ) -> Tuple[str, tuple]:
+    def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.
 
@@ -847,11 +823,7 @@ class FilterClauseMixin:
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         return False
 
-    def format_filter_clause(
-            self,
-            condition_sql: str,
-            condition_params: tuple
-    ) -> Tuple[str, Tuple]:
+    def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
         """
         Format a FILTER (WHERE ...) clause.
 
@@ -875,10 +847,7 @@ class OrderedSetAggregationMixin:
         """Whether ordered-set aggregate functions are supported."""
         return False
 
-    def format_ordered_set_aggregation(
-        self,
-        aggregation: "OrderedSetAggregation"
-    ) -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """
         Formats an ordered-set aggregate function call.
 
@@ -1012,14 +981,12 @@ class TemporalTableMixin:
         """Whether temporal tables are supported."""
         return False
 
-    def format_temporal_options(
-            self,
-            options: Dict[str, Any]
-    ) -> Tuple[str, tuple]:
+    def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
         """Format temporal table options."""
         if not options:
             raise ValueError(
-                "Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options.")
+                "Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options."
+            )
         sql_parts, params = ["FOR SYSTEM_TIME"], []
         # Add temporal options to SQL parts based on the options provided
         for key, value in options.items():
@@ -1035,10 +1002,7 @@ class QualifyClauseMixin:
         """Whether QUALIFY clause is supported."""
         return False
 
-    def format_qualify_clause(
-            self,
-            clause: "QualifyClause"
-    ) -> Tuple[str, tuple]:
+    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         if not self.supports_qualify_clause():
             raise UnsupportedFeatureError(self.name, "QUALIFY clause")
@@ -1054,10 +1018,7 @@ class LockingMixin:
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         return False
 
-    def format_for_update_clause(
-            self,
-            clause: "ForUpdateClause"
-    ) -> Tuple[str, tuple]:
+    def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
         """Default implementation for FOR UPDATE clause."""
         all_params = []
         sql_parts = ["FOR UPDATE"]
@@ -1124,7 +1085,7 @@ class SetOperationMixin:
         all_: bool,
         order_by_clause: Optional["OrderByClause"] = None,
         limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None
+        for_update_clause: Optional["ForUpdateClause"] = None,
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
         left_sql, left_params = left.to_sql()
@@ -1166,6 +1127,7 @@ class SetOperationMixin:
 # ============================================================
 # DDL (Data Definition Language) Mixins
 # ============================================================
+
 
 class TableMixin:
     """Mixin for table DDL support."""
@@ -1226,24 +1188,15 @@ class TableMixin:
         """Whether DROP CONSTRAINT is supported."""
         return True
 
-    def format_create_table_statement(
-        self,
-        expr: "CreateTableExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "CREATE TABLE")
 
-    def format_drop_table_statement(
-        self,
-        expr: "DropTableExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
         """Format DROP TABLE statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "DROP TABLE")
 
-    def format_alter_table_statement(
-        self,
-        expr: "AlterTableExpression"
-    ) -> Tuple[str, tuple]:
+    def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "ALTER TABLE")
 
@@ -1295,24 +1248,15 @@ class ViewMixin:
         """Whether DROP VIEW CASCADE is supported."""
         return False
 
-    def format_create_view_statement(
-        self,
-        expr: "CreateViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "CREATE VIEW")
 
-    def format_drop_view_statement(
-        self,
-        expr: "DropViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Format DROP VIEW statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "DROP VIEW")
 
-    def format_create_materialized_view_statement(
-        self,
-        expr: "CreateMaterializedViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement."""
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW")
@@ -1321,7 +1265,7 @@ class ViewMixin:
         parts.append(self.format_identifier(expr.view_name))
 
         if expr.column_aliases:
-            cols = ', '.join(self.format_identifier(c) for c in expr.column_aliases)
+            cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
             parts.append(f"({cols})")
 
         if expr.tablespace and self.supports_materialized_view_tablespace():
@@ -1335,12 +1279,9 @@ class ViewMixin:
         else:
             parts.append("WITH NO DATA")
 
-        return ' '.join(parts), query_params
+        return " ".join(parts), query_params
 
-    def format_drop_materialized_view_statement(
-        self,
-        expr: "DropMaterializedViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement."""
         if not self.supports_materialized_view():
             raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW")
@@ -1351,11 +1292,10 @@ class ViewMixin:
         parts.append(self.format_identifier(expr.view_name))
         if expr.cascade:
             parts.append("CASCADE")
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
     def format_refresh_materialized_view_statement(
-        self,
-        expr: "RefreshMaterializedViewExpression"
+        self, expr: "RefreshMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format REFRESH MATERIALIZED VIEW statement."""
         if not self.supports_refresh_materialized_view():
@@ -1367,7 +1307,7 @@ class ViewMixin:
         parts.append(self.format_identifier(expr.view_name))
         if expr.with_data is not None:
             parts.append("WITH DATA" if expr.with_data else "WITH NO DATA")
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
 
 class TruncateMixin:
@@ -1389,10 +1329,7 @@ class TruncateMixin:
         """Whether CASCADE option is supported."""
         return False
 
-    def format_truncate_statement(
-        self,
-        expr: "TruncateExpression"
-    ) -> Tuple[str, tuple]:
+    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """Format TRUNCATE statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "TRUNCATE")
 
@@ -1424,10 +1361,7 @@ class SchemaMixin:
         """Whether AUTHORIZATION clause is supported."""
         return False
 
-    def format_create_schema_statement(
-        self,
-        expr: "CreateSchemaExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_schema_statement(self, expr: "CreateSchemaExpression") -> Tuple[str, tuple]:
         """Format CREATE SCHEMA statement per SQL standard."""
         parts = ["CREATE SCHEMA"]
         if expr.if_not_exists:
@@ -1435,12 +1369,9 @@ class SchemaMixin:
         parts.append(self.format_identifier(expr.schema_name))
         if expr.authorization:
             parts.append(f"AUTHORIZATION {self.format_identifier(expr.authorization)}")
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
-    def format_drop_schema_statement(
-        self,
-        expr: "DropSchemaExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_schema_statement(self, expr: "DropSchemaExpression") -> Tuple[str, tuple]:
         """Format DROP SCHEMA statement per SQL standard."""
         parts = ["DROP SCHEMA"]
         if expr.if_exists:
@@ -1448,7 +1379,7 @@ class SchemaMixin:
         parts.append(self.format_identifier(expr.schema_name))
         if expr.cascade:
             parts.append("CASCADE")
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
 
 class IndexMixin:
@@ -1500,50 +1431,44 @@ class IndexMixin:
 
     def get_supported_index_types(self) -> List[str]:
         """Return list of supported index types."""
-        return ['BTREE']
-    
+        return ["BTREE"]
+
     def supports_fulltext_index(self) -> bool:
         """Whether FULLTEXT indexes are supported."""
         return False
-    
+
     def supports_fulltext_parser(self) -> bool:
         """Whether FULLTEXT parser plugin is supported."""
         return False
-    
+
     def supports_fulltext_boolean_mode(self) -> bool:
         """Whether BOOLEAN MODE is supported."""
         return self.supports_fulltext_index()
-    
+
     def supports_fulltext_query_expansion(self) -> bool:
         """Whether QUERY EXPANSION is supported."""
         return self.supports_fulltext_index()
-    
+
     def format_fulltext_match(
-        self,
-        columns: List[str],
-        search_term: str,
-        mode: Optional[str] = None
+        self, columns: List[str], search_term: str, mode: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format MATCH ... AGAINST expression."""
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT search")
-        
-        cols_str = ', '.join(self.format_identifier(c) for c in columns)
-        
+
+        cols_str = ", ".join(self.format_identifier(c) for c in columns)
+
         if mode:
             mode_upper = mode.upper()
-            if mode_upper == 'BOOLEAN':
+            if mode_upper == "BOOLEAN":
                 return f"MATCH({cols_str}) AGAINST(? IN BOOLEAN MODE)", (search_term,)
-            elif mode_upper in ('QUERY EXPANSION', 'WITH QUERY EXPANSION'):
+            elif mode_upper in ("QUERY EXPANSION", "WITH QUERY EXPANSION"):
                 return f"MATCH({cols_str}) AGAINST(? WITH QUERY EXPANSION)", (search_term,)
-        
+
         # Default: NATURAL LANGUAGE MODE
         return f"MATCH({cols_str}) AGAINST(? IN NATURAL LANGUAGE MODE)", (search_term,)
 
-    def format_create_fulltext_index_statement(
-        self,
-        expr: "CreateFulltextIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
         """Format CREATE FULLTEXT INDEX statement from expression object."""
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
@@ -1555,18 +1480,15 @@ class IndexMixin:
         parts.append("ON")
         parts.append(self.format_identifier(expr.table_name))
 
-        cols_str = ', '.join(self.format_identifier(c) for c in expr.columns)
+        cols_str = ", ".join(self.format_identifier(c) for c in expr.columns)
         parts.append(f"({cols_str})")
 
         if expr.parser and self.supports_fulltext_parser():
             parts.append(f"WITH PARSER {self.format_identifier(expr.parser)}")
 
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
-    def format_drop_fulltext_index_statement(
-        self,
-        expr: "DropFulltextIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexExpression") -> Tuple[str, tuple]:
         """Format DROP FULLTEXT INDEX statement from expression object."""
         if not self.supports_fulltext_index():
             raise UnsupportedFeatureError(self.name, "FULLTEXT INDEX")
@@ -1578,12 +1500,9 @@ class IndexMixin:
         parts.append("ON")
         parts.append(self.format_identifier(expr.table_name))
 
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
-    def format_create_index_statement(
-        self,
-        expr: "CreateIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_index_statement(self, expr: "CreateIndexExpression") -> Tuple[str, tuple]:
         """Format CREATE INDEX statement per SQL standard."""
         all_params = []
         parts = ["CREATE"]
@@ -1611,7 +1530,7 @@ class IndexMixin:
         parts.append(f"({', '.join(col_parts)})")
 
         if expr.include:
-            include_cols = ', '.join(self.format_identifier(c) for c in expr.include)
+            include_cols = ", ".join(self.format_identifier(c) for c in expr.include)
             parts.append(f"INCLUDE ({include_cols})")
 
         if expr.where:
@@ -1622,12 +1541,9 @@ class IndexMixin:
         if expr.tablespace:
             parts.append(f"TABLESPACE {self.format_identifier(expr.tablespace)}")
 
-        return ' '.join(parts), tuple(all_params)
+        return " ".join(parts), tuple(all_params)
 
-    def format_drop_index_statement(
-        self,
-        expr: "DropIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_index_statement(self, expr: "DropIndexExpression") -> Tuple[str, tuple]:
         """Format DROP INDEX statement per SQL standard."""
         parts = ["DROP INDEX"]
         if expr.if_exists:
@@ -1636,7 +1552,7 @@ class IndexMixin:
         if expr.table_name:
             parts.append("ON")
             parts.append(self.format_identifier(expr.table_name))
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
 
 class SequenceMixin:
@@ -1682,10 +1598,7 @@ class SequenceMixin:
         """Whether OWNED BY clause is supported."""
         return False
 
-    def format_create_sequence_statement(
-        self,
-        expr: "CreateSequenceExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_sequence_statement(self, expr: "CreateSequenceExpression") -> Tuple[str, tuple]:
         """Format CREATE SEQUENCE statement per SQL standard."""
         parts = ["CREATE SEQUENCE"]
         if expr.if_not_exists:
@@ -1711,23 +1624,17 @@ class SequenceMixin:
         if expr.owned_by:
             parts.append(f"OWNED BY {expr.owned_by}")
 
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
-    def format_drop_sequence_statement(
-        self,
-        expr: "DropSequenceExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_sequence_statement(self, expr: "DropSequenceExpression") -> Tuple[str, tuple]:
         """Format DROP SEQUENCE statement per SQL standard."""
         parts = ["DROP SEQUENCE"]
         if expr.if_exists:
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.sequence_name))
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
-    def format_alter_sequence_statement(
-        self,
-        expr: "AlterSequenceExpression"
-    ) -> Tuple[str, tuple]:
+    def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
         """Format ALTER SEQUENCE statement per SQL standard."""
         parts = [f"ALTER SEQUENCE {self.format_identifier(expr.sequence_name)}"]
 
@@ -1753,7 +1660,7 @@ class SequenceMixin:
             else:
                 parts.append("OWNED BY NONE")
 
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
 
 class ILIKEMixin:
@@ -1763,33 +1670,28 @@ class ILIKEMixin:
         """Whether ILIKE operator is supported."""
         return False
 
-    def format_ilike_expression(
-        self,
-        column: Any,
-        pattern: str,
-        negate: bool = False
-    ) -> Tuple[str, Tuple]:
+    def format_ilike_expression(self, column: Any, pattern: str, negate: bool = False) -> Tuple[str, Tuple]:
         """
         Format ILIKE expression (case-insensitive pattern matching).
-        
+
         Default implementation uses LOWER() function for databases without native ILIKE.
         Override this method for databases with native ILIKE support (e.g., PostgreSQL).
         """
         if not self.supports_ilike():
             from .exceptions import UnsupportedFeatureError
+
             raise UnsupportedFeatureError(self.name, "ILIKE")
-        
+
         # Default implementation for databases without native ILIKE
         # Uses LOWER(column) LIKE LOWER(pattern)
         if isinstance(column, str):
             col_sql = self.format_identifier(column)
         elif isinstance(column, ToSQLProtocol):
             # Expression object
-            col_sql, col_params = column.to_sql()
+            col_sql, _ = column.to_sql()
         else:
             # Fallback to string representation
             col_sql = str(column)
-            col_params = ()
 
         # Use LOWER() for case-insensitive comparison
         if negate:
@@ -1827,10 +1729,7 @@ class TriggerMixin:
     def supports_trigger_if_not_exists(self) -> bool:
         return False
 
-    def format_create_trigger_statement(
-        self,
-        expr: "CreateTriggerExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_trigger_statement(self, expr: "CreateTriggerExpression") -> Tuple[str, tuple]:
         """Format CREATE TRIGGER statement per SQL:1999."""
         from .exceptions import UnsupportedFeatureError
 
@@ -1872,10 +1771,7 @@ class TriggerMixin:
 
         return " ".join(parts), tuple(all_params)
 
-    def format_drop_trigger_statement(
-        self,
-        expr: "DropTriggerExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_trigger_statement(self, expr: "DropTriggerExpression") -> Tuple[str, tuple]:
         """Format DROP TRIGGER statement per SQL:1999."""
         from .exceptions import UnsupportedFeatureError
 
@@ -1914,10 +1810,7 @@ class FunctionMixin:
     def supports_function_parameters(self) -> bool:
         return False
 
-    def format_create_function_statement(
-        self,
-        expr: "CreateFunctionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_function_statement(self, expr: "CreateFunctionExpression") -> Tuple[str, tuple]:
         """Format CREATE FUNCTION statement per SQL/PSM."""
         from .exceptions import UnsupportedFeatureError
 
@@ -1956,10 +1849,7 @@ class FunctionMixin:
 
         return " ".join(parts), ()
 
-    def format_drop_function_statement(
-        self,
-        expr: "DropFunctionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_function_statement(self, expr: "DropFunctionExpression") -> Tuple[str, tuple]:
         """Format DROP FUNCTION statement per SQL/PSM."""
         from .exceptions import UnsupportedFeatureError
 
@@ -1997,4 +1887,3 @@ class GeneratedColumnMixin:
     def supports_virtual_generated_columns(self) -> bool:
         """Whether VIRTUAL generated columns are supported."""
         return False
-

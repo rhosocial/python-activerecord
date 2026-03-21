@@ -2,9 +2,15 @@
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union
 from ..type_adapter import (
-    SQLTypeAdapter, DateTimeAdapter, JSONAdapter, UUIDAdapter,
-    EnumAdapter, BooleanAdapter, DecimalAdapter
+    SQLTypeAdapter,
+    DateTimeAdapter,
+    JSONAdapter,
+    UUIDAdapter,
+    EnumAdapter,
+    BooleanAdapter,
+    DecimalAdapter,
 )
+
 
 class TypeAdaptionMixin:
     def _register_default_adapters(self) -> None:
@@ -20,8 +26,12 @@ class TypeAdaptionMixin:
         them available for use in parameter preparation and result processing.
         """
         adapters = [
-            DateTimeAdapter(), JSONAdapter(), UUIDAdapter(), EnumAdapter(),
-            BooleanAdapter(), DecimalAdapter(),
+            DateTimeAdapter(),
+            JSONAdapter(),
+            UUIDAdapter(),
+            EnumAdapter(),
+            BooleanAdapter(),
+            DecimalAdapter(),
         ]
         for adapter in adapters:
             for py_type, db_types in adapter.supported_types.items():
@@ -29,9 +39,11 @@ class TypeAdaptionMixin:
                     self.adapter_registry.register(adapter, py_type, db_type)
         self.logger.debug("Registered all standard type adapters.")
 
-    def prepare_parameters(self, params: Union[Dict[str, Any], Sequence[Any]],
-                          param_adapters: Union[Dict[str, Tuple[SQLTypeAdapter, Type]],
-                                              Sequence[Optional[Tuple[SQLTypeAdapter, Type]]]]) -> Union[Dict[str, Any], Tuple[Any, ...]]:
+    def prepare_parameters(
+        self,
+        params: Union[Dict[str, Any], Sequence[Any]],
+        param_adapters: Union[Dict[str, Tuple[SQLTypeAdapter, Type]], Sequence[Optional[Tuple[SQLTypeAdapter, Type]]]],
+    ) -> Union[Dict[str, Any], Tuple[Any, ...]]:
         """
         Prepares parameters for database execution by applying type adapters.
 
@@ -81,8 +93,10 @@ class TypeAdaptionMixin:
             return tuple(converted_params)
 
         raise TypeError("Unsupported types for params and param_adapters.")
-    def _adapt_row_types(self, row_dict: Dict[str, Any],
-                        column_adapters: Dict[str, Tuple[SQLTypeAdapter, Type]]) -> Dict[str, Any]:
+
+    def _adapt_row_types(
+        self, row_dict: Dict[str, Any], column_adapters: Dict[str, Tuple[SQLTypeAdapter, Type]]
+    ) -> Dict[str, Any]:
         """
         Converts database column values back to Python types using column adapters.
 
@@ -112,8 +126,7 @@ class TypeAdaptionMixin:
                 processed_row[col_name] = value
         return processed_row
 
-    def _remap_row_columns(self, row_dict: Dict[str, Any],
-                          column_mapping: Dict[str, str]) -> Dict[str, Any]:
+    def _remap_row_columns(self, row_dict: Dict[str, Any], column_mapping: Dict[str, str]) -> Dict[str, Any]:
         """
         Maps database column names to Python field names in a result row.
 
@@ -194,7 +207,9 @@ class TypeAdaptionMixin:
 
 
 class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
-    async def _process_result_set(self, cursor, is_select, column_adapters=None, column_mapping=None) -> Optional[List[Dict]]:
+    async def _process_result_set(
+        self, cursor, is_select, column_adapters=None, column_mapping=None
+    ) -> Optional[List[Dict]]:
         """
         Processes the full result set from an async database cursor into Python objects.
 

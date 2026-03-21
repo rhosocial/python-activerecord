@@ -2,6 +2,7 @@
 """
 Core SQL expression components like columns, literals, function calls, and subqueries.
 """
+
 from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
 from . import bases
@@ -11,13 +12,20 @@ if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
+class Literal(
+    mixins.ArithmeticMixin,
+    mixins.ComparisonMixin,
+    mixins.StringMixin,
+    mixins.TypeCastingMixin,
+    bases.SQLValueExpression,
+):
     """Represents a literal value in a SQL query."""
+
     def __init__(self, dialect: "SQLDialectBase", value: Any):
         super().__init__(dialect)
         self.value = value
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         sql = self.dialect.get_parameter_placeholder()
         params = (self.value,)
 
@@ -31,18 +39,26 @@ class Literal(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin
         return f"Literal({self.value!r})"
 
 
-class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
+class Column(
+    mixins.AliasableMixin,
+    mixins.ArithmeticMixin,
+    mixins.ComparisonMixin,
+    mixins.StringMixin,
+    mixins.TypeCastingMixin,
+    bases.SQLValueExpression,
+):
     """Represents a column in a SQL query."""
+
     def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None):
         super().__init__(dialect)
         self.name = name
         self.table = table
         self.alias = alias
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         # Generate base column SQL
         if self.table:
-            sql = f'{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}'
+            sql = f"{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
         else:
             sql = self.dialect.format_identifier(self.name)
         params = ()
@@ -58,26 +74,44 @@ class Column(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMix
         return sql, params
 
 
-class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
+class FunctionCall(
+    mixins.AliasableMixin,
+    mixins.ArithmeticMixin,
+    mixins.ComparisonMixin,
+    mixins.StringMixin,
+    mixins.TypeCastingMixin,
+    bases.SQLValueExpression,
+):
     """Represents a scalar SQL function call, such as LOWER, CONCAT, etc."""
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression",
-                 is_distinct: bool = False, alias: Optional[str] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        func_name: str,
+        *args: "bases.BaseExpression",
+        is_distinct: bool = False,
+        alias: Optional[str] = None,
+    ):
         super().__init__(dialect)
         self.func_name = func_name
         self.args = list(args)
         self.is_distinct = is_distinct
         self.alias = alias
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         return self.dialect.format_function_call(self)
 
 
 class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
     """Represents a subquery in a SQL expression."""
-    def __init__(self, dialect: "SQLDialectBase",
-                 query_input: Union[str, "bases.SQLQueryAndParams", "bases.BaseExpression", "Subquery"],
-                 query_params: Optional[Tuple[Any, ...]] = None,
-                 alias: Optional[str] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        query_input: Union[str, "bases.SQLQueryAndParams", "bases.BaseExpression", "Subquery"],
+        query_params: Optional[Tuple[Any, ...]] = None,
+        alias: Optional[str] = None,
+    ):
         super().__init__(dialect)
         self.alias = alias
 
@@ -113,7 +147,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
                 self.query_sql = str(query)
                 self.query_params = ()
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         sql = f"({self.query_sql})"
         params = self.query_params
 
@@ -130,45 +164,50 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
 
 class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
     """Represents a table or view in a SQL query, optionally with schema and alias.
-    
+
     Supports SQL standard schema-qualified table names (schema_name.table_name).
     All major databases support this syntax.
-    
+
     Args:
         dialect: The SQL dialect to use for formatting
         name: The table or view name
         schema_name: Optional schema/database name qualifier (SQL standard)
         alias: Optional table alias
         temporal_options: Optional temporal table options (e.g., FOR SYSTEM_TIME)
-    
+
     Examples:
         # Simple table reference
         TableExpression(dialect, "users")
         # -> users
-        
+
         # Schema-qualified table
         TableExpression(dialect, "users", schema_name="public")
         # -> public.users
-        
+
         # With alias
         TableExpression(dialect, "users", alias="u")
         # -> users AS u
-        
+
         # Schema-qualified with alias
         TableExpression(dialect, "users", schema_name="public", alias="u")
         # -> public.users AS u
     """
-    def __init__(self, dialect: "SQLDialectBase", name: str, 
-                 schema_name: Optional[str] = None,
-                 alias: Optional[str] = None,
-                 temporal_options: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        name: str,
+        schema_name: Optional[str] = None,
+        alias: Optional[str] = None,
+        temporal_options: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(dialect)
         self.name = name
         self.schema_name = schema_name
         self.alias = alias
         self.temporal_options = temporal_options or {}
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         table_sql, params = self.dialect.format_table(self.name, self.alias, self.schema_name)
         if self.temporal_options:
             result = self.dialect.format_temporal_options(self.temporal_options)
@@ -197,9 +236,10 @@ class WildcardExpression(bases.SQLValueExpression):
         select=[Literal(dialect, "*")]
         # Results in: SELECT ? FROM ... with params ('*',)
     """
+
     def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None):
         super().__init__(dialect)
         self.table = table  # Optional table qualifier for SELECT table.*
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         return self.dialect.format_wildcard(self.table)

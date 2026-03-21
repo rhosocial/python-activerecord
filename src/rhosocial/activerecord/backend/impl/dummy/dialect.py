@@ -36,53 +36,134 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 2. Override supports_* methods based on actual database capabilities
 3. Override format_* methods where the database deviates from SQL standard
 """
+
 from typing import List
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
-    WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
-    UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
-    FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
-    TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
-    JoinSupport, SetOperationSupport, ILIKESupport,
+    WindowFunctionSupport,
+    CTESupport,
+    AdvancedGroupingSupport,
+    ReturningSupport,
+    UpsertSupport,
+    LateralJoinSupport,
+    ArraySupport,
+    JSONSupport,
+    ExplainSupport,
+    FilterClauseSupport,
+    OrderedSetAggregationSupport,
+    MergeSupport,
+    TemporalTableSupport,
+    QualifyClauseSupport,
+    LockingSupport,
+    GraphSupport,
+    JoinSupport,
+    SetOperationSupport,
+    ILIKESupport,
     # DDL Protocols
-    TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
-    IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
+    TableSupport,
+    ViewSupport,
+    TruncateSupport,
+    SchemaSupport,
+    IndexSupport,
+    SequenceSupport,
+    TriggerSupport,
+    FunctionSupport,
     GeneratedColumnSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
-    UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
-    FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
-    TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin, JoinMixin,
-    SetOperationMixin, ILIKEMixin,
+    WindowFunctionMixin,
+    CTEMixin,
+    AdvancedGroupingMixin,
+    ReturningMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    ArrayMixin,
+    JSONMixin,
+    ExplainMixin,
+    FilterClauseMixin,
+    OrderedSetAggregationMixin,
+    MergeMixin,
+    TemporalTableMixin,
+    QualifyClauseMixin,
+    LockingMixin,
+    GraphMixin,
+    JoinMixin,
+    SetOperationMixin,
+    ILIKEMixin,
     # DDL Mixins
-    TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
-    IndexMixin, SequenceMixin, TriggerMixin, FunctionMixin,
+    TableMixin,
+    ViewMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
+    TriggerMixin,
+    FunctionMixin,
     GeneratedColumnMixin,
 )
 
 
 class DummyDialect(
     SQLDialectBase,
-    WindowFunctionMixin, CTEMixin, AdvancedGroupingMixin, ReturningMixin,
-    UpsertMixin, LateralJoinMixin, ArrayMixin, JSONMixin, ExplainMixin,
-    FilterClauseMixin, OrderedSetAggregationMixin, MergeMixin,
-    TemporalTableMixin, QualifyClauseMixin, LockingMixin, GraphMixin,
-    JoinMixin, SetOperationMixin, ILIKEMixin,
+    WindowFunctionMixin,
+    CTEMixin,
+    AdvancedGroupingMixin,
+    ReturningMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    ArrayMixin,
+    JSONMixin,
+    ExplainMixin,
+    FilterClauseMixin,
+    OrderedSetAggregationMixin,
+    MergeMixin,
+    TemporalTableMixin,
+    QualifyClauseMixin,
+    LockingMixin,
+    GraphMixin,
+    JoinMixin,
+    SetOperationMixin,
+    ILIKEMixin,
     # DDL Mixins
-    TableMixin, ViewMixin, TruncateMixin, SchemaMixin,
-    IndexMixin, SequenceMixin, TriggerMixin, FunctionMixin,
+    TableMixin,
+    ViewMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
+    TriggerMixin,
+    FunctionMixin,
     GeneratedColumnMixin,
     # Protocols for type checking
-    WindowFunctionSupport, CTESupport, AdvancedGroupingSupport, ReturningSupport,
-    UpsertSupport, LateralJoinSupport, ArraySupport, JSONSupport, ExplainSupport,
-    FilterClauseSupport, OrderedSetAggregationSupport, MergeSupport,
-    TemporalTableSupport, QualifyClauseSupport, LockingSupport, GraphSupport,
-    JoinSupport, SetOperationSupport, ILIKESupport,
+    WindowFunctionSupport,
+    CTESupport,
+    AdvancedGroupingSupport,
+    ReturningSupport,
+    UpsertSupport,
+    LateralJoinSupport,
+    ArraySupport,
+    JSONSupport,
+    ExplainSupport,
+    FilterClauseSupport,
+    OrderedSetAggregationSupport,
+    MergeSupport,
+    TemporalTableSupport,
+    QualifyClauseSupport,
+    LockingSupport,
+    GraphSupport,
+    JoinSupport,
+    SetOperationSupport,
+    ILIKESupport,
     # DDL Protocols
-    TableSupport, ViewSupport, TruncateSupport, SchemaSupport,
-    IndexSupport, SequenceSupport, TriggerSupport, FunctionSupport,
+    TableSupport,
+    ViewSupport,
+    TruncateSupport,
+    SchemaSupport,
+    IndexSupport,
+    SequenceSupport,
+    TriggerSupport,
+    FunctionSupport,
     GeneratedColumnSupport,
 ):
     """
@@ -90,163 +171,399 @@ class DummyDialect(
     """
 
     # region Protocol Support Checks - Core Features
-    def supports_window_functions(self) -> bool: return True
-    def supports_window_frame_clause(self) -> bool: return True
-    def supports_basic_cte(self) -> bool: return True
-    def supports_recursive_cte(self) -> bool: return True
-    def supports_materialized_cte(self) -> bool: return True
-    def supports_rollup(self) -> bool: return True
-    def supports_cube(self) -> bool: return True
-    def supports_grouping_sets(self) -> bool: return True
-    def supports_returning_clause(self) -> bool: return True
-    def supports_upsert(self) -> bool: return True
-    def get_upsert_syntax_type(self) -> str: return "ON CONFLICT"
-    def supports_lateral_join(self) -> bool: return True
-    def supports_array_type(self) -> bool: return True
-    def supports_array_constructor(self) -> bool: return True
-    def supports_array_access(self) -> bool: return True
-    def supports_json_type(self) -> bool: return True
-    def get_json_access_operator(self) -> str: return "->"
-    def supports_json_table(self) -> bool: return True
-    def supports_explain_analyze(self) -> bool: return True
-    def supports_explain_format(self, format_type: str) -> bool: return True
-    def supports_filter_clause(self) -> bool: return True
-    def supports_ordered_set_aggregation(self) -> bool: return True
-    def supports_merge_statement(self) -> bool: return True
-    def supports_temporal_tables(self) -> bool: return True
-    def supports_qualify_clause(self) -> bool: return True
-    def supports_for_update_skip_locked(self) -> bool: return True
-    def supports_graph_match(self) -> bool: return True
-    def supports_inner_join(self) -> bool: return True
-    def supports_left_join(self) -> bool: return True
-    def supports_right_join(self) -> bool: return True
-    def supports_full_join(self) -> bool: return True
-    def supports_cross_join(self) -> bool: return True
-    def supports_natural_join(self) -> bool: return True
-    def supports_explicit_inner_join(self) -> bool: return True
-    def supports_union(self) -> bool: return True
-    def supports_union_all(self) -> bool: return True
-    def supports_intersect(self) -> bool: return True
-    def supports_except(self) -> bool: return True
-    def supports_set_operation_order_by(self) -> bool: return True
-    def supports_set_operation_limit_offset(self) -> bool: return True
-    def supports_set_operation_for_update(self) -> bool: return True
-    def supports_ilike(self) -> bool: return True
-    def supports_offset_without_limit(self) -> bool: return True
+    def supports_window_functions(self) -> bool:
+        return True
+
+    def supports_window_frame_clause(self) -> bool:
+        return True
+
+    def supports_basic_cte(self) -> bool:
+        return True
+
+    def supports_recursive_cte(self) -> bool:
+        return True
+
+    def supports_materialized_cte(self) -> bool:
+        return True
+
+    def supports_rollup(self) -> bool:
+        return True
+
+    def supports_cube(self) -> bool:
+        return True
+
+    def supports_grouping_sets(self) -> bool:
+        return True
+
+    def supports_returning_clause(self) -> bool:
+        return True
+
+    def supports_upsert(self) -> bool:
+        return True
+
+    def get_upsert_syntax_type(self) -> str:
+        return "ON CONFLICT"
+
+    def supports_lateral_join(self) -> bool:
+        return True
+
+    def supports_array_type(self) -> bool:
+        return True
+
+    def supports_array_constructor(self) -> bool:
+        return True
+
+    def supports_array_access(self) -> bool:
+        return True
+
+    def supports_json_type(self) -> bool:
+        return True
+
+    def get_json_access_operator(self) -> str:
+        return "->"
+
+    def supports_json_table(self) -> bool:
+        return True
+
+    def supports_explain_analyze(self) -> bool:
+        return True
+
+    def supports_explain_format(self, format_type: str) -> bool:
+        return True
+
+    def supports_filter_clause(self) -> bool:
+        return True
+
+    def supports_ordered_set_aggregation(self) -> bool:
+        return True
+
+    def supports_merge_statement(self) -> bool:
+        return True
+
+    def supports_temporal_tables(self) -> bool:
+        return True
+
+    def supports_qualify_clause(self) -> bool:
+        return True
+
+    def supports_for_update_skip_locked(self) -> bool:
+        return True
+
+    def supports_graph_match(self) -> bool:
+        return True
+
+    def supports_inner_join(self) -> bool:
+        return True
+
+    def supports_left_join(self) -> bool:
+        return True
+
+    def supports_right_join(self) -> bool:
+        return True
+
+    def supports_full_join(self) -> bool:
+        return True
+
+    def supports_cross_join(self) -> bool:
+        return True
+
+    def supports_natural_join(self) -> bool:
+        return True
+
+    def supports_explicit_inner_join(self) -> bool:
+        return True
+
+    def supports_union(self) -> bool:
+        return True
+
+    def supports_union_all(self) -> bool:
+        return True
+
+    def supports_intersect(self) -> bool:
+        return True
+
+    def supports_except(self) -> bool:
+        return True
+
+    def supports_set_operation_order_by(self) -> bool:
+        return True
+
+    def supports_set_operation_limit_offset(self) -> bool:
+        return True
+
+    def supports_set_operation_for_update(self) -> bool:
+        return True
+
+    def supports_ilike(self) -> bool:
+        return True
+
+    def supports_offset_without_limit(self) -> bool:
+        return True
+
     # endregion
 
     # region Table DDL Support
-    def supports_create_table(self) -> bool: return True
-    def supports_drop_table(self) -> bool: return True
-    def supports_alter_table(self) -> bool: return True
-    def supports_temporary_table(self) -> bool: return True
-    def supports_if_not_exists_table(self) -> bool: return True
-    def supports_if_exists_table(self) -> bool: return True
-    def supports_table_partitioning(self) -> bool: return True
-    def supports_table_tablespace(self) -> bool: return True
-    def supports_drop_column(self) -> bool: return True
-    def supports_alter_column_type(self) -> bool: return True
-    def supports_rename_column(self) -> bool: return True
-    def supports_rename_table(self) -> bool: return True
-    def supports_add_constraint(self) -> bool: return True
-    def supports_drop_constraint(self) -> bool: return True
+    def supports_create_table(self) -> bool:
+        return True
+
+    def supports_drop_table(self) -> bool:
+        return True
+
+    def supports_alter_table(self) -> bool:
+        return True
+
+    def supports_temporary_table(self) -> bool:
+        return True
+
+    def supports_if_not_exists_table(self) -> bool:
+        return True
+
+    def supports_if_exists_table(self) -> bool:
+        return True
+
+    def supports_table_partitioning(self) -> bool:
+        return True
+
+    def supports_table_tablespace(self) -> bool:
+        return True
+
+    def supports_drop_column(self) -> bool:
+        return True
+
+    def supports_alter_column_type(self) -> bool:
+        return True
+
+    def supports_rename_column(self) -> bool:
+        return True
+
+    def supports_rename_table(self) -> bool:
+        return True
+
+    def supports_add_constraint(self) -> bool:
+        return True
+
+    def supports_drop_constraint(self) -> bool:
+        return True
+
     # endregion
 
     # region View DDL Support
-    def supports_create_view(self) -> bool: return True
-    def supports_drop_view(self) -> bool: return True
-    def supports_or_replace_view(self) -> bool: return True
-    def supports_temporary_view(self) -> bool: return True
-    def supports_materialized_view(self) -> bool: return True
-    def supports_refresh_materialized_view(self) -> bool: return True
-    def supports_materialized_view_tablespace(self) -> bool: return True
-    def supports_materialized_view_storage_options(self) -> bool: return True
-    def supports_if_exists_view(self) -> bool: return True
-    def supports_view_check_option(self) -> bool: return True
-    def supports_cascade_view(self) -> bool: return True
+    def supports_create_view(self) -> bool:
+        return True
+
+    def supports_drop_view(self) -> bool:
+        return True
+
+    def supports_or_replace_view(self) -> bool:
+        return True
+
+    def supports_temporary_view(self) -> bool:
+        return True
+
+    def supports_materialized_view(self) -> bool:
+        return True
+
+    def supports_refresh_materialized_view(self) -> bool:
+        return True
+
+    def supports_materialized_view_tablespace(self) -> bool:
+        return True
+
+    def supports_materialized_view_storage_options(self) -> bool:
+        return True
+
+    def supports_if_exists_view(self) -> bool:
+        return True
+
+    def supports_view_check_option(self) -> bool:
+        return True
+
+    def supports_cascade_view(self) -> bool:
+        return True
+
     # endregion
 
     # region Truncate DDL Support
-    def supports_truncate(self) -> bool: return True
-    def supports_truncate_table_keyword(self) -> bool: return True
-    def supports_truncate_restart_identity(self) -> bool: return True
-    def supports_truncate_cascade(self) -> bool: return True
+    def supports_truncate(self) -> bool:
+        return True
+
+    def supports_truncate_table_keyword(self) -> bool:
+        return True
+
+    def supports_truncate_restart_identity(self) -> bool:
+        return True
+
+    def supports_truncate_cascade(self) -> bool:
+        return True
+
     # endregion
 
     # region Schema DDL Support
-    def supports_create_schema(self) -> bool: return True
-    def supports_drop_schema(self) -> bool: return True
-    def supports_schema_if_not_exists(self) -> bool: return True
-    def supports_schema_if_exists(self) -> bool: return True
-    def supports_schema_cascade(self) -> bool: return True
-    def supports_schema_authorization(self) -> bool: return True
+    def supports_create_schema(self) -> bool:
+        return True
+
+    def supports_drop_schema(self) -> bool:
+        return True
+
+    def supports_schema_if_not_exists(self) -> bool:
+        return True
+
+    def supports_schema_if_exists(self) -> bool:
+        return True
+
+    def supports_schema_cascade(self) -> bool:
+        return True
+
+    def supports_schema_authorization(self) -> bool:
+        return True
+
     # endregion
 
     # region Index DDL Support
-    def supports_create_index(self) -> bool: return True
-    def supports_drop_index(self) -> bool: return True
-    def supports_unique_index(self) -> bool: return True
-    def supports_index_if_not_exists(self) -> bool: return True
-    def supports_index_if_exists(self) -> bool: return True
-    def supports_index_type(self) -> bool: return True
-    def supports_partial_index(self) -> bool: return True
-    def supports_functional_index(self) -> bool: return True
-    def supports_index_include(self) -> bool: return True
-    def supports_index_tablespace(self) -> bool: return True
-    def supports_concurrent_index(self) -> bool: return True
-    def supports_fulltext_index(self) -> bool: return True
-    def supports_fulltext_parser(self) -> bool: return True
-    def supports_fulltext_boolean_mode(self) -> bool: return True
-    def supports_fulltext_query_expansion(self) -> bool: return True
+    def supports_create_index(self) -> bool:
+        return True
+
+    def supports_drop_index(self) -> bool:
+        return True
+
+    def supports_unique_index(self) -> bool:
+        return True
+
+    def supports_index_if_not_exists(self) -> bool:
+        return True
+
+    def supports_index_if_exists(self) -> bool:
+        return True
+
+    def supports_index_type(self) -> bool:
+        return True
+
+    def supports_partial_index(self) -> bool:
+        return True
+
+    def supports_functional_index(self) -> bool:
+        return True
+
+    def supports_index_include(self) -> bool:
+        return True
+
+    def supports_index_tablespace(self) -> bool:
+        return True
+
+    def supports_concurrent_index(self) -> bool:
+        return True
+
+    def supports_fulltext_index(self) -> bool:
+        return True
+
+    def supports_fulltext_parser(self) -> bool:
+        return True
+
+    def supports_fulltext_boolean_mode(self) -> bool:
+        return True
+
+    def supports_fulltext_query_expansion(self) -> bool:
+        return True
 
     def get_supported_index_types(self) -> List[str]:
-        return ['BTREE', 'HASH', 'GIN', 'GIST', 'SPGIST', 'BRIN']
+        return ["BTREE", "HASH", "GIN", "GIST", "SPGIST", "BRIN"]
+
     # endregion
 
     # region Sequence DDL Support
-    def supports_sequence(self) -> bool: return True
-    def supports_create_sequence(self) -> bool: return True
-    def supports_drop_sequence(self) -> bool: return True
-    def supports_alter_sequence(self) -> bool: return True
-    def supports_sequence_if_not_exists(self) -> bool: return True
-    def supports_sequence_if_exists(self) -> bool: return True
-    def supports_sequence_cycle(self) -> bool: return True
-    def supports_sequence_cache(self) -> bool: return True
-    def supports_sequence_order(self) -> bool: return True
-    def supports_sequence_owned_by(self) -> bool: return True
+    def supports_sequence(self) -> bool:
+        return True
+
+    def supports_create_sequence(self) -> bool:
+        return True
+
+    def supports_drop_sequence(self) -> bool:
+        return True
+
+    def supports_alter_sequence(self) -> bool:
+        return True
+
+    def supports_sequence_if_not_exists(self) -> bool:
+        return True
+
+    def supports_sequence_if_exists(self) -> bool:
+        return True
+
+    def supports_sequence_cycle(self) -> bool:
+        return True
+
+    def supports_sequence_cache(self) -> bool:
+        return True
+
+    def supports_sequence_order(self) -> bool:
+        return True
+
+    def supports_sequence_owned_by(self) -> bool:
+        return True
+
     # endregion
 
     # region Trigger DDL Support
-    def supports_trigger(self) -> bool: return True
-    def supports_create_trigger(self) -> bool: return True
-    def supports_drop_trigger(self) -> bool: return True
-    def supports_instead_of_trigger(self) -> bool: return True
-    def supports_statement_trigger(self) -> bool: return True
-    def supports_trigger_referencing(self) -> bool: return True
-    def supports_trigger_when(self) -> bool: return True
-    def supports_trigger_if_not_exists(self) -> bool: return True
+    def supports_trigger(self) -> bool:
+        return True
+
+    def supports_create_trigger(self) -> bool:
+        return True
+
+    def supports_drop_trigger(self) -> bool:
+        return True
+
+    def supports_instead_of_trigger(self) -> bool:
+        return True
+
+    def supports_statement_trigger(self) -> bool:
+        return True
+
+    def supports_trigger_referencing(self) -> bool:
+        return True
+
+    def supports_trigger_when(self) -> bool:
+        return True
+
+    def supports_trigger_if_not_exists(self) -> bool:
+        return True
+
     # endregion
 
     # region Function DDL Support
-    def supports_function(self) -> bool: return True
-    def supports_create_function(self) -> bool: return True
-    def supports_drop_function(self) -> bool: return True
-    def supports_function_or_replace(self) -> bool: return True
-    def supports_function_parameters(self) -> bool: return True
+    def supports_function(self) -> bool:
+        return True
+
+    def supports_create_function(self) -> bool:
+        return True
+
+    def supports_drop_function(self) -> bool:
+        return True
+
+    def supports_function_or_replace(self) -> bool:
+        return True
+
+    def supports_function_parameters(self) -> bool:
+        return True
+
     # endregion
 
     # region Generated Column Support
-    def supports_generated_columns(self) -> bool: return True
-    def supports_stored_generated_columns(self) -> bool: return True
-    def supports_virtual_generated_columns(self) -> bool: return True
+    def supports_generated_columns(self) -> bool:
+        return True
+
+    def supports_stored_generated_columns(self) -> bool:
+        return True
+
+    def supports_virtual_generated_columns(self) -> bool:
+        return True
+
     # endregion
 
     # region Column Definition with Generated Columns
     def format_column_definition(self, col_def) -> tuple:
         """Format a column definition including generated columns."""
-        from rhosocial.activerecord.backend.expression.statements import (
-            ColumnConstraintType, GeneratedColumnType
-        )
+        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
         from rhosocial.activerecord.backend.expression import bases
 
         all_params = []
@@ -282,9 +599,7 @@ class DummyDialect(
                 if constraint.foreign_key_reference is None:
                     raise ValueError("FOREIGN KEY constraint must have a foreign key reference specified.")
                 ref_table, ref_cols = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(
-                    self.format_identifier(col) for col in ref_cols
-                )
+                ref_cols_str = ", ".join(self.format_identifier(col) for col in ref_cols)
                 col_sql += f" REFERENCES {self.format_identifier(ref_table)}({ref_cols_str})"
 
         if col_def.generated_expression is not None:
@@ -302,4 +617,5 @@ class DummyDialect(
             col_sql += f" COMMENT '{col_def.comment}'"
 
         return col_sql, tuple(all_params)
+
     # endregion

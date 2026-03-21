@@ -2,14 +2,14 @@
 """
 Dummy Backend for SQL generation without a real database connection.
 """
+
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Type
+from typing import Any, Dict, Optional, Tuple, Type
 
 from rhosocial.activerecord.backend.base import StorageBackend, AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from rhosocial.activerecord.backend.errors import DatabaseError
-from rhosocial.activerecord.backend.result import QueryResult
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 from rhosocial.activerecord.backend.transaction import TransactionManager, AsyncTransactionManager
 
@@ -17,8 +17,12 @@ from .dialect import DummyDialect
 
 
 # Error message constants
-DUMMY_BACKEND_ERROR_MSG = "DummyBackend does not support real database operations. Did you forget to configure a concrete backend?"
-ASYNC_DUMMY_BACKEND_ERROR_MSG = "AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?"
+DUMMY_BACKEND_ERROR_MSG = (
+    "DummyBackend does not support real database operations. Did you forget to configure a concrete backend?"
+)
+ASYNC_DUMMY_BACKEND_ERROR_MSG = (
+    "AsyncDummyBackend does not support real database operations. Did you forget to configure a concrete backend?"
+)
 
 
 class DummyBackend(StorageBackend):
@@ -29,11 +33,10 @@ class DummyBackend(StorageBackend):
 
     def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs):
         # Ensure a default logger for DummyBackend if not explicitly provided
-        if 'logger' not in kwargs:
-            kwargs['logger'] = logging.getLogger('dummy_backend')
+        if "logger" not in kwargs:
+            kwargs["logger"] = logging.getLogger("dummy_backend")
         super().__init__(connection_config=connection_config or ConnectionConfig(), **kwargs)
         self._dialect = DummyDialect()
-
 
     def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
         """
@@ -49,7 +52,7 @@ class DummyBackend(StorageBackend):
         raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
     def disconnect(self) -> None:
-        pass # Disconnecting a dummy backend is a no-op
+        pass  # Disconnecting a dummy backend is a no-op
 
     def ping(self, reconnect: bool = True) -> bool:
         raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
@@ -63,7 +66,7 @@ class DummyBackend(StorageBackend):
 
     def get_server_version(self) -> Tuple[int, int, int]:
         # Return a dummy version, as this backend doesn't connect to a real server.
-        return (0, 0, 0) # Indicates a dummy/mock version
+        return (0, 0, 0)  # Indicates a dummy/mock version
 
     def introspect_and_adapt(self) -> None:
         """Introspect backend and adapt backend instance.
@@ -80,11 +83,12 @@ class DummyBackend(StorageBackend):
         raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
 
     def _handle_auto_commit(self) -> None:
-        pass # No real database, so no commit needed
+        pass  # No real database, so no commit needed
 
     @property
     def transaction_manager(self) -> TransactionManager:
         raise NotImplementedError(DUMMY_BACKEND_ERROR_MSG)
+
 
 # Async Dummy Backend
 class AsyncDummyBackend(AsyncStorageBackend):
@@ -95,11 +99,10 @@ class AsyncDummyBackend(AsyncStorageBackend):
 
     def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs):
         # Ensure a default logger for AsyncDummyBackend if not explicitly provided
-        if 'logger' not in kwargs:
-            kwargs['logger'] = logging.getLogger('async_dummy_backend')
+        if "logger" not in kwargs:
+            kwargs["logger"] = logging.getLogger("async_dummy_backend")
         super().__init__(connection_config=connection_config or ConnectionConfig(), **kwargs)
         self._dialect = DummyDialect()
-
 
     def get_default_adapter_suggestions(self) -> Dict[Type, Tuple[SQLTypeAdapter, Type]]:
         return {}
@@ -112,7 +115,7 @@ class AsyncDummyBackend(AsyncStorageBackend):
         raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
 
     async def disconnect(self) -> None:
-        pass # Disconnecting a dummy backend is a no-op
+        pass  # Disconnecting a dummy backend is a no-op
 
     async def ping(self, reconnect: bool = True) -> bool:
         raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
@@ -140,7 +143,7 @@ class AsyncDummyBackend(AsyncStorageBackend):
         raise NotImplementedError(ASYNC_DUMMY_BACKEND_ERROR_MSG)
 
     async def _handle_auto_commit(self) -> None:
-        pass # No real database, so no commit needed
+        pass  # No real database, so no commit needed
 
     @property
     def transaction_manager(self) -> AsyncTransactionManager:

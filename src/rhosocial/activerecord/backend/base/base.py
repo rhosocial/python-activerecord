@@ -21,8 +21,12 @@ class StorageBackendBase(ABC):
 
     def _register_default_adapters(self) -> None:
         adapters = [
-            DateTimeAdapter(), JSONAdapter(), UUIDAdapter(), EnumAdapter(),
-            BooleanAdapter(), DecimalAdapter(),
+            DateTimeAdapter(),
+            JSONAdapter(),
+            UUIDAdapter(),
+            EnumAdapter(),
+            BooleanAdapter(),
+            DecimalAdapter(),
         ]
         for adapter in adapters:
             for py_type, db_types in adapter.supported_types.items():
@@ -46,7 +50,7 @@ class StorageBackendBase(ABC):
         self._server_version_cache = None
 
         # Logger (for LoggingMixin)
-        self._logger: Optional[logging.Logger] = kwargs.get('logger', logging.getLogger('storage'))
+        self._logger: Optional[logging.Logger] = kwargs.get("logger", logging.getLogger("storage"))
 
         # Initialize backend state
         self._capabilities = None  # Legacy attribute, kept for compatibility

@@ -5,6 +5,7 @@ Common base classes and mixins for SQLite backend implementations.
 This module provides shared functionality between sync and async SQLite backends,
 including type adapters, error handling, and common utilities.
 """
+
 import logging
 import sqlite3
 from sqlite3 import ProgrammingError
@@ -12,8 +13,11 @@ from typing import Any, Dict, List, Optional, Tuple, Type, Union
 
 from ..adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from rhosocial.activerecord.backend.errors import (
-    DatabaseError, DeadlockError,
-    IntegrityError, OperationalError, QueryError
+    DatabaseError,
+    DeadlockError,
+    IntegrityError,
+    OperationalError,
+    QueryError,
 )
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
@@ -23,7 +27,7 @@ DEFAULT_PRAGMAS = {
     "journal_mode": "WAL",
     "synchronous": "FULL",
     "wal_autocheckpoint": "1000",
-    "wal_checkpoint": "FULL"
+    "wal_checkpoint": "FULL",
 }
 
 
@@ -60,7 +64,7 @@ class SQLiteBackendMixin:
     """Mixin providing common SQLite backend functionality."""
 
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
-    _default_suggestions_cache: Optional[Dict[Type, Tuple['SQLTypeAdapter', Type]]] = None
+    _default_suggestions_cache: Optional[Dict[Type, Tuple["SQLTypeAdapter", Type]]] = None
 
     def _register_sqlite_adapters(self) -> None:
         """Register SQLite-specific type adapters to the adapter_registry."""
@@ -72,17 +76,15 @@ class SQLiteBackendMixin:
         for adapter in sqlite_adapters:
             for py_type, db_types in adapter.supported_types.items():
                 for db_type in db_types:
-                    self.adapter_registry.register(
-                        adapter, py_type, db_type, allow_override=True
-                    )
+                    self.adapter_registry.register(adapter, py_type, db_type, allow_override=True)
         self.logger.debug("Registered SQLite-specific type adapters.")
 
-    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple['SQLTypeAdapter', Type]]:
+    def get_default_adapter_suggestions(self) -> Dict[Type, Tuple["SQLTypeAdapter", Type]]:
         """Provides default type adapter suggestions for SQLite."""
         if self._default_suggestions_cache is not None:
             return self._default_suggestions_cache
 
-        suggestions: Dict[Type, Tuple['SQLTypeAdapter', Type]] = {}
+        suggestions: Dict[Type, Tuple["SQLTypeAdapter", Type]] = {}
         type_mappings = get_type_mappings()
 
         for py_type, db_type in type_mappings:
@@ -90,9 +92,7 @@ class SQLiteBackendMixin:
             if adapter:
                 suggestions[py_type] = (adapter, db_type)
             else:
-                self.logger.debug(
-                    f"No adapter found for ({py_type.__name__}, {db_type.__name__})."
-                )
+                self.logger.debug(f"No adapter found for ({py_type.__name__}, {db_type.__name__}).")
 
         self._default_suggestions_cache = suggestions
         return suggestions
@@ -119,16 +119,10 @@ class SQLiteBackendMixin:
             elif isinstance(error, sqlite3.IntegrityError):
                 if "UNIQUE constraint failed" in error_msg:
                     self.log(logging.ERROR, f"Unique constraint violation: {error_msg}")
-                    raise IntegrityError(
-                        f"Unique constraint violation: {error_msg}"
-                    ) from error
+                    raise IntegrityError(f"Unique constraint violation: {error_msg}") from error
                 elif "FOREIGN KEY constraint failed" in error_msg:
-                    self.log(
-                        logging.ERROR, f"Foreign key constraint violation: {error_msg}"
-                    )
-                    raise IntegrityError(
-                        f"Foreign key constraint violation: {error_msg}"
-                    ) from error
+                    self.log(logging.ERROR, f"Foreign key constraint violation: {error_msg}")
+                    raise IntegrityError(f"Foreign key constraint violation: {error_msg}") from error
                 self.log(logging.ERROR, f"SQLite integrity error: {error_msg}")
                 raise IntegrityError(error_msg) from error
             elif "database is locked" in error_msg:
@@ -148,17 +142,13 @@ class SQLiteBackendMixin:
         """Check if statement is a SELECT-like query."""
         return stmt_type in ("SELECT", "EXPLAIN", "PRAGMA", "ANALYZE")
 
-    def _convert_params(
-        self, params: Union[Dict[str, Any], Tuple, List]
-    ) -> Union[Tuple, List]:
+    def _convert_params(self, params: Union[Dict[str, Any], Tuple, List]) -> Union[Tuple, List]:
         """Convert parameters for SQLite."""
         if isinstance(params, dict):
             return tuple(params.values())
         return params
 
-    def _prepare_sql_and_params(
-        self, sql: str, params: Optional[Union[Tuple, Dict, List]]
-    ) -> Tuple[str, Tuple]:
+    def _prepare_sql_and_params(self, sql: str, params: Optional[Union[Tuple, Dict, List]]) -> Tuple[str, Tuple]:
         """Prepare SQL and parameters."""
         if isinstance(params, dict):
             final_params = tuple(params.values()) if params else ()
@@ -174,17 +164,12 @@ class SQLiteBackendMixin:
 
         if data is not None:
             affected_rows = len(data) if data else 0
-            last_insert_id = getattr(cursor, 'lastrowid', None)
+            last_insert_id = getattr(cursor, "lastrowid", None)
         else:
             affected_rows = cursor.rowcount
-            last_insert_id = getattr(cursor, 'lastrowid', None)
+            last_insert_id = getattr(cursor, "lastrowid", None)
 
-        return QueryResult(
-            data=data,
-            affected_rows=affected_rows,
-            last_insert_id=last_insert_id,
-            duration=duration
-        )
+        return QueryResult(data=data, affected_rows=affected_rows, last_insert_id=last_insert_id, duration=duration)
 
     def is_connected(self) -> bool:
         """Check if connected to database.

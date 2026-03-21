@@ -6,6 +6,7 @@ This mixin provides the core execute methods for both synchronous and asynchrono
 database operations. It handles the complete execution pipeline including parameter
 preparation, SQL preparation, query execution, and result processing.
 """
+
 import logging
 import time
 from typing import Optional, Tuple, List, Union, Dict
@@ -33,6 +34,7 @@ class ExecutionMixin:
     where all parameter adaptation happens in this single location to ensure consistent
     behavior across all database operations.
     """
+
     def execute(self, sql: str, params: Optional[Tuple] = None, *, options: ExecutionOptions) -> QueryResult:
         """
         Execute a SQL statement synchronously with comprehensive parameter and result processing.
@@ -74,7 +76,7 @@ class ExecutionMixin:
             if options.process_result_set is not None:
                 is_select = options.process_result_set
             else:
-                is_select = (options.stmt_type == StatementType.DQL)
+                is_select = options.stmt_type == StatementType.DQL
             cursor = self._get_cursor()
 
             # Prepare parameters for database compatibility
@@ -111,6 +113,7 @@ class ExecutionMixin:
         except Exception as e:
             self.log(logging.ERROR, f"Error executing query: {str(e)}")
             return self._handle_execution_error(e)
+
     def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
         """
         Execute a SQL statement multiple times with different parameter sets (batch operation).
@@ -149,6 +152,7 @@ class ExecutionMixin:
             self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
             return self._handle_execution_error(e)
 
+
 class AsyncExecutionMixin:
     """
     Mixin for the core asynchronous execute method.
@@ -167,6 +171,7 @@ class AsyncExecutionMixin:
     Like its synchronous counterpart, this method centralizes parameter type conversion
     in a single location to ensure consistent behavior across all async database operations.
     """
+
     async def execute(self, sql: str, params: Optional[Tuple] = None, *, options: ExecutionOptions) -> QueryResult:
         """
         Execute a SQL statement asynchronously with comprehensive parameter and result processing.
@@ -208,7 +213,7 @@ class AsyncExecutionMixin:
             if options.process_result_set is not None:
                 is_select = options.process_result_set
             else:
-                is_select = (options.stmt_type == StatementType.DQL)
+                is_select = options.stmt_type == StatementType.DQL
             cursor = await self._get_cursor()
 
             # Prepare parameters for database compatibility
@@ -245,6 +250,7 @@ class AsyncExecutionMixin:
         except Exception as e:
             self.log(logging.ERROR, f"Error executing query: {str(e)}")
             return await self._handle_execution_error(e)
+
     async def execute_many(self, sql: str, params_list: List[Union[Tuple, Dict]]) -> Optional[QueryResult]:
         """
         Execute a SQL statement multiple times with different parameter sets asynchronously (batch operation).

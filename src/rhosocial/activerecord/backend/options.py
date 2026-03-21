@@ -4,6 +4,7 @@ This module defines classes for encapsulating execution options for the backend.
 Using the Options pattern keeps method signatures clean and makes the API
 extensible without introducing breaking changes.
 """
+
 from dataclasses import dataclass
 from typing import Optional, Dict, Tuple, Type, List, TYPE_CHECKING
 
@@ -22,6 +23,7 @@ class ExecutionOptions:
     This object is the single source of truth for controlling how a query is
     executed and how its results are processed.
     """
+
     # Essential: The type of SQL statement being executed (DQL, DML, etc.).
     # This dictates key backend behavior, such as result set processing.
     stmt_type: StatementType
@@ -43,10 +45,11 @@ class ExecutionOptions:
 @dataclass
 class InsertOptions:
     """Encapsulates all options for a high-level `insert` operation."""
+
     # The name of the table to insert into.
     table: str
     # A dictionary of column names to their new values (can be literals or expression objects).
-    data: Dict[str, 'BaseExpression']
+    data: Dict[str, "BaseExpression"]
 
     # See ExecutionOptions for details on these result-processing parameters.
     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
@@ -63,10 +66,11 @@ class InsertOptions:
 @dataclass
 class UpdateOptions:
     """Encapsulates all options for a high-level `update` operation."""
+
     # The name of the table to update.
     table: str
     # A dictionary of column names to their new values (can be literals or expression objects).
-    data: Dict[str, 'BaseExpression']
+    data: Dict[str, "BaseExpression"]
     # The WHERE clause, as a structured SQLPredicate object.
     where: SQLPredicate
 
@@ -83,6 +87,7 @@ class UpdateOptions:
 @dataclass
 class DeleteOptions:
     """Encapsulates all options for a `delete` operation."""
+
     # The name of the table to delete from.
     table: str
     # The WHERE clause, as a structured SQLPredicate object.

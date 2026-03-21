@@ -5,6 +5,7 @@ Defines common data structures and type hints for backend operations.
 This file serves as a central place for core backend-related types,
 focusing on query results to avoid circular imports.
 """
+
 from dataclasses import dataclass
 from datetime import datetime
 from decimal import Decimal
@@ -13,12 +14,14 @@ from typing import Any, Dict, Generic, List, Optional, TypeVar, Union
 
 # Base type aliases
 DatabaseValue = Union[str, int, float, bool, datetime, Decimal, bytes, None]
-PythonValue = TypeVar('PythonValue')
-T = TypeVar('T')
+PythonValue = TypeVar("PythonValue")
+T = TypeVar("T")
+
 
 @dataclass
 class QueryResult(Generic[T]):
     """Query result wrapper"""
+
     data: Optional[T] = None
     affected_rows: int = 0
     last_insert_id: Optional[int] = None
@@ -36,6 +39,7 @@ class BatchCommitMode(Enum):
                    success if the operation is interrupted, but loses atomicity
                    for the entire operation.
     """
+
     WHOLE = auto()
     PER_BATCH = auto()
 
@@ -56,6 +60,7 @@ class BatchDMLResult:
         duration: Time taken to execute this batch in seconds.
         has_returning: Whether this batch contains RETURNING data.
     """
+
     results: List[QueryResult]
     batch_index: int
     batch_size: int
@@ -79,6 +84,7 @@ class BatchDQLResult:
         has_more: Whether there are more pages available.
         duration: Time taken to fetch this page in seconds.
     """
+
     data: List[Dict[str, Any]]
     page_index: int
     page_size: int

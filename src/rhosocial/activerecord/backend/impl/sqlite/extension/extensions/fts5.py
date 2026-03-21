@@ -14,6 +14,7 @@ Key features:
 
 Reference: https://www.sqlite.org/fts5.html
 """
+
 from typing import Any, Dict, List, Optional, Tuple
 
 from ..base import ExtensionType, SQLiteExtensionBase
@@ -21,11 +22,11 @@ from ..base import ExtensionType, SQLiteExtensionBase
 
 class FTS5Extension(SQLiteExtensionBase):
     """FTS5 (Full-Text Search version 5) extension.
-    
+
     FTS5 is the latest version of SQLite's full-text search engine,
     providing advanced search capabilities with customizable tokenizers
     and the BM25 ranking algorithm.
-    
+
     Features:
         - Full-text search with MATCH operator
         - BM25 ranking for relevance scoring
@@ -34,13 +35,13 @@ class FTS5Extension(SQLiteExtensionBase):
         - Phrase queries, NEAR queries, AND/OR/NOT operators
         - Column-specific searches
         - Prefix searches
-    
+
     Tokenizers:
         - unicode61: Default Unicode tokenizer (since 3.9.0)
         - ascii: Simple ASCII tokenizer (since 3.9.0)
         - porter: Porter stemmer wrapper (since 3.9.0)
         - trigram: Trigram tokenizer (since 3.34.0)
-    
+
     Example:
         >>> fts5 = FTS5Extension()
         >>> fts5.is_available((3, 35, 0))
@@ -48,46 +49,46 @@ class FTS5Extension(SQLiteExtensionBase):
         >>> fts5.check_feature('trigram_tokenizer', (3, 34, 0))
         True
     """
-    
+
     def __init__(self):
         """Initialize FTS5 extension."""
         super().__init__(
-            name='fts5',
+            name="fts5",
             extension_type=ExtensionType.BUILTIN,
             min_version=(3, 9, 0),
             deprecated=False,
-            description='Full-Text Search version 5 - Advanced full-text search with customizable tokenizers',
+            description="Full-Text Search version 5 - Advanced full-text search with customizable tokenizers",
             features={
-                'full_text_search': {'min_version': (3, 9, 0)},
-                'bm25_ranking': {'min_version': (3, 9, 0)},
-                'highlight': {'min_version': (3, 9, 0)},
-                'snippet': {'min_version': (3, 9, 0)},
-                'offset': {'min_version': (3, 9, 0)},
-                'porter_tokenizer': {'min_version': (3, 9, 0)},
-                'unicode61_tokenizer': {'min_version': (3, 9, 0)},
-                'ascii_tokenizer': {'min_version': (3, 9, 0)},
-                'trigram_tokenizer': {'min_version': (3, 34, 0)},
-                'column_filters': {'min_version': (3, 9, 0)},
-                'phrase_queries': {'min_version': (3, 9, 0)},
-                'near_queries': {'min_version': (3, 9, 0)},
+                "full_text_search": {"min_version": (3, 9, 0)},
+                "bm25_ranking": {"min_version": (3, 9, 0)},
+                "highlight": {"min_version": (3, 9, 0)},
+                "snippet": {"min_version": (3, 9, 0)},
+                "offset": {"min_version": (3, 9, 0)},
+                "porter_tokenizer": {"min_version": (3, 9, 0)},
+                "unicode61_tokenizer": {"min_version": (3, 9, 0)},
+                "ascii_tokenizer": {"min_version": (3, 9, 0)},
+                "trigram_tokenizer": {"min_version": (3, 34, 0)},
+                "column_filters": {"min_version": (3, 9, 0)},
+                "phrase_queries": {"min_version": (3, 9, 0)},
+                "near_queries": {"min_version": (3, 9, 0)},
             },
-            documentation_url='https://www.sqlite.org/fts5.html'
+            documentation_url="https://www.sqlite.org/fts5.html",
         )
-    
+
     def get_supported_tokenizers(self, version: Tuple[int, int, int]) -> List[str]:
         """Get list of supported tokenizers for given SQLite version.
-        
+
         Args:
             version: SQLite version tuple (major, minor, patch)
-            
+
         Returns:
             List of supported tokenizer names
         """
-        tokenizers = ['unicode61', 'ascii', 'porter']
-        if self.check_feature('trigram_tokenizer', version):
-            tokenizers.append('trigram')
+        tokenizers = ["unicode61", "ascii", "porter"]
+        if self.check_feature("trigram_tokenizer", version):
+            tokenizers.append("trigram")
         return tokenizers
-    
+
     def format_create_virtual_table(
         self,
         table_name: str,
@@ -100,7 +101,7 @@ class FTS5Extension(SQLiteExtensionBase):
         tokenize: Optional[str] = None,
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for FTS5.
-        
+
         Args:
             table_name: Name of the FTS5 virtual table
             columns: List of column names to be indexed
@@ -110,12 +111,12 @@ class FTS5Extension(SQLiteExtensionBase):
             content: Content table name (for external content FTS5)
             content_rowid: Column name for rowid in content table
             tokenize: Full tokenize specification string (alternative to tokenizer)
-            
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
         options = []
-        
+
         if tokenize:
             options.append(f"tokenize='{tokenize}'")
         elif tokenizer:
@@ -127,27 +128,27 @@ class FTS5Extension(SQLiteExtensionBase):
                 options.append(f"tokenize='{tokenizer} {opts_str}'")
             else:
                 options.append(f"tokenize='{tokenizer}'")
-        
+
         if prefix:
             prefix_str = " ".join(str(p) for p in prefix)
             options.append(f"prefix='{prefix_str}'")
-        
+
         if content:
             options.append(f"content='{content}'")
-        
+
         if content_rowid:
             options.append(f"content_rowid='{content_rowid}'")
-        
+
         cols_str = ", ".join(f'"{c}"' for c in columns)
-        
+
         if options:
             opts_str = ", ".join(options)
             sql = f'CREATE VIRTUAL TABLE "{table_name}" USING fts5({cols_str}, {opts_str})'
         else:
             sql = f'CREATE VIRTUAL TABLE "{table_name}" USING fts5({cols_str})'
-        
+
         return sql, ()
-    
+
     def format_match_expression(
         self,
         table_name: str,
@@ -156,13 +157,13 @@ class FTS5Extension(SQLiteExtensionBase):
         negate: bool = False,
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression for use in WHERE clause.
-        
+
         Args:
             table_name: Name of the FTS5 virtual table
             query: Full-text search query string
             columns: Specific columns to search (None for all columns)
             negate: If True, negate the match (NOT MATCH)
-            
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
@@ -171,14 +172,14 @@ class FTS5Extension(SQLiteExtensionBase):
             match_query = f"{{{col_prefix}}} {query}"
         else:
             match_query = query
-        
+
         if negate:
             sql = f'"{table_name}" NOT MATCH ?'
         else:
             sql = f'"{table_name}" MATCH ?'
-        
+
         return sql, (match_query,)
-    
+
     def format_rank_expression(
         self,
         table_name: str,
@@ -186,20 +187,20 @@ class FTS5Extension(SQLiteExtensionBase):
         bm25_params: Optional[Dict[str, float]] = None,
     ) -> Tuple[str, tuple]:
         """Format FTS5 ranking expression using bm25().
-        
+
         BM25 is the default ranking algorithm for FTS5. It calculates
         relevance scores based on term frequency and document length.
-        
+
         Args:
             table_name: Name of the FTS5 virtual table
             weights: Column weights for ranking (order matches column order)
             bm25_params: BM25 parameters (k1, b) for ranking customization
-            
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
         params = []
-        
+
         if weights and bm25_params:
             weight_str = ", ".join(str(w) for w in weights)
             param_parts = []
@@ -218,9 +219,9 @@ class FTS5Extension(SQLiteExtensionBase):
             sql = f'bm25("{table_name}", {param_str})'
         else:
             sql = f'bm25("{table_name}")'
-        
+
         return sql, tuple(params)
-    
+
     def format_highlight_expression(
         self,
         table_name: str,
@@ -230,23 +231,23 @@ class FTS5Extension(SQLiteExtensionBase):
         suffix_marker: str = "</b>",
     ) -> Tuple[str, tuple]:
         """Format highlight() function expression.
-        
+
         The highlight() function returns a copy of the text with all
         instances of the search terms surrounded by the specified markers.
-        
+
         Args:
             table_name: Name of the FTS5 virtual table
             column: Column name to highlight
             query: Search query (for ranking)
             prefix_marker: HTML/text to prepend to matches
             suffix_marker: HTML/text to append to matches
-            
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
         sql = f'highlight("{table_name}", "{column}", ?, ?)'
         return sql, (prefix_marker, suffix_marker)
-    
+
     def format_snippet_expression(
         self,
         table_name: str,
@@ -258,10 +259,10 @@ class FTS5Extension(SQLiteExtensionBase):
         ellipsis: str = "...",
     ) -> Tuple[str, tuple]:
         """Format snippet() function expression.
-        
+
         The snippet() function returns a fragment of text with the
         first occurrence of each search term highlighted.
-        
+
         Args:
             table_name: Name of the FTS5 virtual table
             column: Column name to snippet
@@ -270,24 +271,24 @@ class FTS5Extension(SQLiteExtensionBase):
             suffix_marker: HTML/text to append to matches
             context_tokens: Number of context tokens around match
             ellipsis: String to use as ellipsis marker
-            
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
         sql = f'snippet("{table_name}", "{column}", ?, ?, ?, ?)'
         return sql, (prefix_marker, suffix_marker, ellipsis, context_tokens)
-    
+
     def format_drop_virtual_table(
         self,
         table_name: str,
         if_exists: bool = False,
     ) -> Tuple[str, tuple]:
         """Format DROP TABLE statement for FTS5 virtual table.
-        
+
         Args:
             table_name: Name of the FTS5 virtual table to drop
             if_exists: If True, add IF EXISTS clause
-            
+
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
@@ -304,7 +305,7 @@ _fts5_extension: Optional[FTS5Extension] = None
 
 def get_fts5_extension() -> FTS5Extension:
     """Get the FTS5 extension singleton.
-    
+
     Returns:
         FTS5Extension instance
     """

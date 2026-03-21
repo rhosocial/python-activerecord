@@ -5,12 +5,20 @@ Batch execution operations mixin for backend implementations.
 This module provides the execute_batch_dml and execute_batch_dql methods
 for both synchronous and asynchronous database operations.
 """
+
 import copy
 import logging
 import time
 from dataclasses import dataclass
 from typing import (
-    Optional, List, Dict, Any, Union, Type, Iterator, AsyncIterator,
+    Optional,
+    List,
+    Dict,
+    Any,
+    Union,
+    Type,
+    Iterator,
+    AsyncIterator,
     TYPE_CHECKING,
 )
 
@@ -20,7 +28,9 @@ from ..expression import InsertExpression, UpdateExpression, DeleteExpression
 
 if TYPE_CHECKING:
     from ..expression import (
-        QueryExpression, WithQueryExpression, SetOperationExpression,
+        QueryExpression,
+        WithQueryExpression,
+        SetOperationExpression,
     )
 
 
@@ -39,6 +49,7 @@ class _BatchDMLBundle:
         has_returning: Whether RETURNING clause is attached.
         count: Total number of expressions in the batch.
     """
+
     sql_template: str
     final_sql: str
     params_list: List[tuple]
@@ -320,7 +331,7 @@ class BatchExecutionMixin:
                 # Process rows
                 data = []
                 for row in rows:
-                    if hasattr(row, 'keys'):
+                    if hasattr(row, "keys"):
                         # Row object with keys (e.g., sqlite3.Row)
                         row_dict = dict(row)
                     else:
@@ -329,9 +340,7 @@ class BatchExecutionMixin:
 
                     # Apply column adapters and mapping
                     if column_adapters or column_mapping:
-                        row_dict = self._adapt_and_map_row(
-                            row_dict, column_adapters, column_mapping
-                        )
+                        row_dict = self._adapt_and_map_row(row_dict, column_adapters, column_mapping)
 
                     data.append(row_dict)
 
@@ -424,8 +433,7 @@ class BatchExecutionMixin:
         # Stage 4: Template validation
         if len(sql_templates) > 1:
             raise ValueError(
-                f"Batch execution requires identical SQL templates. "
-                f"Found {len(sql_templates)} distinct templates."
+                f"Batch execution requires identical SQL templates. Found {len(sql_templates)} distinct templates."
             )
 
         sql_template = sql_templates.pop()
@@ -756,15 +764,13 @@ class AsyncBatchExecutionMixin:
 
                 data = []
                 for row in rows:
-                    if hasattr(row, 'keys'):
+                    if hasattr(row, "keys"):
                         row_dict = dict(row)
                     else:
                         row_dict = dict(zip(column_names, row))
 
                     if column_adapters or column_mapping:
-                        row_dict = self._adapt_and_map_row(
-                            row_dict, column_adapters, column_mapping
-                        )
+                        row_dict = self._adapt_and_map_row(row_dict, column_adapters, column_mapping)
 
                     data.append(row_dict)
 
@@ -832,8 +838,7 @@ class AsyncBatchExecutionMixin:
         # Stage 4: Template validation
         if len(sql_templates) > 1:
             raise ValueError(
-                f"Batch execution requires identical SQL templates. "
-                f"Found {len(sql_templates)} distinct templates."
+                f"Batch execution requires identical SQL templates. Found {len(sql_templates)} distinct templates."
             )
 
         sql_template = sql_templates.pop()

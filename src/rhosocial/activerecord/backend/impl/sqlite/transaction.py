@@ -56,7 +56,7 @@ class SQLiteTransactionMixin:
         """
         if level not in self._ISOLATION_LEVELS:
             error_msg = f"Unsupported isolation level: {level}"
-            if hasattr(self, 'log'):
+            if hasattr(self, "log"):
                 self.log(logging.ERROR, error_msg)
             raise TransactionError(error_msg)
 
@@ -68,7 +68,7 @@ class SQLiteTransactionMixin:
         """
         if self.is_active:
             error_msg = "Cannot change isolation level during active transaction"
-            if hasattr(self, 'log'):
+            if hasattr(self, "log"):
                 self.log(logging.ERROR, error_msg)
             raise TransactionError(error_msg)
 
@@ -84,9 +84,7 @@ class SQLiteTransactionMixin:
         level = self._ISOLATION_LEVELS.get(self._isolation_level)
         if level:
             return f"BEGIN {level} TRANSACTION"
-        raise TransactionError(
-            f"Unsupported isolation level: {self._isolation_level}"
-        )
+        raise TransactionError(f"Unsupported isolation level: {self._isolation_level}")
 
     def supports_savepoint(self) -> bool:
         """Check if savepoints are supported by SQLite.
