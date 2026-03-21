@@ -8,6 +8,10 @@ from typing import Any, List, Dict
 from .output_abc import OutputProvider
 
 
+# Rich output constants
+ERROR_TITLE = "[bold red]Error[/bold red]"
+
+
 class RichOutputProvider(OutputProvider):
     """Output provider using the rich library for formatted output."""
 
@@ -57,7 +61,7 @@ class RichOutputProvider(OutputProvider):
         self.console.print(
             Panel(
                 f"[bold]Database Connection Error[/bold]\n[red]{error}[/red]",
-                title="[bold red]Error[/bold red]",
+                title=ERROR_TITLE,
                 border_style="red",
             )
         )
@@ -66,7 +70,7 @@ class RichOutputProvider(OutputProvider):
         self.console.print(
             Panel(
                 f"[bold]Database Query Error[/bold]\n[red]{error}[/red]",
-                title="[bold red]Error[/bold red]",
+                title=ERROR_TITLE,
                 border_style="red",
             )
         )
@@ -76,7 +80,7 @@ class RichOutputProvider(OutputProvider):
         self.console.print(
             Panel(
                 f"[bold]An unexpected error occurred during {mode} execution[/bold]\n[red]{error}[/red]",
-                title="[bold red]Error[/bold red]",
+                title=ERROR_TITLE,
                 border_style="red",
             )
         )

@@ -13,6 +13,9 @@ from typing import Any, Dict, Optional, ClassVar, Protocol, runtime_checkable
 from rhosocial.activerecord.backend.config import ConnectionConfig
 
 
+# SQLite constants
+SQLITE_MEMORY_DB = ":memory:"
+
 # ==== SQLite-specific Protocols ====
 
 
@@ -84,12 +87,12 @@ class SQLiteDriverMixin:
 class SQLiteStorageMixin:
     """Mixin implementing SQLite storage options."""
 
-    database: str = ":memory:"
+    database: str = SQLITE_MEMORY_DB
     delete_on_close: bool = False
 
     def is_memory_db(self) -> bool:
         """Check if this is an in-memory database."""
-        return self.database == ":memory:" or self.database.startswith("file::memory:")
+        return self.database == SQLITE_MEMORY_DB or self.database.startswith("file::memory:")
 
 
 # ==== SQLite Configuration Classes ====
@@ -180,7 +183,7 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
             # Base parameters
             host=config.host,
             port=config.port,
-            database=get_env("DATABASE") or ":memory:",
+            database=get_env("DATABASE") or SQLITE_MEMORY_DB,
             username=config.username,
             password=config.password,
             driver_type=config.driver_type,
@@ -202,7 +205,7 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
 class SQLiteInMemoryConfig(SQLiteConnectionConfig):
     """In-memory SQLite database configuration with memory-optimized settings."""
 
-    database: str = ":memory:"
+    database: str = SQLITE_MEMORY_DB
 
     def __post_init__(self):
         """Initialize with memory-optimized pragmas."""
