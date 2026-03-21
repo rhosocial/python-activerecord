@@ -96,7 +96,6 @@ from .statements import (
     MergeAction,
     MergeExpression,
     SelectModifier,
-    ForUpdateClause,
     ExplainType,
     ExplainFormat,
     ExplainOptions,

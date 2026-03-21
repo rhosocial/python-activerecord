@@ -15,10 +15,11 @@ from typing import (
 )
 
 from ..result import QueryResult, BatchDMLResult, BatchDQLResult, BatchCommitMode
+from ..type_adapter import SQLTypeAdapter
+from ..expression import InsertExpression, UpdateExpression, DeleteExpression
 
 if TYPE_CHECKING:
     from ..expression import (
-        InsertExpression, UpdateExpression, DeleteExpression,
         QueryExpression, WithQueryExpression, SetOperationExpression,
     )
 
@@ -404,7 +405,7 @@ class BatchExecutionMixin:
 
         # Stage 2: RETURNING conflict detection
         for i, expr in enumerate(expressions):
-            if hasattr(expr, 'returning') and expr.returning is not None:
+            if isinstance(expr, (InsertExpression, UpdateExpression, DeleteExpression)) and expr.returning is not None:
                 raise ValueError(
                     f"Expressions must not carry their own RETURNING clause. "
                     f"Use the returning_columns parameter instead. "
@@ -573,7 +574,7 @@ class BatchExecutionMixin:
             # Apply adapter if available
             if column_adapters and col_name in column_adapters:
                 adapter = column_adapters[col_name]
-                if adapter and hasattr(adapter, 'from_database'):
+                if adapter and isinstance(adapter, SQLTypeAdapter):
                     value = adapter.from_database(value)
 
             # Apply column mapping
@@ -812,7 +813,7 @@ class AsyncBatchExecutionMixin:
 
         # Stage 2: RETURNING conflict detection
         for i, expr in enumerate(expressions):
-            if hasattr(expr, 'returning') and expr.returning is not None:
+            if isinstance(expr, (InsertExpression, UpdateExpression, DeleteExpression)) and expr.returning is not None:
                 raise ValueError(
                     f"Expressions must not carry their own RETURNING clause. "
                     f"Use the returning_columns parameter instead. "
@@ -941,7 +942,7 @@ class AsyncBatchExecutionMixin:
         for col_name, value in row_dict.items():
             if column_adapters and col_name in column_adapters:
                 adapter = column_adapters[col_name]
-                if adapter and hasattr(adapter, 'from_database'):
+                if adapter and isinstance(adapter, SQLTypeAdapter):
                     value = adapter.from_database(value)
 
             field_name = col_name
