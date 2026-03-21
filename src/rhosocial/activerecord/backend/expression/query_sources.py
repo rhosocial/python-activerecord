@@ -14,6 +14,7 @@ from . import mixins
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+    from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
 
 
 class SetOperationExpression(bases.BaseExpression):

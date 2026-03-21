@@ -5,11 +5,14 @@ Using the Options pattern keeps method signatures clean and makes the API
 extensible without introducing breaking changes.
 """
 from dataclasses import dataclass
-from typing import Optional, Dict, Tuple, Type, List
+from typing import Optional, Dict, Tuple, Type, List, TYPE_CHECKING
 
 from .expression import SQLPredicate
 from .schema import StatementType
 from .type_adapter import SQLTypeAdapter
+
+if TYPE_CHECKING:
+    from .expression import BaseExpression
 
 
 @dataclass
@@ -43,7 +46,7 @@ class InsertOptions:
     # The name of the table to insert into.
     table: str
     # A dictionary of column names to their new values (can be literals or expression objects).
-    data: Dict[str, 'bases.BaseExpression']
+    data: Dict[str, 'BaseExpression']
 
     # See ExecutionOptions for details on these result-processing parameters.
     column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
@@ -63,7 +66,7 @@ class UpdateOptions:
     # The name of the table to update.
     table: str
     # A dictionary of column names to their new values (can be literals or expression objects).
-    data: Dict[str, 'bases.BaseExpression']
+    data: Dict[str, 'BaseExpression']
     # The WHERE clause, as a structured SQLPredicate object.
     where: SQLPredicate
 

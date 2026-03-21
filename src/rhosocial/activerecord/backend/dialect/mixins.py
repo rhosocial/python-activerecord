@@ -15,8 +15,14 @@ from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause
 
 if TYPE_CHECKING: # pragma: no cover
-    from ..expression.advanced_functions import OrderedSetAggregation
-    from ..expression.query_parts import QualifyClause, JoinExpression, OrderByClause
+    from ..expression.advanced_functions import (
+        OrderedSetAggregation, WindowFunctionCall, WindowSpecification,
+        WindowFrameSpecification, WindowClause, WindowDefinition
+    )
+    from ..expression.query_parts import (
+        QualifyClause, JoinExpression, OrderByClause,
+        LimitOffsetClause, ForUpdateClause
+    )
     from ..expression.graph import GraphEdgeDirection, MatchClause
     from ..expression.statements import (
         CreateTableExpression, DropTableExpression, AlterTableExpression,
@@ -27,8 +33,11 @@ if TYPE_CHECKING: # pragma: no cover
         CreateMaterializedViewExpression, DropMaterializedViewExpression,
         RefreshMaterializedViewExpression,
         CreateTriggerExpression, DropTriggerExpression,
-        CreateFunctionExpression, DropFunctionExpression
+        CreateFunctionExpression, DropFunctionExpression,
+        OnConflictClause, ExplainExpression, MergeExpression
     )
+    from ..expression.advanced_functions import ArrayExpression, JSONExpression
+    from ..expression import CreateFulltextIndexExpression, DropFulltextIndexExpression
 
 
 class WindowFunctionMixin:

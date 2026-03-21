@@ -18,6 +18,7 @@ if TYPE_CHECKING:
         QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
         CreateTableExpression, DropTableExpression,
         AlterTableExpression, CreateViewExpression, DropViewExpression,
+        TruncateExpression,
         # Alter Table Actions
         AddColumn, DropColumn, AlterColumn, AddIndex, DropIndex, AddTableConstraint, DropTableConstraint,
         RenameColumn, RenameTable,
