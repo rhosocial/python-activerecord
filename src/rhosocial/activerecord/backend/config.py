@@ -11,7 +11,7 @@ from dataclasses import dataclass, field
 from typing import Any, Dict, Optional, Protocol, TypeVar, runtime_checkable, Tuple
 
 # Type variable for generics
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 @runtime_checkable
@@ -22,12 +22,12 @@ class ConfigProtocol(Protocol):
         """Convert configuration to dictionary."""
         ...
 
-    def clone(self, **updates) -> 'ConfigProtocol':
+    def clone(self, **updates) -> "ConfigProtocol":
         """Create a copy with updates."""
         ...
 
     @classmethod
-    def from_env(cls, prefix: str = '') -> 'ConfigProtocol':
+    def from_env(cls, prefix: str = "") -> "ConfigProtocol":
         """Create configuration from environment variables."""
         ...
 
@@ -43,7 +43,7 @@ class BaseConfig:
         """Convert configuration to dictionary, excluding None values."""
         result = {}
         for key, value in self.__dict__.items():
-            if value is not None and key not in ('options',):
+            if value is not None and key not in ("options",):
                 result[key] = value
 
         # Include non-empty options
@@ -52,13 +52,13 @@ class BaseConfig:
 
         return result
 
-    def clone(self, **updates) -> 'BaseConfig':
+    def clone(self, **updates) -> "BaseConfig":
         """Create a copy of the configuration with updates."""
         config_dict = self.to_dict()
 
         # Handle special cases like nested dictionaries
         for key, value in updates.items():
-            if key == 'options' and hasattr(self, 'options') and isinstance(self.options, dict):
+            if key == "options" and hasattr(self, "options") and isinstance(self.options, dict):
                 new_options = self.options.copy()
                 new_options.update(value)
                 updates[key] = new_options
@@ -67,7 +67,7 @@ class BaseConfig:
         return type(self)(**config_dict)
 
     @classmethod
-    def from_env(cls, prefix: str = '') -> 'BaseConfig':
+    def from_env(cls, prefix: str = "") -> "BaseConfig":
         """Create configuration from environment variables.
 
         Args:
@@ -87,14 +87,14 @@ class BaseConfig:
                 env_value = os.environ[env_key]
 
                 # Handle type conversion
-                if field_type == bool or field_type == Optional[bool]:
-                    env_values[field_name] = env_value.lower() in ('true', 'yes', '1', 'on')
-                elif field_type == int or field_type == Optional[int]:
+                if field_type is bool or field_type == Optional[bool]:
+                    env_values[field_name] = env_value.lower() in ("true", "yes", "1", "on")
+                elif field_type is int or field_type == Optional[int]:
                     try:
                         env_values[field_name] = int(env_value)
                     except ValueError:
                         pass
-                elif field_type == float or field_type == Optional[float]:
+                elif field_type is float or field_type == Optional[float]:
                     try:
                         env_values[field_name] = float(env_value)
                     except ValueError:
@@ -107,20 +107,22 @@ class BaseConfig:
         options_prefix = f"{prefix}OPT_"
         for env_key, env_value in os.environ.items():
             if env_key.startswith(options_prefix):
-                option_key = env_key[len(options_prefix):].lower()
+                option_key = env_key[len(options_prefix) :].lower()
                 options[option_key] = env_value
 
         if options:
-            env_values['options'] = options
+            env_values["options"] = options
 
         return cls(**env_values)
 
 
 # ==== Core Protocols ====
 
+
 @runtime_checkable
 class BasicConnectionProtocol(Protocol):
     """Protocol defining basic connection parameters."""
+
     host: str
     port: Optional[int]
     database: Optional[str]
@@ -131,6 +133,7 @@ class BasicConnectionProtocol(Protocol):
 @runtime_checkable
 class ConnectionPoolProtocol(Protocol):
     """Protocol defining connection pooling options."""
+
     pool_size: int
     pool_timeout: int
     pool_min_size: Optional[int]
@@ -140,9 +143,11 @@ class ConnectionPoolProtocol(Protocol):
     pool_pre_ping: bool
     pool_reset_session: bool  # Added for MySQL compatibility
 
+
 @runtime_checkable
 class SSLProtocol(Protocol):
     """Protocol defining SSL/TLS connection options."""
+
     ssl_ca: Optional[str]
     ssl_cert: Optional[str]
     ssl_key: Optional[str]
@@ -156,6 +161,7 @@ class SSLProtocol(Protocol):
 @runtime_checkable
 class CharsetProtocol(Protocol):
     """Protocol defining character set and encoding options."""
+
     charset: str
     client_encoding: Optional[str]  # Keep for PostgreSQL compatibility
     collation: Optional[str]  # Add for MySQL-specific collation
@@ -164,6 +170,7 @@ class CharsetProtocol(Protocol):
 @runtime_checkable
 class TimezoneProtocol(Protocol):
     """Protocol defining timezone options."""
+
     timezone: Optional[str]
     server_timezone: Optional[str]  # Keep for PostgreSQL compatibility
     use_timezone: bool  # Add for MySQL-specific timezone handling
@@ -172,12 +179,14 @@ class TimezoneProtocol(Protocol):
 @runtime_checkable
 class VersionProtocol(Protocol):
     """Protocol defining version information."""
+
     version: Optional[Tuple[int, ...]]
 
 
 @runtime_checkable
 class LoggingProtocol(Protocol):
     """Protocol defining logging-related options."""
+
     raise_on_warnings: bool  # Keep for backward compatibility
     log_queries: bool  # Add for MySQL-specific query logging
     log_level: Optional[Any]  # Support both str and int
@@ -185,10 +194,12 @@ class LoggingProtocol(Protocol):
 
 # ==== Mixins ====
 
+
 @dataclass
 class BasicConnectionMixin:
     """Mixin implementing basic connection parameters."""
-    host: str = 'localhost'
+
+    host: str = "localhost"
     port: Optional[int] = None
     database: Optional[str] = None
     username: Optional[str] = None
@@ -198,6 +209,7 @@ class BasicConnectionMixin:
 @dataclass
 class ConnectionPoolMixin:
     """Mixin implementing connection pooling options."""
+
     pool_size: int = 5
     pool_timeout: int = 30
     pool_min_size: Optional[int] = None
@@ -211,6 +223,7 @@ class ConnectionPoolMixin:
 @dataclass
 class SSLMixin:
     """Mixin implementing SSL/TLS connection options."""
+
     ssl_ca: Optional[str] = None
     ssl_cert: Optional[str] = None
     ssl_key: Optional[str] = None
@@ -224,7 +237,8 @@ class SSLMixin:
 @dataclass
 class CharsetMixin:
     """Mixin implementing character set and encoding options."""
-    charset: str = 'utf8mb4'
+
+    charset: str = "utf8mb4"
     client_encoding: Optional[str] = None  # Keep for PostgreSQL compatibility
     collation: Optional[str] = None  # Add for MySQL-specific collation
 
@@ -232,6 +246,7 @@ class CharsetMixin:
 @dataclass
 class TimezoneMixin:
     """Mixin implementing timezone options."""
+
     timezone: Optional[str] = None
     server_timezone: Optional[str] = None  # Keep for PostgreSQL compatibility
     use_timezone: bool = True  # Add for MySQL-specific timezone handling
@@ -240,18 +255,21 @@ class TimezoneMixin:
 @dataclass
 class VersionMixin:
     """Mixin implementing version information."""
+
     version: Optional[Tuple[int, ...]] = None
 
 
 @dataclass
 class LoggingMixin:
     """Mixin implementing logging options."""
+
     raise_on_warnings: bool = False  # Keep for backward compatibility
     log_queries: bool = False  # Add for MySQL-specific query logging
     log_level: Optional[Any] = None  # Support both str and int
 
 
 # ==== Base Connection Config ====
+
 
 @dataclass
 class ConnectionConfig(BaseConfig, BasicConnectionMixin):

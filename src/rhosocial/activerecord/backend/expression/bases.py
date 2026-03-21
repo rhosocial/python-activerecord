@@ -6,6 +6,7 @@ This module forms the foundation of the expression hierarchy and should
 have no dependencies on other modules within the `expression` package
 to prevent circular imports.
 """
+
 import abc
 from typing import Tuple, Protocol, TYPE_CHECKING
 from typing import runtime_checkable
@@ -30,10 +31,10 @@ def is_sql_query_and_params(obj):
         bool: True if the object is a SQLQueryAndParams tuple, False otherwise
     """
     return (
-        isinstance(obj, tuple) and
-        len(obj) == 2 and
-        isinstance(obj[0], str) and
-        (isinstance(obj[1], tuple) or obj[1] is None)
+        isinstance(obj, tuple)
+        and len(obj) == 2
+        and isinstance(obj[0], str)
+        and (isinstance(obj[1], tuple) or obj[1] is None)
     )
 
 
@@ -58,7 +59,8 @@ class ToSQLProtocol(Protocol):
        query parameters through the designated parameter mechanisms rather than
        directly concatenating values into SQL strings to prevent SQL injection.
     """
-    def to_sql(self) -> 'SQLQueryAndParams': # pragma: no cover
+
+    def to_sql(self) -> "SQLQueryAndParams":  # pragma: no cover
         """
         Converts the object into a SQL string and a tuple of parameters.
         """
@@ -69,6 +71,7 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
     """
     Abstract base class for any part of a SQL expression.
     """
+
     def __init__(self, dialect: "SQLDialectBase"):
         """
         Initializes the base SQL expression with a specific dialect.
@@ -98,7 +101,7 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         pass  # pragma: no cover
 
     @abc.abstractmethod
-    def to_sql(self) -> 'SQLQueryAndParams': # pragma: no cover
+    def to_sql(self) -> "SQLQueryAndParams":  # pragma: no cover
         """
         Converts the expression into a SQL string and a tuple of parameters.
 
@@ -114,6 +117,7 @@ class SQLPredicate(mixins.LogicalMixin, BaseExpression):
     """
     Abstract base class for SQL expressions that return a boolean value (predicates).
     """
+
     pass
 
 
@@ -122,6 +126,7 @@ class SQLValueExpression(BaseExpression):
     Abstract base class for SQL expressions that return a non-boolean value
     (e.g., integer, string, date).
     """
+
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
         self._cast_types: list = []

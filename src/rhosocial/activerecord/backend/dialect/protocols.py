@@ -6,29 +6,52 @@ This module defines protocol interfaces that dialects can implement to declare
 support for advanced database features. Protocols enable fine-grained feature
 detection and graceful error handling.
 """
+
 from typing import Any, Dict, List, Optional, Tuple, Protocol, runtime_checkable, TYPE_CHECKING
 
 
-if TYPE_CHECKING: # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from ..expression import (
-        bases, ExplainExpression, OnConflictClause, MergeExpression, MatchClause, QualifyClause, GraphEdgeDirection,
+        bases,
+        ExplainExpression,
+        OnConflictClause,
+        MergeExpression,
+        MatchClause,
+        QualifyClause,
+        GraphEdgeDirection,
         JoinExpression,
-        WindowFunctionCall, WindowSpecification, WindowFrameSpecification,
-        WindowDefinition, WindowClause
+        WindowFunctionCall,
+        WindowSpecification,
+        WindowFrameSpecification,
+        WindowDefinition,
+        WindowClause,
     )
     from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
     from ..expression.advanced_functions import OrderedSetAggregation
     from ..expression.statements import (
-        CreateTableExpression, DropTableExpression, AlterTableExpression,
-        CreateViewExpression, DropViewExpression, TruncateExpression,
-        CreateSchemaExpression, DropSchemaExpression,
-        CreateIndexExpression, DropIndexExpression,
-        CreateSequenceExpression, DropSequenceExpression, AlterSequenceExpression,
-        CreateMaterializedViewExpression, DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression, CreateTriggerExpression, DropTriggerExpression,
-        CreateFunctionExpression, DropFunctionExpression,
-        CreateFulltextIndexExpression, DropFulltextIndexExpression,
-        ReturningClause
+        CreateTableExpression,
+        DropTableExpression,
+        AlterTableExpression,
+        CreateViewExpression,
+        DropViewExpression,
+        TruncateExpression,
+        CreateSchemaExpression,
+        DropSchemaExpression,
+        CreateIndexExpression,
+        DropIndexExpression,
+        CreateSequenceExpression,
+        DropSequenceExpression,
+        AlterSequenceExpression,
+        CreateMaterializedViewExpression,
+        DropMaterializedViewExpression,
+        RefreshMaterializedViewExpression,
+        CreateTriggerExpression,
+        DropTriggerExpression,
+        CreateFunctionExpression,
+        DropFunctionExpression,
+        CreateFulltextIndexExpression,
+        DropFulltextIndexExpression,
+        ReturningClause,
     )
 
 
@@ -38,46 +61,31 @@ class WindowFunctionSupport(Protocol):
 
     def supports_window_functions(self) -> bool:
         """Whether window functions are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_window_frame_clause(self) -> bool:
         """Whether window frame clauses (ROWS/RANGE) are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_window_function_call(
-        self,
-        call: "WindowFunctionCall"
-    ) -> Tuple[str, tuple]:
+    def format_window_function_call(self, call: "WindowFunctionCall") -> Tuple[str, tuple]:
         """Format window function call."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_window_specification(
-        self,
-        spec: "WindowSpecification"
-    ) -> Tuple[str, tuple]:
+    def format_window_specification(self, spec: "WindowSpecification") -> Tuple[str, tuple]:
         """Format window specification."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_window_frame_specification(
-        self,
-        spec: "WindowFrameSpecification"
-    ) -> Tuple[str, tuple]:
+    def format_window_frame_specification(self, spec: "WindowFrameSpecification") -> Tuple[str, tuple]:
         """Format window frame specification."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_window_clause(
-        self,
-        clause: "WindowClause"
-    ) -> Tuple[str, tuple]:
+    def format_window_clause(self, clause: "WindowClause") -> Tuple[str, tuple]:
         """Format complete WINDOW clause."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_window_definition(
-        self,
-        spec: "WindowDefinition"
-    ) -> Tuple[str, tuple]:
+    def format_window_definition(self, spec: "WindowDefinition") -> Tuple[str, tuple]:
         """Format named window definition."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -116,17 +124,11 @@ class TriggerSupport(Protocol):
         """Whether CREATE TRIGGER IF NOT EXISTS is supported."""
         ...  # pragma: no cover
 
-    def format_create_trigger_statement(
-        self,
-        expr: "CreateTriggerExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_trigger_statement(self, expr: "CreateTriggerExpression") -> Tuple[str, tuple]:
         """Format CREATE TRIGGER statement."""
         ...  # pragma: no cover
 
-    def format_drop_trigger_statement(
-        self,
-        expr: "DropTriggerExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_trigger_statement(self, expr: "DropTriggerExpression") -> Tuple[str, tuple]:
         """Format DROP TRIGGER statement."""
         ...  # pragma: no cover
 
@@ -155,19 +157,13 @@ class FunctionSupport(Protocol):
         """Whether function parameters are supported."""
         ...  # pragma: no cover
 
-    def format_create_function_statement(
-        self,
-        expr: "CreateFunctionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_function_statement(self, expr: "CreateFunctionExpression") -> Tuple[str, tuple]:
         """Format CREATE FUNCTION statement."""
         ...  # pragma: no cover
 
-    def format_drop_function_statement(
-        self,
-        expr: "DropFunctionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_function_statement(self, expr: "DropFunctionExpression") -> Tuple[str, tuple]:
         """Format DROP FUNCTION statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -193,28 +189,21 @@ class CTESupport(Protocol):
         columns: Optional[List[str]] = None,
         recursive: bool = False,
         materialized: Optional[bool] = None,
-        dialect_options: Optional[Dict[str, Any]] = None
+        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> str:
         """Format a single CTE definition."""
         ...  # pragma: no cover
 
     def format_with_query(
-        self,
-        cte_sql_parts: List[str],
-        main_query_sql: str,
-        dialect_options: Optional[Dict[str, Any]] = None
-    ) -> str:
-        ...  # pragma: no cover
+        self, cte_sql_parts: List[str], main_query_sql: str, dialect_options: Optional[Dict[str, Any]] = None
+    ) -> str: ...  # pragma: no cover
 
 
 @runtime_checkable
 class WildcardSupport(Protocol):
     """Protocol for wildcard expression support (SELECT *)."""
 
-    def format_wildcard(
-        self,
-        table: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
         """Format wildcard expression (* or table.*)."""
         ...  # pragma: no cover
 
@@ -236,9 +225,7 @@ class AdvancedGroupingSupport(Protocol):
         ...  # pragma: no cover
 
     def format_grouping_expression(
-        self,
-        operation: str,
-        expressions: List["bases.BaseExpression"]
+        self, operation: str, expressions: List["bases.BaseExpression"]
     ) -> Tuple[str, tuple]:
         """
         Formats a grouping expression (ROLLUP, CUBE, GROUPING SETS).
@@ -261,10 +248,7 @@ class ReturningSupport(Protocol):
         """Whether RETURNING clause is supported."""
         ...  # pragma: no cover
 
-    def format_returning_clause(
-        self,
-        clause: "ReturningClause"
-    ) -> Tuple[str, Tuple]:
+    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
         """
         Format a RETURNING clause.
 
@@ -274,7 +258,7 @@ class ReturningSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -294,10 +278,7 @@ class UpsertSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_on_conflict_clause(
-        self,
-        expr: "OnConflictClause"
-    ) -> Tuple[str, tuple]:
+    def format_on_conflict_clause(self, expr: "OnConflictClause") -> Tuple[str, tuple]:
         """
         Format ON CONFLICT clause.
 
@@ -319,11 +300,7 @@ class LateralJoinSupport(Protocol):
         ...  # pragma: no cover
 
     def format_lateral_expression(
-        self,
-        expr_sql: str,
-        expr_params: Tuple[Any, ...],
-        alias: Optional[str],
-        join_type: str
+        self, expr_sql: str, expr_params: Tuple[Any, ...], alias: Optional[str], join_type: str
     ) -> Tuple[str, Tuple]:
         """Format LATERAL expression."""
         ...  # pragma: no cover
@@ -334,7 +311,7 @@ class LateralJoinSupport(Protocol):
         args_sql: List[str],
         args_params: Tuple[Any, ...],
         alias: Optional[str],
-        column_names: Optional[List[str]]
+        column_names: Optional[List[str]],
     ) -> Tuple[str, Tuple]:
         """Format table-valued function expression."""
         ...  # pragma: no cover
@@ -368,10 +345,7 @@ class JoinSupport(Protocol):
         """Whether NATURAL JOIN is supported."""
         ...  # pragma: no cover
 
-    def format_join_expression(
-        self,
-        join_expr: "JoinExpression"
-    ) -> Tuple[str, Tuple]:
+    def format_join_expression(self, join_expr: "JoinExpression") -> Tuple[str, Tuple]:
         """
         Formats a JOIN expression.
 
@@ -405,7 +379,7 @@ class ArraySupport(Protocol):
         operation: str,
         elements: Optional[List["bases.BaseExpression"]],
         base_expr: Optional["bases.BaseExpression"],
-        index_expr: Optional["bases.BaseExpression"]
+        index_expr: Optional["bases.BaseExpression"],
     ) -> Tuple[str, Tuple]:
         """Format array expression."""
         ...  # pragma: no cover
@@ -432,12 +406,7 @@ class JSONSupport(Protocol):
         """Whether JSON_TABLE function is supported."""
         ...  # pragma: no cover
 
-    def format_json_expression(
-        self,
-        column: Any,
-        path: str,
-        operation: str
-    ) -> Tuple[str, Tuple]:
+    def format_json_expression(self, column: Any, path: str, operation: str) -> Tuple[str, Tuple]:
         """
         Format JSON expression.
 
@@ -452,12 +421,7 @@ class JSONSupport(Protocol):
         ...  # pragma: no cover
 
     def format_json_table_expression(
-        self,
-        json_col_sql: str,
-        path: str,
-        columns: List[Dict[str, Any]],
-        alias: Optional[str],
-        params: tuple
+        self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: Optional[str], params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Formats a JSON_TABLE expression.
@@ -495,10 +459,7 @@ class ExplainSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_explain_statement(
-        self,
-        expr: "ExplainExpression"
-    ) -> Tuple[str, tuple]:
+    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
         """
         Format EXPLAIN statement.
 
@@ -519,11 +480,7 @@ class GraphSupport(Protocol):
         """Whether graph query MATCH clause is supported."""
         ...  # pragma: no cover
 
-    def format_graph_vertex(
-        self,
-        variable: str,
-        table: str
-    ) -> Tuple[str, tuple]:
+    def format_graph_vertex(self, variable: str, table: str) -> Tuple[str, tuple]:
         """
         Formats a graph vertex expression.
 
@@ -536,12 +493,7 @@ class GraphSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_graph_edge(
-        self,
-        variable: str,
-        table: str,
-        direction: "GraphEdgeDirection"
-    ) -> Tuple[str, tuple]:
+    def format_graph_edge(self, variable: str, table: str, direction: "GraphEdgeDirection") -> Tuple[str, tuple]:
         """
         Formats a graph edge expression.
 
@@ -555,10 +507,7 @@ class GraphSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_match_clause(
-        self,
-        clause: "MatchClause"
-    ) -> Tuple[str, tuple]:
+    def format_match_clause(self, clause: "MatchClause") -> Tuple[str, tuple]:
         """
         Formats a MATCH clause.
 
@@ -579,11 +528,7 @@ class FilterClauseSupport(Protocol):
         """Whether FILTER (WHERE ...) clause is supported in aggregate functions."""
         ...  # pragma: no cover
 
-    def format_filter_clause(
-        self,
-        condition_sql: str,
-        condition_params: tuple
-    ) -> Tuple[str, Tuple]:
+    def format_filter_clause(self, condition_sql: str, condition_params: tuple) -> Tuple[str, Tuple]:
         """
         Format a FILTER (WHERE ...) clause.
 
@@ -605,10 +550,7 @@ class OrderedSetAggregationSupport(Protocol):
         """Whether ordered-set aggregate functions are supported."""
         ...  # pragma: no cover
 
-    def format_ordered_set_aggregation(
-        self,
-        aggregation: "OrderedSetAggregation"
-    ) -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """
         Formats an ordered-set aggregate function call.
 
@@ -629,10 +571,7 @@ class MergeSupport(Protocol):
         """Whether MERGE statement is supported."""
         ...  # pragma: no cover
 
-    def format_merge_statement(
-        self,
-        expr: "MergeExpression"
-    ) -> Tuple[str, tuple]:
+    def format_merge_statement(self, expr: "MergeExpression") -> Tuple[str, tuple]:
         """
         Formats a complete MERGE statement from a MergeExpression object.
 
@@ -653,10 +592,7 @@ class TemporalTableSupport(Protocol):
         """Whether temporal table queries are supported."""
         ...  # pragma: no cover
 
-    def format_temporal_options(
-        self,
-        options: Dict[str, Any]
-    ) -> Tuple[str, tuple]:
+    def format_temporal_options(self, options: Dict[str, Any]) -> Tuple[str, tuple]:
         """
         Formats a temporal table clause (e.g., FOR SYSTEM_TIME AS OF ...).
 
@@ -674,10 +610,7 @@ class QualifyClauseSupport(Protocol):
         """Whether QUALIFY clause is supported."""
         ...  # pragma: no cover
 
-    def format_qualify_clause(
-        self,
-        clause: "QualifyClause"
-    ) -> Tuple[str, tuple]:
+    def format_qualify_clause(self, clause: "QualifyClause") -> Tuple[str, tuple]:
         """
         Formats a QUALIFY clause.
 
@@ -698,10 +631,7 @@ class LockingSupport(Protocol):
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         ...  # pragma: no cover
 
-    def format_for_update_clause(
-        self,
-        clause: "ForUpdateClause"
-    ) -> Tuple[str, tuple]:
+    def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
         """
         Formats a FOR UPDATE/FOR SHARE clause with optional locking modifiers.
 
@@ -711,7 +641,7 @@ class LockingSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -755,21 +685,22 @@ class SetOperationSupport(Protocol):
         all_: bool,
         order_by_clause: Optional["OrderByClause"] = None,
         limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None
+        for_update_clause: Optional["ForUpdateClause"] = None,
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 # ============================================================
 # DDL (Data Definition Language) Support Protocols
 # ============================================================
 
+
 @runtime_checkable
 class TableSupport(Protocol):
     """
     Protocol for table DDL support.
-    
+
     This protocol covers CREATE TABLE, DROP TABLE, and ALTER TABLE operations.
     Most SQL databases support these operations, but feature support varies:
     - IF NOT EXISTS / IF EXISTS clauses
@@ -778,83 +709,74 @@ class TableSupport(Protocol):
     - Partitioning
     - Storage options
     """
-    
+
     def supports_create_table(self) -> bool:
         """Whether CREATE TABLE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_drop_table(self) -> bool:
         """Whether DROP TABLE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_alter_table(self) -> bool:
         """Whether ALTER TABLE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_temporary_table(self) -> bool:
         """Whether TEMPORARY tables are supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_if_not_exists_table(self) -> bool:
         """Whether CREATE TABLE IF NOT EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_table_partitioning(self) -> bool:
         """Whether table partitioning is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_table_tablespace(self) -> bool:
         """Whether tablespace specification is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_drop_column(self) -> bool:
         """Whether DROP COLUMN is supported in ALTER TABLE."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_alter_column_type(self) -> bool:
         """Whether altering column data type is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_rename_column(self) -> bool:
         """Whether RENAME COLUMN is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_rename_table(self) -> bool:
         """Whether RENAME TABLE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_add_constraint(self) -> bool:
         """Whether ADD CONSTRAINT is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_drop_constraint(self) -> bool:
         """Whether DROP CONSTRAINT is supported."""
-        ... # pragma: no cover
-    
-    def format_create_table_statement(
-        self,
-        expr: "CreateTableExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement."""
-        ... # pragma: no cover
-    
-    def format_drop_table_statement(
-        self,
-        expr: "DropTableExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
         """Format DROP TABLE statement."""
-        ... # pragma: no cover
-    
-    def format_alter_table_statement(
-        self,
-        expr: "AlterTableExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -873,254 +795,229 @@ class ViewSupport(Protocol):
 
     def supports_create_view(self) -> bool:
         """Whether CREATE VIEW is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_drop_view(self) -> bool:
         """Whether DROP VIEW is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_or_replace_view(self) -> bool:
         """Whether CREATE OR REPLACE VIEW is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_temporary_view(self) -> bool:
         """Whether TEMPORARY views are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_materialized_view(self) -> bool:
         """Whether materialized views are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_refresh_materialized_view(self) -> bool:
         """Whether REFRESH MATERIALIZED VIEW is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_materialized_view_tablespace(self) -> bool:
         """Whether tablespace specification for materialized views is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_materialized_view_storage_options(self) -> bool:
         """Whether storage options for materialized views are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_if_exists_view(self) -> bool:
         """Whether DROP VIEW IF EXISTS is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_view_check_option(self) -> bool:
         """Whether WITH CHECK OPTION is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_cascade_view(self) -> bool:
         """Whether DROP VIEW CASCADE is supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_create_view_statement(
-        self,
-        expr: "CreateViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """Format CREATE VIEW statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_drop_view_statement(
-        self,
-        expr: "DropViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Format DROP VIEW statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_create_materialized_view_statement(
-        self,
-        expr: "CreateMaterializedViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_materialized_view_statement(self, expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_drop_materialized_view_statement(
-        self,
-        expr: "DropMaterializedViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_materialized_view_statement(self, expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def format_refresh_materialized_view_statement(
-        self,
-        expr: "RefreshMaterializedViewExpression"
+        self, expr: "RefreshMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format REFRESH MATERIALIZED VIEW statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
 class TruncateSupport(Protocol):
     """
     Protocol for TRUNCATE TABLE support.
-    
+
     TRUNCATE provides a fast way to delete all rows from a table.
     Feature support varies:
     - TRUNCATE TABLE keyword requirement
     - RESTART IDENTITY (PostgreSQL)
     - CASCADE option (PostgreSQL)
     """
-    
+
     def supports_truncate(self) -> bool:
         """Whether TRUNCATE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_truncate_table_keyword(self) -> bool:
         """Whether TABLE keyword is required or optional in TRUNCATE."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_truncate_restart_identity(self) -> bool:
         """Whether RESTART IDENTITY is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_truncate_cascade(self) -> bool:
         """Whether CASCADE option is supported."""
-        ... # pragma: no cover
-    
-    def format_truncate_statement(
-        self,
-        expr: "TruncateExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_truncate_statement(self, expr: "TruncateExpression") -> Tuple[str, tuple]:
         """Format TRUNCATE TABLE statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
 class SchemaSupport(Protocol):
     """
     Protocol for schema (namespace) DDL support.
-    
+
     Schemas are database namespaces that contain tables, views, and other objects.
     Support varies significantly:
     - PostgreSQL: Native schema support
     - MySQL: CREATE SCHEMA is synonym for CREATE DATABASE
     - SQLite: No schema concept (database file is the entire database)
     """
-    
+
     def supports_create_schema(self) -> bool:
         """Whether CREATE SCHEMA is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_drop_schema(self) -> bool:
         """Whether DROP SCHEMA is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_schema_if_not_exists(self) -> bool:
         """Whether CREATE SCHEMA IF NOT EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_schema_if_exists(self) -> bool:
         """Whether DROP SCHEMA IF EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_schema_cascade(self) -> bool:
         """Whether DROP SCHEMA CASCADE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_schema_authorization(self) -> bool:
         """Whether AUTHORIZATION clause is supported."""
-        ... # pragma: no cover
-    
-    def format_create_schema_statement(
-        self,
-        expr: "CreateSchemaExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_create_schema_statement(self, expr: "CreateSchemaExpression") -> Tuple[str, tuple]:
         """Format CREATE SCHEMA statement."""
-        ... # pragma: no cover
-    
-    def format_drop_schema_statement(
-        self,
-        expr: "DropSchemaExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_drop_schema_statement(self, expr: "DropSchemaExpression") -> Tuple[str, tuple]:
         """Format DROP SCHEMA statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
 class IndexSupport(Protocol):
     """
     Protocol for index DDL support.
-    
+
     Note: This protocol is for standalone CREATE INDEX / DROP INDEX statements.
     Inline index definitions in CREATE TABLE are handled separately.
-    
+
     Feature support varies:
     - PostgreSQL: BTREE, HASH, GIN, GIST, SPGIST, BRIN; partial indexes; INCLUDE
     - MySQL: BTREE, HASH; USING clause; no partial indexes
     - SQLite: Partial indexes (WHERE); functional indexes; always B-tree
     """
-    
+
     def supports_create_index(self) -> bool:
         """Whether CREATE INDEX is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_drop_index(self) -> bool:
         """Whether DROP INDEX is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_unique_index(self) -> bool:
         """Whether UNIQUE indexes are supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_index_if_not_exists(self) -> bool:
         """Whether CREATE INDEX IF NOT EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_index_if_exists(self) -> bool:
         """Whether DROP INDEX IF EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_index_type(self) -> bool:
         """Whether index type specification (USING BTREE/HASH) is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_partial_index(self) -> bool:
         """Whether partial indexes (WHERE clause) are supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_functional_index(self) -> bool:
         """Whether functional/expression indexes are supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_index_include(self) -> bool:
         """Whether INCLUDE clause (covering columns) is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_index_tablespace(self) -> bool:
         """Whether tablespace specification for indexes is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_concurrent_index(self) -> bool:
         """Whether CREATE INDEX CONCURRENTLY (PostgreSQL) is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def get_supported_index_types(self) -> List[str]:
         """Return list of supported index types (e.g., ['BTREE', 'HASH'])."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_fulltext_index(self) -> bool:
         """Whether FULLTEXT indexes are supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_fulltext_parser(self) -> bool:
         """Whether FULLTEXT parser plugin is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_fulltext_boolean_mode(self) -> bool:
         """Whether BOOLEAN MODE in MATCH is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_fulltext_query_expansion(self) -> bool:
         """Whether QUERY EXPANSION in MATCH is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def format_fulltext_match(
-        self,
-        columns: List[str],
-        search_term: str,
-        mode: Optional[str] = None
+        self, columns: List[str], search_term: str, mode: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format MATCH ... AGAINST expression for full-text search.
 
@@ -1132,12 +1029,9 @@ class IndexSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_create_fulltext_index_statement(
-        self,
-        expr: "CreateFulltextIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
         """Format CREATE FULLTEXT INDEX statement.
 
         Args:
@@ -1146,12 +1040,9 @@ class IndexSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_drop_fulltext_index_statement(
-        self,
-        expr: "DropFulltextIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_fulltext_index_statement(self, expr: "DropFulltextIndexExpression") -> Tuple[str, tuple]:
         """Format DROP FULLTEXT INDEX statement.
 
         Args:
@@ -1160,28 +1051,22 @@ class IndexSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_create_index_statement(
-        self,
-        expr: "CreateIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_index_statement(self, expr: "CreateIndexExpression") -> Tuple[str, tuple]:
         """Format CREATE INDEX statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
-    def format_drop_index_statement(
-        self,
-        expr: "DropIndexExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_index_statement(self, expr: "DropIndexExpression") -> Tuple[str, tuple]:
         """Format DROP INDEX statement."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
 class SequenceSupport(Protocol):
     """
     Protocol for sequence object DDL support.
-    
+
     Sequences are used for generating unique numbers, typically for auto-increment.
     Support varies:
     - PostgreSQL: Native SEQUENCE objects with full options
@@ -1189,64 +1074,56 @@ class SequenceSupport(Protocol):
     - SQLite: No sequences (uses AUTOINCREMENT keyword)
     - Oracle: SEQUENCE objects with many options
     """
-    
+
     def supports_sequence(self) -> bool:
         """Whether sequence objects are supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_create_sequence(self) -> bool:
         """Whether CREATE SEQUENCE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_drop_sequence(self) -> bool:
         """Whether DROP SEQUENCE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_alter_sequence(self) -> bool:
         """Whether ALTER SEQUENCE is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_sequence_if_not_exists(self) -> bool:
         """Whether CREATE SEQUENCE IF NOT EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_sequence_if_exists(self) -> bool:
         """Whether DROP SEQUENCE IF EXISTS is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_sequence_cycle(self) -> bool:
         """Whether CYCLE/NO CYCLE option is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_sequence_cache(self) -> bool:
         """Whether CACHE option is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_sequence_order(self) -> bool:
         """Whether ORDER option is supported."""
-        ... # pragma: no cover
-    
+        ...  # pragma: no cover
+
     def supports_sequence_owned_by(self) -> bool:
         """Whether OWNED BY clause is supported."""
-        ... # pragma: no cover
-    
-    def format_create_sequence_statement(
-        self,
-        expr: "CreateSequenceExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_create_sequence_statement(self, expr: "CreateSequenceExpression") -> Tuple[str, tuple]:
         """Format CREATE SEQUENCE statement."""
-        ... # pragma: no cover
-    
-    def format_drop_sequence_statement(
-        self,
-        expr: "DropSequenceExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_drop_sequence_statement(self, expr: "DropSequenceExpression") -> Tuple[str, tuple]:
         """Format DROP SEQUENCE statement."""
-        ... # pragma: no cover
-    def format_alter_sequence_statement(
-        self,
-        expr: "AlterSequenceExpression"
-    ) -> Tuple[str, tuple]:
+        ...  # pragma: no cover
+
+    def format_alter_sequence_statement(self, expr: "AlterSequenceExpression") -> Tuple[str, tuple]:
         """Format ALTER SEQUENCE statement."""
         ...  # pragma: no cover
 
@@ -1255,7 +1132,7 @@ class SequenceSupport(Protocol):
 class ILIKESupport(Protocol):
     """
     Protocol for ILIKE (case-insensitive LIKE) support.
-    
+
     ILIKE is a PostgreSQL extension for case-insensitive pattern matching.
     Support varies across databases:
     - PostgreSQL: Native ILIKE operator
@@ -1267,12 +1144,8 @@ class ILIKESupport(Protocol):
     def supports_ilike(self) -> bool:
         """Whether ILIKE operator is supported."""
         ...  # pragma: no cover
-    def format_ilike_expression(
-        self,
-        column: Any,
-        pattern: str,
-        negate: bool = False
-    ) -> Tuple[str, Tuple]:
+
+    def format_ilike_expression(self, column: Any, pattern: str, negate: bool = False) -> Tuple[str, Tuple]:
         """
         Format ILIKE expression (case-insensitive pattern matching).
 
@@ -1284,7 +1157,7 @@ class ILIKESupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
 
 @runtime_checkable
@@ -1301,15 +1174,12 @@ class GeneratedColumnSupport(Protocol):
 
     def supports_generated_columns(self) -> bool:
         """Whether generated columns are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_stored_generated_columns(self) -> bool:
         """Whether STORED generated columns are supported."""
-        ... # pragma: no cover
+        ...  # pragma: no cover
 
     def supports_virtual_generated_columns(self) -> bool:
         """Whether VIRTUAL generated columns are supported."""
-        ... # pragma: no cover
-
-
-
+        ...  # pragma: no cover

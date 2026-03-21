@@ -8,39 +8,50 @@ import time
 from typing import Dict, List, Any
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
-from rhosocial.activerecord.backend.impl.sqlite.config import (
-    SQLiteConnectionConfig
-)
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
-from rhosocial.activerecord.backend.output import (
-    JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
-)
+from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry
-from rhosocial.activerecord.backend.impl.sqlite.pragma import (
-    get_all_pragma_infos, PragmaCategory
-)
-from rhosocial.activerecord.backend.impl.sqlite.protocols import (
-    SQLiteExtensionSupport, SQLitePragmaSupport
-)
+from rhosocial.activerecord.backend.impl.sqlite.pragma import get_all_pragma_infos, PragmaCategory
+from rhosocial.activerecord.backend.impl.sqlite.protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from rhosocial.activerecord.backend.dialect.protocols import (
-    WindowFunctionSupport, CTESupport,
-    ReturningSupport, UpsertSupport, LateralJoinSupport, JoinSupport,
-    JSONSupport, ExplainSupport, GraphSupport, FilterClauseSupport,
-    SetOperationSupport, ViewSupport,
-    TableSupport, TruncateSupport, GeneratedColumnSupport,
-    TriggerSupport, FunctionSupport,
+    WindowFunctionSupport,
+    CTESupport,
+    ReturningSupport,
+    UpsertSupport,
+    LateralJoinSupport,
+    JoinSupport,
+    JSONSupport,
+    ExplainSupport,
+    GraphSupport,
+    FilterClauseSupport,
+    SetOperationSupport,
+    ViewSupport,
+    TableSupport,
+    TruncateSupport,
+    GeneratedColumnSupport,
+    TriggerSupport,
+    FunctionSupport,
     # Additional protocols for complete coverage
-    AdvancedGroupingSupport, ArraySupport, ILIKESupport,
-    IndexSupport, LockingSupport, MergeSupport,
-    OrderedSetAggregationSupport, QualifyClauseSupport,
-    SchemaSupport, SequenceSupport, TemporalTableSupport,
+    AdvancedGroupingSupport,
+    ArraySupport,
+    ILIKESupport,
+    IndexSupport,
+    LockingSupport,
+    MergeSupport,
+    OrderedSetAggregationSupport,
+    QualifyClauseSupport,
+    SchemaSupport,
+    SequenceSupport,
+    TemporalTableSupport,
 )
 
 try:
     from rich.logging import RichHandler
     from rhosocial.activerecord.backend.output_rich import RichOutputProvider
+
     RICH_AVAILABLE = True
 except ImportError:
     RICH_AVAILABLE = False
@@ -53,13 +64,18 @@ DIALECT_SPECIFIC_GROUPS = {"SQLite-specific"}
 
 PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
     "Query Features": [
-        WindowFunctionSupport, CTESupport, FilterClauseSupport,
-        SetOperationSupport, AdvancedGroupingSupport,
+        WindowFunctionSupport,
+        CTESupport,
+        FilterClauseSupport,
+        SetOperationSupport,
+        AdvancedGroupingSupport,
     ],
     "JOIN Support": [JoinSupport, LateralJoinSupport],
     "Data Types": [JSONSupport, ArraySupport],
     "DML Features": [
-        ReturningSupport, UpsertSupport, MergeSupport,
+        ReturningSupport,
+        UpsertSupport,
+        MergeSupport,
         OrderedSetAggregationSupport,
     ],
     "Transaction & Locking": [LockingSupport, TemporalTableSupport],
@@ -70,7 +86,8 @@ PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
     "DDL - Sequence & Trigger": [SequenceSupport, TriggerSupport, FunctionSupport],
     "String Matching": [ILIKESupport],
     "SQLite-specific": [
-        SQLiteExtensionSupport, SQLitePragmaSupport,
+        SQLiteExtensionSupport,
+        SQLitePragmaSupport,
     ],
 }
 
@@ -89,57 +106,29 @@ def guess_statement_type(sql: str) -> StatementType:
 
 def parse_args():
     parser = argparse.ArgumentParser(
-        description="Execute SQL queries against a SQLite backend.",
-        formatter_class=argparse.RawTextHelpFormatter
+        description="Execute SQL queries against a SQLite backend.", formatter_class=argparse.RawTextHelpFormatter
     )
     parser.add_argument(
-        'query',
-        nargs='?',
+        "query", nargs="?", default=None, help="SQL query to execute. If not provided, reads from --file."
+    )
+    parser.add_argument("-f", "--file", default=None, help="Path to a file containing SQL to execute.")
+    parser.add_argument(
+        "--db-file",
         default=None,
-        help='SQL query to execute. If not provided, reads from --file.'
+        help=("Path to the SQLite database file. If not provided, an in-memory database will be used."),
     )
+    parser.add_argument("--executescript", action="store_true", help="Execute the input as a multi-statement script.")
     parser.add_argument(
-        '-f', '--file',
-        default=None,
-        help='Path to a file containing SQL to execute.'
+        "--output",
+        choices=["table", "json", "csv", "tsv"],
+        default="table",
+        help='Output format. Defaults to "table" if rich is installed.',
     )
+    parser.add_argument("--log-level", default="INFO", help="Set logging level (e.g., DEBUG, INFO)")
+    parser.add_argument("--rich-ascii", action="store_true", help="Use ASCII characters for rich table borders.")
+    parser.add_argument("--info", action="store_true", help="Display SQLite environment information.")
     parser.add_argument(
-        '--db-file',
-        default=None,
-        help=('Path to the SQLite database file. '
-              'If not provided, an in-memory database will be used.')
-    )
-    parser.add_argument(
-        '--executescript',
-        action='store_true',
-        help='Execute the input as a multi-statement script.'
-    )
-    parser.add_argument(
-        '--output',
-        choices=['table', 'json', 'csv', 'tsv'],
-        default='table',
-        help='Output format. Defaults to "table" if rich is installed.'
-    )
-    parser.add_argument(
-        '--log-level',
-        default='INFO',
-        help='Set logging level (e.g., DEBUG, INFO)'
-    )
-    parser.add_argument(
-        '--rich-ascii',
-        action='store_true',
-        help='Use ASCII characters for rich table borders.'
-    )
-    parser.add_argument(
-        '--info',
-        action='store_true',
-        help='Display SQLite environment information.'
-    )
-    parser.add_argument(
-        '-v', '--verbose',
-        action='count',
-        default=0,
-        help='Increase verbosity. -v for families, -vv for details.'
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity. -v for families, -vv for details."
     )
 
     return parser.parse_args()
@@ -148,19 +137,18 @@ def parse_args():
 def get_provider(args):
     """Factory function to get the correct output provider."""
     output_format = args.output
-    if output_format == 'table' and not RICH_AVAILABLE:
-        output_format = 'json'
+    if output_format == "table" and not RICH_AVAILABLE:
+        output_format = "json"
 
-    if output_format == 'table' and RICH_AVAILABLE:
+    if output_format == "table" and RICH_AVAILABLE:
         from rich.console import Console
-        return RichOutputProvider(
-            console=Console(), ascii_borders=args.rich_ascii
-        )
-    if output_format == 'json':
+
+        return RichOutputProvider(console=Console(), ascii_borders=args.rich_ascii)
+    if output_format == "json":
         return JsonOutputProvider()
-    if output_format == 'csv':
+    if output_format == "csv":
         return CsvOutputProvider()
-    if output_format == 'tsv':
+    if output_format == "tsv":
         return TsvOutputProvider()
 
     return JsonOutputProvider()
@@ -230,8 +218,9 @@ def get_protocol_support_methods(protocol_class: type) -> List[str]:
     """
     methods = []
     for name, member in inspect.getmembers(protocol_class):
-        if callable(member) and (name.startswith('supports_') or
-                                 name.startswith('is_') and name.endswith('_available')):
+        if callable(member) and (
+            name.startswith("supports_") or name.startswith("is_") and name.endswith("_available")
+        ):
             methods.append(name)
     return sorted(methods)
 
@@ -240,16 +229,29 @@ def get_protocol_support_methods(protocol_class: type) -> List[str]:
 # This allows detailed display of which specific arguments are supported
 SUPPORT_METHOD_ALL_ARGS: Dict[str, List[str]] = {
     # ExplainSupport: all possible format types
-    'supports_explain_format': ['TEXT', 'JSON', 'XML', 'YAML', 'TREE', 'DOT'],
+    "supports_explain_format": ["TEXT", "JSON", "XML", "YAML", "TREE", "DOT"],
     # SQLiteExtensionSupport: common extensions
-    'is_extension_available': [
-        'fts5', 'fts4', 'fts3', 'fts2', 'fts1',
-        'json1', 'rtree', 'geopoly', 'dbstat', 'fts5tokenize'
+    "is_extension_available": [
+        "fts5",
+        "fts4",
+        "fts3",
+        "fts2",
+        "fts1",
+        "json1",
+        "rtree",
+        "geopoly",
+        "dbstat",
+        "fts5tokenize",
     ],
     # SQLitePragmaSupport: sample pragmas from each category
-    'is_pragma_available': [
-        'journal_mode', 'synchronous', 'cache_size', 'temp_store',
-        'foreign_keys', 'busy_timeout', 'wal_autocheckpoint'
+    "is_pragma_available": [
+        "journal_mode",
+        "synchronous",
+        "cache_size",
+        "temp_store",
+        "foreign_keys",
+        "busy_timeout",
+        "wal_autocheckpoint",
     ],
 }
 
@@ -272,9 +274,8 @@ def check_protocol_support(dialect: Any, protocol_class: type) -> Dict[str, Any]
                 method = getattr(dialect, method_name)
                 # Check if method requires arguments (beyond self)
                 sig = inspect.signature(method)
-                params = [p for p in sig.parameters.values()
-                          if p.default == inspect.Parameter.empty]
-                required_params = [p for p in params if p.name != 'self']
+                params = [p for p in sig.parameters.values() if p.default == inspect.Parameter.empty]
+                required_params = [p for p in params if p.name != "self"]
 
                 if len(required_params) == 0:
                     # No required parameters, call directly
@@ -290,11 +291,7 @@ def check_protocol_support(dialect: Any, protocol_class: type) -> Dict[str, Any]
                         except Exception:
                             arg_results[arg] = False
                     supported_count = sum(1 for v in arg_results.values() if v)
-                    results[method_name] = {
-                        'supported': supported_count,
-                        'total': len(all_args),
-                        'args': arg_results
-                    }
+                    results[method_name] = {"supported": supported_count, "total": len(all_args), "args": arg_results}
                 else:
                     # Unknown method requiring parameters, skip
                     results[method_name] = False
@@ -340,20 +337,11 @@ def _build_extension_info(version_tuple: tuple) -> Dict[str, Any]:
 
 def _build_pragma_info() -> Dict[str, Any]:
     """Build pragma information structure."""
-    pragma_info = {
-        "total_count": len(get_all_pragma_infos()),
-        "categories": {}
-    }
+    pragma_info = {"total_count": len(get_all_pragma_infos()), "categories": {}}
 
     for category in PragmaCategory:
-        pragmas_in_category = [
-            name for name, p in get_all_pragma_infos().items()
-            if p.category == category
-        ]
-        pragma_info["categories"][category.name] = {
-            "count": len(pragmas_in_category),
-            "names": pragmas_in_category
-        }
+        pragmas_in_category = [name for name, p in get_all_pragma_infos().items() if p.category == category]
+        pragma_info["categories"][category.name] = {"count": len(pragmas_in_category), "names": pragmas_in_category}
 
     return pragma_info
 
@@ -369,8 +357,8 @@ def _calculate_support_stats(support_methods: Dict[str, Any]) -> tuple:
 
     for value in support_methods.values():
         if isinstance(value, dict):
-            supported_count += value['supported']
-            total_count += value['total']
+            supported_count += value["supported"]
+            total_count += value["total"]
         else:
             total_count += 1
             if value:
@@ -384,9 +372,7 @@ def _build_protocol_info(dialect: Any, verbose: int) -> Dict[str, Any]:
     protocol_info = {}
 
     for group_name, protocols in PROTOCOL_FAMILY_GROUPS.items():
-        protocol_info[group_name] = _build_protocol_group_info(
-            dialect, protocols, verbose
-        )
+        protocol_info[group_name] = _build_protocol_group_info(dialect, protocols, verbose)
 
     return protocol_info
 
@@ -414,7 +400,7 @@ def _build_protocol_group_info(dialect: Any, protocols: list, verbose: int) -> D
     return group_info
 
 
-def display_info(verbose: int = 0, output_format: str = 'table'):
+def display_info(verbose: int = 0, output_format: str = "table"):
     """Display SQLite environment information."""
     config = SQLiteConnectionConfig(database=":memory:")
     backend = SQLiteBackend(connection_config=config)
@@ -426,7 +412,7 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
         version_tuple = dialect.version
         sqlite_version = ".".join(map(str, version_tuple))
     except Exception as e:
-        if output_format == 'json' or not RICH_AVAILABLE:
+        if output_format == "json" or not RICH_AVAILABLE:
             print(json.dumps({"error": f"Failed to connect: {e}"}))
         else:
             print(f"Error: Failed to connect to in-memory database: {e}")
@@ -445,7 +431,7 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
     }
 
     # Output result
-    if output_format == 'json' or not RICH_AVAILABLE:
+    if output_format == "json" or not RICH_AVAILABLE:
         print(json.dumps(info, indent=2))
     else:
         # Use legacy structure for rich display
@@ -453,7 +439,7 @@ def display_info(verbose: int = 0, output_format: str = 'table'):
             "sqlite": info["database"],
             "extensions": info["features"]["extensions"],
             "pragmas": info["features"]["pragmas"],
-            "protocols": info["protocols"]
+            "protocols": info["protocols"],
         }
         _display_info_rich(info_legacy, verbose, sqlite_version)
 
@@ -487,7 +473,7 @@ def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
     for cat_name, cat_info in info["pragmas"]["categories"].items():
         console.print(f"  [bold]{cat_name}:[/bold] {cat_info['count']} pragmas")
 
-    label = 'Detailed' if verbose >= 2 else 'Family Overview'
+    label = "Detailed" if verbose >= 2 else "Family Overview"
     console.print(f"\n[bold green]Protocol Support ({label}):[/bold green]")
 
     for group_name, protocols in info["protocols"].items():
@@ -515,21 +501,21 @@ def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
             filled = int(pct / 100 * bar_len)
             bar = "#" * filled + "-" * (bar_len - filled)
 
-            sup = stats['supported']
-            tot = stats['total']
+            sup = stats["supported"]
+            tot = stats["total"]
             console.print(
-                f"    [{color}]{symbol}[/{color}] {protocol_name}: "
-                f"[{color}]{bar}[/{color}] {pct:.0f}% ({sup}/{tot})"
+                f"    [{color}]{symbol}[/{color}] {protocol_name}: [{color}]{bar}[/{color}] {pct:.0f}% ({sup}/{tot})"
             )
 
             if verbose >= 2 and "methods" in stats:
                 for method, value in stats["methods"].items():
-                    method_display = (method.replace("supports_", "").replace("_", " ")
-                                      .replace("is_", "").replace("_available", ""))
+                    method_display = (
+                        method.replace("supports_", "").replace("_", " ").replace("is_", "").replace("_available", "")
+                    )
                     if isinstance(value, dict):
                         # Method with parameters - show each arg's support
                         console.print(f"        [dim]{method_display}:[/dim]")
-                        for arg, supported in value.get('args', {}).items():
+                        for arg, supported in value.get("args", {}).items():
                             m_status = "[green][OK][/green]" if supported else "[red][X][/red]"
                             console.print(f"            {m_status} {arg}")
                     else:
@@ -544,35 +530,23 @@ def main():
     args = parse_args()
 
     if args.info:
-        output_format = args.output if args.output != 'table' or RICH_AVAILABLE else 'json'
+        output_format = args.output if args.output != "table" or RICH_AVAILABLE else "json"
         display_info(verbose=args.verbose, output_format=output_format)
         return
 
     numeric_level = getattr(logging, args.log_level.upper(), None)
     if not isinstance(numeric_level, int):
-        raise ValueError(f'Invalid log level: {args.log_level}')
+        raise ValueError(f"Invalid log level: {args.log_level}")
 
     provider = get_provider(args)
 
     if RICH_AVAILABLE and isinstance(provider, RichOutputProvider):
         from rich.console import Console
-        handler = RichHandler(
-            rich_tracebacks=True,
-            show_path=False,
-            console=Console(stderr=True)
-        )
-        logging.basicConfig(
-            level=numeric_level,
-            format="%(message)s",
-            datefmt="[%X]",
-            handlers=[handler]
-        )
+
+        handler = RichHandler(rich_tracebacks=True, show_path=False, console=Console(stderr=True))
+        logging.basicConfig(level=numeric_level, format="%(message)s", datefmt="[%X]", handlers=[handler])
     else:
-        logging.basicConfig(
-            level=numeric_level,
-            format='%(asctime)s - %(levelname)s - %(message)s',
-            stream=sys.stderr
-        )
+        logging.basicConfig(level=numeric_level, format="%(asctime)s - %(levelname)s - %(message)s", stream=sys.stderr)
 
     provider.display_greeting()
 
@@ -581,7 +555,7 @@ def main():
         sql_source = args.query
     elif args.file:
         try:
-            with open(args.file, 'r', encoding='utf-8') as f:
+            with open(args.file, "r", encoding="utf-8") as f:
                 sql_source = f.read()
         except FileNotFoundError:
             logger.error(f"Error: File not found at {args.file}")
@@ -590,8 +564,7 @@ def main():
         sql_source = sys.stdin.read()
 
     if not sql_source:
-        msg = ("Error: No SQL query provided. "
-               "Use a positional argument, the --file flag, or pipe from stdin.")
+        msg = "Error: No SQL query provided. Use a positional argument, the --file flag, or pipe from stdin."
         print(msg, file=sys.stderr)
         sys.exit(1)
 

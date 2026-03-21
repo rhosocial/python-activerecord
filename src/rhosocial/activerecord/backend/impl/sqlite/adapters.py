@@ -32,6 +32,7 @@ Omitted Adapters (Using Standard Instead):
   are fully compatible with SQLite's common practices (storing as ISO
   strings, timestamps, or integers).
 """
+
 import datetime
 import json
 import uuid
@@ -46,6 +47,7 @@ class SQLiteBlobAdapter(BaseSQLTypeAdapter):
     """
     Handles conversion between Python bytes objects and SQLite BLOBs.
     """
+
     def __init__(self):
         super().__init__()
         self._register_type(bytes, bytes)
@@ -53,7 +55,7 @@ class SQLiteBlobAdapter(BaseSQLTypeAdapter):
     def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> bytes:
         """Converts a Python value (str or bytes) to a SQLite-compatible BLOB."""
         if isinstance(value, str):
-            return value.encode('utf-8')
+            return value.encode("utf-8")
         if isinstance(value, bytes):
             return value
         raise TypeConversionError(f"Cannot convert {type(value).__name__} to BLOB (bytes)")
@@ -64,7 +66,7 @@ class SQLiteBlobAdapter(BaseSQLTypeAdapter):
             return value
         # In case the DB returns a string representation or similar for a BLOB
         if isinstance(value, str):
-            return value.encode('utf-8')
+            return value.encode("utf-8")
         raise TypeConversionError(f"Cannot convert database value of type {type(value).__name__} to bytes")
 
 
@@ -75,6 +77,7 @@ class SQLiteJSONAdapter(BaseSQLTypeAdapter):
     Includes an enhanced serializer to handle common Python types like
     datetime, UUID, and Decimal, which is a SQLite-specific convenience.
     """
+
     def __init__(self):
         super().__init__()
         self._register_type(dict, str)
@@ -88,7 +91,7 @@ class SQLiteJSONAdapter(BaseSQLTypeAdapter):
         if isinstance(obj, uuid.UUID):
             return str(obj)
         if isinstance(obj, Decimal):
-            return float(obj) # Representing as float is a common choice
+            return float(obj)  # Representing as float is a common choice
         if isinstance(obj, set):
             return list(obj)
         raise TypeError(f"Object of type {type(obj).__name__} is not JSON serializable")
@@ -106,7 +109,7 @@ class SQLiteJSONAdapter(BaseSQLTypeAdapter):
     def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         """Converts a JSON string from the database back to a Python object."""
         if not isinstance(value, str):
-             raise TypeConversionError(f"Cannot decode JSON from non-string type: {type(value).__name__}")
+            raise TypeConversionError(f"Cannot decode JSON from non-string type: {type(value).__name__}")
         try:
             return json.loads(value)
         except json.JSONDecodeError as e:
@@ -117,6 +120,7 @@ class SQLiteUUIDAdapter(BaseSQLTypeAdapter):
     """
     Handles conversion between Python UUID objects and SQLite's TEXT or BLOB.
     """
+
     def __init__(self):
         super().__init__()
         self._register_type(uuid.UUID, str)

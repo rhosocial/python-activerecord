@@ -1,3 +1,4 @@
+# tests/providers/registry.py
 """
 Test Provider Registry
 

@@ -5,6 +5,7 @@ SQL building operations mixin for backend implementations.
 This mixin provides utility methods for preparing SQL statements and parameters
 before execution.
 """
+
 from typing import Optional, Tuple
 
 
@@ -19,11 +20,7 @@ class SQLBuildingMixin:
     override methods to implement database-specific SQL and parameter preparation.
     """
 
-    def _prepare_sql_and_params(
-            self,
-            sql: str,
-            params: Optional[Tuple]
-    ) -> Tuple[str, Optional[Tuple]]:
+    def _prepare_sql_and_params(self, sql: str, params: Optional[Tuple]) -> Tuple[str, Optional[Tuple]]:
         """
         Prepare SQL and parameters for database execution.
 

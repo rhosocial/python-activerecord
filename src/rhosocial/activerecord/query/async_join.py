@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/query/async_join.py
 """AsyncJoinQueryMixin implementation for building async JOIN clauses using a chained expression model."""
 
 from typing import Union, Type, Optional

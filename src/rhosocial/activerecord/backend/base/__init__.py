@@ -15,6 +15,7 @@ from .transaction_management import (
     TransactionManagementMixin,
 )
 from .type_adaption import AsyncTypeAdaptionMixin, TypeAdaptionMixin
+from .batch_execution import AsyncBatchExecutionMixin, BatchExecutionMixin
 
 
 class StorageBackend(
@@ -26,6 +27,7 @@ class StorageBackend(
     ResultProcessingMixin,
     SQLOperationsMixin,
     ExecutionMixin,
+    BatchExecutionMixin,
     ExecutionHooksMixin,
     ConnectionMixin,
     TransactionManagementMixin,
@@ -59,6 +61,7 @@ class AsyncStorageBackend(
     ResultProcessingMixin,
     AsyncSQLOperationsMixin,
     AsyncExecutionMixin,
+    AsyncBatchExecutionMixin,
     AsyncExecutionHooksMixin,
     AsyncConnectionMixin,
     AsyncTransactionManagementMixin,
@@ -97,6 +100,8 @@ __all__ = [
     "AsyncSQLOperationsMixin",
     "ExecutionMixin",
     "AsyncExecutionMixin",
+    "BatchExecutionMixin",
+    "AsyncBatchExecutionMixin",
     "ExecutionHooksMixin",
     "AsyncExecutionHooksMixin",
     "ConnectionMixin",

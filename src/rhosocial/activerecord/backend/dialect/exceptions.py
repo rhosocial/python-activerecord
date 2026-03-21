@@ -5,6 +5,7 @@ Exceptions for SQL dialect feature support.
 This module defines exceptions raised when dialects don't support requested
 features or haven't implemented required protocols.
 """
+
 from typing import Optional
 
 
@@ -16,12 +17,7 @@ class UnsupportedFeatureError(Exception):
     that the current dialect doesn't support.
     """
 
-    def __init__(
-            self,
-            dialect_name: str,
-            feature_name: str,
-            suggestion: Optional[str] = None
-    ):
+    def __init__(self, dialect_name: str, feature_name: str, suggestion: Optional[str] = None):
         """
         Initialize unsupported feature error.
 
@@ -49,12 +45,7 @@ class ProtocolNotImplementedError(Exception):
     but the dialect hasn't implemented it.
     """
 
-    def __init__(
-            self,
-            dialect_name: str,
-            protocol_name: str,
-            required_by: str
-    ):
+    def __init__(self, dialect_name: str, protocol_name: str, required_by: str):
         """
         Initialize protocol not implemented error.
 
@@ -68,7 +59,6 @@ class ProtocolNotImplementedError(Exception):
         self.required_by = required_by
 
         message = (
-            f"'{dialect_name}' dialect does not implement {protocol_name} protocol, "
-            f"which is required by {required_by}."
+            f"'{dialect_name}' dialect does not implement {protocol_name} protocol, which is required by {required_by}."
         )
         super().__init__(message)

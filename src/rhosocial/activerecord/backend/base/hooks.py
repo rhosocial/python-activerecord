@@ -1,8 +1,10 @@
 # src/rhosocial/activerecord/backend/base/hooks.py
 from typing import Optional, Tuple
 
+
 class ExecutionHooksMixin:
     """Mixin for synchronous execution hook methods."""
+
     def _get_cursor(self):
         """Get or create a cursor for query execution."""
         return self._cursor or self._connection.cursor()
@@ -31,6 +33,7 @@ class ExecutionHooksMixin:
 
 class AsyncExecutionHooksMixin:
     """Mixin for asynchronous execution hook methods."""
+
     async def _get_cursor(self):
         """Get or create a cursor asynchronously."""
         return self._cursor or await self._connection.cursor()

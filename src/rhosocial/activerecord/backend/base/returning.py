@@ -8,12 +8,16 @@ from ..schema import StatementType
 
 class ReturningClauseMixin:
     """Mixin for RETURNING clause processing."""
-    def _process_returning_clause(self, returning: Optional[Union[bool, List[str], List["bases.BaseExpression"], ReturningClause]]) -> Optional[ReturningClause]:
+
+    def _process_returning_clause(
+        self, returning: Optional[Union[bool, List[str], List["bases.BaseExpression"], ReturningClause]]
+    ) -> Optional[ReturningClause]:
         """
         Process RETURNING specification and create ReturningClause object.
 
         Args:
-            returning: Can be a boolean flag, a list of column names, a list of expressions, or a ReturningClause object.
+            returning: Can be a boolean flag, a list of column names,
+                       a list of expressions, or a ReturningClause object.
 
         Returns:
             ReturningClause object if returning is specified, None otherwise.
@@ -46,7 +50,9 @@ class ReturningClauseMixin:
             return returning
         raise ValueError(f"Unsupported returning type: {type(returning)}")
 
-    def _prepare_returning_clause(self, sql: str, returning_clause: Optional[ReturningClause], _stmt_type: StatementType) -> str:
+    def _prepare_returning_clause(
+        self, sql: str, returning_clause: Optional[ReturningClause], _stmt_type: StatementType
+    ) -> str:
         """
         Prepare SQL with RETURNING clause.
 

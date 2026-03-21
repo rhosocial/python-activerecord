@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/expression/query_sources.py
 """
 Data source expressions for SQL queries like VALUES, table functions, lateral joins, and CTEs.
 
@@ -5,6 +6,7 @@ These expression classes represent different types of data sources that can be u
 in the FROM clause of a query, including constructed values, table-valued functions,
 lateral expressions, and common table expressions.
 """
+
 from dataclasses import dataclass
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
 
@@ -14,6 +16,7 @@ from . import mixins
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+    from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
 
 
 class SetOperationExpression(bases.BaseExpression):
@@ -71,7 +74,9 @@ class SetOperationExpression(bases.BaseExpression):
                 Column(dialect, "parent_id"),
                 Column(dialect, "name"),
                 Literal(dialect, 0).as_("level"),  # Starting level
-                FunctionCall(dialect, "ARRAY_APPEND", Literal(dialect, []), Column(dialect, "id")).as_("path")  # Track path
+                FunctionCall(
+                    dialect, "ARRAY_APPEND", Literal(dialect, []), Column(dialect, "id")
+                ).as_("path")  # Track path
             ],
             from_=TableExpression(dialect, "nodes"),
             where=ComparisonPredicate(dialect, "=", Column(dialect, "parent_id"), Literal(dialect, None))  # Root nodes
@@ -109,16 +114,19 @@ class SetOperationExpression(bases.BaseExpression):
             alias="recursive_result"
         )
     """
-    def __init__(self,
-                 dialect: "SQLDialectBase",
-                 left: "bases.BaseExpression",
-                 right: "bases.BaseExpression",
-                 operation: str,
-                 alias: Optional[str] = None,
-                 all_: bool = False,
-                 order_by_clause: Optional["OrderByClause"] = None,
-                 limit_offset_clause: Optional["LimitOffsetClause"] = None,
-                 for_update_clause: Optional["ForUpdateClause"] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        left: "bases.BaseExpression",
+        right: "bases.BaseExpression",
+        operation: str,
+        alias: Optional[str] = None,
+        all_: bool = False,
+        order_by_clause: Optional["OrderByClause"] = None,
+        limit_offset_clause: Optional["LimitOffsetClause"] = None,
+        for_update_clause: Optional["ForUpdateClause"] = None,
+    ):
         """
         Initialize a SetOperationExpression.
 
@@ -143,7 +151,7 @@ class SetOperationExpression(bases.BaseExpression):
         self.limit_offset_clause = limit_offset_clause
         self.for_update_clause = for_update_clause
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         """Generate the SQL representation of the set operation with optional clauses."""
         return self.dialect.format_set_operation_expression(
             self.left,
@@ -153,7 +161,7 @@ class SetOperationExpression(bases.BaseExpression):
             self.all_,
             self.order_by_clause,
             self.limit_offset_clause,
-            self.for_update_clause
+            self.for_update_clause,
         )
 
 
@@ -225,10 +233,16 @@ class CTEExpression(bases.BaseExpression):
             recursive=True
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", name: str,
-                 query: Union["bases.BaseExpression", "bases.SQLQueryAndParams"],
-                 columns: Optional[List[str]] = None,
-                 materialized: Optional[bool] = None, dialect_options: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        name: str,
+        query: Union["bases.BaseExpression", "bases.SQLQueryAndParams"],
+        columns: Optional[List[str]] = None,
+        materialized: Optional[bool] = None,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
         """
         Initialize a CTEExpression.
 
@@ -287,7 +301,7 @@ class CTEExpression(bases.BaseExpression):
             query_sql=query_sql,
             columns=self.columns,
             materialized=self.materialized,
-            dialect_options=self.dialect_options
+            dialect_options=self.dialect_options,
         )
         return sql, query_params
 
@@ -307,9 +321,15 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
             name="users_with_orders",
             query=QueryExpression(
                 dialect,
-                select=[Column(dialect, "u.id"), Column(dialect, "u.name"), FunctionCall(dialect, "COUNT", Column(dialect, "o.id"))],
+                select=[
+                    Column(dialect, "u.id"),
+                    Column(dialect, "u.name"),
+                    FunctionCall(dialect, "COUNT", Column(dialect, "o.id")),
+                ],
                 from_=[TableExpression(dialect, "users", alias="u")],
-                where=ComparisonPredicate(dialect, '>', FunctionCall(dialect, "COUNT", Column(dialect, "o.id")), Literal(dialect, 0))
+                where=ComparisonPredicate(
+                    dialect, ">", FunctionCall(dialect, "COUNT", Column(dialect, "o.id")), Literal(dialect, 0)
+                ),
             ),
             columns=["user_id", "user_name", "order_count"]
         )
@@ -341,16 +361,22 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
             main_query=main_query
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", ctes: List[CTEExpression],
-                 main_query: "bases.BaseExpression", recursive: bool = False,
-                 dialect_options: Optional[Dict[str, Any]] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        ctes: List[CTEExpression],
+        main_query: "bases.BaseExpression",
+        recursive: bool = False,
+        dialect_options: Optional[Dict[str, Any]] = None,
+    ):
         super().__init__(dialect)
         self.ctes = ctes
         self.main_query = main_query
         self.recursive = recursive
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         all_params: List[Any] = []
         cte_sql_parts = []
         for cte in self.ctes:
@@ -364,7 +390,7 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
             cte_sql_parts=cte_sql_parts,
             main_query_sql=main_sql,
             dialect_options=self.dialect_options,
-            has_recursive=self.recursive  # Pass recursive information to dialect
+            has_recursive=self.recursive,  # Pass recursive information to dialect
         )
         return sql, tuple(all_params)
 
@@ -414,11 +440,18 @@ class ValuesExpression(bases.BaseExpression):
             column_names=["id", "name", "email"]
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", values: List[Tuple[Any, ...]], alias: Optional[str] = None, column_names: Optional[List[str]] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        values: List[Tuple[Any, ...]],
+        alias: Optional[str] = None,
+        column_names: Optional[List[str]] = None,
+    ):
         super().__init__(dialect)
         self.values, self.alias, self.column_names = values, alias, column_names
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         return self.dialect.format_values_expression(self.values, self.alias, self.column_names)
 
 
@@ -443,15 +476,24 @@ class TableFunctionExpression(bases.BaseExpression):
             column_names=["num"]
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression",
-                 alias: Optional[str] = None, column_names: Optional[List[str]] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        func_name: str,
+        *args: "bases.BaseExpression",
+        alias: Optional[str] = None,
+        column_names: Optional[List[str]] = None,
+    ):
         super().__init__(dialect)
         self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         formatted_args_sql = [arg.to_sql()[0] for arg in self.args]
         all_params = [p for arg in self.args for p in arg.to_sql()[1]]
-        return self.dialect.format_table_function_expression(self.func_name, formatted_args_sql, tuple(all_params), self.alias, self.column_names)
+        return self.dialect.format_table_function_expression(
+            self.func_name, formatted_args_sql, tuple(all_params), self.alias, self.column_names
+        )
 
 
 class LateralExpression(bases.BaseExpression):
@@ -471,11 +513,18 @@ class LateralExpression(bases.BaseExpression):
             Subquery(dialect, query_expr)
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", expression: Union["core.Subquery", "TableFunctionExpression"], alias: Optional[str] = None, join_type: str = "CROSS"):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        expression: Union["core.Subquery", "TableFunctionExpression"],
+        alias: Optional[str] = None,
+        join_type: str = "CROSS",
+    ):
         super().__init__(dialect)
         self.expression, self.alias, self.join_type = expression, alias, join_type
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         expr_sql, expr_params = self.expression.to_sql()
         return self.dialect.format_lateral_expression(expr_sql, expr_params, self.alias, self.join_type)
 
@@ -508,14 +557,27 @@ class JSONTableExpression(core.TableExpression):
             columns=[JSONTableColumn("id", "INTEGER", "$.id"), JSONTableColumn("name", "TEXT", "$.name")]
         )
     """
-    def __init__(self, dialect: "SQLDialectBase", json_column: Union[str, "bases.BaseExpression"], path: str, columns: List[JSONTableColumn], alias: Optional[str] = None):
+
+    def __init__(
+        self,
+        dialect: "SQLDialectBase",
+        json_column: Union[str, "bases.BaseExpression"],
+        path: str,
+        columns: List[JSONTableColumn],
+        alias: Optional[str] = None,
+    ):
         super().__init__(dialect, name="JSON_TABLE", alias=alias)
         self.json_column, self.path, self.columns = json_column, path, columns
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         if isinstance(self.json_column, bases.BaseExpression):
             json_col_sql, json_col_params = self.json_column.to_sql()
         else:
             json_col_sql, json_col_params = self.dialect.format_identifier(str(self.json_column)), ()
-        prepared_columns = [{"name": self.dialect.format_identifier(col.name), "type": col.data_type, "path": col.path} for col in self.columns]
-        return self.dialect.format_json_table_expression(json_col_sql, self.path, prepared_columns, self.alias, json_col_params)
+        prepared_columns = [
+            {"name": self.dialect.format_identifier(col.name), "type": col.data_type, "path": col.path}
+            for col in self.columns
+        ]
+        return self.dialect.format_json_table_expression(
+            json_col_sql, self.path, prepared_columns, self.alias, json_col_params
+        )

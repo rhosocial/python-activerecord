@@ -6,21 +6,18 @@ This module defines the TypeRegistry class, which is responsible for
 managing and providing access to SQLTypeAdapter instances based on
 Python type and database type pairs.
 """
-from typing import Any, Dict, List, Optional, Sequence, Tuple, Type, Union
+
+from typing import Dict, Optional, Tuple, Type
 from .type_adapter import SQLTypeAdapter
+
 
 class TypeRegistry:
     """Registry for type adapters with exact type pair matching."""
+
     def __init__(self):
         self._adapters: Dict[Tuple[Type, Type], SQLTypeAdapter] = {}
 
-    def register(
-        self,
-        adapter: SQLTypeAdapter,
-        py_type: Type,
-        db_type: Type,
-        allow_override: bool = False
-    ) -> None:
+    def register(self, adapter: SQLTypeAdapter, py_type: Type, db_type: Type, allow_override: bool = False) -> None:
         type_pair = (py_type, db_type)
         if not allow_override and type_pair in self._adapters:
             existing_adapter = self._adapters[type_pair]

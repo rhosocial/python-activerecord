@@ -1,3 +1,4 @@
+# tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_functions.py
 """
 SQLite-specific tests for function factories including concat_op
 """

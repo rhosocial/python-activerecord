@@ -2,22 +2,24 @@
 """
 SQL operations like binary, unary, and arithmetic expressions.
 """
+
 from typing import Any, Tuple, List, TYPE_CHECKING
 from . import bases
 from . import mixins
 
-if TYPE_CHECKING: # pragma: no cover
+if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
 class SQLOperation(bases.BaseExpression):
     """Represents a generic SQL operation."""
+
     def __init__(self, dialect: "SQLDialectBase", op: str, *operands: "bases.BaseExpression"):
         super().__init__(dialect)
         self.op = op
         self.operands = list(operands)
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         formatted_operands_sql = []
         params: List[Any] = []
         for operand in self.operands:
@@ -32,13 +34,14 @@ class SQLOperation(bases.BaseExpression):
 
 class BinaryExpression(bases.BaseExpression):
     """Represents a binary SQL operation."""
+
     def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.BaseExpression", right: "bases.BaseExpression"):
         super().__init__(dialect)
         self.op = op
         self.left = left
         self.right = right
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         left_sql, left_params = self.left.to_sql()
         right_sql, right_params = self.right.to_sql()
         return self.dialect.format_binary_operator(self.op, left_sql, right_sql, left_params, right_params)
@@ -46,13 +49,14 @@ class BinaryExpression(bases.BaseExpression):
 
 class UnaryExpression(bases.BaseExpression):
     """Represents a unary SQL operation."""
-    def __init__(self, dialect: "SQLDialectBase", op: str, operand: "bases.BaseExpression", pos: str = 'before'):
+
+    def __init__(self, dialect: "SQLDialectBase", op: str, operand: "bases.BaseExpression", pos: str = "before"):
         super().__init__(dialect)
         self.op = op
         self.operand = operand
         self.pos = pos
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         operand_sql, operand_params = self.operand.to_sql()
         return self.dialect.format_unary_operator(self.op, operand_sql, self.pos, operand_params)
 
@@ -71,12 +75,13 @@ class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.St
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
     """
+
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
         self.params = params
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         return self.expression, self.params
 
 
@@ -94,18 +99,24 @@ class RawSQLPredicate(bases.SQLPredicate):
     - RawSQLPredicate inherits from SQLPredicate and represents a boolean predicate
       (e.g., condition in WHERE clause)
     """
+
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
         self.params = params
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         return self.expression, self.params
 
 
-class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression):
+class BinaryArithmeticExpression(
+    mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression
+):
     """Represents a binary arithmetic operation."""
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"):
+
+    def __init__(
+        self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"
+    ):
         super().__init__(dialect)
         self.op = op
         self.left = left
@@ -128,7 +139,9 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
         if right_needs_parens:
             right_sql = f"({right_sql})"
 
-        sql, params = self.dialect.format_binary_arithmetic_expression(self.op, left_sql, right_sql, left_params, right_params)
+        sql, params = self.dialect.format_binary_arithmetic_expression(
+            self.op, left_sql, right_sql, left_params, right_params
+        )
 
         # Apply type casts if any
         for target_type in self._cast_types:
@@ -149,6 +162,9 @@ class BinaryArithmeticExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin,
 
     # Define operator precedence levels for arithmetic operations (lower number means lower precedence)
     OPERATOR_PRECEDENCE = {
-        '+': 9, '-': 9,  # Addition and subtraction
-        '*': 10, '/': 10, '%': 10,  # Multiplication, division, modulo
+        "+": 9,
+        "-": 9,  # Addition and subtraction
+        "*": 10,
+        "/": 10,
+        "%": 10,  # Multiplication, division, modulo
     }
