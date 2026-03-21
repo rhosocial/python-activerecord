@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/base/base.py
 import logging
 from abc import ABC, abstractmethod
+from typing import Optional
 
 from ..config import ConnectionConfig
 from ..dialect import SQLDialectBase

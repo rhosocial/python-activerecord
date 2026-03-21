@@ -66,7 +66,8 @@ class ExecutionMixin:
         start_time = time.perf_counter()
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
-            if not self._connection: self.connect()
+            if not self._connection:
+                self.connect()
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
             # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
@@ -136,7 +137,8 @@ class ExecutionMixin:
         self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
         start_time = time.perf_counter()
         try:
-            if not self._connection: self.connect()
+            if not self._connection:
+                self.connect()
             cursor = self._get_cursor()
             final_sql, _ = self._prepare_sql_and_params(sql, None)
             cursor.executemany(final_sql, params_list)
@@ -198,7 +200,8 @@ class AsyncExecutionMixin:
         start_time = time.perf_counter()
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
-            if not self._connection: await self.connect()
+            if not self._connection:
+                await self.connect()
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
             # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
@@ -266,7 +269,8 @@ class AsyncExecutionMixin:
         self.log(logging.DEBUG, f"Executing many SQL: {sql}")
         start_time = time.perf_counter()
         try:
-            if not self._connection: await self.connect()
+            if not self._connection:
+                await self.connect()
             cursor = await self._get_cursor()
             await cursor.executemany(sql, params_list)
             await self._handle_auto_commit_if_needed()

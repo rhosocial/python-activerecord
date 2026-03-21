@@ -158,7 +158,8 @@ class TypeAdaptionMixin:
             return None
         try:
             rows = cursor.fetchall()
-            if not rows: return []
+            if not rows:
+                return []
             column_names = [desc[0].strip('"') for desc in cursor.description]
             final_results = []
             adapters = column_adapters or {}
@@ -215,7 +216,8 @@ class AsyncTypeAdaptionMixin(TypeAdaptionMixin):
             return None
         try:
             rows = await cursor.fetchall()
-            if not rows: return []
+            if not rows:
+                return []
             column_names = [desc[0].strip('"') for desc in cursor.description]
             final_results = []
             adapters = column_adapters or {}
