@@ -1,6 +1,7 @@
 # src/rhosocial/activerecord/backend/base/connection.py
 from typing import Any
 
+
 class ConnectionMixin:
     """
     Mixin for synchronous connection and context management.
@@ -9,6 +10,7 @@ class ConnectionMixin:
     for synchronous backends. It handles automatic connection establishment
     and cleanup through property access and context manager protocols.
     """
+
     @property
     def connection(self) -> Any:
         """
@@ -75,6 +77,7 @@ class AsyncConnectionMixin:
     for asynchronous backends. It handles automatic connection establishment
     and cleanup through async property access and async context manager protocols.
     """
+
     @property
     async def connection(self) -> Any:
         """

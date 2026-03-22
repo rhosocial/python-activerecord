@@ -5,6 +5,7 @@ SQLite extension framework.
 This module provides a comprehensive framework for SQLite extension support,
 including extension detection, version management, and feature queries.
 """
+
 from .base import (
     ExtensionType,
     SQLiteExtensionInfo,
@@ -22,14 +23,14 @@ from .registry import (
 
 __all__ = [
     # Base classes and types
-    'ExtensionType',
-    'SQLiteExtensionInfo',
-    'SQLiteExtensionProtocol',
-    'SQLiteExtensionBase',
-    'SQLiteExtensionSupport',
+    "ExtensionType",
+    "SQLiteExtensionInfo",
+    "SQLiteExtensionProtocol",
+    "SQLiteExtensionBase",
+    "SQLiteExtensionSupport",
     # Registry
-    'KNOWN_EXTENSIONS',
-    'SQLiteExtensionRegistry',
-    'get_registry',
-    'reset_registry',
+    "KNOWN_EXTENSIONS",
+    "SQLiteExtensionRegistry",
+    "get_registry",
+    "reset_registry",
 ]

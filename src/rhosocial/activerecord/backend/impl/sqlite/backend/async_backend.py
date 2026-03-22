@@ -5,6 +5,7 @@ Async SQLite Backend Implementation
 This module provides an async implementation of SQLite backend.
 Uses aiosqlite library for async SQLite operations.
 """
+
 import logging
 import sqlite3
 import time
@@ -33,7 +34,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         self,
         connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
         database: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         if connection_config is None and database is not None:
             connection_config = SQLiteConnectionConfig(database=database, **kwargs)
@@ -42,18 +43,18 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
 
         if not isinstance(connection_config, SQLiteConnectionConfig):
             pragmas = {}
-            if hasattr(connection_config, 'pragmas'):
+            if hasattr(connection_config, "pragmas"):
                 pragmas = connection_config.pragmas
             connection_config = SQLiteConnectionConfig(
-                host=getattr(connection_config, 'host', None),
-                port=getattr(connection_config, 'port', None),
+                host=getattr(connection_config, "host", None),
+                port=getattr(connection_config, "port", None),
                 database=connection_config.database,
-                username=getattr(connection_config, 'username', None),
-                password=getattr(connection_config, 'password', None),
-                driver_type=getattr(connection_config, 'driver_type', None),
+                username=getattr(connection_config, "username", None),
+                password=getattr(connection_config, "password", None),
+                driver_type=getattr(connection_config, "driver_type", None),
                 pragmas=pragmas,
-                delete_on_close=getattr(connection_config, 'delete_on_close', False),
-                options=getattr(connection_config, 'options', {}),
+                delete_on_close=getattr(connection_config, "delete_on_close", False),
+                options=getattr(connection_config, "options", {}),
             )
 
         super().__init__(connection_config=connection_config)
@@ -120,10 +121,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             try:
                 await self._connection.execute(pragma_statement)
             except sqlite3.Error as e:
-                self.log(
-                    logging.WARNING,
-                    f"Failed to execute pragma {pragma_statement}: {str(e)}"
-                )
+                self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
 
     async def connect(self) -> None:
         """Establish a connection to the SQLite database asynchronously."""
@@ -133,7 +131,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
                 timeout=self.config.timeout,
                 detect_types=self.config.detect_types,
                 isolation_level=None,
-                uri=self.config.uri
+                uri=self.config.uri,
             )
             self._connection.row_factory = aiosqlite.Row
             await self._apply_pragmas()
@@ -146,9 +144,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         try:
             if self._connection is not None:
                 if self._transaction_manager is not None and self._transaction_manager.is_active:
-                    self.logger.warning(
-                        "Active transaction detected during disconnect, rolling back"
-                    )
+                    self.logger.warning("Active transaction detected during disconnect, rolling back")
                     await self._transaction_manager.rollback()
                 await self._connection.close()
                 self._connection = None
@@ -169,11 +165,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         import asyncio
         import aiofiles.os
 
-        files_to_delete = [
-            self.config.database,
-            f"{self.config.database}-wal",
-            f"{self.config.database}-shm"
-        ]
+        files_to_delete = [self.config.database, f"{self.config.database}-wal", f"{self.config.database}-shm"]
 
         for filepath in files_to_delete:
             max_retries = 5
@@ -244,9 +236,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             self.log(logging.ERROR, f"Error executing async SQL script: {str(e)}")
             await self._handle_error(e)
 
-    async def execute_many(
-        self, sql: str, params_list: List[Tuple]
-    ) -> Optional[QueryResult]:
+    async def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
         """Execute batch operations with the same SQL statement and multiple parameter sets.
 
         Args:
@@ -256,10 +246,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         Returns:
             QueryResult with affected_rows and duration, or None on error.
         """
-        self.log(
-            logging.INFO,
-            f"Executing batch operation: {sql} with {len(params_list)} parameter sets"
-        )
+        self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
         start_time = time.perf_counter()
         try:
             if not self._connection:
@@ -271,9 +258,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             duration = time.perf_counter() - start_time
 
             self.log(
-                logging.INFO,
-                f"Batch operation completed, affected {cursor.rowcount} rows, "
-                f"duration={duration:.3f}s"
+                logging.INFO, f"Batch operation completed, affected {cursor.rowcount} rows, duration={duration:.3f}s"
             )
             await self._handle_auto_commit_if_needed()
 
@@ -297,9 +282,7 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         if self._transaction_manager is None:
             if self._connection is None:
                 raise ConnectionError("Not connected to database")
-            self._transaction_manager = AsyncSQLiteTransactionManager(
-                self._connection, self.logger
-            )
+            self._transaction_manager = AsyncSQLiteTransactionManager(self._connection, self.logger)
         return self._transaction_manager
 
     async def insert(self, options: InsertOptions) -> QueryResult:
@@ -312,11 +295,13 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             QueryResult with proper affected_rows for RETURNING clause.
         """
         result = await super().insert(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
+        if (
+            result.affected_rows == 0
+            and options.returning_columns is not None
+            and options.returning_columns
+            and result.data is not None
+            and len(result.data) > 0
+        ):
             result.affected_rows = len(result.data)
         return result
 
@@ -330,11 +315,13 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             QueryResult with proper affected_rows for RETURNING clause.
         """
         result = await super().update(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
+        if (
+            result.affected_rows == 0
+            and options.returning_columns is not None
+            and options.returning_columns
+            and result.data is not None
+            and len(result.data) > 0
+        ):
             result.affected_rows = len(result.data)
         return result
 
@@ -348,11 +335,13 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
             QueryResult with proper affected_rows for RETURNING clause.
         """
         result = await super().delete(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
+        if (
+            result.affected_rows == 0
+            and options.returning_columns is not None
+            and options.returning_columns
+            and result.data is not None
+            and len(result.data) > 0
+        ):
             result.affected_rows = len(result.data)
         return result
 
@@ -370,23 +359,21 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
 
         try:
             version_str = aiosqlite.sqlite_version
-            parts = version_str.split('.')
+            parts = version_str.split(".")
             version = tuple(int(p) for p in parts[:3])
 
             while len(version) < 3:
                 version = version + (0,)
 
             AsyncSQLiteBackend._sqlite_version_cache = version
-            self.log(
-                logging.INFO,
-                f"Detected SQLite version: {version[0]}.{version[1]}.{version[2]}"
-            )
+            self.log(logging.INFO, f"Detected SQLite version: {version[0]}.{version[1]}.{version[2]}")
             return version
         except Exception as e:
             error_msg = f"Failed to determine SQLite version: {str(e)}"
-            if hasattr(self, 'logger'):
+            if hasattr(self, "logger"):
                 self.logger.error(error_msg)
             from rhosocial.activerecord.backend.errors import OperationalError
+
             raise OperationalError(error_msg) from e
 
     async def introspect_and_adapt(self) -> None:
@@ -411,8 +398,8 @@ class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
         # For SQLite < 3.38.0, detect json1 extension availability at runtime
         if version < (3, 38, 0):
             json1_available = await self._detect_json1_extension()
-            self._dialect.set_runtime_param('json1_available', json1_available)
-            status = 'available' if json1_available else 'unavailable'
+            self._dialect.set_runtime_param("json1_available", json1_available)
+            status = "available" if json1_available else "unavailable"
             self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
 
     async def _detect_json1_extension(self) -> bool:

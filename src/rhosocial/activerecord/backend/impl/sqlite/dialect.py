@@ -5,27 +5,67 @@ SQLite backend SQL dialect implementation.
 This dialect implements only the protocols for features that SQLite actually supports,
 based on the SQLite version provided at initialization.
 """
+
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
-    CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport,
-    ReturningSupport, AdvancedGroupingSupport, ArraySupport, ExplainSupport,
-    GraphSupport, LockingSupport, MergeSupport, OrderedSetAggregationSupport,
-    QualifyClauseSupport, TemporalTableSupport, UpsertSupport, LateralJoinSupport,
-    WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
+    CTESupport,
+    FilterClauseSupport,
+    WindowFunctionSupport,
+    JSONSupport,
+    ReturningSupport,
+    AdvancedGroupingSupport,
+    ArraySupport,
+    ExplainSupport,
+    GraphSupport,
+    LockingSupport,
+    MergeSupport,
+    OrderedSetAggregationSupport,
+    QualifyClauseSupport,
+    TemporalTableSupport,
+    UpsertSupport,
+    LateralJoinSupport,
+    WildcardSupport,
+    JoinSupport,
+    SetOperationSupport,
+    ViewSupport,
     # DDL Protocols
-    TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport, GeneratedColumnSupport,
+    TableSupport,
+    TruncateSupport,
+    SchemaSupport,
+    IndexSupport,
+    SequenceSupport,
+    TriggerSupport,
+    GeneratedColumnSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
-    CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
-    AdvancedGroupingMixin, ArrayMixin, ExplainMixin, GraphMixin, LockingMixin,
-    MergeMixin, OrderedSetAggregationMixin, QualifyClauseMixin, TemporalTableMixin,
-    UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
+    CTEMixin,
+    FilterClauseMixin,
+    WindowFunctionMixin,
+    JSONMixin,
+    ReturningMixin,
+    AdvancedGroupingMixin,
+    ArrayMixin,
+    ExplainMixin,
+    GraphMixin,
+    LockingMixin,
+    MergeMixin,
+    OrderedSetAggregationMixin,
+    QualifyClauseMixin,
+    TemporalTableMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    JoinMixin,
+    ViewMixin,
     # DDL Mixins
-    TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
-    TriggerMixin, GeneratedColumnMixin,
+    TableMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
+    TriggerMixin,
+    GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
@@ -33,22 +73,28 @@ from .mixins import FTS5Mixin, SQLitePragmaMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
-    from rhosocial.activerecord.backend.expression.advanced_functions import (
-        ArrayExpression, OrderedSetAggregation
-    )
+    from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.query_parts import (
-        OrderByClause, LimitOffsetClause, ForUpdateClause, QualifyClause
+        OrderByClause,
+        LimitOffsetClause,
+        ForUpdateClause,
+        QualifyClause,
     )
     from rhosocial.activerecord.backend.expression.statements import (
-        CreateViewExpression, DropViewExpression,
-        CreateMaterializedViewExpression, DropMaterializedViewExpression,
-        RefreshMaterializedViewExpression, ReturningClause
+        CreateViewExpression,
+        DropViewExpression,
+        CreateMaterializedViewExpression,
+        DropMaterializedViewExpression,
+        RefreshMaterializedViewExpression,
+        ReturningClause,
     )
 
 # Module-level constants for error suggestions (SonarCloud S1192)
 _SUGGESTION_ARRAY_TYPES = "SQLite does not support native array types. Consider using JSON or comma-separated values."
-_SUGGESTION_JSON_TABLE = "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
+_SUGGESTION_JSON_TABLE = (
+    "SQLite does not support JSON_TABLE. Consider using json_each() or json_extract() with subqueries."
+)
 _SUGGESTION_GRAPH_MATCH = "SQLite does not support graph MATCH clause."
 _SUGGESTION_ORDERED_SET_AGG = "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
 _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
@@ -60,26 +106,68 @@ _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in se
 class SQLiteDialect(
     SQLDialectBase,
     # Include mixins for features that SQLite supports (with version-dependent implementations)
-    CTEMixin, FilterClauseMixin, WindowFunctionMixin, JSONMixin, ReturningMixin,
+    CTEMixin,
+    FilterClauseMixin,
+    WindowFunctionMixin,
+    JSONMixin,
+    ReturningMixin,
     # Include mixins for features that SQLite does NOT support but need the methods to exist
-    AdvancedGroupingMixin, ArrayMixin, ExplainMixin, GraphMixin, LockingMixin,
-    MergeMixin, OrderedSetAggregationMixin, QualifyClauseMixin, TemporalTableMixin,
-    UpsertMixin, LateralJoinMixin, JoinMixin, ViewMixin,
+    AdvancedGroupingMixin,
+    ArrayMixin,
+    ExplainMixin,
+    GraphMixin,
+    LockingMixin,
+    MergeMixin,
+    OrderedSetAggregationMixin,
+    QualifyClauseMixin,
+    TemporalTableMixin,
+    UpsertMixin,
+    LateralJoinMixin,
+    JoinMixin,
+    ViewMixin,
     # DDL Mixins
-    TableMixin, TruncateMixin, SchemaMixin, IndexMixin, SequenceMixin,
-    TriggerMixin, GeneratedColumnMixin,
+    TableMixin,
+    TruncateMixin,
+    SchemaMixin,
+    IndexMixin,
+    SequenceMixin,
+    TriggerMixin,
+    GeneratedColumnMixin,
     # SQLite-specific mixins
-    FTS5Mixin, SQLitePragmaMixin,
+    FTS5Mixin,
+    SQLitePragmaMixin,
     # Protocols for type checking
-    CTESupport, FilterClauseSupport, WindowFunctionSupport, JSONSupport, ReturningSupport,
-    AdvancedGroupingSupport, ArraySupport, ExplainSupport, GraphSupport, LockingSupport,
-    MergeSupport, OrderedSetAggregationSupport, QualifyClauseSupport, TemporalTableSupport,
-    UpsertSupport, LateralJoinSupport, WildcardSupport, JoinSupport, SetOperationSupport, ViewSupport,
+    CTESupport,
+    FilterClauseSupport,
+    WindowFunctionSupport,
+    JSONSupport,
+    ReturningSupport,
+    AdvancedGroupingSupport,
+    ArraySupport,
+    ExplainSupport,
+    GraphSupport,
+    LockingSupport,
+    MergeSupport,
+    OrderedSetAggregationSupport,
+    QualifyClauseSupport,
+    TemporalTableSupport,
+    UpsertSupport,
+    LateralJoinSupport,
+    WildcardSupport,
+    JoinSupport,
+    SetOperationSupport,
+    ViewSupport,
     # DDL Protocols
-    TableSupport, TruncateSupport, SchemaSupport, IndexSupport, SequenceSupport,
-    TriggerSupport, GeneratedColumnSupport,
+    TableSupport,
+    TruncateSupport,
+    SchemaSupport,
+    IndexSupport,
+    SequenceSupport,
+    TriggerSupport,
+    GeneratedColumnSupport,
     # SQLite-specific protocols
-    SQLiteExtensionSupport, SQLitePragmaSupport,
+    SQLiteExtensionSupport,
+    SQLitePragmaSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -158,7 +246,7 @@ class SQLiteDialect(
         if self.version >= (3, 38, 0):
             return True
         # For older versions, use runtime detection result
-        return self.get_runtime_param('json1_available', False)
+        return self.get_runtime_param("json1_available", False)
 
     def get_json_access_operator(self) -> str:
         """SQLite uses '->' for JSON access."""
@@ -167,6 +255,7 @@ class SQLiteDialect(
     def supports_json_table(self) -> bool:
         """SQLite does not directly support JSON_TABLE as a table function."""
         return False
+
     # endregion
 
     # region Custom Implementations for SQLite-specific behavior
@@ -423,9 +512,7 @@ class SQLiteDialect(
         return False
 
     def format_grouping_expression(
-        self,
-        operation: str,
-        _expressions: List["bases.BaseExpression"]
+        self, operation: str, _expressions: List["bases.BaseExpression"]
     ) -> Tuple[str, tuple]:
         """Format grouping expression (ROLLUP, CUBE, GROUPING SETS)."""
         # Check feature support based on operation type
@@ -441,30 +528,16 @@ class SQLiteDialect(
 
         # Since SQLite doesn't support these operations, raise an error
         raise UnsupportedFeatureError(
-            self.name,
-            f"{operation} grouping operation",
-            f"{operation} is not supported by SQLite."
+            self.name, f"{operation} grouping operation", f"{operation} is not supported by SQLite."
         )
 
-    def format_array_expression(
-        self,
-        _expr: "ArrayExpression"
-    ) -> Tuple[str, Tuple]:
+    def format_array_expression(self, _expr: "ArrayExpression") -> Tuple[str, Tuple]:
         """Format array expression."""
         # SQLite does not support native array types
-        raise UnsupportedFeatureError(
-            self.name,
-            "Array operations",
-            _SUGGESTION_ARRAY_TYPES
-        )
+        raise UnsupportedFeatureError(self.name, "Array operations", _SUGGESTION_ARRAY_TYPES)
 
     def format_json_table_expression(
-        self,
-        _json_col_sql: str,
-        _path: str,
-        _columns: List[Dict[str, Any]],
-        _alias: Optional[str],
-        _params: tuple
+        self, _json_col_sql: str, _path: str, _columns: List[Dict[str, Any]], _alias: Optional[str], _params: tuple
     ) -> Tuple[str, Tuple]:
         """
         Format JSON_TABLE expression.
@@ -480,16 +553,9 @@ class SQLiteDialect(
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         # SQLite does not support JSON_TABLE function directly
-        raise UnsupportedFeatureError(
-            self.name,
-            "JSON_TABLE function",
-            _SUGGESTION_JSON_TABLE
-        )
+        raise UnsupportedFeatureError(self.name, "JSON_TABLE function", _SUGGESTION_JSON_TABLE)
 
-    def format_match_clause(
-        self,
-        _clause: "MatchClause"
-    ) -> Tuple[str, tuple]:
+    def format_match_clause(self, _clause: "MatchClause") -> Tuple[str, tuple]:
         """
         Format MATCH clause with expression.
 
@@ -500,16 +566,9 @@ class SQLiteDialect(
             Tuple of (SQL string, parameters tuple) for the formatted clause.
         """
         # SQLite does not support graph MATCH clause
-        raise UnsupportedFeatureError(
-            self.name,
-            "graph MATCH clause",
-            _SUGGESTION_GRAPH_MATCH
-        )
+        raise UnsupportedFeatureError(self.name, "graph MATCH clause", _SUGGESTION_GRAPH_MATCH)
 
-    def format_ordered_set_aggregation(
-        self,
-        _aggregation: "OrderedSetAggregation"
-    ) -> Tuple[str, Tuple]:
+    def format_ordered_set_aggregation(self, _aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """
         Format ordered-set aggregation function call.
 
@@ -520,35 +579,19 @@ class SQLiteDialect(
             Tuple of (SQL string, parameters tuple) for the formatted expression.
         """
         # SQLite does not support ordered-set aggregate functions
-        raise UnsupportedFeatureError(
-            self.name,
-            "ordered-set aggregate functions",
-            _SUGGESTION_ORDERED_SET_AGG
-        )
+        raise UnsupportedFeatureError(self.name, "ordered-set aggregate functions", _SUGGESTION_ORDERED_SET_AGG)
 
-    def format_qualify_clause(
-        self,
-        _clause: "QualifyClause"
-    ) -> Tuple[str, tuple]:
+    def format_qualify_clause(self, _clause: "QualifyClause") -> Tuple[str, tuple]:
         """Format QUALIFY clause."""
         # SQLite does not support QUALIFY clause
-        raise UnsupportedFeatureError(
-            self.name,
-            "QUALIFY clause",
-            _SUGGESTION_QUALIFY
-        )
+        raise UnsupportedFeatureError(self.name, "QUALIFY clause", _SUGGESTION_QUALIFY)
 
-    def format_returning_clause(
-        self,
-        clause: "ReturningClause"
-    ) -> Tuple[str, tuple]:
+    def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, tuple]:
         """Format RETURNING clause."""
         # Check if the dialect supports returning clause
         if not self.supports_returning_clause():
             raise UnsupportedFeatureError(
-                self.name,
-                "RETURNING clause",
-                "Use a separate SELECT statement to retrieve the affected data."
+                self.name, "RETURNING clause", "Use a separate SELECT statement to retrieve the affected data."
             )
 
         all_params = []
@@ -566,15 +609,12 @@ class SQLiteDialect(
 
         return returning_sql, tuple(all_params)
 
-    def format_wildcard(
-        self,
-        table: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
         """Format wildcard expression (* or table.*)."""
         if table:
-            wildcard_sql = f'{self.format_identifier(table)}.*'
+            wildcard_sql = f"{self.format_identifier(table)}.*"
         else:
-            wildcard_sql = '*'
+            wildcard_sql = "*"
 
         return wildcard_sql, ()
 
@@ -587,7 +627,7 @@ class SQLiteDialect(
         all_: bool,
         order_by_clause: Optional["OrderByClause"] = None,
         limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None
+        for_update_clause: Optional["ForUpdateClause"] = None,
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT)."""
         left_sql, left_params = left.to_sql()
@@ -625,14 +665,11 @@ class SQLiteDialect(
                 all_params.extend(for_update_params)
             else:
                 # If FOR UPDATE is requested but not supported, raise an error
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "FOR UPDATE in set operations",
-                    _SUGGESTION_FOR_UPDATE_SET_OP
-                )
+                raise UnsupportedFeatureError(self.name, "FOR UPDATE in set operations", _SUGGESTION_FOR_UPDATE_SET_OP)
 
         sql = " ".join(sql_parts)
         return sql, tuple(all_params)
+
     # endregion
 
     # region View Support (SQLite supports basic views but not materialized views)
@@ -680,21 +717,18 @@ class SQLiteDialect(
         """SQLite does not support CASCADE for DROP VIEW."""
         return False
 
-    def format_create_view_statement(
-        self,
-        expr: "CreateViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_view_statement(self, expr: "CreateViewExpression") -> Tuple[str, tuple]:
         """
         Format CREATE VIEW statement for SQLite.
-        
+
         Note: SQLite does not allow parameters (placeholders like ?) in VIEW definitions.
         Any condition values must be inlined directly in the SQL string. Use RawSQLPredicate
         for conditions that need literal values instead of parameterized comparisons.
-        
+
         Example:
             # Wrong - will fail with "parameters are not allowed in views"
             where=WhereClause(dialect, condition=Column(dialect, "status") == Literal(dialect, "active"))
-            
+
             # Correct - use RawSQLPredicate to inline the value
             from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
             where=WhereClause(dialect, condition=RawSQLPredicate(dialect, '"status" = \'active\''))
@@ -709,7 +743,7 @@ class SQLiteDialect(
         parts.append(self.format_identifier(expr.view_name))
 
         if expr.column_aliases:
-            cols = ', '.join(self.format_identifier(c) for c in expr.column_aliases)
+            cols = ", ".join(self.format_identifier(c) for c in expr.column_aliases)
             parts.append(f"({cols})")
 
         query_sql, query_params = expr.query.to_sql()
@@ -718,59 +752,39 @@ class SQLiteDialect(
         # Warn if there are parameters - SQLite doesn't support them in views
         if query_params:
             import warnings
+
             warnings.warn(
                 "SQLite does not allow parameters in VIEW definitions. "
                 "The query contains parameters which will cause a runtime error. "
                 "Use RawSQLPredicate to inline literal values instead.",
                 UserWarning,
-                stacklevel=3
+                stacklevel=3,
             )
 
-        return ' '.join(parts), query_params
+        return " ".join(parts), query_params
 
-    def format_drop_view_statement(
-        self,
-        expr: "DropViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_view_statement(self, expr: "DropViewExpression") -> Tuple[str, tuple]:
         """Format DROP VIEW statement for SQLite."""
         parts = ["DROP VIEW"]
         if expr.if_exists:
             parts.append("IF EXISTS")
         parts.append(self.format_identifier(expr.view_name))
-        return ' '.join(parts), ()
+        return " ".join(parts), ()
 
-    def format_create_materialized_view_statement(
-        self,
-        _expr: "CreateMaterializedViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_create_materialized_view_statement(self, _expr: "CreateMaterializedViewExpression") -> Tuple[str, tuple]:
         """Format CREATE MATERIALIZED VIEW statement - not supported by SQLite."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "CREATE MATERIALIZED VIEW",
-            _SUGGESTION_MATERIALIZED_VIEW_ALT
-        )
+        raise UnsupportedFeatureError(self.name, "CREATE MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW_ALT)
 
-    def format_drop_materialized_view_statement(
-        self,
-        _expr: "DropMaterializedViewExpression"
-    ) -> Tuple[str, tuple]:
+    def format_drop_materialized_view_statement(self, _expr: "DropMaterializedViewExpression") -> Tuple[str, tuple]:
         """Format DROP MATERIALIZED VIEW statement - not supported by SQLite."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "DROP MATERIALIZED VIEW",
-            _SUGGESTION_MATERIALIZED_VIEW
-        )
+        raise UnsupportedFeatureError(self.name, "DROP MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW)
 
     def format_refresh_materialized_view_statement(
-        self,
-        _expr: "RefreshMaterializedViewExpression"
+        self, _expr: "RefreshMaterializedViewExpression"
     ) -> Tuple[str, tuple]:
         """Format REFRESH MATERIALIZED VIEW statement - not supported by SQLite."""
-        raise UnsupportedFeatureError(
-            self.name,
-            "REFRESH MATERIALIZED VIEW",
-            _SUGGESTION_MATERIALIZED_VIEW
-        )
+        raise UnsupportedFeatureError(self.name, "REFRESH MATERIALIZED VIEW", _SUGGESTION_MATERIALIZED_VIEW)
+
     # endregion
 
     # region Trigger Support (SQLite supports triggers)
@@ -806,10 +820,7 @@ class SQLiteDialect(
         """SQLite supports CREATE TRIGGER IF NOT EXISTS."""
         return True
 
-    def format_create_trigger_statement(
-        self,
-        expr
-    ):
+    def format_create_trigger_statement(self, expr):
         """Format CREATE TRIGGER statement for SQLite.
 
         SQLite trigger syntax:
@@ -855,10 +866,7 @@ class SQLiteDialect(
 
         return " ".join(parts), tuple(all_params)
 
-    def format_drop_trigger_statement(
-        self,
-        expr
-    ):
+    def format_drop_trigger_statement(self, expr):
         """Format DROP TRIGGER statement for SQLite."""
         parts = ["DROP TRIGGER"]
 
@@ -919,9 +927,7 @@ class SQLiteDialect(
 
         if not self.supports_generated_columns():
             raise UnsupportedFeatureError(
-                self.name,
-                "Generated columns",
-                "Generated columns require SQLite 3.31.0 or later."
+                self.name, "Generated columns", "Generated columns require SQLite 3.31.0 or later."
             )
         gen_sql, gen_params = col_def.generated_expression.to_sql()
         gen_type = " STORED" if col_def.generated_type == GeneratedColumnType.STORED else " VIRTUAL"
@@ -968,4 +974,6 @@ class SQLiteDialect(
         return col_sql, tuple(all_params)
 
     # endregion
+
+
 # endregion

@@ -6,6 +6,7 @@ This mixin provides the core execute methods for both synchronous and asynchrono
 database operations. It handles the complete execution pipeline including parameter
 preparation, SQL preparation, query execution, and result processing.
 """
+
 import logging
 import time
 from typing import Optional, Tuple, List, Union, Dict
@@ -33,6 +34,7 @@ class ExecutionMixin:
     where all parameter adaptation happens in this single location to ensure consistent
     behavior across all database operations.
     """
+
     def execute(self, sql: str, params: Optional[Tuple] = None, *, options: ExecutionOptions) -> QueryResult:
         """
         Execute a SQL statement synchronously with comprehensive parameter and result processing.
@@ -66,14 +68,15 @@ class ExecutionMixin:
         start_time = time.perf_counter()
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
-            if not self._connection: self.connect()
+            if not self._connection:
+                self.connect()
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
             # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
             if options.process_result_set is not None:
                 is_select = options.process_result_set
             else:
-                is_select = (options.stmt_type == StatementType.DQL)
+                is_select = options.stmt_type == StatementType.DQL
             cursor = self._get_cursor()
 
             # Prepare parameters for database compatibility
@@ -110,6 +113,7 @@ class ExecutionMixin:
         except Exception as e:
             self.log(logging.ERROR, f"Error executing query: {str(e)}")
             return self._handle_execution_error(e)
+
     def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
         """
         Execute a SQL statement multiple times with different parameter sets (batch operation).
@@ -136,7 +140,8 @@ class ExecutionMixin:
         self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
         start_time = time.perf_counter()
         try:
-            if not self._connection: self.connect()
+            if not self._connection:
+                self.connect()
             cursor = self._get_cursor()
             final_sql, _ = self._prepare_sql_and_params(sql, None)
             cursor.executemany(final_sql, params_list)
@@ -146,6 +151,7 @@ class ExecutionMixin:
         except Exception as e:
             self.log(logging.ERROR, f"Error in batch operation: {str(e)}")
             return self._handle_execution_error(e)
+
 
 class AsyncExecutionMixin:
     """
@@ -165,6 +171,7 @@ class AsyncExecutionMixin:
     Like its synchronous counterpart, this method centralizes parameter type conversion
     in a single location to ensure consistent behavior across all async database operations.
     """
+
     async def execute(self, sql: str, params: Optional[Tuple] = None, *, options: ExecutionOptions) -> QueryResult:
         """
         Execute a SQL statement asynchronously with comprehensive parameter and result processing.
@@ -198,14 +205,15 @@ class AsyncExecutionMixin:
         start_time = time.perf_counter()
         self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
         try:
-            if not self._connection: await self.connect()
+            if not self._connection:
+                await self.connect()
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
             # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
             if options.process_result_set is not None:
                 is_select = options.process_result_set
             else:
-                is_select = (options.stmt_type == StatementType.DQL)
+                is_select = options.stmt_type == StatementType.DQL
             cursor = await self._get_cursor()
 
             # Prepare parameters for database compatibility
@@ -242,6 +250,7 @@ class AsyncExecutionMixin:
         except Exception as e:
             self.log(logging.ERROR, f"Error executing query: {str(e)}")
             return await self._handle_execution_error(e)
+
     async def execute_many(self, sql: str, params_list: List[Union[Tuple, Dict]]) -> Optional[QueryResult]:
         """
         Execute a SQL statement multiple times with different parameter sets asynchronously (batch operation).
@@ -266,7 +275,8 @@ class AsyncExecutionMixin:
         self.log(logging.DEBUG, f"Executing many SQL: {sql}")
         start_time = time.perf_counter()
         try:
-            if not self._connection: await self.connect()
+            if not self._connection:
+                await self.connect()
             cursor = await self._get_cursor()
             await cursor.executemany(sql, params_list)
             await self._handle_auto_commit_if_needed()

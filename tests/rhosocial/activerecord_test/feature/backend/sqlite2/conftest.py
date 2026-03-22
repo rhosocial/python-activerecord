@@ -7,11 +7,21 @@ to verify version-specific feature support.
 """
 import pytest
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
 
 def _id_from_version(version):
     """Generate test ID from version tuple."""
     return f"sqlite_{'_'.join(map(str, version))}"
+
+
+@pytest.fixture
+def sqlite_backend():
+    """Provides a SQLiteBackend instance connected to an in-memory database."""
+    backend = SQLiteBackend(database=":memory:")
+    backend.connect()
+    yield backend
+    backend.disconnect()
 
 
 @pytest.fixture(params=[

@@ -5,7 +5,8 @@ SQL dialect abstract base classes and common implementations.
 This module defines the core dialect interfaces and provides default
 implementations for standard SQL features.
 """
-from typing import Any, List, Optional, Tuple, Union, TYPE_CHECKING
+
+from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
 from .exceptions import ProtocolNotImplementedError, UnsupportedFeatureError
 from ..expression import bases, ForUpdateClause
@@ -15,18 +16,31 @@ from ..expression.statements import QueryExpression, ColumnDefinition
 if TYPE_CHECKING:
     from ..expression.statements import (
         # DML Statements
-        QueryExpression, InsertExpression, UpdateExpression, DeleteExpression,
-        CreateTableExpression, DropTableExpression,
-        AlterTableExpression, CreateViewExpression, DropViewExpression,
+        QueryExpression,
+        InsertExpression,
+        UpdateExpression,
+        DeleteExpression,
+        CreateTableExpression,
+        DropTableExpression,
+        AlterTableExpression,
+        CreateViewExpression,
+        DropViewExpression,
+        TruncateExpression,
         # Alter Table Actions
-        AddColumn, DropColumn, AlterColumn, AddIndex, DropIndex, AddTableConstraint, DropTableConstraint,
-        RenameColumn, RenameTable,
-        # Constraints
-        TableConstraintType
+        AddColumn,
+        DropColumn,
+        AlterColumn,
+        AddIndex,
+        DropIndex,
+        AddTableConstraint,
+        DropTableConstraint,
+        RenameColumn,
+        RenameTable,
+        # Constraint types
+        ColumnConstraint,
+        TableConstraint,
     )
-    from ..expression.query_parts import (
-        WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause
-    )
+    from ..expression.query_parts import WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause
 
 
 class SQLDialectBase:
@@ -72,16 +86,12 @@ class SQLDialectBase:
             Placeholder string
         """
         return "?"
+
     # endregion Core & General
 
     # region Full Statement Formatting
     # region DML Statements
-    def require_protocol(
-        self,
-        protocol_type: type,
-        _feature_name: str,
-        required_by: str
-    ) -> None:
+    def require_protocol(self, protocol_type: type, _feature_name: str, required_by: str) -> None:
         """
         Check if dialect implements a required protocol.
 
@@ -95,17 +105,10 @@ class SQLDialectBase:
         """
         if not isinstance(self, protocol_type):
             raise ProtocolNotImplementedError(
-                dialect_name=self.name,
-                protocol_name=protocol_type.__name__,
-                required_by=required_by
+                dialect_name=self.name, protocol_name=protocol_type.__name__, required_by=required_by
             )
 
-    def check_feature_support(
-        self,
-        check_method: str,
-        feature_name: str,
-        suggestion: Optional[str] = None
-    ) -> None:
+    def check_feature_support(self, check_method: str, feature_name: str, suggestion: Optional[str] = None) -> None:
         """
         Check if dialect supports a specific feature.
 
@@ -122,11 +125,8 @@ class SQLDialectBase:
             is_supported = getattr(self, check_method)()
 
         if not is_supported:
-            raise UnsupportedFeatureError(
-                dialect_name=self.name,
-                feature_name=feature_name,
-                suggestion=suggestion
-            )
+            raise UnsupportedFeatureError(dialect_name=self.name, feature_name=feature_name, suggestion=suggestion)
+
     # endregion Utilities
 
     # region Full Statement Formatting
@@ -144,15 +144,10 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_column(
-        self,
-        name: str,
-        table: Optional[str] = None,
-        alias: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+    def format_column(self, name: str, table: Optional[str] = None, alias: Optional[str] = None) -> Tuple[str, Tuple]:
         """Format column reference."""
         if table:
-            col_sql = f'{self.format_identifier(table)}.{self.format_identifier(name)}'
+            col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
         else:
             col_sql = self.format_identifier(name)
 
@@ -160,15 +155,12 @@ class SQLDialectBase:
             return f"{col_sql} AS {self.format_identifier(alias)}", ()
         return col_sql, ()
 
-    def format_wildcard(
-        self,
-        table: Optional[str] = None
-    ) -> Tuple[str, Tuple]:
+    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
         """Format wildcard expression (* or table.*)."""
         if table:
-            wildcard_sql = f'{self.format_identifier(table)}.*'
+            wildcard_sql = f"{self.format_identifier(table)}.*"
         else:
-            wildcard_sql = '*'
+            wildcard_sql = "*"
 
         return wildcard_sql, ()
 
@@ -185,23 +177,20 @@ class SQLDialectBase:
         return False  # Default to minimal form: JOIN instead of INNER JOIN
 
     def format_table(
-        self,
-        table_name: str,
-        alias: Optional[str] = None,
-        schema_name: Optional[str] = None
+        self, table_name: str, alias: Optional[str] = None, schema_name: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format table reference with optional schema and alias.
-        
+
         Supports SQL standard schema-qualified table names (schema_name.table_name).
-        
+
         Args:
             table_name: The table or view name
             alias: Optional table alias
             schema_name: Optional schema/database name qualifier (SQL standard)
-        
+
         Returns:
             Tuple of (SQL string, parameters tuple)
-        
+
         Examples:
             format_table("users") -> "users"
             format_table("users", alias="u") -> "users AS u"
@@ -213,15 +202,13 @@ class SQLDialectBase:
             table_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table_name)}"
         else:
             table_sql = self.format_identifier(table_name)
-        
+
         if alias:
             return f"{table_sql} AS {self.format_identifier(alias)}", ()
         return table_sql, ()
 
     def format_function_call(
-        self,
-        expr: "bases.BaseExpression",
-        filter_predicate: Optional["bases.SQLPredicate"] = None
+        self, expr: "bases.BaseExpression", filter_predicate: Optional["bases.SQLPredicate"] = None
     ) -> Tuple[str, Tuple]:
         """Format function call.
 
@@ -237,10 +224,15 @@ class SQLDialectBase:
         from .mixins import FilterClauseMixin
 
         # Handle arguments - special case for COUNT(*) to preserve the asterisk
-        if isinstance(expr, aggregates.AggregateFunctionCall) and \
-           expr.func_name.upper() == "COUNT" and len(expr.args) == 1 and \
-           ((isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*") or
-            isinstance(expr.args[0], core.WildcardExpression)):
+        if (
+            isinstance(expr, aggregates.AggregateFunctionCall)
+            and expr.func_name.upper() == "COUNT"
+            and len(expr.args) == 1
+            and (
+                (isinstance(expr.args[0], operators.RawSQLExpression) and expr.args[0].expression == "*")
+                or isinstance(expr.args[0], core.WildcardExpression)
+            )
+        ):
             args_sql = ["*"]
             args_params = []
         else:
@@ -273,19 +265,21 @@ class SQLDialectBase:
                     raise UnsupportedFeatureError(
                         self.name,
                         "FILTER clause in aggregate functions",
-                        "Use a CASE expression inside the aggregate function instead."
+                        "Use a CASE expression inside the aggregate function instead.",
                     )
             else:
                 raise UnsupportedFeatureError(
                     self.name,
                     "FILTER clause in aggregate functions",
-                    "Use a CASE expression inside the aggregate function instead."
+                    "Use a CASE expression inside the aggregate function instead.",
                 )
 
         # Apply type casts if any (before alias)
         if expr.cast_types:
             for target_type in expr.cast_types:
-                func_call_sql, all_params_tuple = self.format_cast_expression(func_call_sql, target_type, tuple(all_params), None)
+                func_call_sql, all_params_tuple = self.format_cast_expression(
+                    func_call_sql, target_type, tuple(all_params), None
+                )
                 all_params = list(all_params_tuple)
 
         # Apply alias if any (after type casts)
@@ -295,10 +289,7 @@ class SQLDialectBase:
         return func_call_sql, tuple(all_params)
 
     def format_comparison_predicate(
-        self,
-        op: str,
-        left: "bases.BaseExpression",
-        right: "bases.BaseExpression"
+        self, op: str, left: "bases.BaseExpression", right: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         left_sql, left_params = left.to_sql()
         right_sql, right_params = right.to_sql()
@@ -308,30 +299,22 @@ class SQLDialectBase:
         sql = f"{left_sql} {op} {right_sql}"
         return sql, left_params + right_params
 
-    def format_logical_predicate(
-        self,
-        op: str,
-        *predicates: "bases.SQLPredicate"
-    ) -> Tuple[str, Tuple]:
+    def format_logical_predicate(self, op: str, *predicates: "bases.SQLPredicate") -> Tuple[str, Tuple]:
         """Format logical predicate (AND, OR, NOT)."""
         if op.upper() == "NOT" and len(predicates) == 1:
             sql, params = predicates[0].to_sql()
-            return f"NOT ({sql})", params # KEEP () here for NOT
+            return f"NOT ({sql})", params  # KEEP () here for NOT
         else:
             parts = []
             all_params: List[Any] = []
             for predicate in predicates:
                 sql, params = predicate.to_sql()
-                parts.append(sql) # Removed () around sql
+                parts.append(sql)  # Removed () around sql
                 all_params.extend(params)
             sql = f" {op} ".join(parts)
-            return sql, tuple(all_params) # Removed outer () here
+            return sql, tuple(all_params)  # Removed outer () here
 
-    def format_in_predicate(
-        self,
-        expr: "bases.BaseExpression",
-        values: "bases.BaseExpression"
-    ) -> Tuple[str, Tuple]:
+    def format_in_predicate(self, expr: "bases.BaseExpression", values: "bases.BaseExpression") -> Tuple[str, Tuple]:
         """Format IN predicate."""
         expr_sql, expr_params = expr.to_sql()
         values_sql, values_params = values.to_sql()
@@ -339,9 +322,7 @@ class SQLDialectBase:
         return sql, expr_params + values_params
 
     def format_in_predicate_with_literal_values(
-        self,
-        expr: "bases.BaseExpression",
-        literal_values: tuple
+        self, expr: "bases.BaseExpression", literal_values: tuple
     ) -> Tuple[str, Tuple]:
         """Format IN predicate with literal values."""
         expr_sql, expr_params = expr.to_sql()
@@ -356,10 +337,7 @@ class SQLDialectBase:
         return sql, expr_params + values_params
 
     def format_between_predicate(
-        self,
-        expr: "bases.BaseExpression",
-        low: "bases.BaseExpression",
-        high: "bases.BaseExpression"
+        self, expr: "bases.BaseExpression", low: "bases.BaseExpression", high: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format BETWEEN predicate."""
         expr_sql, expr_params = expr.to_sql()
@@ -368,60 +346,71 @@ class SQLDialectBase:
         sql = f"{expr_sql} BETWEEN {low_sql} AND {high_sql}"
         return sql, expr_params + low_params + high_params
 
-    def format_is_null_predicate(
-        self,
-        expr: "bases.BaseExpression",
-        is_not: bool
-    ) -> Tuple[str, Tuple]:
+    def format_is_null_predicate(self, expr: "bases.BaseExpression", is_not: bool) -> Tuple[str, Tuple]:
         """Format IS NULL predicate."""
         expr_sql, expr_params = expr.to_sql()
         not_str = " NOT" if is_not else ""
         sql = f"{expr_sql} IS{not_str} NULL"
         return sql, expr_params
 
-    def format_exists_expression(
-        self,
-        subquery: "bases.BaseExpression",
-        is_not: bool
-    ) -> Tuple[str, Tuple]:
+    def format_is_boolean_predicate(self, expr: "bases.BaseExpression", value: bool, is_not: bool) -> Tuple[str, Tuple]:
+        """Format IS TRUE/FALSE predicate.
+
+        Generates SQL for IS TRUE, IS NOT TRUE, IS FALSE, or IS NOT FALSE predicates.
+        These predicates properly handle three-valued logic (TRUE, FALSE, NULL).
+
+        Args:
+            expr: The expression to test
+            value: True for IS TRUE/FALSE, False for IS FALSE/TRUE
+            is_not: True for IS NOT TRUE/FALSE, False for IS TRUE/FALSE
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+
+        Example:
+            >>> # IS TRUE
+            >>> dialect.format_is_boolean_predicate(col, True, False)
+            ('"is_active" IS TRUE', ())
+            >>> # IS NOT TRUE
+            >>> dialect.format_is_boolean_predicate(col, True, True)
+            ('"is_active" IS NOT TRUE', ())
+        """
+        expr_sql, expr_params = expr.to_sql()
+        not_str = " NOT" if is_not else ""
+        bool_str = "TRUE" if value else "FALSE"
+        sql = f"{expr_sql} IS{not_str} {bool_str}"
+        return sql, expr_params
+
+    def format_exists_expression(self, subquery: "bases.BaseExpression", is_not: bool) -> Tuple[str, Tuple]:
         """Format EXISTS predicate."""
         subquery_sql, subquery_params = subquery.to_sql()
         exists_clause = "NOT EXISTS" if is_not else "EXISTS"
         sql = f"{exists_clause} {subquery_sql}"
         return sql, subquery_params
 
-    def format_add_column_action(
-        self,
-        action: "AddColumn"
-    ) -> Tuple[str, tuple]:
+    def format_add_column_action(self, action: "AddColumn") -> Tuple[str, tuple]:
         """Format ADD COLUMN action."""
         column_sql, column_params = self.format_column_definition(action.column)
         return f"ADD COLUMN {column_sql}", column_params
 
-    def format_drop_column_action(
-        self,
-        action: "DropColumn"
-    ) -> Tuple[str, tuple]:
+    def format_drop_column_action(self, action: "DropColumn") -> Tuple[str, tuple]:
         """Format DROP COLUMN action."""
-        if hasattr(action, 'if_exists') and action.if_exists:
+        if hasattr(action, "if_exists") and action.if_exists:
             return f"DROP COLUMN IF EXISTS {self.format_identifier(action.column_name)}", ()
         return f"DROP COLUMN {self.format_identifier(action.column_name)}", ()
 
-    def format_alter_column_action(
-        self,
-        action: "AlterColumn"
-    ) -> Tuple[str, tuple]:
+    def format_alter_column_action(self, action: "AlterColumn") -> Tuple[str, tuple]:
         """Format ALTER COLUMN action."""
         all_params = []
         # Handle operation that might be an enum by getting its string value
         operation_str = str(action.operation)
-        if hasattr(action.operation, 'value'):
+        if hasattr(action.operation, "value"):
             operation_str = action.operation.value
-        elif hasattr(action.operation, '__str__'):
+        elif hasattr(action.operation, "__str__"):
             operation_str = str(action.operation)
 
         column_part = f"ALTER COLUMN {self.format_identifier(action.column_name)} {operation_str}"
-        if hasattr(action, 'new_value') and action.new_value is not None:
+        if hasattr(action, "new_value") and action.new_value is not None:
             # Handle different types of new_value based on operation
             if operation_str == "SET DATA TYPE":
                 # For SET DATA TYPE, new_value is a type specification, not a parameter
@@ -440,14 +429,11 @@ class SQLDialectBase:
                 column_part += f" {self.get_parameter_placeholder()}"
                 all_params.append(action.new_value)
         # Add cascade if specified
-        if hasattr(action, 'cascade') and action.cascade:
+        if hasattr(action, "cascade") and action.cascade:
             column_part += " CASCADE"
         return column_part, tuple(all_params)
 
-    def format_add_table_constraint_action(
-        self,
-        action: "AddTableConstraint"
-    ) -> Tuple[str, tuple]:
+    def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, tuple]:
         """Format ADD CONSTRAINT action per SQL standard."""
         from ..expression.statements import TableConstraintType
 
@@ -477,7 +463,11 @@ class SQLDialectBase:
             if action.constraint.columns and action.constraint.foreign_key_table:
                 cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.columns)
                 ref_table = self.format_identifier(action.constraint.foreign_key_table)
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns) if action.constraint.foreign_key_columns else ""
+                ref_cols_str = (
+                    ", ".join(self.format_identifier(col) for col in action.constraint.foreign_key_columns)
+                    if action.constraint.foreign_key_columns
+                    else ""
+                )
                 if ref_cols_str:
                     parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}({ref_cols_str})")
                 else:
@@ -490,54 +480,42 @@ class SQLDialectBase:
 
         return f"ADD {' '.join(parts)}", tuple(all_params)
 
-
-    def format_add_index_action(
-        self,
-        action: "AddIndex"
-    ) -> Tuple[str, tuple]:
+    def format_add_index_action(self, action: "AddIndex") -> Tuple[str, tuple]:
         """Format ADD INDEX action."""
         return f"ADD INDEX {self.format_identifier(action.index.name)}", ()
 
-    def format_drop_index_action(
-        self,
-        action: "DropIndex"
-    ) -> Tuple[str, tuple]:
+    def format_drop_index_action(self, action: "DropIndex") -> Tuple[str, tuple]:
         """Format DROP INDEX action."""
         cmd = f"DROP INDEX {self.format_identifier(action.index_name)}"
-        if hasattr(action, 'if_exists') and action.if_exists:
+        if hasattr(action, "if_exists") and action.if_exists:
             cmd = f"DROP INDEX IF EXISTS {self.format_identifier(action.index_name)}"
         return cmd, ()
 
-    def format_drop_table_constraint_action(
-        self,
-        action: "DropTableConstraint"
-    ) -> Tuple[str, tuple]:
+    def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
         """Format DROP CONSTRAINT action per SQL standard."""
         result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
-        if hasattr(action, 'cascade') and action.cascade:
+        if hasattr(action, "cascade") and action.cascade:
             result += " CASCADE"
         return result, ()
 
-
     def format_rename_column_action(self, action: "RenameColumn") -> Tuple[str, tuple]:
         """Format RENAME COLUMN action per SQL standard."""
-        return f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}", ()
+        return (
+            f"RENAME COLUMN {self.format_identifier(action.old_name)} TO {self.format_identifier(action.new_name)}",
+            (),
+        )
 
     def format_rename_table_action(self, action: "RenameTable") -> Tuple[str, tuple]:
         """Format RENAME TABLE action per SQL standard."""
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
     def format_any_expression(
-        self,
-        expr: "bases.BaseExpression",
-        op: str,
-        array_expr: "bases.BaseExpression"
+        self, expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format ANY expression."""
         expr_sql, expr_params = expr.to_sql()
         # Check if array_expr is a Literal with list/tuple value by checking for 'value' attribute
-        if (hasattr(array_expr, 'value') and
-            isinstance(array_expr.value, (list, tuple))):
+        if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:
@@ -546,16 +524,12 @@ class SQLDialectBase:
         return sql, tuple(list(expr_params) + list(array_params))
 
     def format_all_expression(
-        self,
-        expr: "bases.BaseExpression",
-        op: str,
-        array_expr: "bases.BaseExpression"
+        self, expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format ALL expression."""
         expr_sql, expr_params = expr.to_sql()
         # Check if array_expr is a Literal with list/tuple value by checking for 'value' attribute
-        if (hasattr(array_expr, 'value') and
-            isinstance(array_expr.value, (list, tuple))):
+        if hasattr(array_expr, "value") and isinstance(array_expr.value, (list, tuple)):
             array_sql = self.get_parameter_placeholder()
             array_params = (tuple(array_expr.value),)
         else:
@@ -564,10 +538,7 @@ class SQLDialectBase:
         return sql, tuple(list(expr_params) + list(array_params))
 
     def format_like_predicate(
-        self,
-        op: str,
-        expr: "bases.BaseExpression",
-        pattern: "bases.BaseExpression"
+        self, op: str, expr: "bases.BaseExpression", pattern: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
         """Format LIKE predicate."""
         expr_sql, expr_params = expr.to_sql()
@@ -576,49 +547,28 @@ class SQLDialectBase:
         return sql, expr_params + pattern_params
 
     def format_binary_operator(
-        self,
-        op: str,
-        left_sql: str,
-        right_sql: str,
-        left_params: tuple,
-        right_params: tuple
+        self, op: str, left_sql: str, right_sql: str, left_params: tuple, right_params: tuple
     ) -> Tuple[str, Tuple]:
         sql = f"{left_sql} {op} {right_sql}"
         return sql, left_params + right_params
 
-    def format_unary_operator(
-        self,
-        op: str,
-        operand_sql: str,
-        pos: str,
-        operand_params: tuple
-    ) -> Tuple[str, Tuple]:
+    def format_unary_operator(self, op: str, operand_sql: str, pos: str, operand_params: tuple) -> Tuple[str, Tuple]:
         """Format unary operator."""
-        if pos == 'before':
+        if pos == "before":
             sql = f"{op} {operand_sql}"
         else:
             sql = f"{operand_sql} {op}"
         return sql, operand_params
 
     def format_binary_arithmetic_expression(
-        self,
-        op: str,
-        left_sql: str,
-        right_sql: str,
-        left_params: tuple,
-        right_params: tuple
+        self, op: str, left_sql: str, right_sql: str, left_params: tuple, right_params: tuple
     ) -> Tuple[str, Tuple]:
         """Format binary arithmetic expression."""
         sql = f"{left_sql} {op} {right_sql}"
         return sql, left_params + right_params
 
-
     def format_cast_expression(
-        self,
-        expr_sql: str,
-        target_type: str,
-        expr_params: tuple,
-        alias: Optional[str] = None
+        self, expr_sql: str, target_type: str, expr_params: tuple, alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format CAST expression."""
         sql = f"CAST({expr_sql} AS {target_type})"
@@ -626,30 +576,17 @@ class SQLDialectBase:
             sql = f"{sql} AS {self.format_identifier(alias)}"
         return sql, expr_params
 
-    def format_subquery(
-        self,
-        subquery_sql: str,
-        subquery_params: tuple,
-        alias: str
-    ) -> Tuple[str, Tuple]:
+    def format_subquery(self, subquery_sql: str, subquery_params: tuple, alias: str) -> Tuple[str, Tuple]:
         """Format subquery."""
         return f"{subquery_sql} AS {self.format_identifier(alias)}", subquery_params
 
-    def format_alias(
-        self,
-        expression_sql: str,
-        alias: str,
-        expression_params: tuple
-    ) -> Tuple[str, Tuple]:
+    def format_alias(self, expression_sql: str, alias: str, expression_params: tuple) -> Tuple[str, Tuple]:
         """Format alias."""
         sql = f"{expression_sql} AS {self.format_identifier(alias)}"
         return sql, expression_params
 
     def format_values_expression(
-        self,
-        values: List[Tuple[Any, ...]],
-        alias: Optional[str],
-        column_names: Optional[List[str]]
+        self, values: List[Tuple[Any, ...]], alias: Optional[str], column_names: Optional[List[str]]
     ) -> Tuple[str, Tuple]:
         """Format VALUES expression as data source."""
         all_params: List[Any] = []
@@ -781,16 +718,16 @@ class SQLDialectBase:
                         part_sql, part_params = source.to_sql()
                         # For ValuesExpression used as FROM source in list, wrap in parentheses
                         # This is required by SQL standard for VALUES in FROM clause
-                        if hasattr(source, '__class__') and source.__class__.__name__ == "ValuesExpression":
+                        if hasattr(source, "__class__") and source.__class__.__name__ == "ValuesExpression":
                             part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
                 from_expr_sql = ", ".join(from_parts)
-            else: # Assume it's a single BaseExpression
+            else:  # Assume it's a single BaseExpression
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 # For ValuesExpression used as FROM source, wrap in parentheses
                 # This is required by SQL standard for VALUES in FROM clause
-                if hasattr(expr.from_, '__class__') and expr.from_.__class__.__name__ == "ValuesExpression":
+                if hasattr(expr.from_, "__class__") and expr.from_.__class__.__name__ == "ValuesExpression":
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
@@ -858,6 +795,7 @@ class SQLDialectBase:
         source_sql = ""
         # Import here to avoid circular imports
         from ..expression.statements import DefaultValuesSource, ValuesSource, SelectSource
+
         if isinstance(expr.source, DefaultValuesSource):
             source_sql = "DEFAULT VALUES"
         elif isinstance(expr.source, ValuesSource):
@@ -900,7 +838,7 @@ class SQLDialectBase:
         # Assignments (SET clause)
         assignment_parts = []
         for col, e in expr.assignments.items():
-            col_sql = self.format_identifier(col) # Column name is still a string
+            col_sql = self.format_identifier(col)  # Column name is still a string
             expr_sql, expr_params = e.to_sql()
             assignment_parts.append(f"{col_sql} = {expr_sql}")
             all_params.extend(expr_params)
@@ -920,11 +858,12 @@ class SQLDialectBase:
                     return self.format_identifier(source), []
                 # Import here to avoid circular imports
                 from ..expression.statements import QueryExpression
+
                 if isinstance(source, QueryExpression):
-                    s_sql, s_params = source.to_sql() # Get bare SQL
+                    s_sql, s_params = source.to_sql()  # Get bare SQL
                     # Convert tuple to list to match return type
-                    return f"({s_sql})", list(s_params) # Add parentheses
-                if isinstance(source, bases.BaseExpression): # Explicitly check for BaseExpression
+                    return f"({s_sql})", list(s_params)  # Add parentheses
+                if isinstance(source, bases.BaseExpression):  # Explicitly check for BaseExpression
                     s_sql, s_params = source.to_sql()
                     # Convert tuple to list to match return type
                     return s_sql, list(s_params)
@@ -935,24 +874,26 @@ class SQLDialectBase:
                     item_sql, item_params = _format_single_from_source(source_item)
                     from_sql_parts.append(item_sql)
                     from_params.extend(item_params)
-                current_sql += f" FROM {', '.join(from_sql_parts)}" # Append directly with leading space
+                current_sql += f" FROM {', '.join(from_sql_parts)}"  # Append directly with leading space
                 all_params.extend(from_params)
             else:
                 from_expr_sql, from_expr_params = _format_single_from_source(expr.from_)
-                current_sql += f" FROM {from_expr_sql}" # Append directly with leading space
+                current_sql += f" FROM {from_expr_sql}"  # Append directly with leading space
                 all_params.extend(from_expr_params)
 
         # WHERE clause
         if expr.where:
             where_sql, where_params = expr.where.to_sql()
             # The WhereClause.to_sql() returns "WHERE condition", so just append it
-            current_sql += f" {where_sql}" # Append directly with leading space
+            current_sql += f" {where_sql}"  # Append directly with leading space
             all_params.extend(where_params)
 
         # RETURNING clause
         if expr.returning:
-            returning_sql, returning_params = self.format_returning_clause(expr.returning) # This returns "RETURNING col1, ..."
-            current_sql += f" {returning_sql}" # Append directly with leading space
+            returning_sql, returning_params = self.format_returning_clause(
+                expr.returning
+            )  # This returns "RETURNING col1, ..."
+            current_sql += f" {returning_sql}"  # Append directly with leading space
             all_params.extend(returning_params)
 
         return current_sql, tuple(all_params)
@@ -996,10 +937,11 @@ class SQLDialectBase:
                     return self.format_identifier(source), []
                 # Import here to avoid circular imports
                 from ..expression.statements import QueryExpression
+
                 if isinstance(source, QueryExpression):
-                    s_sql, s_params = source.to_sql() # Get bare SQL
+                    s_sql, s_params = source.to_sql()  # Get bare SQL
                     # Convert tuple to list to match return type
-                    return f"({s_sql})", list(s_params) # Add parentheses
+                    return f"({s_sql})", list(s_params)  # Add parentheses
                 if isinstance(source, bases.BaseExpression):
                     s_sql, s_params = source.to_sql()
                     # Convert tuple to list to match return type
@@ -1035,6 +977,94 @@ class SQLDialectBase:
 
         return current_sql, tuple(all_params)
 
+    def _format_pk_constraint(self, t_const: "TableConstraint") -> str:
+        """Format PRIMARY KEY constraint."""
+        if not t_const.columns:
+            raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        return f"PRIMARY KEY ({cols_str})"
+
+    def _format_unique_constraint(self, t_const: "TableConstraint") -> str:
+        """Format UNIQUE constraint."""
+        if not t_const.columns:
+            raise ValueError("UNIQUE constraint must have at least one column specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        return f"UNIQUE ({cols_str})"
+
+    def _format_table_check_constraint(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
+        """Format CHECK constraint for table-level constraint."""
+        if t_const.check_condition is None:
+            raise ValueError("CHECK constraint must have a check condition specified.")
+        check_sql, check_params = t_const.check_condition.to_sql()
+        return f"CHECK ({check_sql})", tuple(check_params)
+
+    def _format_fk_table_constraint(self, t_const: "TableConstraint") -> str:
+        """Format FOREIGN KEY table constraint."""
+        if not t_const.columns:
+            raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
+        if not t_const.foreign_key_columns:
+            raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
+        if not t_const.foreign_key_table:
+            raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
+        cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
+        return f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})"
+
+    def _format_table_constraint_sql(
+        self, t_const: "TableConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format a single table constraint.
+
+        Args:
+            t_const: The table constraint to format.
+
+        Returns:
+            Tuple of (constraint SQL string, parameters tuple).
+        """
+        from ..expression.statements import TableConstraintType
+
+        const_parts = []
+        params = []
+
+        if t_const.name:
+            const_parts.append(f"CONSTRAINT {self.format_identifier(t_const.name)}")
+
+        ctype = t_const.constraint_type
+        if ctype == TableConstraintType.PRIMARY_KEY:
+            const_parts.append(self._format_pk_constraint(t_const))
+        elif ctype == TableConstraintType.UNIQUE:
+            const_parts.append(self._format_unique_constraint(t_const))
+        elif ctype == TableConstraintType.CHECK:
+            sql, params = self._format_table_check_constraint(t_const)
+            const_parts.append(sql)
+        elif ctype == TableConstraintType.FOREIGN_KEY:
+            const_parts.append(self._format_fk_table_constraint(t_const))
+
+        return " ".join(const_parts) if const_parts else "", tuple(params)
+
+    def _format_storage_options(self, storage_options: Dict[str, Any]) -> Tuple[str, tuple]:
+        """Format storage options clause.
+
+        Args:
+            storage_options: Dictionary of storage option key-value pairs.
+
+        Returns:
+            Tuple of (storage options SQL string, parameters tuple).
+        """
+        storage_parts = []
+        params = []
+        for key, value in storage_options.items():
+            if isinstance(value, str):
+                storage_parts.append(f"{key.upper()} = '{value}'")
+            elif isinstance(value, (int, float)):
+                storage_parts.append(f"{key.upper()} = {value}")
+            else:
+                storage_parts.append(f"{key.upper()} = ?")
+                params.append(value)
+        if storage_parts:
+            return " WITH (" + ", ".join(storage_parts) + ")", tuple(params)
+        return "", ()
+
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """
         Format CREATE TABLE statement with all supported features.
@@ -1049,9 +1079,6 @@ class SQLDialectBase:
         - Schema-qualified table names
         """
         all_params = []
-
-        # Import here to avoid circular imports
-        from ..expression.statements import ColumnConstraintType, TableConstraintType
 
         # Build the basic statement with flags
         parts = []
@@ -1074,41 +1101,12 @@ class SQLDialectBase:
         # Combine column definitions (without closing parenthesis yet)
         all_def_parts = [", ".join(column_parts)]
 
-        # Add table constraints
+        # Add table constraints using helper method
         for t_const in expr.table_constraints:
-            const_parts = []
-            if t_const.name:
-                const_parts.append(f"CONSTRAINT {self.format_identifier(t_const.name)}")
-
-            if t_const.constraint_type == TableConstraintType.PRIMARY_KEY:
-                if not t_const.columns:
-                    raise ValueError("PRIMARY KEY constraint must have at least one column specified.")
-                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-                const_parts.append(f"PRIMARY KEY ({cols_str})")
-            elif t_const.constraint_type == TableConstraintType.UNIQUE:
-                if not t_const.columns:
-                    raise ValueError("UNIQUE constraint must have at least one column specified.")
-                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-                const_parts.append(f"UNIQUE ({cols_str})")
-            elif t_const.constraint_type == TableConstraintType.CHECK:
-                if t_const.check_condition is None:
-                    raise ValueError("CHECK constraint must have a check condition specified.")
-                check_sql, check_params = t_const.check_condition.to_sql()
-                const_parts.append(f"CHECK ({check_sql})")
-                all_params.extend(check_params)
-            elif t_const.constraint_type == TableConstraintType.FOREIGN_KEY:
-                if not t_const.columns:
-                    raise ValueError("FOREIGN KEY constraint must have at least one local column specified.")
-                if not t_const.foreign_key_columns:
-                    raise ValueError("FOREIGN KEY constraint must have at least one foreign key column specified.")
-                if not t_const.foreign_key_table:
-                    raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
-                cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
-                const_parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})")
-
-            if const_parts:
-                all_def_parts.append(" ".join(const_parts))
+            const_sql, const_params = self._format_table_constraint_sql(t_const)
+            if const_sql:
+                all_def_parts.append(const_sql)
+                all_params.extend(const_params)
 
         # Combine all parts with comma separator and wrap in parentheses
         full_column_def = "(" + ", ".join(all_def_parts) + ")"
@@ -1116,17 +1114,10 @@ class SQLDialectBase:
 
         # Add storage options if present
         if expr.storage_options:
-            storage_parts = []
-            for key, value in expr.storage_options.items():
-                if isinstance(value, str):
-                    storage_parts.append(f"{key.upper()} = '{value}'")
-                elif isinstance(value, (int, float)):
-                    storage_parts.append(f"{key.upper()} = {value}")
-                else:
-                    storage_parts.append(f"{key.upper()} = ?")
-                    all_params.append(value)
-            if storage_parts:
-                parts.append(" WITH (" + ", ".join(storage_parts) + ")")
+            storage_sql, storage_params = self._format_storage_options(expr.storage_options)
+            if storage_sql:
+                parts.append(storage_sql)
+                all_params.extend(storage_params)
 
         # Add tablespace if present
         if expr.tablespace:
@@ -1153,13 +1144,13 @@ class SQLDialectBase:
 
     def format_drop_table_statement(self, expr: "DropTableExpression") -> Tuple[str, tuple]:
         """Format DROP TABLE statement with SQL standard options.
-        
+
         Supports:
         - IF EXISTS clause
         - CASCADE/RESTRICT options (SQL standard)
         - Schema-qualified table names
         - Dialect-specific options
-        
+
         Note: Different databases handle CASCADE/RESTRICT differently:
         - PostgreSQL: Full support
         - MySQL: Keywords accepted but ignored
@@ -1168,21 +1159,21 @@ class SQLDialectBase:
         - SQL Server: Not supported (manual FK handling)
         """
         parts = ["DROP TABLE"]
-        
+
         # IF EXISTS clause
         if expr.if_exists:
             parts.append("IF EXISTS")
-        
+
         # Table name (handle TableExpression with schema)
         table_sql, table_params = expr.table.to_sql()
         parts.append(table_sql)
-        
+
         # CASCADE/RESTRICT clause
         if expr.cascade is True:
             parts.append("CASCADE")
         elif expr.cascade is False:
             parts.append("RESTRICT")
-        
+
         return " ".join(parts), table_params
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
@@ -1212,7 +1203,7 @@ class SQLDialectBase:
         conditions_results: List[Tuple[str, str, tuple, tuple]],
         else_result_sql: Optional[str],
         else_result_params: Optional[tuple],
-        alias: Optional[str] = None
+        alias: Optional[str] = None,
     ) -> Tuple[str, Tuple]:
         """Format CASE expression."""
         all_params = list(value_params) if value_params else []
@@ -1266,6 +1257,7 @@ class SQLDialectBase:
 
         # Handle view-specific options
         from ..expression.statements import ViewCheckOption
+
         if expr.options.check_option == ViewCheckOption.LOCAL:
             sql_parts.append(" WITH LOCAL CHECK OPTION")
         elif expr.options.check_option == ViewCheckOption.CASCADED:
@@ -1325,7 +1317,7 @@ class SQLDialectBase:
         all_: bool,
         order_by_clause: Optional["OrderByClause"] = None,
         limit_offset_clause: Optional["LimitOffsetClause"] = None,
-        for_update_clause: Optional["ForUpdateClause"] = None
+        for_update_clause: Optional["ForUpdateClause"] = None,
     ) -> Tuple[str, Tuple]:
         """Format set operation expression (UNION, INTERSECT, EXCEPT) with optional clauses."""
         left_sql, left_params = left.to_sql()
@@ -1395,6 +1387,67 @@ class SQLDialectBase:
         order_sql = f"ORDER BY {', '.join(expr_parts)}"
         return order_sql, tuple(all_params)
 
+    def _format_column_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format a single column constraint.
+
+        Args:
+            constraint: The column constraint to format.
+
+        Returns:
+            Tuple of (SQL suffix string, parameters tuple).
+        """
+        from ..expression.statements import ColumnConstraintType
+
+        ctype = constraint.constraint_type
+        # Simple constraint types that don't need parameters
+        simple_constraints = {
+            ColumnConstraintType.PRIMARY_KEY: " PRIMARY KEY",
+            ColumnConstraintType.NOT_NULL: " NOT NULL",
+            ColumnConstraintType.NULL: " NULL",
+            ColumnConstraintType.UNIQUE: " UNIQUE",
+        }
+        if ctype in simple_constraints:
+            return simple_constraints[ctype], ()
+        if ctype == ColumnConstraintType.DEFAULT:
+            return self._format_default_constraint(constraint)
+        if ctype == ColumnConstraintType.CHECK:
+            return self._format_column_check_constraint(constraint)
+        if ctype == ColumnConstraintType.FOREIGN_KEY:
+            return self._format_fk_constraint(constraint)
+        return "", ()
+
+    def _format_column_check_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format CHECK constraint for column-level constraint."""
+        if constraint.check_condition is None:
+            return "", ()
+        check_sql, check_params = constraint.check_condition.to_sql()
+        return f" CHECK ({check_sql})", tuple(check_params)
+
+    def _format_default_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format DEFAULT constraint."""
+        if constraint.default_value is None:
+            raise ValueError("DEFAULT constraint must have a default value specified.")
+        if isinstance(constraint.default_value, bases.BaseExpression):
+            default_sql, default_params = constraint.default_value.to_sql()
+            return f" DEFAULT {default_sql}", tuple(default_params)
+        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+
+    def _format_fk_constraint(
+        self, constraint: "ColumnConstraint"
+    ) -> Tuple[str, tuple]:
+        """Format FOREIGN KEY constraint."""
+        if constraint.foreign_key_reference is None:
+            raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
+        referenced_table, referenced_columns = constraint.foreign_key_reference
+        ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
+        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition for use in ADD COLUMN clauses."""
         all_params = []
@@ -1402,38 +1455,11 @@ class SQLDialectBase:
         # Basic column definition: name data_type
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
 
-        # Handle constraints
-        from ..expression.statements import ColumnConstraintType
-
+        # Handle constraints using helper method
         for constraint in col_def.constraints:
-            if constraint.constraint_type == ColumnConstraintType.PRIMARY_KEY:
-                col_sql += " PRIMARY KEY"
-            elif constraint.constraint_type == ColumnConstraintType.NOT_NULL:
-                col_sql += " NOT NULL"
-            elif constraint.constraint_type == ColumnConstraintType.NULL:
-                col_sql += " NULL"  # Explicitly allow NULL (though redundant in most cases)
-            elif constraint.constraint_type == ColumnConstraintType.UNIQUE:
-                col_sql += " UNIQUE"
-            elif constraint.constraint_type == ColumnConstraintType.DEFAULT:
-                if constraint.default_value is None:
-                    raise ValueError("DEFAULT constraint must have a default value specified.")
-                if isinstance(constraint.default_value, bases.BaseExpression):
-                    default_sql, default_params = constraint.default_value.to_sql()
-                    col_sql += f" DEFAULT {default_sql}"
-                    all_params.extend(default_params)
-                else:
-                    col_sql += f" DEFAULT {self.get_parameter_placeholder()}"
-                    all_params.append(constraint.default_value)
-            elif constraint.constraint_type == ColumnConstraintType.CHECK and constraint.check_condition is not None:
-                check_sql, check_params = constraint.check_condition.to_sql()
-                col_sql += f" CHECK ({check_sql})"
-                all_params.extend(check_params)
-            elif constraint.constraint_type == ColumnConstraintType.FOREIGN_KEY:
-                if constraint.foreign_key_reference is None:
-                    raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
-                referenced_table, referenced_columns = constraint.foreign_key_reference
-                ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-                col_sql += f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+            suffix, params = self._format_column_constraint(constraint)
+            col_sql += suffix
+            all_params.extend(params)
 
         # Add comment if present
         if col_def.comment:

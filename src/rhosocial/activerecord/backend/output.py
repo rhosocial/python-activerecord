@@ -35,7 +35,7 @@ class JsonOutputProvider(OutputProvider):
         if not data:
             self.display_no_data()
             return
-        sys.stdout.write(json.dumps(data, indent=2, ensure_ascii=False, default=self._json_serializer) + '\n')
+        sys.stdout.write(json.dumps(data, indent=2, ensure_ascii=False, default=self._json_serializer) + "\n")
 
     def display_no_data(self):
         logger.info("No data returned.")
@@ -136,7 +136,7 @@ class TsvOutputProvider(OutputProvider):
             return
 
         headers = list(data[0].keys())
-        writer = csv.writer(sys.stdout, delimiter='\t')
+        writer = csv.writer(sys.stdout, delimiter="\t")
         writer.writerow(headers)
         for row in data:
             writer.writerow([self._format_value(row.get(header)) for header in headers])

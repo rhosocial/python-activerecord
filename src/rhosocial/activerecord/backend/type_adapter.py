@@ -15,7 +15,8 @@ Defined Type Adapters:
 - EnumAdapter: Converts between Python Enum and SQL types (str, int).
 - BooleanAdapter: Converts between Python bool and SQL types (int, str).
 - DecimalAdapter: Converts between Python Decimal and SQL types (str, float).
-- ArrayAdapter: Converts between Python list and SQL string (JSON representation). Does not register default types; intended for explicit use.
+- ArrayAdapter: Converts between Python list and SQL string (JSON representation).
+  Does not register default types; intended for explicit use.
 """
 
 from abc import ABC, abstractmethod
@@ -46,15 +47,11 @@ class SQLTypeAdapter(Protocol):
     Implementations must be stateless and thread-safe.
     """
 
-    def to_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None
-    ) -> Any:
+    def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         """Converts a Python value to a database-compatible value."""
         ...
 
-    def from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None
-    ) -> Any:
+    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         """Converts a database value to a Python value."""
         ...
 
@@ -82,9 +79,7 @@ class BatchConversionMixin:
         """Batch converts Python values to database values."""
         # This is a naive implementation. A real implementation could optimize
         # by passing options to each call if needed.
-        return [
-            self.to_database(value, target_type, options) for value in values
-        ]
+        return [self.to_database(value, target_type, options) for value in values]
 
     def from_database_batch(
         self,
@@ -93,9 +88,7 @@ class BatchConversionMixin:
         options: Optional[Dict[str, Any]] = None,
     ) -> List[Any]:
         """Batch converts database values to Python values."""
-        return [
-            self.from_database(value, target_type, options) for value in values
-        ]
+        return [self.from_database(value, target_type, options) for value in values]
 
 
 class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
@@ -117,25 +110,20 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
             self._supported_types[py_type] = set()
         self._supported_types[py_type].add(db_type)
 
-    def to_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None
-    ) -> Any:
+    def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         if value is None:
             return None
         return self._do_to_database(value, target_type, options)
 
-    def from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None
-    ) -> Any:
+    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
         if value is None:
             return None
 
         origin = get_origin(target_type)
         # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
         import types
-        is_union_type = origin is Union or (
-            hasattr(types, 'UnionType') and origin is types.UnionType
-        )
+
+        is_union_type = origin is Union or (hasattr(types, "UnionType") and origin is types.UnionType)
         if is_union_type:
             args = get_args(target_type)
             # Filter out NoneType
@@ -146,16 +134,12 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
         return self._do_from_database(value, target_type, options)
 
     @abstractmethod
-    def _do_to_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
+    def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         """Actual conversion logic for non-None values (to database)."""
         pass
 
     @abstractmethod
-    def _do_from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
+    def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         """Actual conversion logic for non-None values (from database)."""
         pass
 
@@ -175,47 +159,47 @@ class DateTimeAdapter(BaseSQLTypeAdapter):
         self._register_type(date, int)
         self._register_type(time, str)
 
-    def _do_to_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
+    def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         if isinstance(value, datetime):
-            if target_type == str:
+            if target_type is str:
                 return value.isoformat()
             elif target_type in (int, float):
                 return value.timestamp()
         elif isinstance(value, date):
-            if target_type == str:
+            if target_type is str:
                 return value.isoformat()
-            elif target_type == int:
+            elif target_type is int:
                 return int(datetime.combine(value, time.min).timestamp())
         elif isinstance(value, time):
-            if target_type == str:
+            if target_type is str:
                 return value.isoformat()
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == datetime:
+    def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is datetime:
             if isinstance(value, datetime):
                 return value
             if isinstance(value, (int, float)):
                 return datetime.fromtimestamp(value)
             elif isinstance(value, str):
                 return datetime.fromisoformat(value)
-        elif target_type == date:
+        elif target_type is date:
             if isinstance(value, date):
                 return value
             if isinstance(value, (int, float)):
                 return date.fromtimestamp(value)
             elif isinstance(value, str):
                 return date.fromisoformat(value)
-        elif target_type == time:
+        elif target_type is time:
             if isinstance(value, time):
                 return value
             if isinstance(value, str):
                 return time.fromisoformat(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
 
 class JSONAdapter(BaseSQLTypeAdapter):
@@ -226,16 +210,14 @@ class JSONAdapter(BaseSQLTypeAdapter):
         self._register_type(dict, str)
         self._register_type(list, str)
 
-    def _do_to_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == str:
+    def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is str:
             return json.dumps(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
+    def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         # Handle case where value is already a dict/list (e.g., from PostgreSQL JSONB)
         if isinstance(value, dict):
             return value
@@ -243,7 +225,9 @@ class JSONAdapter(BaseSQLTypeAdapter):
             return value
         if isinstance(value, str):
             return json.loads(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
 
 class UUIDAdapter(BaseSQLTypeAdapter):
@@ -253,17 +237,15 @@ class UUIDAdapter(BaseSQLTypeAdapter):
         super().__init__()
         self._register_type(UUID, str)
 
-    def _do_to_database(
-        self, value: UUID, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == str:
+    def _do_to_database(self, value: UUID, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is str:
             return str(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == UUID:
+    def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is UUID:
             if isinstance(value, UUID):
                 return value
             # Only allow conversion from str and bytes, which are unambiguous.
@@ -274,7 +256,9 @@ class UUIDAdapter(BaseSQLTypeAdapter):
                     # Catch cases like "not-a-uuid"
                     raise TypeError(f"Cannot convert {type(value).__name__} to UUID: {e}") from e
         # For any other type (like int), fall through and raise the TypeError.
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
 
 class EnumAdapter(BaseSQLTypeAdapter):
@@ -285,24 +269,24 @@ class EnumAdapter(BaseSQLTypeAdapter):
         # This adapter is generic; registration happens in the backend
         # based on the actual Enum type. We can't know the specific Enum class here.
 
-    def _do_to_database(
-        self, value: Enum, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == str:
+    def _do_to_database(self, value: Enum, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is str:
             return value.name
-        if target_type == int:
+        if target_type is int:
             return value.value
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: Any, target_type: Type[Enum], options: Optional[Dict[str, Any]]
-    ) -> Any:
+    def _do_from_database(self, value: Any, target_type: Type[Enum], options: Optional[Dict[str, Any]]) -> Any:
         # The target_type is the actual Enum class
         if isinstance(value, str):
             return target_type[value]
         if isinstance(value, int):
             return target_type(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
 
 class BooleanAdapter(BaseSQLTypeAdapter):
@@ -313,24 +297,24 @@ class BooleanAdapter(BaseSQLTypeAdapter):
         self._register_type(bool, int)
         self._register_type(bool, str)
 
-    def _do_to_database(
-        self, value: bool, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == int:
+    def _do_to_database(self, value: bool, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is int:
             return 1 if value else 0
-        if target_type == str:
+        if target_type is str:
             return str(value).lower()  # 'true' or 'false'
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == bool:
+    def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is bool:
             if isinstance(value, int):
                 return bool(value)
             if isinstance(value, str):
-                return value.lower() == 'true'
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+                return value.lower() == "true"
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
 
 class DecimalAdapter(BaseSQLTypeAdapter):
@@ -354,33 +338,33 @@ class DecimalAdapter(BaseSQLTypeAdapter):
         self._register_type(Decimal, str)
         self._register_type(Decimal, float)
 
-    def _do_to_database(
-        self, value: Decimal, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == str:
+    def _do_to_database(self, value: Decimal, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is str:
             return str(value)
-        if target_type == float:
+        if target_type is float:
             return float(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == Decimal:
+    def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is Decimal:
             if isinstance(value, Decimal):
-                if options and 'precision' in options:
-                    precision = Decimal(options['precision'])
-                    rounding = options.get('rounding', ROUND_HALF_UP)
+                if options and "precision" in options:
+                    precision = Decimal(options["precision"])
+                    rounding = options.get("rounding", ROUND_HALF_UP)
                     return value.quantize(precision, rounding=rounding)
                 return value
             if isinstance(value, (str, float, int)):
                 decimal_value = Decimal(str(value))
-                if options and 'precision' in options:
-                    precision = Decimal(options['precision'])
-                    rounding = options.get('rounding', ROUND_HALF_UP)
+                if options and "precision" in options:
+                    precision = Decimal(options["precision"])
+                    rounding = options.get("rounding", ROUND_HALF_UP)
                     return decimal_value.quantize(precision, rounding=rounding)
                 return decimal_value
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
 
 class ArrayAdapter(BaseSQLTypeAdapter):
@@ -393,20 +377,20 @@ class ArrayAdapter(BaseSQLTypeAdapter):
     def __init__(self):
         super().__init__()
         # Removed default registration to avoid conflict with JSONAdapter
-        # self._register_type(list, str) 
+        # self._register_type(list, str)
 
-    def _do_to_database(
-        self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == str:
-            if isinstance(value, (list, tuple, set)): # Explicitly check for array-like types
-                return json.dumps(list(value)) # Convert sets to list for JSON
+    def _do_to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is str:
+            if isinstance(value, (list, tuple, set)):  # Explicitly check for array-like types
+                return json.dumps(list(value))  # Convert sets to list for JSON
             raise TypeError(f"Cannot convert {type(value).__name__} to JSON array string.")
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )
 
-    def _do_from_database(
-        self, value: str, target_type: Type, options: Optional[Dict[str, Any]]
-    ) -> Any:
-        if target_type == list:
+    def _do_from_database(self, value: str, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
+        if target_type is list:
             return json.loads(value)
-        raise TypeError(f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}")
+        raise TypeError(
+            f"Cannot convert {type(value).__name__} to {getattr(target_type, '__name__', repr(target_type))}"
+        )

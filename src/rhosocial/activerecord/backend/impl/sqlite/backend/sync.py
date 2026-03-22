@@ -6,6 +6,7 @@ This module provides the concrete implementation for interacting with SQLite dat
 handling connections, queries, transactions, and type adaptations tailored for SQLite's
 specific behaviors and SQL dialect.
 """
+
 import logging
 import sqlite3
 import time
@@ -33,7 +34,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
         self,
         connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
         database: Optional[str] = None,
-        **kwargs
+        **kwargs,
     ):
         if connection_config is None and database is not None:
             connection_config = SQLiteConnectionConfig(database=database, **kwargs)
@@ -42,18 +43,18 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
 
         if not isinstance(connection_config, SQLiteConnectionConfig):
             pragmas = {}
-            if hasattr(connection_config, 'pragmas'):
+            if hasattr(connection_config, "pragmas"):
                 pragmas = connection_config.pragmas
             connection_config = SQLiteConnectionConfig(
-                host=getattr(connection_config, 'host', None),
-                port=getattr(connection_config, 'port', None),
+                host=getattr(connection_config, "host", None),
+                port=getattr(connection_config, "port", None),
                 database=connection_config.database,
-                username=getattr(connection_config, 'username', None),
-                password=getattr(connection_config, 'password', None),
-                driver_type=getattr(connection_config, 'driver_type', None),
+                username=getattr(connection_config, "username", None),
+                password=getattr(connection_config, "password", None),
+                driver_type=getattr(connection_config, "driver_type", None),
                 pragmas=pragmas,
-                delete_on_close=getattr(connection_config, 'delete_on_close', False),
-                options=getattr(connection_config, 'options', {}),
+                delete_on_close=getattr(connection_config, "delete_on_close", False),
+                options=getattr(connection_config, "options", {}),
             )
 
         super().__init__(connection_config=connection_config)
@@ -117,18 +118,12 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             try:
                 self._connection.execute(pragma_statement)
             except sqlite3.Error as e:
-                self.log(
-                    logging.WARNING,
-                    f"Failed to execute pragma {pragma_statement}: {str(e)}"
-                )
+                self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
 
     def connect(self) -> None:
         """Establish a connection to the SQLite database."""
         try:
-            sqlite3.register_converter(
-                "timestamp",
-                lambda val: datetime.fromisoformat(val.decode('utf-8'))
-            )
+            sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode("utf-8")))
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
             self._connection = sqlite3.connect(
                 self.config.database,
@@ -151,10 +146,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             if self._connection:
                 self.log(logging.INFO, "Disconnecting from SQLite database")
                 if self.transaction_manager.is_active:
-                    self.log(
-                        logging.WARNING,
-                        "Active transaction detected during disconnect, rolling back"
-                    )
+                    self.log(logging.WARNING, "Active transaction detected during disconnect, rolling back")
                     self.transaction_manager.rollback()
                 self._connection.close()
                 self._connection = None
@@ -173,6 +165,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
     def _delete_database_files(self) -> None:
         """Delete database files when delete_on_close is enabled."""
         import os
+
         self.log(logging.INFO, f"Deleting database files: {self.config.database}")
 
         def retry_delete(file_path: str, max_retries: int = 5, retry_delay: float = 0.1) -> bool:
@@ -183,16 +176,12 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                     return True
                 except OSError as e:
                     if attempt < max_retries - 1:
-                        self.log(
-                            logging.DEBUG,
-                            f"Failed to delete file {file_path}, retrying: {str(e)}"
-                        )
+                        self.log(logging.DEBUG, f"Failed to delete file {file_path}, retrying: {str(e)}")
                         time.sleep(retry_delay)
                     else:
                         self.log(
                             logging.WARNING,
-                            f"Failed to delete file {file_path}, "
-                            f"maximum retry attempts reached: {str(e)}"
+                            f"Failed to delete file {file_path}, maximum retry attempts reached: {str(e)}",
                         )
                         return False
             return False
@@ -205,10 +194,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             if main_db_deleted and wal_deleted and shm_deleted:
                 self.log(logging.INFO, "Database files deleted successfully")
             else:
-                self.log(
-                    logging.WARNING,
-                    "Some database files could not be deleted after multiple attempts"
-                )
+                self.log(logging.WARNING, "Some database files could not be deleted after multiple attempts")
         except Exception as e:
             self.log(logging.ERROR, f"Failed to delete database files: {str(e)}")
             raise ConnectionError(f"Failed to delete database files: {str(e)}") from e
@@ -239,10 +225,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                     self.connect()
                     return True
                 except ConnectionError as e:
-                    self.log(
-                        logging.WARNING,
-                        f"Reconnection failed after ping: {str(e)}"
-                    )
+                    self.log(logging.WARNING, f"Reconnection failed after ping: {str(e)}")
                     return False
             return False
 
@@ -278,14 +261,9 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             self.log(logging.ERROR, f"Error executing SQL script: {str(e)}")
             self._handle_error(e)
 
-    def execute_many(
-        self, sql: str, params_list: List[Tuple]
-    ) -> Optional[QueryResult]:
+    def execute_many(self, sql: str, params_list: List[Tuple]) -> Optional[QueryResult]:
         """Execute batch operations with the same SQL statement and multiple parameter sets."""
-        self.log(
-            logging.INFO,
-            f"Executing batch operation: {sql} with {len(params_list)} parameter sets"
-        )
+        self.log(logging.INFO, f"Executing batch operation: {sql} with {len(params_list)} parameter sets")
         start_time = time.perf_counter()
         try:
             if not self._connection:
@@ -297,9 +275,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
             duration = time.perf_counter() - start_time
 
             self.log(
-                logging.INFO,
-                f"Batch operation completed, affected {cursor.rowcount} rows, "
-                f"duration={duration:.3f}s"
+                logging.INFO, f"Batch operation completed, affected {cursor.rowcount} rows, duration={duration:.3f}s"
             )
             self._handle_auto_commit_if_needed()
 
@@ -328,41 +304,45 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                 self.log(logging.DEBUG, "Initializing connection for transaction manager")
                 self.connect()
             self.log(logging.DEBUG, "Creating new transaction manager")
-            self._transaction_manager = SQLiteTransactionManager(
-                self._connection, self.logger
-            )
+            self._transaction_manager = SQLiteTransactionManager(self._connection, self.logger)
         return self._transaction_manager
 
     def insert(self, options: InsertOptions) -> QueryResult:
         """Insert a record with special handling for RETURNING clause."""
         result = super().insert(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
+        if (
+            result.affected_rows == 0
+            and options.returning_columns is not None
+            and options.returning_columns
+            and result.data is not None
+            and len(result.data) > 0
+        ):
             result.affected_rows = len(result.data)
         return result
 
     def update(self, options: UpdateOptions) -> QueryResult:
         """Update records with special handling for RETURNING clause."""
         result = super().update(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
+        if (
+            result.affected_rows == 0
+            and options.returning_columns is not None
+            and options.returning_columns
+            and result.data is not None
+            and len(result.data) > 0
+        ):
             result.affected_rows = len(result.data)
         return result
 
     def delete(self, options: DeleteOptions) -> QueryResult:
         """Delete records with special handling for RETURNING clause."""
         result = super().delete(options)
-        if (result.affected_rows == 0 and
-            options.returning_columns is not None and
-            options.returning_columns and
-            result.data is not None and
-            len(result.data) > 0):
+        if (
+            result.affected_rows == 0
+            and options.returning_columns is not None
+            and options.returning_columns
+            and result.data is not None
+            and len(result.data) > 0
+        ):
             result.affected_rows = len(result.data)
         return result
 
@@ -382,8 +362,7 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                 if version_info and len(version_info) >= 3:
                     SQLiteBackend._sqlite_version_cache = version_info[:3]
                     self.log(
-                        logging.INFO,
-                        f"Detected SQLite version: {version_info[0]}.{version_info[1]}.{version_info[2]}"
+                        logging.INFO, f"Detected SQLite version: {version_info[0]}.{version_info[1]}.{version_info[2]}"
                     )
                     return SQLiteBackend._sqlite_version_cache
             except Exception:
@@ -398,21 +377,19 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
                 version_str = cursor.fetchone()[0]
                 cursor.close()
 
-                version_parts = version_str.split('.')
+                version_parts = version_str.split(".")
                 major = int(version_parts[0])
                 minor = int(version_parts[1]) if len(version_parts) > 1 else 0
                 patch = int(version_parts[2]) if len(version_parts) > 2 else 0
 
                 SQLiteBackend._sqlite_version_cache = (major, minor, patch)
-                self.log(
-                    logging.INFO,
-                    f"Detected SQLite version (from query): {major}.{minor}.{patch}"
-                )
+                self.log(logging.INFO, f"Detected SQLite version (from query): {major}.{minor}.{patch}")
             except Exception as e:
                 error_msg = f"Failed to determine SQLite version: {str(e)}"
-                if hasattr(self, 'logger'):
+                if hasattr(self, "logger"):
                     self.logger.error(error_msg)
                 from rhosocial.activerecord.backend.errors import OperationalError
+
                 raise OperationalError(error_msg) from e
 
         return SQLiteBackend._sqlite_version_cache
@@ -439,8 +416,8 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
         # For SQLite < 3.38.0, detect json1 extension availability at runtime
         if version < (3, 38, 0):
             json1_available = self._detect_json1_extension()
-            self._dialect.set_runtime_param('json1_available', json1_available)
-            status = 'available' if json1_available else 'unavailable'
+            self._dialect.set_runtime_param("json1_available", json1_available)
+            status = "available" if json1_available else "unavailable"
             self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
 
     def _detect_json1_extension(self) -> bool:

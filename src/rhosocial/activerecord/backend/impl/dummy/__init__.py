@@ -11,7 +11,7 @@ from .backend import DummyBackend, AsyncDummyBackend
 from .dialect import DummyDialect
 
 __all__ = [
-    'DummyBackend',
-    'AsyncDummyBackend',
-    'DummyDialect',
+    "DummyBackend",
+    "AsyncDummyBackend",
+    "DummyDialect",
 ]

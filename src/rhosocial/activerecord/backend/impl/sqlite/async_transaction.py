@@ -5,6 +5,7 @@ This module provides async transaction management for SQLite using aiosqlite.
 It is kept separate from the sync transaction module to avoid forcing
 aiosqlite as a dependency for users who only need synchronous operations.
 """
+
 import logging
 from typing import Optional
 
@@ -22,11 +23,7 @@ class AsyncSQLiteTransactionManager(SQLiteTransactionMixin, AsyncTransactionMana
     with the sync version, ensuring consistency and reducing code duplication.
     """
 
-    def __init__(
-        self,
-        connection: aiosqlite.Connection,
-        logger: Optional[logging.Logger] = None
-    ):
+    def __init__(self, connection: aiosqlite.Connection, logger: Optional[logging.Logger] = None):
         """Initialize async SQLite transaction manager.
 
         Args:

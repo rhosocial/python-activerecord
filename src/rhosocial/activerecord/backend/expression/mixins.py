@@ -25,14 +25,13 @@ Example Usage:
 The dialect parameter is always inherited from the left-hand side operand,
 ensuring consistent SQL generation across the expression tree.
 """
+
 from typing import Any, Union, List, TYPE_CHECKING, TypeVar
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLValueExpression, SQLPredicate
-    from .core import Literal
-    from .predicates import ComparisonPredicate, InPredicate, IsNullPredicate, LogicalPredicate, BetweenPredicate
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class AliasableMixin:
@@ -112,6 +111,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return ComparisonPredicate(self.dialect, "=", self, other_expr)
 
@@ -128,6 +128,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return ComparisonPredicate(self.dialect, "!=", self, other_expr)
 
@@ -144,6 +145,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return ComparisonPredicate(self.dialect, ">", self, other_expr)
 
@@ -160,6 +162,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return ComparisonPredicate(self.dialect, ">=", self, other_expr)
 
@@ -176,6 +179,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return ComparisonPredicate(self.dialect, "<", self, other_expr)
 
@@ -192,6 +196,7 @@ class ComparisonMixin:
         from .core import Literal
         from .predicates import ComparisonPredicate
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return ComparisonPredicate(self.dialect, "<=", self, other_expr)
 
@@ -207,6 +212,7 @@ class ComparisonMixin:
             >>> predicate = col.is_null()  # Generates: "email IS NULL"
         """
         from .predicates import IsNullPredicate
+
         return IsNullPredicate(self.dialect, self)
 
     def is_not_null(self: "SQLValueExpression") -> "SQLPredicate":
@@ -221,7 +227,84 @@ class ComparisonMixin:
             >>> predicate = col.is_not_null()  # Generates: "email IS NOT NULL"
         """
         from .predicates import IsNullPredicate
+
         return IsNullPredicate(self.dialect, self, is_not=True)
+
+    def is_true(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS TRUE predicate for this expression.
+
+        IS TRUE matches only TRUE values, not FALSE or NULL.
+        This is different from = TRUE which would not match NULL values
+        but also wouldn't correctly handle three-valued logic.
+
+        Returns:
+            SQLPredicate representing the IS TRUE check
+
+        Example:
+            >>> col = Column(dialect, "is_active")
+            >>> predicate = col.is_true()  # Generates: "is_active IS TRUE"
+        """
+        from .predicates import IsBooleanPredicate
+
+        return IsBooleanPredicate(self.dialect, self, value=True, is_not=False)
+
+    def is_not_true(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS NOT TRUE predicate for this expression.
+
+        IS NOT TRUE matches FALSE values and NULL values.
+        This is useful for finding records where a boolean field is
+        either explicitly false or unset (NULL).
+
+        Returns:
+            SQLPredicate representing the IS NOT TRUE check
+
+        Example:
+            >>> col = Column(dialect, "is_active")
+            >>> predicate = col.is_not_true()  # Generates: "is_active IS NOT TRUE"
+        """
+        from .predicates import IsBooleanPredicate
+
+        return IsBooleanPredicate(self.dialect, self, value=True, is_not=True)
+
+    def is_false(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS FALSE predicate for this expression.
+
+        IS FALSE matches only FALSE values, not TRUE or NULL.
+        This is different from = FALSE which would not match NULL values
+        but also wouldn't correctly handle three-valued logic.
+
+        Returns:
+            SQLPredicate representing the IS FALSE check
+
+        Example:
+            >>> col = Column(dialect, "is_deleted")
+            >>> predicate = col.is_false()  # Generates: "is_deleted IS FALSE"
+        """
+        from .predicates import IsBooleanPredicate
+
+        return IsBooleanPredicate(self.dialect, self, value=False, is_not=False)
+
+    def is_not_false(self: "SQLValueExpression") -> "SQLPredicate":
+        """
+        Generate an IS NOT FALSE predicate for this expression.
+
+        IS NOT FALSE matches TRUE values and NULL values.
+        This is useful for finding records where a boolean field is
+        either explicitly true or unset (NULL).
+
+        Returns:
+            SQLPredicate representing the IS NOT FALSE check
+
+        Example:
+            >>> col = Column(dialect, "is_deleted")
+            >>> predicate = col.is_not_false()  # Generates: "is_deleted IS NOT FALSE"
+        """
+        from .predicates import IsBooleanPredicate
+
+        return IsBooleanPredicate(self.dialect, self, value=False, is_not=True)
 
     def in_(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
         """
@@ -239,6 +322,7 @@ class ComparisonMixin:
         """
         from .core import Literal
         from .predicates import InPredicate
+
         return InPredicate(self.dialect, self, Literal(self.dialect, tuple(values)))
 
     def not_in(self: "SQLValueExpression", values: List[Any]) -> "SQLPredicate":
@@ -253,7 +337,10 @@ class ComparisonMixin:
         """
         from .core import Literal
         from .predicates import InPredicate, LogicalPredicate
-        return LogicalPredicate(self.dialect, "NOT", InPredicate(self.dialect, self, Literal(self.dialect, tuple(values))))
+
+        return LogicalPredicate(
+            self.dialect, "NOT", InPredicate(self.dialect, self, Literal(self.dialect, tuple(values)))
+        )
 
     def between(self: "SQLValueExpression", low: Any, high: Any) -> "SQLPredicate":
         """
@@ -272,7 +359,9 @@ class ComparisonMixin:
         """
         from .core import Literal
         from .predicates import BetweenPredicate
+
         return BetweenPredicate(self.dialect, self, Literal(self.dialect, low), Literal(self.dialect, high))
+
 
 class ArithmeticMixin:
     """
@@ -318,6 +407,7 @@ class ArithmeticMixin:
         from .core import Literal
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return BinaryArithmeticExpression(self.dialect, "+", self, other_expr)
 
@@ -334,6 +424,7 @@ class ArithmeticMixin:
         from .core import Literal
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return BinaryArithmeticExpression(self.dialect, "-", self, other_expr)
 
@@ -350,6 +441,7 @@ class ArithmeticMixin:
         from .core import Literal
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return BinaryArithmeticExpression(self.dialect, "*", self, other_expr)
 
@@ -366,6 +458,7 @@ class ArithmeticMixin:
         from .core import Literal
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return BinaryArithmeticExpression(self.dialect, "/", self, other_expr)
 
@@ -382,6 +475,7 @@ class ArithmeticMixin:
         from .core import Literal
         from .operators import BinaryArithmeticExpression
         from .bases import SQLValueExpression
+
         other_expr = other if isinstance(other, SQLValueExpression) else Literal(self.dialect, other)
         return BinaryArithmeticExpression(self.dialect, "%", self, other_expr)
 
@@ -428,6 +522,7 @@ class LogicalMixin:
             >>> combined = p1 & p2  # Generates: "(status = ?) AND (age >= ?)"
         """
         from .predicates import LogicalPredicate
+
         return LogicalPredicate(self.dialect, "AND", self, other)
 
     def __or__(self: "SQLPredicate", other: "SQLPredicate") -> "SQLPredicate":
@@ -441,6 +536,7 @@ class LogicalMixin:
             SQLPredicate representing the logical OR operation
         """
         from .predicates import LogicalPredicate
+
         return LogicalPredicate(self.dialect, "OR", self, other)
 
     def __invert__(self: "SQLPredicate") -> "SQLPredicate":
@@ -458,6 +554,7 @@ class LogicalMixin:
             >>> negated = ~p  # Generates: "NOT (status = ?)"
         """
         from .predicates import LogicalPredicate
+
         return LogicalPredicate(self.dialect, "NOT", self)
 
 
@@ -496,6 +593,7 @@ class StringMixin:
         """
         from .core import Literal
         from .predicates import LikePredicate
+
         return LikePredicate(self.dialect, "LIKE", self, Literal(self.dialect, pattern))
 
     def ilike(self: "SQLValueExpression", pattern: str) -> "SQLPredicate":
@@ -518,6 +616,7 @@ class StringMixin:
         """
         from .core import Literal
         from .predicates import LikePredicate
+
         return LikePredicate(self.dialect, "ILIKE", self, Literal(self.dialect, pattern))
 
 

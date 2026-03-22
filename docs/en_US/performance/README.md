@@ -4,6 +4,7 @@ The core of "Progressive ORM" is the ability to freely switch between developmen
 
 ## Contents
 
+*   **[Batch Operations](batch_operations.md)**: Efficient bulk operations with automatic transaction management.
 *   **[Strict vs Raw Modes](modes.md)**: When to use `.aggregate()` to bypass Pydantic overhead.
 *   **[Concurrency Control](concurrency.md)**: Using optimistic locking to handle race conditions.
 *   **[Caching Mechanism](caching.md)**: Understanding internal caching to avoid redundant work.
