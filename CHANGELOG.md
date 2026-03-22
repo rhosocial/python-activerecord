@@ -1,3 +1,11 @@
+## [v1.0.0.dev19] - 2026-03-22
+
+### Added
+
+- Added IS TRUE/FALSE boolean predicates to expression system for proper SQL boolean comparisons that handle three-valued logic (TRUE, FALSE, NULL). Added lazy loading for async SQLite components to allow installation without aiosqlite dependency. ([#48](https://github.com/rhosocial/python-activerecord/issues/48))
+- Added batch execution interfaces `execute_batch_dml()` and `execute_batch_dql()` to the backend layer, supporting homogeneous DML expressions with RETURNING clause through expression-dialect system, and lazy pagination for DQL queries. ([#49](https://github.com/rhosocial/python-activerecord/issues/49))
+
+
 ## [v1.0.0.dev18] - 2026-03-20
 
 ### Added
