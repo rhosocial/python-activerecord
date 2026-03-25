@@ -17,6 +17,7 @@ from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect, SQLDialectBase
 from ..transaction import SQLiteTransactionManager
+from ..introspection import SQLiteIntrospectionMixin
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
@@ -24,8 +25,12 @@ from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions,
 from rhosocial.activerecord.backend.result import QueryResult
 
 
-class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
-    """Synchronous SQLite backend implementation."""
+class SQLiteBackend(SQLiteBackendMixin, SQLiteIntrospectionMixin, StorageBackend):
+    """Synchronous SQLite backend implementation.
+
+    Provides database introspection capabilities through SQLiteIntrospectionMixin,
+    which implements the BackendIntrospectionSupport protocol.
+    """
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None

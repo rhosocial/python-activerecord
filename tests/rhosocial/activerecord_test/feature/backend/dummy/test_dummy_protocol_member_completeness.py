@@ -119,6 +119,9 @@ class TestDummyProtocolMemberCompleteness:
             'SequenceSupport',
             'ILIKESupport',
             'GeneratedColumnSupport',
+            # Introspection Protocols
+            'IntrospectionSupport',
+            'AsyncIntrospectionSupport',
         }
 
         discovered_protocols = set(protocol_names)
@@ -147,8 +150,8 @@ class TestDummyProtocolMemberCompleteness:
         method_count = len(all_protocol_methods)
 
         # Expected count (update this when adding/removing methods from protocols)
-        # As of the last update, there are 170 protocol methods
-        expected_count = 170
+        # As of the last update, there are 189 protocol methods
+        expected_count = 189
 
         assert method_count == expected_count, (
             f"Protocol method count changed from {expected_count} to {method_count}.\n"

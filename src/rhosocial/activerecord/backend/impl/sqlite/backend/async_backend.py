@@ -17,6 +17,7 @@ from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
 from ..async_transaction import AsyncSQLiteTransactionManager
+from ..introspection import SQLiteAsyncIntrospectionMixin
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
@@ -24,8 +25,12 @@ from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions,
 from rhosocial.activerecord.backend.result import QueryResult
 
 
-class AsyncSQLiteBackend(SQLiteBackendMixin, AsyncStorageBackend):
-    """Async SQLite backend implementation."""
+class AsyncSQLiteBackend(SQLiteBackendMixin, SQLiteAsyncIntrospectionMixin, AsyncStorageBackend):
+    """Async SQLite backend implementation.
+
+    Provides database introspection capabilities through SQLiteAsyncIntrospectionMixin,
+    which implements the AsyncIntrospectionMixin protocol.
+    """
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None

@@ -38,6 +38,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SequenceSupport,
     TriggerSupport,
     GeneratedColumnSupport,
+    # Introspection Protocol
+    IntrospectionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -69,7 +71,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
-from .mixins import FTS5Mixin, SQLitePragmaMixin
+from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -136,6 +138,7 @@ class SQLiteDialect(
     # SQLite-specific mixins
     FTS5Mixin,
     SQLitePragmaMixin,
+    SQLiteIntrospectionCapabilityMixin,
     # Protocols for type checking
     CTESupport,
     FilterClauseSupport,
@@ -168,6 +171,8 @@ class SQLiteDialect(
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
+    # Introspection Protocol
+    IntrospectionSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.

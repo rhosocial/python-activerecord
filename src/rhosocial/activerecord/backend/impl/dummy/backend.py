@@ -4,7 +4,7 @@ Dummy Backend for SQL generation without a real database connection.
 """
 
 import logging
-from typing import Any, Dict, Optional, Tuple, Type
+from typing import Any, Dict, List, Optional, Tuple, Type
 
 from rhosocial.activerecord.backend.base import StorageBackend, AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -12,6 +12,16 @@ from rhosocial.activerecord.backend.dialect import SQLDialectBase
 from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 from rhosocial.activerecord.backend.transaction import TransactionManager, AsyncTransactionManager
+from rhosocial.activerecord.backend.introspection.mixins import IntrospectionMixin, AsyncIntrospectionMixin
+from rhosocial.activerecord.backend.introspection.types import (
+    DatabaseInfo,
+    TableInfo,
+    ColumnInfo,
+    IndexInfo,
+    ForeignKeyInfo,
+    ViewInfo,
+    TriggerInfo,
+)
 
 from .dialect import DummyDialect
 
@@ -25,7 +35,155 @@ ASYNC_DUMMY_BACKEND_ERROR_MSG = (
 )
 
 
-class DummyBackend(StorageBackend):
+class DummyIntrospectionMixin(IntrospectionMixin):
+    """Dummy introspection mixin for DummyBackend.
+
+    Provides mock implementations of introspection methods that return
+    empty or minimal data. This is useful for testing SQL generation
+    without requiring a real database connection.
+    """
+
+    def _query_database_info(self) -> DatabaseInfo:
+        """Return mock database info."""
+        return DatabaseInfo(
+            name="dummy",
+            version="0.0.0",
+            version_tuple=(0, 0, 0),
+            vendor="Dummy",
+            size_bytes=None,
+        )
+
+    def _query_tables(
+        self,
+        schema: Optional[str] = None,
+        include_system: bool = False,
+        table_type: Optional[str] = None,
+    ) -> List[TableInfo]:
+        """Return empty table list."""
+        return []
+
+    def _query_table_info(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> Optional[TableInfo]:
+        """Return None as no tables exist in dummy backend."""
+        return None
+
+    def _query_columns(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[ColumnInfo]:
+        """Return empty column list."""
+        return []
+
+    def _query_indexes(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[IndexInfo]:
+        """Return empty index list."""
+        return []
+
+    def _query_foreign_keys(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[ForeignKeyInfo]:
+        """Return empty foreign key list."""
+        return []
+
+    def _query_views(
+        self,
+        schema: Optional[str] = None,
+        include_system: bool = False,
+    ) -> List[ViewInfo]:
+        """Return empty view list."""
+        return []
+
+    def _query_view_info(
+        self, view_name: str, schema: Optional[str] = None
+    ) -> Optional[ViewInfo]:
+        """Return None as no views exist in dummy backend."""
+        return None
+
+    def _query_triggers(
+        self,
+        table_name: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> List[TriggerInfo]:
+        """Return empty trigger list."""
+        return []
+
+
+class AsyncDummyIntrospectionMixin(AsyncIntrospectionMixin):
+    """Async dummy introspection mixin for AsyncDummyBackend.
+
+    Provides mock implementations of introspection methods that return
+    empty or minimal data. This is useful for testing SQL generation
+    without requiring a real database connection.
+    """
+
+    async def _query_database_info(self) -> DatabaseInfo:
+        """Return mock database info."""
+        return DatabaseInfo(
+            name="dummy",
+            version="0.0.0",
+            version_tuple=(0, 0, 0),
+            vendor="Dummy",
+            size_bytes=None,
+        )
+
+    async def _query_tables(
+        self,
+        schema: Optional[str] = None,
+        include_system: bool = False,
+        table_type: Optional[str] = None,
+    ) -> List[TableInfo]:
+        """Return empty table list."""
+        return []
+
+    async def _query_table_info(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> Optional[TableInfo]:
+        """Return None as no tables exist in dummy backend."""
+        return None
+
+    async def _query_columns(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[ColumnInfo]:
+        """Return empty column list."""
+        return []
+
+    async def _query_indexes(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[IndexInfo]:
+        """Return empty index list."""
+        return []
+
+    async def _query_foreign_keys(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[ForeignKeyInfo]:
+        """Return empty foreign key list."""
+        return []
+
+    async def _query_views(
+        self,
+        schema: Optional[str] = None,
+        include_system: bool = False,
+    ) -> List[ViewInfo]:
+        """Return empty view list."""
+        return []
+
+    async def _query_view_info(
+        self, view_name: str, schema: Optional[str] = None
+    ) -> Optional[ViewInfo]:
+        """Return None as no views exist in dummy backend."""
+        return None
+
+    async def _query_triggers(
+        self,
+        table_name: Optional[str] = None,
+        schema: Optional[str] = None,
+    ) -> List[TriggerInfo]:
+        """Return empty trigger list."""
+        return []
+
+
+class DummyBackend(DummyIntrospectionMixin, StorageBackend):
     """
     A dummy backend for ActiveRecord that generates SQL without connecting to a real database.
     All operations requiring a database connection will raise NotImplementedError.
@@ -91,7 +249,7 @@ class DummyBackend(StorageBackend):
 
 
 # Async Dummy Backend
-class AsyncDummyBackend(AsyncStorageBackend):
+class AsyncDummyBackend(AsyncDummyIntrospectionMixin, AsyncStorageBackend):
     """
     An async dummy backend for ActiveRecord that generates SQL without connecting to a real database.
     All operations requiring a database connection will raise NotImplementedError.

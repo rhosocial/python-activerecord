@@ -70,6 +70,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    # Introspection Protocols
+    IntrospectionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin,
@@ -101,6 +103,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    # Introspection Mixin
+    IntrospectionMixin,
 )
 
 
@@ -135,6 +139,8 @@ class DummyDialect(
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    # Introspection Mixin
+    IntrospectionMixin,
     # Protocols for type checking
     WindowFunctionSupport,
     CTESupport,
@@ -165,6 +171,8 @@ class DummyDialect(
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    # Introspection Protocols
+    IntrospectionSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -557,6 +565,106 @@ class DummyDialect(
 
     def supports_virtual_generated_columns(self) -> bool:
         return True
+
+    # endregion
+
+    # region Introspection Support
+    def supports_introspection(self) -> bool:
+        return True
+
+    def supports_database_info(self) -> bool:
+        return True
+
+    def supports_table_introspection(self) -> bool:
+        return True
+
+    def supports_column_introspection(self) -> bool:
+        return True
+
+    def supports_index_introspection(self) -> bool:
+        return True
+
+    def supports_foreign_key_introspection(self) -> bool:
+        return True
+
+    def supports_view_introspection(self) -> bool:
+        return True
+
+    def supports_trigger_introspection(self) -> bool:
+        return True
+
+    def get_supported_introspection_scopes(self):
+        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+        return [
+            IntrospectionScope.DATABASE,
+            IntrospectionScope.TABLE,
+            IntrospectionScope.COLUMN,
+            IntrospectionScope.INDEX,
+            IntrospectionScope.FOREIGN_KEY,
+            IntrospectionScope.VIEW,
+            IntrospectionScope.TRIGGER,
+        ]
+
+    # ========== Introspection Query Formatting ==========
+
+    def format_database_info_query(self, expr) -> tuple:
+        """Format database info query (SQL standard)."""
+        return ("SELECT CURRENT_DATABASE() AS name, CURRENT_USER AS owner", ())
+
+    def format_table_list_query(self, expr) -> tuple:
+        """Format table list query (SQL standard)."""
+        schema = expr.get_param('schema') if hasattr(expr, 'get_param') else None
+        if schema:
+            return (f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'", ())
+        return ("SELECT table_name FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA()", ())
+
+    def format_table_info_query(self, expr) -> tuple:
+        """Format table info query (SQL standard)."""
+        table_name = expr.get_param('table_name') if hasattr(expr, 'get_param') else None
+        schema = expr.get_param('schema') if hasattr(expr, 'get_param') else None
+        schema_cond = f" AND table_schema = '{schema}'" if schema else ""
+        return (f"SELECT * FROM information_schema.tables WHERE table_name = '{table_name}'{schema_cond}", ())
+
+    def format_column_info_query(self, expr) -> tuple:
+        """Format column info query (SQL standard)."""
+        table_name = expr.get_param('table_name') if hasattr(expr, 'get_param') else None
+        schema = expr.get_param('schema') if hasattr(expr, 'get_param') else None
+        schema_cond = f" AND table_schema = '{schema}'" if schema else ""
+        return (f"SELECT * FROM information_schema.columns WHERE table_name = '{table_name}'{schema_cond} ORDER BY ordinal_position", ())
+
+    def format_index_info_query(self, expr) -> tuple:
+        """Format index info query (SQL standard)."""
+        table_name = expr.get_param('table_name') if hasattr(expr, 'get_param') else None
+        return (f"SELECT * FROM information_schema.statistics WHERE table_name = '{table_name}'", ())
+
+    def format_foreign_key_query(self, expr) -> tuple:
+        """Format foreign key query (SQL standard)."""
+        table_name = expr.get_param('table_name') if hasattr(expr, 'get_param') else None
+        return (f"SELECT * FROM information_schema.table_constraints WHERE table_name = '{table_name}' AND constraint_type = 'FOREIGN KEY'", ())
+
+    def format_view_list_query(self, expr) -> tuple:
+        """Format view list query (SQL standard)."""
+        schema = expr.get_param('schema') if hasattr(expr, 'get_param') else None
+        if schema:
+            return (f"SELECT table_name FROM information_schema.views WHERE table_schema = '{schema}'", ())
+        return ("SELECT table_name FROM information_schema.views WHERE table_schema = CURRENT_SCHEMA()", ())
+
+    def format_view_info_query(self, expr) -> tuple:
+        """Format view info query (SQL standard)."""
+        view_name = expr.get_param('view_name') if hasattr(expr, 'get_param') else None
+        schema = expr.get_param('schema') if hasattr(expr, 'get_param') else None
+        schema_cond = f" AND table_schema = '{schema}'" if schema else ""
+        return (f"SELECT * FROM information_schema.views WHERE table_name = '{view_name}'{schema_cond}", ())
+
+    def format_trigger_list_query(self, expr) -> tuple:
+        """Format trigger list query (SQL standard)."""
+        table_name = expr.get_param('table_name') if hasattr(expr, 'get_param') else None
+        return (f"SELECT * FROM information_schema.triggers WHERE event_object_table = '{table_name}'", ())
+
+    def format_trigger_info_query(self, expr) -> tuple:
+        """Format trigger info query (SQL standard)."""
+        trigger_name = expr.get_param('trigger_name') if hasattr(expr, 'get_param') else None
+        return (f"SELECT * FROM information_schema.triggers WHERE trigger_name = '{trigger_name}'", ())
 
     # endregion
 
