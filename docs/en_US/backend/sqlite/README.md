@@ -13,6 +13,7 @@ The SQLite backend provides:
 - **Transaction Management**: Support for nested transactions and savepoints
 - **Pragma System**: Complete SQLite PRAGMA support
 - **Extension Framework**: Support for FTS5, JSON1, R-Tree, and other extensions
+- **Database Introspection**: Complete database metadata query capabilities
 
 ## Version Requirements
 
@@ -124,6 +125,188 @@ if backend.dialect.is_extension_available('fts5'):
 if backend.dialect.check_extension_feature('fts5', 'trigram_tokenizer'):
     print("FTS5 trigram tokenizer available")
 ```
+
+## Database Introspection
+
+The SQLite backend provides complete database introspection capabilities for querying database structure metadata:
+
+### Database Information
+
+```python
+# Get basic database information
+db_info = backend.get_database_info()
+print(f"Database name: {db_info.name}")
+print(f"SQLite version: {db_info.version}")
+print(f"Database size: {db_info.size_bytes} bytes")
+```
+
+### Table Introspection
+
+```python
+# List all user tables
+tables = backend.list_tables()
+for table in tables:
+    print(f"Table: {table.name}, Type: {table.table_type.value}")
+
+# Include system tables
+all_tables = backend.list_tables(include_system=True)
+system_tables = [t for t in all_tables if t.table_type.value == "SYSTEM_TABLE"]
+print(f"System tables count: {len(system_tables)}")
+
+# Filter by specific type
+base_tables = backend.list_tables(table_type="BASE TABLE")
+views = backend.list_tables(table_type="VIEW")
+
+# Check if table exists
+if backend.table_exists("users"):
+    print("users table exists")
+
+# Get detailed table information
+table_info = backend.get_table_info("users")
+if table_info:
+    print(f"Table name: {table_info.name}")
+    print(f"Schema: {table_info.schema}")
+```
+
+### Column and Index Information
+
+```python
+# List all columns of a table
+columns = backend.list_columns("users")
+for col in columns:
+    nullable = "NOT NULL" if col.nullable.value == "NOT_NULL" else "NULLABLE"
+    pk = " [PK]" if col.is_primary_key else ""
+    print(f"{col.name}: {col.data_type} {nullable}{pk}")
+
+# Get primary key information
+pk = backend.get_primary_key("users")
+if pk:
+    print(f"Primary key: {[c.name for c in pk.columns]}")
+
+# List all indexes
+indexes = backend.list_indexes("users")
+for idx in indexes:
+    unique = "UNIQUE " if idx.is_unique else ""
+    print(f"{unique}Index: {idx.name}")
+    for col in idx.columns:
+        print(f"  - {col.name}")
+```
+
+### Foreign Keys and Views
+
+```python
+# List foreign keys
+foreign_keys = backend.list_foreign_keys("posts")
+for fk in foreign_keys:
+    print(f"FK: {fk.name}")
+    print(f"  Columns: {fk.columns} -> {fk.referenced_table}.{fk.referenced_columns}")
+    print(f"  ON DELETE: {fk.on_delete.value}")
+    print(f"  ON UPDATE: {fk.on_update.value}")
+
+# List views
+views = backend.list_views()
+for view in views:
+    print(f"View: {view.name}")
+
+# Get view definition
+view_info = backend.get_view_info("user_posts_summary")
+if view_info:
+    print(f"Definition: {view_info.definition}")
+```
+
+### Triggers
+
+```python
+# List all triggers
+triggers = backend.list_triggers()
+for trigger in triggers:
+    print(f"Trigger: {trigger.name} on {trigger.table_name}")
+
+# List triggers for a specific table
+table_triggers = backend.list_triggers("users")
+for trigger in table_triggers:
+    print(f"Trigger: {trigger.name}")
+```
+
+### Async Introspection API
+
+The async backend provides identical introspection methods with `_async` suffix:
+
+```python
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
+backend = AsyncSQLiteBackend(database=":memory:")
+await backend.connect()
+
+# Async introspection methods
+db_info = await backend.get_database_info_async()
+tables = await backend.list_tables_async()
+table_info = await backend.get_table_info_async("users")
+columns = await backend.list_columns_async("users")
+indexes = await backend.list_indexes_async("users")
+foreign_keys = await backend.list_foreign_keys_async("posts")
+views = await backend.list_views_async()
+triggers = await backend.list_triggers_async()
+```
+
+### Cache Management
+
+Introspection results are cached for performance. You can manage the cache:
+
+```python
+# Clear all introspection cache
+backend.clear_introspection_cache()
+
+# Invalidate specific scope
+from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+
+# Invalidate all table-related cache
+backend.invalidate_introspection_cache(scope=IntrospectionScope.TABLE)
+
+# Invalidate cache for a specific table
+backend.invalidate_introspection_cache(
+    scope=IntrospectionScope.TABLE,
+    name="users"
+)
+```
+
+## Version Differences
+
+### Introspection Version Differences
+
+SQLite introspection behavior varies by version:
+
+| Feature | SQLite < 3.37.0 | SQLite >= 3.37.0 |
+|---------|-----------------|------------------|
+| Table list method | `sqlite_master` query | `PRAGMA table_list` |
+| System tables in list | Manual detection | Automatic (type='shadow') |
+| Column hidden info | `PRAGMA table_info` | `PRAGMA table_xinfo` |
+
+**Important notes**:
+
+- **SQLite < 3.37.0**: System tables (like `sqlite_schema`) are **not stored in `sqlite_master`**. The backend automatically detects and includes known system tables when `include_system=True`.
+- **SQLite >= 3.37.0**: `PRAGMA table_list` returns system tables with `type='shadow'`, which is mapped to `TableType.SYSTEM_TABLE`.
+
+### Known SQLite System Tables
+
+| System Table | Description | Existence Condition |
+|--------------|-------------|---------------------|
+| `sqlite_schema` | Database schema information | Always exists |
+| `sqlite_master` | Alias for `sqlite_schema` | Always exists |
+| `sqlite_stat1` | Index statistics | After ANALYZE |
+| `sqlite_stat2/3/4` | Extended statistics | After ANALYZE in specific versions |
+| `sqlite_sequence` | AUTOINCREMENT counter | After using AUTOINCREMENT |
+
+### Version Feature Support Matrix
+
+| Feature | Minimum Version | Recommended Version |
+|---------|-----------------|---------------------|
+| Basic CTE | 3.8.3 | 3.8.3+ |
+| Recursive CTE | 3.8.3 | 3.8.3+ |
+| Window functions | 3.25.0 | 3.25.0+ |
+| RETURNING clause | 3.35.0 | 3.35.0+ |
+| JSON operations | 3.38.0 | 3.38.0+ |
+| PRAGMA table_list | 3.37.0 | 3.37.0+ |
 
 ## Data Type Mapping
 

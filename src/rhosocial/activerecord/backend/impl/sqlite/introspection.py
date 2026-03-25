@@ -180,7 +180,24 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
         tables = []
         for row in rows:
-            parsed_type = TableType.VIEW if row["type"] == "view" else TableType.BASE_TABLE
+            # Determine if this is a system table (starts with sqlite_)
+            is_system = row["name"].startswith("sqlite_")
+            if row["type"] == "view":
+                parsed_type = TableType.VIEW
+            elif is_system:
+                parsed_type = TableType.SYSTEM_TABLE
+            else:
+                parsed_type = TableType.BASE_TABLE
+
+            # Filter by table_type
+            if table_type:
+                type_map = {
+                    "BASE TABLE": TableType.BASE_TABLE,
+                    "VIEW": TableType.VIEW,
+                }
+                if parsed_type != type_map.get(table_type):
+                    continue
+
             tables.append(
                 TableInfo(
                     name=row["name"],
@@ -189,7 +206,81 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
                 )
             )
 
+        # SQLite < 3.37.0: Manually add known system tables
+        # sqlite_master table does not contain system table records, so they must be added manually
+        if include_system and self._get_sqlite_version() < (3, 37, 0):
+            existing_names = {t.name for t in tables}
+            known_system_tables = self._get_known_system_tables(database)
+            for sys_table in known_system_tables:
+                if sys_table.name not in existing_names:
+                    # Apply table_type filter
+                    if table_type:
+                        type_map = {
+                            "BASE TABLE": TableType.BASE_TABLE,
+                            "VIEW": TableType.VIEW,
+                        }
+                        if sys_table.table_type != type_map.get(table_type):
+                            continue
+                    tables.append(sys_table)
+            # Re-sort the tables
+            tables.sort(key=lambda t: t.name)
+
         return tables
+
+    def _get_known_system_tables(self, database: str) -> List[TableInfo]:
+        """Get known SQLite system tables for older versions.
+
+        SQLite < 3.37.0 does not include system tables in sqlite_master.
+        This method returns the standard SQLite system tables that actually exist.
+
+        Args:
+            database: Database name (e.g., 'main').
+
+        Returns:
+            List of TableInfo for existing system tables.
+        """
+        # Basic system tables (available in all versions)
+        # sqlite_schema is the official name for sqlite_master (SQLite 3.33.0+)
+        # sqlite_master is an alias for sqlite_schema, both refer to the same table
+        system_tables = [
+            TableInfo(
+                name="sqlite_schema",
+                schema=database,
+                table_type=TableType.SYSTEM_TABLE,
+            ),
+        ]
+
+        # Check if sqlite_stat1 exists (created after ANALYZE)
+        try:
+            self._execute_introspection_query(
+                "SELECT 1 FROM sqlite_stat1 LIMIT 1"
+            )
+            system_tables.append(
+                TableInfo(
+                    name="sqlite_stat1",
+                    schema=database,
+                    table_type=TableType.SYSTEM_TABLE,
+                )
+            )
+        except Exception:
+            pass  # sqlite_stat1 does not exist
+
+        # Check if sqlite_sequence exists (created after using AUTOINCREMENT)
+        try:
+            self._execute_introspection_query(
+                "SELECT 1 FROM sqlite_sequence LIMIT 1"
+            )
+            system_tables.append(
+                TableInfo(
+                    name="sqlite_sequence",
+                    schema=database,
+                    table_type=TableType.SYSTEM_TABLE,
+                )
+            )
+        except Exception:
+            pass  # sqlite_sequence does not exist
+
+        return system_tables
 
     def _parse_table_type(self, type_str: str) -> Optional[TableType]:
         """Parse SQLite table type string to TableType enum."""
@@ -568,7 +659,24 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
 
         tables = []
         for row in rows:
-            parsed_type = TableType.VIEW if row["type"] == "view" else TableType.BASE_TABLE
+            # Determine if this is a system table (starts with sqlite_)
+            is_system = row["name"].startswith("sqlite_")
+            if row["type"] == "view":
+                parsed_type = TableType.VIEW
+            elif is_system:
+                parsed_type = TableType.SYSTEM_TABLE
+            else:
+                parsed_type = TableType.BASE_TABLE
+
+            # Filter by table_type
+            if table_type:
+                type_map = {
+                    "BASE TABLE": TableType.BASE_TABLE,
+                    "VIEW": TableType.VIEW,
+                }
+                if parsed_type != type_map.get(table_type):
+                    continue
+
             tables.append(
                 TableInfo(
                     name=row["name"],
@@ -577,7 +685,81 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
                 )
             )
 
+        # SQLite < 3.37.0: Manually add known system tables
+        # sqlite_master table does not contain system table records, so they must be added manually
+        if include_system and self._get_sqlite_version() < (3, 37, 0):
+            existing_names = {t.name for t in tables}
+            known_system_tables = await self._get_known_system_tables(database)
+            for sys_table in known_system_tables:
+                if sys_table.name not in existing_names:
+                    # Apply table_type filter
+                    if table_type:
+                        type_map = {
+                            "BASE TABLE": TableType.BASE_TABLE,
+                            "VIEW": TableType.VIEW,
+                        }
+                        if sys_table.table_type != type_map.get(table_type):
+                            continue
+                    tables.append(sys_table)
+            # Re-sort the tables
+            tables.sort(key=lambda t: t.name)
+
         return tables
+
+    async def _get_known_system_tables(self, database: str) -> List[TableInfo]:
+        """Get known SQLite system tables for older versions.
+
+        SQLite < 3.37.0 does not include system tables in sqlite_master.
+        This method returns the standard SQLite system tables that actually exist.
+
+        Args:
+            database: Database name (e.g., 'main').
+
+        Returns:
+            List of TableInfo for existing system tables.
+        """
+        # Basic system tables (available in all versions)
+        # sqlite_schema is the official name for sqlite_master (SQLite 3.33.0+)
+        # sqlite_master is an alias for sqlite_schema, both refer to the same table
+        system_tables = [
+            TableInfo(
+                name="sqlite_schema",
+                schema=database,
+                table_type=TableType.SYSTEM_TABLE,
+            ),
+        ]
+
+        # Check if sqlite_stat1 exists (created after ANALYZE)
+        try:
+            await self._execute_introspection_query(
+                "SELECT 1 FROM sqlite_stat1 LIMIT 1"
+            )
+            system_tables.append(
+                TableInfo(
+                    name="sqlite_stat1",
+                    schema=database,
+                    table_type=TableType.SYSTEM_TABLE,
+                )
+            )
+        except Exception:
+            pass  # sqlite_stat1 does not exist
+
+        # Check if sqlite_sequence exists (created after using AUTOINCREMENT)
+        try:
+            await self._execute_introspection_query(
+                "SELECT 1 FROM sqlite_sequence LIMIT 1"
+            )
+            system_tables.append(
+                TableInfo(
+                    name="sqlite_sequence",
+                    schema=database,
+                    table_type=TableType.SYSTEM_TABLE,
+                )
+            )
+        except Exception:
+            pass  # sqlite_sequence does not exist
+
+        return system_tables
 
     def _parse_table_type(self, type_str: str) -> Optional[TableType]:
         """Parse SQLite table type string to TableType enum."""
