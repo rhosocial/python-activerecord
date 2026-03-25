@@ -7,14 +7,13 @@ introspection capabilities. The mixins provide common functionality
 like caching, while backends implement the actual introspection queries.
 """
 
-import logging
 import threading
 import time
 from abc import abstractmethod
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
-    from rhosocial.activerecord.backend.dialect.protocols import IntrospectionSupport
+    pass
 
 from .types import (
     DatabaseInfo,
@@ -28,8 +27,6 @@ from .types import (
 )
 from .errors import (
     IntrospectionNotSupportedError,
-    IntrospectionQueryError,
-    ObjectNotFoundError,
 )
 
 
@@ -74,28 +71,22 @@ class IntrospectionMixin:
             IntrospectionNotSupportedError: If prerequisites not met.
         """
         # Check connection
-        if not getattr(self, '_connection', None):
+        if not getattr(self, "_connection", None):
             raise IntrospectionNotSupportedError(
-                "Cannot perform introspection: no database connection. "
-                "Call connect() first."
+                "Cannot perform introspection: no database connection. Call connect() first."
             )
         # Check dialect exists
-        dialect = getattr(self, '_dialect', None)
+        dialect = getattr(self, "_dialect", None)
         if dialect is None:
-            raise IntrospectionNotSupportedError(
-                "Cannot perform introspection: dialect not initialized."
-            )
+            raise IntrospectionNotSupportedError("Cannot perform introspection: dialect not initialized.")
         # Check dialect implements IntrospectionSupport protocol
         from ..dialect.protocols import IntrospectionSupport
+
         if not isinstance(dialect, IntrospectionSupport):
-            raise IntrospectionNotSupportedError(
-                "Introspection is not supported by this backend dialect."
-            )
+            raise IntrospectionNotSupportedError("Introspection is not supported by this backend dialect.")
         # Check dialect declares introspection support
         if not dialect.supports_introspection():
-            raise IntrospectionNotSupportedError(
-                "Introspection is not supported by this backend dialect."
-            )
+            raise IntrospectionNotSupportedError("Introspection is not supported by this backend dialect.")
 
     # ========== Cache Management ==========
 
@@ -173,19 +164,13 @@ class IntrospectionMixin:
             elif name is None:
                 # Clear all entries for scope
                 prefix = f"{scope.value}:"
-                keys_to_delete = [
-                    k for k in self._introspection_cache if k.startswith(prefix)
-                ]
+                keys_to_delete = [k for k in self._introspection_cache if k.startswith(prefix)]
                 for key in keys_to_delete:
                     del self._introspection_cache[key]
             else:
                 # Clear specific entry (need to find matching keys)
                 prefix = f"{scope.value}:"
-                keys_to_delete = [
-                    k
-                    for k in self._introspection_cache
-                    if k.startswith(prefix) and name in k
-                ]
+                keys_to_delete = [k for k in self._introspection_cache if k.startswith(prefix) and name in k]
                 for key in keys_to_delete:
                     del self._introspection_cache[key]
 
@@ -229,9 +214,7 @@ class IntrospectionMixin:
         ...
 
     @abstractmethod
-    def _query_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    def _query_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Query table information.
 
         Args:
@@ -244,9 +227,7 @@ class IntrospectionMixin:
         ...
 
     @abstractmethod
-    def _query_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Query column list for a table.
 
         Args:
@@ -259,9 +240,7 @@ class IntrospectionMixin:
         ...
 
     @abstractmethod
-    def _query_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Query index list for a table.
 
         Args:
@@ -274,9 +253,7 @@ class IntrospectionMixin:
         ...
 
     @abstractmethod
-    def _query_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Query foreign key list for a table.
 
         Args:
@@ -306,9 +283,7 @@ class IntrospectionMixin:
         ...
 
     @abstractmethod
-    def _query_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Query view information.
 
         Args:
@@ -357,9 +332,7 @@ class IntrospectionMixin:
         table_type: Optional[str] = None,
     ) -> List[TableInfo]:
         """List all tables in the database."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.TABLE, schema=schema, extra=str(include_system)
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.TABLE, schema=schema, extra=str(include_system))
         if table_type:
             cache_key += f":type:{table_type}"
 
@@ -371,13 +344,9 @@ class IntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    def get_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Get detailed information for a specific table."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.TABLE, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -391,13 +360,9 @@ class IntrospectionMixin:
         """Check if a table exists."""
         return self.get_table_info(table_name, schema) is not None
 
-    def list_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List all columns of a table."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.COLUMN, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -406,9 +371,7 @@ class IntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    def get_column_info(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
-    ) -> Optional[ColumnInfo]:
+    def get_column_info(self, table_name: str, column_name: str, schema: Optional[str] = None) -> Optional[ColumnInfo]:
         """Get detailed information for a specific column."""
         columns = self.list_columns(table_name, schema)
         for col in columns:
@@ -416,19 +379,13 @@ class IntrospectionMixin:
                 return col
         return None
 
-    def column_exists(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
-    ) -> bool:
+    def column_exists(self, table_name: str, column_name: str, schema: Optional[str] = None) -> bool:
         """Check if a column exists in a table."""
         return self.get_column_info(table_name, column_name, schema) is not None
 
-    def list_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of a table."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.INDEX, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -437,9 +394,7 @@ class IntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    def get_index_info(
-        self, table_name: str, index_name: str, schema: Optional[str] = None
-    ) -> Optional[IndexInfo]:
+    def get_index_info(self, table_name: str, index_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Get detailed information for a specific index."""
         indexes = self.list_indexes(table_name, schema)
         for idx in indexes:
@@ -447,9 +402,7 @@ class IntrospectionMixin:
                 return idx
         return None
 
-    def get_primary_key(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[IndexInfo]:
+    def get_primary_key(self, table_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Get primary key information for a table."""
         indexes = self.list_indexes(table_name, schema)
         for idx in indexes:
@@ -457,13 +410,9 @@ class IntrospectionMixin:
                 return idx
         return None
 
-    def list_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """List all foreign keys of a table."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.FOREIGN_KEY, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.FOREIGN_KEY, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -488,9 +437,7 @@ class IntrospectionMixin:
         include_system: bool = False,
     ) -> List[ViewInfo]:
         """List all views in the database."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.VIEW, schema=schema, extra=str(include_system)
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.VIEW, schema=schema, extra=str(include_system))
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -499,13 +446,9 @@ class IntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    def get_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    def get_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Get detailed information for a specific view."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.VIEW, view_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.VIEW, view_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -525,9 +468,7 @@ class IntrospectionMixin:
         schema: Optional[str] = None,
     ) -> List[TriggerInfo]:
         """List all triggers (optionally filtered by table)."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.TRIGGER, table_name or "*", schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.TRIGGER, table_name or "*", schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -536,9 +477,7 @@ class IntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    def get_trigger_info(
-        self, trigger_name: str, schema: Optional[str] = None
-    ) -> Optional[TriggerInfo]:
+    def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
         """Get detailed information for a specific trigger."""
         triggers = self.list_triggers(schema=schema)
         for trig in triggers:
@@ -609,18 +548,12 @@ class AsyncIntrospectionMixin:
                 self._introspection_cache.clear()
             elif name is None:
                 prefix = f"{scope.value}:"
-                keys_to_delete = [
-                    k for k in self._introspection_cache if k.startswith(prefix)
-                ]
+                keys_to_delete = [k for k in self._introspection_cache if k.startswith(prefix)]
                 for key in keys_to_delete:
                     del self._introspection_cache[key]
             else:
                 prefix = f"{scope.value}:"
-                keys_to_delete = [
-                    k
-                    for k in self._introspection_cache
-                    if k.startswith(prefix) and name in k
-                ]
+                keys_to_delete = [k for k in self._introspection_cache if k.startswith(prefix) and name in k]
                 for key in keys_to_delete:
                     del self._introspection_cache[key]
 
@@ -647,30 +580,22 @@ class AsyncIntrospectionMixin:
         ...
 
     @abstractmethod
-    async def _query_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    async def _query_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Query table information asynchronously."""
         ...
 
     @abstractmethod
-    async def _query_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    async def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Query column list for a table asynchronously."""
         ...
 
     @abstractmethod
-    async def _query_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    async def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Query index list for a table asynchronously."""
         ...
 
     @abstractmethod
-    async def _query_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    async def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Query foreign key list for a table asynchronously."""
         ...
 
@@ -684,9 +609,7 @@ class AsyncIntrospectionMixin:
         ...
 
     @abstractmethod
-    async def _query_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    async def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Query view information asynchronously."""
         ...
 
@@ -719,9 +642,7 @@ class AsyncIntrospectionMixin:
         table_type: Optional[str] = None,
     ) -> List[TableInfo]:
         """List all tables in the database asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.TABLE, schema=schema, extra=str(include_system)
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.TABLE, schema=schema, extra=str(include_system))
         if table_type:
             cache_key += f":type:{table_type}"
 
@@ -733,13 +654,9 @@ class AsyncIntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    async def get_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Get detailed information for a specific table asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.TABLE, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -749,19 +666,13 @@ class AsyncIntrospectionMixin:
             self._set_cached(cache_key, result)
         return result
 
-    async def table_exists(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> bool:
+    async def table_exists(self, table_name: str, schema: Optional[str] = None) -> bool:
         """Check if a table exists asynchronously."""
         return await self.get_table_info(table_name, schema) is not None
 
-    async def list_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    async def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List all columns of a table asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.COLUMN, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.COLUMN, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -780,19 +691,13 @@ class AsyncIntrospectionMixin:
                 return col
         return None
 
-    async def column_exists(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
-    ) -> bool:
+    async def column_exists(self, table_name: str, column_name: str, schema: Optional[str] = None) -> bool:
         """Check if a column exists in a table asynchronously."""
         return await self.get_column_info(table_name, column_name, schema) is not None
 
-    async def list_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    async def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of a table asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.INDEX, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -811,9 +716,7 @@ class AsyncIntrospectionMixin:
                 return idx
         return None
 
-    async def get_primary_key(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[IndexInfo]:
+    async def get_primary_key(self, table_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Get primary key information for a table asynchronously."""
         indexes = await self.list_indexes(table_name, schema)
         for idx in indexes:
@@ -821,13 +724,9 @@ class AsyncIntrospectionMixin:
                 return idx
         return None
 
-    async def list_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    async def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """List all foreign keys of a table asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.FOREIGN_KEY, table_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.FOREIGN_KEY, table_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -852,9 +751,7 @@ class AsyncIntrospectionMixin:
         include_system: bool = False,
     ) -> List[ViewInfo]:
         """List all views in the database asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.VIEW, schema=schema, extra=str(include_system)
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.VIEW, schema=schema, extra=str(include_system))
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -863,13 +760,9 @@ class AsyncIntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    async def get_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    async def get_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Get detailed information for a specific view asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.VIEW, view_name, schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.VIEW, view_name, schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -879,9 +772,7 @@ class AsyncIntrospectionMixin:
             self._set_cached(cache_key, result)
         return result
 
-    async def view_exists(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> bool:
+    async def view_exists(self, view_name: str, schema: Optional[str] = None) -> bool:
         """Check if a view exists asynchronously."""
         return await self.get_view_info(view_name, schema) is not None
 
@@ -891,9 +782,7 @@ class AsyncIntrospectionMixin:
         schema: Optional[str] = None,
     ) -> List[TriggerInfo]:
         """List all triggers (optionally filtered by table) asynchronously."""
-        cache_key = self._make_cache_key(
-            IntrospectionScope.TRIGGER, table_name or "*", schema=schema
-        )
+        cache_key = self._make_cache_key(IntrospectionScope.TRIGGER, table_name or "*", schema=schema)
         cached = self._get_cached(cache_key)
         if cached is not None:
             return cached  # type: ignore
@@ -902,9 +791,7 @@ class AsyncIntrospectionMixin:
         self._set_cached(cache_key, result)
         return result
 
-    async def get_trigger_info(
-        self, trigger_name: str, schema: Optional[str] = None
-    ) -> Optional[TriggerInfo]:
+    async def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
         """Get detailed information for a specific trigger asynchronously."""
         triggers = await self.list_triggers(schema=schema)
         for trig in triggers:

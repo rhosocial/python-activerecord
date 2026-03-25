@@ -541,7 +541,7 @@ class SQLiteIntrospectionCapabilityMixin:
         Note: Foreign key constraints are disabled by default and must be
         enabled via 'PRAGMA foreign_keys = ON'.
         """
-        version = getattr(self, 'version', (3, 35, 0))
+        version = getattr(self, "version", (3, 35, 0))
         return version >= (3, 6, 19)
 
     def supports_view_introspection(self) -> bool:
@@ -575,6 +575,7 @@ class SQLiteIntrospectionCapabilityMixin:
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""
         from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+
         scopes = [
             IntrospectionScope.DATABASE,
             IntrospectionScope.TABLE,
@@ -631,10 +632,10 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        schema = params.get('schema') or 'main'
-        include_views = params.get('include_views', True)
-        include_system = params.get('include_system', False)
-        table_type = params.get('table_type')
+        schema = params.get("schema") or "main"
+        include_views = params.get("include_views", True)
+        include_system = params.get("include_system", False)
+        table_type = params.get("table_type")
 
         # Use PRAGMA table_list for SQLite 3.37.0+
         if self.supports_table_list_pragma():
@@ -653,9 +654,9 @@ class SQLiteIntrospectionCapabilityMixin:
 
         # Filter by table type if specified
         if table_type:
-            if table_type == 'BASE TABLE':
+            if table_type == "BASE TABLE":
                 sql += " AND type = 'table'"
-            elif table_type == 'VIEW':
+            elif table_type == "VIEW":
                 sql += " AND type = 'view'"
 
         sql += " ORDER BY name"
@@ -673,8 +674,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get('table_name', '')
-        schema = params.get('schema') or 'main'
+        table_name = params.get("table_name", "")
+        schema = params.get("schema") or "main"
 
         sql = f"SELECT name, type, sql FROM {schema}.sqlite_master WHERE name = ?"
         return (sql, (table_name,))
@@ -692,9 +693,9 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get('table_name', '')
-        include_hidden = params.get('include_hidden', False)
-        schema = params.get('schema') or 'main'
+        table_name = params.get("table_name", "")
+        include_hidden = params.get("include_hidden", False)
+        schema = params.get("schema") or "main"
 
         # Use table_xinfo for hidden columns if supported and requested
         if include_hidden and self.supports_table_xinfo_pragma():
@@ -716,8 +717,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get('table_name', '')
-        schema = params.get('schema') or 'main'
+        table_name = params.get("table_name", "")
+        schema = params.get("schema") or "main"
 
         sql = f"PRAGMA {schema}.index_list({self._quote_identifier(table_name)})"
         return (sql, ())
@@ -734,8 +735,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get('table_name', '')
-        schema = params.get('schema') or 'main'
+        table_name = params.get("table_name", "")
+        schema = params.get("schema") or "main"
 
         sql = f"PRAGMA {schema}.foreign_key_list({self._quote_identifier(table_name)})"
         return (sql, ())
@@ -752,8 +753,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        schema = params.get('schema') or 'main'
-        include_system = params.get('include_system', False)
+        schema = params.get("schema") or "main"
+        include_system = params.get("include_system", False)
 
         sql = f"SELECT name FROM {schema}.sqlite_master WHERE type = 'view'"
 
@@ -776,8 +777,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        view_name = params.get('view_name', '')
-        schema = params.get('schema') or 'main'
+        view_name = params.get("view_name", "")
+        schema = params.get("schema") or "main"
 
         sql = f"SELECT name, sql FROM {schema}.sqlite_master WHERE type = 'view' AND name = ?"
         return (sql, (view_name,))
@@ -794,8 +795,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        table_name = params.get('table_name')
-        schema = params.get('schema') or 'main'
+        table_name = params.get("table_name")
+        schema = params.get("schema") or "main"
 
         sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger'"
         if table_name:
@@ -817,9 +818,8 @@ class SQLiteIntrospectionCapabilityMixin:
             Tuple of (SQL string, parameters tuple).
         """
         params = expr.get_params()
-        trigger_name = params.get('trigger_name', '')
-        schema = params.get('schema') or 'main'
+        trigger_name = params.get("trigger_name", "")
+        schema = params.get("schema") or "main"
 
         sql = f"SELECT name, tbl_name, sql FROM {schema}.sqlite_master WHERE type = 'trigger' AND name = ?"
         return (sql, (trigger_name,))
-

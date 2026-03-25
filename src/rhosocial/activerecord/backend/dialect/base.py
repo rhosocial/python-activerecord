@@ -1008,11 +1008,11 @@ class SQLDialectBase:
             raise ValueError("FOREIGN KEY constraint must have a foreign key table specified.")
         cols_str = ", ".join(self.format_identifier(col) for col in t_const.columns)
         ref_cols_str = ", ".join(self.format_identifier(col) for col in t_const.foreign_key_columns)
-        return f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})"
+        return (
+            f"FOREIGN KEY ({cols_str}) REFERENCES {self.format_identifier(t_const.foreign_key_table)}({ref_cols_str})"
+        )
 
-    def _format_table_constraint_sql(
-        self, t_const: "TableConstraint"
-    ) -> Tuple[str, tuple]:
+    def _format_table_constraint_sql(self, t_const: "TableConstraint") -> Tuple[str, tuple]:
         """Format a single table constraint.
 
         Args:
@@ -1387,9 +1387,7 @@ class SQLDialectBase:
         order_sql = f"ORDER BY {', '.join(expr_parts)}"
         return order_sql, tuple(all_params)
 
-    def _format_column_constraint(
-        self, constraint: "ColumnConstraint"
-    ) -> Tuple[str, tuple]:
+    def _format_column_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format a single column constraint.
 
         Args:
@@ -1418,18 +1416,14 @@ class SQLDialectBase:
             return self._format_fk_constraint(constraint)
         return "", ()
 
-    def _format_column_check_constraint(
-        self, constraint: "ColumnConstraint"
-    ) -> Tuple[str, tuple]:
+    def _format_column_check_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format CHECK constraint for column-level constraint."""
         if constraint.check_condition is None:
             return "", ()
         check_sql, check_params = constraint.check_condition.to_sql()
         return f" CHECK ({check_sql})", tuple(check_params)
 
-    def _format_default_constraint(
-        self, constraint: "ColumnConstraint"
-    ) -> Tuple[str, tuple]:
+    def _format_default_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format DEFAULT constraint."""
         if constraint.default_value is None:
             raise ValueError("DEFAULT constraint must have a default value specified.")
@@ -1438,9 +1432,7 @@ class SQLDialectBase:
             return f" DEFAULT {default_sql}", tuple(default_params)
         return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
 
-    def _format_fk_constraint(
-        self, constraint: "ColumnConstraint"
-    ) -> Tuple[str, tuple]:
+    def _format_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format FOREIGN KEY constraint."""
         if constraint.foreign_key_reference is None:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")

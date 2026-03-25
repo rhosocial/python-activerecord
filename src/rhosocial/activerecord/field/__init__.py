@@ -7,11 +7,4 @@ from .version import Version, OptimisticLockMixin
 from .soft_delete import SoftDeleteMixin
 from .uuid import UUIDMixin
 
-__all__ = [
-    'IntegerPKMixin',
-    'TimestampMixin',
-    'Version',
-    'OptimisticLockMixin',
-    'SoftDeleteMixin',
-    'UUIDMixin'
-]
+__all__ = ["IntegerPKMixin", "TimestampMixin", "Version", "OptimisticLockMixin", "SoftDeleteMixin", "UUIDMixin"]

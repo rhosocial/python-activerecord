@@ -10,17 +10,17 @@ from .fields import UseColumn, UseAdapter
 from .metaclass import MetaclassMixin, ActiveRecordMetaclass
 
 __all__ = [
-    'BaseActiveRecord',
-    'AsyncBaseActiveRecord',
-    'QueryMixin',
-    'AsyncQueryMixin',
-    'FieldProxy',
-    'ColumnNameMixin',
-    'ColumnNameAnnotationHandler',
-    'FieldAdapterMixin',
-    'AdapterAnnotationHandler',
-    'UseColumn',
-    'UseAdapter',
-    'MetaclassMixin',
-    'ActiveRecordMetaclass'
+    "BaseActiveRecord",
+    "AsyncBaseActiveRecord",
+    "QueryMixin",
+    "AsyncQueryMixin",
+    "FieldProxy",
+    "ColumnNameMixin",
+    "ColumnNameAnnotationHandler",
+    "FieldAdapterMixin",
+    "AdapterAnnotationHandler",
+    "UseColumn",
+    "UseAdapter",
+    "MetaclassMixin",
+    "ActiveRecordMetaclass",
 ]

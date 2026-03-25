@@ -1,5 +1,6 @@
 # src/rhosocial/activerecord/field/soft_delete.py
 """Module providing soft delete functionality."""
+
 from datetime import datetime, timezone
 from pydantic import Field
 from typing import Dict, Any, Optional
@@ -18,13 +19,14 @@ class SoftDeleteMixin:
     - Query including/excluding deleted records
     - Restore deleted records
     """
+
     deleted_at: Optional[datetime] = Field(default=None)
 
     def __init__(self, **data):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_DELETE, self._mark_as_deleted)
 
-    def _mark_as_deleted(self, instance: 'SoftDeleteMixin', **kwargs):
+    def _mark_as_deleted(self, instance: "SoftDeleteMixin", **kwargs):
         """Mark record as soft deleted by setting deleted_at timestamp."""
         instance.deleted_at = datetime.now(timezone.utc)
 
@@ -32,10 +34,10 @@ class SoftDeleteMixin:
         """Prepare soft delete data"""
         if self.deleted_at is None:
             raise ValueError("deleted_at not set, ensure BEFORE_DELETE event is triggered")
-        return {'deleted_at': self.deleted_at}
+        return {"deleted_at": self.deleted_at}
 
     @classmethod
-    def query(cls) -> 'ActiveQuery':
+    def query(cls) -> "ActiveQuery":
         """Return query builder excluding soft-deleted records using expression system."""
         backend = cls.backend()
         # Use is_null() method from ComparisonMixin to check for non-deleted records
@@ -44,12 +46,12 @@ class SoftDeleteMixin:
         return super().query().where(non_deleted_condition)
 
     @classmethod
-    def query_with_deleted(cls) -> 'ActiveQuery':
+    def query_with_deleted(cls) -> "ActiveQuery":
         """Return query including all records (no soft delete filter)"""
         return super().query()
 
     @classmethod
-    def query_only_deleted(cls) -> 'ActiveQuery':
+    def query_only_deleted(cls) -> "ActiveQuery":
         """Return query for only soft-deleted records using expression system."""
         backend = cls.backend()
         # Use is_not_null() method from ComparisonMixin to check for deleted records
@@ -72,11 +74,8 @@ class SoftDeleteMixin:
 
         # Use UpdateOptions for the update operation
         from ..backend.options import UpdateOptions
-        update_options = UpdateOptions(
-            table=self.table_name(),
-            data={'deleted_at': None},
-            where=condition_expr
-        )
+
+        update_options = UpdateOptions(table=self.table_name(), data={"deleted_at": None}, where=condition_expr)
 
         result = backend.update(update_options)
 

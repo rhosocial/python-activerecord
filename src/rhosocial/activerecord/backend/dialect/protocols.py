@@ -1204,13 +1204,6 @@ class GeneratedColumnSupport(Protocol):
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..introspection.types import (
-        DatabaseInfo,
-        TableInfo,
-        ColumnInfo,
-        IndexInfo,
-        ForeignKeyInfo,
-        ViewInfo,
-        TriggerInfo,
         IntrospectionScope,
     )
 

@@ -1,10 +1,8 @@
 # src/rhosocial/activerecord/base/query_mixin.py
 """QueryMixin class providing query functionality for ActiveRecord."""
 
-import asyncio
-from concurrent.futures import ThreadPoolExecutor
-from typing import TYPE_CHECKING, List, Optional, Type, Union, Dict, Any
-from ..interface import IActiveRecord, IAsyncActiveRecord, IActiveQuery
+from typing import TYPE_CHECKING
+from ..interface import IActiveRecord
 from ..query import ActiveQuery, AsyncActiveQuery
 
 if TYPE_CHECKING:
@@ -22,7 +20,7 @@ class QueryMixin(IActiveRecord):
     __query_class__ = ActiveQuery
 
     @classmethod
-    def query(cls) -> 'ActiveQuery':
+    def query(cls) -> "ActiveQuery":
         """
         Create a new query instance configured for this model class.
 
@@ -63,7 +61,10 @@ class QueryMixin(IActiveRecord):
             active_users = User.query().where(User.c.is_active == True).order_by(User.c.username).all()
 
             # Complex query with joins
-            posts_with_authors = Post.query().join(User, on=(Post.c.user_id == User.c.id)).select(Post.c.title, User.c.username).all()
+            posts_with_authors = (
+                Post.query().join(User, on=(Post.c.user_id == User.c.id))
+                .select(Post.c.title, User.c.username).all()
+            )
 
             # Query with eager loading
             users_with_posts = User.query().with_('posts').where(User.c.status == 'active').all()
@@ -83,7 +84,7 @@ class AsyncQueryMixin:
     __query_class__ = AsyncActiveQuery
 
     @classmethod
-    def query(cls) -> 'AsyncActiveQuery':
+    def query(cls) -> "AsyncActiveQuery":
         """
         Create a new query instance configured for this model class.
 
@@ -124,7 +125,10 @@ class AsyncQueryMixin:
             active_users = await User.query().where(User.c.is_active == True).order_by(User.c.username).all()
 
             # Complex query with joins
-            posts_with_authors = await Post.query().join(User, on=(Post.c.user_id == User.c.id)).select(Post.c.title, User.c.username).all()
+            posts_with_authors = (
+                await Post.query().join(User, on=(Post.c.user_id == User.c.id))
+                .select(Post.c.title, User.c.username).all()
+            )
 
             # Query with eager loading
             users_with_posts = await User.query().with_('posts').where(User.c.status == 'active').all()

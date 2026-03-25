@@ -2,6 +2,7 @@
 """
 This module provides classes and functions related to field definitions and annotations.
 """
+
 from typing import Type
 
 from ..backend.type_adapter import SQLTypeAdapter
@@ -42,8 +43,7 @@ class UseColumn:
         """
         if not isinstance(column_name, str):
             raise TypeError(
-                f"Invalid type for column_name. Expected str, "
-                f"but received type {type(column_name).__name__}."
+                f"Invalid type for column_name. Expected str, but received type {type(column_name).__name__}."
             )
         if not column_name.strip():
             raise ValueError("Column name cannot be empty.")
@@ -57,7 +57,7 @@ class UseAdapter:
 
     Example:
         from datetime import datetime
-        
+
         class User(ActiveRecord):
             # This field will use MyCustomAdapter to convert datetime to str
             custom_field: Annotated[
@@ -65,6 +65,7 @@ class UseAdapter:
                 UseAdapter(MyCustomAdapter(), str)
             ]
     """
+
     def __init__(self, adapter: SQLTypeAdapter, target_db_type: Type):
         """
         Initializes the UseAdapter marker.

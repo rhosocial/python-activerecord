@@ -29,8 +29,7 @@ class IntrospectionNotSupportedError(IntrospectionError):
 class IntrospectionQueryError(IntrospectionError):
     """Raised when an introspection query fails to execute."""
 
-    def __init__(self, message: str, query: Optional[str] = None,
-                 backend: Optional[str] = None):
+    def __init__(self, message: str, query: Optional[str] = None, backend: Optional[str] = None):
         self.query = query
         super().__init__(message, backend)
 
@@ -38,8 +37,7 @@ class IntrospectionQueryError(IntrospectionError):
 class ObjectNotFoundError(IntrospectionError):
     """Raised when an introspection target object is not found."""
 
-    def __init__(self, object_type: str, object_name: str,
-                 schema: Optional[str] = None):
+    def __init__(self, object_type: str, object_name: str, schema: Optional[str] = None):
         self.object_type = object_type
         self.object_name = object_name
         self.schema = schema

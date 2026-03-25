@@ -40,7 +40,9 @@ class RangeQueryMixin:
             raise TypeError(f"column must be a string or a BaseExpression, but got {type(column)}")
 
     # region Range Methods
-    def in_list(self, column: Union[str, BaseExpression], values: Union[List[Any], Tuple[Any, ...]], empty_result: bool = True) -> 'IQuery':
+    def in_list(
+        self, column: Union[str, BaseExpression], values: Union[List[Any], Tuple[Any, ...]], empty_result: bool = True
+    ) -> "IQuery":
         """
         Add an IN condition to the query.
 
@@ -82,7 +84,9 @@ class RangeQueryMixin:
         predicate = col_expr.in_(list(values))
         return self.where(predicate)
 
-    def not_in(self, column: Union[str, BaseExpression], values: Union[List[Any], Tuple[Any, ...]], empty_result: bool = False) -> 'IQuery':
+    def not_in(
+        self, column: Union[str, BaseExpression], values: Union[List[Any], Tuple[Any, ...]], empty_result: bool = False
+    ) -> "IQuery":
         """
         Add a NOT IN condition to the query.
 
@@ -120,7 +124,7 @@ class RangeQueryMixin:
         predicate = col_expr.not_in(list(values))
         return self.where(predicate)
 
-    def between(self, column: Union[str, BaseExpression], start: Any, end: Any) -> 'IQuery':
+    def between(self, column: Union[str, BaseExpression], start: Any, end: Any) -> "IQuery":
         """
         Add a BETWEEN condition to the query.
 
@@ -147,7 +151,7 @@ class RangeQueryMixin:
         predicate = col_expr.between(start, end)
         return self.where(predicate)
 
-    def not_between(self, column: Union[str, BaseExpression], start: Any, end: Any) -> 'IQuery':
+    def not_between(self, column: Union[str, BaseExpression], start: Any, end: Any) -> "IQuery":
         """
         Add a NOT BETWEEN condition to the query.
 
@@ -174,7 +178,7 @@ class RangeQueryMixin:
         predicate = ~(col_expr.between(start, end))
         return self.where(predicate)
 
-    def like(self, column: Union[str, BaseExpression], pattern: str) -> 'IQuery':
+    def like(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
         """
         Add a LIKE condition (case-sensitive) to the query.
 
@@ -200,7 +204,7 @@ class RangeQueryMixin:
         predicate = col_expr.like(pattern)
         return self.where(predicate)
 
-    def not_like(self, column: Union[str, BaseExpression], pattern: str) -> 'IQuery':
+    def not_like(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
         """
         Add a NOT LIKE condition (case-sensitive) to the query.
 
@@ -222,7 +226,7 @@ class RangeQueryMixin:
         predicate = ~(col_expr.like(pattern))
         return self.where(predicate)
 
-    def ilike(self, column: Union[str, BaseExpression], pattern: str) -> 'IQuery':
+    def ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
         """
         Add an ILIKE condition (case-insensitive) to the query.
 
@@ -245,7 +249,7 @@ class RangeQueryMixin:
         predicate = col_expr.ilike(pattern)
         return self.where(predicate)
 
-    def not_ilike(self, column: Union[str, BaseExpression], pattern: str) -> 'IQuery':
+    def not_ilike(self, column: Union[str, BaseExpression], pattern: str) -> "IQuery":
         """
         Add a NOT ILIKE condition (case-insensitive) to the query.
 
@@ -268,7 +272,7 @@ class RangeQueryMixin:
         predicate = ~(col_expr.ilike(pattern))
         return self.where(predicate)
 
-    def is_null(self, column: Union[str, BaseExpression]) -> 'IQuery':
+    def is_null(self, column: Union[str, BaseExpression]) -> "IQuery":
         """
         Add an IS NULL condition to the query.
 
@@ -289,7 +293,7 @@ class RangeQueryMixin:
         predicate = col_expr.is_null()
         return self.where(predicate)
 
-    def is_not_null(self, column: Union[str, BaseExpression]) -> 'IQuery':
+    def is_not_null(self, column: Union[str, BaseExpression]) -> "IQuery":
         """
         Add an IS NOT NULL condition to the query.
 
@@ -310,7 +314,7 @@ class RangeQueryMixin:
         predicate = col_expr.is_not_null()
         return self.where(predicate)
 
-    def greater_than(self, column: Union[str, BaseExpression], value: Any) -> 'IQuery':
+    def greater_than(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
         """
         Add a "greater than" (>) condition to the query.
 
@@ -332,7 +336,7 @@ class RangeQueryMixin:
         predicate = col_expr > value
         return self.where(predicate)
 
-    def greater_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> 'IQuery':
+    def greater_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
         """
         Add a "greater than or equal to" (>=) condition to the query.
 
@@ -354,7 +358,7 @@ class RangeQueryMixin:
         predicate = col_expr >= value
         return self.where(predicate)
 
-    def less_than(self, column: Union[str, BaseExpression], value: Any) -> 'IQuery':
+    def less_than(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
         """
         Add a "less than" (<) condition to the query.
 
@@ -376,7 +380,7 @@ class RangeQueryMixin:
         predicate = col_expr < value
         return self.where(predicate)
 
-    def less_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> 'IQuery':
+    def less_than_or_equal(self, column: Union[str, BaseExpression], value: Any) -> "IQuery":
         """
         Add a "less than or equal to" (<=) condition to the query.
 

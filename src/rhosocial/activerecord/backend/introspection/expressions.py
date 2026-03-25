@@ -66,6 +66,7 @@ class DatabaseInfoExpression(IntrospectionExpression):
     Database info queries typically don't need parameters,
     but this class is provided for consistency and future extensibility.
     """
+
     pass
 
 
@@ -89,10 +90,10 @@ class TableListExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['include_views'] = self.include_views
-        self._params['include_system'] = self.include_system
-        self._params['schema'] = self.schema
-        self._params['table_type'] = self.table_type
+        self._params["include_views"] = self.include_views
+        self._params["include_system"] = self.include_system
+        self._params["schema"] = self.schema
+        self._params["table_type"] = self.table_type
 
 
 @dataclass
@@ -117,11 +118,11 @@ class TableInfoExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['table_name'] = self.table_name
-        self._params['schema'] = self.schema
-        self._params['include_columns'] = self.include_columns
-        self._params['include_indexes'] = self.include_indexes
-        self._params['include_foreign_keys'] = self.include_foreign_keys
+        self._params["table_name"] = self.table_name
+        self._params["schema"] = self.schema
+        self._params["include_columns"] = self.include_columns
+        self._params["include_indexes"] = self.include_indexes
+        self._params["include_foreign_keys"] = self.include_foreign_keys
 
 
 @dataclass
@@ -142,9 +143,9 @@ class ColumnInfoExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['table_name'] = self.table_name
-        self._params['include_hidden'] = self.include_hidden
-        self._params['schema'] = self.schema
+        self._params["table_name"] = self.table_name
+        self._params["include_hidden"] = self.include_hidden
+        self._params["schema"] = self.schema
 
 
 @dataclass
@@ -163,8 +164,8 @@ class IndexInfoExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['table_name'] = self.table_name
-        self._params['schema'] = self.schema
+        self._params["table_name"] = self.table_name
+        self._params["schema"] = self.schema
 
 
 @dataclass
@@ -183,8 +184,8 @@ class ForeignKeyExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['table_name'] = self.table_name
-        self._params['schema'] = self.schema
+        self._params["table_name"] = self.table_name
+        self._params["schema"] = self.schema
 
 
 @dataclass
@@ -203,8 +204,8 @@ class ViewListExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['include_system'] = self.include_system
-        self._params['schema'] = self.schema
+        self._params["include_system"] = self.include_system
+        self._params["schema"] = self.schema
 
 
 @dataclass
@@ -225,9 +226,9 @@ class ViewInfoExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['view_name'] = self.view_name
-        self._params['schema'] = self.schema
-        self._params['include_columns'] = self.include_columns
+        self._params["view_name"] = self.view_name
+        self._params["schema"] = self.schema
+        self._params["include_columns"] = self.include_columns
 
 
 @dataclass
@@ -246,8 +247,8 @@ class TriggerListExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['table_name'] = self.table_name
-        self._params['schema'] = self.schema
+        self._params["table_name"] = self.table_name
+        self._params["schema"] = self.schema
 
 
 @dataclass
@@ -266,5 +267,5 @@ class TriggerInfoExpression(IntrospectionExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        self._params['trigger_name'] = self.trigger_name
-        self._params['schema'] = self.schema
+        self._params["trigger_name"] = self.trigger_name
+        self._params["schema"] = self.schema

@@ -2,7 +2,8 @@
 """
 Interface for model update behavior customization.
 """
-from abc import ABC, abstractmethod
+
+from abc import ABC
 from typing import Dict, List
 from ..backend.expression import SQLValueExpression, SQLPredicate
 

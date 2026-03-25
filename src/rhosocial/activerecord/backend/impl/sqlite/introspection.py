@@ -147,11 +147,13 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
                 if parsed_type != type_map.get(table_type):
                     continue
 
-            tables.append(TableInfo(
-                name=row["name"],
-                schema=database,
-                table_type=parsed_type,
-            ))
+            tables.append(
+                TableInfo(
+                    name=row["name"],
+                    schema=database,
+                    table_type=parsed_type,
+                )
+            )
 
         return tables
 
@@ -179,11 +181,13 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
         tables = []
         for row in rows:
             parsed_type = TableType.VIEW if row["type"] == "view" else TableType.BASE_TABLE
-            tables.append(TableInfo(
-                name=row["name"],
-                schema=database,
-                table_type=parsed_type,
-            ))
+            tables.append(
+                TableInfo(
+                    name=row["name"],
+                    schema=database,
+                    table_type=parsed_type,
+                )
+            )
 
         return tables
 
@@ -197,9 +201,7 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
         }
         return type_map.get(type_str.lower())
 
-    def _query_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    def _query_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Query table information."""
         tables = self._query_tables(schema, False)
         table = next((t for t in tables if t.name == table_name), None)
@@ -212,9 +214,7 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
         return table
 
-    def _query_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Query column list for a table."""
         target_db = schema or self._get_database_name()
         version = self._get_sqlite_version()
@@ -254,9 +254,7 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
         return columns
 
-    def _query_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Query index list for a table."""
         target_db = schema or self._get_database_name()
 
@@ -283,21 +281,21 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
                 if cr["name"]
             ]
 
-            indexes.append(IndexInfo(
-                name=idx_name,
-                table_name=table_name,
-                schema=target_db,
-                is_unique=is_unique,
-                is_primary=is_primary,
-                index_type=IndexType.BTREE,  # SQLite uses B-tree
-                columns=columns,
-            ))
+            indexes.append(
+                IndexInfo(
+                    name=idx_name,
+                    table_name=table_name,
+                    schema=target_db,
+                    is_unique=is_unique,
+                    is_primary=is_primary,
+                    index_type=IndexType.BTREE,  # SQLite uses B-tree
+                    columns=columns,
+                )
+            )
 
         return indexes
 
-    def _query_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Query foreign key list for a table."""
         target_db = schema or self._get_database_name()
 
@@ -321,14 +319,8 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
                     "SET DEFAULT": ReferentialAction.SET_DEFAULT,
                 }
 
-                on_update = action_map.get(
-                    row.get("on_update", "NO ACTION").upper(),
-                    ReferentialAction.NO_ACTION
-                )
-                on_delete = action_map.get(
-                    row.get("on_delete", "NO ACTION").upper(),
-                    ReferentialAction.NO_ACTION
-                )
+                on_update = action_map.get(row.get("on_update", "NO ACTION").upper(), ReferentialAction.NO_ACTION)
+                on_delete = action_map.get(row.get("on_delete", "NO ACTION").upper(), ReferentialAction.NO_ACTION)
 
                 fk_map[fk_id] = ForeignKeyInfo(
                     name=f"fk_{table_name}_{fk_id}",
@@ -374,9 +366,7 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
             for row in rows
         ]
 
-    def _query_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Query view information."""
         views = self._query_views(schema, False)
         return next((v for v in views if v.name == view_name), None)
@@ -485,7 +475,7 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
         db_path = None
         if self._connection:
             # aiosqlite.Connection wraps the actual sqlite3 connection
-            if hasattr(self._connection, '_connection'):
+            if hasattr(self._connection, "_connection"):
                 db_path = getattr(self._connection._connection, "name", None)
             else:
                 db_path = getattr(self._connection, "name", None)
@@ -545,11 +535,13 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
                 if parsed_type != type_map.get(table_type):
                     continue
 
-            tables.append(TableInfo(
-                name=row["name"],
-                schema=database,
-                table_type=parsed_type,
-            ))
+            tables.append(
+                TableInfo(
+                    name=row["name"],
+                    schema=database,
+                    table_type=parsed_type,
+                )
+            )
 
         return tables
 
@@ -577,11 +569,13 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
         tables = []
         for row in rows:
             parsed_type = TableType.VIEW if row["type"] == "view" else TableType.BASE_TABLE
-            tables.append(TableInfo(
-                name=row["name"],
-                schema=database,
-                table_type=parsed_type,
-            ))
+            tables.append(
+                TableInfo(
+                    name=row["name"],
+                    schema=database,
+                    table_type=parsed_type,
+                )
+            )
 
         return tables
 
@@ -595,9 +589,7 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
         }
         return type_map.get(type_str.lower())
 
-    async def _query_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    async def _query_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Query table information."""
         tables = await self._query_tables(schema, False)
         table = next((t for t in tables if t.name == table_name), None)
@@ -610,9 +602,7 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
 
         return table
 
-    async def _query_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    async def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Query column list for a table."""
         target_db = schema or self._get_database_name()
         version = self._get_sqlite_version()
@@ -652,9 +642,7 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
 
         return columns
 
-    async def _query_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    async def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Query index list for a table."""
         target_db = schema or self._get_database_name()
 
@@ -681,21 +669,21 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
                 if cr["name"]
             ]
 
-            indexes.append(IndexInfo(
-                name=idx_name,
-                table_name=table_name,
-                schema=target_db,
-                is_unique=is_unique,
-                is_primary=is_primary,
-                index_type=IndexType.BTREE,  # SQLite uses B-tree
-                columns=columns,
-            ))
+            indexes.append(
+                IndexInfo(
+                    name=idx_name,
+                    table_name=table_name,
+                    schema=target_db,
+                    is_unique=is_unique,
+                    is_primary=is_primary,
+                    index_type=IndexType.BTREE,  # SQLite uses B-tree
+                    columns=columns,
+                )
+            )
 
         return indexes
 
-    async def _query_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    async def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Query foreign key list for a table."""
         target_db = schema or self._get_database_name()
 
@@ -719,14 +707,8 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
                     "SET DEFAULT": ReferentialAction.SET_DEFAULT,
                 }
 
-                on_update = action_map.get(
-                    row.get("on_update", "NO ACTION").upper(),
-                    ReferentialAction.NO_ACTION
-                )
-                on_delete = action_map.get(
-                    row.get("on_delete", "NO ACTION").upper(),
-                    ReferentialAction.NO_ACTION
-                )
+                on_update = action_map.get(row.get("on_update", "NO ACTION").upper(), ReferentialAction.NO_ACTION)
+                on_delete = action_map.get(row.get("on_delete", "NO ACTION").upper(), ReferentialAction.NO_ACTION)
 
                 fk_map[fk_id] = ForeignKeyInfo(
                     name=f"fk_{table_name}_{fk_id}",
@@ -772,9 +754,7 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
             for row in rows
         ]
 
-    async def _query_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    async def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Query view information."""
         views = await self._query_views(schema, False)
         return next((v for v in views if v.name == view_name), None)

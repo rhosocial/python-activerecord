@@ -74,9 +74,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Get detailed information for a specific table.
 
         Args:
@@ -106,9 +104,7 @@ class BackendIntrospectionSupport(Protocol):
 
     # ========== Column Introspection ==========
 
-    def list_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    def list_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """List all columns of a table.
 
         Args:
@@ -125,9 +121,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_column_info(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
-    ) -> Optional[ColumnInfo]:
+    def get_column_info(self, table_name: str, column_name: str, schema: Optional[str] = None) -> Optional[ColumnInfo]:
         """Get detailed information for a specific column.
 
         Args:
@@ -145,9 +139,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def column_exists(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
-    ) -> bool:
+    def column_exists(self, table_name: str, column_name: str, schema: Optional[str] = None) -> bool:
         """Check if a column exists in a table.
 
         Args:
@@ -162,9 +154,7 @@ class BackendIntrospectionSupport(Protocol):
 
     # ========== Index Introspection ==========
 
-    def list_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of a table.
 
         Args:
@@ -181,9 +171,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_index_info(
-        self, table_name: str, index_name: str, schema: Optional[str] = None
-    ) -> Optional[IndexInfo]:
+    def get_index_info(self, table_name: str, index_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Get detailed information for a specific index.
 
         Args:
@@ -201,9 +189,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_primary_key(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[IndexInfo]:
+    def get_primary_key(self, table_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Get primary key information for a table.
 
         Args:
@@ -221,9 +207,7 @@ class BackendIntrospectionSupport(Protocol):
 
     # ========== Foreign Key Introspection ==========
 
-    def list_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    def list_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """List all foreign keys of a table.
 
         Args:
@@ -282,9 +266,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    def get_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Get detailed information for a specific view.
 
         Args:
@@ -334,9 +316,7 @@ class BackendIntrospectionSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def get_trigger_info(
-        self, trigger_name: str, schema: Optional[str] = None
-    ) -> Optional[TriggerInfo]:
+    def get_trigger_info(self, trigger_name: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
         """Get detailed information for a specific trigger.
 
         Args:
@@ -397,23 +377,17 @@ class AsyncBackendIntrospectionSupport(Protocol):
         """Async list all tables in the database."""
         ...  # pragma: no cover
 
-    async def get_table_info_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    async def get_table_info_async(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Async get detailed information for a specific table."""
         ...  # pragma: no cover
 
-    async def table_exists_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> bool:
+    async def table_exists_async(self, table_name: str, schema: Optional[str] = None) -> bool:
         """Async check if a table exists."""
         ...  # pragma: no cover
 
     # ========== Column Introspection ==========
 
-    async def list_columns_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    async def list_columns_async(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Async list all columns of a table."""
         ...  # pragma: no cover
 
@@ -423,17 +397,13 @@ class AsyncBackendIntrospectionSupport(Protocol):
         """Async get detailed information for a specific column."""
         ...  # pragma: no cover
 
-    async def column_exists_async(
-        self, table_name: str, column_name: str, schema: Optional[str] = None
-    ) -> bool:
+    async def column_exists_async(self, table_name: str, column_name: str, schema: Optional[str] = None) -> bool:
         """Async check if a column exists in a table."""
         ...  # pragma: no cover
 
     # ========== Index Introspection ==========
 
-    async def list_indexes_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    async def list_indexes_async(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Async list all indexes of a table."""
         ...  # pragma: no cover
 
@@ -443,17 +413,13 @@ class AsyncBackendIntrospectionSupport(Protocol):
         """Async get detailed information for a specific index."""
         ...  # pragma: no cover
 
-    async def get_primary_key_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[IndexInfo]:
+    async def get_primary_key_async(self, table_name: str, schema: Optional[str] = None) -> Optional[IndexInfo]:
         """Async get primary key information for a table."""
         ...  # pragma: no cover
 
     # ========== Foreign Key Introspection ==========
 
-    async def list_foreign_keys_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    async def list_foreign_keys_async(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Async list all foreign keys of a table."""
         ...  # pragma: no cover
 
@@ -473,15 +439,11 @@ class AsyncBackendIntrospectionSupport(Protocol):
         """Async list all views in the database."""
         ...  # pragma: no cover
 
-    async def get_view_info_async(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    async def get_view_info_async(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Async get detailed information for a specific view."""
         ...  # pragma: no cover
 
-    async def view_exists_async(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> bool:
+    async def view_exists_async(self, view_name: str, schema: Optional[str] = None) -> bool:
         """Async check if a view exists."""
         ...  # pragma: no cover
 
@@ -495,9 +457,7 @@ class AsyncBackendIntrospectionSupport(Protocol):
         """Async list all triggers (optionally filtered by table)."""
         ...  # pragma: no cover
 
-    async def get_trigger_info_async(
-        self, trigger_name: str, schema: Optional[str] = None
-    ) -> Optional[TriggerInfo]:
+    async def get_trigger_info_async(self, trigger_name: str, schema: Optional[str] = None) -> Optional[TriggerInfo]:
         """Async get detailed information for a specific trigger."""
         ...  # pragma: no cover
 

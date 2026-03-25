@@ -62,27 +62,19 @@ class DummyIntrospectionMixin(IntrospectionMixin):
         """Return empty table list."""
         return []
 
-    def _query_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    def _query_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Return None as no tables exist in dummy backend."""
         return None
 
-    def _query_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Return empty column list."""
         return []
 
-    def _query_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Return empty index list."""
         return []
 
-    def _query_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Return empty foreign key list."""
         return []
 
@@ -94,9 +86,7 @@ class DummyIntrospectionMixin(IntrospectionMixin):
         """Return empty view list."""
         return []
 
-    def _query_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Return None as no views exist in dummy backend."""
         return None
 
@@ -136,27 +126,19 @@ class AsyncDummyIntrospectionMixin(AsyncIntrospectionMixin):
         """Return empty table list."""
         return []
 
-    async def _query_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    async def _query_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         """Return None as no tables exist in dummy backend."""
         return None
 
-    async def _query_columns(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ColumnInfo]:
+    async def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Return empty column list."""
         return []
 
-    async def _query_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    async def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Return empty index list."""
         return []
 
-    async def _query_foreign_keys(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[ForeignKeyInfo]:
+    async def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Return empty foreign key list."""
         return []
 
@@ -168,9 +150,7 @@ class AsyncDummyIntrospectionMixin(AsyncIntrospectionMixin):
         """Return empty view list."""
         return []
 
-    async def _query_view_info(
-        self, view_name: str, schema: Optional[str] = None
-    ) -> Optional[ViewInfo]:
+    async def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Return None as no views exist in dummy backend."""
         return None
 

@@ -8,7 +8,7 @@ from .base import (
     AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
-    MetaclassMixin
+    MetaclassMixin,
 )
 from .relation import RelationManagementMixin
 

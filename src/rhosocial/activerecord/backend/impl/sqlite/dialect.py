@@ -101,7 +101,10 @@ _SUGGESTION_GRAPH_MATCH = "SQLite does not support graph MATCH clause."
 _SUGGESTION_ORDERED_SET_AGG = "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
 _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
 _SUGGESTION_MATERIALIZED_VIEW = "SQLite does not support materialized views."
-_SUGGESTION_MATERIALIZED_VIEW_ALT = "SQLite does not support materialized views. Consider using regular views or creating tables to store precomputed results."
+_SUGGESTION_MATERIALIZED_VIEW_ALT = (
+    "SQLite does not support materialized views. Consider using regular views "
+    "or creating tables to store precomputed results."
+)
 _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
 
 

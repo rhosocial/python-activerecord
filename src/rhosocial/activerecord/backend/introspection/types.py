@@ -14,6 +14,7 @@ from enum import Enum
 
 class IntrospectionScope(Enum):
     """Introspection scope enumeration."""
+
     DATABASE = "database"
     SCHEMA = "schema"
     TABLE = "table"
@@ -27,6 +28,7 @@ class IntrospectionScope(Enum):
 
 class TableType(Enum):
     """Table type enumeration."""
+
     BASE_TABLE = "BASE_TABLE"
     VIEW = "VIEW"
     SYSTEM_TABLE = "SYSTEM_TABLE"
@@ -36,6 +38,7 @@ class TableType(Enum):
 
 class ColumnNullable(Enum):
     """Column nullability."""
+
     NULLABLE = "NULLABLE"
     NOT_NULL = "NOT_NULL"
     UNKNOWN = "UNKNOWN"
@@ -43,6 +46,7 @@ class ColumnNullable(Enum):
 
 class IndexType(Enum):
     """Index type enumeration."""
+
     BTREE = "BTREE"
     HASH = "HASH"
     GIN = "GIN"
@@ -54,6 +58,7 @@ class IndexType(Enum):
 
 class ReferentialAction(Enum):
     """Foreign key referential action."""
+
     CASCADE = "CASCADE"
     RESTRICT = "RESTRICT"
     SET_NULL = "SET NULL"
@@ -64,6 +69,7 @@ class ReferentialAction(Enum):
 @dataclass
 class DatabaseInfo:
     """Database information."""
+
     name: str
     version: str
     version_tuple: Tuple[int, int, int]
@@ -79,6 +85,7 @@ class DatabaseInfo:
 @dataclass
 class IndexColumnInfo:
     """Index column information."""
+
     name: str
     ordinal_position: int = 0
     is_descending: bool = False
@@ -88,6 +95,7 @@ class IndexColumnInfo:
 @dataclass
 class ColumnInfo:
     """Column information."""
+
     name: str
     table_name: str
     schema: Optional[str] = None
@@ -114,6 +122,7 @@ class ColumnInfo:
 @dataclass
 class IndexInfo:
     """Index information."""
+
     name: str
     table_name: str
     schema: Optional[str] = None
@@ -130,6 +139,7 @@ class IndexInfo:
 @dataclass
 class ForeignKeyInfo:
     """Foreign key information."""
+
     name: str
     table_name: str
     schema: Optional[str] = None
@@ -147,6 +157,7 @@ class ForeignKeyInfo:
 @dataclass
 class ViewInfo:
     """View information."""
+
     name: str
     schema: Optional[str] = None
     definition: Optional[str] = None
@@ -161,6 +172,7 @@ class ViewInfo:
 @dataclass
 class TriggerInfo:
     """Trigger information."""
+
     name: str
     table_name: str
     schema: Optional[str] = None
@@ -176,6 +188,7 @@ class TriggerInfo:
 @dataclass
 class TableInfo:
     """Table information."""
+
     name: str
     schema: Optional[str] = None
     table_type: TableType = TableType.BASE_TABLE

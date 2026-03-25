@@ -203,8 +203,10 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             select=[Column(dialect, "category"), FunctionCall(dialect, "COUNT", Column(dialect, "id"))],
             from_=TableExpression(dialect, "products"),
             where=WhereClause(dialect, condition=Column(dialect, "price") > Literal(dialect, 100)),
-            group_by_having=GroupByHavingClause(dialect, group_by=[Column(dialect, "category")],
-                                               having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 5)),
+            group_by_having=GroupByHavingClause(
+                dialect, group_by=[Column(dialect, "category")],
+                having=FunctionCall(dialect, "COUNT", Column(dialect, "id")) > Literal(dialect, 5)
+            ),
             order_by=OrderByClause(dialect, expressions=[(Column(dialect, "category"), "ASC")]),
             limit_offset=LimitOffsetClause(dialect, limit=10),
             select_modifier=SelectModifier.DISTINCT
@@ -246,7 +248,9 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                 window_func  # Window function call
             ],
             from_=TableExpression(dialect, "employees"),
-            order_by=OrderByClause(dialect, expressions=[Column(dialect, "department"), (Column(dialect, "row_num"), "ASC")])
+            order_by=OrderByClause(
+                dialect, expressions=[Column(dialect, "department"), (Column(dialect, "row_num"), "ASC")]
+            )
         )
 
         # Query with FOR UPDATE clause
@@ -297,7 +301,8 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
             from_: Source of data for the query (optional). Can be a table, subquery, join, etc.
                    Note: When using a single source, pass the expression directly (e.g., TableExpression).
                    When using multiple sources, you can either:
-                   1. Pass a list of expressions (equivalent to comma-separated tables in FROM clause, creates implicit CROSS JOIN)
+                   1. Pass a list of expressions (equivalent to comma-separated tables in
+                      FROM clause, creates implicit CROSS JOIN)
                    2. Use JoinExpression to explicitly define join conditions between tables
             where: WHERE clause object with the filtering condition (optional).
             group_by_having: Combined GROUP BY/HAVING clause object (optional). Handles validation
@@ -381,13 +386,17 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                 for i, item in enumerate(self.from_):
                     if not _is_valid_from_source(item):
                         raise TypeError(
-                            f"from_ list item at index {i} must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(item)}"
+                            f"from_ list item at index {i} must be one of: str, TableExpression, "
+                            f"Subquery, SetOperationExpression, JoinExpression, ValuesExpression, "
+                            f"TableFunctionExpression, LateralExpression, got {type(item)}"
                         )
             else:
                 # For single values, validate using the same helper
                 if not _is_valid_from_source(self.from_):
                     raise TypeError(
-                        f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}"
+                        f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
+                        f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
+                        f"LateralExpression, got {type(self.from_)}"
                     )
 
         # Validate where parameter
@@ -717,7 +726,9 @@ class DeleteExpression(bases.BaseExpression):
                 ]
                 if using_type_name not in valid_type_names:
                     raise TypeError(
-                        f"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got {type(self.using)}"
+                        f"using must be one of: str, TableExpression, Subquery, SetOperationExpression, "
+                        f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
+                        f"LateralExpression, QueryExpression, got {type(self.using)}"
                     )
 
         # Validate where parameter
@@ -839,7 +850,9 @@ class UpdateExpression(bases.BaseExpression):
                 ]
                 if from_type_name not in valid_type_names:
                     raise TypeError(
-                        f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, got {type(self.from_)}"
+                        f"from_ must be one of: str, TableExpression, Subquery, SetOperationExpression, "
+                        f"JoinExpression, list, ValuesExpression, TableFunctionExpression, "
+                        f"LateralExpression, got {type(self.from_)}"
                     )
 
         # Validate where parameter

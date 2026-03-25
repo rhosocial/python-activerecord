@@ -2,13 +2,12 @@
 """
 Core ActiveRecord model interface definition.
 """
+
 import logging
 from abc import ABC, abstractmethod
 from copy import deepcopy
 from pydantic import BaseModel
-from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable, TYPE_CHECKING
-from typing import Protocol
-from typing_extensions import runtime_checkable
+from typing import Any, Dict, ClassVar, Optional, Type, Set, Union, List, Callable
 
 from .base import ModelEvent
 from ..backend.base import StorageBackend, AsyncStorageBackend
@@ -38,12 +37,13 @@ class ActiveRecordBase(BaseModel, ABC):
         __no_track_fields__ (Set[str]): Fields excluded from change tracking
         _original_values (Dict): Original field values before modification
     """
+
     __table_name__: ClassVar[Optional[str]] = None
-    __primary_key__: ClassVar[str] = 'id'
+    __primary_key__: ClassVar[str] = "id"
     __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
     __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
-    __logger__: ClassVar[logging.Logger] = logging.getLogger('activerecord')
+    __logger__: ClassVar[logging.Logger] = logging.getLogger("activerecord")
 
     def __init__(self, **data):
         """Initialize ActiveRecord instance."""
@@ -61,7 +61,7 @@ class ActiveRecordBase(BaseModel, ABC):
         # Collect non-tracking fields from all parent classes
         no_track_fields = set()
         for base in cls.__mro__:
-            if hasattr(base, '__no_track_fields__'):
+            if hasattr(base, "__no_track_fields__"):
                 no_track_fields.update(base.__no_track_fields__)
         cls.__no_track_fields__ = no_track_fields
         cls.__column_types_cache__ = None
@@ -184,18 +184,18 @@ class ActiveRecordBase(BaseModel, ABC):
 
     def on(self, event: ModelEvent, handler: Callable) -> None:
         """Register event handler (instance level)"""
-        if not hasattr(self, '_event_handlers'):
+        if not hasattr(self, "_event_handlers"):
             self._event_handlers = {event: [] for event in ModelEvent}
         self._event_handlers[event].append(handler)
 
     def off(self, event: ModelEvent, handler: Callable) -> None:
         """Remove event handler (instance level)"""
-        if hasattr(self, '_event_handlers') and handler in self._event_handlers[event]:
+        if hasattr(self, "_event_handlers") and handler in self._event_handlers[event]:
             self._event_handlers[event].remove(handler)
 
     def _trigger_event(self, event: ModelEvent, **kwargs) -> None:
         """Trigger event (instance level)"""
-        if hasattr(self, '_event_handlers'):
+        if hasattr(self, "_event_handlers"):
             for handler in self._event_handlers[event]:
                 handler(self, **kwargs)
 
@@ -210,9 +210,9 @@ class ActiveRecordBase(BaseModel, ABC):
             Dict containing the fields to be saved
         """
         data = {}
-        if getattr(self, 'is_dirty', False):
+        if getattr(self, "is_dirty", False):
             # Only include changed fields for existing records
-            for field in getattr(self, '_dirty_fields', []):
+            for field in getattr(self, "_dirty_fields", []):
                 value = getattr(self, field)
                 data[field] = value
         else:
@@ -251,7 +251,7 @@ class ActiveRecordBase(BaseModel, ABC):
         # We iterate through the MRO in reverse. This ensures that handlers
         # from base classes are registered before handlers from child classes.
         for mro_class in reversed(cls.mro()):
-            if hasattr(mro_class, '_feature_handlers'):
+            if hasattr(mro_class, "_feature_handlers"):
                 for handler in mro_class._feature_handlers:
                     collected_handlers[handler] = True  # Use dict for ordered set
         return list(collected_handlers.keys())
@@ -277,9 +277,11 @@ class ActiveRecordBase(BaseModel, ABC):
 
     def __setattr__(self, name: str, value: Any):
         """Overridden to track field changes."""
-        if (name in self.__class__.model_fields and
-                hasattr(self, '_original_values') and
-                name not in self.__class__.__no_track_fields__):
+        if (
+            name in self.__class__.model_fields
+            and hasattr(self, "_original_values")
+            and name not in self.__class__.__no_track_fields__
+        ):
             if name not in self._original_values:
                 self._original_values[name] = getattr(self, name, None)
             if value != self._original_values[name]:
@@ -418,7 +420,7 @@ class IActiveRecord(ActiveRecordBase):
 
     @classmethod
     @abstractmethod
-    def find_one(cls: Type['IActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> Optional['IActiveRecord']:
+    def find_one(cls: Type["IActiveRecord"], condition: Union[Any, Dict[str, Any]]) -> Optional["IActiveRecord"]:
         """
         Find a single record that matches the specified condition.
 
@@ -446,7 +448,9 @@ class IActiveRecord(ActiveRecordBase):
 
     @classmethod
     @abstractmethod
-    def find_all(cls: Type['IActiveRecord'], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List['IActiveRecord']:
+    def find_all(
+        cls: Type["IActiveRecord"], condition: Optional[Union[List[Any], Dict[str, Any]]] = None
+    ) -> List["IActiveRecord"]:
         """
         Find all records that match the specified condition.
 
@@ -472,7 +476,7 @@ class IActiveRecord(ActiveRecordBase):
 
     @classmethod
     @abstractmethod
-    def find_one_or_fail(cls: Type['IActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> 'IActiveRecord':
+    def find_one_or_fail(cls: Type["IActiveRecord"], condition: Union[Any, Dict[str, Any]]) -> "IActiveRecord":
         """
         Find a single record that matches the specified condition or raise an exception.
 
@@ -553,7 +557,7 @@ class IAsyncActiveRecord(ActiveRecordBase):
         self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
 
         return result.affected_rows
-        
+
     @abstractmethod
     async def save(self) -> int:
         """
@@ -601,7 +605,9 @@ class IAsyncActiveRecord(ActiveRecordBase):
 
     @classmethod
     @abstractmethod
-    async def find_one(cls: Type['IAsyncActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> Optional['IAsyncActiveRecord']:
+    async def find_one(
+        cls: Type["IAsyncActiveRecord"], condition: Union[Any, Dict[str, Any]]
+    ) -> Optional["IAsyncActiveRecord"]:
         """
         Find a single record that matches the specified condition asynchronously.
 
@@ -629,7 +635,9 @@ class IAsyncActiveRecord(ActiveRecordBase):
 
     @classmethod
     @abstractmethod
-    async def find_all(cls: Type['IAsyncActiveRecord'], condition: Optional[Union[List[Any], Dict[str, Any]]] = None) -> List['IAsyncActiveRecord']:
+    async def find_all(
+        cls: Type["IAsyncActiveRecord"], condition: Optional[Union[List[Any], Dict[str, Any]]] = None
+    ) -> List["IAsyncActiveRecord"]:
         """
         Find all records that match the specified condition asynchronously.
 
@@ -655,7 +663,9 @@ class IAsyncActiveRecord(ActiveRecordBase):
 
     @classmethod
     @abstractmethod
-    async def find_one_or_fail(cls: Type['IAsyncActiveRecord'], condition: Union[Any, Dict[str, Any]]) -> 'IAsyncActiveRecord':
+    async def find_one_or_fail(
+        cls: Type["IAsyncActiveRecord"], condition: Union[Any, Dict[str, Any]]
+    ) -> "IAsyncActiveRecord":
         """
         Find a single record that matches the specified condition or raise an exception asynchronously.
 

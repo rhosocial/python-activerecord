@@ -997,7 +997,8 @@ class TemporalTableMixin:
         """Format temporal table options."""
         if not options:
             raise ValueError(
-                "Temporal options cannot be empty. If no temporal options are needed, don't call format_temporal_options."
+                "Temporal options cannot be empty. If no temporal options are needed, "
+                "don't call format_temporal_options."
             )
         sql_parts, params = ["FOR SYSTEM_TIME"], []
         # Add temporal options to SQL parts based on the options provided
@@ -1907,15 +1908,7 @@ class GeneratedColumnMixin:
 
 
 if TYPE_CHECKING:  # pragma: no cover
-    from .protocols import IntrospectionBackendSupport
     from ..introspection.types import (
-        DatabaseInfo,
-        TableInfo,
-        ColumnInfo,
-        IndexInfo,
-        ForeignKeyInfo,
-        ViewInfo,
-        TriggerInfo,
         IntrospectionScope,
     )
 
@@ -1974,7 +1967,6 @@ class IntrospectionMixin:
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""
-        from ..introspection.types import IntrospectionScope
         return []
 
     # ========== Query Formatting ==========
@@ -2201,7 +2193,6 @@ class AsyncIntrospectionMixin:
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""
-        from ..introspection.types import IntrospectionScope
         return []
 
     # ========== Query Formatting ==========

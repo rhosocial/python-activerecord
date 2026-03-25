@@ -1,26 +1,29 @@
 # src/rhosocial/activerecord/query/relational.py
 """Improved relational query methods implementation."""
+
 import logging
 from dataclasses import dataclass
-from typing import Dict, Any, Optional, List, Callable, Union, Type, Tuple
+from typing import Dict, Optional, List, Callable, Union, Tuple
 
 from ..interface import IQuery, ThreadSafeDict, IActiveQuery
-from ..relation.cache import InstanceCache
 
 
 class InvalidRelationPathError(Exception):
     """Exception raised when an invalid relation path is provided."""
+
     pass
 
 
 class RelationNotFoundError(Exception):
     """Exception raised when a requested relation does not exist on the model."""
+
     pass
 
 
 @dataclass
 class RelationConfig:
     """Configuration for relation loading."""
+
     name: str  # Base relation name
     nested: List[str]  # Nested relation parts
     query_modifier: Optional[Callable] = None  # Query modification function
@@ -92,7 +95,7 @@ class RelationalQueryMixin(IQuery):
         self._validate_relation_path(relation_path)
         self._validate_complete_relation_path(relation_path)
 
-    def with_(self, *relations: Union[str, tuple]) -> 'IActiveQuery':
+    def with_(self, *relations: Union[str, tuple]) -> "IActiveQuery":
         """
         Configure eager loading for model relationships to prevent N+1 queries.
 
@@ -234,13 +237,13 @@ class RelationalQueryMixin(IQuery):
         if not relation_path:
             raise InvalidRelationPathError("Relation path cannot be empty")
 
-        if relation_path.startswith('.'):
+        if relation_path.startswith("."):
             raise InvalidRelationPathError(f"Relation path cannot start with a dot: '{relation_path}'")
 
-        if relation_path.endswith('.'):
+        if relation_path.endswith("."):
             raise InvalidRelationPathError(f"Relation path cannot end with a dot: '{relation_path}'")
 
-        if '..' in relation_path:
+        if ".." in relation_path:
             raise InvalidRelationPathError(f"Relation path cannot contain consecutive dots: '{relation_path}'")
 
     def _validate_relation_exists(self, relation_name: str, model_class=None) -> None:
@@ -257,9 +260,11 @@ class RelationalQueryMixin(IQuery):
             model_class = self.model_class
 
         # Check if the relation exists on the model
-        if not hasattr(model_class, relation_name) or not hasattr(model_class,
-                                                                  'get_relation') or not model_class.get_relation(
-            relation_name):
+        if (
+            not hasattr(model_class, relation_name)
+            or not hasattr(model_class, "get_relation")
+            or not model_class.get_relation(relation_name)
+        ):
             raise RelationNotFoundError(f"Relation '{relation_name}' not found on {model_class.__name__}")
 
     def _validate_complete_relation_path(self, relation_path: str) -> None:
@@ -282,14 +287,16 @@ class RelationalQueryMixin(IQuery):
             RelationNotFoundError: If any relation in the path does not exist on its
                                  respective model class
         """
-        parts = relation_path.split('.')
+        parts = relation_path.split(".")
         current_model_class = self.model_class
 
         for i, part in enumerate(parts):
             # Validate that this relation exists on the current model
-            if not hasattr(current_model_class, part) or not hasattr(current_model_class,
-                                                                     'get_relation') or not current_model_class.get_relation(
-                part):
+            if (
+                not hasattr(current_model_class, part)
+                or not hasattr(current_model_class, "get_relation")
+                or not current_model_class.get_relation(part)
+            ):
                 raise RelationNotFoundError(f"Relation '{part}' not found on {current_model_class.__name__}")
 
             # If not the last part, update the model class for the next iteration
@@ -302,21 +309,29 @@ class RelationalQueryMixin(IQuery):
                         if next_model_class:
                             current_model_class = next_model_class
                         else:
-                            self._log(logging.WARNING,
-                                      f"Could not determine related model for relation '{part}' on {current_model_class.__name__}")
+                            self._log(
+                                logging.WARNING,
+                                f"Could not determine related model for relation '{part}' "
+                                f"on {current_model_class.__name__}",
+                            )
                             raise RelationNotFoundError(
-                                f"Could not determine related model for relation '{part}' on {current_model_class.__name__}")
+                                f"Could not determine related model for relation '{part}' "
+                                f"on {current_model_class.__name__}"
+                            )
                     else:
-                        self._log(logging.WARNING,
-                                  f"Relation '{part}' not found on {current_model_class.__name__} during model tracking")
+                        self._log(
+                            logging.WARNING,
+                            f"Relation '{part}' not found on {current_model_class.__name__} during model tracking",
+                        )
                         raise RelationNotFoundError(f"Relation '{part}' not found on {current_model_class.__name__}")
                 except Exception as e:
                     if not isinstance(e, RelationNotFoundError):
                         self._log(logging.WARNING, f"Error tracking model class: {e}")
                     raise
 
-    def _update_existing_relation_config(self, path: str, next_level: List[str],
-                                         query_modifier: Optional[Callable], is_target_relation: bool) -> None:
+    def _update_existing_relation_config(
+        self, path: str, next_level: List[str], query_modifier: Optional[Callable], is_target_relation: bool
+    ) -> None:
         """Update an existing relation configuration.
 
         Args:
@@ -341,15 +356,16 @@ class RelationalQueryMixin(IQuery):
             if existing.query_modifier is not None and existing.query_modifier != query_modifier:
                 # Try to get meaningful function info
                 def get_func_info(func: Callable) -> str:
-                    qualname = getattr(func, '__qualname__', None)
-                    module = getattr(func, '__module__', None)
-                    if qualname and module and not qualname.startswith('<'):
+                    qualname = getattr(func, "__qualname__", None)
+                    module = getattr(func, "__module__", None)
+                    if qualname and module and not qualname.startswith("<"):
                         return f"{module}.{qualname}"
 
-                    func_name = getattr(func, '__name__', None)
-                    if func_name and not func_name.startswith('<'):
+                    func_name = getattr(func, "__name__", None)
+                    if func_name and not func_name.startswith("<"):
                         try:
                             import inspect
+
                             sig = str(inspect.signature(func))
                             return f"{func_name}{sig}"
                         except Exception:
@@ -365,7 +381,7 @@ class RelationalQueryMixin(IQuery):
                     f"Previous modifier: {old_info}, "
                     f"New modifier: {new_info}. "
                     f"Later parameter takes precedence. "
-                    f"If you don't want it to be overwritten, place it later in the parameter list."
+                    f"If you don't want it to be overwritten, place it later in the parameter list.",
                 )
             # Always update the modifier if this is the target relation,
             # whether it's a new modifier or explicitly None
@@ -381,11 +397,7 @@ class RelationalQueryMixin(IQuery):
             nested: The remaining parts of the relation path
             query_modifier: Optional query modifier function
         """
-        self._eager_loads[relation] = RelationConfig(
-            name=relation,
-            nested=nested,
-            query_modifier=query_modifier
-        )
+        self._eager_loads[relation] = RelationConfig(name=relation, nested=nested, query_modifier=query_modifier)
 
     def _get_next_level_parts(self, parts: List[str], current_index: int) -> List[str]:
         """Get the next level parts from the relation path.
@@ -397,7 +409,7 @@ class RelationalQueryMixin(IQuery):
         Returns:
             List containing the next part if exists, empty list otherwise
         """
-        remaining_parts = parts[current_index + 1:]
+        remaining_parts = parts[current_index + 1 :]
         return remaining_parts[:1] if remaining_parts else []
 
     def _should_update_nested_relation(self, full_path: str, next_level: List[str]) -> bool:
@@ -417,8 +429,9 @@ class RelationalQueryMixin(IQuery):
         next_part = next_level[0]
         return next_part not in existing_config.nested
 
-    def _determine_modifier(self, is_target: bool, is_adding_new_nested: bool,
-                            query_modifier: Optional[Callable]) -> Optional[Callable]:
+    def _determine_modifier(
+        self, is_target: bool, is_adding_new_nested: bool, query_modifier: Optional[Callable]
+    ) -> Optional[Callable]:
         """Determine the appropriate query modifier based on context.
 
         Rules:
@@ -467,16 +480,16 @@ class RelationalQueryMixin(IQuery):
         self._validate_relation_path(relation_path)
 
         # Split the relation path into individual parts
-        parts = relation_path.split('.')
+        parts = relation_path.split(".")
         current_path = []
 
         # Process each part of the path to create configurations
         for i, part in enumerate(parts):
             current_path.append(part)
-            full_path = '.'.join(current_path)
+            full_path = ".".join(current_path)
 
             # Check if this is the target relation
-            is_target_relation = (full_path == relation_path)
+            is_target_relation = full_path == relation_path
 
             # Get next level parts
             next_level = self._get_next_level_parts(parts, i)
@@ -485,15 +498,10 @@ class RelationalQueryMixin(IQuery):
             existing = full_path in self._eager_loads
 
             # Determine if we're adding a new nested relation
-            is_adding_new_nested = (
-                existing and
-                self._should_update_nested_relation(full_path, next_level)
-            )
+            is_adding_new_nested = existing and self._should_update_nested_relation(full_path, next_level)
 
             # Determine the appropriate modifier
-            current_modifier = self._determine_modifier(
-                is_target_relation, is_adding_new_nested, query_modifier
-            )
+            current_modifier = self._determine_modifier(is_target_relation, is_adding_new_nested, query_modifier)
 
             if existing:
                 self._update_existing_relation_config(full_path, next_level, current_modifier, is_target_relation)
@@ -529,12 +537,12 @@ class RelationalQueryMixin(IQuery):
         # Validate the path first
         self._validate_relation_path(relation_path)
 
-        parts = relation_path.split('.')
+        parts = relation_path.split(".")
         configs = []
         current = []
 
         for part in parts:
             current.append(part)
-            configs.append('.'.join(current))
+            configs.append(".".join(current))
 
         return parts, configs

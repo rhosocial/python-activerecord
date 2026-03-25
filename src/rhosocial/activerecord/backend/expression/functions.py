@@ -4,8 +4,10 @@ Standalone factory functions for creating SQL expression objects.
 
 Usage Rules:
 - For COUNT(*), pass "*" as a string: count(dialect, "*")
-- For column references (e.g., COUNT(column), SUM(column)), pass Column objects: count(dialect, Column(dialect, "column_name"))
-- For literal values (e.g., COUNT(?), SUM(?)), pass literal values as strings: count(dialect, "literal_value")
+- For column references (e.g., COUNT(column), SUM(column)), pass Column objects:
+  count(dialect, Column(dialect, "column_name"))
+- For literal values (e.g., COUNT(?), SUM(?)), pass literal values as strings:
+  count(dialect, "literal_value")
 - For scalar functions (e.g., lower, upper), string arguments are treated as literal values by default
 - For functions that operate on columns, wrap column names in Column objects
 """
@@ -463,7 +465,8 @@ def lpad(
     Creates an LPAD scalar function call.
 
     Usage rules:
-    - To generate LPAD(column, length, pad), pass a Column object: lpad(dialect, Column(dialect, "column_name"), 10, "0")
+    - To generate LPAD(column, length, pad), pass a Column object:
+      lpad(dialect, Column(dialect, "column_name"), 10, "0")
     - To generate LPAD(?, length, pad), pass a literal value: lpad(dialect, "text", 10, "0")
 
     Args:
@@ -491,7 +494,8 @@ def rpad(
     Creates an RPAD scalar function call.
 
     Usage rules:
-    - To generate RPAD(column, length, pad), pass a Column object: rpad(dialect, Column(dialect, "column_name"), 10, " ")
+    - To generate RPAD(column, length, pad), pass a Column object:
+      rpad(dialect, Column(dialect, "column_name"), 10, " ")
     - To generate RPAD(?, length, pad), pass a literal value: rpad(dialect, "text", 10, " ")
 
     Args:
@@ -539,7 +543,8 @@ def strpos(
     Creates a STRPOS scalar function call (position of substring).
 
     Usage rules:
-    - To generate STRPOS(column, substring), pass Column objects: strpos(dialect, Column(dialect, "column_name"), "substr")
+    - To generate STRPOS(column, substring), pass Column objects:
+      strpos(dialect, Column(dialect, "column_name"), "substr")
     - To generate STRPOS(?, ?), pass literal values: strpos(dialect, "text", "substr")
 
     Args:
@@ -571,7 +576,8 @@ def abs_(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get absolute value of. If a numeric value (int/float) is passed, it's treated as a literal value.
+        expr: The expression to get absolute value of. If a numeric value (int/float)
+              is passed, it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
 
     Returns:
@@ -617,8 +623,8 @@ def ceil(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get ceiling of. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to get ceiling of. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the CEIL function
@@ -657,8 +663,8 @@ def sqrt(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get square root of. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to get square root of. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the SQRT function
@@ -674,15 +680,16 @@ def power(
     Creates a POWER scalar function call.
 
     Usage rules:
-    - To generate POWER(column, exp), pass Column objects: power(dialect, Column(dialect, "base_col"), Column(dialect, "exp_col"))
+    - To generate POWER(column, exp), pass Column objects:
+      power(dialect, Column(dialect, "base_col"), Column(dialect, "exp_col"))
     - To generate POWER(?, ?), pass numeric values: power(dialect, 2, 3)
 
     Args:
         dialect: The SQL dialect instance
-        base: The base value. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
-        exponent: The exponent value. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        base: The base value. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
+        exponent: The exponent value. If a numeric value (int/float) is passed,
+                  it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the POWER function
@@ -702,8 +709,8 @@ def exp(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get exponential of. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to get exponential of. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the EXP function
@@ -726,8 +733,8 @@ def log(
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get logarithm of. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to get logarithm of. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
         base: Optional base for the logarithm. If provided, treated as a literal value if numeric.
 
     Returns:
@@ -770,8 +777,8 @@ def cos(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get cosine of. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to get cosine of. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the COS function
@@ -790,8 +797,8 @@ def tan(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to get tangent of. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to get tangent of. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the TAN function
@@ -854,8 +861,8 @@ def year(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to extract year from. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to extract year from. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the YEAR function
@@ -874,8 +881,9 @@ def month(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to extract month from. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to extract month from. If a numeric value (int/float)
+              is passed, it's treated as a literal value. If a BaseExpression
+              is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the MONTH function
@@ -894,8 +902,8 @@ def day(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) -> 
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to extract day from. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to extract day from. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the DAY function
@@ -914,8 +922,8 @@ def hour(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) ->
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to extract hour from. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to extract hour from. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the HOUR function
@@ -934,8 +942,8 @@ def minute(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to extract minute from. If a numeric value (int/float) is passed, it's treated as a literal value.
-              If a BaseExpression is passed, it's used as-is.
+        expr: The expression to extract minute from. If a numeric value (int/float) is passed,
+              it's treated as a literal value. If a BaseExpression is passed, it's used as-is.
 
     Returns:
         A FunctionCall instance representing the MINUTE function
@@ -954,7 +962,8 @@ def second(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseExpression"]) 
 
     Args:
         dialect: The SQL dialect instance
-        expr: The expression to extract second from. If a numeric value (int/float) is passed, it's treated as a literal value.
+        expr: The expression to extract second from. If a numeric value (int/float) is passed,
+              it's treated as a literal value.
               If a BaseExpression is passed, it's used as-is.
 
     Returns:
@@ -969,8 +978,10 @@ def date_part(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.Bas
     Creates a DATE_PART scalar function call.
 
     Usage rules:
-    - To generate DATE_PART(field, column), pass a Column object: date_part(dialect, "year", Column(dialect, "date_col"))
-    - To generate DATE_PART(field, ?), pass a literal value: date_part(dialect, "month", "2023-01-01")
+    - To generate DATE_PART(field, column), pass a Column object:
+      date_part(dialect, "year", Column(dialect, "date_col"))
+    - To generate DATE_PART(field, ?), pass a literal value:
+      date_part(dialect, "month", "2023-01-01")
 
     Args:
         dialect: The SQL dialect instance
@@ -990,8 +1001,10 @@ def date_trunc(dialect: "SQLDialectBase", field: str, expr: Union[str, "bases.Ba
     Creates a DATE_TRUNC scalar function call.
 
     Usage rules:
-    - To generate DATE_TRUNC(field, column), pass a Column object: date_trunc(dialect, "month", Column(dialect, "date_col"))
-    - To generate DATE_TRUNC(field, ?), pass a literal value: date_trunc(dialect, "day", "2023-01-01 14:30:00")
+    - To generate DATE_TRUNC(field, column), pass a Column object:
+      date_trunc(dialect, "month", Column(dialect, "date_col"))
+    - To generate DATE_TRUNC(field, ?), pass a literal value
+      date_trunc(dialect, "day", "2023-01-01 14:30:00")
 
     Args:
         dialect: The SQL dialect instance
@@ -1035,8 +1048,10 @@ def nullif(
     Creates a NULLIF scalar function call.
 
     Usage rules:
-    - To generate NULLIF(column, null_val), pass Column objects: nullif(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
-    - To generate NULLIF(?, ?), pass literal values: nullif(dialect, "value", "null_value")
+    - To generate NULLIF(column, null_val), pass Column objects:
+      nullif(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
+    - To generate NULLIF(?, ?), pass literal values
+      nullif(dialect, "value", "null_value")
 
     Args:
         dialect: The SQL dialect instance
@@ -1058,8 +1073,10 @@ def greatest(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression
     Creates a GREATEST scalar function call.
 
     Usage rules:
-    - To generate GREATEST(column1, column2, ...), pass Column objects: greatest(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
-    - To generate GREATEST(?, ?, ...), pass literal values: greatest(dialect, "val1", "val2", "val3")
+    - To generate GREATEST(column1, column2, ...), pass Column objects:
+      greatest(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
+    - To generate GREATEST(?, ?, ...), pass literal values
+      greatest(dialect, "val1", "val2", "val3")
 
     Args:
         dialect: The SQL dialect instance
@@ -1078,8 +1095,10 @@ def least(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpression"])
     Creates a LEAST scalar function call.
 
     Usage rules:
-    - To generate LEAST(column1, column2, ...), pass Column objects: least(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
-    - To generate LEAST(?, ?, ...), pass literal values: least(dialect, "val1", "val2", "val3")
+    - To generate LEAST(column1, column2, ...), pass Column objects:
+      least(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
+    - To generate LEAST(?, ?, ...), pass literal values:
+      least(dialect, "val1", "val2", "val3")
 
     Args:
         dialect: The SQL dialect instance
@@ -1155,7 +1174,8 @@ def lead(
     Creates a LEAD window function call.
 
     Usage rules:
-    - To generate LEAD(column, offset, default), pass a Column object: lead(dialect, Column(dialect, "column_name"), 1, 0)
+    - To generate LEAD(column, offset, default), pass a Column object:
+      lead(dialect, Column(dialect, "column_name"), 1, 0)
 
     Args:
         dialect: The SQL dialect instance
@@ -1277,7 +1297,8 @@ def json_extract_text(
     Creates a JSON extract text operation (e.g., column->>path).
 
     Usage rules:
-    - To generate column->>path, pass a Column object: json_extract_text(dialect, Column(dialect, "json_col"), "$.field")
+    - To generate column->>path, pass a Column object:
+      json_extract_text(dialect, Column(dialect, "json_col"), "$.field")
 
     Args:
         dialect: The SQL dialect instance
@@ -1304,7 +1325,8 @@ def json_build_object(
 
     Args:
         dialect: The SQL dialect instance
-        *key_value_pairs: Alternating sequence of key-value expressions. Keys and values can be strings (literal) or BaseExpression.
+        *key_value_pairs: Alternating sequence of key-value expressions.
+            Keys and values can be strings (literal) or BaseExpression.
 
     Returns:
         A FunctionCall instance representing the JSON_BUILD_OBJECT function
@@ -1321,7 +1343,8 @@ def json_array_elements(dialect: "SQLDialectBase", expr: Union[str, "bases.BaseE
     Creates a JSON_ARRAY_ELEMENTS function call.
 
     Usage rules:
-    - To generate JSON_ARRAY_ELEMENTS(column), pass a Column object: json_array_elements(dialect, Column(dialect, "json_array"))
+    - To generate JSON_ARRAY_ELEMENTS(column), pass a Column object:
+      json_array_elements(dialect, Column(dialect, "json_array"))
 
     Args:
         dialect: The SQL dialect instance
@@ -1427,8 +1450,10 @@ def to_char(
     Creates a TO_CHAR function call.
 
     Usage rules:
-    - To generate TO_CHAR(column), pass a Column object: to_char(dialect, Column(dialect, "date_col"))
-    - To generate TO_CHAR(column, format), pass a format string: to_char(dialect, Column(dialect, "date_col"), "YYYY-MM-DD")
+    - To generate TO_CHAR(column), pass a Column object:
+      to_char(dialect, Column(dialect, "date_col"))
+    - To generate TO_CHAR(column, format), pass a format string:
+      to_char(dialect, Column(dialect, "date_col"), "YYYY-MM-DD")
 
     Args:
         dialect: The SQL dialect instance
@@ -1453,8 +1478,10 @@ def to_number(
     Creates a TO_NUMBER function call.
 
     Usage rules:
-    - To generate TO_NUMBER(column), pass a Column object: to_number(dialect, Column(dialect, "char_col"))
-    - To generate TO_NUMBER(column, format), pass a format string: to_number(dialect, Column(dialect, "char_col"), "9999")
+    - To generate TO_NUMBER(column), pass a Column object:
+      to_number(dialect, Column(dialect, "char_col"))
+    - To generate TO_NUMBER(column, format), pass a format string:
+      to_number(dialect, Column(dialect, "char_col"), "9999")
 
     Args:
         dialect: The SQL dialect instance
@@ -1479,8 +1506,10 @@ def to_date(
     Creates a TO_DATE function call.
 
     Usage rules:
-    - To generate TO_DATE(column), pass a Column object: to_date(dialect, Column(dialect, "char_col"))
-    - To generate TO_DATE(column, format), pass a format string: to_date(dialect, Column(dialect, "char_col"), "YYYY-MM-DD")
+    - To generate TO_DATE(column), pass a Column object:
+      to_date(dialect, Column(dialect, "char_col"))
+    - To generate TO_DATE(column, format), pass a format string:
+      to_date(dialect, Column(dialect, "char_col"), "YYYY-MM-DD")
 
     Args:
         dialect: The SQL dialect instance
@@ -1578,7 +1607,8 @@ def concat_op(dialect: "SQLDialectBase", *exprs: Union[str, "bases.BaseExpressio
     Creates a string concatenation operation using the || operator (SQL standard).
 
     Usage rules:
-    - To generate column1 || column2, pass Column objects: concat_op(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
+    - To generate column1 || column2, pass Column objects:
+      concat_op(dialect, Column(dialect, "col1"), Column(dialect, "col2"))
     - To generate ? || ?, pass literal values: concat_op(dialect, "value1", "value2")
     - To generate complex concatenations: concat_op(dialect, col1, lit1, col2, lit2)
 

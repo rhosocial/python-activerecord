@@ -33,7 +33,7 @@ class RelationManagementMixin(IRelationManagement):
         Returns:
             The class's relations dictionary
         """
-        if '_relations_dict' not in cls.__dict__:  # Check class's own dict
+        if "_relations_dict" not in cls.__dict__:  # Check class's own dict
             cls._relations_dict = {}
         return cls._relations_dict
 

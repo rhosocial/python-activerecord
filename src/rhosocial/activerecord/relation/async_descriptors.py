@@ -6,13 +6,13 @@ Provides AsyncBelongsTo, AsyncHasOne, and AsyncHasMany relationship types.
 
 import logging
 
-from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, cast, Dict
+from typing import Type, Any, Generic, TypeVar, Union, ForwardRef, Optional, get_type_hints, ClassVar, List, Dict
 
 from .cache import CacheConfig, InstanceCache
 from .interfaces import IAsyncRelationValidation, IAsyncRelationLoader
 from ..interface import IAsyncActiveRecord, IAsyncActiveQuery
 
-U = TypeVar('U', bound=IAsyncActiveRecord)
+U = TypeVar("U", bound=IAsyncActiveRecord)
 
 
 def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type[U]:
@@ -55,14 +55,15 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
         # Use official typing_extensions.evaluate_forward_ref if available
         try:
             from typing_extensions import evaluate_forward_ref
+
             return evaluate_forward_ref(ref, owner=owner, globals=context, locals=None)
         except ImportError:
             # Fallback: try using get_type_hints instead of direct _evaluate call
             try:
                 # Create a temporary class with the forward ref to leverage get_type_hints
-                temp_annotations = {'temp': ref}
-                hints = get_type_hints(type('TempClass', (), {'__annotations__': temp_annotations}), globalns=context)
-                return hints.get('temp', ref)
+                temp_annotations = {"temp": ref}
+                hints = get_type_hints(type("TempClass", (), {"__annotations__": temp_annotations}), globalns=context)
+                return hints.get("temp", ref)
             except (NameError, AttributeError, TypeError):
                 pass
 
@@ -119,12 +120,12 @@ class AsyncRelationDescriptor(Generic[U]):
     """
 
     def __init__(
-            self,
-            foreign_key: str,
-            inverse_of: Optional[str] = None,
-            loader: Optional[IAsyncRelationLoader[U]] = None,
-            validator: Optional[IAsyncRelationValidation] = None,
-            cache_config: Optional[CacheConfig] = None
+        self,
+        foreign_key: str,
+        inverse_of: Optional[str] = None,
+        loader: Optional[IAsyncRelationLoader[U]] = None,
+        validator: Optional[IAsyncRelationValidation] = None,
+        cache_config: Optional[CacheConfig] = None,
     ):
         if type(foreign_key) is not str:
             raise TypeError("foreign_key must be a string")
@@ -147,12 +148,12 @@ class AsyncRelationDescriptor(Generic[U]):
             *args: Additional positional arguments
             **kwargs: Additional keyword arguments
         """
-        if hasattr(self, '_owner') and hasattr(self._owner, 'log'):
+        if hasattr(self, "_owner") and hasattr(self._owner, "log"):
             # Add offset to account for our log method
-            if 'offset' in kwargs:
-                kwargs['offset'] += 1
+            if "offset" in kwargs:
+                kwargs["offset"] += 1
             else:
-                kwargs['offset'] = 1
+                kwargs["offset"] = 1
             self._owner.log(level, msg, *args, **kwargs)
 
     def __set_name__(self, owner: Type, name: str) -> None:
@@ -242,7 +243,7 @@ class AsyncRelationDescriptor(Generic[U]):
                 except Exception as e:
                     self._cached_model = None
                     self.log(logging.ERROR, f"Invalid relationship: {str(e)}")
-                    raise ValueError(f"Invalid relationship: {str(e)}")
+                    raise ValueError(f"Invalid relationship: {str(e)}") from e
 
         return self._cached_model
 
@@ -256,6 +257,7 @@ class AsyncRelationDescriptor(Generic[U]):
 
         # Get module globals for model resolution context
         import sys
+
         module = sys.modules[owner.__module__]
         module_globals = {k: getattr(module, k) for k in dir(module)}
 
@@ -349,7 +351,10 @@ class AsyncRelationDescriptor(Generic[U]):
                         # Use backend expression system instead of manual SQL string concatenation
                         backend = related_model.backend()
                         from ..backend.expression.core import Column
-                        pk_column = Column(backend.dialect, related_model.primary_key(), table=related_model.table_name())
+
+                        pk_column = Column(
+                            backend.dialect, related_model.primary_key(), table=related_model.table_name()
+                        )
                         query = query.where(pk_column == fk_value)
             else:
                 # For AsyncHasOne/AsyncHasMany, filter by foreign key matching our primary key
@@ -358,6 +363,7 @@ class AsyncRelationDescriptor(Generic[U]):
                     # Use backend expression system instead of manual SQL string concatenation
                     backend = related_model.backend()
                     from ..backend.expression.core import Column
+
                     fk_column = Column(backend.dialect, self.foreign_key, table=related_model.table_name())
                     query = query.where(fk_column == pk_value)
 
@@ -425,10 +431,7 @@ class AsyncRelationDescriptor(Generic[U]):
                 result[id(record)] = cached
 
         # Get records that need loading
-        records_to_load = [
-            record for record in records
-            if id(record) not in result
-        ]
+        records_to_load = [record for record in records if id(record) not in result]
 
         if not records_to_load:
             self.log(logging.DEBUG, f"All `{self.name}` relations found in cache")
@@ -476,8 +479,8 @@ class AsyncRelationshipValidator(IAsyncRelationValidation):
             ValueError: If validation fails
         """
         # Ensure both models have __name__ attribute
-        owner_name = getattr(owner, '__name__', str(owner))
-        related_name = getattr(related_model, '__name__', str(related_model))
+        owner_name = getattr(owner, "__name__", str(owner))
+        related_name = getattr(related_model, "__name__", str(related_model))
 
         if not hasattr(related_model, self.descriptor.inverse_of):
             raise ValueError(f"Inverse relationship '{self.descriptor.inverse_of}' not found in {related_name}")
@@ -497,8 +500,7 @@ class AsyncRelationshipValidator(IAsyncRelationValidation):
             (AsyncHasMany, AsyncBelongsTo),
         ]
 
-        if not any(isinstance(self.descriptor, t1) and isinstance(inverse_rel, t2)
-                   for t1, t2 in valid_pairs):
+        if not any(isinstance(self.descriptor, t1) and isinstance(inverse_rel, t2) for t1, t2 in valid_pairs):
             raise ValueError(
                 f"Invalid relationship pair between {owner_name} and {related_name}: "
                 f"{type(self.descriptor).__name__} and {type(inverse_rel).__name__}"
@@ -546,9 +548,11 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
             - For AsyncHasMany: returns a list of related model instances or empty list
         """
         # Use descriptor's log method if available
-        if hasattr(self.descriptor, 'log'):
-            self.descriptor.log(logging.DEBUG,
-                                f"Loading async relation `{self.descriptor.name}` for instance `{type(instance).__name__}`")
+        if hasattr(self.descriptor, "log"):
+            self.descriptor.log(
+                logging.DEBUG,
+                f"Loading async relation `{self.descriptor.name}` for instance `{type(instance).__name__}`",
+            )
 
         # Delegate to batch_load for consistency
         result = await self.batch_load([instance], None)
@@ -600,7 +604,7 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
                 getattr(instance, self.descriptor.foreign_key)
                 for instance in instances
                 if hasattr(instance, self.descriptor.foreign_key)
-                   and getattr(instance, self.descriptor.foreign_key) is not None
+                and getattr(instance, self.descriptor.foreign_key) is not None
             }
 
             if not foreign_keys:
@@ -621,10 +625,7 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
             related_records = await query.all()
 
             # Build lookup map
-            related_map = {
-                getattr(record, model_class.primary_key()): record
-                for record in related_records
-            }
+            related_map = {getattr(record, model_class.primary_key()): record for record in related_records}
 
             # Map results to instance IDs
             for instance in instances:
@@ -637,21 +638,19 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
             primary_keys = {
                 getattr(instance, instance.primary_key())
                 for instance in instances
-                if hasattr(instance, 'primary_key')
-                   and getattr(instance, instance.primary_key()) is not None
+                if hasattr(instance, "primary_key") and getattr(instance, instance.primary_key()) is not None
             }
 
             if not primary_keys:
                 # Return empty list for HasMany, None for HasOne for all instances
                 return {
-                    id(instance): [] if isinstance(self.descriptor, AsyncHasMany) else None
-                    for instance in instances
+                    id(instance): [] if isinstance(self.descriptor, AsyncHasMany) else None for instance in instances
                 }
 
             # Load all related records using base_query with new expression system
             # Keep existing conditions from base_query, only add IN condition
             # Create a clone of the query to avoid modifying the original
-            if hasattr(query, 'clone'):
+            if hasattr(query, "clone"):
                 query = query.clone()
 
             from ..backend.expression import Column, Literal, InPredicate

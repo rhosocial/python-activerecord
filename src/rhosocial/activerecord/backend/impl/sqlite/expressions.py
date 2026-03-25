@@ -7,7 +7,6 @@ base introspection expressions with SQLite-specific parameters.
 """
 
 from dataclasses import dataclass
-from typing import Optional
 
 from ...introspection.expressions import (
     ColumnInfoExpression,
@@ -31,7 +30,7 @@ class SQLiteColumnInfoExpression(ColumnInfoExpression):
     def __post_init__(self):
         """Populate params dictionary after initialization."""
         super().__post_init__()
-        self._params['use_xinfo_pragma'] = self.use_xinfo_pragma
+        self._params["use_xinfo_pragma"] = self.use_xinfo_pragma
 
 
 @dataclass
@@ -50,4 +49,4 @@ class SQLiteTableListExpression(TableListExpression):
     def __post_init__(self):
         """Populate params dictionary after initialization."""
         super().__post_init__()
-        self._params['use_table_list_pragma'] = self.use_table_list_pragma
+        self._params["use_table_list_pragma"] = self.use_table_list_pragma
