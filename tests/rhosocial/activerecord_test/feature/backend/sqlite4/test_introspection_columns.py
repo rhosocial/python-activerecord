@@ -19,7 +19,7 @@ class TestListColumns:
 
     def test_list_columns_returns_column_info(self, backend_with_tables):
         """Test that list_columns returns ColumnInfo objects."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         assert isinstance(columns, list)
         assert len(columns) > 0
@@ -29,7 +29,7 @@ class TestListColumns:
 
     def test_list_columns_all_columns_present(self, backend_with_tables):
         """Test that all columns are returned."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
         column_names = [c.name for c in columns]
 
         expected_columns = ["id", "name", "email", "age", "created_at"]
@@ -38,7 +38,7 @@ class TestListColumns:
 
     def test_list_columns_nonexistent_table(self, sqlite_backend):
         """Test list_columns for non-existent table."""
-        columns = sqlite_backend.list_columns("nonexistent")
+        columns = sqlite_backend.introspector.list_columns("nonexistent")
 
         # Should return empty list for non-existent table
         assert isinstance(columns, list)
@@ -46,8 +46,8 @@ class TestListColumns:
 
     def test_list_columns_caching(self, backend_with_tables):
         """Test that column list is cached."""
-        columns1 = backend_with_tables.list_columns("users")
-        columns2 = backend_with_tables.list_columns("users")
+        columns1 = backend_with_tables.introspector.list_columns("users")
+        columns2 = backend_with_tables.introspector.list_columns("users")
 
         # Should return the same cached list
         assert columns1 is columns2
@@ -58,7 +58,7 @@ class TestGetColumnInfo:
 
     def test_get_column_info_existing(self, backend_with_tables):
         """Test get_column_info for existing column."""
-        col = backend_with_tables.get_column_info("users", "email")
+        col = backend_with_tables.introspector.get_column_info("users", "email")
 
         assert col is not None
         assert isinstance(col, ColumnInfo)
@@ -67,13 +67,13 @@ class TestGetColumnInfo:
 
     def test_get_column_info_nonexistent_column(self, backend_with_tables):
         """Test get_column_info for non-existent column."""
-        col = backend_with_tables.get_column_info("users", "nonexistent")
+        col = backend_with_tables.introspector.get_column_info("users", "nonexistent")
 
         assert col is None
 
     def test_get_column_info_nonexistent_table(self, sqlite_backend):
         """Test get_column_info for non-existent table."""
-        col = sqlite_backend.get_column_info("nonexistent", "id")
+        col = sqlite_backend.introspector.get_column_info("nonexistent", "id")
 
         assert col is None
 
@@ -83,17 +83,17 @@ class TestColumnExists:
 
     def test_column_exists_true(self, backend_with_tables):
         """Test column_exists returns True for existing column."""
-        assert backend_with_tables.column_exists("users", "id") is True
-        assert backend_with_tables.column_exists("users", "name") is True
-        assert backend_with_tables.column_exists("users", "email") is True
+        assert backend_with_tables.introspector.column_exists("users", "id") is True
+        assert backend_with_tables.introspector.column_exists("users", "name") is True
+        assert backend_with_tables.introspector.column_exists("users", "email") is True
 
     def test_column_exists_false(self, backend_with_tables):
         """Test column_exists returns False for non-existent column."""
-        assert backend_with_tables.column_exists("users", "nonexistent") is False
+        assert backend_with_tables.introspector.column_exists("users", "nonexistent") is False
 
     def test_column_exists_nonexistent_table(self, sqlite_backend):
         """Test column_exists for non-existent table."""
-        assert sqlite_backend.column_exists("nonexistent", "id") is False
+        assert sqlite_backend.introspector.column_exists("nonexistent", "id") is False
 
 
 class TestColumnInfoDetails:
@@ -101,7 +101,7 @@ class TestColumnInfoDetails:
 
     def test_column_data_type(self, backend_with_tables):
         """Test that data type is correctly detected."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         id_col = next(c for c in columns if c.name == "id")
         assert id_col.data_type == "INTEGER"
@@ -120,7 +120,7 @@ class TestColumnInfoDetails:
             );
         """)
 
-        columns = sqlite_backend.list_columns("type_test")
+        columns = sqlite_backend.introspector.list_columns("type_test")
 
         col1 = next(c for c in columns if c.name == "col1")
         assert col1.data_type == "VARCHAR"
@@ -132,7 +132,7 @@ class TestColumnInfoDetails:
 
     def test_column_nullable(self, backend_with_tables):
         """Test nullability detection."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         # NOT NULL columns
         name_col = next(c for c in columns if c.name == "name")
@@ -147,7 +147,7 @@ class TestColumnInfoDetails:
 
     def test_column_primary_key(self, backend_with_tables):
         """Test primary key detection."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         id_col = next(c for c in columns if c.name == "id")
         assert id_col.is_primary_key is True
@@ -157,20 +157,20 @@ class TestColumnInfoDetails:
 
     def test_column_unique_constraint(self, backend_with_tables):
         """Test unique constraint detection."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         # email has UNIQUE constraint
         # Note: SQLite doesn't expose UNIQUE constraint directly in PRAGMA table_info
         # The uniqueness is implemented via an index, not a column constraint
         email_col = next(c for c in columns if c.name == "email")
         # Check that unique index exists for email
-        indexes = backend_with_tables.list_indexes("users")
+        indexes = backend_with_tables.introspector.list_indexes("users")
         email_idx = next((i for i in indexes if "email" in [c.name for c in i.columns]), None)
         assert email_idx is not None or email_col.is_unique is False
 
     def test_column_default_value_string(self, backend_with_tables):
         """Test default value detection for string."""
-        columns = backend_with_tables.list_columns("posts")
+        columns = backend_with_tables.introspector.list_columns("posts")
 
         status_col = next(c for c in columns if c.name == "status")
         assert status_col.default_value is not None
@@ -178,7 +178,7 @@ class TestColumnInfoDetails:
 
     def test_column_default_value_expression(self, backend_with_tables):
         """Test default value detection for expression."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         created_at_col = next(c for c in columns if c.name == "created_at")
         assert created_at_col.default_value is not None
@@ -187,7 +187,7 @@ class TestColumnInfoDetails:
 
     def test_column_no_default(self, backend_with_tables):
         """Test column without default value."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         name_col = next(c for c in columns if c.name == "name")
         assert name_col.default_value is None
@@ -201,7 +201,7 @@ class TestColumnInfoDetails:
             );
         """)
 
-        columns = sqlite_backend.list_columns("auto_inc")
+        columns = sqlite_backend.introspector.list_columns("auto_inc")
         id_col = next(c for c in columns if c.name == "id")
 
         # Note: SQLite autoincrement detection may vary
@@ -210,14 +210,14 @@ class TestColumnInfoDetails:
 
     def test_column_schema(self, backend_with_tables):
         """Test that schema is correctly set."""
-        columns = backend_with_tables.list_columns("users")
+        columns = backend_with_tables.introspector.list_columns("users")
 
         for col in columns:
             assert col.schema == "main"
 
     def test_column_table_name(self, backend_with_tables):
         """Test that table_name is correctly set."""
-        columns = backend_with_tables.list_columns("posts")
+        columns = backend_with_tables.introspector.list_columns("posts")
 
         for col in columns:
             assert col.table_name == "posts"

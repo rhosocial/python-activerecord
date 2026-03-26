@@ -5,7 +5,7 @@ Database introspection error definitions.
 This module provides exception classes for database introspection operations.
 """
 
-from typing import Optional, Any
+from typing import Optional, Any, Dict
 
 
 class IntrospectionError(Exception):

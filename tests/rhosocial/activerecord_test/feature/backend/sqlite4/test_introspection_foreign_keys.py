@@ -19,7 +19,7 @@ class TestListForeignKeys:
 
     def test_list_foreign_keys_returns_fk_info(self, backend_with_tables):
         """Test that list_foreign_keys returns ForeignKeyInfo objects."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         assert isinstance(fks, list)
         assert len(fks) > 0
@@ -29,7 +29,7 @@ class TestListForeignKeys:
 
     def test_list_foreign_keys_posts_table(self, backend_with_tables):
         """Test foreign keys on posts table."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         assert len(fks) >= 1
 
@@ -40,7 +40,7 @@ class TestListForeignKeys:
 
     def test_list_foreign_keys_post_tags_table(self, backend_with_tables):
         """Test foreign keys on post_tags table (composite FKs)."""
-        fks = backend_with_tables.list_foreign_keys("post_tags")
+        fks = backend_with_tables.introspector.list_foreign_keys("post_tags")
 
         assert len(fks) == 2
 
@@ -50,7 +50,7 @@ class TestListForeignKeys:
 
     def test_list_foreign_keys_no_fks(self, backend_with_tables):
         """Test list_foreign_keys for table without foreign keys."""
-        fks = backend_with_tables.list_foreign_keys("users")
+        fks = backend_with_tables.introspector.list_foreign_keys("users")
 
         # users table has no foreign keys
         assert isinstance(fks, list)
@@ -58,7 +58,7 @@ class TestListForeignKeys:
 
     def test_list_foreign_keys_nonexistent_table(self, sqlite_backend):
         """Test list_foreign_keys for non-existent table."""
-        fks = sqlite_backend.list_foreign_keys("nonexistent")
+        fks = sqlite_backend.introspector.list_foreign_keys("nonexistent")
 
         # Should return empty list for non-existent table
         assert isinstance(fks, list)
@@ -66,8 +66,8 @@ class TestListForeignKeys:
 
     def test_list_foreign_keys_caching(self, backend_with_tables):
         """Test that foreign key list is cached."""
-        fks1 = backend_with_tables.list_foreign_keys("posts")
-        fks2 = backend_with_tables.list_foreign_keys("posts")
+        fks1 = backend_with_tables.introspector.list_foreign_keys("posts")
+        fks2 = backend_with_tables.introspector.list_foreign_keys("posts")
 
         # Should return the same cached list
         assert fks1 is fks2
@@ -79,11 +79,11 @@ class TestGetForeignKeyInfo:
     def test_get_foreign_key_info_existing(self, backend_with_tables):
         """Test get_foreign_key_info for existing FK."""
         # Get all FKs first to find the name
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
         assert len(fks) > 0
 
         fk_name = fks[0].name
-        fk = backend_with_tables.get_foreign_key_info("posts", fk_name)
+        fk = backend_with_tables.introspector.get_foreign_key_info("posts", fk_name)
 
         assert fk is not None
         assert isinstance(fk, ForeignKeyInfo)
@@ -91,7 +91,7 @@ class TestGetForeignKeyInfo:
 
     def test_get_foreign_key_info_nonexistent(self, backend_with_tables):
         """Test get_foreign_key_info for non-existent FK."""
-        fk = backend_with_tables.get_foreign_key_info("posts", "nonexistent")
+        fk = backend_with_tables.introspector.get_foreign_key_info("posts", "nonexistent")
 
         assert fk is None
 
@@ -101,14 +101,14 @@ class TestForeignKeyDetails:
 
     def test_foreign_key_referenced_table(self, backend_with_tables):
         """Test referenced table detection."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         user_fk = next((fk for fk in fks if fk.referenced_table == "users"), None)
         assert user_fk is not None
 
     def test_foreign_key_referenced_columns(self, backend_with_tables):
         """Test referenced columns detection."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         user_fk = next((fk for fk in fks if fk.referenced_table == "users"), None)
         assert user_fk is not None
@@ -117,7 +117,7 @@ class TestForeignKeyDetails:
 
     def test_foreign_key_on_delete_cascade(self, backend_with_tables):
         """Test ON DELETE CASCADE detection."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         user_fk = next((fk for fk in fks if fk.referenced_table == "users"), None)
         assert user_fk is not None
@@ -125,7 +125,7 @@ class TestForeignKeyDetails:
 
     def test_foreign_key_on_delete_no_action(self, backend_with_tables):
         """Test ON DELETE NO ACTION detection."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         user_fk = next((fk for fk in fks if fk.referenced_table == "users"), None)
         assert user_fk is not None
@@ -133,7 +133,7 @@ class TestForeignKeyDetails:
 
     def test_foreign_key_on_delete_default(self, backend_with_tables):
         """Test default ON DELETE action."""
-        fks = backend_with_tables.list_foreign_keys("post_tags")
+        fks = backend_with_tables.introspector.list_foreign_keys("post_tags")
 
         # Default action should be NO ACTION or CASCADE (as defined in schema)
         for fk in fks:
@@ -143,14 +143,14 @@ class TestForeignKeyDetails:
 
     def test_foreign_key_schema(self, backend_with_tables):
         """Test that schema is correctly set."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         for fk in fks:
             assert fk.schema == "main"
 
     def test_foreign_key_table_name(self, backend_with_tables):
         """Test that table_name is correctly set."""
-        fks = backend_with_tables.list_foreign_keys("posts")
+        fks = backend_with_tables.introspector.list_foreign_keys("posts")
 
         for fk in fks:
             assert fk.table_name == "posts"
@@ -173,7 +173,7 @@ class TestForeignKeyDetails:
             );
         """)
 
-        fks = sqlite_backend.list_foreign_keys("child")
+        fks = sqlite_backend.introspector.list_foreign_keys("child")
 
         assert len(fks) == 1
         fk = fks[0]
@@ -203,7 +203,7 @@ class TestForeignKeyEnforcement:
             );
         """)
 
-        fks = sqlite_backend.list_foreign_keys("main_table")
+        fks = sqlite_backend.introspector.list_foreign_keys("main_table")
 
         assert len(fks) == 1
         assert fks[0].referenced_table == "ref_table"

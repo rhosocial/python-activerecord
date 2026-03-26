@@ -18,50 +18,50 @@ class TestListTriggers:
 
     def test_list_triggers_empty_database(self, sqlite_backend):
         """Test list_triggers on database without triggers."""
-        triggers = sqlite_backend.list_triggers()
+        triggers = sqlite_backend.introspector.list_triggers()
 
         assert isinstance(triggers, list)
         assert len(triggers) == 0
 
     def test_list_triggers_with_trigger(self, backend_with_trigger):
         """Test list_triggers returns created triggers."""
-        triggers = backend_with_trigger.list_triggers()
+        triggers = backend_with_trigger.introspector.list_triggers()
 
         trigger_names = [t.name for t in triggers]
         assert "update_user_timestamp" in trigger_names
 
     def test_list_triggers_returns_trigger_info(self, backend_with_trigger):
         """Test that list_triggers returns TriggerInfo objects."""
-        triggers = backend_with_trigger.list_triggers()
+        triggers = backend_with_trigger.introspector.list_triggers()
 
         for trigger in triggers:
             assert isinstance(trigger, TriggerInfo)
 
     def test_list_triggers_schema(self, backend_with_trigger):
         """Test that schema is correctly set."""
-        triggers = backend_with_trigger.list_triggers()
+        triggers = backend_with_trigger.introspector.list_triggers()
 
         for trigger in triggers:
             assert trigger.schema == "main"
 
     def test_list_triggers_caching(self, backend_with_trigger):
         """Test that trigger list is cached."""
-        triggers1 = backend_with_trigger.list_triggers()
-        triggers2 = backend_with_trigger.list_triggers()
+        triggers1 = backend_with_trigger.introspector.list_triggers()
+        triggers2 = backend_with_trigger.introspector.list_triggers()
 
         # Should return the same cached list
         assert triggers1 is triggers2
 
     def test_list_triggers_filter_by_table(self, backend_with_trigger):
         """Test filtering triggers by table."""
-        triggers = backend_with_trigger.list_triggers(table_name="users")
+        triggers = backend_with_trigger.introspector.list_triggers(table_name="users")
 
         for trigger in triggers:
             assert trigger.table_name == "users"
 
     def test_list_triggers_filter_by_other_table(self, backend_with_trigger):
         """Test filtering triggers by table without triggers."""
-        triggers = backend_with_trigger.list_triggers(table_name="posts")
+        triggers = backend_with_trigger.introspector.list_triggers(table_name="posts")
 
         # posts table has no triggers
         assert len(triggers) == 0
@@ -72,7 +72,7 @@ class TestGetTriggerInfo:
 
     def test_get_trigger_info_existing(self, backend_with_trigger):
         """Test get_trigger_info for existing trigger."""
-        trigger = backend_with_trigger.get_trigger_info("update_user_timestamp")
+        trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
         assert isinstance(trigger, TriggerInfo)
@@ -80,20 +80,20 @@ class TestGetTriggerInfo:
 
     def test_get_trigger_info_nonexistent(self, sqlite_backend):
         """Test get_trigger_info for non-existent trigger."""
-        trigger = sqlite_backend.get_trigger_info("nonexistent")
+        trigger = sqlite_backend.introspector.get_trigger_info("nonexistent")
 
         assert trigger is None
 
     def test_get_trigger_info_table_name(self, backend_with_trigger):
         """Test that table_name is correctly set."""
-        trigger = backend_with_trigger.get_trigger_info("update_user_timestamp")
+        trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
         assert trigger.table_name == "users"
 
     def test_get_trigger_info_definition(self, backend_with_trigger):
         """Test that trigger definition is returned."""
-        trigger = backend_with_trigger.get_trigger_info("update_user_timestamp")
+        trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
         assert trigger.definition is not None
@@ -133,7 +133,7 @@ class TestTriggerDetails:
             END;
         """)
 
-        triggers = sqlite_backend.list_triggers()
+        triggers = sqlite_backend.introspector.list_triggers()
 
         trigger_names = {t.name for t in triggers}
         assert "trigger_insert" in trigger_names
@@ -142,7 +142,7 @@ class TestTriggerDetails:
 
     def test_trigger_timing(self, backend_with_trigger):
         """Test trigger timing detection."""
-        trigger = backend_with_trigger.get_trigger_info("update_user_timestamp")
+        trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
         # Timing may be empty if not parsed from definition
@@ -155,7 +155,7 @@ class TestTriggerDetails:
 
     def test_trigger_events(self, backend_with_trigger):
         """Test trigger events detection."""
-        trigger = backend_with_trigger.get_trigger_info("update_user_timestamp")
+        trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
         # Events may be empty if not parsed from definition
@@ -169,7 +169,7 @@ class TestTriggerDetails:
 
     def test_trigger_level(self, backend_with_trigger):
         """Test trigger level detection."""
-        trigger = backend_with_trigger.get_trigger_info("update_user_timestamp")
+        trigger = backend_with_trigger.introspector.get_trigger_info("update_user_timestamp")
 
         assert trigger is not None
         # Default level is ROW
@@ -192,7 +192,7 @@ class TestTriggerDetails:
             END;
         """)
 
-        trigger = sqlite_backend.get_trigger_info("validate_before_insert")
+        trigger = sqlite_backend.introspector.get_trigger_info("validate_before_insert")
 
         assert trigger is not None
         # Check definition contains BEFORE
@@ -219,7 +219,7 @@ class TestTriggerDetails:
             END;
         """)
 
-        trigger = sqlite_backend.get_trigger_info("instead_of_insert")
+        trigger = sqlite_backend.introspector.get_trigger_info("instead_of_insert")
 
         assert trigger is not None
         # Check definition contains INSTEAD OF
@@ -243,7 +243,7 @@ class TestTriggerDetails:
             END;
         """)
 
-        trigger = sqlite_backend.get_trigger_info("conditional_trigger")
+        trigger = sqlite_backend.introspector.get_trigger_info("conditional_trigger")
 
         assert trigger is not None
         # The definition should contain the WHEN clause

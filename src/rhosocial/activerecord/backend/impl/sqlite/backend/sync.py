@@ -17,20 +17,16 @@ from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect, SQLDialectBase
 from ..transaction import SQLiteTransactionManager
-from ..introspection import SQLiteIntrospectionMixin
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
 from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions, UpdateOptions
 from rhosocial.activerecord.backend.result import QueryResult
 
 
-class SQLiteBackend(SQLiteBackendMixin, SQLiteIntrospectionMixin, StorageBackend):
-    """Synchronous SQLite backend implementation.
-
-    Provides database introspection capabilities through SQLiteIntrospectionMixin,
-    which implements the BackendIntrospectionSupport protocol.
-    """
+class SQLiteBackend(IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend):
+    """Synchronous SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
     _sqlite_version_cache: Optional[Tuple[int, int, int]] = None
@@ -71,6 +67,13 @@ class SQLiteBackend(SQLiteBackendMixin, SQLiteIntrospectionMixin, StorageBackend
     @property
     def dialect(self) -> SQLDialectBase:
         return self._dialect
+
+    def _create_introspector(self):
+        from ..introspection import SQLiteIntrospector
+        from rhosocial.activerecord.backend.introspection.executor import (
+            SyncIntrospectorExecutor,
+        )
+        return SQLiteIntrospector(self, SyncIntrospectorExecutor(self))
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
         """Set a pragma parameter at runtime.

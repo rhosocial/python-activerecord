@@ -1,26 +1,25 @@
 # src/rhosocial/activerecord/backend/introspection/__init__.py
 """
-Database introspection types, exceptions, protocols and mixins.
+Database introspection — types, exceptions, executor, and introspector base.
 
-This module provides data structures for database introspection,
-as well as protocols and mixins for backend implementations.
+Quick start::
 
-Usage:
     from rhosocial.activerecord.backend.introspection import (
+        AbstractIntrospector,
+        IntrospectorBackendMixin,
+        SyncIntrospectorExecutor,
+        AsyncIntrospectorExecutor,
         DatabaseInfo, TableInfo, ColumnInfo, IndexInfo,
         ForeignKeyInfo, ViewInfo, TriggerInfo,
-        BackendIntrospectionSupport, IntrospectionMixin,
     )
 """
 
 from .types import (
-    # Enumerations
     IntrospectionScope,
     TableType,
     ColumnNullable,
     IndexType,
     ReferentialAction,
-    # Data structures
     DatabaseInfo,
     TableInfo,
     ColumnInfo,
@@ -37,14 +36,13 @@ from .errors import (
     ObjectNotFoundError,
     IntrospectionCacheError,
 )
-from .protocols import (
-    BackendIntrospectionSupport,
-    AsyncBackendIntrospectionSupport,
+from .executor import (
+    IntrospectorExecutor,
+    SyncIntrospectorExecutor,
+    AsyncIntrospectorExecutor,
 )
-from .mixins import (
-    IntrospectionMixin,
-    AsyncIntrospectionMixin,
-)
+from .base import AbstractIntrospector
+from .backend_mixin import IntrospectorBackendMixin
 
 __all__ = [
     # Enumerations
@@ -68,10 +66,11 @@ __all__ = [
     "IntrospectionQueryError",
     "ObjectNotFoundError",
     "IntrospectionCacheError",
-    # Protocols
-    "BackendIntrospectionSupport",
-    "AsyncBackendIntrospectionSupport",
-    # Mixins
-    "IntrospectionMixin",
-    "AsyncIntrospectionMixin",
+    # Executor
+    "IntrospectorExecutor",
+    "SyncIntrospectorExecutor",
+    "AsyncIntrospectorExecutor",
+    # Core
+    "AbstractIntrospector",
+    "IntrospectorBackendMixin",
 ]

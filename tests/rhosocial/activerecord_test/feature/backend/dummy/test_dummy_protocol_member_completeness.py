@@ -150,8 +150,8 @@ class TestDummyProtocolMemberCompleteness:
         method_count = len(all_protocol_methods)
 
         # Expected count (update this when adding/removing methods from protocols)
-        # As of the last update, there are 189 protocol methods
-        expected_count = 189
+        # As of the last update, there are 198 protocol methods
+        expected_count = 198
 
         assert method_count == expected_count, (
             f"Protocol method count changed from {expected_count} to {method_count}.\n"
