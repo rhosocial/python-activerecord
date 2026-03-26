@@ -21,15 +21,16 @@ standard SQL implementations for various features. Each mixin includes:
 This DummyDialect class serves a specific purpose:
 
 - It inherits ALL mixins to provide complete SQL standard coverage
-- It overrides ALL supports_* methods to return True, effectively
-  "enabling all switches"
+- It overrides supports_* methods to return True for SQL generation features,
+  effectively "enabling all switches" for DML/DDL capabilities
+- Introspection capabilities are DISABLED (return False) since dummy backend
+  does not connect to a real database and cannot introspect anything
 - No additional format_* implementations are needed since the mixins
   already provide standard SQL generation
 
 In essence, this file is a "switch board" that combines all mixins and
-turns on every feature flag. The actual SQL generation logic resides in
-the mixin classes, making this dialect a pure composition of standard
-SQL capabilities.
+turns on feature flags for SQL generation (DML/DDL), but not for
+introspection (which requires a real database connection).
 
 For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 1. Inherit the same mixins
@@ -37,7 +38,7 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 3. Override format_* methods where the database deviates from SQL standard
 """
 
-from typing import List
+from typing import List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -106,6 +107,9 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # Introspection Mixin
     IntrospectionMixin,
 )
+
+if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
 
 
 class DummyDialect(
@@ -568,119 +572,64 @@ class DummyDialect(
 
     # endregion
 
-    # region Introspection Support
+    # region Introspection Support - DISABLED
+    # Dummy backend does not connect to a real database, so introspection
+    # capabilities are not available. All supports_* methods return False.
+
     def supports_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support introspection (no real database)."""
+        return False
 
     def supports_database_info(self) -> bool:
-        return True
+        """Dummy backend does not support database info query."""
+        return False
 
     def supports_table_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support table introspection."""
+        return False
 
     def supports_column_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support column introspection."""
+        return False
 
     def supports_index_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support index introspection."""
+        return False
 
     def supports_foreign_key_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support foreign key introspection."""
+        return False
 
     def supports_view_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support view introspection."""
+        return False
 
     def supports_trigger_introspection(self) -> bool:
-        return True
+        """Dummy backend does not support trigger introspection."""
+        return False
 
-    def get_supported_introspection_scopes(self):
-        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-
-        return [
-            IntrospectionScope.DATABASE,
-            IntrospectionScope.TABLE,
-            IntrospectionScope.COLUMN,
-            IntrospectionScope.INDEX,
-            IntrospectionScope.FOREIGN_KEY,
-            IntrospectionScope.VIEW,
-            IntrospectionScope.TRIGGER,
-        ]
-
-    # ========== Introspection Query Formatting ==========
-
-    def format_database_info_query(self, expr) -> tuple:
-        """Format database info query (SQL standard)."""
-        return ("SELECT CURRENT_DATABASE() AS name, CURRENT_USER AS owner", ())
-
-    def format_table_list_query(self, expr) -> tuple:
-        """Format table list query (SQL standard)."""
-        schema = expr.get_param("schema") if hasattr(expr, "get_param") else None
-        if schema:
-            return (f"SELECT table_name FROM information_schema.tables WHERE table_schema = '{schema}'", ())
-        return ("SELECT table_name FROM information_schema.tables WHERE table_schema = CURRENT_SCHEMA()", ())
-
-    def format_table_info_query(self, expr) -> tuple:
-        """Format table info query (SQL standard)."""
-        table_name = expr.get_param("table_name") if hasattr(expr, "get_param") else None
-        schema = expr.get_param("schema") if hasattr(expr, "get_param") else None
-        schema_cond = f" AND table_schema = '{schema}'" if schema else ""
-        return (f"SELECT * FROM information_schema.tables WHERE table_name = '{table_name}'{schema_cond}", ())
-
-    def format_column_info_query(self, expr) -> tuple:
-        """Format column info query (SQL standard)."""
-        table_name = expr.get_param("table_name") if hasattr(expr, "get_param") else None
-        schema = expr.get_param("schema") if hasattr(expr, "get_param") else None
-        schema_cond = f" AND table_schema = '{schema}'" if schema else ""
-        return (
-            f"SELECT * FROM information_schema.columns WHERE table_name = '{table_name}'"
-            f"{schema_cond} ORDER BY ordinal_position",
-            (),
-        )
-
-    def format_index_info_query(self, expr) -> tuple:
-        """Format index info query (SQL standard)."""
-        table_name = expr.get_param("table_name") if hasattr(expr, "get_param") else None
-        return (f"SELECT * FROM information_schema.statistics WHERE table_name = '{table_name}'", ())
-
-    def format_foreign_key_query(self, expr) -> tuple:
-        """Format foreign key query (SQL standard)."""
-        table_name = expr.get_param("table_name") if hasattr(expr, "get_param") else None
-        return (
-            "SELECT * FROM information_schema.table_constraints WHERE table_name = "
-            f"'{table_name}' AND constraint_type = 'FOREIGN KEY'",
-            (),
-        )
-
-    def format_view_list_query(self, expr) -> tuple:
-        """Format view list query (SQL standard)."""
-        schema = expr.get_param("schema") if hasattr(expr, "get_param") else None
-        if schema:
-            return (f"SELECT table_name FROM information_schema.views WHERE table_schema = '{schema}'", ())
-        return ("SELECT table_name FROM information_schema.views WHERE table_schema = CURRENT_SCHEMA()", ())
-
-    def format_view_info_query(self, expr) -> tuple:
-        """Format view info query (SQL standard)."""
-        view_name = expr.get_param("view_name") if hasattr(expr, "get_param") else None
-        schema = expr.get_param("schema") if hasattr(expr, "get_param") else None
-        schema_cond = f" AND table_schema = '{schema}'" if schema else ""
-        return (f"SELECT * FROM information_schema.views WHERE table_name = '{view_name}'{schema_cond}", ())
-
-    def format_trigger_list_query(self, expr) -> tuple:
-        """Format trigger list query (SQL standard)."""
-        table_name = expr.get_param("table_name") if hasattr(expr, "get_param") else None
-        return (f"SELECT * FROM information_schema.triggers WHERE event_object_table = '{table_name}'", ())
-
-    def format_trigger_info_query(self, expr) -> tuple:
-        """Format trigger info query (SQL standard)."""
-        trigger_name = expr.get_param("trigger_name") if hasattr(expr, "get_param") else None
-        return (f"SELECT * FROM information_schema.triggers WHERE trigger_name = '{trigger_name}'", ())
+    # No format_* methods for introspection - the mixin defaults will raise
+    # UnsupportedFeatureError when called, which is the correct behavior.
 
     # endregion
 
     # region Column Definition with Generated Columns
-    def format_column_definition(self, col_def) -> tuple:
-        """Format a column definition including generated columns."""
-        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
+    def format_column_definition(
+        self, col_def: "ColumnDefinition"
+    ) -> Tuple[str, tuple]:
+        """Format a column definition including generated columns.
+
+        Args:
+            col_def: Column definition object containing name, data type,
+                     constraints, and optional generated column expression.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression.statements import (
+            ColumnConstraintType,
+            GeneratedColumnType,
+        )
         from rhosocial.activerecord.backend.expression import bases
 
         all_params = []
