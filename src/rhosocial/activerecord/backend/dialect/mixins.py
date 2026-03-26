@@ -1965,6 +1965,48 @@ class IntrospectionMixin:
         """Whether trigger introspection is supported."""
         return False
 
+    # ========== Runtime Statistics ==========
+
+    def supports_runtime_stats(self) -> bool:
+        """Whether runtime statistics introspection is supported."""
+        return False
+
+    def supports_table_stats(self) -> bool:
+        """Whether table statistics introspection is supported."""
+        return False
+
+    def supports_index_stats(self) -> bool:
+        """Whether index statistics introspection is supported."""
+        return False
+
+    def supports_unused_indexes_detection(self) -> bool:
+        """Whether unused indexes detection is supported."""
+        return False
+
+    # ========== Structure Information ==========
+
+    def supports_partition_info(self) -> bool:
+        """Whether partition information introspection is supported."""
+        return False
+
+    def supports_object_dependencies(self) -> bool:
+        """Whether object dependencies introspection is supported."""
+        return False
+
+    def supports_extensions(self) -> bool:
+        """Whether installed extensions introspection is supported."""
+        return False
+
+    # ========== DDL Extraction ==========
+
+    def supports_ddl_extraction(self) -> bool:
+        """Whether DDL extraction is supported."""
+        return False
+
+    def supports_ddl_extraction_native(self) -> bool:
+        """Whether native DDL extraction is supported (False means assembly required)."""
+        return False
+
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""
         return []
@@ -2189,6 +2231,48 @@ class AsyncIntrospectionMixin:
 
     def supports_trigger_introspection(self) -> bool:
         """Whether trigger introspection is supported."""
+        return False
+
+    # ========== Runtime Statistics ==========
+
+    def supports_runtime_stats(self) -> bool:
+        """Whether runtime statistics introspection is supported."""
+        return False
+
+    def supports_table_stats(self) -> bool:
+        """Whether table statistics introspection is supported."""
+        return False
+
+    def supports_index_stats(self) -> bool:
+        """Whether index statistics introspection is supported."""
+        return False
+
+    def supports_unused_indexes_detection(self) -> bool:
+        """Whether unused indexes detection is supported."""
+        return False
+
+    # ========== Structure Information ==========
+
+    def supports_partition_info(self) -> bool:
+        """Whether partition information introspection is supported."""
+        return False
+
+    def supports_object_dependencies(self) -> bool:
+        """Whether object dependencies introspection is supported."""
+        return False
+
+    def supports_extensions(self) -> bool:
+        """Whether installed extensions introspection is supported."""
+        return False
+
+    # ========== DDL Extraction ==========
+
+    def supports_ddl_extraction(self) -> bool:
+        """Whether DDL extraction is supported."""
+        return False
+
+    def supports_ddl_extraction_native(self) -> bool:
+        """Whether native DDL extraction is supported (False means assembly required)."""
         return False
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:

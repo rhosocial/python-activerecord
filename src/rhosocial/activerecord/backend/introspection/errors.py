@@ -1,55 +1,69 @@
 # src/rhosocial/activerecord/backend/introspection/errors.py
 """
-Introspection-related exceptions.
+Database introspection error definitions.
 
-This module defines exceptions specific to database introspection operations.
+This module provides exception classes for database introspection operations.
 """
 
-from typing import Optional
-from rhosocial.activerecord.backend.errors import DatabaseError
+from typing import Optional, Any
 
 
-class IntrospectionError(DatabaseError):
-    """Base exception for introspection operations."""
+class IntrospectionError(Exception):
+    """Base exception for introspection errors."""
 
-    def __init__(self, message: str, backend: Optional[str] = None):
-        self.backend = backend
-        super().__init__(message)
+    def __init__(self, message: str, details: Optional[Dict[str, Any]] = None):
+        self.message = message
+        self.details = details or {}
+        super().__init__(self.message)
 
 
 class IntrospectionNotSupportedError(IntrospectionError):
-    """Raised when the backend does not support the specified introspection operation."""
+    """Raised when an introspection feature is not supported by the backend."""
 
-    def __init__(self, backend: str, scope: str):
-        message = f"'{backend}' does not support introspection scope: {scope}"
-        super().__init__(message, backend)
-        self.scope = scope
+    def __init__(self, feature: str, backend: Optional[str] = None):
+        self.feature = feature
+        self.backend = backend
+        message = f"Introspection feature '{feature}' is not supported"
+        if backend:
+            message += f" by backend '{backend}'"
+        super().__init__(message, {"feature": feature, "backend": backend})
 
 
 class IntrospectionQueryError(IntrospectionError):
-    """Raised when an introspection query fails to execute."""
+    """Raised when an introspection query fails."""
 
-    def __init__(self, message: str, query: Optional[str] = None, backend: Optional[str] = None):
+    def __init__(self, query: str, original_error: Optional[Exception] = None):
         self.query = query
-        super().__init__(message, backend)
+        self.original_error = original_error
+        message = f"Introspection query failed: {query}"
+        if original_error:
+            message += f" - {str(original_error)}"
+        super().__init__(message, {"query": query, "original_error": str(original_error) if original_error else None})
 
 
 class ObjectNotFoundError(IntrospectionError):
-    """Raised when an introspection target object is not found."""
+    """Raised when a database object is not found during introspection."""
 
     def __init__(self, object_type: str, object_name: str, schema: Optional[str] = None):
         self.object_type = object_type
         self.object_name = object_name
         self.schema = schema
-
-        full_name = f"{schema}.{object_name}" if schema else object_name
-        message = f"{object_type} '{full_name}' not found"
-        super().__init__(message)
+        message = f"{object_type} '{object_name}' not found"
+        if schema:
+            message += f" in schema '{schema}'"
+        super().__init__(message, {
+            "object_type": object_type,
+            "object_name": object_name,
+            "schema": schema
+        })
 
 
 class IntrospectionCacheError(IntrospectionError):
-    """Raised when there is an issue with the introspection cache."""
+    """Raised when there's an issue with the introspection cache."""
 
-    def __init__(self, message: str, operation: str):
+    def __init__(self, operation: str, details: Optional[str] = None):
         self.operation = operation
-        super().__init__(message)
+        message = f"Introspection cache error during {operation}"
+        if details:
+            message += f": {details}"
+        super().__init__(message, {"operation": operation, "details": details})

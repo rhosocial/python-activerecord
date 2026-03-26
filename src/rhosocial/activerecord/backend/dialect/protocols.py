@@ -1261,6 +1261,48 @@ class IntrospectionSupport(Protocol):
         """Whether trigger introspection is supported."""
         ...  # pragma: no cover
 
+    # ========== Runtime Statistics ==========
+
+    def supports_runtime_stats(self) -> bool:
+        """Whether runtime statistics introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_table_stats(self) -> bool:
+        """Whether table statistics introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_index_stats(self) -> bool:
+        """Whether index statistics introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_unused_indexes_detection(self) -> bool:
+        """Whether unused indexes detection is supported."""
+        ...  # pragma: no cover
+
+    # ========== Structure Information ==========
+
+    def supports_partition_info(self) -> bool:
+        """Whether partition information introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_object_dependencies(self) -> bool:
+        """Whether object dependencies introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_extensions(self) -> bool:
+        """Whether installed extensions introspection is supported."""
+        ...  # pragma: no cover
+
+    # ========== DDL Extraction ==========
+
+    def supports_ddl_extraction(self) -> bool:
+        """Whether DDL extraction is supported."""
+        ...  # pragma: no cover
+
+    def supports_ddl_extraction_native(self) -> bool:
+        """Whether native DDL extraction is supported (False means assembly required)."""
+        ...  # pragma: no cover
+
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:
         """Get list of supported introspection scopes."""
         ...  # pragma: no cover
@@ -1442,6 +1484,48 @@ class AsyncIntrospectionSupport(Protocol):
 
     def supports_trigger_introspection(self) -> bool:
         """Whether trigger introspection is supported."""
+        ...  # pragma: no cover
+
+    # ========== Runtime Statistics ==========
+
+    def supports_runtime_stats(self) -> bool:
+        """Whether runtime statistics introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_table_stats(self) -> bool:
+        """Whether table statistics introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_index_stats(self) -> bool:
+        """Whether index statistics introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_unused_indexes_detection(self) -> bool:
+        """Whether unused indexes detection is supported."""
+        ...  # pragma: no cover
+
+    # ========== Structure Information ==========
+
+    def supports_partition_info(self) -> bool:
+        """Whether partition information introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_object_dependencies(self) -> bool:
+        """Whether object dependencies introspection is supported."""
+        ...  # pragma: no cover
+
+    def supports_extensions(self) -> bool:
+        """Whether installed extensions introspection is supported."""
+        ...  # pragma: no cover
+
+    # ========== DDL Extraction ==========
+
+    def supports_ddl_extraction(self) -> bool:
+        """Whether DDL extraction is supported."""
+        ...  # pragma: no cover
+
+    def supports_ddl_extraction_native(self) -> bool:
+        """Whether native DDL extraction is supported (False means assembly required)."""
         ...  # pragma: no cover
 
     def get_supported_introspection_scopes(self) -> List["IntrospectionScope"]:

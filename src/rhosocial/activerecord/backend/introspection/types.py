@@ -1,20 +1,17 @@
 # src/rhosocial/activerecord/backend/introspection/types.py
 """
-Database introspection data structures.
+Database introspection type definitions.
 
-This module defines dataclasses for representing database metadata
-in a database-agnostic way, enabling unified introspection across
-different database backends.
+This module provides data structures and enumerations for database introspection.
 """
 
 from dataclasses import dataclass, field
-from typing import Optional, List, Dict, Any, Tuple
 from enum import Enum
+from typing import Optional, List, Dict, Any
 
 
 class IntrospectionScope(Enum):
-    """Introspection scope enumeration."""
-
+    """Scope of introspection operations."""
     DATABASE = "database"
     SCHEMA = "schema"
     TABLE = "table"
@@ -23,182 +20,130 @@ class IntrospectionScope(Enum):
     FOREIGN_KEY = "foreign_key"
     VIEW = "view"
     TRIGGER = "trigger"
-    SEQUENCE = "sequence"
 
 
 class TableType(Enum):
-    """Table type enumeration."""
-
-    BASE_TABLE = "BASE_TABLE"
+    """Type of database table."""
+    BASE_TABLE = "BASE TABLE"
     VIEW = "VIEW"
-    SYSTEM_TABLE = "SYSTEM_TABLE"
+    SYSTEM_VIEW = "SYSTEM VIEW"
     TEMPORARY = "TEMPORARY"
-    EXTERNAL = "EXTERNAL"
 
 
 class ColumnNullable(Enum):
     """Column nullability."""
-
-    NULLABLE = "NULLABLE"
-    NOT_NULL = "NOT_NULL"
-    UNKNOWN = "UNKNOWN"
+    YES = "YES"
+    NO = "NO"
 
 
 class IndexType(Enum):
-    """Index type enumeration."""
-
+    """Type of database index."""
     BTREE = "BTREE"
     HASH = "HASH"
-    GIN = "GIN"
-    GIST = "GIST"
+    RTREE = "RTREE"
     FULLTEXT = "FULLTEXT"
-    SPATIAL = "SPATIAL"
-    UNKNOWN = "UNKNOWN"
 
 
 class ReferentialAction(Enum):
-    """Foreign key referential action."""
-
+    """Foreign key referential actions."""
     CASCADE = "CASCADE"
     RESTRICT = "RESTRICT"
     SET_NULL = "SET NULL"
-    SET_DEFAULT = "SET DEFAULT"
     NO_ACTION = "NO ACTION"
 
 
 @dataclass
 class DatabaseInfo:
-    """Database information."""
-
+    """Database metadata information."""
     name: str
-    version: str
-    version_tuple: Tuple[int, int, int]
-    vendor: str
-    encoding: Optional[str] = None
+    charset: Optional[str] = None
     collation: Optional[str] = None
-    timezone: Optional[str] = None
-    size_bytes: Optional[int] = None
+    version: Optional[str] = None
+    size: Optional[int] = None
     table_count: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+
+
+@dataclass
+class TableInfo:
+    """Table metadata information."""
+    name: str
+    schema: Optional[str] = None
+    table_type: TableType = TableType.BASE_TABLE
+    engine: Optional[str] = None
+    row_count: Optional[int] = None
+    data_size: Optional[int] = None
+    index_size: Optional[int] = None
+    create_time: Optional[str] = None
+    update_time: Optional[str] = None
+    comment: Optional[str] = None
+
+
+@dataclass
+class ColumnInfo:
+    """Column metadata information."""
+    name: str
+    table_name: str
+    position: int
+    data_type: str
+    nullable: ColumnNullable = ColumnNullable.YES
+    default_value: Optional[str] = None
+    is_primary: bool = False
+    is_unique: bool = False
+    auto_increment: bool = False
+    comment: Optional[str] = None
+    charset: Optional[str] = None
+    collation: Optional[str] = None
 
 
 @dataclass
 class IndexColumnInfo:
     """Index column information."""
-
     name: str
-    ordinal_position: int = 0
-    is_descending: bool = False
-    is_nulls_first: Optional[bool] = None
-
-
-@dataclass
-class ColumnInfo:
-    """Column information."""
-
-    name: str
-    table_name: str
-    schema: Optional[str] = None
-    ordinal_position: int = 0
-    data_type: str = ""
-    data_type_full: Optional[str] = None
-    nullable: ColumnNullable = ColumnNullable.UNKNOWN
-    default_value: Optional[str] = None
-    is_primary_key: bool = False
-    is_unique: bool = False
-    is_auto_increment: bool = False
-    is_generated: bool = False
-    generated_expression: Optional[str] = None
-    comment: Optional[str] = None
-    character_maximum_length: Optional[int] = None
-    numeric_precision: Optional[int] = None
-    numeric_scale: Optional[int] = None
-    datetime_precision: Optional[int] = None
-    charset: Optional[str] = None
-    collation: Optional[str] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
+    position: int
+    is_ascending: bool = True
+    sub_part: Optional[int] = None
 
 
 @dataclass
 class IndexInfo:
-    """Index information."""
-
+    """Index metadata information."""
     name: str
     table_name: str
-    schema: Optional[str] = None
     is_unique: bool = False
     is_primary: bool = False
-    index_type: IndexType = IndexType.UNKNOWN
+    index_type: IndexType = IndexType.BTREE
     columns: List[IndexColumnInfo] = field(default_factory=list)
-    filter_condition: Optional[str] = None
     comment: Optional[str] = None
-    size_bytes: Optional[int] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ForeignKeyInfo:
-    """Foreign key information."""
-
+    """Foreign key metadata information."""
     name: str
     table_name: str
-    schema: Optional[str] = None
     columns: List[str] = field(default_factory=list)
-    referenced_table: str = ""
-    referenced_schema: Optional[str] = None
+    referenced_table: str
     referenced_columns: List[str] = field(default_factory=list)
     on_update: ReferentialAction = ReferentialAction.NO_ACTION
     on_delete: ReferentialAction = ReferentialAction.NO_ACTION
-    deferrable: Optional[bool] = None
-    deferred: Optional[bool] = None
-    extra: Dict[str, Any] = field(default_factory=dict)
 
 
 @dataclass
 class ViewInfo:
-    """View information."""
-
+    """View metadata information."""
     name: str
     schema: Optional[str] = None
     definition: Optional[str] = None
-    is_updatable: Optional[bool] = None
-    is_insertable: Optional[bool] = None
     check_option: Optional[str] = None
-    comment: Optional[str] = None
-    columns: List[ColumnInfo] = field(default_factory=list)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    is_updatable: Optional[bool] = None
 
 
 @dataclass
 class TriggerInfo:
-    """Trigger information."""
-
+    """Trigger metadata information."""
     name: str
     table_name: str
-    schema: Optional[str] = None
-    timing: str = ""
-    events: List[str] = field(default_factory=list)
-    level: str = "ROW"
-    condition: Optional[str] = None
-    definition: Optional[str] = None
-    status: str = "ENABLED"
-    extra: Dict[str, Any] = field(default_factory=dict)
-
-
-@dataclass
-class TableInfo:
-    """Table information."""
-
-    name: str
-    schema: Optional[str] = None
-    table_type: TableType = TableType.BASE_TABLE
-    comment: Optional[str] = None
-    row_count: Optional[int] = None
-    size_bytes: Optional[int] = None
-    auto_increment: Optional[int] = None
-    create_time: Optional[str] = None
-    update_time: Optional[str] = None
-    columns: List[ColumnInfo] = field(default_factory=list)
-    indexes: List[IndexInfo] = field(default_factory=list)
-    foreign_keys: List[ForeignKeyInfo] = field(default_factory=list)
-    extra: Dict[str, Any] = field(default_factory=dict)
+    event: str  # INSERT, UPDATE, DELETE
+    timing: str  # BEFORE, AFTER
+    statement: Optional[str] = None
+    created: Optional[str] = None

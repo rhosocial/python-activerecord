@@ -11,7 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 if TYPE_CHECKING:  # pragma: no cover
     from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-    from rhosocial.activerecord.backend.introspection.expressions import (
+    from rhosocial.activerecord.backend.expression.introspection import (
         DatabaseInfoExpression,
         TableListExpression,
         TableInfoExpression,

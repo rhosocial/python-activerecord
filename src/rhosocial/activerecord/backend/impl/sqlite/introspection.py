@@ -25,6 +25,18 @@ from rhosocial.activerecord.backend.introspection.types import (
     ViewInfo,
     TriggerInfo,
 )
+from rhosocial.activerecord.backend.expression.introspection import (
+    DatabaseInfoExpression,
+    TableListExpression,
+    TableInfoExpression,
+    ColumnInfoExpression,
+    IndexInfoExpression,
+    ForeignKeyExpression,
+    ViewListExpression,
+    ViewInfoExpression,
+    TriggerListExpression,
+    TriggerInfoExpression,
+)
 
 
 class SQLiteIntrospectionMixin(IntrospectionMixin):
@@ -86,6 +98,12 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
     def _query_database_info(self) -> DatabaseInfo:
         """Query SQLite database information."""
+        # Use expression to get SQL (delegates to dialect)
+        expr = DatabaseInfoExpression(self.dialect)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
+
+        # Get version info
         version_tuple = self._get_sqlite_version()
         version_str = sqlite3.sqlite_version
 
@@ -112,22 +130,27 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
     ) -> List[TableInfo]:
         """Query table list."""
         target_db = schema or self._get_database_name()
-        version = self._get_sqlite_version()
 
-        # Use PRAGMA table_list for SQLite 3.37.0+
-        if version >= (3, 37, 0):
-            return self._list_tables_pragma(target_db, include_system, table_type)
+        # Use expression to generate SQL
+        expr = (TableListExpression(self.dialect)
+                .schema(target_db)
+                .include_system(include_system)
+                .include_views(True))
+        if table_type:
+            expr = expr.table_type(table_type)
 
-        # Fall back to sqlite_master query for older versions
-        return self._list_tables_master(target_db, include_system, table_type)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
 
-    def _list_tables_pragma(
-        self, database: str, include_system: bool, table_type: Optional[str] = None
+        # Parse results based on query type (PRAGMA vs sqlite_master)
+        if self.dialect.supports_table_list_pragma():
+            return self._parse_table_list_pragma(rows, target_db, include_system, table_type)
+        return self._parse_table_list_master(rows, target_db, include_system, table_type)
+
+    def _parse_table_list_pragma(
+        self, rows: List[Dict], database: str, include_system: bool, table_type: Optional[str] = None
     ) -> List[TableInfo]:
-        """List tables using PRAGMA table_list (SQLite 3.37.0+)."""
-        sql = f"PRAGMA {database}.table_list"
-        rows = self._execute_introspection_query(sql)
-
+        """Parse results from PRAGMA table_list (SQLite 3.37.0+)."""
         tables = []
         for row in rows:
             # Skip internal tables unless requested
@@ -157,27 +180,10 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
         return tables
 
-    def _list_tables_master(
-        self, database: str, include_system: bool, table_type: Optional[str] = None
+    def _parse_table_list_master(
+        self, rows: List[Dict], database: str, include_system: bool, table_type: Optional[str] = None
     ) -> List[TableInfo]:
-        """List tables using sqlite_master query."""
-        sql = f"""
-            SELECT name, type FROM {database}.sqlite_master
-            WHERE type IN ('table', 'view')
-        """
-        if not include_system:
-            sql += " AND name NOT LIKE 'sqlite_%'"
-
-        if table_type:
-            if table_type == "BASE TABLE":
-                sql += " AND type = 'table'"
-            elif table_type == "VIEW":
-                sql += " AND type = 'view'"
-
-        sql += " ORDER BY name"
-
-        rows = self._execute_introspection_query(sql)
-
+        """Parse results from sqlite_master query."""
         tables = []
         for row in rows:
             # Determine if this is a system table (starts with sqlite_)
@@ -308,19 +314,21 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
     def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Query column list for a table."""
         target_db = schema or self._get_database_name()
-        version = self._get_sqlite_version()
 
+        # Use expression to generate SQL
         # SQLite PRAGMA doesn't support parameterized queries
-        # Table name must be interpolated directly
         # Note: table_name should come from trusted sources (database introspection)
-        # Use table_xinfo for SQLite 3.26.0+ (includes hidden columns)
-        if version >= (3, 26, 0):
-            sql = f"PRAGMA {target_db}.table_xinfo('{table_name}')"
-        else:
-            sql = f"PRAGMA {target_db}.table_info('{table_name}')"
+        expr = (ColumnInfoExpression(self.dialect, table_name)
+                .schema(target_db)
+                .include_hidden(False))
 
-        rows = self._execute_introspection_query(sql)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
 
+        return self._parse_column_list(rows, table_name, target_db)
+
+    def _parse_column_list(self, rows: List[Dict], table_name: str, schema: str) -> List[ColumnInfo]:
+        """Parse column list results."""
         columns = []
         for row in rows:
             # Skip hidden columns (primary key columns in WITHOUT ROWID tables)
@@ -333,7 +341,7 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
             col = ColumnInfo(
                 name=row["name"],
                 table_name=table_name,
-                schema=target_db,
+                schema=schema,
                 ordinal_position=row["cid"] + 1,
                 data_type=row["type"].split("(")[0].upper() if row["type"] else "TEXT",
                 data_type_full=row["type"] or "TEXT",
@@ -349,28 +357,24 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
         """Query index list for a table."""
         target_db = schema or self._get_database_name()
 
-        # SQLite PRAGMA doesn't support parameterized queries
-        sql = f"PRAGMA {target_db}.index_list('{table_name}')"
-        rows = self._execute_introspection_query(sql)
+        # Use expression to generate SQL
+        expr = IndexInfoExpression(self.dialect, table_name).schema(target_db)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
 
+        # Parse index list with nested column queries
         indexes = []
         for row in rows:
             idx_name = row["name"]
             is_unique = row["unique"] == 1
             is_primary = row["origin"] == "pk"
 
-            # Get index columns
+            # Get index columns (nested query)
+            # SQLite PRAGMA doesn't support parameterized queries
             col_sql = f"PRAGMA {target_db}.index_info('{idx_name}')"
             col_rows = self._execute_introspection_query(col_sql)
 
-            columns = [
-                IndexColumnInfo(
-                    name=cr["name"],
-                    ordinal_position=cr["seqno"] + 1,
-                )
-                for cr in col_rows
-                if cr["name"]
-            ]
+            columns = self._parse_index_columns(col_rows)
 
             indexes.append(
                 IndexInfo(
@@ -386,14 +390,30 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
         return indexes
 
+    def _parse_index_columns(self, col_rows: List[Dict]) -> List[IndexColumnInfo]:
+        """Parse index column results."""
+        return [
+            IndexColumnInfo(
+                name=cr["name"],
+                ordinal_position=cr["seqno"] + 1,
+            )
+            for cr in col_rows
+            if cr["name"]
+        ]
+
     def _query_foreign_keys(self, table_name: str, schema: Optional[str] = None) -> List[ForeignKeyInfo]:
         """Query foreign key list for a table."""
         target_db = schema or self._get_database_name()
 
-        # SQLite PRAGMA doesn't support parameterized queries
-        sql = f"PRAGMA {target_db}.foreign_key_list('{table_name}')"
-        rows = self._execute_introspection_query(sql)
+        # Use expression to generate SQL
+        expr = ForeignKeyExpression(self.dialect, table_name).schema(target_db)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
 
+        return self._parse_foreign_key_list(rows, table_name, target_db)
+
+    def _parse_foreign_key_list(self, rows: List[Dict], table_name: str, schema: str) -> List[ForeignKeyInfo]:
+        """Parse foreign key list results."""
         # Group by foreign key id
         fk_map: Dict[int, ForeignKeyInfo] = {}
 
@@ -416,7 +436,7 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
                 fk_map[fk_id] = ForeignKeyInfo(
                     name=f"fk_{table_name}_{fk_id}",
                     table_name=table_name,
-                    schema=target_db,
+                    schema=schema,
                     referenced_table=row["table"],
                     on_update=on_update,
                     on_delete=on_delete,
@@ -437,21 +457,19 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
         """Query view list."""
         target_db = schema or self._get_database_name()
 
-        sql = f"""
-            SELECT name, sql FROM {target_db}.sqlite_master
-            WHERE type = 'view'
-        """
-        if not include_system:
-            sql += " AND name NOT LIKE 'sqlite_%'"
+        # Use expression to generate SQL
+        expr = ViewListExpression(self.dialect).schema(target_db).include_system(include_system)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
 
-        sql += " ORDER BY name"
+        return self._parse_view_list(rows, target_db)
 
-        rows = self._execute_introspection_query(sql)
-
+    def _parse_view_list(self, rows: List[Dict], schema: str) -> List[ViewInfo]:
+        """Parse view list results."""
         return [
             ViewInfo(
                 name=row["name"],
-                schema=target_db,
+                schema=schema,
                 definition=row.get("sql"),
             )
             for row in rows
@@ -459,8 +477,21 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
 
     def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Query view information."""
-        views = self._query_views(schema, False)
-        return next((v for v in views if v.name == view_name), None)
+        target_db = schema or self._get_database_name()
+
+        # Use expression to generate SQL
+        expr = ViewInfoExpression(self.dialect, view_name).schema(target_db)
+        sql, params = expr.to_sql()
+        rows = self._execute_introspection_query(sql, params)
+
+        if not rows:
+            return None
+
+        return ViewInfo(
+            name=rows[0]["name"],
+            schema=target_db,
+            definition=rows[0].get("sql"),
+        )
 
     def _query_triggers(
         self,
@@ -470,25 +501,23 @@ class SQLiteIntrospectionMixin(IntrospectionMixin):
         """Query trigger list."""
         target_db = schema or self._get_database_name()
 
-        sql = f"""
-            SELECT name, tbl_name, sql FROM {target_db}.sqlite_master
-            WHERE type = 'trigger'
-        """
-        params = ()
-
+        # Use expression to generate SQL
+        expr = TriggerListExpression(self.dialect).schema(target_db)
         if table_name:
-            sql += " AND tbl_name = ?"
-            params = (table_name,)
+            expr = expr.for_table(table_name)
 
-        sql += " ORDER BY name"
-
+        sql, params = expr.to_sql()
         rows = self._execute_introspection_query(sql, params)
 
+        return self._parse_trigger_list(rows, target_db)
+
+    def _parse_trigger_list(self, rows: List[Dict], schema: str) -> List[TriggerInfo]:
+        """Parse trigger list results."""
         return [
             TriggerInfo(
                 name=row["name"],
                 table_name=row["tbl_name"],
-                schema=target_db,
+                schema=schema,
                 definition=row.get("sql"),
             )
             for row in rows
@@ -558,6 +587,12 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
 
     async def _query_database_info(self) -> DatabaseInfo:
         """Query SQLite database information."""
+        # Use expression to get SQL (delegates to dialect)
+        expr = DatabaseInfoExpression(self.dialect)
+        sql, params = expr.to_sql()
+        await self._execute_introspection_query(sql, params)
+
+        # Get version info
         version_tuple = self._get_sqlite_version()
         version_str = sqlite3.sqlite_version
 
@@ -591,120 +626,23 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
     ) -> List[TableInfo]:
         """Query table list."""
         target_db = schema or self._get_database_name()
-        version = self._get_sqlite_version()
 
-        # Use PRAGMA table_list for SQLite 3.37.0+
-        if version >= (3, 37, 0):
-            return await self._list_tables_pragma(target_db, include_system, table_type)
-
-        # Fall back to sqlite_master query for older versions
-        return await self._list_tables_master(target_db, include_system, table_type)
-
-    async def _list_tables_pragma(
-        self, database: str, include_system: bool, table_type: Optional[str] = None
-    ) -> List[TableInfo]:
-        """List tables using PRAGMA table_list (SQLite 3.37.0+)."""
-        sql = f"PRAGMA {database}.table_list"
-        rows = await self._execute_introspection_query(sql)
-
-        tables = []
-        for row in rows:
-            # Skip internal tables unless requested
-            if not include_system and row.get("name", "").startswith("sqlite_"):
-                continue
-
-            parsed_type = self._parse_table_type(row.get("type", "table"))
-            if parsed_type is None:
-                continue
-
-            # Filter by table_type if specified
-            if table_type:
-                type_map = {
-                    "BASE TABLE": TableType.BASE_TABLE,
-                    "VIEW": TableType.VIEW,
-                }
-                if parsed_type != type_map.get(table_type):
-                    continue
-
-            tables.append(
-                TableInfo(
-                    name=row["name"],
-                    schema=database,
-                    table_type=parsed_type,
-                )
-            )
-
-        return tables
-
-    async def _list_tables_master(
-        self, database: str, include_system: bool, table_type: Optional[str] = None
-    ) -> List[TableInfo]:
-        """List tables using sqlite_master query."""
-        sql = f"""
-            SELECT name, type FROM {database}.sqlite_master
-            WHERE type IN ('table', 'view')
-        """
-        if not include_system:
-            sql += " AND name NOT LIKE 'sqlite_%'"
-
+        # Use expression to generate SQL
+        expr = (TableListExpression(self.dialect)
+                .schema(target_db)
+                .include_system(include_system)
+                .include_views(True))
         if table_type:
-            if table_type == "BASE TABLE":
-                sql += " AND type = 'table'"
-            elif table_type == "VIEW":
-                sql += " AND type = 'view'"
+            expr = expr.table_type(table_type)
 
-        sql += " ORDER BY name"
+        sql, params = expr.to_sql()
+        rows = await self._execute_introspection_query(sql, params)
 
-        rows = await self._execute_introspection_query(sql)
-
-        tables = []
-        for row in rows:
-            # Determine if this is a system table (starts with sqlite_)
-            is_system = row["name"].startswith("sqlite_")
-            if row["type"] == "view":
-                parsed_type = TableType.VIEW
-            elif is_system:
-                parsed_type = TableType.SYSTEM_TABLE
-            else:
-                parsed_type = TableType.BASE_TABLE
-
-            # Filter by table_type
-            if table_type:
-                type_map = {
-                    "BASE TABLE": TableType.BASE_TABLE,
-                    "VIEW": TableType.VIEW,
-                }
-                if parsed_type != type_map.get(table_type):
-                    continue
-
-            tables.append(
-                TableInfo(
-                    name=row["name"],
-                    schema=database,
-                    table_type=parsed_type,
-                )
-            )
-
-        # SQLite < 3.37.0: Manually add known system tables
-        # sqlite_master table does not contain system table records, so they must be added manually
-        if include_system and self._get_sqlite_version() < (3, 37, 0):
-            existing_names = {t.name for t in tables}
-            known_system_tables = await self._get_known_system_tables(database)
-            for sys_table in known_system_tables:
-                if sys_table.name not in existing_names:
-                    # Apply table_type filter
-                    if table_type:
-                        type_map = {
-                            "BASE TABLE": TableType.BASE_TABLE,
-                            "VIEW": TableType.VIEW,
-                        }
-                        if sys_table.table_type != type_map.get(table_type):
-                            continue
-                    tables.append(sys_table)
-            # Re-sort the tables
-            tables.sort(key=lambda t: t.name)
-
-        return tables
+        # Parse results based on query type (PRAGMA vs sqlite_master)
+        # Reuse sync version's parsing methods
+        if self.dialect.supports_table_list_pragma():
+            return SQLiteIntrospectionMixin._parse_table_list_pragma(self, rows, target_db, include_system, table_type)
+        return SQLiteIntrospectionMixin._parse_table_list_master(self, rows, target_db, include_system, table_type)
 
     async def _get_known_system_tables(self, database: str) -> List[TableInfo]:
         """Get known SQLite system tables for older versions.
@@ -787,69 +725,41 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
     async def _query_columns(self, table_name: str, schema: Optional[str] = None) -> List[ColumnInfo]:
         """Query column list for a table."""
         target_db = schema or self._get_database_name()
-        version = self._get_sqlite_version()
 
+        # Use expression to generate SQL
         # SQLite PRAGMA doesn't support parameterized queries
-        # Table name must be interpolated directly
         # Note: table_name should come from trusted sources (database introspection)
-        # Use table_xinfo for SQLite 3.26.0+ (includes hidden columns)
-        if version >= (3, 26, 0):
-            sql = f"PRAGMA {target_db}.table_xinfo('{table_name}')"
-        else:
-            sql = f"PRAGMA {target_db}.table_info('{table_name}')"
+        expr = (ColumnInfoExpression(self.dialect, table_name)
+                .schema(target_db)
+                .include_hidden(False))
 
-        rows = await self._execute_introspection_query(sql)
+        sql, params = expr.to_sql()
+        rows = await self._execute_introspection_query(sql, params)
 
-        columns = []
-        for row in rows:
-            # Skip hidden columns (primary key columns in WITHOUT ROWID tables)
-            hidden = row.get("hidden", 0)
-            if hidden > 0:
-                continue
-
-            nullable = ColumnNullable.NULLABLE if row["notnull"] == 0 else ColumnNullable.NOT_NULL
-
-            col = ColumnInfo(
-                name=row["name"],
-                table_name=table_name,
-                schema=target_db,
-                ordinal_position=row["cid"] + 1,
-                data_type=row["type"].split("(")[0].upper() if row["type"] else "TEXT",
-                data_type_full=row["type"] or "TEXT",
-                nullable=nullable,
-                default_value=row.get("dflt_value"),
-                is_primary_key=row["pk"] > 0,
-            )
-            columns.append(col)
-
-        return columns
+        # Reuse sync version's parsing method
+        return SQLiteIntrospectionMixin._parse_column_list(self, rows, table_name, target_db)
 
     async def _query_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """Query index list for a table."""
         target_db = schema or self._get_database_name()
 
-        # SQLite PRAGMA doesn't support parameterized queries
-        sql = f"PRAGMA {target_db}.index_list('{table_name}')"
-        rows = await self._execute_introspection_query(sql)
+        # Use expression to generate SQL
+        expr = IndexInfoExpression(self.dialect, table_name).schema(target_db)
+        sql, params = expr.to_sql()
+        rows = await self._execute_introspection_query(sql, params)
 
+        # Parse index list with nested column queries
         indexes = []
         for row in rows:
             idx_name = row["name"]
             is_unique = row["unique"] == 1
             is_primary = row["origin"] == "pk"
 
-            # Get index columns
+            # Get index columns (nested query)
             col_sql = f"PRAGMA {target_db}.index_info('{idx_name}')"
             col_rows = await self._execute_introspection_query(col_sql)
 
-            columns = [
-                IndexColumnInfo(
-                    name=cr["name"],
-                    ordinal_position=cr["seqno"] + 1,
-                )
-                for cr in col_rows
-                if cr["name"]
-            ]
+            columns = SQLiteIntrospectionMixin._parse_index_columns(self, col_rows)
 
             indexes.append(
                 IndexInfo(
@@ -858,7 +768,7 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
                     schema=target_db,
                     is_unique=is_unique,
                     is_primary=is_primary,
-                    index_type=IndexType.BTREE,  # SQLite uses B-tree
+                    index_type=IndexType.BTREE,
                     columns=columns,
                 )
             )
@@ -869,44 +779,13 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
         """Query foreign key list for a table."""
         target_db = schema or self._get_database_name()
 
-        # SQLite PRAGMA doesn't support parameterized queries
-        sql = f"PRAGMA {target_db}.foreign_key_list('{table_name}')"
-        rows = await self._execute_introspection_query(sql)
+        # Use expression to generate SQL
+        expr = ForeignKeyExpression(self.dialect, table_name).schema(target_db)
+        sql, params = expr.to_sql()
+        rows = await self._execute_introspection_query(sql, params)
 
-        # Group by foreign key id
-        fk_map: Dict[int, ForeignKeyInfo] = {}
-
-        for row in rows:
-            fk_id = row["id"]
-
-            if fk_id not in fk_map:
-                # SQLite uses simple string names for actions
-                action_map = {
-                    "NO ACTION": ReferentialAction.NO_ACTION,
-                    "RESTRICT": ReferentialAction.RESTRICT,
-                    "CASCADE": ReferentialAction.CASCADE,
-                    "SET NULL": ReferentialAction.SET_NULL,
-                    "SET DEFAULT": ReferentialAction.SET_DEFAULT,
-                }
-
-                on_update = action_map.get(row.get("on_update", "NO ACTION").upper(), ReferentialAction.NO_ACTION)
-                on_delete = action_map.get(row.get("on_delete", "NO ACTION").upper(), ReferentialAction.NO_ACTION)
-
-                fk_map[fk_id] = ForeignKeyInfo(
-                    name=f"fk_{table_name}_{fk_id}",
-                    table_name=table_name,
-                    schema=target_db,
-                    referenced_table=row["table"],
-                    on_update=on_update,
-                    on_delete=on_delete,
-                    columns=[],
-                    referenced_columns=[],
-                )
-
-            fk_map[fk_id].columns.append(row["from"])
-            fk_map[fk_id].referenced_columns.append(row["to"])
-
-        return list(fk_map.values())
+        # Reuse sync version's parsing method
+        return SQLiteIntrospectionMixin._parse_foreign_key_list(self, rows, table_name, target_db)
 
     async def _query_views(
         self,
@@ -916,30 +795,31 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
         """Query view list."""
         target_db = schema or self._get_database_name()
 
-        sql = f"""
-            SELECT name, sql FROM {target_db}.sqlite_master
-            WHERE type = 'view'
-        """
-        if not include_system:
-            sql += " AND name NOT LIKE 'sqlite_%'"
+        # Use expression to generate SQL
+        expr = ViewListExpression(self.dialect).schema(target_db).include_system(include_system)
+        sql, params = expr.to_sql()
+        rows = await self._execute_introspection_query(sql, params)
 
-        sql += " ORDER BY name"
-
-        rows = await self._execute_introspection_query(sql)
-
-        return [
-            ViewInfo(
-                name=row["name"],
-                schema=target_db,
-                definition=row.get("sql"),
-            )
-            for row in rows
-        ]
+        # Reuse sync version's parsing method
+        return SQLiteIntrospectionMixin._parse_view_list(self, rows, target_db)
 
     async def _query_view_info(self, view_name: str, schema: Optional[str] = None) -> Optional[ViewInfo]:
         """Query view information."""
-        views = await self._query_views(schema, False)
-        return next((v for v in views if v.name == view_name), None)
+        target_db = schema or self._get_database_name()
+
+        # Use expression to generate SQL
+        expr = ViewInfoExpression(self.dialect, view_name).schema(target_db)
+        sql, params = expr.to_sql()
+        rows = await self._execute_introspection_query(sql, params)
+
+        if not rows:
+            return None
+
+        return ViewInfo(
+            name=rows[0]["name"],
+            schema=target_db,
+            definition=rows[0].get("sql"),
+        )
 
     async def _query_triggers(
         self,
@@ -949,26 +829,13 @@ class SQLiteAsyncIntrospectionMixin(AsyncIntrospectionMixin):
         """Query trigger list."""
         target_db = schema or self._get_database_name()
 
-        sql = f"""
-            SELECT name, tbl_name, sql FROM {target_db}.sqlite_master
-            WHERE type = 'trigger'
-        """
-        params = ()
-
+        # Use expression to generate SQL
+        expr = TriggerListExpression(self.dialect).schema(target_db)
         if table_name:
-            sql += " AND tbl_name = ?"
-            params = (table_name,)
+            expr = expr.for_table(table_name)
 
-        sql += " ORDER BY name"
-
+        sql, params = expr.to_sql()
         rows = await self._execute_introspection_query(sql, params)
 
-        return [
-            TriggerInfo(
-                name=row["name"],
-                table_name=row["tbl_name"],
-                schema=target_db,
-                definition=row.get("sql"),
-            )
-            for row in rows
-        ]
+        # Reuse sync version's parsing method
+        return SQLiteIntrospectionMixin._parse_trigger_list(self, rows, target_db)
