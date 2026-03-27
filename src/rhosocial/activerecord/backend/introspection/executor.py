@@ -4,20 +4,25 @@ Introspector executor abstractions.
 
 Executors decouple the Introspector from sync/async execution details.
 The Introspector generates SQL; the executor runs it against the backend.
+
+Design principle: Sync and Async are separate and cannot coexist.
+- SyncIntrospectorExecutor: for synchronous backends
+- AsyncIntrospectorExecutor: for asynchronous backends
 """
 
-from abc import ABC, abstractmethod
 from typing import Any, Dict, List, Tuple
 
 
-class IntrospectorExecutor(ABC):
-    """Abstract executor that runs SQL on behalf of an Introspector.
+class SyncIntrospectorExecutor:
+    """Executor that wraps a synchronous backend.
 
-    The Introspector builds SQL via Expression+Dialect and delegates
-    the actual execution here, keeping itself free of sync/async concerns.
+    This executor is used by SyncAbstractIntrospector to execute SQL
+    statements synchronously against the backend.
     """
 
-    @abstractmethod
+    def __init__(self, backend: Any) -> None:
+        self._backend = backend
+
     def execute(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
         """Execute SQL synchronously and return rows as a list of dicts.
 
@@ -27,36 +32,7 @@ class IntrospectorExecutor(ABC):
 
         Returns:
             List of rows, each represented as a column-name → value dict.
-
-        Raises:
-            TypeError: If this executor does not support synchronous execution.
         """
-        ...
-
-    @abstractmethod
-    async def execute_async(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
-        """Execute SQL asynchronously and return rows as a list of dicts.
-
-        Args:
-            sql: SQL statement to execute.
-            params: Positional parameters for the statement.
-
-        Returns:
-            List of rows, each represented as a column-name → value dict.
-
-        Raises:
-            TypeError: If this executor does not support asynchronous execution.
-        """
-        ...
-
-
-class SyncIntrospectorExecutor(IntrospectorExecutor):
-    """Executor that wraps a synchronous backend."""
-
-    def __init__(self, backend: Any) -> None:
-        self._backend = backend
-
-    def execute(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
         cursor = self._backend._get_cursor()
         try:
             cursor.execute(sql, params)
@@ -65,26 +41,27 @@ class SyncIntrospectorExecutor(IntrospectorExecutor):
         finally:
             cursor.close()
 
-    async def execute_async(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
-        raise TypeError(
-            "SyncIntrospectorExecutor does not support async execution. "
-            "Use AsyncIntrospectorExecutor for async backends."
-        )
 
+class AsyncIntrospectorExecutor:
+    """Executor that wraps an asynchronous backend.
 
-class AsyncIntrospectorExecutor(IntrospectorExecutor):
-    """Executor that wraps an asynchronous backend."""
+    This executor is used by AsyncAbstractIntrospector to execute SQL
+    statements asynchronously against the backend.
+    """
 
     def __init__(self, backend: Any) -> None:
         self._backend = backend
 
-    def execute(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
-        raise TypeError(
-            "AsyncIntrospectorExecutor does not support sync execution. "
-            "Use SyncIntrospectorExecutor for sync backends."
-        )
+    async def execute(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
+        """Execute SQL asynchronously and return rows as a list of dicts.
 
-    async def execute_async(self, sql: str, params: Tuple = ()) -> List[Dict[str, Any]]:
+        Args:
+            sql: SQL statement to execute.
+            params: Positional parameters for the statement.
+
+        Returns:
+            List of rows, each represented as a column-name → value dict.
+        """
         cursor = await self._backend._get_cursor()
         try:
             await cursor.execute(sql, params)

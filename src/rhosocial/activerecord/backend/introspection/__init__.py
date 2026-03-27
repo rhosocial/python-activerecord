@@ -5,7 +5,8 @@ Database introspection — types, exceptions, executor, and introspector base.
 Quick start::
 
     from rhosocial.activerecord.backend.introspection import (
-        AbstractIntrospector,
+        SyncAbstractIntrospector,
+        AsyncAbstractIntrospector,
         IntrospectorBackendMixin,
         SyncIntrospectorExecutor,
         AsyncIntrospectorExecutor,
@@ -37,11 +38,14 @@ from .errors import (
     IntrospectionCacheError,
 )
 from .executor import (
-    IntrospectorExecutor,
     SyncIntrospectorExecutor,
     AsyncIntrospectorExecutor,
 )
-from .base import AbstractIntrospector
+from .base import (
+    IntrospectorMixin,
+    SyncAbstractIntrospector,
+    AsyncAbstractIntrospector,
+)
 from .backend_mixin import IntrospectorBackendMixin
 
 __all__ = [
@@ -67,10 +71,11 @@ __all__ = [
     "ObjectNotFoundError",
     "IntrospectionCacheError",
     # Executor
-    "IntrospectorExecutor",
     "SyncIntrospectorExecutor",
     "AsyncIntrospectorExecutor",
     # Core
-    "AbstractIntrospector",
+    "IntrospectorMixin",
+    "SyncAbstractIntrospector",
+    "AsyncAbstractIntrospector",
     "IntrospectorBackendMixin",
 ]

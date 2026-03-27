@@ -1,13 +1,15 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/introspection/pragma_introspector.py
 """
-SQLite PRAGMA sub-introspector.
+SQLite PRAGMA sub-introspectors.
 
-Provides direct access to SQLite's PRAGMA interface. This class does not
-inherit from AbstractIntrospector — it is a purpose-built "sub-introspector"
-exposed as the `.pragma` property on SQLiteIntrospector.
+Provides direct access to SQLite's PRAGMA interface. These classes do not
+inherit from AbstractIntrospector — they are purpose-built "sub-introspectors"
+exposed as the `.pragma` property on SyncSQLiteIntrospector and
+AsyncSQLiteIntrospector.
 
-The class generates PRAGMA SQL internally and delegates execution to the
-shared IntrospectorExecutor, keeping it free of sync/async concerns.
+Design principle: Sync and Async are separate and cannot coexist.
+- SyncPragmaIntrospector: for synchronous backends (method names without _async suffix)
+- AsyncPragmaIntrospector: for asynchronous backends (method names without _async suffix)
 
 Usage::
 
@@ -18,27 +20,25 @@ Usage::
     errors = backend.introspector.pragma.integrity_check()
 
     # Asynchronous
-    mode = await backend.introspector.pragma.get_async("journal_mode")
+    mode = await backend.introspector.pragma.get("journal_mode")
+    backend.introspector.pragma.set("journal_mode", "WAL")
+    cols = await backend.introspector.pragma.table_info("users")
 """
 
 from typing import Any, Dict, List, Optional, Tuple
 
-from rhosocial.activerecord.backend.introspection.executor import IntrospectorExecutor
+from rhosocial.activerecord.backend.introspection.executor import (
+    SyncIntrospectorExecutor,
+    AsyncIntrospectorExecutor,
+)
 
 
-class PragmaIntrospector:
-    """Provides direct access to SQLite PRAGMA commands.
+class PragmaMixin:
+    """Mixin providing shared PRAGMA SQL generation helpers.
 
-    SQL is generated here; execution is delegated to the executor.
+    Both SyncPragmaIntrospector and AsyncPragmaIntrospector inherit
+    from this mixin to share SQL generation logic.
     """
-
-    def __init__(self, backend: Any, executor: IntrospectorExecutor) -> None:
-        self._backend = backend
-        self._executor = executor
-
-    # ------------------------------------------------------------------ #
-    # SQL generation helpers
-    # ------------------------------------------------------------------ #
 
     @staticmethod
     def _pragma_sql(
@@ -72,8 +72,19 @@ class PragmaIntrospector:
         prefix = f"{schema}." if schema else ""
         return (f"PRAGMA {prefix}{name} = {value}", ())
 
+
+class SyncPragmaIntrospector(PragmaMixin):
+    """Synchronous PRAGMA introspector for SQLite backends.
+
+    All methods are synchronous. Method names do NOT have an _async suffix.
+    """
+
+    def __init__(self, backend: Any, executor: SyncIntrospectorExecutor) -> None:
+        self._backend = backend
+        self._executor = executor
+
     # ------------------------------------------------------------------ #
-    # Synchronous API
+    # Core PRAGMA operations
     # ------------------------------------------------------------------ #
 
     def get(
@@ -115,7 +126,9 @@ class PragmaIntrospector:
         sql, params = self._pragma_sql(name, argument, schema)
         return self._executor.execute(sql, params)
 
-    # ------ Commonly used structural PRAGMAs ------
+    # ------------------------------------------------------------------ #
+    # Commonly used structural PRAGMAs
+    # ------------------------------------------------------------------ #
 
     def table_info(
         self, table_name: str, schema: Optional[str] = None
@@ -160,7 +173,9 @@ class PragmaIntrospector:
         """Return raw ``PRAGMA table_list`` rows (SQLite 3.37+)."""
         return self.execute("table_list", schema=schema)
 
-    # ------ Configuration / maintenance PRAGMAs ------
+    # ------------------------------------------------------------------ #
+    # Configuration / maintenance PRAGMAs
+    # ------------------------------------------------------------------ #
 
     def integrity_check(
         self, schema: Optional[str] = None
@@ -206,98 +221,152 @@ class PragmaIntrospector:
         """
         return self.get("wal_checkpoint", mode, schema)
 
+
+class AsyncPragmaIntrospector(PragmaMixin):
+    """Asynchronous PRAGMA introspector for SQLite backends.
+
+    All methods are async. Method names do NOT have an _async suffix,
+    matching the pattern of AsyncAbstractIntrospector.
+    """
+
+    def __init__(self, backend: Any, executor: AsyncIntrospectorExecutor) -> None:
+        self._backend = backend
+        self._executor = executor
+
     # ------------------------------------------------------------------ #
-    # Asynchronous API  (_async suffix)
+    # Core PRAGMA operations
     # ------------------------------------------------------------------ #
 
-    async def get_async(
+    async def get(
         self,
         name: str,
         argument: Optional[Any] = None,
         schema: Optional[str] = None,
     ) -> Optional[Any]:
-        """Async version of get()."""
+        """Read a PRAGMA value.
+
+        Returns the first row returned by the PRAGMA, or ``None`` if the
+        result is empty (e.g. write-only or action PRAGMAs).
+        """
         sql, params = self._pragma_sql(name, argument, schema)
-        rows = await self._executor.execute_async(sql, params)
+        rows = await self._executor.execute(sql, params)
         return rows[0] if rows else None
 
-    async def set_async(
+    async def set(
         self,
         name: str,
         value: Any,
         schema: Optional[str] = None,
     ) -> None:
-        """Async version of set()."""
+        """Write a PRAGMA value (for read/write PRAGMAs)."""
         sql, params = self._set_pragma_sql(name, value, schema)
-        await self._executor.execute_async(sql, params)
+        await self._executor.execute(sql, params)
 
-    async def execute_async(
+    async def execute(
         self,
         name: str,
         argument: Optional[Any] = None,
         schema: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Async version of execute()."""
+        """Execute any PRAGMA and return all result rows as dicts.
+
+        Use this for PRAGMAs that return multiple rows (e.g.
+        ``table_info``, ``index_list``, ``foreign_key_list``).
+        """
         sql, params = self._pragma_sql(name, argument, schema)
-        return await self._executor.execute_async(sql, params)
+        return await self._executor.execute(sql, params)
 
-    async def table_info_async(
+    # ------------------------------------------------------------------ #
+    # Commonly used structural PRAGMAs
+    # ------------------------------------------------------------------ #
+
+    async def table_info(
         self, table_name: str, schema: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Async version of table_info()."""
-        return await self.execute_async("table_info", f"'{table_name}'", schema)
+        """Return raw ``PRAGMA table_info(table_name)`` rows."""
+        return await self.execute("table_info", f"'{table_name}'", schema)
 
-    async def table_xinfo_async(
+    async def table_xinfo(
         self, table_name: str, schema: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Async version of table_xinfo()."""
-        return await self.execute_async("table_xinfo", f"'{table_name}'", schema)
+        """Return raw ``PRAGMA table_xinfo(table_name)`` rows (SQLite 3.26+).
 
-    async def index_list_async(
+        Includes hidden columns generated by virtual tables.
+        """
+        return await self.execute("table_xinfo", f"'{table_name}'", schema)
+
+    async def index_list(
         self, table_name: str, schema: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Async version of index_list()."""
-        return await self.execute_async("index_list", f"'{table_name}'", schema)
+        """Return raw ``PRAGMA index_list(table_name)`` rows."""
+        return await self.execute("index_list", f"'{table_name}'", schema)
 
-    async def index_info_async(
+    async def index_info(
         self, index_name: str, schema: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Async version of index_info()."""
-        return await self.execute_async("index_info", f"'{index_name}'", schema)
+        """Return raw ``PRAGMA index_info(index_name)`` rows."""
+        return await self.execute("index_info", f"'{index_name}'", schema)
 
-    async def foreign_key_list_async(
+    async def index_xinfo(
+        self, index_name: str, schema: Optional[str] = None
+    ) -> List[Dict[str, Any]]:
+        """Return raw ``PRAGMA index_xinfo(index_name)`` rows (SQLite 3.9+)."""
+        return await self.execute("index_xinfo", f"'{index_name}'", schema)
+
+    async def foreign_key_list(
         self, table_name: str, schema: Optional[str] = None
     ) -> List[Dict[str, Any]]:
-        """Async version of foreign_key_list()."""
-        return await self.execute_async("foreign_key_list", f"'{table_name}'", schema)
+        """Return raw ``PRAGMA foreign_key_list(table_name)`` rows."""
+        return await self.execute("foreign_key_list", f"'{table_name}'", schema)
 
-    async def table_list_async(
-        self, schema: Optional[str] = None
-    ) -> List[Dict[str, Any]]:
-        """Async version of table_list()."""
-        return await self.execute_async("table_list", schema=schema)
+    async def table_list(self, schema: Optional[str] = None) -> List[Dict[str, Any]]:
+        """Return raw ``PRAGMA table_list`` rows (SQLite 3.37+)."""
+        return await self.execute("table_list", schema=schema)
 
-    async def integrity_check_async(
+    # ------------------------------------------------------------------ #
+    # Configuration / maintenance PRAGMAs
+    # ------------------------------------------------------------------ #
+
+    async def integrity_check(
         self, schema: Optional[str] = None
     ) -> List[str]:
-        """Async version of integrity_check()."""
-        rows = await self.execute_async("integrity_check", schema=schema)
+        """Run ``PRAGMA integrity_check`` and return error message strings.
+
+        Returns ``["ok"]`` if the database is intact.
+        """
+        rows = await self.execute("integrity_check", schema=schema)
         return [list(row.values())[0] for row in rows if row]
 
-    async def foreign_key_check_async(
+    async def foreign_key_check(
         self,
         table_name: Optional[str] = None,
         schema: Optional[str] = None,
     ) -> List[Dict[str, Any]]:
-        """Async version of foreign_key_check()."""
-        arg = f"'{table_name}'" if table_name else None
-        return await self.execute_async("foreign_key_check", arg, schema)
+        """Run ``PRAGMA foreign_key_check`` (optionally for a single table).
 
-    async def journal_mode_async(
+        Returns rows describing foreign-key constraint violations.
+        """
+        arg = f"'{table_name}'" if table_name else None
+        return await self.execute("foreign_key_check", arg, schema)
+
+    async def journal_mode(
         self, schema: Optional[str] = None
     ) -> Optional[str]:
-        """Async version of journal_mode()."""
-        row = await self.get_async("journal_mode", schema=schema)
+        """Return the current journal mode."""
+        row = await self.get("journal_mode", schema=schema)
         if row is None:
             return None
         return list(row.values())[0] if row else None
+
+    async def wal_checkpoint(
+        self,
+        mode: str = "PASSIVE",
+        schema: Optional[str] = None,
+    ) -> Optional[Dict[str, Any]]:
+        """Run a WAL checkpoint.
+
+        Args:
+            mode:   One of ``PASSIVE``, ``FULL``, ``RESTART``, ``TRUNCATE``.
+            schema: Attached-database name, or ``None`` for the main DB.
+        """
+        return await self.get("wal_checkpoint", mode, schema)

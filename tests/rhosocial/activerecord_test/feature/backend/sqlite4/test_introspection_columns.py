@@ -104,10 +104,10 @@ class TestColumnInfoDetails:
         columns = backend_with_tables.introspector.list_columns("users")
 
         id_col = next(c for c in columns if c.name == "id")
-        assert id_col.data_type == "INTEGER"
+        assert id_col.data_type == "integer"
 
         name_col = next(c for c in columns if c.name == "name")
-        assert name_col.data_type == "TEXT"
+        assert name_col.data_type == "text"
 
     def test_column_data_type_full(self, backend_with_tables):
         """Test that full data type is correctly detected."""
@@ -123,11 +123,11 @@ class TestColumnInfoDetails:
         columns = sqlite_backend.introspector.list_columns("type_test")
 
         col1 = next(c for c in columns if c.name == "col1")
-        assert col1.data_type == "VARCHAR"
+        assert col1.data_type == "varchar"
         assert col1.data_type_full == "VARCHAR(255)"
 
         col2 = next(c for c in columns if c.name == "col2")
-        assert col2.data_type == "DECIMAL"
+        assert col2.data_type == "decimal"
         assert col2.data_type_full == "DECIMAL(10, 2)"
 
     def test_column_nullable(self, backend_with_tables):

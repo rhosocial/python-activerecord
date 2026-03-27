@@ -1,10 +1,18 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/introspection/__init__.py
 """SQLite introspection package."""
 
-from .introspector import SQLiteIntrospector
-from .pragma_introspector import PragmaIntrospector
+from .introspector import (
+    SyncSQLiteIntrospector,
+    AsyncSQLiteIntrospector,
+)
+from .pragma_introspector import (
+    SyncPragmaIntrospector,
+    AsyncPragmaIntrospector,
+)
 
 __all__ = [
-    "SQLiteIntrospector",
-    "PragmaIntrospector",
+    "SyncSQLiteIntrospector",
+    "AsyncSQLiteIntrospector",
+    "SyncPragmaIntrospector",
+    "AsyncPragmaIntrospector",
 ]

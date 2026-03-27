@@ -1,25 +1,37 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/introspection/introspector.py
 """
-SQLite concrete introspector.
+SQLite concrete introspectors.
 
-Implements AbstractIntrospector for SQLite databases using PRAGMA commands
-and the sqlite_master / sqlite_schema system table for metadata queries.
+Implements SyncAbstractIntrospector and AsyncAbstractIntrospector for SQLite
+databases using PRAGMA commands and the sqlite_master / sqlite_schema system
+table for metadata queries.
 
-The introspector is exposed via ``backend.introspector`` and also provides
+The introspectors are exposed via ``backend.introspector`` and also provide
 SQLite-specific access through ``backend.introspector.pragma``.
 
 Key behaviours:
   - Version-aware: uses ``PRAGMA table_list`` (3.37+) or ``sqlite_master``
   - Extended column info: uses ``PRAGMA table_xinfo`` (3.26+)
-  - ``_parse_*`` methods are pure Python — shared by sync and async paths
+  - ``_parse_*`` methods are pure Python — shared by sync and async introspectors
+
+Design principle: Sync and Async are separate and cannot coexist.
+- SyncSQLiteIntrospector: for synchronous backends
+- AsyncSQLiteIntrospector: for asynchronous backends
 """
 
-import os
+import copy
 import sqlite3
 from typing import Any, Dict, List, Optional
 
-from rhosocial.activerecord.backend.introspection.base import AbstractIntrospector
-from rhosocial.activerecord.backend.introspection.executor import IntrospectorExecutor
+from rhosocial.activerecord.backend.introspection.base import (
+    IntrospectorMixin,
+    SyncAbstractIntrospector,
+    AsyncAbstractIntrospector,
+)
+from rhosocial.activerecord.backend.introspection.executor import (
+    SyncIntrospectorExecutor,
+    AsyncIntrospectorExecutor,
+)
 from rhosocial.activerecord.backend.introspection.types import (
     DatabaseInfo,
     TableInfo,
@@ -33,6 +45,7 @@ from rhosocial.activerecord.backend.introspection.types import (
     ReferentialAction,
     ViewInfo,
     TriggerInfo,
+    IntrospectionScope,
 )
 from rhosocial.activerecord.backend.expression.introspection import (
     DatabaseInfoExpression,
@@ -44,42 +57,22 @@ from rhosocial.activerecord.backend.expression.introspection import (
     ViewInfoExpression,
     TriggerListExpression,
 )
-from .pragma_introspector import PragmaIntrospector
+from .pragma_introspector import (
+    SyncPragmaIntrospector,
+    AsyncPragmaIntrospector,
+)
 
 
-class SQLiteIntrospector(AbstractIntrospector):
-    """Introspector for SQLite backends.
+class SQLiteIntrospectorMixin(IntrospectorMixin):
+    """Mixin providing shared SQLite-specific introspection logic.
 
-    In addition to the standard AbstractIntrospector interface, exposes the
-    `.pragma` sub-introspector for direct PRAGMA access::
-
-        # Standard API
-        tables = backend.introspector.list_tables()
-
-        # SQLite-specific
-        mode = backend.introspector.pragma.get("journal_mode")
-        backend.introspector.pragma.set("journal_mode", "WAL")
-        errors = backend.introspector.pragma.integrity_check()
+    Both SyncSQLiteIntrospector and AsyncSQLiteIntrospector inherit
+    from this mixin to share:
+    - Default schema handling
+    - SQLite version detection
+    - SQL generation overrides
+    - _parse_* implementations
     """
-
-    def __init__(self, backend: Any, executor: IntrospectorExecutor) -> None:
-        super().__init__(backend, executor)
-        self._pragma_instance: Optional[PragmaIntrospector] = None
-
-    # ------------------------------------------------------------------ #
-    # Sub-introspector: PRAGMA
-    # ------------------------------------------------------------------ #
-
-    @property
-    def pragma(self) -> PragmaIntrospector:
-        """SQLite-specific PRAGMA sub-introspector (lazily created)."""
-        if self._pragma_instance is None:
-            self._pragma_instance = PragmaIntrospector(self._backend, self._executor)
-        return self._pragma_instance
-
-    # ------------------------------------------------------------------ #
-    # Internal helpers
-    # ------------------------------------------------------------------ #
 
     def _get_default_schema(self) -> str:
         """Return the SQLite schema name for the primary database."""
@@ -136,219 +129,78 @@ class SQLiteIntrospector(AbstractIntrospector):
 
     def _build_view_list_sql(self, schema: Optional[str], include_system: bool):
         target_db = schema or self._get_default_schema()
-        return (
-            ViewListExpression(self.dialect)
-            .schema(target_db)
-            .include_system(include_system)
-            .to_sql()
-        )
+        expr = ViewListExpression(self.dialect).include_system(include_system)
+        if target_db:
+            expr = expr.schema(target_db)
+        return expr.to_sql()
 
     def _build_view_info_sql(self, view_name: str, schema: Optional[str]):
         target_db = schema or self._get_default_schema()
-        return ViewInfoExpression(self.dialect, view_name).schema(target_db).to_sql()
+        expr = ViewInfoExpression(self.dialect, view_name)
+        if target_db:
+            expr = expr.schema(target_db)
+        return expr.to_sql()
 
     def _build_trigger_list_sql(
         self, table_name: Optional[str], schema: Optional[str]
     ):
         target_db = schema or self._get_default_schema()
-        expr = TriggerListExpression(self.dialect).schema(target_db)
+        expr = TriggerListExpression(self.dialect)
+        if target_db:
+            expr = expr.schema(target_db)
         if table_name:
             expr = expr.for_table(table_name)
         return expr.to_sql()
 
     # ------------------------------------------------------------------ #
-    # list_* overrides — SQLite sometimes needs extra queries (e.g. index
-    # columns require a nested PRAGMA index_info call).
-    # ------------------------------------------------------------------ #
-
-    def list_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
-        """List indexes for a table.
-
-        Overrides the base implementation to perform the nested
-        ``PRAGMA index_info`` query required by SQLite.
-        """
-        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-
-        target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(
-            IntrospectionScope.INDEX, table_name, schema=schema
-        )
-        cached = self._get_cached(key)
-        if cached is not None:
-            return cached
-
-        sql, params = self._build_index_info_sql(table_name, schema)
-        rows = self._executor.execute(sql, params)
-        result = self._parse_indexes_with_columns(rows, table_name, target_db)
-        self._set_cached(key, result)
-        return result
-
-    async def list_indexes_async(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
-        """Async version of list_indexes()."""
-        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-
-        target_db = schema or self._get_default_schema()
-        key = self._make_cache_key(
-            IntrospectionScope.INDEX, table_name, schema=schema
-        )
-        cached = self._get_cached(key)
-        if cached is not None:
-            return cached
-
-        sql, params = self._build_index_info_sql(table_name, schema)
-        rows = await self._executor.execute_async(sql, params)
-        result = await self._parse_indexes_with_columns_async(
-            rows, table_name, target_db
-        )
-        self._set_cached(key, result)
-        return result
-
-    def _parse_indexes_with_columns(
-        self,
-        rows: List[Dict[str, Any]],
-        table_name: str,
-        schema: str,
-    ) -> List[IndexInfo]:
-        """Build IndexInfo objects, fetching column details via nested PRAGMA."""
-        indexes = []
-        for row in rows:
-            idx_name = row["name"]
-            col_sql = f"PRAGMA {schema}.index_info('{idx_name}')"
-            col_rows = self._executor.execute(col_sql, ())
-            indexes.append(
-                self._build_index_info(row, col_rows, table_name, schema)
-            )
-        return indexes
-
-    async def _parse_indexes_with_columns_async(
-        self,
-        rows: List[Dict[str, Any]],
-        table_name: str,
-        schema: str,
-    ) -> List[IndexInfo]:
-        """Async version — fetches index column details via nested PRAGMA."""
-        indexes = []
-        for row in rows:
-            idx_name = row["name"]
-            col_sql = f"PRAGMA {schema}.index_info('{idx_name}')"
-            col_rows = await self._executor.execute_async(col_sql, ())
-            indexes.append(
-                self._build_index_info(row, col_rows, table_name, schema)
-            )
-        return indexes
-
-    @staticmethod
-    def _build_index_info(
-        row: Dict[str, Any],
-        col_rows: List[Dict[str, Any]],
-        table_name: str,
-        schema: str,
-    ) -> IndexInfo:
-        columns = [
-            IndexColumnInfo(name=cr["name"], ordinal_position=cr["seqno"] + 1)
-            for cr in col_rows
-            if cr["name"]
-        ]
-        return IndexInfo(
-            name=row["name"],
-            table_name=table_name,
-            schema=schema,
-            is_unique=row["unique"] == 1,
-            is_primary=row["origin"] == "pk",
-            index_type=IndexType.BTREE,
-            columns=columns,
-        )
-
-    # ------------------------------------------------------------------ #
     # Parse methods — pure Python, no I/O
     # ------------------------------------------------------------------ #
 
-    def _parse_database_info(
-        self, rows: List[Dict[str, Any]]
-    ) -> DatabaseInfo:
-        version_tuple = self._get_sqlite_version()
-        version_str = sqlite3.sqlite_version
-        db_name = self._get_default_schema()
-
-        db_path = None
-        if self._backend._connection:
-            conn = self._backend._connection
-            # aiosqlite wraps the real sqlite3 connection
-            inner = getattr(conn, "_connection", conn)
-            db_path = getattr(inner, "database", None) or getattr(inner, "name", None)
-
-        size_bytes = None
-        if db_path and db_path != ":memory:" and os.path.exists(db_path):
-            size_bytes = os.path.getsize(db_path)
-
+    def _parse_database_info(self, rows: List[Dict[str, Any]]) -> DatabaseInfo:
+        row = rows[0] if rows else {}
+        version_str = row.get("version") or sqlite3.sqlite_version
+        parts = version_str.split(".")
+        version_tuple = tuple(
+            int(p) if p.isdigit() else 0
+            for p in (parts + ["0", "0"])[:3]
+        )
+        # SQLite's database name is the schema name (e.g., "main")
+        # For file-based databases, we can also show the filename
+        db_path = self._backend.config.database or ":memory:"
         return DatabaseInfo(
-            name=db_name,
+            name="main",  # SQLite's default schema name
             version=version_str,
             version_tuple=version_tuple,
             vendor="SQLite",
-            size_bytes=size_bytes,
+            extra={"path": db_path},
         )
 
     def _parse_tables(
         self, rows: List[Dict[str, Any]], schema: Optional[str]
     ) -> List[TableInfo]:
-        target_db = schema or self._get_default_schema()
-        if self.dialect.supports_table_list_pragma():
-            return self._parse_table_list_pragma(rows, target_db)
-        return self._parse_table_list_master(rows, target_db)
-
-    def _parse_table_list_pragma(
-        self, rows: List[Dict[str, Any]], database: str
-    ) -> List[TableInfo]:
-        """Parse ``PRAGMA table_list`` results (SQLite 3.37+)."""
         tables = []
         for row in rows:
-            parsed_type = self._parse_table_type(row.get("type", "table"))
-            if parsed_type is None:
-                continue
+            type_str = row.get("type", "table").lower()
+            if type_str == "table":
+                table_type = TableType.BASE_TABLE
+            elif type_str == "view":
+                table_type = TableType.VIEW
+            else:
+                table_type = TableType.EXTERNAL
+
             tables.append(
-                TableInfo(name=row["name"], schema=database, table_type=parsed_type)
+                TableInfo(
+                    name=row["name"],
+                    schema=schema or self._get_default_schema(),
+                    table_type=table_type,
+                    row_count=None,
+                    create_time=None,
+                )
             )
         return tables
 
-    def _parse_table_list_master(
-        self, rows: List[Dict[str, Any]], database: str
-    ) -> List[TableInfo]:
-        """Parse ``sqlite_master`` / ``sqlite_schema`` results."""
-        tables = []
-        for row in rows:
-            name = row["name"]
-            row_type = row["type"]
-            is_system = name.startswith("sqlite_")
-
-            if row_type == "view":
-                t_type = TableType.VIEW
-            elif is_system:
-                t_type = TableType.SYSTEM_TABLE
-            else:
-                t_type = TableType.BASE_TABLE
-
-            tables.append(TableInfo(name=name, schema=database, table_type=t_type))
-        return tables
-
-    @staticmethod
-    def _parse_table_type(type_str: str) -> Optional[TableType]:
-        return {
-            "table": TableType.BASE_TABLE,
-            "view": TableType.VIEW,
-            "virtual": TableType.EXTERNAL,
-            "shadow": TableType.SYSTEM_TABLE,
-        }.get(type_str.lower())
-
     def _parse_columns(
-        self,
-        rows: List[Dict[str, Any]],
-        table_name: str,
-        schema: str,
+        self, rows: List[Dict[str, Any]], table_name: str, schema: str
     ) -> List[ColumnInfo]:
         columns = []
         for row in rows:
@@ -360,49 +212,66 @@ class SQLiteIntrospector(AbstractIntrospector):
                 else ColumnNullable.NOT_NULL
             )
             raw_type = row.get("type") or "TEXT"
+            # Extract base type (e.g., "VARCHAR" from "VARCHAR(255)")
+            import re
+            base_type_match = re.match(r'^([A-Za-z_]+)', raw_type)
+            base_type = base_type_match.group(1) if base_type_match else raw_type
+            # SQLite pk field: 0 = not primary key, >0 = primary key (or part of composite PK)
+            is_pk = row.get("pk", 0) > 0
             columns.append(
                 ColumnInfo(
                     name=row["name"],
                     table_name=table_name,
                     schema=schema,
                     ordinal_position=row["cid"] + 1,
-                    data_type=raw_type.split("(")[0].upper(),
+                    data_type=base_type.lower(),
                     data_type_full=raw_type,
                     nullable=nullable,
                     default_value=row.get("dflt_value"),
-                    is_primary_key=row["pk"] > 0,
+                    is_primary_key=is_pk,
+                    extra={},
                 )
             )
         return columns
 
     def _parse_indexes(
-        self,
-        rows: List[Dict[str, Any]],
-        table_name: str,
-        schema: str,
+        self, rows: List[Dict[str, Any]], table_name: str, schema: str
     ) -> List[IndexInfo]:
-        # This path is used when the caller invokes the base-class
-        # list_indexes(); it does not fetch column details.
-        # SQLiteIntrospector.list_indexes() overrides to use the nested query.
-        return [
-            IndexInfo(
-                name=row["name"],
-                table_name=table_name,
-                schema=schema,
-                is_unique=row["unique"] == 1,
-                is_primary=row["origin"] == "pk",
-                index_type=IndexType.BTREE,
-                columns=[],
-            )
-            for row in rows
-        ]
+        if not rows:
+            return []
+        idx_map: Dict[str, IndexInfo] = {}
+        for row in rows:
+            idx_name = row.get("name")
+            if idx_name not in idx_map:
+                idx_type = IndexType.BTREE
+                is_unique = bool(row.get("unique", 0))
+                is_primary = idx_name.startswith("sqlite_autoindex_")
+                idx_map[idx_name] = IndexInfo(
+                    name=idx_name,
+                    table_name=table_name,
+                    schema=schema,
+                    is_unique=is_unique,
+                    is_primary=is_primary,
+                    index_type=idx_type,
+                    columns=[],
+                    extra={},
+                )
+            col_name = row.get("column_name")
+            if col_name:
+                idx_map[idx_name].columns.append(
+                    IndexColumnInfo(
+                        name=col_name,
+                        ordinal_position=row.get("seq", 0) + 1,
+                    )
+                )
+        return list(idx_map.values())
 
     def _parse_foreign_keys(
-        self,
-        rows: List[Dict[str, Any]],
-        table_name: str,
-        schema: str,
+        self, rows: List[Dict[str, Any]], table_name: str, schema: str
     ) -> List[ForeignKeyInfo]:
+        if not rows:
+            return []
+        fk_map: Dict[int, ForeignKeyInfo] = {}
         action_map = {
             "NO ACTION": ReferentialAction.NO_ACTION,
             "RESTRICT": ReferentialAction.RESTRICT,
@@ -410,7 +279,6 @@ class SQLiteIntrospector(AbstractIntrospector):
             "SET NULL": ReferentialAction.SET_NULL,
             "SET DEFAULT": ReferentialAction.SET_DEFAULT,
         }
-        fk_map: Dict[int, ForeignKeyInfo] = {}
         for row in rows:
             fk_id = row["id"]
             if fk_id not in fk_map:
@@ -445,10 +313,7 @@ class SQLiteIntrospector(AbstractIntrospector):
         ]
 
     def _parse_view_info(
-        self,
-        rows: List[Dict[str, Any]],
-        view_name: str,
-        schema: str,
+        self, rows: List[Dict[str, Any]], view_name: str, schema: str
     ) -> Optional[ViewInfo]:
         if not rows:
             return None
@@ -470,6 +335,104 @@ class SQLiteIntrospector(AbstractIntrospector):
             for row in rows
         ]
 
+
+class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
+    """Synchronous introspector for SQLite backends.
+
+    In addition to the standard SyncAbstractIntrospector interface, exposes the
+    `.pragma` sub-introspector for direct PRAGMA access::
+
+        # Standard API
+        tables = backend.introspector.list_tables()
+
+        # SQLite-specific
+        mode = backend.introspector.pragma.get("journal_mode")
+        backend.introspector.pragma.set("journal_mode", "WAL")
+        errors = backend.introspector.pragma.integrity_check()
+    """
+
+    def __init__(self, backend: Any, executor: SyncIntrospectorExecutor) -> None:
+        super().__init__(backend, executor)
+        self._pragma_instance: Optional[SyncPragmaIntrospector] = None
+
+    @property
+    def pragma(self) -> SyncPragmaIntrospector:
+        """SQLite-specific PRAGMA sub-introspector (lazily created)."""
+        if self._pragma_instance is None:
+            self._pragma_instance = SyncPragmaIntrospector(self._backend, self._executor)
+        return self._pragma_instance
+
+    # ------------------------------------------------------------------ #
+    # Override list_indexes for SQLite's two-step index query
+    # ------------------------------------------------------------------ #
+
+    def list_indexes(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[IndexInfo]:
+        """List all indexes of the given table.
+
+        SQLite requires two queries:
+        1. PRAGMA index_list(table) - get index list
+        2. PRAGMA index_xinfo(index) - get column info for each index
+        """
+        target_db = schema or self._get_default_schema()
+        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        cached = self._get_cached(key)
+        if cached is not None:
+            return cached
+
+        # Step 1: Get index list
+        index_rows = self.pragma.index_list(table_name, target_db)
+        if not index_rows:
+            return []
+
+        indexes: List[IndexInfo] = []
+        for idx_row in index_rows:
+            idx_name = idx_row.get("name", "")
+            is_unique = bool(idx_row.get("unique", 0))
+            is_primary = False  # Will be set based on origin below
+            origin = idx_row.get("origin", "c")
+
+            # Map origin to index type
+            if origin == "pk":
+                is_primary = True
+                idx_type = IndexType.BTREE
+            elif origin == "u":
+                is_unique = True
+                idx_type = IndexType.BTREE
+            else:
+                idx_type = IndexType.BTREE
+
+            # Step 2: Get column info for this index
+            col_rows = self.pragma.index_xinfo(idx_name, target_db)
+            columns: List[IndexColumnInfo] = []
+            for col_row in col_rows:
+                col_name = col_row.get("name")
+                if col_name:  # Skip rows with no column name (e.g., partial index condition)
+                    columns.append(
+                        IndexColumnInfo(
+                            name=col_name,
+                            ordinal_position=col_row.get("seqno", 0) + 1,
+                            is_descending=bool(col_row.get("desc", 0)),
+                        )
+                    )
+
+            indexes.append(
+                IndexInfo(
+                    name=idx_name,
+                    table_name=table_name,
+                    schema=target_db,
+                    is_unique=is_unique,
+                    is_primary=is_primary,
+                    index_type=idx_type,
+                    columns=columns,
+                    extra={"origin": origin},
+                )
+            )
+
+        self._set_cached(key, indexes)
+        return indexes
+
     # ------------------------------------------------------------------ #
     # get_table_info override — uses direct _parse, avoids redundant
     # list_tables() call and populates columns/indexes/FKs in one sweep.
@@ -478,9 +441,7 @@ class SQLiteIntrospector(AbstractIntrospector):
     def get_table_info(
         self, table_name: str, schema: Optional[str] = None
     ) -> Optional[TableInfo]:
-        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-        import copy
-
+        target_db = schema or self._get_default_schema()
         key = self._make_cache_key(
             IntrospectionScope.TABLE, table_name, schema=schema
         )
@@ -501,12 +462,113 @@ class SQLiteIntrospector(AbstractIntrospector):
         self._set_cached(key, table)
         return table
 
-    async def get_table_info_async(
+
+class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector):
+    """Asynchronous introspector for SQLite backends.
+
+    In addition to the standard AsyncAbstractIntrospector interface, exposes the
+    `.pragma` sub-introspector for direct PRAGMA access::
+
+        # Standard API
+        tables = await backend.introspector.list_tables()
+
+        # SQLite-specific
+        mode = await backend.introspector.pragma.get("journal_mode")
+        await backend.introspector.pragma.set("journal_mode", "WAL")
+        errors = await backend.introspector.pragma.integrity_check()
+    """
+
+    def __init__(self, backend: Any, executor: AsyncIntrospectorExecutor) -> None:
+        super().__init__(backend, executor)
+        self._pragma_instance: Optional[AsyncPragmaIntrospector] = None
+
+    @property
+    def pragma(self) -> AsyncPragmaIntrospector:
+        """SQLite-specific PRAGMA sub-introspector (lazily created)."""
+        if self._pragma_instance is None:
+            self._pragma_instance = AsyncPragmaIntrospector(self._backend, self._executor)
+        return self._pragma_instance
+
+    # ------------------------------------------------------------------ #
+    # Override list_indexes for SQLite's two-step index query
+    # ------------------------------------------------------------------ #
+
+    async def list_indexes(
+        self, table_name: str, schema: Optional[str] = None
+    ) -> List[IndexInfo]:
+        """List all indexes of the given table.
+
+        SQLite requires two queries:
+        1. PRAGMA index_list(table) - get index list
+        2. PRAGMA index_xinfo(index) - get column info for each index
+        """
+        target_db = schema or self._get_default_schema()
+        key = self._make_cache_key(IntrospectionScope.INDEX, table_name, schema=schema)
+        cached = self._get_cached(key)
+        if cached is not None:
+            return cached
+
+        # Step 1: Get index list
+        index_rows = await self.pragma.index_list(table_name, target_db)
+        if not index_rows:
+            return []
+
+        indexes: List[IndexInfo] = []
+        for idx_row in index_rows:
+            idx_name = idx_row.get("name", "")
+            is_unique = bool(idx_row.get("unique", 0))
+            is_primary = False  # Will be set based on origin below
+            origin = idx_row.get("origin", "c")
+
+            # Map origin to index type
+            if origin == "pk":
+                is_primary = True
+                idx_type = IndexType.BTREE
+            elif origin == "u":
+                is_unique = True
+                idx_type = IndexType.BTREE
+            else:
+                idx_type = IndexType.BTREE
+
+            # Step 2: Get column info for this index
+            col_rows = await self.pragma.index_xinfo(idx_name, target_db)
+            columns: List[IndexColumnInfo] = []
+            for col_row in col_rows:
+                col_name = col_row.get("name")
+                if col_name:  # Skip rows with no column name (e.g., partial index condition)
+                    columns.append(
+                        IndexColumnInfo(
+                            name=col_name,
+                            ordinal_position=col_row.get("seqno", 0) + 1,
+                            is_descending=bool(col_row.get("desc", 0)),
+                        )
+                    )
+
+            indexes.append(
+                IndexInfo(
+                    name=idx_name,
+                    table_name=table_name,
+                    schema=target_db,
+                    is_unique=is_unique,
+                    is_primary=is_primary,
+                    index_type=idx_type,
+                    columns=columns,
+                    extra={"origin": origin},
+                )
+            )
+
+        self._set_cached(key, indexes)
+        return indexes
+
+    # ------------------------------------------------------------------ #
+    # get_table_info override — uses direct _parse, avoids redundant
+    # list_tables() call and populates columns/indexes/FKs in one sweep.
+    # ------------------------------------------------------------------ #
+
+    async def get_table_info(
         self, table_name: str, schema: Optional[str] = None
     ) -> Optional[TableInfo]:
-        from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
-        import copy
-
+        target_db = schema or self._get_default_schema()
         key = self._make_cache_key(
             IntrospectionScope.TABLE, table_name, schema=schema
         )
@@ -514,15 +576,15 @@ class SQLiteIntrospector(AbstractIntrospector):
         if cached is not None:
             return cached
 
-        tables = await self.list_tables_async(schema)
+        tables = await self.list_tables(schema)
         table = next((t for t in tables if t.name == table_name), None)
         if table is None:
             return None
 
-        # Copy to avoid mutating the object stored in the list_tables_async() cache
+        # Copy to avoid mutating the object stored in the list_tables() cache
         table = copy.copy(table)
-        table.columns = await self.list_columns_async(table_name, schema)
-        table.indexes = await self.list_indexes_async(table_name, schema)
-        table.foreign_keys = await self.list_foreign_keys_async(table_name, schema)
+        table.columns = await self.list_columns(table_name, schema)
+        table.indexes = await self.list_indexes(table_name, schema)
+        table.foreign_keys = await self.list_foreign_keys(table_name, schema)
         self._set_cached(key, table)
         return table
