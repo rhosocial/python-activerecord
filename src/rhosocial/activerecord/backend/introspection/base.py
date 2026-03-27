@@ -39,6 +39,7 @@ from .types import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect.base import SQLDialectBase
+    from .executor import SyncIntrospectorExecutor, AsyncIntrospectorExecutor
 
 
 class IntrospectorMixin:

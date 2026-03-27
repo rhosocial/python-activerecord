@@ -39,12 +39,13 @@ pip install rhosocial-activerecord[all]
 
 ## Contents
 
+* **[Database Introspection](introspection.md)**: Query database structure metadata.
 * **[Expression System](expression/README.md)**: How Python objects are transformed into SQL strings.
 * **[Custom Backend](custom_backend.md)**: Implementing a new database driver.
 * **[SQLite Backend](sqlite/README.md)**: SQLite-specific features and capabilities.
-* **[Pragma System](sqlite/pragma.md)**: SQLite PRAGMA configuration and inspection.
-* **[Extension Framework](sqlite/extension.md)**: Extension detection and management.
-* **[Full-Text Search (FTS5)](sqlite/fts5.md)**: FTS5 full-text search capabilities.
+  * **[Pragma System](sqlite/pragma.md)**: SQLite PRAGMA configuration and inspection.
+  * **[Extension Framework](sqlite/extension.md)**: Extension detection and management.
+  * **[Full-Text Search (FTS5)](sqlite/fts5.md)**: FTS5 full-text search capabilities.
 
 ## Example Code
 

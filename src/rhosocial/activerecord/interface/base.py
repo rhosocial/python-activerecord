@@ -6,7 +6,10 @@ This module defines the base types and enums used across the interface package.
 """
 
 from enum import Enum, auto
-from typing import TypeVar, Any, Dict
+from typing import TypeVar, Any, Dict, TYPE_CHECKING
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..query import IQuery
 
 # Define interface type variables
 QueryT = TypeVar("QueryT", bound="IQuery")

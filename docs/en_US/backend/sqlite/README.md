@@ -128,13 +128,13 @@ if backend.dialect.check_extension_feature('fts5', 'trigram_tokenizer'):
 
 ## Database Introspection
 
-The SQLite backend provides complete database introspection capabilities for querying database structure metadata:
+The SQLite backend provides complete database introspection capabilities for querying database structure metadata. For detailed introspection API documentation, see [Database Introspection](../introspection.md).
 
 ### Database Information
 
 ```python
 # Get basic database information
-db_info = backend.get_database_info()
+db_info = backend.introspector.get_database_info()
 print(f"Database name: {db_info.name}")
 print(f"SQLite version: {db_info.version}")
 print(f"Database size: {db_info.size_bytes} bytes")
@@ -144,25 +144,25 @@ print(f"Database size: {db_info.size_bytes} bytes")
 
 ```python
 # List all user tables
-tables = backend.list_tables()
+tables = backend.introspector.list_tables()
 for table in tables:
     print(f"Table: {table.name}, Type: {table.table_type.value}")
 
 # Include system tables
-all_tables = backend.list_tables(include_system=True)
+all_tables = backend.introspector.list_tables(include_system=True)
 system_tables = [t for t in all_tables if t.table_type.value == "SYSTEM_TABLE"]
 print(f"System tables count: {len(system_tables)}")
 
 # Filter by specific type
-base_tables = backend.list_tables(table_type="BASE TABLE")
-views = backend.list_tables(table_type="VIEW")
+base_tables = backend.introspector.list_tables(table_type="BASE TABLE")
+views = backend.introspector.list_tables(table_type="VIEW")
 
 # Check if table exists
-if backend.table_exists("users"):
+if backend.introspector.table_exists("users"):
     print("users table exists")
 
 # Get detailed table information
-table_info = backend.get_table_info("users")
+table_info = backend.introspector.get_table_info("users")
 if table_info:
     print(f"Table name: {table_info.name}")
     print(f"Schema: {table_info.schema}")
@@ -172,19 +172,19 @@ if table_info:
 
 ```python
 # List all columns of a table
-columns = backend.list_columns("users")
+columns = backend.introspector.list_columns("users")
 for col in columns:
     nullable = "NOT NULL" if col.nullable.value == "NOT_NULL" else "NULLABLE"
     pk = " [PK]" if col.is_primary_key else ""
     print(f"{col.name}: {col.data_type} {nullable}{pk}")
 
 # Get primary key information
-pk = backend.get_primary_key("users")
+pk = backend.introspector.get_primary_key("users")
 if pk:
     print(f"Primary key: {[c.name for c in pk.columns]}")
 
 # List all indexes
-indexes = backend.list_indexes("users")
+indexes = backend.introspector.list_indexes("users")
 for idx in indexes:
     unique = "UNIQUE " if idx.is_unique else ""
     print(f"{unique}Index: {idx.name}")
@@ -196,7 +196,7 @@ for idx in indexes:
 
 ```python
 # List foreign keys
-foreign_keys = backend.list_foreign_keys("posts")
+foreign_keys = backend.introspector.list_foreign_keys("posts")
 for fk in foreign_keys:
     print(f"FK: {fk.name}")
     print(f"  Columns: {fk.columns} -> {fk.referenced_table}.{fk.referenced_columns}")
@@ -204,12 +204,12 @@ for fk in foreign_keys:
     print(f"  ON UPDATE: {fk.on_update.value}")
 
 # List views
-views = backend.list_views()
+views = backend.introspector.list_views()
 for view in views:
     print(f"View: {view.name}")
 
 # Get view definition
-view_info = backend.get_view_info("user_posts_summary")
+view_info = backend.introspector.get_view_info("user_posts_summary")
 if view_info:
     print(f"Definition: {view_info.definition}")
 ```
@@ -218,19 +218,19 @@ if view_info:
 
 ```python
 # List all triggers
-triggers = backend.list_triggers()
+triggers = backend.introspector.list_triggers()
 for trigger in triggers:
     print(f"Trigger: {trigger.name} on {trigger.table_name}")
 
 # List triggers for a specific table
-table_triggers = backend.list_triggers("users")
+table_triggers = backend.introspector.list_triggers("users")
 for trigger in table_triggers:
     print(f"Trigger: {trigger.name}")
 ```
 
 ### Async Introspection API
 
-The async backend provides identical introspection methods with `_async` suffix:
+The async backend provides identical introspection methods with the same names as the sync version:
 
 ```python
 from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
@@ -239,14 +239,14 @@ backend = AsyncSQLiteBackend(database=":memory:")
 await backend.connect()
 
 # Async introspection methods
-db_info = await backend.get_database_info_async()
-tables = await backend.list_tables_async()
-table_info = await backend.get_table_info_async("users")
-columns = await backend.list_columns_async("users")
-indexes = await backend.list_indexes_async("users")
-foreign_keys = await backend.list_foreign_keys_async("posts")
-views = await backend.list_views_async()
-triggers = await backend.list_triggers_async()
+db_info = await backend.introspector.get_database_info()
+tables = await backend.introspector.list_tables()
+table_info = await backend.introspector.get_table_info("users")
+columns = await backend.introspector.list_columns("users")
+indexes = await backend.introspector.list_indexes("users")
+foreign_keys = await backend.introspector.list_foreign_keys("posts")
+views = await backend.introspector.list_views()
+triggers = await backend.introspector.list_triggers()
 ```
 
 ### Cache Management
@@ -255,19 +255,33 @@ Introspection results are cached for performance. You can manage the cache:
 
 ```python
 # Clear all introspection cache
-backend.clear_introspection_cache()
+backend.introspector.clear_cache()
 
 # Invalidate specific scope
 from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
 
 # Invalidate all table-related cache
-backend.invalidate_introspection_cache(scope=IntrospectionScope.TABLE)
+backend.introspector.invalidate_cache(scope=IntrospectionScope.TABLE)
 
 # Invalidate cache for a specific table
-backend.invalidate_introspection_cache(
+backend.introspector.invalidate_cache(
     scope=IntrospectionScope.TABLE,
     name="users"
 )
+```
+
+### SQLite-Specific: PragmaIntrospector
+
+SQLite introspector provides direct access to PRAGMA directives:
+
+```python
+# Access PragmaIntrospector
+pragma = backend.introspector.pragma
+
+# Use PRAGMA directives
+table_info = pragma.pragma_table_info("users")
+index_list = pragma.pragma_index_list("users")
+foreign_keys = pragma.pragma_foreign_key_list("posts")
 ```
 
 ## Version Differences
@@ -416,3 +430,81 @@ python -m rhosocial.activerecord.backend.impl.sqlite --output tsv "SELECT * FROM
 ```
 
 > **Recommendation**: Other backends (e.g., MySQL, PostgreSQL) should implement similar command-line tools following this pattern to provide a consistent user experience.
+
+## Command Line Introspection
+
+The SQLite backend provides command-line introspection commands to query database metadata without writing code.
+
+### Basic Usage
+
+```bash
+# List all tables
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db
+
+# List all views
+python -m rhosocial.activerecord.backend.impl.sqlite introspect views --db-file my.db
+
+# Get database information
+python -m rhosocial.activerecord.backend.impl.sqlite introspect database --db-file my.db
+
+# Include system tables
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --include-system
+```
+
+### Querying Table Details
+
+```bash
+# Get complete table info (columns, indexes, foreign keys)
+python -m rhosocial.activerecord.backend.impl.sqlite introspect table users --db-file my.db
+
+# Query only column information
+python -m rhosocial.activerecord.backend.impl.sqlite introspect columns users --db-file my.db
+
+# Query only index information
+python -m rhosocial.activerecord.backend.impl.sqlite introspect indexes users --db-file my.db
+
+# Query only foreign key information
+python -m rhosocial.activerecord.backend.impl.sqlite introspect foreign-keys posts --db-file my.db
+
+# Query triggers
+python -m rhosocial.activerecord.backend.impl.sqlite introspect triggers --db-file my.db
+
+# Query triggers for a specific table
+python -m rhosocial.activerecord.backend.impl.sqlite introspect triggers users --db-file my.db
+```
+
+### Introspection Types
+
+| Type | Description | Table Name Required |
+|------|-------------|---------------------|
+| `tables` | List all tables | No |
+| `views` | List all views | No |
+| `database` | Database information | No |
+| `table` | Complete table details (columns, indexes, foreign keys) | Yes |
+| `columns` | Column information | Yes |
+| `indexes` | Index information | Yes |
+| `foreign-keys` | Foreign key information | Yes |
+| `triggers` | Trigger information | Optional |
+
+### Output Formats
+
+```bash
+# Table format (default, requires rich library)
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db
+
+# JSON format
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --output json
+
+# CSV format
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --output csv
+
+# TSV format
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --output tsv
+```
+
+### Using In-Memory Database
+
+```bash
+# Uses in-memory database when --db-file is not specified
+python -m rhosocial.activerecord.backend.impl.sqlite introspect database
+```

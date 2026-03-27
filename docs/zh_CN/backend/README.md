@@ -39,6 +39,7 @@ pip install rhosocial-activerecord[all]
 
 ## 目录
 
+* **[数据库内省 (Introspection)](introspection.md)**: 查询数据库结构元数据。
 * **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。
 * **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
 * **[SQLite 后端](sqlite/README.md)**: SQLite 特定功能和特性。

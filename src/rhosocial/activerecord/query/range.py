@@ -1,9 +1,12 @@
 # src/rhosocial/activerecord/query/range.py
 """RangeQueryMixin implementation."""
 
-from typing import List, Union, Tuple, Any
+from typing import List, Union, Tuple, Any, TYPE_CHECKING
 
 from ..backend.expression import Column, BaseExpression
+
+if TYPE_CHECKING:  # pragma: no cover
+    from ..query import IQuery
 
 
 class RangeQueryMixin:

@@ -48,7 +48,6 @@ from rhosocial.activerecord.backend.introspection.types import (
     IntrospectionScope,
 )
 from rhosocial.activerecord.backend.expression.introspection import (
-    DatabaseInfoExpression,
     TableListExpression,
     ColumnInfoExpression,
     IndexInfoExpression,
@@ -441,7 +440,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     def get_table_info(
         self, table_name: str, schema: Optional[str] = None
     ) -> Optional[TableInfo]:
-        target_db = schema or self._get_default_schema()
+        schema or self._get_default_schema()
         key = self._make_cache_key(
             IntrospectionScope.TABLE, table_name, schema=schema
         )
@@ -568,7 +567,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     async def get_table_info(
         self, table_name: str, schema: Optional[str] = None
     ) -> Optional[TableInfo]:
-        target_db = schema or self._get_default_schema()
+        schema or self._get_default_schema()
         key = self._make_cache_key(
             IntrospectionScope.TABLE, table_name, schema=schema
         )

@@ -2,7 +2,7 @@
 """CTEQuery implementation."""
 
 import logging
-from typing import List, Union, Optional, Dict, Any
+from typing import List, Union, Optional, Dict, Any, TYPE_CHECKING
 
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .base import BaseQueryMixin
@@ -13,6 +13,9 @@ from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import statements, WildcardExpression, TableExpression, query_sources, bases
 from ..backend.expression.query_sources import CTEExpression
 from ..interface import ICTEQuery, IAsyncCTEQuery, ISetOperationQuery, IAsyncSetOperationQuery, IQuery, IAsyncQuery
+
+if TYPE_CHECKING:  # pragma: no cover
+    from .set_operation import AsyncSetOperationQuery
 
 
 class CTEQuery(
