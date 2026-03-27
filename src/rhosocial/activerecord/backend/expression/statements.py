@@ -2496,7 +2496,7 @@ class TriggerLevel(Enum):
 
 
 class CreateTriggerExpression(bases.BaseExpression):
-    """SQL:1999 标准的 CREATE TRIGGER 语句。
+    """SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
         # Basic trigger
@@ -2557,7 +2557,7 @@ class CreateTriggerExpression(bases.BaseExpression):
 
 
 class DropTriggerExpression(bases.BaseExpression):
-    """SQL:1999 标准的 DROP TRIGGER 语句。
+    """SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
         drop_trigger = DropTriggerExpression(
@@ -2593,7 +2593,7 @@ class DropTriggerExpression(bases.BaseExpression):
 
 
 class CreateFunctionExpression(bases.BaseExpression):
-    """SQL/PSM 标准的 CREATE FUNCTION 语句。
+    """SQL/PSM standard CREATE FUNCTION statement.
 
     Examples:
         create_func = CreateFunctionExpression(
@@ -2635,7 +2635,7 @@ class CreateFunctionExpression(bases.BaseExpression):
 
 
 class DropFunctionExpression(bases.BaseExpression):
-    """SQL/PSM 标准的 DROP FUNCTION 语句。
+    """SQL/PSM standard DROP FUNCTION statement.
 
     Examples:
         drop_func = DropFunctionExpression(

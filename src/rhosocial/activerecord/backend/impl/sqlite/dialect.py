@@ -646,7 +646,7 @@ class SQLiteDialect(
         base_sql = f"{left_sql} {operation}{all_str} {right_sql}"
 
         all_params = list(left_params + right_params)
-        sql_parts = [base_sql]  # 移除了不必要的外层括号
+        sql_parts = [base_sql]  # removed unnecessary outer parentheses
 
         # Add alias if present
         if alias:

@@ -117,49 +117,60 @@ def parse_args():
         description="Execute SQL queries against a SQLite backend.", formatter_class=argparse.RawTextHelpFormatter
     )
 
-    # Add introspect subcommand first (before query positional arg)
+    # =========================================================================
+    # Design Notes:
+    # =========================================================================
+    # Uses explicit subcommand mode: query and introspect are mutually exclusive.
+    # This avoids argparse misidentifying SQL queries as subcommand names.
+    #
+    # Connection parameters (--db-file) and output parameters (--output, --log-level, --rich-ascii)
+    # are shared between both subcommands, so they are placed in the parent parser.
+    #
+    # --info is a global option that doesn't require a subcommand, so subcommands are not required=True.
+    # =========================================================================
+
+    # Parent parser: shared arguments
+    parent_parser = argparse.ArgumentParser(add_help=False)
+    parent_parser.add_argument(
+        "--db-file",
+        default=None,
+        help=("Path to the SQLite database file. If not provided, an in-memory database will be used."),
+    )
+    parent_parser.add_argument(
+        "-o", "--output",
+        choices=["table", "json", "csv", "tsv"],
+        default="table",
+        help='Output format. Defaults to "table" if rich is installed.',
+    )
+    parent_parser.add_argument("--log-level", default="INFO", help="Set logging level (e.g., DEBUG, INFO)")
+    parent_parser.add_argument("--rich-ascii", action="store_true", help="Use ASCII characters for rich table borders.")
+
+    # Global options (no subcommand required)
+    parser.add_argument("--info", action="store_true", help="Display SQLite environment information.")
+    parser.add_argument(
+        "-v", "--verbose", action="count", default=0, help="Increase verbosity. -v for families, -vv for details."
+    )
+
+    # Subcommands: query and introspect
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    introspect_parser = subparsers.add_parser("introspect", help="Database introspection")
+    # query subcommand
+    query_parser = subparsers.add_parser("query", help="Execute SQL query", parents=[parent_parser])
+    query_parser.add_argument(
+        "sql", nargs="?", default=None, help="SQL query to execute. If not provided, reads from --file."
+    )
+    query_parser.add_argument("-f", "--file", default=None, help="Path to a file containing SQL to execute.")
+    query_parser.add_argument("--executescript", action="store_true", help="Execute the input as a multi-statement script.")
+
+    # introspect subcommand
+    introspect_parser = subparsers.add_parser("introspect", help="Database introspection", parents=[parent_parser])
     introspect_parser.add_argument(
         "type",
         choices=INTROSPECT_TYPES,
         help="Introspection type: tables, views, table, columns, indexes, foreign-keys, triggers, database"
     )
     introspect_parser.add_argument("name", nargs="?", help="Table/view name (required for some types)")
-    introspect_parser.add_argument("--db-file", default=None, help="Path to the SQLite database file")
     introspect_parser.add_argument("--include-system", action="store_true", help="Include system tables")
-    introspect_parser.add_argument(
-        "--output", "-o",
-        choices=["table", "json", "csv", "tsv"],
-        default="table",
-        help='Output format. Defaults to "table" if rich is installed.',
-    )
-    introspect_parser.add_argument("--rich-ascii", action="store_true", help="Use ASCII characters for rich table borders.")
-
-    # Query execution (no subcommand)
-    parser.add_argument(
-        "query", nargs="?", default=None, help="SQL query to execute. If not provided, reads from --file."
-    )
-    parser.add_argument("-f", "--file", default=None, help="Path to a file containing SQL to execute.")
-    parser.add_argument(
-        "--db-file",
-        default=None,
-        help=("Path to the SQLite database file. If not provided, an in-memory database will be used."),
-    )
-    parser.add_argument("--executescript", action="store_true", help="Execute the input as a multi-statement script.")
-    parser.add_argument(
-        "-o", "--output",
-        choices=["table", "json", "csv", "tsv"],
-        default="table",
-        help='Output format. Defaults to "table" if rich is installed.',
-    )
-    parser.add_argument("--log-level", default="INFO", help="Set logging level (e.g., DEBUG, INFO)")
-    parser.add_argument("--rich-ascii", action="store_true", help="Use ASCII characters for rich table borders.")
-    parser.add_argument("--info", action="store_true", help="Display SQLite environment information.")
-    parser.add_argument(
-        "-v", "--verbose", action="count", default=0, help="Increase verbosity. -v for families, -vv for details."
-    )
 
     return parser.parse_args()
 
@@ -677,17 +688,25 @@ def handle_introspect(args, provider):
 def main():
     args = parse_args()
 
-    # Handle introspect subcommand first
-    if args.command == "introspect":
-        provider = get_provider(args)
-        handle_introspect(args, provider)
-        return
-
+    # Handle --info flag (global option, no subcommand needed)
     if args.info:
         output_format = args.output if args.output != "table" or RICH_AVAILABLE else "json"
         display_info(verbose=args.verbose, output_format=output_format)
         return
 
+    # Require a subcommand if --info is not specified
+    if args.command is None:
+        print("Error: Please specify a command: 'query' or 'introspect'", file=sys.stderr)
+        print("Use --help for more information.", file=sys.stderr)
+        sys.exit(1)
+
+    # Handle introspect subcommand
+    if args.command == "introspect":
+        provider = get_provider(args)
+        handle_introspect(args, provider)
+        return
+
+    # Handle query subcommand
     numeric_level = getattr(logging, args.log_level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError(f"Invalid log level: {args.log_level}")
@@ -705,8 +724,8 @@ def main():
     provider.display_greeting()
 
     sql_source = None
-    if args.query:
-        sql_source = args.query
+    if args.sql:
+        sql_source = args.sql
     elif args.file:
         try:
             with open(args.file, "r", encoding="utf-8") as f:
