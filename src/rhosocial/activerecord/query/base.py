@@ -11,7 +11,7 @@ from ..backend.expression import (
     WhereClause,
     GroupByHavingClause,
     OrderByClause,
-    LimitOffsetClause
+    LimitOffsetClause,
 )
 from ..interface import IQueryBuilding
 
@@ -34,21 +34,21 @@ class BaseQueryMixin(IQueryBuilding):
     and AggregateQueryMixin.
     """
 
-
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using backend's logger."""
         # Log using backend's logger if available
         backend = self.backend()
-        if hasattr(backend, 'logger'):
+        if hasattr(backend, "logger"):
             backend.logger.log(level, msg, *args, **kwargs)
         else:
             # Fallback logging
             import logging
+
             logging.log(level, msg, *args, **kwargs)
 
     # region Basic Query Methods
     @overload
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin':
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> "BaseQueryMixin":
         """Add AND condition to the query using a SQL placeholder string.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -71,7 +71,7 @@ class BaseQueryMixin(IQueryBuilding):
         ...
 
     @overload
-    def where(self, condition: SQLPredicate, params: None = None) -> 'BaseQueryMixin':
+    def where(self, condition: SQLPredicate, params: None = None) -> "BaseQueryMixin":
         """Add AND condition to the query using a predicate expression.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -132,13 +132,15 @@ class BaseQueryMixin(IQueryBuilding):
         else:
             raise TypeError(f"Condition must be str or SQLPredicate, got {type(condition)}")
 
-        # Use the new and_() method to combine conditions efficiently if where_clause exists, otherwise create new WhereClause
-        self.where_clause = self.where_clause.and_(predicate) if self.where_clause else WhereClause(dialect, condition=predicate)
+        # Use the new and_() method to combine conditions efficiently if where_clause exists,
+        # otherwise create new WhereClause
+        self.where_clause = (
+            self.where_clause.and_(predicate) if self.where_clause else WhereClause(dialect, condition=predicate)
+        )
 
         return self
 
-
-    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'BaseQueryMixin':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> "BaseQueryMixin":
         """Select specific columns or expressions to retrieve from the query.
 
         This method accepts both column names (strings) and expression objects.
@@ -184,7 +186,9 @@ class BaseQueryMixin(IQueryBuilding):
 
         return self
 
-    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'BaseQueryMixin':
+    def order_by(
+        self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]
+    ) -> "BaseQueryMixin":
         """Add ORDER BY clauses to the query.
 
         Args:
@@ -254,7 +258,9 @@ class BaseQueryMixin(IQueryBuilding):
                 # Expression object with default direction
                 order_expressions.append((clause, "ASC"))
             else:
-                raise TypeError(f"Order clause must be str, BaseExpression, or (expression, direction) tuple, got {type(clause)}")
+                raise TypeError(
+                    f"Order clause must be str, BaseExpression, or (expression, direction) tuple, got {type(clause)}"
+                )
 
         # Create or update the OrderByClause
         if self.order_by_clause:
@@ -265,7 +271,7 @@ class BaseQueryMixin(IQueryBuilding):
 
         return self
 
-    def limit(self, count: Union[int, BaseExpression]) -> 'BaseQueryMixin':
+    def limit(self, count: Union[int, BaseExpression]) -> "BaseQueryMixin":
         """Add LIMIT clause to restrict the number of rows returned.
 
         Args:
@@ -286,7 +292,7 @@ class BaseQueryMixin(IQueryBuilding):
 
         return self
 
-    def offset(self, count: Union[int, BaseExpression]) -> 'BaseQueryMixin':
+    def offset(self, count: Union[int, BaseExpression]) -> "BaseQueryMixin":
         """Add OFFSET clause to skip a specified number of rows.
 
         Args:
@@ -306,11 +312,11 @@ class BaseQueryMixin(IQueryBuilding):
             self.limit_offset_clause = LimitOffsetClause(dialect, offset=count)
 
         return self
+
     # endregion
 
-
     # region Aggregate Methods
-    def group_by(self, *columns: Union[str, BaseExpression]) -> 'BaseQueryMixin':
+    def group_by(self, *columns: Union[str, BaseExpression]) -> "BaseQueryMixin":
         """Add GROUP BY columns for complex aggregations.
 
         Args:
@@ -358,7 +364,7 @@ class BaseQueryMixin(IQueryBuilding):
         return self
 
     @overload
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'BaseQueryMixin':
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> "BaseQueryMixin":
         """Add HAVING condition using a SQL placeholder string for complex aggregations.
 
         This requires you to construct SQL condition fragments with question marks as
@@ -381,7 +387,7 @@ class BaseQueryMixin(IQueryBuilding):
         ...
 
     @overload
-    def having(self, condition: SQLPredicate, params: None = None) -> 'BaseQueryMixin':
+    def having(self, condition: SQLPredicate, params: None = None) -> "BaseQueryMixin":
         """Add HAVING condition using a predicate expression for complex aggregations.
 
         This requires you to provide a query predicate. Query predicates can be
@@ -392,7 +398,8 @@ class BaseQueryMixin(IQueryBuilding):
         HAVING clause with AND logic.
 
         Args:
-            condition: A predicate expression (e.g., FunctionCall("COUNT", Column("*")) > 5, which is a SQLPredicate instance)
+            condition: A predicate expression (e.g., FunctionCall("COUNT", Column("*")) > 5,
+                      which is a SQLPredicate instance)
             params: Should be None when using predicate expressions
 
         Returns:
@@ -400,7 +407,7 @@ class BaseQueryMixin(IQueryBuilding):
         """
         ...
 
-    def having(self, condition, params=None) -> 'BaseQueryMixin':
+    def having(self, condition, params=None) -> "BaseQueryMixin":
         """Add HAVING condition for complex aggregations.
 
         Args:
@@ -448,7 +455,7 @@ class BaseQueryMixin(IQueryBuilding):
 
     # endregion
 
-    def explain(self, **kwargs) -> 'BaseQueryMixin':
+    def explain(self, **kwargs) -> "BaseQueryMixin":
         """Enable EXPLAIN for the subsequent query execution.
 
         This method configures the query to generate an execution plan when executed.

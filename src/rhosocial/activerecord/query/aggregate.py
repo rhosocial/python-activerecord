@@ -1,15 +1,10 @@
 # src/rhosocial/activerecord/query/aggregate.py
 """AggregateQueryMixin implementation for aggregation operations."""
+
 import logging
 from typing import List, Union, Any, Optional, Dict
 
-from ..backend.expression import (
-    functions,
-    statements,
-    BaseExpression,
-    WildcardExpression,
-    TableExpression
-)
+from ..backend.expression import functions, statements, BaseExpression, WildcardExpression, TableExpression
 
 
 class AggregateQueryMixin:
@@ -29,7 +24,9 @@ class AggregateQueryMixin:
     directly in contexts where aggregation is desired, rather than mixing with general select() operations.
     """
 
-    def count(self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> int:
+    def count(
+        self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None
+    ) -> int:
         """Simple aggregation function that returns a scalar count value when used at the end of a method chain.
 
         Args:
@@ -65,15 +62,15 @@ class AggregateQueryMixin:
             column_arg = WildcardExpression(dialect)
         else:
             column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
-        
+
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.count(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
-        
+
         original_select = self.select_columns
         self.select_columns = [agg_expr]
         result = self.aggregate()
         self.select_columns = original_select
-        
+
         if result:
             return result[0].get(result_alias, 0)
         return 0
@@ -114,7 +111,7 @@ class AggregateQueryMixin:
         """
         if isinstance(column, str) and column == "*":
             raise ValueError("SUM(*) is not a valid SQL operation. Please specify a column.")
-            
+
         backend = self.backend()
         dialect = backend.dialect
         column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
@@ -166,7 +163,7 @@ class AggregateQueryMixin:
         """
         if isinstance(column, str) and column == "*":
             raise ValueError("AVG(*) is not a valid SQL operation. Please specify a column.")
-            
+
         backend = self.backend()
         dialect = backend.dialect
         column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
@@ -338,7 +335,7 @@ class AggregateQueryMixin:
                 where=self.where_clause,
                 group_by_having=self.group_by_having_clause,
                 order_by=self.order_by_clause,
-                limit_offset=self.limit_offset_clause
+                limit_offset=self.limit_offset_clause,
             )
 
             # Create ExplainExpression with the query and options
@@ -409,8 +406,11 @@ class AggregateQueryMixin:
 class AsyncAggregateQueryMixin:
     """Asynchronous query mixin for aggregation operations."""
 
-    async def count(self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None) -> int:
-        """Simple asynchronous aggregation function that returns a scalar count value when used at the end of a method chain.
+    async def count(
+        self, column: Union[str, BaseExpression] = "*", is_distinct: bool = False, alias: Optional[str] = None
+    ) -> int:
+        """Simple asynchronous aggregation function that returns a scalar count value
+        when used at the end of a method chain.
 
         Args:
             column: Column to count, defaults to "*" for COUNT(*). Can be a string column name or BaseExpression.
@@ -446,20 +446,22 @@ class AsyncAggregateQueryMixin:
             column_arg = WildcardExpression(dialect)
         else:
             column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
-        
+
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.count(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
-        
+
         original_select = self.select_columns
         self.select_columns = [agg_expr]
         result = await self.aggregate()
         self.select_columns = original_select
-        
+
         if result:
             return result[0].get(result_alias, 0)
         return 0
 
-    async def sum_(self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None) -> float:
+    async def sum_(
+        self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None
+    ) -> float:
         """Simple aggregation function that returns a scalar sum value when used at the end of a method chain.
 
         Args:
@@ -503,8 +505,11 @@ class AsyncAggregateQueryMixin:
             return result[0].get(result_alias, 0.0)
         return 0.0
 
-    async def avg(self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None) -> float:
-        """Simple asynchronous aggregation function that returns a scalar average value when used at the end of a method chain.
+    async def avg(
+        self, column: Union[str, BaseExpression], is_distinct: bool = False, alias: Optional[str] = None
+    ) -> float:
+        """Simple asynchronous aggregation function that returns a scalar average value
+        when used at the end of a method chain.
 
         Args:
             column: Column to average. Can be a string column name or BaseExpression.
@@ -555,7 +560,8 @@ class AsyncAggregateQueryMixin:
         return 0.0
 
     async def min_(self, column: Union[str, BaseExpression], alias: Optional[str] = None) -> Any:
-        """Simple asynchronous aggregation function that returns a scalar minimum value when used at the end of a method chain.
+        """Simple asynchronous aggregation function that returns a scalar minimum value
+        when used at the end of a method chain.
 
         Args:
             column: Column to find minimum of. Can be a string column name or BaseExpression.
@@ -603,7 +609,8 @@ class AsyncAggregateQueryMixin:
         return None
 
     async def max_(self, column: Union[str, BaseExpression], alias: Optional[str] = None) -> Any:
-        """Simple asynchronous aggregation function that returns a scalar maximum value when used at the end of a method chain.
+        """Simple asynchronous aggregation function that returns a scalar maximum value
+        when used at the end of a method chain.
 
         Args:
             column: Column to find maximum of. Can be a string name or BaseExpression.
@@ -712,7 +719,7 @@ class AsyncAggregateQueryMixin:
                 where=self.where_clause,
                 group_by_having=self.group_by_having_clause,
                 order_by=self.order_by_clause,
-                limit_offset=self.limit_offset_clause
+                limit_offset=self.limit_offset_clause,
             )
 
             # Create ExplainExpression with the query and options

@@ -22,7 +22,6 @@ if TYPE_CHECKING:
     from ..model import ActiveRecord
 
 
-
 class FieldProxy:
     """
     Field proxy descriptor for accessing fields via Model.proxy_name.field_name syntax.
@@ -91,6 +90,7 @@ class FieldProxy:
         Returns:
             _FieldAccessor: An object that allows field-by-field access
         """
+
         # Return a dynamic field accessor
         class _FieldAccessor:
             """
@@ -100,7 +100,8 @@ class FieldProxy:
             It handles the translation of field names to column names and creates
             appropriate SQL expression objects.
             """
-            def __init__(self, model_class: 'ActiveRecord', static_table_alias: str = None):
+
+            def __init__(self, model_class: "ActiveRecord", static_table_alias: str = None):
                 """
                 Initialize the field accessor for a specific model class.
 
@@ -166,7 +167,8 @@ class FieldProxy:
                     raise AttributeError(f"Field '{field_name}' does not exist on model '{self._model_class.__name__}'")
 
                 # Use ColumnNameMixin's method to get the correct column name
-                # This properly handles UseColumn annotations, returning custom column name if UseColumn is used, otherwise field name
+                # This properly handles UseColumn annotations, returning custom column name
+                # if UseColumn is used, otherwise field name
                 column_name = self._model_class._get_column_name(field_name)
 
                 # Use table alias (if set) as table name
@@ -174,7 +176,7 @@ class FieldProxy:
 
                 # Create column expression object using the real dialect
                 backend = self._model_class.backend()
-                dialect: 'SQLDialectBase' = backend.dialect
+                dialect: "SQLDialectBase" = backend.dialect
                 return Column(dialect, column_name, table=table_name)
 
         return _FieldAccessor(owner, self._table_alias)

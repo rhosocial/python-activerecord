@@ -12,15 +12,17 @@ from .relational import RelationalQueryMixin
 from .async_join import AsyncJoinQueryMixin
 from .set_operation import SetOperationQuery
 from ..backend.base import StorageBackend, AsyncStorageBackend
-from ..backend.expression import (
-    WildcardExpression,
-    TableExpression,
-    statements,
-    LimitOffsetClause,
-    bases
-)
+from ..backend.expression import WildcardExpression, TableExpression, statements, LimitOffsetClause, bases
 from ..interface.model import IActiveRecord, IAsyncActiveRecord
-from ..interface.query import IQuery, IAsyncQuery, IActiveQuery, IAsyncActiveQuery, ISetOperationQuery, IAsyncSetOperationQuery, ThreadSafeDict
+from ..interface.query import (
+    IQuery,
+    IAsyncQuery,
+    IActiveQuery,
+    IAsyncActiveQuery,
+    ISetOperationQuery,
+    IAsyncSetOperationQuery,
+    ThreadSafeDict,
+)
 
 
 class ActiveQuery(
@@ -30,7 +32,7 @@ class ActiveQuery(
     RelationalQueryMixin,
     RangeQueryMixin,
     IActiveQuery,
-    ISetOperationQuery
+    ISetOperationQuery,
 ):
     """ActiveQuery implementation for model-based queries.
 
@@ -171,7 +173,7 @@ class ActiveQuery(
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
-            limit_offset=temp_limit_offset  # Use temporary limit
+            limit_offset=temp_limit_offset,  # Use temporary limit
         )
 
         # Generate SQL using the temporary QueryExpression
@@ -196,8 +198,7 @@ class ActiveQuery(
 
         return record
 
-
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         """Generate the SQL query string and parameters for ActiveQuery.
 
         This method overrides the base implementation to use the model's table name
@@ -220,13 +221,13 @@ class ActiveQuery(
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
-            limit_offset=self.limit_offset_clause
+            limit_offset=self.limit_offset_clause,
         )
 
         # Generate SQL using the QueryExpression
         return query_expr.to_sql()
 
-    def union(self, other: 'IQuery') -> 'SetOperationQuery':
+    def union(self, other: "IQuery") -> "SetOperationQuery":
         """Perform a UNION operation with another query.
 
         Args:
@@ -236,9 +237,10 @@ class ActiveQuery(
             A new SetOperationQuery instance representing the UNION
         """
         from .set_operation import SetOperationQuery
+
         return SetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: 'IQuery') -> 'SetOperationQuery':
+    def intersect(self, other: "IQuery") -> "SetOperationQuery":
         """Perform an INTERSECT operation with another query.
 
         Args:
@@ -248,9 +250,10 @@ class ActiveQuery(
             A new SetOperationQuery instance representing the INTERSECT
         """
         from .set_operation import SetOperationQuery
+
         return SetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: 'IQuery') -> 'SetOperationQuery':
+    def except_(self, other: "IQuery") -> "SetOperationQuery":
         """Perform an EXCEPT operation with another query.
 
         Args:
@@ -260,6 +263,7 @@ class ActiveQuery(
             A new SetOperationQuery instance representing the EXCEPT
         """
         from .set_operation import SetOperationQuery
+
         return SetOperationQuery(self, other, "EXCEPT")
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
@@ -277,7 +281,7 @@ class AsyncActiveQuery(
     RelationalQueryMixin,  # Use the same RelationalQueryMixin as sync version
     RangeQueryMixin,
     IAsyncActiveQuery,
-    IAsyncSetOperationQuery
+    IAsyncSetOperationQuery,
 ):
     """AsyncActiveQuery implementation for model-based queries.
 
@@ -418,7 +422,7 @@ class AsyncActiveQuery(
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
-            limit_offset=temp_limit_offset  # Use temporary limit
+            limit_offset=temp_limit_offset,  # Use temporary limit
         )
 
         # Generate SQL using the temporary QueryExpression
@@ -443,7 +447,7 @@ class AsyncActiveQuery(
 
         return record
 
-    def to_sql(self) -> 'bases.SQLQueryAndParams':
+    def to_sql(self) -> "bases.SQLQueryAndParams":
         """Generate the SQL query string and parameters for AsyncActiveQuery.
 
         This method overrides the base implementation to use the model's table name
@@ -466,13 +470,13 @@ class AsyncActiveQuery(
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
-            limit_offset=self.limit_offset_clause
+            limit_offset=self.limit_offset_clause,
         )
 
         # Generate SQL using the QueryExpression
         return query_expr.to_sql()
 
-    def union(self, other: 'IAsyncQuery') -> 'IAsyncSetOperationQuery':
+    def union(self, other: "IAsyncQuery") -> "IAsyncSetOperationQuery":
         """Perform a UNION operation with another query.
 
         Args:
@@ -482,9 +486,10 @@ class AsyncActiveQuery(
             A new AsyncSetOperationQuery instance representing the UNION
         """
         from .set_operation import AsyncSetOperationQuery
+
         return AsyncSetOperationQuery(self, other, "UNION")
 
-    def intersect(self, other: 'IAsyncQuery') -> 'IAsyncSetOperationQuery':
+    def intersect(self, other: "IAsyncQuery") -> "IAsyncSetOperationQuery":
         """Perform an INTERSECT operation with another query.
 
         Args:
@@ -494,9 +499,10 @@ class AsyncActiveQuery(
             A new AsyncSetOperationQuery instance representing the INTERSECT
         """
         from .set_operation import AsyncSetOperationQuery
+
         return AsyncSetOperationQuery(self, other, "INTERSECT")
 
-    def except_(self, other: 'IAsyncQuery') -> 'IAsyncSetOperationQuery':
+    def except_(self, other: "IAsyncQuery") -> "IAsyncSetOperationQuery":
         """Perform an EXCEPT operation with another query.
 
         Args:
@@ -506,6 +512,7 @@ class AsyncActiveQuery(
             A new AsyncSetOperationQuery instance representing the EXCEPT
         """
         from .set_operation import AsyncSetOperationQuery
+
         return AsyncSetOperationQuery(self, other, "EXCEPT")
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:

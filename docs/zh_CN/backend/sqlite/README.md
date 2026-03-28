@@ -13,6 +13,7 @@ SQLite 后端提供以下功能：
 - **事务管理**：支持嵌套事务和保存点
 - **Pragma 系统**：完整的 SQLite PRAGMA 支持
 - **扩展框架**：支持 FTS5、JSON1、R-Tree 等扩展
+- **数据库内省**：完整的数据库元数据查询能力
 
 ## 版本要求
 
@@ -124,6 +125,202 @@ if backend.dialect.check_extension_feature('fts5', 'trigram_tokenizer'):
     print("FTS5 trigram 分词器可用")
 ```
 
+## 数据库内省
+
+SQLite 后端提供完整的数据库内省功能，可以查询数据库结构元数据。详细的内省 API 文档请参考 [数据库内省](../introspection.md)。
+
+### 数据库信息
+
+```python
+# 获取数据库基本信息
+db_info = backend.introspector.get_database_info()
+print(f"数据库名称: {db_info.name}")
+print(f"SQLite 版本: {db_info.version}")
+print(f"数据库大小: {db_info.size_bytes} bytes")
+```
+
+### 表内省
+
+```python
+# 列出所有用户表
+tables = backend.introspector.list_tables()
+for table in tables:
+    print(f"表: {table.name}, 类型: {table.table_type.value}")
+
+# 包含系统表
+all_tables = backend.introspector.list_tables(include_system=True)
+system_tables = [t for t in all_tables if t.table_type.value == "SYSTEM_TABLE"]
+print(f"系统表数量: {len(system_tables)}")
+
+# 过滤特定类型
+base_tables = backend.introspector.list_tables(table_type="BASE TABLE")
+views = backend.introspector.list_tables(table_type="VIEW")
+
+# 检查表是否存在
+if backend.introspector.table_exists("users"):
+    print("users 表存在")
+
+# 获取表详细信息
+table_info = backend.introspector.get_table_info("users")
+if table_info:
+    print(f"表名: {table_info.name}")
+    print(f"Schema: {table_info.schema}")
+```
+
+### 列和索引信息
+
+```python
+# 列出表的所有列
+columns = backend.introspector.list_columns("users")
+for col in columns:
+    nullable = "NOT NULL" if col.nullable.value == "NOT_NULL" else "NULLABLE"
+    pk = " [PK]" if col.is_primary_key else ""
+    print(f"{col.name}: {col.data_type} {nullable}{pk}")
+
+# 获取主键信息
+pk = backend.introspector.get_primary_key("users")
+if pk:
+    print(f"主键: {[c.name for c in pk.columns]}")
+
+# 列出所有索引
+indexes = backend.introspector.list_indexes("users")
+for idx in indexes:
+    unique = "UNIQUE " if idx.is_unique else ""
+    print(f"{unique}索引: {idx.name}")
+    for col in idx.columns:
+        print(f"  - {col.name}")
+```
+
+### 外键和视图
+
+```python
+# 列出外键
+foreign_keys = backend.introspector.list_foreign_keys("posts")
+for fk in foreign_keys:
+    print(f"外键: {fk.name}")
+    print(f"  列: {fk.columns} -> {fk.referenced_table}.{fk.referenced_columns}")
+    print(f"  ON DELETE: {fk.on_delete.value}")
+    print(f"  ON UPDATE: {fk.on_update.value}")
+
+# 列出视图
+views = backend.introspector.list_views()
+for view in views:
+    print(f"视图: {view.name}")
+
+# 获取视图定义
+view_info = backend.introspector.get_view_info("user_posts_summary")
+if view_info:
+    print(f"定义: {view_info.definition}")
+```
+
+### 触发器
+
+```python
+# 列出所有触发器
+triggers = backend.introspector.list_triggers()
+for trigger in triggers:
+    print(f"触发器: {trigger.name} on {trigger.table_name}")
+
+# 列出特定表的触发器
+table_triggers = backend.introspector.list_triggers("users")
+for trigger in table_triggers:
+    print(f"触发器: {trigger.name}")
+```
+
+### 异步内省 API
+
+异步后端提供相同的内省方法，方法名与同步版本相同：
+
+```python
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
+backend = AsyncSQLiteBackend(database=":memory:")
+await backend.connect()
+
+# 异步内省方法
+db_info = await backend.introspector.get_database_info()
+tables = await backend.introspector.list_tables()
+table_info = await backend.introspector.get_table_info("users")
+columns = await backend.introspector.list_columns("users")
+indexes = await backend.introspector.list_indexes("users")
+foreign_keys = await backend.introspector.list_foreign_keys("posts")
+views = await backend.introspector.list_views()
+triggers = await backend.introspector.list_triggers()
+```
+
+### 缓存管理
+
+内省结果会被缓存以提高性能。您可以管理缓存：
+
+```python
+# 清除所有内省缓存
+backend.introspector.clear_cache()
+
+# 使特定作用域的缓存失效
+from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+
+# 使所有表相关缓存失效
+backend.introspector.invalidate_cache(scope=IntrospectionScope.TABLE)
+
+# 使特定表的缓存失效
+backend.introspector.invalidate_cache(
+    scope=IntrospectionScope.TABLE,
+    name="users"
+)
+```
+
+### SQLite 专属：PragmaIntrospector
+
+SQLite 内省器提供直接访问 PRAGMA 指令的能力：
+
+```python
+# 访问 PragmaIntrospector
+pragma = backend.introspector.pragma
+
+# 使用 PRAGMA 指令
+table_info = pragma.pragma_table_info("users")
+index_list = pragma.pragma_index_list("users")
+foreign_keys = pragma.pragma_foreign_key_list("posts")
+```
+
+## 版本差异
+
+### 内省功能版本差异
+
+SQLite 内省行为因版本而异：
+
+| 功能 | SQLite < 3.37.0 | SQLite >= 3.37.0 |
+|------|-----------------|------------------|
+| 表列表查询方式 | `sqlite_master` 查询 | `PRAGMA table_list` |
+| 系统表是否在查询结果中 | 手动检测添加 | 自动返回 (type='shadow') |
+| 列隐藏信息 | `PRAGMA table_info` | `PRAGMA table_xinfo` |
+
+**重要说明**：
+
+- **SQLite < 3.37.0**：系统表（如 `sqlite_schema`）**不存储在 `sqlite_master` 中**。后端会在 `include_system=True` 时自动检测并添加已知的系统表。
+- **SQLite >= 3.37.0**：`PRAGMA table_list` 会返回系统表（`type='shadow'`），自动映射为 `TableType.SYSTEM_TABLE`。
+
+### 已知的 SQLite 系统表
+
+| 系统表名 | 说明 | 存在条件 |
+|---------|------|---------|
+| `sqlite_schema` | 数据库 schema 信息 | 始终存在 |
+| `sqlite_master` | `sqlite_schema` 的别名 | 始终存在 |
+| `sqlite_stat1` | 索引统计信息 | 执行 ANALYZE 后 |
+| `sqlite_stat2/3/4` | 扩展统计信息 | 特定版本 ANALYZE 后 |
+| `sqlite_sequence` | AUTOINCREMENT 计数器 | 使用 AUTOINCREMENT 后 |
+
+### 版本特性支持矩阵
+
+| 特性 | 最低版本 | 推荐版本 |
+|------|---------|---------|
+| 基础 CTE | 3.8.3 | 3.8.3+ |
+| 递归 CTE | 3.8.3 | 3.8.3+ |
+| 窗口函数 | 3.25.0 | 3.25.0+ |
+| RETURNING 子句 | 3.35.0 | 3.35.0+ |
+| JSON 操作 | 3.38.0 | 3.38.0+ |
+| 系统 PRAGMA table_list | 3.37.0 | 3.37.0+ |
+
 ## 数据类型适配
 
 SQLite 使用动态类型系统，后端自动处理类型转换：
@@ -162,6 +359,136 @@ with backend.transaction():
     with backend.transaction():  # 创建保存点
         backend.execute("INSERT INTO users (name) VALUES (?)", ("Bob",))
 ```
+
+## 内省功能
+
+SQLite 后端提供完整的数据库内省支持，可以查询数据库结构元数据：
+
+### 基本用法
+
+```python
+# 获取数据库信息
+db_info = backend.get_database_info()
+print(f"数据库名称: {db_info.name}")
+print(f"SQLite 版本: {db_info.version}")
+
+# 列出所有表
+tables = backend.list_tables()
+for table in tables:
+    print(f"表: {table.name}, 类型: {table.table_type}")
+
+# 检查表是否存在
+if backend.table_exists("users"):
+    print("users 表存在")
+
+# 获取表的详细信息
+table_info = backend.get_table_info("users")
+if table_info:
+    print(f"表名: {table_info.name}")
+    for col in table_info.columns:
+        print(f"  列: {col.name}, 类型: {col.data_type}")
+    for idx in table_info.indexes:
+        print(f"  索引: {idx.name}")
+```
+
+### 列出系统表
+
+```python
+# 包含系统表
+all_tables = backend.list_tables(include_system=True)
+system_tables = [t for t in all_tables if t.table_type.value == "SYSTEM_TABLE"]
+for t in system_tables:
+    print(f"系统表: {t.name}")
+```
+
+### 列和索引信息
+
+```python
+# 列出表的所有列
+columns = backend.list_columns("users")
+for col in columns:
+    print(f"{col.name}: {col.data_type} {'NOT NULL' if col.nullable.value == 'NOT_NULL' else 'NULLABLE'}")
+
+# 获取主键信息
+pk = backend.get_primary_key("users")
+if pk:
+    print(f"主键: {[c.name for c in pk.columns]}")
+
+# 列出所有索引
+indexes = backend.list_indexes("users")
+for idx in indexes:
+    print(f"索引: {idx.name}, 唯一: {idx.is_unique}")
+```
+
+### 外键和视图
+
+```python
+# 列出外键
+foreign_keys = backend.list_foreign_keys("posts")
+for fk in foreign_keys:
+    print(f"外键: {fk.name} -> {fk.referenced_table}")
+
+# 列出视图
+views = backend.list_views()
+for view in views:
+    print(f"视图: {view.name}")
+
+# 列出触发器
+triggers = backend.list_triggers("users")
+for trigger in triggers:
+    print(f"触发器: {trigger.name}")
+```
+
+### 异步 API
+
+```python
+# 异步内省方法
+db_info = await backend.get_database_info_async()
+tables = await backend.list_tables_async()
+table_info = await backend.get_table_info_async("users")
+```
+
+### 缓存管理
+
+内省结果默认会被缓存以提高性能：
+
+```python
+# 清除所有内省缓存
+backend.clear_introspection_cache()
+
+# 使特定对象的缓存失效
+from rhosocial.activerecord.backend.introspection.types import IntrospectionScope
+backend.invalidate_introspection_cache(IntrospectionScope.TABLE, "users")
+```
+
+## 版本差异
+
+SQLite 后端根据实际版本自动调整功能支持，不同版本间存在以下关键差异：
+
+### 系统表识别（3.37.0+）
+
+| SQLite 版本 | 系统表查询方式 | 系统表是否在 sqlite_master 中 |
+|------------|--------------|---------------------------|
+| < 3.37.0 | `sqlite_master` 查询 | ❌ 不包含，需手动识别 |
+| >= 3.37.0 | `PRAGMA table_list` | ✅ 包含（type='shadow'） |
+
+当调用 `list_tables(include_system=True)` 时：
+- **SQLite >= 3.37.0**：使用 `PRAGMA table_list` 返回系统表（`sqlite_schema` 等）
+- **SQLite < 3.37.0**：手动构建已知系统表信息（`sqlite_schema`、`sqlite_stat1`、`sqlite_sequence`）
+
+### 特性支持矩阵
+
+| 特性 | 最低版本 | 推荐版本 | 说明 |
+|-----|---------|---------|------|
+| 基础 CTE | 3.8.3 | 3.8.3+ | WITH 子句 |
+| 递归 CTE | 3.8.3 | 3.8.3+ | WITH RECURSIVE |
+| 窗口函数 | 3.25.0 | 3.25.0+ | OVER 子句 |
+| RETURNING 子句 | 3.35.0 | 3.35.0+ | INSERT/UPDATE/DELETE 返回 |
+| JSON 函数 | 3.38.0 | 3.38.0+ | 内置 JSON1 |
+| 系统表识别 | 3.37.0 | 3.37.0+ | PRAGMA table_list |
+| 扩展列信息 | 3.26.0 | 3.26.0+ | PRAGMA table_xinfo |
+
+> **注意**：Python 3.8 自带的 SQLite 版本可能较低（如 3.35.5），部分功能可能受限。建议在生产环境中使用较新的 SQLite 版本或从源码编译 Python 以获得最新 SQLite 支持。
 
 ## 限制和注意事项
 
@@ -232,3 +559,81 @@ python -m rhosocial.activerecord.backend.impl.sqlite --output tsv "SELECT * FROM
 ```
 
 > **建议**：其他后端（如 MySQL、PostgreSQL）建议参照此模式实现类似的命令行工具，提供统一的用户体验。
+
+## 命令行内省命令
+
+SQLite 后端提供命令行内省命令，无需编写代码即可查询数据库元数据。
+
+### 基本用法
+
+```bash
+# 列出所有表
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db
+
+# 列出所有视图
+python -m rhosocial.activerecord.backend.impl.sqlite introspect views --db-file my.db
+
+# 获取数据库信息
+python -m rhosocial.activerecord.backend.impl.sqlite introspect database --db-file my.db
+
+# 包含系统表
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --include-system
+```
+
+### 查询表详情
+
+```bash
+# 获取表的完整信息（列、索引、外键）
+python -m rhosocial.activerecord.backend.impl.sqlite introspect table users --db-file my.db
+
+# 仅查询列信息
+python -m rhosocial.activerecord.backend.impl.sqlite introspect columns users --db-file my.db
+
+# 仅查询索引信息
+python -m rhosocial.activerecord.backend.impl.sqlite introspect indexes users --db-file my.db
+
+# 仅查询外键信息
+python -m rhosocial.activerecord.backend.impl.sqlite introspect foreign-keys posts --db-file my.db
+
+# 查询触发器
+python -m rhosocial.activerecord.backend.impl.sqlite introspect triggers --db-file my.db
+
+# 查询特定表的触发器
+python -m rhosocial.activerecord.backend.impl.sqlite introspect triggers users --db-file my.db
+```
+
+### 内省类型
+
+| 类型 | 说明 | 是否需要表名 |
+|------|------|-------------|
+| `tables` | 列出所有表 | 否 |
+| `views` | 列出所有视图 | 否 |
+| `database` | 数据库信息 | 否 |
+| `table` | 表完整详情（列、索引、外键） | 是 |
+| `columns` | 列信息 | 是 |
+| `indexes` | 索引信息 | 是 |
+| `foreign-keys` | 外键信息 | 是 |
+| `triggers` | 触发器信息 | 可选 |
+
+### 输出格式
+
+```bash
+# 表格格式（默认，需要 rich 库）
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db
+
+# JSON 格式
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --output json
+
+# CSV 格式
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --output csv
+
+# TSV 格式
+python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file my.db --output tsv
+```
+
+### 使用内存数据库
+
+```bash
+# 不指定 --db-file 时使用内存数据库
+python -m rhosocial.activerecord.backend.impl.sqlite introspect database
+```

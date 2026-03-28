@@ -1,5 +1,6 @@
 # src/rhosocial/activerecord/field/uuid.py
 """Module providing UUID functionality."""
+
 import uuid
 from typing import Dict, Any
 from pydantic import Field
@@ -38,7 +39,7 @@ class UUIDMixin:
         elif pk_field not in data and getattr(self, pk_field, None):
             data[pk_field] = getattr(self, pk_field)
 
-        parent_prepare = super().prepare_save_data if hasattr(super(), 'prepare_save_data') else None
+        parent_prepare = super().prepare_save_data if hasattr(super(), "prepare_save_data") else None
         if parent_prepare:
             data = parent_prepare(data, is_new)
 

@@ -1,3 +1,11 @@
+## [v1.0.0.dev20] - 2026-03-28
+
+
+### Added
+
+- Added comprehensive database introspection system with support for tables, columns, indexes, foreign keys, views, and triggers across SQLite and MySQL backends. ([#52](https://github.com/rhosocial/python-activerecord/issues/52))
+
+
 ## [v1.0.0.dev19] - 2026-03-22
 
 ### Added

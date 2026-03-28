@@ -19,6 +19,7 @@ class CacheConfig:
         ttl: Time-to-live in seconds
         max_size: Maximum number of entries
     """
+
     enabled: bool = True
     ttl: Optional[int] = 300
     max_size: Optional[int] = 1000
@@ -26,6 +27,7 @@ class CacheConfig:
 
 class GlobalCacheConfig:
     """Thread-safe singleton for global cache configuration."""
+
     _instance = None
     _lock = Lock()
 
@@ -118,7 +120,7 @@ class RelationCache:
             self._cache.clear()
 
 
-T = TypeVar('T')
+T = TypeVar("T")
 
 
 class InstanceCache(Generic[T]):
