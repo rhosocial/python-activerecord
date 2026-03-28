@@ -47,15 +47,6 @@ from rhosocial.activerecord.backend.introspection.types import (
     TriggerInfo,
     IntrospectionScope,
 )
-from rhosocial.activerecord.backend.expression.introspection import (
-    TableListExpression,
-    ColumnInfoExpression,
-    IndexInfoExpression,
-    ForeignKeyExpression,
-    ViewListExpression,
-    ViewInfoExpression,
-    TriggerListExpression,
-)
 from .pragma_introspector import (
     SyncPragmaIntrospector,
     AsyncPragmaIntrospector,
@@ -86,70 +77,17 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         )
 
     # ------------------------------------------------------------------ #
-    # SQL generation overrides
-    # SQLite uses PRAGMA for most introspection, so we override the default
-    # Expression-based builders where necessary.
+    # SQL generation — uses base class implementation via Expression/Dialect
+    # SQLite's format_*_query() methods in the Dialect layer handle PRAGMA
+    # commands and sqlite_master queries.
     # ------------------------------------------------------------------ #
 
-    def _build_table_list_sql(
-        self,
-        schema: Optional[str],
-        include_system: bool,
-        include_views: bool = True,
-        table_type: Optional[str] = None,
-    ):
-        target_db = schema or self._get_default_schema()
-        expr = (
-            TableListExpression(self.dialect)
-            .schema(target_db)
-            .include_system(include_system)
-            .include_views(include_views)
-        )
-        if table_type:
-            expr = expr.table_type(table_type)
-        return expr.to_sql()
-
-    def _build_column_info_sql(self, table_name: str, schema: Optional[str]):
-        target_db = schema or self._get_default_schema()
-        return (
-            ColumnInfoExpression(self.dialect, table_name)
-            .schema(target_db)
-            .include_hidden(False)
-            .to_sql()
-        )
-
-    def _build_index_info_sql(self, table_name: str, schema: Optional[str]):
-        target_db = schema or self._get_default_schema()
-        return IndexInfoExpression(self.dialect, table_name).schema(target_db).to_sql()
-
-    def _build_foreign_key_sql(self, table_name: str, schema: Optional[str]):
-        target_db = schema or self._get_default_schema()
-        return ForeignKeyExpression(self.dialect, table_name).schema(target_db).to_sql()
-
-    def _build_view_list_sql(self, schema: Optional[str], include_system: bool):
-        target_db = schema or self._get_default_schema()
-        expr = ViewListExpression(self.dialect).include_system(include_system)
-        if target_db:
-            expr = expr.schema(target_db)
-        return expr.to_sql()
-
-    def _build_view_info_sql(self, view_name: str, schema: Optional[str]):
-        target_db = schema or self._get_default_schema()
-        expr = ViewInfoExpression(self.dialect, view_name)
-        if target_db:
-            expr = expr.schema(target_db)
-        return expr.to_sql()
-
-    def _build_trigger_list_sql(
-        self, table_name: Optional[str], schema: Optional[str]
-    ):
-        target_db = schema or self._get_default_schema()
-        expr = TriggerListExpression(self.dialect)
-        if target_db:
-            expr = expr.schema(target_db)
-        if table_name:
-            expr = expr.for_table(table_name)
-        return expr.to_sql()
+    # Note: SQLite does NOT override _build_*_sql() methods because:
+    # 1. Base class IntrospectorMixin._build_*_sql() delegates to Expression.to_sql()
+    # 2. Expression.to_sql() calls Dialect.format_*_query()
+    # 3. SQLiteDialect.format_*_query() generates correct PRAGMA/sqlite_master SQL
+    #
+    # This follows the same pattern as MySQL and PostgreSQL backends.
 
     # ------------------------------------------------------------------ #
     # Parse methods — pure Python, no I/O
