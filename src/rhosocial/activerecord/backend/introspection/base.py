@@ -157,7 +157,12 @@ class IntrospectorMixin:
     def _build_database_info_sql(self) -> Tuple[str, tuple]:
         """Build SQL for database information query."""
         from ..expression.introspection import DatabaseInfoExpression
-        return DatabaseInfoExpression(self.dialect).to_sql()
+        expr = DatabaseInfoExpression(self.dialect)
+        # Set default schema for databases that need it (e.g., MySQL needs database name)
+        default_schema = self._get_default_schema()
+        if default_schema:
+            expr = expr.schema(default_schema)
+        return expr.to_sql()
 
     def _build_table_list_sql(
         self,
@@ -168,13 +173,14 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for table list query."""
         from ..expression.introspection import TableListExpression
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
         expr = (
             TableListExpression(self.dialect)
+            .schema(target_schema)
             .include_system(include_system)
             .include_views(include_views)
         )
-        if schema:
-            expr = expr.schema(schema)
         if table_type:
             expr = expr.table_type(table_type)
         return expr.to_sql()
@@ -184,9 +190,9 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for column information query."""
         from ..expression.introspection import ColumnInfoExpression
-        expr = ColumnInfoExpression(self.dialect, table_name)
-        if schema:
-            expr = expr.schema(schema)
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
+        expr = ColumnInfoExpression(self.dialect, table_name).schema(target_schema)
         return expr.to_sql()
 
     def _build_index_info_sql(
@@ -194,9 +200,9 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for index information query."""
         from ..expression.introspection import IndexInfoExpression
-        expr = IndexInfoExpression(self.dialect, table_name)
-        if schema:
-            expr = expr.schema(schema)
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
+        expr = IndexInfoExpression(self.dialect, table_name).schema(target_schema)
         return expr.to_sql()
 
     def _build_foreign_key_sql(
@@ -204,9 +210,9 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for foreign key query."""
         from ..expression.introspection import ForeignKeyExpression
-        expr = ForeignKeyExpression(self.dialect, table_name)
-        if schema:
-            expr = expr.schema(schema)
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
+        expr = ForeignKeyExpression(self.dialect, table_name).schema(target_schema)
         return expr.to_sql()
 
     def _build_view_list_sql(
@@ -214,9 +220,9 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for view list query."""
         from ..expression.introspection import ViewListExpression
-        expr = ViewListExpression(self.dialect).include_system(include_system)
-        if schema:
-            expr = expr.schema(schema)
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
+        expr = ViewListExpression(self.dialect).schema(target_schema).include_system(include_system)
         return expr.to_sql()
 
     def _build_view_info_sql(
@@ -224,9 +230,9 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for view information query."""
         from ..expression.introspection import ViewInfoExpression
-        expr = ViewInfoExpression(self.dialect, view_name)
-        if schema:
-            expr = expr.schema(schema)
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
+        expr = ViewInfoExpression(self.dialect, view_name).schema(target_schema)
         return expr.to_sql()
 
     def _build_trigger_list_sql(
@@ -234,9 +240,9 @@ class IntrospectorMixin:
     ) -> Tuple[str, tuple]:
         """Build SQL for trigger list query."""
         from ..expression.introspection import TriggerListExpression
-        expr = TriggerListExpression(self.dialect)
-        if schema:
-            expr = expr.schema(schema)
+        # Use provided schema or default
+        target_schema = schema if schema is not None else self._get_default_schema()
+        expr = TriggerListExpression(self.dialect).schema(target_schema)
         if table_name:
             expr = expr.for_table(table_name)
         return expr.to_sql()
