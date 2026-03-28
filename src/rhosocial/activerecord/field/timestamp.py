@@ -1,5 +1,6 @@
 # src/rhosocial/activerecord/field/timestamp.py
 """Module providing timestamp functionality."""
+
 from datetime import datetime, timezone
 from pydantic import Field
 from typing import Dict, Any
@@ -23,7 +24,7 @@ class TimestampMixin(IUpdateBehavior):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_SAVE, self._update_timestamps)
 
-    def _update_timestamps(self, instance: 'TimestampMixin', is_new: bool, **kwargs):
+    def _update_timestamps(self, instance: "TimestampMixin", is_new: bool, **kwargs):
         """Update created_at/updated_at timestamps.
 
         Sets created_at for new records.

@@ -21,7 +21,7 @@ class ActiveRecordMetaclass(ModelMetaclass):
 
         # Step 2: Get all handlers using the centralized method from the interface.
         # This check ensures that we only operate on classes that have this capability.
-        if hasattr(new_class, 'get_feature_handlers'):
+        if hasattr(new_class, "get_feature_handlers"):
             handlers = new_class.get_feature_handlers()
 
             # Step 3: Run the discovered handlers on the new class.
@@ -39,4 +39,5 @@ class MetaclassMixin(metaclass=ActiveRecordMetaclass):
     Inheriting from this mixin enables the model class to participate in the
     metaclass-based feature handler system.
     """
+
     pass

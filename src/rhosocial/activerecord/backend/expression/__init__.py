@@ -159,6 +159,18 @@ from .graph import (
     GraphEdge,
     MatchClause,
 )
+from .introspection import (
+    IntrospectionExpression,
+    TableListExpression,
+    TableInfoExpression,
+    ColumnInfoExpression,
+    IndexInfoExpression,
+    ForeignKeyExpression,
+    ViewListExpression,
+    ViewInfoExpression,
+    TriggerListExpression,
+    TriggerInfoExpression,
+)
 
 # Import all function factories
 from .functions import (
@@ -386,6 +398,17 @@ __all__ = [
     "GraphVertex",
     "GraphEdge",
     "MatchClause",
+    # Introspection
+    "IntrospectionExpression",
+    "TableListExpression",
+    "TableInfoExpression",
+    "ColumnInfoExpression",
+    "IndexInfoExpression",
+    "ForeignKeyExpression",
+    "ViewListExpression",
+    "ViewInfoExpression",
+    "TriggerListExpression",
+    "TriggerInfoExpression",
     # Functions
     "count",
     "sum_",

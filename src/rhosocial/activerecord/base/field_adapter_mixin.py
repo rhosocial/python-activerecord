@@ -2,6 +2,7 @@
 """
 This module provides a mixin for handling field-specific type adapters.
 """
+
 from typing import ClassVar, Dict, Optional, Tuple, Type, Any, get_origin, get_args, Union, get_type_hints
 
 from ..backend.type_adapter import SQLTypeAdapter
@@ -30,14 +31,14 @@ class AdapterAnnotationHandler:
         except (NameError, AttributeError, TypeError):
             # Fallback to __annotations__ if get_type_hints fails
             # (e.g., due to forward references or other issues)
-            hints = getattr(new_class, '__annotations__', {})
+            hints = getattr(new_class, "__annotations__", {})
 
         for field_name, field_type in hints.items():
             adapter_info = AdapterAnnotationHandler._extract_and_validate_adapter(field_name, field_type)
             if adapter_info:
                 field_adapters[field_name] = adapter_info
 
-        setattr(new_class, '__field_adapters__', field_adapters)
+        new_class.__field_adapters__ = field_adapters
 
     @staticmethod
     def _extract_and_validate_adapter(field_name: str, field_type: Any) -> Optional[Tuple[SQLTypeAdapter, Type]]:
@@ -50,7 +51,11 @@ class AdapterAnnotationHandler:
         # issues when compared with `is`. A structural check for `__metadata__`
         # is more robust. This is not necessary for Python 3.9+ where `Annotated`
         # is native and behaves consistently.
-        if not (hasattr(field_type, '__origin__') and hasattr(field_type, '__args__') and hasattr(field_type, '__metadata__')):
+        if not (
+            hasattr(field_type, "__origin__")
+            and hasattr(field_type, "__args__")
+            and hasattr(field_type, "__metadata__")
+        ):
             return None
 
         # Extract UseAdapter instance from __metadata__
@@ -66,7 +71,7 @@ class AdapterAnnotationHandler:
             use_adapter_instance = use_adapters_found[0]
             # The base Python type is the first argument of the Annotated type
             target_py_type = field_type.__args__[0]
-            
+
             # If the base Python type is Optional[T], extract T
             if get_origin(target_py_type) is Union:
                 non_none_args = [arg for arg in get_args(target_py_type) if arg is not type(None)]
@@ -85,6 +90,7 @@ class FieldAdapterMixin:
     It provides runtime methods and registers the AdapterAnnotationHandler
     to be run by the metaclass system at class creation time.
     """
+
     _feature_handlers = [AdapterAnnotationHandler]
 
     __field_adapters__: ClassVar[Dict[str, Tuple[SQLTypeAdapter, Type]]] = {}

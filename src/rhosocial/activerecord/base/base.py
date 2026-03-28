@@ -3,30 +3,29 @@
 
 import inspect
 import logging
-from copy import deepcopy
 from pydantic.fields import FieldInfo
-from typing import Any, Dict, List, Optional, ClassVar, Type, Union, get_origin, get_args, Tuple, Set
+from typing import Any, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..backend.errors import DatabaseError, RecordNotFound, ValidationError as DBValidationError
 from ..backend.expression import ComparisonPredicate, Column, Literal, SQLPredicate
 from ..backend.expression.bases import is_sql_query_and_params
-from ..backend.impl.dummy.backend import DummyBackend, AsyncDummyBackend
 from ..backend.options import DeleteOptions, UpdateOptions
 from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
-from ..interface import IActiveRecord, IAsyncActiveRecord, ActiveRecordBase, ModelEvent
+from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IUpdateBehavior
-from ..relation.base import RelationManagementMixin
 
 
 class CustomModuleFormatter(logging.Formatter):
     def format(self, record):
         import os
+
         module_dir = os.path.basename(os.path.dirname(record.pathname))
         record.subpackage_module = f"{module_dir}-{record.filename}"
         return super().format(record)
+
 
 class BaseActiveRecord(IActiveRecord):
     """
@@ -42,11 +41,11 @@ class BaseActiveRecord(IActiveRecord):
         cls.__backend_class__ = backend_class
 
         backend_instance = backend_class(connection_config=config)
-        if hasattr(cls, '__logger__'):
+        if hasattr(cls, "__logger__"):
             backend_instance.logger = cls.__logger__
 
         cls.__backend__ = backend_instance
-        if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
+        if hasattr(cls, "_dummy_backend") and cls._dummy_backend is not None:
             cls._dummy_backend = None
 
         backend_instance.introspect_and_adapt()
@@ -56,14 +55,14 @@ class BaseActiveRecord(IActiveRecord):
         return super().backend()
 
     @classmethod
-    def create_from_database(cls, row: Dict[str, Any]) -> 'BaseActiveRecord':
+    def create_from_database(cls, row: Dict[str, Any]) -> "BaseActiveRecord":
         instance = cls(**row)
         instance._is_from_db = True
         instance.reset_tracking()
         return instance
 
     @classmethod
-    def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List['BaseActiveRecord']:
+    def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List["BaseActiveRecord"]:
         return [cls.create_from_database(row) for row in rows]
 
     def _insert_internal(self, data) -> Any:
@@ -106,16 +105,18 @@ class BaseActiveRecord(IActiveRecord):
             column_mapping=column_mapping,
             column_adapters=column_adapters,
             primary_key=self.primary_key(),
-            returning_columns=returning_columns
+            returning_columns=returning_columns,
         )
         result = self.backend().insert(insert_options)
         pk_column = self.primary_key()
         pk_field_name = self.__class__._get_field_name(pk_column)
-        if (result is not None and result.affected_rows > 0 and
-                pk_field_name in self.__class__.model_fields and
-                prepared_data.get(pk_column) is None and
-                getattr(self, pk_field_name, None) is None):
-
+        if (
+            result is not None
+            and result.affected_rows > 0
+            and pk_field_name in self.__class__.model_fields
+            and prepared_data.get(pk_column) is None
+            and getattr(self, pk_field_name, None) is None
+        ):
             pk_retrieved = False
             self.log(logging.DEBUG, f"Attempting to retrieve primary key '{pk_column}' for new record")
             pk_field_name = self.__class__._get_field_name(pk_column)
@@ -126,12 +127,19 @@ class BaseActiveRecord(IActiveRecord):
                     pk_value = first_row[pk_field_name]
                     setattr(self, pk_field_name, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
+                    self.log(
+                        logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}"
+                    )
                 else:
-                    self.log(logging.WARNING, f"RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
+                    self.log(
+                        logging.WARNING,
+                        f"RETURNING clause data found, but primary key field '{pk_field_name}' "
+                        f"is missing in the result row: {first_row}",
+                    )
 
             if not pk_retrieved and result.last_insert_id is not None:
                 import types
+
                 field_type = self.__class__.model_fields[pk_field_name].annotation
                 origin = get_origin(field_type)
                 # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
@@ -171,35 +179,55 @@ class BaseActiveRecord(IActiveRecord):
         Returns:
             The result object from the backend update operation
         """
-        self.log(logging.INFO, f"Starting update operation for {self.__class__.__name__} record with ID: {getattr(self, self.__class__.primary_key_field(), 'unknown')}")
+        self.log(
+            logging.INFO,
+            f"Starting update operation for {self.__class__.__name__} record with ID: "
+            f"{getattr(self, self.__class__.primary_key_field(), 'unknown')}",
+        )
         update_conditions = []
         update_expressions = {}
         mro = self.__class__.__mro__
         activerecord_idx = mro.index(IActiveRecord)
-        self.log(logging.DEBUG, f"Traversing MRO for IUpdateBehavior implementations: {[cls.__name__ for cls in mro[:activerecord_idx]]}")
+        self.log(
+            logging.DEBUG,
+            f"Traversing MRO for IUpdateBehavior implementations: {[cls.__name__ for cls in mro[:activerecord_idx]]}",
+        )
         for cls in mro[:activerecord_idx]:
             if issubclass(cls, IUpdateBehavior):
-                defines_conditions_method = 'get_update_conditions' in cls.__dict__
-                defines_expressions_method = 'get_update_expressions' in cls.__dict__
+                defines_conditions_method = "get_update_conditions" in cls.__dict__
+                defines_expressions_method = "get_update_expressions" in cls.__dict__
                 if defines_conditions_method or defines_expressions_method:
                     self.log(logging.DEBUG, f"Processing IUpdateBehavior from {cls.__name__}")
                     if defines_conditions_method:
                         behavior_conditions = cls.get_update_conditions(self)
                         if behavior_conditions:
-                            self.log(logging.DEBUG, f"  Adding {len(behavior_conditions)} condition(s) from {cls.__name__}")
+                            self.log(
+                                logging.DEBUG, f"  Adding {len(behavior_conditions)} condition(s) from {cls.__name__}"
+                            )
                             update_conditions.extend(behavior_conditions)
                         else:
                             self.log(logging.DEBUG, f"  No conditions from {cls.__name__}")
                     if defines_expressions_method:
                         behavior_expressions = cls.get_update_expressions(self)
                         if behavior_expressions:
-                            self.log(logging.DEBUG, f"  Adding {len(behavior_expressions)} expression(s) from {cls.__name__}: {list(behavior_expressions.keys())}")
+                            self.log(
+                                logging.DEBUG,
+                                f"  Adding {len(behavior_expressions)} expression(s) from {cls.__name__}: "
+                                f"{list(behavior_expressions.keys())}",
+                            )
                             update_expressions.update(behavior_expressions)
                         else:
                             self.log(logging.DEBUG, f"  No expressions from {cls.__name__}")
                 else:
-                    self.log(logging.DEBUG, f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)")
-        self.log(logging.INFO, f"Update operation: {len(update_conditions)} condition(s), {len(update_expressions)} expression(s) collected from mixins")
+                    self.log(
+                        logging.DEBUG,
+                        f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)",
+                    )
+        self.log(
+            logging.INFO,
+            f"Update operation: {len(update_conditions)} condition(s), "
+            f"{len(update_expressions)} expression(s) collected from mixins",
+        )
         self.log(logging.DEBUG, f"Final update conditions: {len(update_conditions)} total")
         self.log(logging.DEBUG, f"Final update expressions: {list(update_expressions.keys())}")
         complete_data = {**data, **update_expressions}
@@ -213,14 +241,19 @@ class BaseActiveRecord(IActiveRecord):
         pk_value = getattr(self, self.__class__.primary_key_field())
         self.log(logging.DEBUG, f"Primary key: {pk_name} = {pk_value}")
         where_predicate = ComparisonPredicate(
-            backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
         )
         for condition in update_conditions:
             if isinstance(condition, SQLPredicate):
                 where_predicate = where_predicate & condition
             else:
-                self.log(logging.WARNING, f"Skipping non-predicate condition in update: {condition} (type: {type(condition)})")
-        self.log(logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied")
+                self.log(
+                    logging.WARNING,
+                    f"Skipping non-predicate condition in update: {condition} (type: {type(condition)})",
+                )
+        self.log(
+            logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied"
+        )
         supports_returning = backend.dialect.supports_returning_clause()
         returning_columns = None
         if supports_returning:
@@ -231,9 +264,12 @@ class BaseActiveRecord(IActiveRecord):
             where=where_predicate,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
-            returning_columns=returning_columns
+            returning_columns=returning_columns,
         )
-        self.log(logging.INFO, f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update")
+        self.log(
+            logging.INFO,
+            f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update",
+        )
         result = backend.update(update_options)
         self.log(logging.INFO, f"Update operation completed. Affected rows: {result.affected_rows}")
         return result
@@ -249,23 +285,23 @@ class BaseActiveRecord(IActiveRecord):
             data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
         bases = self.__class__.__mro__
         for base in bases:
-            if hasattr(base, 'prepare_save_data') and base != BaseActiveRecord:
-                prepare_method = getattr(base, 'prepare_save_data')
+            if hasattr(base, "prepare_save_data") and base != BaseActiveRecord:
+                prepare_method = base.prepare_save_data
                 data = prepare_method(self, data, is_new)
         return data
 
     def _after_save(self, is_new: bool) -> None:
         bases = self.__class__.__mro__
         for base in bases:
-            if hasattr(base, 'after_save') and base != BaseActiveRecord:
-                after_method = getattr(base, 'after_save')
+            if hasattr(base, "after_save") and base != BaseActiveRecord:
+                after_method = base.after_save
                 after_method(self, is_new)
 
     @classmethod
     def find_one(
-        cls: Type['BaseActiveRecord'],
-        condition: Union[Any, Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]
-    ) -> Optional['BaseActiveRecord']:
+        cls: Type["BaseActiveRecord"],
+        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+    ) -> Optional["BaseActiveRecord"]:
         query = cls.query()
         if isinstance(condition, dict):
             for key, value in condition.items():
@@ -274,8 +310,10 @@ class BaseActiveRecord(IActiveRecord):
                 elif isinstance(key, str):
                     query = query.where(getattr(cls.c, key) == value)
                 else:
-                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
-                                    f"Expected str or Column, got {type(key)}")
+                    raise TypeError(
+                        f"Invalid key type in condition dictionary: {type(key)}. "
+                        f"Expected str or Column, got {type(key)}"
+                    )
         elif isinstance(condition, SQLPredicate):
             query = query.where(condition)
         elif is_sql_query_and_params(condition):
@@ -288,9 +326,11 @@ class BaseActiveRecord(IActiveRecord):
 
     @classmethod
     def find_all(
-        cls: Type['BaseActiveRecord'],
-        condition: Optional[Union[Any, List[Any], Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]] = None
-    ) -> List['BaseActiveRecord']:
+        cls: Type["BaseActiveRecord"],
+        condition: Optional[
+            Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
+        ] = None,
+    ) -> List["BaseActiveRecord"]:
         query = cls.query()
         if condition is None:
             return query.all()
@@ -301,26 +341,28 @@ class BaseActiveRecord(IActiveRecord):
                 elif isinstance(key, str):
                     query = query.where(getattr(cls.c, key) == value)
                 else:
-                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
-                                    f"Expected str or Column, got {type(key)}")
+                    raise TypeError(
+                        f"Invalid key type in condition dictionary: {type(key)}. "
+                        f"Expected str or Column, got {type(key)}"
+                    )
         elif isinstance(condition, SQLPredicate):
             query = query.where(condition)
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
-        else: # Assumes list of primary keys
+        else:  # Assumes list of primary keys
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
-            placeholders = ','.join(['?' for _ in condition])
+            placeholders = ",".join(["?" for _ in condition])
             query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
         return query.all()
 
     @classmethod
     def find_one_or_fail(
-        cls: Type['BaseActiveRecord'],
-        condition: Union[Any, Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]
-    ) -> 'BaseActiveRecord':
+        cls: Type["BaseActiveRecord"],
+        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+    ) -> "BaseActiveRecord":
         record = cls.find_one(condition)
         if record is None:
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
@@ -356,7 +398,7 @@ class BaseActiveRecord(IActiveRecord):
             self.validate_fields()
         except Exception as e:
             self.log(logging.ERROR, f"Validation error: {str(e)}")
-            raise DBValidationError(str(e))
+            raise DBValidationError(str(e)) from e
         if not self.is_new_record and not self.is_dirty:
             return 0
         try:
@@ -400,8 +442,10 @@ class BaseActiveRecord(IActiveRecord):
         backend = self.backend()
         pk_name = self.primary_key()
         pk_value = getattr(self, pk_name)
-        where_predicate = ComparisonPredicate(backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value))
-        is_soft_delete = hasattr(self, 'prepare_delete')
+        where_predicate = ComparisonPredicate(
+            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+        )
+        is_soft_delete = hasattr(self, "prepare_delete")
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
@@ -413,7 +457,9 @@ class BaseActiveRecord(IActiveRecord):
             returning_columns = None
             if supports_returning:
                 returning_columns = [self.primary_key()]
-            delete_opts = DeleteOptions(table=self.table_name(), where=where_predicate, returning_columns=returning_columns)
+            delete_opts = DeleteOptions(
+                table=self.table_name(), where=where_predicate, returning_columns=returning_columns
+            )
             result = backend.delete(delete_opts)
         affected_rows = result.affected_rows
         if affected_rows > 0:
@@ -437,13 +483,15 @@ class BaseActiveRecord(IActiveRecord):
 
     @classmethod
     def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
-        if not hasattr(cls, '__logger__'):
+        if not hasattr(cls, "__logger__"):
             return
-        logger = getattr(cls, '__logger__')
+        logger = cls.__logger__
         if logger is None or not isinstance(logger, logging.Logger):
             return
         if formatter is None:
-            formatter = CustomModuleFormatter('%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s')
+            formatter = CustomModuleFormatter(
+                "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
+            )
         if logger.handlers:
             for handler in logger.handlers:
                 handler.setFormatter(formatter)
@@ -460,9 +508,9 @@ class BaseActiveRecord(IActiveRecord):
 
     @classmethod
     def log(cls, level: int, msg: str, *args, **kwargs) -> None:
-        if not hasattr(cls, '__logger__'):
+        if not hasattr(cls, "__logger__"):
             return
-        logger = getattr(cls, '__logger__')
+        logger = cls.__logger__
         if logger is None:
             return
         if not isinstance(logger, logging.Logger):
@@ -470,7 +518,7 @@ class BaseActiveRecord(IActiveRecord):
         current_frame = inspect.currentframe().f_back
         stack_level = 1
         while current_frame:
-            if current_frame.f_globals['__name__'] != 'ActiveRecord':
+            if current_frame.f_globals["__name__"] != "ActiveRecord":
                 break
             current_frame = current_frame.f_back
             stack_level += 1
@@ -478,8 +526,10 @@ class BaseActiveRecord(IActiveRecord):
             stack_level += 1
         if "offset" in kwargs:
             stack_level += kwargs.pop("offset")
-        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or \
-                (not logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)):
+        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or (
+            not logger.handlers
+            and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)
+        ):
             cls.setup_logger()
         level_name = logging.getLevelName(level).lower()
         method = getattr(logger, level_name, None)
@@ -489,8 +539,8 @@ class BaseActiveRecord(IActiveRecord):
             logger.log(level, msg, *args, **kwargs)
 
     @classmethod
-    def get_column_adapters(cls) -> Dict[str, Tuple['SQLTypeAdapter', Type]]:
-        adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
+    def get_column_adapters(cls) -> Dict[str, Tuple["SQLTypeAdapter", Type]]:
+        adapters_map: Dict[str, Tuple["SQLTypeAdapter", Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
         for field_name, field_info in model_fields.items():
@@ -500,9 +550,8 @@ class BaseActiveRecord(IActiveRecord):
             origin = get_origin(field_py_type)
             # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
             import types
-            is_union_type = origin in (Union, Optional) or (
-                hasattr(types, 'UnionType') and origin is types.UnionType
-            )
+
+            is_union_type = origin in (Union, Optional) or (hasattr(types, "UnionType") and origin is types.UnionType)
             if is_union_type:
                 args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
                 if len(args) == 1:
@@ -535,11 +584,11 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         cls.__backend_class__ = backend_class
 
         backend_instance = backend_class(connection_config=config)
-        if hasattr(cls, '__logger__'):
+        if hasattr(cls, "__logger__"):
             backend_instance.logger = cls.__logger__
 
         cls.__backend__ = backend_instance
-        if hasattr(cls, '_dummy_backend') and cls._dummy_backend is not None:
+        if hasattr(cls, "_dummy_backend") and cls._dummy_backend is not None:
             cls._dummy_backend = None
 
         await backend_instance.introspect_and_adapt()
@@ -549,14 +598,14 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         return super().backend()
 
     @classmethod
-    def create_from_database(cls, row: Dict[str, Any]) -> 'AsyncBaseActiveRecord':
+    def create_from_database(cls, row: Dict[str, Any]) -> "AsyncBaseActiveRecord":
         instance = cls(**row)
         instance._is_from_db = True
         instance.reset_tracking()
         return instance
 
     @classmethod
-    def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List['AsyncBaseActiveRecord']:
+    def create_collection_from_database(cls, rows: List[Dict[str, Any]]) -> List["AsyncBaseActiveRecord"]:
         return [cls.create_from_database(row) for row in rows]
 
     async def _insert_internal(self, data) -> Any:
@@ -599,16 +648,18 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             column_mapping=column_mapping,
             column_adapters=column_adapters,
             primary_key=self.primary_key(),
-            returning_columns=returning_columns
+            returning_columns=returning_columns,
         )
         result = await self.backend().insert(insert_options)
         pk_column = self.primary_key()
         pk_field_name = self.__class__._get_field_name(pk_column)
-        if (result is not None and result.affected_rows > 0 and
-                pk_field_name in self.__class__.model_fields and
-                prepared_data.get(pk_column) is None and
-                getattr(self, pk_field_name, None) is None):
-
+        if (
+            result is not None
+            and result.affected_rows > 0
+            and pk_field_name in self.__class__.model_fields
+            and prepared_data.get(pk_column) is None
+            and getattr(self, pk_field_name, None) is None
+        ):
             pk_retrieved = False
             self.log(logging.DEBUG, f"Attempting to retrieve primary key '{pk_column}' for new record")
             pk_field_name = self.__class__._get_field_name(pk_column)
@@ -619,12 +670,19 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                     pk_value = first_row[pk_field_name]
                     setattr(self, pk_field_name, pk_value)
                     pk_retrieved = True
-                    self.log(logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}")
+                    self.log(
+                        logging.DEBUG, f"Retrieved primary key '{pk_field_name}' from RETURNING clause: {pk_value}"
+                    )
                 else:
-                    self.log(logging.WARNING, f"RETURNING clause data found, but primary key field '{pk_field_name}' is missing in the result row: {first_row}")
+                    self.log(
+                        logging.WARNING,
+                        f"RETURNING clause data found, but primary key field '{pk_field_name}' "
+                        f"is missing in the result row: {first_row}",
+                    )
 
             if not pk_retrieved and result.last_insert_id is not None:
                 import types
+
                 field_type = self.__class__.model_fields[pk_field_name].annotation
                 origin = get_origin(field_type)
                 # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
@@ -664,35 +722,55 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         Returns:
             The result object from the backend update operation
         """
-        self.log(logging.INFO, f"Starting update operation for {self.__class__.__name__} record with ID: {getattr(self, self.__class__.primary_key_field(), 'unknown')}")
+        self.log(
+            logging.INFO,
+            f"Starting update operation for {self.__class__.__name__} record with ID: "
+            f"{getattr(self, self.__class__.primary_key_field(), 'unknown')}",
+        )
         update_conditions = []
         update_expressions = {}
         mro = self.__class__.__mro__
         activerecord_idx = mro.index(IAsyncActiveRecord)
-        self.log(logging.DEBUG, f"Traversing MRO for IUpdateBehavior implementations: {[cls.__name__ for cls in mro[:activerecord_idx]]}")
+        self.log(
+            logging.DEBUG,
+            f"Traversing MRO for IUpdateBehavior implementations: {[cls.__name__ for cls in mro[:activerecord_idx]]}",
+        )
         for cls in mro[:activerecord_idx]:
             if issubclass(cls, IUpdateBehavior):
-                defines_conditions_method = 'get_update_conditions' in cls.__dict__
-                defines_expressions_method = 'get_update_expressions' in cls.__dict__
+                defines_conditions_method = "get_update_conditions" in cls.__dict__
+                defines_expressions_method = "get_update_expressions" in cls.__dict__
                 if defines_conditions_method or defines_expressions_method:
                     self.log(logging.DEBUG, f"Processing IUpdateBehavior from {cls.__name__}")
                     if defines_conditions_method:
                         behavior_conditions = cls.get_update_conditions(self)
                         if behavior_conditions:
-                            self.log(logging.DEBUG, f"  Adding {len(behavior_conditions)} condition(s) from {cls.__name__}")
+                            self.log(
+                                logging.DEBUG, f"  Adding {len(behavior_conditions)} condition(s) from {cls.__name__}"
+                            )
                             update_conditions.extend(behavior_conditions)
                         else:
                             self.log(logging.DEBUG, f"  No conditions from {cls.__name__}")
                     if defines_expressions_method:
                         behavior_expressions = cls.get_update_expressions(self)
                         if behavior_expressions:
-                            self.log(logging.DEBUG, f"  Adding {len(behavior_expressions)} expression(s) from {cls.__name__}: {list(behavior_expressions.keys())}")
+                            self.log(
+                                logging.DEBUG,
+                                f"  Adding {len(behavior_expressions)} expression(s) from {cls.__name__}: "
+                                f"{list(behavior_expressions.keys())}",
+                            )
                             update_expressions.update(behavior_expressions)
                         else:
                             self.log(logging.DEBUG, f"  No expressions from {cls.__name__}")
                 else:
-                    self.log(logging.DEBUG, f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)")
-        self.log(logging.INFO, f"Update operation: {len(update_conditions)} condition(s), {len(update_expressions)} expression(s) collected from mixins")
+                    self.log(
+                        logging.DEBUG,
+                        f"Skipping {cls.__name__} (implements IUpdateBehavior but doesn't define methods directly)",
+                    )
+        self.log(
+            logging.INFO,
+            f"Update operation: {len(update_conditions)} condition(s), "
+            f"{len(update_expressions)} expression(s) collected from mixins",
+        )
         self.log(logging.DEBUG, f"Final update conditions: {len(update_conditions)} total")
         self.log(logging.DEBUG, f"Final update expressions: {list(update_expressions.keys())}")
         complete_data = {**data, **update_expressions}
@@ -706,14 +784,19 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         pk_value = getattr(self, self.__class__.primary_key_field())
         self.log(logging.DEBUG, f"Primary key: {pk_name} = {pk_value}")
         where_predicate = ComparisonPredicate(
-            backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
         )
         for condition in update_conditions:
             if isinstance(condition, SQLPredicate):
                 where_predicate = where_predicate & condition
             else:
-                self.log(logging.WARNING, f"Skipping non-predicate condition in update: {condition} (type: {type(condition)})")
-        self.log(logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied")
+                self.log(
+                    logging.WARNING,
+                    f"Skipping non-predicate condition in update: {condition} (type: {type(condition)})",
+                )
+        self.log(
+            logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied"
+        )
         supports_returning = backend.dialect.supports_returning_clause()
         returning_columns = None
         if supports_returning:
@@ -724,9 +807,12 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             where=where_predicate,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
-            returning_columns=returning_columns
+            returning_columns=returning_columns,
         )
-        self.log(logging.INFO, f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update")
+        self.log(
+            logging.INFO,
+            f"Executing update operation on table '{self.table_name()}' with {len(data)} field(s) to update",
+        )
         result = await backend.update(update_options)
         self.log(logging.INFO, f"Update operation completed. Affected rows: {result.affected_rows}")
         return result
@@ -742,23 +828,23 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             data = {field: all_data[field] for field in self._dirty_fields if field != pk_field}
         bases = self.__class__.__mro__
         for base in bases:
-            if hasattr(base, 'prepare_save_data') and base != AsyncBaseActiveRecord:
-                prepare_method = getattr(base, 'prepare_save_data')
+            if hasattr(base, "prepare_save_data") and base != AsyncBaseActiveRecord:
+                prepare_method = base.prepare_save_data
                 data = prepare_method(self, data, is_new)
         return data
 
     def _after_save(self, is_new: bool) -> None:
         bases = self.__class__.__mro__
         for base in bases:
-            if hasattr(base, 'after_save') and base != AsyncBaseActiveRecord:
-                after_method = getattr(base, 'after_save')
+            if hasattr(base, "after_save") and base != AsyncBaseActiveRecord:
+                after_method = base.after_save
                 after_method(self, is_new)
 
     @classmethod
     async def find_one(
-        cls: Type['AsyncBaseActiveRecord'],
-        condition: Union[Any, Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]
-    ) -> Optional['AsyncBaseActiveRecord']:
+        cls: Type["AsyncBaseActiveRecord"],
+        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+    ) -> Optional["AsyncBaseActiveRecord"]:
         query = cls.query()
         if isinstance(condition, dict):
             for key, value in condition.items():
@@ -767,8 +853,10 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                 elif isinstance(key, str):
                     query = query.where(getattr(cls.c, key) == value)
                 else:
-                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
-                                    f"Expected str or Column, got {type(key)}")
+                    raise TypeError(
+                        f"Invalid key type in condition dictionary: {type(key)}. "
+                        f"Expected str or Column, got {type(key)}"
+                    )
         elif isinstance(condition, SQLPredicate):
             query = query.where(condition)
         elif is_sql_query_and_params(condition):
@@ -781,9 +869,11 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
 
     @classmethod
     async def find_all(
-        cls: Type['AsyncBaseActiveRecord'],
-        condition: Optional[Union[Any, List[Any], Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]] = None
-    ) -> List['AsyncBaseActiveRecord']:
+        cls: Type["AsyncBaseActiveRecord"],
+        condition: Optional[
+            Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
+        ] = None,
+    ) -> List["AsyncBaseActiveRecord"]:
         query = cls.query()
         if condition is None:
             return await query.all()
@@ -794,26 +884,28 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
                 elif isinstance(key, str):
                     query = query.where(getattr(cls.c, key) == value)
                 else:
-                    raise TypeError(f"Invalid key type in condition dictionary: {type(key)}. "
-                                    f"Expected str or Column, got {type(key)}")
+                    raise TypeError(
+                        f"Invalid key type in condition dictionary: {type(key)}. "
+                        f"Expected str or Column, got {type(key)}"
+                    )
         elif isinstance(condition, SQLPredicate):
             query = query.where(condition)
         elif is_sql_query_and_params(condition):
             sql, params = condition
             query = query.where(sql, params)
-        else: # Assumes list of primary keys
+        else:  # Assumes list of primary keys
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
-            placeholders = ','.join(['?' for _ in condition])
+            placeholders = ",".join(["?" for _ in condition])
             query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
         return await query.all()
 
     @classmethod
     async def find_one_or_fail(
-        cls: Type['AsyncBaseActiveRecord'],
-        condition: Union[Any, Dict[str, Any], Dict['Column', Any], 'SQLPredicate', Tuple[str, tuple]]
-    ) -> 'AsyncBaseActiveRecord':
+        cls: Type["AsyncBaseActiveRecord"],
+        condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+    ) -> "AsyncBaseActiveRecord":
         record = await cls.find_one(condition)
         if record is None:
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
@@ -849,7 +941,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             self.validate_fields()
         except Exception as e:
             self.log(logging.ERROR, f"Validation error: {str(e)}")
-            raise DBValidationError(str(e))
+            raise DBValidationError(str(e)) from e
         if not self.is_new_record and not self.is_dirty:
             return 0
         try:
@@ -893,8 +985,10 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         backend = self.backend()
         pk_name = self.primary_key()
         pk_value = getattr(self, pk_name)
-        where_predicate = ComparisonPredicate(backend.dialect, '=', Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value))
-        is_soft_delete = hasattr(self, 'prepare_delete')
+        where_predicate = ComparisonPredicate(
+            backend.dialect, "=", Column(backend.dialect, pk_name), Literal(backend.dialect, pk_value)
+        )
+        is_soft_delete = hasattr(self, "prepare_delete")
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
@@ -906,7 +1000,9 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             returning_columns = None
             if supports_returning:
                 returning_columns = [self.primary_key()]
-            delete_opts = DeleteOptions(table=self.table_name(), where=where_predicate, returning_columns=returning_columns)
+            delete_opts = DeleteOptions(
+                table=self.table_name(), where=where_predicate, returning_columns=returning_columns
+            )
             result = await backend.delete(delete_opts)
         affected_rows = result.affected_rows
         if affected_rows > 0:
@@ -930,13 +1026,15 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
 
     @classmethod
     def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
-        if not hasattr(cls, '__logger__'):
+        if not hasattr(cls, "__logger__"):
             return
-        logger = getattr(cls, '__logger__')
+        logger = cls.__logger__
         if logger is None or not isinstance(logger, logging.Logger):
             return
         if formatter is None:
-            formatter = CustomModuleFormatter('%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s')
+            formatter = CustomModuleFormatter(
+                "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
+            )
         if logger.handlers:
             for handler in logger.handlers:
                 handler.setFormatter(formatter)
@@ -953,9 +1051,9 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
 
     @classmethod
     def log(cls, level: int, msg: str, *args, **kwargs) -> None:
-        if not hasattr(cls, '__logger__'):
+        if not hasattr(cls, "__logger__"):
             return
-        logger = getattr(cls, '__logger__')
+        logger = cls.__logger__
         if logger is None:
             return
         if not isinstance(logger, logging.Logger):
@@ -963,7 +1061,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         current_frame = inspect.currentframe().f_back
         stack_level = 1
         while current_frame:
-            if current_frame.f_globals['__name__'] != 'ActiveRecord':
+            if current_frame.f_globals["__name__"] != "ActiveRecord":
                 break
             current_frame = current_frame.f_back
             stack_level += 1
@@ -971,8 +1069,10 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             stack_level += 1
         if "offset" in kwargs:
             stack_level += kwargs.pop("offset")
-        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or \
-                (not logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)):
+        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or (
+            not logger.handlers
+            and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)
+        ):
             cls.setup_logger()
         level_name = logging.getLevelName(level).lower()
         method = getattr(logger, level_name, None)
@@ -982,8 +1082,8 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             logger.log(level, msg, *args, **kwargs)
 
     @classmethod
-    def get_column_adapters(cls) -> Dict[str, Tuple['SQLTypeAdapter', Type]]:
-        adapters_map: Dict[str, Tuple['SQLTypeAdapter', Type]] = {}
+    def get_column_adapters(cls) -> Dict[str, Tuple["SQLTypeAdapter", Type]]:
+        adapters_map: Dict[str, Tuple["SQLTypeAdapter", Type]] = {}
         model_fields: Dict[str, FieldInfo] = dict(cls.model_fields)
         all_suggestions = cls.backend().get_default_adapter_suggestions()
         for field_name, field_info in model_fields.items():
@@ -993,9 +1093,8 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
             origin = get_origin(field_py_type)
             # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
             import types
-            is_union_type = origin in (Union, Optional) or (
-                hasattr(types, 'UnionType') and origin is types.UnionType
-            )
+
+            is_union_type = origin in (Union, Optional) or (hasattr(types, "UnionType") and origin is types.UnionType)
             if is_union_type:
                 args = [arg for arg in get_args(field_py_type) if arg is not type(None)]
                 if len(args) == 1:

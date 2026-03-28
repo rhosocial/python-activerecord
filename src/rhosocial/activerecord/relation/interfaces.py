@@ -3,14 +3,15 @@
 Core interfaces for the relations package.
 Defines abstract base classes for relationship loading and querying.
 """
+
 from abc import ABC, abstractmethod
 from typing import Any, TypeVar, Generic, Optional, List, ClassVar, Dict
 
 
 from ..interface import IActiveRecord, IAsyncActiveRecord, IActiveQuery, IAsyncActiveQuery
 
-T = TypeVar('T', bound=IActiveRecord)
-U = TypeVar('U', bound=IAsyncActiveRecord)
+T = TypeVar("T", bound=IActiveRecord)
+U = TypeVar("U", bound=IAsyncActiveRecord)
 
 
 class IRelationLoader(Generic[T], ABC):
@@ -87,7 +88,9 @@ class IAsyncRelationLoader(Generic[U], ABC):
         pass
 
     @abstractmethod
-    async def batch_load(self, instances: List[IAsyncActiveRecord], base_query: Optional[IAsyncActiveQuery]) -> Dict[int, U]:
+    async def batch_load(
+        self, instances: List[IAsyncActiveRecord], base_query: Optional[IAsyncActiveQuery]
+    ) -> Dict[int, U]:
         """Asynchronously batch load related data for multiple instances.
 
         Args:

@@ -2,6 +2,7 @@
 """
 This module provides a mixin for handling custom column names for model fields.
 """
+
 from typing import ClassVar, Dict, Optional, Type, Any, get_type_hints
 from functools import lru_cache
 
@@ -41,17 +42,14 @@ class ColumnNameAnnotationHandler:
         except (NameError, AttributeError, TypeError):
             # Fallback to __annotations__ if get_type_hints fails
             # (e.g., due to forward references or other issues)
-            hints = getattr(new_class, '__annotations__', {})
+            hints = getattr(new_class, "__annotations__", {})
 
         for field_name, field_type in hints.items():
-            column_name = ColumnNameAnnotationHandler._extract_and_validate_column_name(
-                field_name,
-                field_type
-            )
+            column_name = ColumnNameAnnotationHandler._extract_and_validate_column_name(field_name, field_type)
             if column_name:
                 field_column_names[field_name] = column_name
 
-        setattr(new_class, '__field_column_names__', field_column_names)
+        new_class.__field_column_names__ = field_column_names
 
     @staticmethod
     def _extract_and_validate_column_name(field_name: str, field_type: Any) -> Optional[str]:
@@ -71,16 +69,15 @@ class ColumnNameAnnotationHandler:
             TypeError: If more than one UseColumn is found on a single field
         """
         # Check if this is an Annotated type with metadata
-        if not (hasattr(field_type, '__origin__') and
-                hasattr(field_type, '__args__') and
-                hasattr(field_type, '__metadata__')):
+        if not (
+            hasattr(field_type, "__origin__")
+            and hasattr(field_type, "__args__")
+            and hasattr(field_type, "__metadata__")
+        ):
             return None
 
         # Extract UseColumn instances from __metadata__
-        use_columns_found = [
-            arg for arg in field_type.__metadata__
-            if isinstance(arg, UseColumn)
-        ]
+        use_columns_found = [arg for arg in field_type.__metadata__ if isinstance(arg, UseColumn)]
 
         if len(use_columns_found) > 1:
             raise TypeError(
@@ -218,11 +215,9 @@ class ColumnNameMixin:
             for field_name in model_fields.keys()
             if field_name in cls.__field_column_names__
         }
-        
+
         implicit_mappers = [
-            field_name
-            for field_name in model_fields.keys()
-            if field_name not in cls.__field_column_names__
+            field_name for field_name in model_fields.keys() if field_name not in cls.__field_column_names__
         ]
 
         # First pass: Process explicit mappings, raising an error for duplicates among them.
@@ -242,7 +237,7 @@ class ColumnNameMixin:
             column_name = field_name
             if column_name not in reverse_mapping:
                 reverse_mapping[column_name] = field_name
-        
+
         return reverse_mapping
 
     @classmethod
@@ -314,10 +309,7 @@ class ColumnNameMixin:
             result = User._map_fields_to_columns(field_data)
             # Returns: {"id": 1, "name": "Alice"}
         """
-        return {
-            cls._get_column_name(field): value
-            for field, value in field_data.items()
-        }
+        return {cls._get_column_name(field): value for field, value in field_data.items()}
 
     @classmethod
     def _map_columns_to_fields(cls, column_data: Dict[str, Any]) -> Dict[str, Any]:
@@ -338,7 +330,4 @@ class ColumnNameMixin:
             result = User._map_columns_to_fields(column_data)
             # Returns: {"user_id": 1, "user_name": "Alice"}
         """
-        return {
-            cls._get_field_name(column): value
-            for column, value in column_data.items()
-        }
+        return {cls._get_field_name(column): value for column, value in column_data.items()}

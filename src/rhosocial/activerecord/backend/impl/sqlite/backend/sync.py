@@ -20,11 +20,12 @@ from ..transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
 from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions, UpdateOptions
 from rhosocial.activerecord.backend.result import QueryResult
 
 
-class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
+class SQLiteBackend(IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend):
     """Synchronous SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
@@ -66,6 +67,13 @@ class SQLiteBackend(SQLiteBackendMixin, StorageBackend):
     @property
     def dialect(self) -> SQLDialectBase:
         return self._dialect
+
+    def _create_introspector(self):
+        from ..introspection import SyncSQLiteIntrospector
+        from rhosocial.activerecord.backend.introspection.executor import (
+            SyncIntrospectorExecutor,
+        )
+        return SyncSQLiteIntrospector(self, SyncIntrospectorExecutor(self))
 
     def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
         """Set a pragma parameter at runtime.

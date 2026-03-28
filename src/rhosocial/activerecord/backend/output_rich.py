@@ -33,6 +33,7 @@ class RichOutputProvider(OutputProvider):
     def display_results(self, data: List[Dict[str, Any]], **kwargs):
         use_ascii = kwargs.get("use_ascii", False)
         box_style = box.ASCII if use_ascii else self.box_style
+        title = kwargs.get("title")
         if not isinstance(data, list) or not all(isinstance(i, dict) for i in data):
             self.console.print(data)
             return
@@ -40,6 +41,10 @@ class RichOutputProvider(OutputProvider):
         if not data:
             self.display_no_data()
             return
+
+        # Print title if provided
+        if title:
+            self.console.print(f"\n[bold cyan]{title}[/bold cyan]")
 
         table = Table(show_header=True, header_style="bold magenta", box=box_style)
         headers = list(data[0].keys())

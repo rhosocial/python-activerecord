@@ -1,11 +1,12 @@
 # src/rhosocial/activerecord/field/version.py
 """Module providing version control functionality."""
+
 from typing import Any, Dict, List
 
 from ..backend.errors import DatabaseError
 from ..backend.expression import SQLPredicate, SQLValueExpression
 from ..backend.result import QueryResult
-from ..interface import IActiveRecord, ModelEvent
+from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
 
 
@@ -57,6 +58,7 @@ class Version:
             Expression object representing the version condition
         """
         from ..backend.expression.core import Column
+
         # Use operator overloading: Column == value (automatically converted to Literal)
         return Column(dialect, self.db_column) == self.value
 
@@ -70,15 +72,16 @@ class Version:
             Expression object to increment version
         """
         from ..backend.expression.core import Column
+
         # Use operator overloading: Column + value (automatically converted to Literal)
         return Column(dialect, self.db_column) + self.increment_by
 
     def __eq__(self, other: object) -> bool:
         if not isinstance(other, Version):
             return NotImplemented
-        return (self.value == other.value and
-                self.increment_by == other.increment_by and
-                self.db_column == other.db_column)
+        return (
+            self.value == other.value and self.increment_by == other.increment_by and self.db_column == other.db_column
+        )
 
     def __str__(self) -> str:
         return str(self.value)
@@ -99,7 +102,7 @@ class OptimisticLockMixin(IUpdateBehavior):
     def __init__(self, **data):
         """Initialize mixin and register event handler"""
         super().__init__(**data)
-        version_value = data.get('version', 1)
+        version_value = data.get("version", 1)
         self._version = Version(value=version_value, increment_by=1)
         self.on(ModelEvent.AFTER_SAVE, self._handle_version_after_save)
 
@@ -120,13 +123,12 @@ class OptimisticLockMixin(IUpdateBehavior):
         """Add version increment to update expressions using expression system"""
         if not self.is_new_record:
             backend = self.backend()
-            return {
-                self._version.db_column: self._version.get_update_expression(backend.dialect)
-            }
+            return {self._version.db_column: self._version.get_update_expression(backend.dialect)}
         return {}
 
-    def _handle_version_after_save(self, instance: 'OptimisticLockMixin', *,
-                                   is_new: bool = False, result: 'QueryResult' = None, **kwargs) -> None:
+    def _handle_version_after_save(
+        self, instance: "OptimisticLockMixin", *, is_new: bool = False, result: "QueryResult" = None, **kwargs
+    ) -> None:
         """Handle version management after save
 
         Args:
@@ -154,7 +156,7 @@ class OptimisticLockMixin(IUpdateBehavior):
                             self._version = Version(
                                 value=new_version,
                                 increment_by=self._version.increment_by,
-                                db_column=self._version.db_column
+                                db_column=self._version.db_column,
                             )
                             return  # Successfully updated from returned data
                 # If result.data is a dictionary (single row)
@@ -164,7 +166,7 @@ class OptimisticLockMixin(IUpdateBehavior):
                         self._version = Version(
                             value=new_version,
                             increment_by=self._version.increment_by,
-                            db_column=self._version.db_column
+                            db_column=self._version.db_column,
                         )
                         return  # Successfully updated from returned data
 

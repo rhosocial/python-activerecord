@@ -2,10 +2,25 @@
 """
 Query building interfaces for ActiveRecord implementation.
 """
+
 from abc import ABC, abstractmethod
 from threading import local
-from typing import Any, Dict, List, Optional, Tuple, Union, TypeVar, Type, Iterator, ItemsView, KeysView, \
-    ValuesView, Mapping, overload
+from typing import (
+    Any,
+    Dict,
+    List,
+    Optional,
+    Tuple,
+    Union,
+    TypeVar,
+    Type,
+    Iterator,
+    ItemsView,
+    KeysView,
+    ValuesView,
+    Mapping,
+    overload,
+)
 from typing import Protocol
 from typing_extensions import runtime_checkable
 
@@ -14,8 +29,8 @@ from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression.bases import ToSQLProtocol, BaseExpression, SQLPredicate
 from ..backend.expression.query_parts import WhereClause, GroupByHavingClause, OrderByClause, LimitOffsetClause
 
-K = TypeVar('K')
-V = TypeVar('V')
+K = TypeVar("K")
+V = TypeVar("V")
 
 
 class ThreadSafeDict(Dict[K, V]):
@@ -48,9 +63,9 @@ class ThreadSafeDict(Dict[K, V]):
         initial_data = {}
         if args:
             if len(args) > 1:
-                raise TypeError('ThreadSafeDict expected at most 1 argument, got %d' % len(args))
+                raise TypeError("ThreadSafeDict expected at most 1 argument, got %d" % len(args))
             arg = args[0]
-            if hasattr(arg, 'items'):
+            if hasattr(arg, "items"):
                 # Mapping-like object
                 initial_data.update(arg)
             else:
@@ -66,7 +81,7 @@ class ThreadSafeDict(Dict[K, V]):
         Returns:
             dict: Thread-local dictionary for the current thread
         """
-        if not hasattr(self._local, 'data'):
+        if not hasattr(self._local, "data"):
             self._local.data = {}
         return self._local.data
 
@@ -117,7 +132,7 @@ class ThreadSafeDict(Dict[K, V]):
         """Remove all items from the thread-local dictionary."""
         self.__ensure_data().clear()
 
-    def copy(self) -> 'ThreadSafeDict[K, V]':
+    def copy(self) -> "ThreadSafeDict[K, V]":
         """Return a shallow copy of the thread-local dictionary."""
         result = ThreadSafeDict()
         result._local.data = self.__ensure_data().copy()
@@ -173,11 +188,11 @@ class ThreadSafeDict(Dict[K, V]):
         data = self.__ensure_data()
         if args:
             if len(args) > 1:
-                raise TypeError('update expected at most 1 argument, got %d' % len(args))
+                raise TypeError("update expected at most 1 argument, got %d" % len(args))
             other = args[0]
             if isinstance(other, Mapping):
                 data.update(other)
-            elif hasattr(other, 'keys'):
+            elif hasattr(other, "keys"):
                 data.update({k: other[k] for k in other.keys()})
             else:
                 for key, value in other:
@@ -218,7 +233,7 @@ class IBackend(Protocol):
     query execution across different database systems.
     """
 
-    def backend(self) -> 'StorageBackend':
+    def backend(self) -> "StorageBackend":
         """Get the storage backend for this query.
 
         Returns:
@@ -236,7 +251,7 @@ class IAsyncBackend(Protocol):
     query execution across different database systems.
     """
 
-    def backend(self) -> 'AsyncStorageBackend':
+    def backend(self) -> "AsyncStorageBackend":
         """Get the async storage backend for this query.
 
         Returns:
@@ -269,7 +284,7 @@ class IQueryBuilding(Protocol):
     # endregion
 
     @overload
-    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQueryBuilding':
+    def where(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> "IQueryBuilding":
         """
         Add AND condition to the query using a SQL placeholder string.
 
@@ -298,7 +313,7 @@ class IQueryBuilding(Protocol):
         ...
 
     @overload
-    def where(self, condition: SQLPredicate, params: None = None) -> 'IQueryBuilding':
+    def where(self, condition: SQLPredicate, params: None = None) -> "IQueryBuilding":
         """
         Add AND condition to the query using a predicate expression.
 
@@ -352,7 +367,7 @@ class IQueryBuilding(Protocol):
         """
         pass
 
-    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> 'IQueryBuilding':
+    def select(self, *columns: Union[str, BaseExpression], append: bool = False) -> "IQueryBuilding":
         """
         Select specific columns or expressions to retrieve from the query.
 
@@ -385,7 +400,9 @@ class IQueryBuilding(Protocol):
         """
         pass
 
-    def order_by(self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]) -> 'IQueryBuilding':
+    def order_by(
+        self, *clauses: Union[str, BaseExpression, Tuple[Union[BaseExpression, str], str]]
+    ) -> "IQueryBuilding":
         """
         Add ORDER BY clauses to the query.
 
@@ -417,7 +434,7 @@ class IQueryBuilding(Protocol):
         """
         pass
 
-    def limit(self, count: Union[int, BaseExpression]) -> 'IQueryBuilding':
+    def limit(self, count: Union[int, BaseExpression]) -> "IQueryBuilding":
         """
         Add LIMIT clause to restrict the number of rows returned.
 
@@ -441,7 +458,7 @@ class IQueryBuilding(Protocol):
         """
         pass
 
-    def offset(self, count: Union[int, BaseExpression]) -> 'IQueryBuilding':
+    def offset(self, count: Union[int, BaseExpression]) -> "IQueryBuilding":
         """
         Add OFFSET clause to skip a specified number of rows.
 
@@ -466,7 +483,7 @@ class IQueryBuilding(Protocol):
         """
         pass
 
-    def group_by(self, *columns: Union[str, BaseExpression]) -> 'IQueryBuilding':
+    def group_by(self, *columns: Union[str, BaseExpression]) -> "IQueryBuilding":
         """
         Add GROUP BY columns for complex aggregations.
 
@@ -489,12 +506,15 @@ class IQueryBuilding(Protocol):
             >>> query = User.query().select(User.c.status, count(User.c.id).as_('count')).group_by('status')
 
             # Group by multiple columns
-            >>> query = User.query().select('department', 'status', count(User.c.id).as_('count')).group_by('department', 'status')
+            >>> query = (
+            ...     User.query().select('department', 'status', count(User.c.id).as_('count'))
+            ...     .group_by('department', 'status')
+            ... )
         """
         pass
 
     @overload
-    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> 'IQueryBuilding':
+    def having(self, condition: str, params: Optional[Union[tuple, List[Any]]] = None) -> "IQueryBuilding":
         """
         Add HAVING condition using a SQL placeholder string for complex aggregations.
 
@@ -520,7 +540,7 @@ class IQueryBuilding(Protocol):
         ...
 
     @overload
-    def having(self, condition: SQLPredicate, params: None = None) -> 'IQueryBuilding':
+    def having(self, condition: SQLPredicate, params: None = None) -> "IQueryBuilding":
         """
         Add HAVING condition using a predicate expression for complex aggregations.
 
@@ -541,7 +561,7 @@ class IQueryBuilding(Protocol):
         """
         ...
 
-    def having(self, condition, params=None) -> 'IQueryBuilding':
+    def having(self, condition, params=None) -> "IQueryBuilding":
         """
         Add HAVING condition for complex aggregations.
 
@@ -567,7 +587,7 @@ class IQueryBuilding(Protocol):
         """
         pass
 
-    def explain(self, **kwargs) -> 'IQueryBuilding':
+    def explain(self, **kwargs) -> "IQueryBuilding":
         """
         Enable EXPLAIN for the subsequent query execution.
 
@@ -676,9 +696,9 @@ class IAsyncQuery(IAsyncBackend, ToSQLProtocol, ABC):
     - ABC: Abstract base class for enforceable contracts
     """
 
-    _backend: 'AsyncStorageBackend'
+    _backend: "AsyncStorageBackend"
 
-    def __init__(self, backend: 'AsyncStorageBackend'):
+    def __init__(self, backend: "AsyncStorageBackend"):
         """
         Initialize the query with a backend.
 
@@ -724,7 +744,7 @@ class IActiveQuery(IQuery, IQueryBuilding):
     methods and properties intact.
     """
 
-    model_class: Type['IActiveRecord']
+    model_class: Type["IActiveRecord"]
     """
     The model class that this query operates on and returns instances of.
 
@@ -734,7 +754,7 @@ class IActiveQuery(IQuery, IQueryBuilding):
     """
 
     @abstractmethod
-    def all(self) -> List['IActiveRecord']:
+    def all(self) -> List["IActiveRecord"]:
         """
         Execute the query and return all matching records as model instances.
 
@@ -761,7 +781,7 @@ class IActiveQuery(IQuery, IQueryBuilding):
         pass
 
     @abstractmethod
-    def one(self) -> Optional['IActiveRecord']:
+    def one(self) -> Optional["IActiveRecord"]:
         """
         Execute the query and return the first matching record as a model instance.
 
@@ -798,10 +818,10 @@ class IAsyncActiveQuery(IAsyncQuery, IQueryBuilding):
     return model instances instead of raw dictionaries.
     """
 
-    model_class: Type['IAsyncActiveRecord']
+    model_class: Type["IAsyncActiveRecord"]
 
     @abstractmethod
-    async def all(self) -> List['IAsyncActiveRecord']:
+    async def all(self) -> List["IAsyncActiveRecord"]:
         """Execute query asynchronously and return all matching records as model instances.
 
         Returns:
@@ -810,7 +830,7 @@ class IAsyncActiveQuery(IAsyncQuery, IQueryBuilding):
         pass
 
     @abstractmethod
-    async def one(self) -> Optional['IAsyncActiveRecord']:
+    async def one(self) -> Optional["IAsyncActiveRecord"]:
         """Execute query asynchronously and return the first matching record as a model instance.
 
         Returns:
@@ -859,7 +879,7 @@ class ISetOperationQuery(IQuery):
     """
 
     @abstractmethod
-    def union(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+    def union(self, other: Union["ISetOperationQuery", "IQuery"]) -> "ISetOperationQuery":
         """
         Perform a UNION operation with another query, combining results and removing duplicates.
 
@@ -881,7 +901,7 @@ class ISetOperationQuery(IQuery):
         ...
 
     @abstractmethod
-    def intersect(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+    def intersect(self, other: Union["ISetOperationQuery", "IQuery"]) -> "ISetOperationQuery":
         """
         Perform an INTERSECT operation with another query, returning only common rows.
 
@@ -903,7 +923,7 @@ class ISetOperationQuery(IQuery):
         ...
 
     @abstractmethod
-    def except_(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+    def except_(self, other: Union["ISetOperationQuery", "IQuery"]) -> "ISetOperationQuery":
         """
         Perform an EXCEPT operation with another query, returning rows from first query not in second.
 
@@ -925,7 +945,7 @@ class ISetOperationQuery(IQuery):
         """
         ...
 
-    def __or__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+    def __or__(self, other: Union["ISetOperationQuery", "IQuery"]) -> "ISetOperationQuery":
         """
         Implement the | operator for UNION operations.
 
@@ -939,7 +959,7 @@ class ISetOperationQuery(IQuery):
         """
         return self.union(other)
 
-    def __and__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+    def __and__(self, other: Union["ISetOperationQuery", "IQuery"]) -> "ISetOperationQuery":
         """
         Implement the & operator for INTERSECT operations.
 
@@ -953,7 +973,7 @@ class ISetOperationQuery(IQuery):
         """
         return self.intersect(other)
 
-    def __sub__(self, other: Union['ISetOperationQuery', 'IQuery']) -> 'ISetOperationQuery':
+    def __sub__(self, other: Union["ISetOperationQuery", "IQuery"]) -> "ISetOperationQuery":
         """
         Implement the - operator for EXCEPT operations.
 
@@ -985,7 +1005,7 @@ class IAsyncSetOperationQuery(IAsyncQuery):
     """
 
     @abstractmethod
-    def union(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+    def union(self, other: Union["IAsyncSetOperationQuery", "IAsyncQuery"]) -> "IAsyncSetOperationQuery":
         """
         Perform a UNION operation with another async query, combining results and removing duplicates.
 
@@ -1007,7 +1027,7 @@ class IAsyncSetOperationQuery(IAsyncQuery):
         ...
 
     @abstractmethod
-    def intersect(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+    def intersect(self, other: Union["IAsyncSetOperationQuery", "IAsyncQuery"]) -> "IAsyncSetOperationQuery":
         """
         Perform an INTERSECT operation with another async query, returning only common rows.
 
@@ -1029,7 +1049,7 @@ class IAsyncSetOperationQuery(IAsyncQuery):
         ...
 
     @abstractmethod
-    def except_(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+    def except_(self, other: Union["IAsyncSetOperationQuery", "IAsyncQuery"]) -> "IAsyncSetOperationQuery":
         """
         Perform an EXCEPT operation with another async query, returning rows from first query not in second.
 
@@ -1051,7 +1071,7 @@ class IAsyncSetOperationQuery(IAsyncQuery):
         """
         ...
 
-    def __or__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+    def __or__(self, other: Union["IAsyncSetOperationQuery", "IAsyncQuery"]) -> "IAsyncSetOperationQuery":
         """
         Implement the | operator for UNION operations.
 
@@ -1065,7 +1085,7 @@ class IAsyncSetOperationQuery(IAsyncQuery):
         """
         return self.union(other)
 
-    def __and__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+    def __and__(self, other: Union["IAsyncSetOperationQuery", "IAsyncQuery"]) -> "IAsyncSetOperationQuery":
         """
         Implement the & operator for INTERSECT operations.
 
@@ -1079,7 +1099,7 @@ class IAsyncSetOperationQuery(IAsyncQuery):
         """
         return self.intersect(other)
 
-    def __sub__(self, other: Union['IAsyncSetOperationQuery', 'IAsyncQuery']) -> 'IAsyncSetOperationQuery':
+    def __sub__(self, other: Union["IAsyncSetOperationQuery", "IAsyncQuery"]) -> "IAsyncSetOperationQuery":
         """
         Implement the - operator for EXCEPT operations.
 

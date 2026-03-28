@@ -21,15 +21,16 @@ standard SQL implementations for various features. Each mixin includes:
 This DummyDialect class serves a specific purpose:
 
 - It inherits ALL mixins to provide complete SQL standard coverage
-- It overrides ALL supports_* methods to return True, effectively
-  "enabling all switches"
+- It overrides supports_* methods to return True for SQL generation features,
+  effectively "enabling all switches" for DML/DDL capabilities
+- Introspection capabilities are DISABLED (return False) since dummy backend
+  does not connect to a real database and cannot introspect anything
 - No additional format_* implementations are needed since the mixins
   already provide standard SQL generation
 
 In essence, this file is a "switch board" that combines all mixins and
-turns on every feature flag. The actual SQL generation logic resides in
-the mixin classes, making this dialect a pure composition of standard
-SQL capabilities.
+turns on feature flags for SQL generation (DML/DDL), but not for
+introspection (which requires a real database connection).
 
 For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 1. Inherit the same mixins
@@ -37,7 +38,7 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 3. Override format_* methods where the database deviates from SQL standard
 """
 
-from typing import List
+from typing import List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -70,6 +71,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    # Introspection Protocols
+    IntrospectionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin,
@@ -101,7 +104,12 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    # Introspection Mixin
+    IntrospectionMixin,
 )
+
+if TYPE_CHECKING:
+    from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
 
 
 class DummyDialect(
@@ -135,6 +143,8 @@ class DummyDialect(
     TriggerMixin,
     FunctionMixin,
     GeneratedColumnMixin,
+    # Introspection Mixin
+    IntrospectionMixin,
     # Protocols for type checking
     WindowFunctionSupport,
     CTESupport,
@@ -165,6 +175,8 @@ class DummyDialect(
     TriggerSupport,
     FunctionSupport,
     GeneratedColumnSupport,
+    # Introspection Protocols
+    IntrospectionSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -560,10 +572,64 @@ class DummyDialect(
 
     # endregion
 
+    # region Introspection Support - DISABLED
+    # Dummy backend does not connect to a real database, so introspection
+    # capabilities are not available. All supports_* methods return False.
+
+    def supports_introspection(self) -> bool:
+        """Dummy backend does not support introspection (no real database)."""
+        return False
+
+    def supports_database_info(self) -> bool:
+        """Dummy backend does not support database info query."""
+        return False
+
+    def supports_table_introspection(self) -> bool:
+        """Dummy backend does not support table introspection."""
+        return False
+
+    def supports_column_introspection(self) -> bool:
+        """Dummy backend does not support column introspection."""
+        return False
+
+    def supports_index_introspection(self) -> bool:
+        """Dummy backend does not support index introspection."""
+        return False
+
+    def supports_foreign_key_introspection(self) -> bool:
+        """Dummy backend does not support foreign key introspection."""
+        return False
+
+    def supports_view_introspection(self) -> bool:
+        """Dummy backend does not support view introspection."""
+        return False
+
+    def supports_trigger_introspection(self) -> bool:
+        """Dummy backend does not support trigger introspection."""
+        return False
+
+    # No format_* methods for introspection - the mixin defaults will raise
+    # UnsupportedFeatureError when called, which is the correct behavior.
+
+    # endregion
+
     # region Column Definition with Generated Columns
-    def format_column_definition(self, col_def) -> tuple:
-        """Format a column definition including generated columns."""
-        from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType, GeneratedColumnType
+    def format_column_definition(
+        self, col_def: "ColumnDefinition"
+    ) -> Tuple[str, tuple]:
+        """Format a column definition including generated columns.
+
+        Args:
+            col_def: Column definition object containing name, data type,
+                     constraints, and optional generated column expression.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from rhosocial.activerecord.backend.expression.statements import (
+            ColumnConstraintType,
+            GeneratedColumnType,
+        )
         from rhosocial.activerecord.backend.expression import bases
 
         all_params = []

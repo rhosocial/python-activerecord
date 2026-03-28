@@ -38,6 +38,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SequenceSupport,
     TriggerSupport,
     GeneratedColumnSupport,
+    # Introspection Protocol
+    IntrospectionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -69,7 +71,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
-from .mixins import FTS5Mixin, SQLitePragmaMixin
+from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -99,7 +101,10 @@ _SUGGESTION_GRAPH_MATCH = "SQLite does not support graph MATCH clause."
 _SUGGESTION_ORDERED_SET_AGG = "SQLite does not support ordered-set aggregate functions (WITHIN GROUP)."
 _SUGGESTION_QUALIFY = "SQLite does not support QUALIFY clause. Use a subquery or CTE instead."
 _SUGGESTION_MATERIALIZED_VIEW = "SQLite does not support materialized views."
-_SUGGESTION_MATERIALIZED_VIEW_ALT = "SQLite does not support materialized views. Consider using regular views or creating tables to store precomputed results."
+_SUGGESTION_MATERIALIZED_VIEW_ALT = (
+    "SQLite does not support materialized views. Consider using regular views "
+    "or creating tables to store precomputed results."
+)
 _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
 
 
@@ -136,6 +141,7 @@ class SQLiteDialect(
     # SQLite-specific mixins
     FTS5Mixin,
     SQLitePragmaMixin,
+    SQLiteIntrospectionCapabilityMixin,
     # Protocols for type checking
     CTESupport,
     FilterClauseSupport,
@@ -168,6 +174,8 @@ class SQLiteDialect(
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
+    # Introspection Protocol
+    IntrospectionSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -638,7 +646,7 @@ class SQLiteDialect(
         base_sql = f"{left_sql} {operation}{all_str} {right_sql}"
 
         all_params = list(left_params + right_params)
-        sql_parts = [base_sql]  # 移除了不必要的外层括号
+        sql_parts = [base_sql]  # removed unnecessary outer parentheses
 
         # Add alias if present
         if alias:
