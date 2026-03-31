@@ -49,7 +49,7 @@ class OrderItem(ActiveRecord):
 ### 约定速查表
 
 | 项目 | 命名规范 | 示例 |
-|-----|---------|------|
+| --- | --- | --- |
 | 模型类名 | PascalCase, 单数 | `User`, `OrderItem` |
 | 表名 | snake_case, 复数 | `users`, `order_items` |
 | 字段名 | snake_case | `first_name`, `created_at` |
@@ -88,7 +88,7 @@ class User(ActiveRecord):
 **决策原则：**
 
 | 场景 | 推荐做法 | 示例 |
-|-----|---------|------|
+| --- | --- | --- |
 | 数据库必填且无默认值 | `field: type` | `username: str` |
 | 数据库必填但有默认值 | `field: type = default` | `is_active: bool = True` |
 | 数据库可空 | `field: Optional[type] = None` | `email: Optional[str] = None` |
@@ -159,7 +159,7 @@ class User(ActiveRecord):
 
 ### 3.1 按模块组织
 
-```
+```text
 my_project/
 ├── models/
 │   ├── __init__.py
@@ -242,7 +242,7 @@ class UserProfile(BaseModel):
 
 ### 3.2 按领域组织（DDD 风格）
 
-```
+```text
 my_project/
 ├── domains/
 │   ├── user/
@@ -427,6 +427,7 @@ CREATE INDEX idx_orders_user_created ON orders(user_id, created_at DESC);
 ```
 
 **复合索引字段顺序原则：**
+
 1. **等值查询字段在前**（`=` 或 `IN`）
 2. **排序字段在后**
 3. **范围查询字段在最后**（`>`, `<`, `BETWEEN`）
@@ -470,9 +471,11 @@ print(f"SQL: {sql}")
 ```
 
 **理想的查询计划：**
+
 - `SEARCH TABLE users USING INDEX idx_users_email (email=?)`
 
 **需要优化的查询计划：**
+
 - `SCAN TABLE users` （全表扫描，慢！）
 
 ### 5.6 性能优化检查清单
@@ -562,9 +565,153 @@ class User(ActiveRecord):
 
 ---
 
+---
+
+## 8. 多个独立连接 (Multiple Independent Connections)
+
+有时你需要两个或多个模型类映射到**相同的表结构，但使用不同的数据库**——例如主写库与分析只读副本、多租户场景中的独立数据库等。
+
+以下两种模式均可在共享字段定义的同时保持连接相互独立。
+
+### 8.1 方式一：子类继承 (Subclass Inheritance)
+
+将共享模型定义为父类，再为每个额外的连接创建空子类。**每个需要独立连接的类都必须**调用 `configure()`。
+
+```python
+from typing import Optional
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+    id: Optional[int] = None
+    name: str
+    email: str
+
+class UserMetric(User):
+    # 空子类——没有新字段或方法
+    pass
+
+# 为每个类分别配置独立连接
+primary_config   = SQLiteConnectionConfig(database="primary.db")
+analytics_config = SQLiteConnectionConfig(database="analytics.db")
+
+User.configure(primary_config, SQLiteBackend)
+UserMetric.configure(analytics_config, SQLiteBackend)  # 不可省略
+
+assert User.__backend__ is not UserMetric.__backend__  # True——完全独立
+```
+
+> ⚠️ **静默继承陷阱**：如果从未调用 `UserMetric.configure()`，Python 的 MRO 会将
+> `UserMetric.__backend__` 静默解析为 `User.__backend__`。两个类将共享同一个连接，
+> **不会产生任何报错或警告**。
+>
+> ```python
+> # 危险：只配置了 User
+> User.configure(primary_config, SQLiteBackend)
+> # 忘记调用 UserMetric.configure()——
+> # UserMetric 静默使用 User 的连接！
+> UserMetric.query().all()  # 无报错，读取的是 primary.db
+> ```
+>
+> 推荐在应用启动时添加守卫断言，提前发现遗漏的 `configure()`：
+>
+> ```python
+> def assert_independently_configured(cls):
+>     if "__backend__" not in cls.__dict__ or cls.__dict__["__backend__"] is None:
+>         raise RuntimeError(f"{cls.__name__}.configure() 未被调用")
+>
+> assert_independently_configured(UserMetric)  # 遗漏时抛出 RuntimeError
+> ```
+
+### 8.2 方式二：共享字段 Mixin (Shared Field Mixin)
+
+将公共字段提取到独立的 Mixin 类中。两个模型类分别继承该 Mixin **和** `ActiveRecord`，
+彼此之间没有父子关系。
+
+支持两种等价的写法：
+
+**写法 A——纯 Python 类**（更轻量，无需显式依赖 Pydantic）：
+
+```python
+from typing import Optional, ClassVar
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import FieldProxy
+
+class UserFieldsMixin:
+    """共享字段定义——可被任意数量的独立模型复用。"""
+    id: Optional[int] = None
+    name: str
+    email: str
+
+class User(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+
+class UserMetric(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+```
+
+**写法 B——继承 BaseModel**（显式 Pydantic 继承，IDE 及类型检查工具支持更好）：
+
+```python
+from pydantic import BaseModel
+
+class UserFieldsMixin(BaseModel):
+    id: Optional[int] = None
+    name: str
+    email: str
+
+class User(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+
+class UserMetric(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+```
+
+两种写法的运行时行为完全相同。分别为各类配置独立连接：
+
+```python
+User.configure(primary_config, SQLiteBackend)
+UserMetric.configure(analytics_config, SQLiteBackend)
+```
+
+若省略 `UserMetric.configure()`，首次使用时会立即抛出 `DatabaseError`——不存在静默的 MRO 回退：
+
+```python
+# 只配置了 User，未配置 UserMetric
+User.configure(primary_config, SQLiteBackend)
+
+UserMetric.query().all()  # 抛出：DatabaseError: No backend configured
+```
+
+### 8.3 对比 (Comparison)
+
+| | 子类继承 | 共享字段 Mixin |
+| --- | --- | --- |
+| **遗漏 `configure()` 的表现** | 静默：继承父类连接，无任何提示 | 显式：立即抛出 `DatabaseError` |
+| **语义关系** | IS-A（`UserMetric` 是一种 `User`） | HAS（`User` 和 `UserMetric` 共享字段） |
+| **字段维护** | 单一位置（父类） | 单一位置（Mixin 类） |
+| **与项目惯例一致** | 否 | 是（`TimestampMixin`、`SoftDeleteMixin` 等） |
+| **代码量** | 最少——一行空子类 | 稍多——需单独定义 Mixin 类 |
+
+两种方式均完全受支持。根据团队偏好及模型间的语义关系自行选择。
+
+可运行示例参见：[`docs/examples/chapter_03_modeling/multiple_connections_inheritance.py`](../../../examples/chapter_03_modeling/multiple_connections_inheritance.py)
+和 [`docs/examples/chapter_03_modeling/multiple_connections_mixin.py`](../../../examples/chapter_03_modeling/multiple_connections_mixin.py)。
+
+> 💡 **AI 提示词：** "我有两个模型类映射到同一张表，但需要使用不同的数据库连接，如何安全地共享字段定义？"
+
+---
+
 ## 另请参阅
 
 - [字段定义](fields.md) — 深入了解 FieldProxy 和字段类型
 - [Mixins](mixins.md) — 复用常见字段和行为
 - [验证与生命周期](validation.md) — Pydantic 验证和模型钩子
+- [线程安全](concurrency.md) — 在 Web 服务器和多线程环境中安全配置模型
+- [环境隔离配置](configuration_management.md) — dev / test / prod 配置管理
+- [只读分析模型](readonly_models.md) — 连接只读副本或分析数据库的模型
+- [大批量数据处理](batch_processing.md) — 分块读取、批量写入与大规模数据迁移
 - [查询速查表](../querying/cheatsheet.md) — 高效查询技巧
