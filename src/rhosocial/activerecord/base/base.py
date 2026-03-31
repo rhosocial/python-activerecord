@@ -1,7 +1,6 @@
 # src/rhosocial/activerecord/base/base.py
 """Core BaseActiveRecord implementation."""
 
-import inspect
 import logging
 from pydantic.fields import FieldInfo
 from typing import Any, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
@@ -16,18 +15,10 @@ from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IUpdateBehavior
+from ..logging import LoggingMixin
 
 
-class CustomModuleFormatter(logging.Formatter):
-    def format(self, record):
-        import os
-
-        module_dir = os.path.basename(os.path.dirname(record.pathname))
-        record.subpackage_module = f"{module_dir}-{record.filename}"
-        return super().format(record)
-
-
-class BaseActiveRecord(IActiveRecord):
+class BaseActiveRecord(LoggingMixin, IActiveRecord):
     """
     Core ActiveRecord implementation providing the fundamental ORM functionality.
     """
@@ -41,8 +32,7 @@ class BaseActiveRecord(IActiveRecord):
         cls.__backend_class__ = backend_class
 
         backend_instance = backend_class(connection_config=config)
-        if hasattr(cls, "__logger__"):
-            backend_instance.logger = cls.__logger__
+        backend_instance.logger = cls.get_logger()
 
         cls.__backend__ = backend_instance
         if hasattr(cls, "_dummy_backend") and cls._dummy_backend is not None:
@@ -479,65 +469,6 @@ class BaseActiveRecord(IActiveRecord):
             raise DatabaseError("No backend configured")
         return cls.backend().transaction()
 
-    # region Logging Methods
-
-    @classmethod
-    def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
-        if not hasattr(cls, "__logger__"):
-            return
-        logger = cls.__logger__
-        if logger is None or not isinstance(logger, logging.Logger):
-            return
-        if formatter is None:
-            formatter = CustomModuleFormatter(
-                "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
-            )
-        if logger.handlers:
-            for handler in logger.handlers:
-                handler.setFormatter(formatter)
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers:
-            if not isinstance(handler.formatter, CustomModuleFormatter):
-                handler.setFormatter(formatter)
-
-    @classmethod
-    def set_logger(cls, logger: logging.Logger) -> None:
-        if logger is not None and not isinstance(logger, logging.Logger):
-            raise ValueError("logger must be an instance of logging.Logger")
-        cls.__logger__ = logger
-
-    @classmethod
-    def log(cls, level: int, msg: str, *args, **kwargs) -> None:
-        if not hasattr(cls, "__logger__"):
-            return
-        logger = cls.__logger__
-        if logger is None:
-            return
-        if not isinstance(logger, logging.Logger):
-            return
-        current_frame = inspect.currentframe().f_back
-        stack_level = 1
-        while current_frame:
-            if current_frame.f_globals["__name__"] != "ActiveRecord":
-                break
-            current_frame = current_frame.f_back
-            stack_level += 1
-        if current_frame:
-            stack_level += 1
-        if "offset" in kwargs:
-            stack_level += kwargs.pop("offset")
-        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or (
-            not logger.handlers
-            and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)
-        ):
-            cls.setup_logger()
-        level_name = logging.getLevelName(level).lower()
-        method = getattr(logger, level_name, None)
-        if method is not None:
-            method(msg, *args, stacklevel=stack_level, **kwargs)
-        else:
-            logger.log(level, msg, *args, **kwargs)
-
     @classmethod
     def get_column_adapters(cls) -> Dict[str, Tuple["SQLTypeAdapter", Type]]:
         adapters_map: Dict[str, Tuple["SQLTypeAdapter", Type]] = {}
@@ -570,7 +501,7 @@ class BaseActiveRecord(IActiveRecord):
         return adapters_map
 
 
-class AsyncBaseActiveRecord(IAsyncActiveRecord):
+class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
     """
     Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """
@@ -584,8 +515,7 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         cls.__backend_class__ = backend_class
 
         backend_instance = backend_class(connection_config=config)
-        if hasattr(cls, "__logger__"):
-            backend_instance.logger = cls.__logger__
+        backend_instance.logger = cls.get_logger()
 
         cls.__backend__ = backend_instance
         if hasattr(cls, "_dummy_backend") and cls._dummy_backend is not None:
@@ -1021,65 +951,6 @@ class AsyncBaseActiveRecord(IAsyncActiveRecord):
         if cls.backend() is None:
             raise DatabaseError("No backend configured")
         return cls.backend().transaction()
-
-    # region Logging Methods
-
-    @classmethod
-    def setup_logger(cls, formatter: Optional[logging.Formatter] = None) -> None:
-        if not hasattr(cls, "__logger__"):
-            return
-        logger = cls.__logger__
-        if logger is None or not isinstance(logger, logging.Logger):
-            return
-        if formatter is None:
-            formatter = CustomModuleFormatter(
-                "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
-            )
-        if logger.handlers:
-            for handler in logger.handlers:
-                handler.setFormatter(formatter)
-        root_logger = logging.getLogger()
-        for handler in root_logger.handlers:
-            if not isinstance(handler.formatter, CustomModuleFormatter):
-                handler.setFormatter(formatter)
-
-    @classmethod
-    def set_logger(cls, logger: logging.Logger) -> None:
-        if logger is not None and not isinstance(logger, logging.Logger):
-            raise ValueError("logger must be an instance of logging.Logger")
-        cls.__logger__ = logger
-
-    @classmethod
-    def log(cls, level: int, msg: str, *args, **kwargs) -> None:
-        if not hasattr(cls, "__logger__"):
-            return
-        logger = cls.__logger__
-        if logger is None:
-            return
-        if not isinstance(logger, logging.Logger):
-            return
-        current_frame = inspect.currentframe().f_back
-        stack_level = 1
-        while current_frame:
-            if current_frame.f_globals["__name__"] != "ActiveRecord":
-                break
-            current_frame = current_frame.f_back
-            stack_level += 1
-        if current_frame:
-            stack_level += 1
-        if "offset" in kwargs:
-            stack_level += kwargs.pop("offset")
-        if (logger.handlers and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logger.handlers)) or (
-            not logger.handlers
-            and not any(isinstance(h.formatter, CustomModuleFormatter) for h in logging.getLogger().handlers)
-        ):
-            cls.setup_logger()
-        level_name = logging.getLevelName(level).lower()
-        method = getattr(logger, level_name, None)
-        if method is not None:
-            method(msg, *args, stacklevel=stack_level, **kwargs)
-        else:
-            logger.log(level, msg, *args, **kwargs)
 
     @classmethod
     def get_column_adapters(cls) -> Dict[str, Tuple["SQLTypeAdapter", Type]]:
