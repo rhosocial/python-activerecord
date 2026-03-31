@@ -20,12 +20,19 @@ from ..async_transaction import AsyncSQLiteTransactionManager
 from rhosocial.activerecord.backend.base import AsyncStorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.explain import AsyncExplainBackendMixin
 from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
 from rhosocial.activerecord.backend.options import InsertOptions, UpdateOptions, DeleteOptions
 from rhosocial.activerecord.backend.result import QueryResult
+from ..explain import (
+    SQLiteExplainRow,
+    SQLiteExplainQueryPlanRow,
+    SQLiteExplainResult,
+    SQLiteExplainQueryPlanResult,
+)
 
 
-class AsyncSQLiteBackend(IntrospectorBackendMixin, SQLiteBackendMixin, AsyncStorageBackend):
+class AsyncSQLiteBackend(AsyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBackendMixin, AsyncStorageBackend):
     """Async SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
@@ -70,6 +77,18 @@ class AsyncSQLiteBackend(IntrospectorBackendMixin, SQLiteBackendMixin, AsyncStor
     def dialect(self) -> SQLiteDialect:
         """Get SQL dialect."""
         return self._dialect
+
+    def _parse_explain_result(self, raw_rows, sql, duration):
+        """Return a SQLite-specific typed EXPLAIN result (shared with sync backend)."""
+        if "QUERY PLAN" in sql.upper():
+            rows = [SQLiteExplainQueryPlanRow(**r) for r in raw_rows]
+            return SQLiteExplainQueryPlanResult(
+                raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
+            )
+        rows = [SQLiteExplainRow(**r) for r in raw_rows]
+        return SQLiteExplainResult(
+            raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
+        )
 
     def _create_introspector(self):
         from ..introspection import AsyncSQLiteIntrospector

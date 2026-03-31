@@ -84,6 +84,7 @@ if TYPE_CHECKING:
         QualifyClause,
     )
     from rhosocial.activerecord.backend.expression.statements import (
+        ExplainExpression,
         CreateViewExpression,
         DropViewExpression,
         CreateMaterializedViewExpression,
@@ -315,6 +316,28 @@ class SQLiteDialect(
         """Check if specific EXPLAIN format is supported."""
         # SQLite has limited support for different EXPLAIN formats
         return format_type.upper() in ["TEXT", "DOT"]
+
+    def format_explain_statement(self, expr: "ExplainExpression") -> Tuple[str, tuple]:
+        """Format EXPLAIN / EXPLAIN QUERY PLAN for SQLite.
+
+        SQLite supports two forms:
+        - ``EXPLAIN <stmt>``         — shows the bytecode program
+        - ``EXPLAIN QUERY PLAN <stmt>`` — shows the query strategy
+
+        ExplainType.QUERY_PLAN maps to the second form; all other types
+        (and the default None) use the first form.  The ``analyze`` flag is
+        not meaningful for SQLite and is silently ignored.
+        """
+        from rhosocial.activerecord.backend.expression.statements import ExplainType
+        statement_sql, statement_params = expr.statement.to_sql()
+        options = expr.options
+        if (
+            options is not None
+            and hasattr(options, "type")
+            and options.type == ExplainType.QUERY_PLAN
+        ):
+            return f"EXPLAIN QUERY PLAN {statement_sql}", statement_params
+        return f"EXPLAIN {statement_sql}", statement_params
 
     def supports_graph_match(self) -> bool:
         """Whether graph query MATCH clause is supported."""
