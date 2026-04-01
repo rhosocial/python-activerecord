@@ -19,6 +19,14 @@ from .transaction import SQLiteTransactionManager, SQLiteTransactionMixin
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteExtensionMixin
 
+# EXPLAIN result types
+from .explain import (
+    SQLiteExplainRow,
+    SQLiteExplainQueryPlanRow,
+    SQLiteExplainResult,
+    SQLiteExplainQueryPlanResult,
+)
+
 # Extension framework
 from .extension import (
     ExtensionType,
@@ -108,6 +116,11 @@ __all__ = [
     "FTS5Mixin",
     "SQLitePragmaMixin",
     "SQLiteExtensionMixin",
+    # EXPLAIN result types
+    "SQLiteExplainRow",
+    "SQLiteExplainQueryPlanRow",
+    "SQLiteExplainResult",
+    "SQLiteExplainQueryPlanResult",
     # Extension framework
     "ExtensionType",
     "SQLiteExtensionInfo",

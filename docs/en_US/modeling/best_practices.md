@@ -49,7 +49,7 @@ class OrderItem(ActiveRecord):
 ### Quick Reference
 
 | Item | Convention | Example |
-|-----|---------|------|
+| --- | --- | --- |
 | Model Class | PascalCase, Singular | `User`, `OrderItem` |
 | Table Name | snake_case, Plural | `users`, `order_items` |
 | Field Name | snake_case | `first_name`, `created_at` |
@@ -88,7 +88,7 @@ class User(ActiveRecord):
 **Decision Guidelines:**
 
 | Scenario | Recommended Approach | Example |
-|-----|---------|------|
+| --- | --- | --- |
 | DB Required, No Default | `field: type` | `username: str` |
 | DB Required, Has Default | `field: type = default` | `is_active: bool = True` |
 | DB Nullable | `field: Optional[type] = None` | `email: Optional[str] = None` |
@@ -159,7 +159,7 @@ When projects grow, proper organization becomes crucial.
 
 ### 3.1 Organize by Module
 
-```
+```text
 my_project/
 ├── models/
 │   ├── __init__.py
@@ -242,7 +242,7 @@ class UserProfile(BaseModel):
 
 ### 3.2 Organize by Domain (DDD Style)
 
-```
+```text
 my_project/
 ├── domains/
 │   ├── user/
@@ -427,6 +427,7 @@ CREATE INDEX idx_orders_user_created ON orders(user_id, created_at DESC);
 ```
 
 **Composite Index Field Order Principles:**
+
 1. **Equality filter fields first** (`=` or `IN`)
 2. **Sort fields second**
 3. **Range filter fields last** (`>`, `<`, `BETWEEN`)
@@ -470,9 +471,11 @@ print(f"SQL: {sql}")
 ```
 
 **Ideal Query Plan:**
+
 - `SEARCH TABLE users USING INDEX idx_users_email (email=?)`
 
 **Query Plan Needing Optimization:**
+
 - `SCAN TABLE users` (Full table scan, slow!)
 
 ### 5.6 Performance Optimization Checklist
@@ -562,9 +565,165 @@ Good model design should:
 
 ---
 
+---
+
+## 8. Multiple Independent Connections
+
+Sometimes you need two or more model classes that map to the **same table schema but
+different databases** -- for example, a primary write database and an analytics read
+replica, or separate databases per tenant in a multi-tenant system.
+
+There are two common patterns for sharing field definitions while keeping connections
+independent.
+
+### 8.1 Approach 1: Subclass Inheritance
+
+Define the shared model as a base class, then create an empty subclass for each
+additional connection.  Call `configure()` on **every** class that needs its own
+connection.
+
+```python
+from typing import Optional
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+
+class User(ActiveRecord):
+    __table_name__ = "users"
+    id: Optional[int] = None
+    name: str
+    email: str
+
+class UserMetric(User):
+    # Empty subclass -- no new fields or methods
+    pass
+
+# Configure each class with its own connection
+primary_config   = SQLiteConnectionConfig(database="primary.db")
+analytics_config = SQLiteConnectionConfig(database="analytics.db")
+
+User.configure(primary_config, SQLiteBackend)
+UserMetric.configure(analytics_config, SQLiteBackend)  # Must not be omitted
+
+assert User.__backend__ is not UserMetric.__backend__  # True -- fully independent
+```
+
+> ⚠️ **Silent inheritance trap**: if `UserMetric.configure()` is never called, Python's
+> MRO will silently resolve `UserMetric.__backend__` to `User.__backend__`.  Both classes
+> will share the same connection with **no error and no warning**.
+>
+> ```python
+> # Danger: only User is configured
+> User.configure(primary_config, SQLiteBackend)
+> # UserMetric.configure() forgotten --
+> # UserMetric silently uses User's connection!
+> UserMetric.query().all()  # No error; reads from primary.db
+> ```
+>
+> To catch this early, add a guard at application startup:
+>
+> ```python
+> def assert_independently_configured(cls):
+>     if "__backend__" not in cls.__dict__ or cls.__dict__["__backend__"] is None:
+>         raise RuntimeError(f"{cls.__name__}.configure() was not called")
+>
+> assert_independently_configured(UserMetric)  # Raises RuntimeError if forgotten
+> ```
+
+### 8.2 Approach 2: Shared Field Mixin
+
+Extract the common fields into a separate mixin class.  Both model classes inherit
+from the mixin **and** `ActiveRecord` independently -- they have no parent-child
+relationship with each other.
+
+Two equivalent styles are supported:
+
+**Style A -- plain Python class** (lighter, no explicit Pydantic dependency):
+
+```python
+from typing import Optional, ClassVar
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.base import FieldProxy
+
+class UserFieldsMixin:
+    """Shared field definitions -- reused by any number of independent models."""
+    id: Optional[int] = None
+    name: str
+    email: str
+
+class User(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+
+class UserMetric(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+    c: ClassVar[FieldProxy] = FieldProxy()
+```
+
+**Style B -- BaseModel subclass** (explicit Pydantic inheritance, better IDE / type
+checker support):
+
+```python
+from pydantic import BaseModel
+
+class UserFieldsMixin(BaseModel):
+    id: Optional[int] = None
+    name: str
+    email: str
+
+class User(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+
+class UserMetric(UserFieldsMixin, ActiveRecord):
+    __table_name__ = "users"
+```
+
+Both styles produce identical runtime behavior.  Configure each class independently:
+
+```python
+User.configure(primary_config, SQLiteBackend)
+UserMetric.configure(analytics_config, SQLiteBackend)
+```
+
+If `UserMetric.configure()` is omitted, a `DatabaseError` is raised immediately on
+first use -- there is no silent MRO fallback:
+
+```python
+# Only User is configured
+User.configure(primary_config, SQLiteBackend)
+
+UserMetric.query().all()  # Raises: DatabaseError: No backend configured
+```
+
+### 8.3 Comparison
+
+| | Subclass Inheritance | Shared Field Mixin |
+| --- | --- | --- |
+| **Missing `configure()` behavior** | Silent: inherits parent's connection | Explicit: raises `DatabaseError` |
+| **Semantic relationship** | IS-A (`UserMetric` is a `User`) | HAS (`User` and `UserMetric` share fields) |
+| **Field maintenance** | Single point (parent class) | Single point (mixin class) |
+| **Consistent with project conventions** | No | Yes (`TimestampMixin`, `SoftDeleteMixin`, etc.) |
+| **Code volume** | Minimal -- one-line empty subclass | Slightly more -- separate mixin class |
+
+Both approaches are fully supported.  Choose based on your team's preference and the
+semantic relationship between your models.
+
+See also: [`docs/examples/chapter_03_modeling/multiple_connections_inheritance.py`](../../../examples/chapter_03_modeling/multiple_connections_inheritance.py)
+and [`docs/examples/chapter_03_modeling/multiple_connections_mixin.py`](../../../examples/chapter_03_modeling/multiple_connections_mixin.py)
+for runnable examples of each pattern.
+
+> 💡 **AI Prompt:** "I have two model classes that map to the same table but need
+> different database connections.  What is the safest way to share field definitions
+> between them?"
+
+---
+
 ## See Also
 
 - [Fields](fields.md) — Deep dive into FieldProxy and field types
 - [Mixins](mixins.md) — Reuse common fields and behaviors
 - [Validation & Lifecycle](validation.md) — Pydantic validation and model hooks
+- [Thread Safety](concurrency.md) — Configuring models safely in web servers and multi-threaded environments
+- [Configuration Management](configuration_management.md) — Environment-based configuration (dev / test / prod)
+- [Read-Only Analytics Models](readonly_models.md) — Models that connect to read replicas or analytics databases
+- [Batch Data Processing](batch_processing.md) — Chunked reads, bulk inserts, and large-scale data migration
 - [Query Cheatsheet](../querying/cheatsheet.md) — Efficient query techniques
