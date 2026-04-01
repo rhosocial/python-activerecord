@@ -6,28 +6,45 @@ This chapter details how to define powerful data models.
 
 ## Core Concepts
 
-1.  **Powered by Pydantic**: Models are essentially Pydantic `BaseModel`s, giving you robust data validation and serialization capabilities.
-2.  **Active Record Pattern**: Each model class corresponds to a database table, and each instance corresponds to a row.
-3.  **Type Safety**: With `FieldProxy`, we achieve type-safe querying in Python, avoiding hardcoded strings.
+1. **Powered by Pydantic**: Models are essentially Pydantic `BaseModel`s, giving you robust data validation and serialization capabilities.
+2. **Active Record Pattern**: Each model class corresponds to a database table, and each instance corresponds to a row.
+3. **Type Safety**: With `FieldProxy`, we achieve type-safe querying in Python, avoiding hardcoded strings.
 
 ## Chapter Contents
 
-*   **[Fields & Proxies](fields.md)**
-    *   How to define model fields
-    *   Using `FieldProxy` for type-safe queries
-    *   Mapping legacy database columns (`UseColumn`)
-*   **[Mixins](mixins.md)**
-    *   Using built-in Mixins (`UUIDMixin`, `TimestampMixin`)
-    *   Creating custom Mixins for reusable logic
-*   **[Validation & Hooks](validation.md)**
-    *   Pydantic validators
-    *   Lifecycle hooks (`before_save`, `after_create`, etc.)
-*   **[Best Practices](best_practices.md)**
-    *   Naming conventions
-    *   Field design principles
-    *   Organizing models in large projects
-    *   Version control and migrations
-    *   Performance optimization: when to add indexes
+- **[Fields & Proxies](fields.md)**
+  - How to define model fields
+  - Using `FieldProxy` for type-safe queries
+  - Mapping legacy database columns (`UseColumn`)
+- **[Mixins](mixins.md)**
+  - Using built-in Mixins (`UUIDMixin`, `TimestampMixin`)
+  - Creating custom Mixins for reusable logic
+- **[Validation & Hooks](validation.md)**
+  - Pydantic validators
+  - Lifecycle hooks (`before_save`, `after_create`, etc.)
+- **[Best Practices](best_practices.md)**
+  - Naming conventions
+  - Field design principles
+  - Organizing models in large projects
+  - Version control and migrations
+  - Performance optimization: when to add indexes
+  - Multiple independent connections (subclass inheritance vs. shared field mixin)
+- **[Thread Safety](concurrency.md)**
+  - When and how to call `configure()` in web servers
+  - SQLite single-connection constraints and multi-worker setup
+  - Connection pool sizing for MySQL / PostgreSQL
+- **[Configuration Management](configuration_management.md)**
+  - Environment-based configuration (dev / test / prod)
+  - Reading credentials from environment variables
+  - Test isolation with in-memory SQLite
+- **[Read-Only Analytics Models](readonly_models.md)**
+  - Defining read-only model classes for analytics / read replicas
+  - Combining with the shared field mixin pattern
+  - Derived / computed fields with `@property`
+- **[Batch Data Processing](batch_processing.md)**
+  - Chunked reading to avoid OOM
+  - Bulk inserts and avoiding the N+1 write trap
+  - Transaction strategy for large batch jobs
 
 ## Example Code
 

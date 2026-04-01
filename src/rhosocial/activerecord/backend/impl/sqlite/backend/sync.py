@@ -20,12 +20,20 @@ from ..transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
+from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
+from rhosocial.activerecord.backend.explain.types import BaseExplainResult
 from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
 from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions, UpdateOptions
 from rhosocial.activerecord.backend.result import QueryResult
+from ..explain import (
+    SQLiteExplainRow,
+    SQLiteExplainQueryPlanRow,
+    SQLiteExplainResult,
+    SQLiteExplainQueryPlanResult,
+)
 
 
-class SQLiteBackend(IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend):
+class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend):
     """Synchronous SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
@@ -67,6 +75,22 @@ class SQLiteBackend(IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend
     @property
     def dialect(self) -> SQLDialectBase:
         return self._dialect
+
+    def _parse_explain_result(self, raw_rows, sql, duration):
+        """Return a SQLite-specific typed EXPLAIN result.
+
+        Dispatches to SQLiteExplainQueryPlanResult for ``EXPLAIN QUERY PLAN``
+        statements and to SQLiteExplainResult for plain ``EXPLAIN`` statements.
+        """
+        if "QUERY PLAN" in sql.upper():
+            rows = [SQLiteExplainQueryPlanRow(**r) for r in raw_rows]
+            return SQLiteExplainQueryPlanResult(
+                raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
+            )
+        rows = [SQLiteExplainRow(**r) for r in raw_rows]
+        return SQLiteExplainResult(
+            raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
+        )
 
     def _create_introspector(self):
         from ..introspection import SyncSQLiteIntrospector
