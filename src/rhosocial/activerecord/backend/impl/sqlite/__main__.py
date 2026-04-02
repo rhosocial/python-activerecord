@@ -1,4 +1,9 @@
 # src/rhosocial/activerecord/backend/impl/sqlite/__main__.py
+"""
+SQLite backend command-line interface.
+
+Provides SQL execution and database introspection capabilities.
+"""
 import argparse
 import inspect
 import json
@@ -113,28 +118,27 @@ INTROSPECT_TYPES = [
 
 
 def parse_args():
-    parser = argparse.ArgumentParser(
-        description="Execute SQL queries against a SQLite backend.", formatter_class=argparse.RawTextHelpFormatter
-    )
-
     # =========================================================================
     # Design Notes:
     # =========================================================================
-    # Uses explicit subcommand mode: query and introspect are mutually exclusive.
+    # Uses explicit subcommand mode: info, query, and introspect are subcommands.
     # This avoids argparse misidentifying SQL queries as subcommand names.
     #
-    # Connection parameters (--db-file) and output parameters (--output, --log-level, --rich-ascii)
-    # are shared between both subcommands, so they are placed in the parent parser.
+    # Structure:
+    # - Main parser: contains only global options (-v/--verbose)
+    # - parent_parser: shared arguments for all subcommands
+    # - Each subcommand parser inherits from parent_parser
     #
-    # --info is a global option that doesn't require a subcommand, so subcommands are not required=True.
+    # Usage: python -m backend.impl.sqlite <subcommand> [subcommand-options]
+    # Example: python -m backend.impl.sqlite query --db-file test.db "SELECT 1"
     # =========================================================================
 
-    # Parent parser: shared arguments
+    # Parent parser: shared arguments for all subcommands
     parent_parser = argparse.ArgumentParser(add_help=False)
     parent_parser.add_argument(
         "--db-file",
         default=None,
-        help=("Path to the SQLite database file. If not provided, an in-memory database will be used."),
+        help="Path to the SQLite database file. If not provided, an in-memory database will be used.",
     )
     parent_parser.add_argument(
         "-o", "--output",
@@ -142,35 +146,115 @@ def parse_args():
         default="table",
         help='Output format. Defaults to "table" if rich is installed.',
     )
-    parent_parser.add_argument("--log-level", default="INFO", help="Set logging level (e.g., DEBUG, INFO)")
-    parent_parser.add_argument("--rich-ascii", action="store_true", help="Use ASCII characters for rich table borders.")
-
-    # Global options (no subcommand required)
-    parser.add_argument("--info", action="store_true", help="Display SQLite environment information.")
-    parser.add_argument(
-        "-v", "--verbose", action="count", default=0, help="Increase verbosity. -v for families, -vv for details."
+    parent_parser.add_argument(
+        "--log-level",
+        default="INFO",
+        help="Set logging level (e.g., DEBUG, INFO)",
+    )
+    parent_parser.add_argument(
+        "--rich-ascii",
+        action="store_true",
+        help="Use ASCII characters for rich table borders.",
     )
 
-    # Subcommands: query and introspect
+    # Main parser: global options only
+    parser = argparse.ArgumentParser(
+        description="Execute SQL queries against a SQLite backend.",
+        formatter_class=argparse.RawTextHelpFormatter,
+    )
+    parser.add_argument(
+        "-v", "--verbose",
+        action="count",
+        default=0,
+        help="Increase verbosity. -v for families, -vv for details.",
+    )
+
+    # Subcommands: info, query, and introspect
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
-    # query subcommand
-    query_parser = subparsers.add_parser("query", help="Execute SQL query", parents=[parent_parser])
-    query_parser.add_argument(
-        "sql", nargs="?", default=None, help="SQL query to execute. If not provided, reads from --file."
+    # info subcommand
+    info_parser = subparsers.add_parser(
+        "info",
+        help="Display SQLite environment information",
+        parents=[parent_parser],
     )
-    query_parser.add_argument("-f", "--file", default=None, help="Path to a file containing SQL to execute.")
-    query_parser.add_argument("--executescript", action="store_true", help="Execute the input as a multi-statement script.")
+
+    # query subcommand
+    query_parser = subparsers.add_parser(
+        "query",
+        help="Execute SQL query",
+        parents=[parent_parser],
+    )
+    query_parser.add_argument(
+        "sql",
+        nargs="?",
+        default=None,
+        help="SQL query to execute. If not provided, reads from --file.",
+    )
+    query_parser.add_argument(
+        "-f", "--file",
+        default=None,
+        help="Path to a file containing SQL to execute.",
+    )
+    query_parser.add_argument(
+        "--executescript",
+        action="store_true",
+        help="Execute the input as a multi-statement script.",
+    )
 
     # introspect subcommand
-    introspect_parser = subparsers.add_parser("introspect", help="Database introspection", parents=[parent_parser])
+    introspect_parser = subparsers.add_parser(
+        "introspect",
+        help="Database introspection",
+        parents=[parent_parser],
+        epilog="""Examples:
+  # List all tables in database
+  %(prog)s tables --db-file mydb.sqlite
+
+  # List all views
+  %(prog)s views --db-file mydb.sqlite
+
+  # Get detailed table info (columns, indexes, foreign keys)
+  %(prog)s table users --db-file mydb.sqlite
+
+  # Get column details for a table
+  %(prog)s columns users --db-file mydb.sqlite
+
+  # Get index information
+  %(prog)s indexes users --db-file mydb.sqlite
+
+  # Get foreign key relationships
+  %(prog)s foreign-keys users --db-file mydb.sqlite
+
+  # List triggers
+  %(prog)s triggers --db-file mydb.sqlite
+
+  # Get database information
+  %(prog)s database --db-file mydb.sqlite
+
+  # Output as JSON
+  %(prog)s tables --db-file mydb.sqlite -o json
+
+  # Using in-memory database
+  %(prog)s tables
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
     introspect_parser.add_argument(
         "type",
         choices=INTROSPECT_TYPES,
-        help="Introspection type: tables, views, table, columns, indexes, foreign-keys, triggers, database"
+        help="Introspection type: tables, views, table, columns, indexes, foreign-keys, triggers, database",
     )
-    introspect_parser.add_argument("name", nargs="?", help="Table/view name (required for some types)")
-    introspect_parser.add_argument("--include-system", action="store_true", help="Include system tables")
+    introspect_parser.add_argument(
+        "name",
+        nargs="?",
+        help="Table/view name (required for some types)",
+    )
+    introspect_parser.add_argument(
+        "--include-system",
+        action="store_true",
+        help="Include system tables",
+    )
 
     return parser.parse_args()
 
@@ -441,10 +525,18 @@ def _build_protocol_group_info(dialect: Any, protocols: list, verbose: int) -> D
     return group_info
 
 
-def display_info(verbose: int = 0, output_format: str = "table"):
-    """Display SQLite environment information."""
-    config = SQLiteConnectionConfig(database=":memory:")
+def handle_info(args, provider):
+    """Handle info subcommand.
+
+    Display SQLite environment information based on actual database connection.
+    SQLite always connects - either to a file database or in-memory database.
+    """
+    db_path = args.db_file if args.db_file else ":memory:"
+    is_file_database = db_path != ":memory:"
+    config = SQLiteConnectionConfig(database=db_path)
     backend = SQLiteBackend(connection_config=config)
+
+    output_format = args.output if args.output != "table" or RICH_AVAILABLE else "json"
 
     try:
         backend.connect()
@@ -456,7 +548,7 @@ def display_info(verbose: int = 0, output_format: str = "table"):
         if output_format == "json" or not RICH_AVAILABLE:
             print(json.dumps({"error": f"Failed to connect: {e}"}))
         else:
-            print(f"Error: Failed to connect to in-memory database: {e}")
+            print(f"Error: Failed to connect to database: {e}")
         return None
     finally:
         backend.disconnect()
@@ -468,8 +560,12 @@ def display_info(verbose: int = 0, output_format: str = "table"):
             "extensions": _build_extension_info(version_tuple),
             "pragmas": _build_pragma_info(),
         },
-        "protocols": _build_protocol_info(dialect, verbose),
+        "protocols": _build_protocol_info(dialect, args.verbose),
     }
+
+    # Add connection info
+    info["database"]["database_type"] = "file" if is_file_database else "memory"
+    info["database"]["database_path"] = db_path
 
     # Output result
     if output_format == "json" or not RICH_AVAILABLE:
@@ -482,13 +578,21 @@ def display_info(verbose: int = 0, output_format: str = "table"):
             "pragmas": info["features"]["pragmas"],
             "protocols": info["protocols"],
         }
-        _display_info_rich(info_legacy, verbose, sqlite_version)
+        _display_info_rich(info_legacy, args.verbose, sqlite_version, is_file_database, db_path)
 
     return info
 
 
-def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
-    """Display info using rich console."""
+def _display_info_rich(info: Dict, verbose: int, sqlite_version: str, is_file_database: bool = True, db_path: str = ":memory:"):
+    """Display info using rich console.
+
+    Args:
+        info: Information dictionary containing database and protocol info
+        verbose: Verbosity level for output detail
+        sqlite_version: SQLite version string
+        is_file_database: Whether using a file database (vs in-memory)
+        db_path: Path to database file or ":memory:"
+    """
     from rich.console import Console
 
     console = Console(force_terminal=True)
@@ -499,7 +603,11 @@ def _display_info_rich(info: Dict, verbose: int, sqlite_version: str):
 
     console.print("\n[bold cyan]SQLite Environment Information[/bold cyan]\n")
 
-    console.print(f"[bold]SQLite Version:[/bold] {sqlite_version}\n")
+    # Show database type and version
+    if is_file_database:
+        console.print(f"[bold]SQLite Version:[/bold] {sqlite_version} [dim](file: {db_path})[/dim]\n")
+    else:
+        console.print(f"[bold]SQLite Version:[/bold] {sqlite_version} [yellow](in-memory database)[/yellow]\n")
 
     console.print("[bold green]Extension Support:[/bold green]")
     for name, ext in info["extensions"].items():
@@ -688,21 +796,21 @@ def handle_introspect(args, provider):
 def main():
     args = parse_args()
 
-    # Handle --info flag (global option, no subcommand needed)
-    if args.info:
-        output_format = args.output if args.output != "table" or RICH_AVAILABLE else "json"
-        display_info(verbose=args.verbose, output_format=output_format)
-        return
-
-    # Require a subcommand if --info is not specified
+    # Require a subcommand
     if args.command is None:
-        print("Error: Please specify a command: 'query' or 'introspect'", file=sys.stderr)
+        print("Error: Please specify a command: 'info', 'query', or 'introspect'", file=sys.stderr)
         print("Use --help for more information.", file=sys.stderr)
         sys.exit(1)
 
+    provider = get_provider(args)
+
+    # Handle info subcommand
+    if args.command == "info":
+        handle_info(args, provider)
+        return
+
     # Handle introspect subcommand
     if args.command == "introspect":
-        provider = get_provider(args)
         handle_introspect(args, provider)
         return
 
@@ -710,8 +818,6 @@ def main():
     numeric_level = getattr(logging, args.log_level.upper(), None)
     if not isinstance(numeric_level, int):
         raise ValueError(f"Invalid log level: {args.log_level}")
-
-    provider = get_provider(args)
 
     if RICH_AVAILABLE and isinstance(provider, RichOutputProvider):
         from rich.console import Console
