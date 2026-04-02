@@ -7,7 +7,7 @@ to ActiveRecord models and backend implementations.
 
 import inspect
 import logging
-from typing import Optional, ClassVar
+from typing import Optional, ClassVar, Any
 
 from .formatter import ActiveRecordFormatter
 from .manager import get_logging_manager
@@ -174,6 +174,74 @@ class LoggingMixin:
         else:
             logger.log(level, msg, *args, **kwargs)
 
+    @classmethod
+    def log_data(
+        cls,
+        level: int,
+        msg: str,
+        data: Any,
+        mode: Optional[str] = None,
+        **kwargs
+    ) -> None:
+        """Log a message with data, automatically summarizing if needed.
+
+        This method provides intelligent data logging that prevents
+        overly long log messages by summarizing large data structures.
+
+        Args:
+            level: Log level (e.g., logging.DEBUG, logging.INFO).
+            msg: Log message format string.
+            data: The data to log. Will be summarized according to mode.
+            mode: Override mode for this log entry:
+                - 'summary': Truncate large values, mask sensitive fields (default)
+                - 'keys_only': Only show field names, no values
+                - 'full': Show complete data (use with caution)
+                If None, uses the configured log_data_mode.
+            **kwargs: Additional keyword arguments for logging.
+
+        Example:
+            # INFO level: show only field names
+            self.log_data(logging.INFO, "Inserting record", data, mode='keys_only')
+            # Output: Inserting record: {'name', 'email', 'bio'}
+
+            # DEBUG level: show summarized values
+            self.log_data(logging.DEBUG, "Insert data", data)
+            # Output: Insert data: {'name': 'John', 'bio': 'Lorem ipsum...[truncated, 1000 chars total]'}
+
+            # Full data (use with caution)
+            self.log_data(logging.DEBUG, "Full data", data, mode='full')
+        """
+        manager = get_logging_manager()
+        summarized = manager.config.summarize_data(data, mode)
+        cls.log(level, f"{msg}: {summarized}", **kwargs)
+
+    @classmethod
+    def log_data_keys_only(cls, level: int, msg: str, data: Any, **kwargs) -> None:
+        """Convenience method to log data with keys_only mode.
+
+        Args:
+            level: Log level (e.g., logging.DEBUG, logging.INFO).
+            msg: Log message format string.
+            data: The data to log (only keys will be shown).
+            **kwargs: Additional keyword arguments for logging.
+        """
+        cls.log_data(level, msg, data, mode='keys_only', **kwargs)
+
+    @classmethod
+    def log_data_full(cls, level: int, msg: str, data: Any, **kwargs) -> None:
+        """Convenience method to log full data without summarization.
+
+        WARNING: Use with caution in production. This may log sensitive
+        data or very large values.
+
+        Args:
+            level: Log level (e.g., logging.DEBUG, logging.INFO).
+            msg: Log message format string.
+            data: The data to log (full, no summarization).
+            **kwargs: Additional keyword arguments for logging.
+        """
+        cls.log_data(level, msg, data, mode='full', **kwargs)
+
 
 class BackendLoggingMixin:
     """Logging mixin specifically for Backend classes.
@@ -242,3 +310,43 @@ class BackendLoggingMixin:
             stack_level += 1
 
         self.logger.log(level, msg, *args, stacklevel=stack_level, **kwargs)
+
+    def log_data(
+        self,
+        level: int,
+        msg: str,
+        data: Any,
+        mode: Optional[str] = None,
+        **kwargs
+    ) -> None:
+        """Log a message with data, automatically summarizing if needed.
+
+        This method provides intelligent data logging that prevents
+        overly long log messages by summarizing large data structures.
+
+        Args:
+            level: Log level (e.g., logging.DEBUG, logging.INFO).
+            msg: Log message format string.
+            data: The data to log. Will be summarized according to mode.
+            mode: Override mode for this log entry:
+                - 'summary': Truncate large values, mask sensitive fields (default)
+                - 'keys_only': Only show field names, no values
+                - 'full': Show complete data (use with caution)
+                If None, uses the configured log_data_mode.
+            **kwargs: Additional keyword arguments for logging.
+
+        Example:
+            # INFO level: show only field names
+            self.log_data(logging.INFO, "Executing query", params, mode='keys_only')
+        """
+        manager = get_logging_manager()
+        summarized = manager.config.summarize_data(data, mode)
+        self.log(level, f"{msg}: {summarized}", **kwargs)
+
+    def log_data_keys_only(self, level: int, msg: str, data: Any, **kwargs) -> None:
+        """Convenience method to log data with keys_only mode."""
+        self.log_data(level, msg, data, mode='keys_only', **kwargs)
+
+    def log_data_full(self, level: int, msg: str, data: Any, **kwargs) -> None:
+        """Convenience method to log full data without summarization."""
+        self.log_data(level, msg, data, mode='full', **kwargs)

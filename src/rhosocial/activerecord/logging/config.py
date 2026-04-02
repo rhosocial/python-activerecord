@@ -10,6 +10,7 @@ from typing import Optional, Dict, List, Any
 import logging
 
 from .formatter import ActiveRecordFormatter
+from .summarizer import SummarizerConfig, DataSummarizer
 
 
 @dataclass
@@ -64,6 +65,8 @@ class LoggingConfig:
         formatter: Default formatter for handlers.
         loggers: Logger configurations by category.
         auto_setup: Whether to auto-setup handlers when first log is written.
+        summarizer_config: Configuration for data summarization in logs.
+        log_data_mode: Default mode for data logging ('summary', 'keys_only', 'full').
 
     Example:
         >>> config = LoggingConfig(
@@ -89,6 +92,52 @@ class LoggingConfig:
 
     # Whether to auto-setup handlers when first log is written
     auto_setup: bool = True
+
+    # Data summarization configuration
+    summarizer_config: SummarizerConfig = field(default_factory=SummarizerConfig)
+
+    # Default mode for data logging: 'summary', 'keys_only', or 'full'
+    # - 'summary': Truncate large values, mask sensitive fields
+    # - 'keys_only': Only show field names, no values
+    # - 'full': Show complete data (not recommended for production)
+    log_data_mode: str = 'summary'
+
+    # Cached summarizer instance
+    _summarizer: Optional[DataSummarizer] = field(default=None, repr=False, compare=False)
+
+    def get_summarizer(self) -> DataSummarizer:
+        """Get or create the DataSummarizer instance.
+
+        Returns:
+            DataSummarizer instance configured with this config.
+        """
+        if self._summarizer is None:
+            self._summarizer = DataSummarizer(self.summarizer_config)
+        return self._summarizer
+
+    def summarize_data(
+        self,
+        data: Any,
+        mode: Optional[str] = None
+    ) -> Any:
+        """Summarize data according to the configured mode.
+
+        Args:
+            data: The data to summarize.
+            mode: Override mode ('summary', 'keys_only', 'full').
+                If None, uses the configured log_data_mode.
+
+        Returns:
+            Summarized data according to the mode.
+        """
+        effective_mode = mode or self.log_data_mode
+
+        if effective_mode == 'full':
+            return data
+        elif effective_mode == 'keys_only':
+            return self.get_summarizer().summarize_keys_only(data)
+        else:  # 'summary' (default)
+            return self.get_summarizer().summarize(data)
 
     def get_logger(self, name: str) -> logging.Logger:
         """Get or create a logger with the configured settings.
