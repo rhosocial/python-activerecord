@@ -7,7 +7,7 @@ Demonstrates core concepts:
 """
 
 import uuid
-from typing import ClassVar, Annotated, Optional, List
+from typing import ClassVar, Annotated, Optional
 from pydantic import Field, field_validator
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy, UseColumn

@@ -76,9 +76,9 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
         """
-        self.log(logging.DEBUG, f"Raw data for insert: {data}")
+        self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
-        self.log(logging.DEBUG, f"Data with database column names: {prepared_data}")
+        self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
         column_mapping = self.__class__.get_column_to_field_map()
         self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
@@ -559,9 +559,9 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
         Raises:
             DatabaseError: If there's an issue retrieving the primary key after insert
         """
-        self.log(logging.DEBUG, f"Raw data for insert: {data}")
+        self.log_data(logging.DEBUG, "Raw data for insert", data)
         prepared_data = self.__class__._map_fields_to_columns(data)
-        self.log(logging.DEBUG, f"Data with database column names: {prepared_data}")
+        self.log_data(logging.DEBUG, "Data with database column names", prepared_data)
         self.log(logging.INFO, f"Inserting new {self.__class__.__name__}")
         column_mapping = self.__class__.get_column_to_field_map()
         self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")

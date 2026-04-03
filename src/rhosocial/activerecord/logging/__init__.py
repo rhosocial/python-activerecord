@@ -60,6 +60,13 @@ Custom Logger for a Model:
 
 from .formatter import ModuleFormatter, ActiveRecordFormatter
 from .config import LoggerConfig, LoggingConfig
+from .summarizer import (
+    SummarizerConfig,
+    DataSummarizer,
+    get_default_summarizer,
+    set_default_summarizer,
+    summarize_data,
+)
 from .manager import (
     LoggingManager,
     get_logging_manager,
@@ -75,6 +82,12 @@ __all__ = [
     # Configuration
     "LoggerConfig",
     "LoggingConfig",
+    # Summarizer
+    "SummarizerConfig",
+    "DataSummarizer",
+    "get_default_summarizer",
+    "set_default_summarizer",
+    "summarize_data",
     # Manager
     "LoggingManager",
     "get_logging_manager",

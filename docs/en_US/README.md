@@ -52,20 +52,25 @@
     *   **[Concurrency Control](performance/concurrency.md)**: Handling race conditions with Optimistic Locking.
     *   **[Caching](performance/caching.md)**: Understanding internal caching to avoid redundant work.
 
-7.  **[Events](events/README.md)**
+7.  **[Logging](logging/README.md)**
+    *   **[Logger Namespace](logging/namespace.md)**: Hierarchical logger naming for unified control and fine-grained tuning.
+    *   **[Data Summarization](logging/data_summarization.md)**: Automatic sensitive field masking and long string truncation.
+    *   **[Per-Logger Configuration](logging/per_logger_config.md)**: Setting different summarization modes for different components.
+
+8.  **[Events](events/README.md)**
     *   **[Lifecycle Events](events/lifecycle.md)**: Hooks for Decoupling business logic (before_save, after_create, etc.).
 
-8.  **[Serialization](serialization/README.md)**
+9.  **[Serialization](serialization/README.md)**
     *   **[JSON Serialization](serialization/json.md)**: Converting models to JSON/Dicts, field filtering.
 
-9.  **[Backend System](backend/README.md)**
+10. **[Backend System](backend/README.md)**
     *   **[Expression System](backend/expression/README.md)**: How Python objects are safely transformed into SQL strings. 💡 *AI Prompt: "Explain ToSQLProtocol and how Expression-Dialect separation prevents SQL injection."*
     *   **[Custom Backend](backend/custom_backend.md)**: Implementing a new database driver.
 
-10. **[Testing](testing/README.md)**
+11. **[Testing](testing/README.md)**
     *   **[Strategies](testing/strategies.md)**: Zero-IO Testing vs Integration Testing.
     *   **[Dummy Backend](testing/dummy.md)**: Using the dummy backend for unit tests.
 
-11. **[Scenarios](scenarios/README.md)**
+12. **[Scenarios](scenarios/README.md)**
     *   **[FastAPI Integration](scenarios/fastapi.md)**: Async support, dependency injection, and Pydantic model reuse.
     *   **[GraphQL Integration](scenarios/graphql.md)**: Solving N+1 problems with DataLoaders.

@@ -22,10 +22,12 @@ class LoggingManager:
     The manager is implemented as a singleton to ensure consistent
     logging configuration across the entire application.
 
-    Predefined Logger Names:
-        - LOGGER_MODEL ('activerecord'): For model operations
-        - LOGGER_STORAGE ('storage'): For backend/storage operations
-        - LOGGER_TRANSACTION ('transaction'): For transaction operations
+    Semantic Logger Namespace:
+        - ROOT_LOGGER ('rhosocial.activerecord'): Root namespace
+        - LOGGER_MODEL ('rhosocial.activerecord.model'): For model operations
+        - LOGGER_BACKEND ('rhosocial.activerecord.backend'): For backend operations
+        - LOGGER_QUERY ('rhosocial.activerecord.query'): For query operations
+        - LOGGER_TRANSACTION ('rhosocial.activerecord.transaction'): For transaction operations
 
     Usage:
         Basic configuration::
@@ -45,16 +47,18 @@ class LoggingManager:
 
         Get a specific logger::
 
-            logger = manager.get_logger('activerecord')
+            logger = manager.get_logger('rhosocial.activerecord.model')
     """
 
     _instance: Optional['LoggingManager'] = None
     _config: LoggingConfig
 
-    # Predefined logger names
-    LOGGER_MODEL = 'activerecord'      # For model operations
-    LOGGER_STORAGE = 'storage'         # For backend/storage operations
-    LOGGER_TRANSACTION = 'transaction' # For transaction operations
+    # Semantic logger namespace constants
+    ROOT_LOGGER = 'rhosocial.activerecord'
+    LOGGER_MODEL = 'rhosocial.activerecord.model'
+    LOGGER_BACKEND = 'rhosocial.activerecord.backend'
+    LOGGER_QUERY = 'rhosocial.activerecord.query'
+    LOGGER_TRANSACTION = 'rhosocial.activerecord.transaction'
 
     def __new__(cls) -> 'LoggingManager':
         """Create or return the singleton instance."""
@@ -124,23 +128,41 @@ class LoggingManager:
         """Get the default logger for model operations.
 
         Returns:
-            Logger named 'activerecord'.
+            Logger named 'rhosocial.activerecord.model'.
         """
         return self.get_logger(self.LOGGER_MODEL)
+
+    def get_backend_logger(self) -> logging.Logger:
+        """Get the default logger for backend operations.
+
+        Returns:
+            Logger named 'rhosocial.activerecord.backend'.
+        """
+        return self.get_logger(self.LOGGER_BACKEND)
 
     def get_storage_logger(self) -> logging.Logger:
         """Get the default logger for storage operations.
 
+        Alias for get_backend_logger() for backward compatibility.
+
         Returns:
-            Logger named 'storage'.
+            Logger named 'rhosocial.activerecord.backend'.
         """
-        return self.get_logger(self.LOGGER_STORAGE)
+        return self.get_backend_logger()
+
+    def get_query_logger(self) -> logging.Logger:
+        """Get the default logger for query operations.
+
+        Returns:
+            Logger named 'rhosocial.activerecord.query'.
+        """
+        return self.get_logger(self.LOGGER_QUERY)
 
     def get_transaction_logger(self) -> logging.Logger:
         """Get the default logger for transaction operations.
 
         Returns:
-            Logger named 'transaction'.
+            Logger named 'rhosocial.activerecord.transaction'.
         """
         return self.get_logger(self.LOGGER_TRANSACTION)
 

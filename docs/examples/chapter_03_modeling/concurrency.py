@@ -101,7 +101,7 @@ def demonstrate_configure_once() -> None:
     # What matters is that configure() is called *once at startup*, not per request.
     print(f"\nUser backend id : {id(User.__backend__)}")
     print(f"Order backend id: {id(Order.__backend__)}")
-    print(f"Both have their own backend: True")
+    print("Both have their own backend: True")
 
     # Write a user and an order
     user = User(name="Alice", email="alice@example.com")

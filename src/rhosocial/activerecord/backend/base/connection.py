@@ -65,8 +65,20 @@ class ConnectionMixin:
         This method attempts to disconnect the database connection when the
         backend instance is being destroyed. It serves as a safety net to
         prevent connection leaks, though explicit disconnection is preferred.
+
+        Note:
+            Only performs cleanup if connection is active to avoid logging
+            errors during Python interpreter shutdown when stdout/stderr may
+            already be closed.
         """
-        self.disconnect()
+        # Only disconnect if connection is active to avoid logging errors
+        # during interpreter shutdown
+        if hasattr(self, '_connection') and self._connection is not None:
+            try:
+                self.disconnect()
+            except Exception:
+                # Silently ignore any errors during garbage collection
+                pass
 
 
 class AsyncConnectionMixin:

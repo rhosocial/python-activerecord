@@ -46,7 +46,7 @@ def assert_no_free_function_import() -> None:
         import rhosocial.activerecord.backend.batch as batch_mod  # type: ignore
         has_dql = hasattr(batch_mod, "execute_batch_dql")
         has_dml = hasattr(batch_mod, "execute_batch_dml")
-        print(f"\n  Module exists: True")
+        print("\n  Module exists: True")
         print(f"  has execute_batch_dql as free function: {has_dql}")
         print(f"  has execute_batch_dml as free function: {has_dml}")
         # The documentation in batch_processing.md was WRONG if it said

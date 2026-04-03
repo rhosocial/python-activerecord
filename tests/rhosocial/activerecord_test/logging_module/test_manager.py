@@ -60,7 +60,7 @@ class TestLoggingManager:
         logger = manager.get_model_logger()
 
         assert logger is not None
-        assert logger.name == 'activerecord'
+        assert logger.name == 'rhosocial.activerecord.model'
 
     def test_get_storage_logger(self):
         """Test getting the storage logger."""
@@ -68,7 +68,7 @@ class TestLoggingManager:
         logger = manager.get_storage_logger()
 
         assert logger is not None
-        assert logger.name == 'storage'
+        assert logger.name == 'rhosocial.activerecord.backend'
 
     def test_get_transaction_logger(self):
         """Test getting the transaction logger."""
@@ -76,7 +76,7 @@ class TestLoggingManager:
         logger = manager.get_transaction_logger()
 
         assert logger is not None
-        assert logger.name == 'transaction'
+        assert logger.name == 'rhosocial.activerecord.transaction'
 
     def test_get_logger_function(self):
         """Test the convenience get_logger function."""

@@ -41,7 +41,7 @@ class TestTransactionManagerBase:
         assert manager.logger is new_logger
 
         manager.logger = None
-        assert manager.logger.name == 'transaction'
+        assert manager.logger.name == 'rhosocial.activerecord.transaction'
 
         with pytest.raises(ValueError, match="logger must be an instance of logging.Logger"):
             manager.logger = "not a logger"
