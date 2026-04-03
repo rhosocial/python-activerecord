@@ -1,10 +1,11 @@
 """
 Logging Chapter: Example 3 - Per-Logger Configuration
 Demonstrates core concepts:
-1. Different summarization modes for different loggers
-2. Hierarchical inheritance
-3. Custom summarizer per logger
-4. Runtime configuration control
+1. Logger naming rules for ActiveRecord classes
+2. Different summarization modes for different loggers
+3. Hierarchical inheritance
+4. Custom summarizer per logger
+5. Runtime configuration control
 """
 
 from typing import Optional
@@ -20,13 +21,16 @@ from rhosocial.activerecord.logging import (
 
 # --- Models ---
 
+
 class User(ActiveRecord):
-    """User Model"""
+    """User Model with sensitive fields"""
     __table_name__ = "users"
     id: Optional[int] = None
     username: str
-    password: str
-    email: str
+    password: str      # Will be masked in logs
+    email: str         # Will be masked in logs
+    credit_card: str   # Will be masked in logs
+
 
 class Product(ActiveRecord):
     """Product Model"""
@@ -36,16 +40,40 @@ class Product(ActiveRecord):
     description: str
     price: float
 
+
+# --- Custom Logger Name Example ---
+
+class Order(ActiveRecord):
+    """Order Model with custom logger name"""
+    __logger_name__ = 'myapp.models.order'  # Custom logger name
+    __table_name__ = "orders"
+    id: Optional[int] = None
+    user_id: int
+    total: float
+
+
 # --- Main Execution ---
+
 
 def main():
     print("=" * 60)
     print("Example 3: Per-Logger Configuration")
     print("=" * 60)
 
-    # 1. Global Configuration
+    # 1. Logger Naming Rules
     print("\n" + "-" * 40)
-    print("1. Global Configuration")
+    print("1. Logger Naming Rules")
+    print("-" * 40)
+
+    # Default naming: rhosocial.activerecord.model.{ClassName}
+    print(f"User logger name: {User._get_logger_name()}")
+    print(f"Product logger name: {Product._get_logger_name()}")
+    # Custom naming: uses __logger_name__ attribute
+    print(f"Order logger name (custom): {Order._get_logger_name()}")
+
+    # 2. Global Configuration
+    print("\n" + "-" * 40)
+    print("2. Global Configuration")
     print("-" * 40)
 
     manager = get_logging_manager()
@@ -57,9 +85,39 @@ def main():
 
     test_data = {'username': 'john', 'password': 'secret', 'bio': 'A' * 150}
 
-    # 2. Configure Backend Layer (keys_only for security)
+    # 3. Configure for Specific Model (User)
     print("\n" + "-" * 40)
-    print("2. Backend Layer: keys_only (Production Security)")
+    print("3. Configure for Specific Model (User)")
+    print("-" * 40)
+
+    # Create custom summarizer for User class
+    user_summarizer = SummarizerConfig(
+        max_string_length=30,  # Shorter truncation
+        sensitive_fields={'password', 'email', 'credit_card'},
+        mask_placeholder='[PROTECTED]',
+    )
+
+    user_config = LoggerConfig(
+        name='rhosocial.activerecord.model.User',
+        log_data_mode='summary',
+        summarizer_config=user_summarizer,
+    )
+    manager.config.add_logger_config(user_config)
+
+    user_result = manager.config.summarize_data(
+        {'username': 'alice', 'password': 'secret123', 'email': 'alice@example.com', 'credit_card': '4111111111111111'},
+        logger_name='rhosocial.activerecord.model.User'
+    )
+    print(f"User model result: {user_result}")
+    print("Note: password, email, credit_card show as [PROTECTED]")
+
+    # Product uses global config (no custom config)
+    product_result = manager.config.summarize_data(test_data, logger_name='rhosocial.activerecord.model.Product')
+    print(f"Product model (global): {product_result}")
+
+    # 4. Configure Backend Layer (keys_only for security)
+    print("\n" + "-" * 40)
+    print("4. Backend Layer: keys_only (Production Security)")
     print("-" * 40)
 
     backend_config = LoggerConfig(
@@ -77,9 +135,9 @@ def main():
     print(f"SQLite (inherits): {sqlite_result}")
     print("Note: sqlite inherits keys_only from backend")
 
-    # 3. Configure Query Layer (full for debugging)
+    # 5. Configure Query Layer (full for debugging)
     print("\n" + "-" * 40)
-    print("3. Query Layer: full (Development Debugging)")
+    print("5. Query Layer: full (Development Debugging)")
     print("-" * 40)
 
     query_config = LoggerConfig(
@@ -98,37 +156,33 @@ def main():
     print(f"ActiveQuery (inherits): {activequery_result}")
     print("Note: ActiveQuery inherits full from query")
 
-    # 4. Custom Summarizer for Specific Logger
+    # 6. Configure Custom Logger Name (Order)
     print("\n" + "-" * 40)
-    print("4. Custom Summarizer for Specific Model")
+    print("6. Custom Logger Name (Order)")
     print("-" * 40)
 
-    # Create custom summarizer with shorter truncation
-    user_summarizer = SummarizerConfig(
-        max_string_length=20,  # Only show first 20 chars
-        sensitive_fields={'password', 'email', 'ssn', 'credit_card'},
-        mask_placeholder='[PROTECTED]',
+    order_summarizer = SummarizerConfig(
+        sensitive_fields={'total'},  # Mask total in logs
+        mask_placeholder='[HIDDEN]',
     )
 
-    user_config = LoggerConfig(
-        name='rhosocial.activerecord.model.User',
+    order_config = LoggerConfig(
+        name='myapp.models.order',  # Matches __logger_name__
         log_data_mode='summary',
-        summarizer_config=user_summarizer,
+        summarizer_config=order_summarizer,
     )
-    manager.config.add_logger_config(user_config)
+    manager.config.add_logger_config(order_config)
 
-    user_result = manager.config.summarize_data(test_data, logger_name='rhosocial.activerecord.model.User')
-    print(f"User model result: {user_result}")
-    print("Note: Custom placeholder and shorter truncation")
+    order_result = manager.config.summarize_data(
+        {'user_id': 1, 'total': 99.99},
+        logger_name='myapp.models.order'
+    )
+    print(f"Order result: {order_result}")
+    print("Note: total is masked with custom placeholder")
 
-    # Other models use global config
-    product_result = manager.config.summarize_data(test_data, logger_name='rhosocial.activerecord.model.Product')
-    print(f"Product model (global): {product_result}")
-    print("Note: Product uses global config")
-
-    # 5. Verify Hierarchical Inheritance
+    # 7. Verify Hierarchical Inheritance
     print("\n" + "-" * 40)
-    print("5. Hierarchical Inheritance Summary")
+    print("7. Hierarchical Inheritance Summary")
     print("-" * 40)
 
     test_loggers = [
@@ -141,6 +195,7 @@ def main():
         'rhosocial.activerecord.query',
         'rhosocial.activerecord.query.ActiveQuery',
         'rhosocial.activerecord.transaction',
+        'myapp.models.order',
     ]
 
     print("Logger Name                                    | Mode")
@@ -149,9 +204,9 @@ def main():
         mode = manager.config.get_log_data_mode(logger_name)
         print(f"{logger_name:45} | {mode}")
 
-    # 6. Real-world Scenario
+    # 8. Real-world Scenario with CRUD Operations
     print("\n" + "-" * 40)
-    print("6. Real-world Scenario")
+    print("8. Real-world Scenario with CRUD Operations")
     print("-" * 40)
 
     # Setup database
@@ -163,22 +218,28 @@ def main():
             id INTEGER PRIMARY KEY AUTOINCREMENT,
             username VARCHAR(50),
             password VARCHAR(100),
-            email VARCHAR(100)
+            email VARCHAR(100),
+            credit_card VARCHAR(20)
         )
     """, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
-    # Create user - backend logs will use keys_only
-    user = User(username='alice', password='my_password', email='alice@example.com')
+    # Create user - User model uses custom summarizer
+    print("\nCreating user (watch the logs):")
+    user = User(
+        username='alice',
+        password='my_password',
+        email='alice@example.com',
+        credit_card='4111111111111111'
+    )
     user.save()
     print(f"Created user: {user.username}")
     print("\nObserve logs:")
-    print("- Backend logs show keys_only (for security)")
-    print("- Model logs may use custom config")
-    print("- Transaction logs use global summary mode")
+    print("- User model logs show [PROTECTED] for sensitive fields")
+    print("- Backend logs show keys_only (field names only)")
 
-    # 7. Override Mode at Call Time
+    # 9. Override Mode at Call Time
     print("\n" + "-" * 40)
-    print("7. Override Mode at Call Time")
+    print("9. Override Mode at Call Time")
     print("-" * 40)
 
     # Even though backend is keys_only, we can force full mode
@@ -189,6 +250,7 @@ def main():
     )
     print(f"Forced full mode on backend: {override_result}")
     print("Note: Explicit mode parameter overrides logger config")
+
 
 if __name__ == "__main__":
     main()
