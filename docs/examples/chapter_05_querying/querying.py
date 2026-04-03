@@ -6,7 +6,7 @@ Demonstrates:
 3. Advanced Querying (Joins, CTEs)
 """
 import uuid
-from typing import ClassVar, Optional
+from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.relation import BelongsTo, HasMany
@@ -14,7 +14,6 @@ from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.expression.functions import count as sql_count, sum_ as sql_sum
 
 # --- Models ---
 
@@ -54,10 +53,16 @@ def main():
 
     # 2. Schema
     User.backend().execute("""
-        CREATE TABLE users (id TEXT PRIMARY KEY, username TEXT, age INTEGER, is_active BOOLEAN, created_at INTEGER, updated_at INTEGER)
+        CREATE TABLE users (
+            id TEXT PRIMARY KEY, username TEXT, age INTEGER, is_active BOOLEAN,
+            created_at INTEGER, updated_at INTEGER
+        )
     """, options=ExecutionOptions(stmt_type=StatementType.DDL))
     Post.backend().execute("""
-        CREATE TABLE posts (id TEXT PRIMARY KEY, user_id TEXT, title TEXT, views INTEGER, category_id INTEGER, created_at INTEGER, updated_at INTEGER)
+        CREATE TABLE posts (
+            id TEXT PRIMARY KEY, user_id TEXT, title TEXT, views INTEGER,
+            category_id INTEGER, created_at INTEGER, updated_at INTEGER
+        )
     """, options=ExecutionOptions(stmt_type=StatementType.DDL))
 
     # 3. Data
@@ -78,7 +83,7 @@ def main():
     print("\n--- Basic Filtering ---")
     # Active users older than 20
     users = User.query() \
-        .where(User.c.is_active == True) \
+        .where(User.c.is_active) \
         .where(User.c.age > 20) \
         .all()
     for u in users:

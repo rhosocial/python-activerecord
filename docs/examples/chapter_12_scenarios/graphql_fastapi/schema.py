@@ -1,4 +1,3 @@
-import graphene
 from graphene import ObjectType, String, Schema, Field, List
 from aiodataloader import DataLoader
 from starlette.concurrency import run_in_threadpool

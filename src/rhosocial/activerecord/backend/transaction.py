@@ -27,6 +27,7 @@ from enum import Enum, auto
 from typing import Optional, Generator, AsyncGenerator
 
 from .errors import TransactionError, IsolationLevelError
+from ..logging.manager import get_logging_manager
 
 
 class IsolationLevel(Enum):
@@ -62,7 +63,10 @@ class TransactionManagerBase(ABC):
         self._transaction_level = 0
         self._savepoint_prefix = "SP"
         self._isolation_level: Optional[IsolationLevel] = None
-        self._logger = logger or logging.getLogger("transaction")
+        # Use semantic logger naming: rhosocial.activerecord.transaction
+        self._logger = logger or get_logging_manager().get_logger(
+            get_logging_manager().LOGGER_TRANSACTION
+        )
         self._savepoint_count = 0  # Track savepoint count
         self._active_savepoints = []  # Track active savepoints
         self._state = TransactionState.INACTIVE  # Track transaction state
@@ -77,7 +81,9 @@ class TransactionManagerBase(ABC):
         """Set the logger for this transaction manager"""
         if logger is not None and not isinstance(logger, logging.Logger):
             raise ValueError("logger must be an instance of logging.Logger")
-        self._logger = logger or logging.getLogger("transaction")
+        self._logger = logger or get_logging_manager().get_logger(
+            get_logging_manager().LOGGER_TRANSACTION
+        )
 
     def log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log message with specified level.

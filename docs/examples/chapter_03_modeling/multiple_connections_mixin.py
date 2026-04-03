@@ -11,7 +11,6 @@ Scenario:
   - The two model classes have no parent-child relationship with each other.
 """
 
-import sys
 from typing import Optional, ClassVar
 from pydantic import BaseModel
 

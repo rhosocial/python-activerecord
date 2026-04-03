@@ -1,4 +1,4 @@
-# 11. Scenarios
+# 12. Scenarios
 
 Integrating `rhosocial-activerecord` into modern Web frameworks.
 
@@ -9,4 +9,4 @@ Integrating `rhosocial-activerecord` into modern Web frameworks.
 
 ## Example Code
 
-Full example code for this chapter can be found at `docs/examples/chapter_09_scenarios/`.
+Full example code for this chapter can be found at `docs/examples/chapter_12_scenarios/`.

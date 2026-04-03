@@ -6,9 +6,8 @@ Demonstrates:
 3. Caching (Relation Cache)
 """
 import time
-import logging
 import uuid
-from typing import ClassVar, List
+from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.field import OptimisticLockMixin, UUIDMixin, TimestampMixin

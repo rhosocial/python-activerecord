@@ -1,5 +1,5 @@
 import uuid
-from typing import Optional, ClassVar
+from typing import ClassVar
 
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy

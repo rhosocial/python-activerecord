@@ -51,7 +51,7 @@ class TestSQLiteTransactionManager:
         manager = SQLiteTransactionManager(connection)
         assert manager._logger is not None
         assert isinstance(manager._logger, logging.Logger)
-        assert manager._logger.name == 'transaction'
+        assert manager._logger.name == 'rhosocial.activerecord.transaction'
 
     def test_logger_property(self, transaction_manager, logger):
         """Test logger property"""
@@ -65,7 +65,7 @@ class TestSQLiteTransactionManager:
         # Test setting to None uses default logger
         transaction_manager.logger = None
         assert transaction_manager.logger is not None
-        assert transaction_manager.logger.name == 'transaction'
+        assert transaction_manager.logger.name == 'rhosocial.activerecord.transaction'
 
         # Test setting non-logger value
         with pytest.raises(ValueError):

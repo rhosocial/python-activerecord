@@ -1,4 +1,4 @@
-# Chapter 10: Testing
+# 11. Testing
 
 rhosocial-activerecord advocates for the "Zero-IO" testing philosophy. With the built-in `DummyBackend`, you can quickly verify model logic and SQL generation without relying on a real database environment.
 

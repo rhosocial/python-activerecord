@@ -1,4 +1,4 @@
-# 11.2 GraphQL Integration
+# 12.2 GraphQL Integration
 
 GraphQL is a powerful API query language that allows clients to request exactly the data they need. `rhosocial-activerecord` integrates seamlessly with Python GraphQL libraries like `graphene`.
 
@@ -217,7 +217,7 @@ async def graphiql_interface():
 
 ## Complete Example
 
-The complete code example is located in the `docs/examples/chapter_09_scenarios/graphql_fastapi` directory.
+The complete code example is located in the `docs/examples/chapter_12_scenarios/graphql_fastapi` directory.
 
 This example includes:
 *   Complete `User`, `Post`, `Comment` model definitions.
@@ -227,7 +227,7 @@ This example includes:
 ### Running the Example
 
 ```bash
-cd docs/examples/chapter_09_scenarios/graphql_fastapi
+cd docs/examples/chapter_12_scenarios/graphql_fastapi
 pip install -r requirements.txt
 python main.py
 ```

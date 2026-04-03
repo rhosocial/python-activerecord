@@ -269,7 +269,7 @@ def demonstrate_column_projection() -> None:
 
     # Full-row fetch: all columns and Pydantic validation
     all_rows = User.query().limit(5).all()
-    print(f"\nFull-row fetch (first 5):")
+    print("\nFull-row fetch (first 5):")
     for r in all_rows:
         print(f"  id={r.id}, name={r.name!r}, email={r.email!r}")
 
@@ -293,7 +293,7 @@ def demonstrate_column_projection() -> None:
             for r in User.query().limit(5).all()
         ]
 
-    print(f"\nProjected fetch (id + email only, first 5):")
+    print("\nProjected fetch (id + email only, first 5):")
     for r in projected:
         print(f"  {r}")
 

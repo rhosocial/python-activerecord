@@ -7,7 +7,7 @@ Demonstrates:
 4. Eager Loading (Solving N+1 Problem)
 """
 import uuid
-from typing import ClassVar, Optional, List
+from typing import ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.relation import HasOne, BelongsTo, HasMany
 from rhosocial.activerecord.field import UUIDMixin, TimestampMixin
@@ -105,10 +105,16 @@ def main():
         CREATE TABLE profiles (id TEXT PRIMARY KEY, user_id TEXT, bio TEXT, created_at INTEGER, updated_at INTEGER)
     """, options=ExecutionOptions(stmt_type=StatementType.DDL))
     backend.execute("""
-        CREATE TABLE posts (id TEXT PRIMARY KEY, user_id TEXT, title TEXT, content TEXT, created_at INTEGER, updated_at INTEGER)
+        CREATE TABLE posts (
+            id TEXT PRIMARY KEY, user_id TEXT, title TEXT, content TEXT,
+            created_at INTEGER, updated_at INTEGER
+        )
     """, options=ExecutionOptions(stmt_type=StatementType.DDL))
     backend.execute("""
-        CREATE TABLE comments (id TEXT PRIMARY KEY, post_id TEXT, user_id TEXT, body TEXT, created_at INTEGER, updated_at INTEGER)
+        CREATE TABLE comments (
+            id TEXT PRIMARY KEY, post_id TEXT, user_id TEXT, body TEXT,
+            created_at INTEGER, updated_at INTEGER
+        )
     """, options=ExecutionOptions(stmt_type=StatementType.DDL))
     backend.execute("""
         CREATE TABLE tags (id TEXT PRIMARY KEY, name TEXT, created_at INTEGER, updated_at INTEGER)
