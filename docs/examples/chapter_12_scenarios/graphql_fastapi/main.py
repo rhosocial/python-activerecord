@@ -1,7 +1,6 @@
 import uvicorn
 from fastapi import FastAPI, Request
 from fastapi.responses import JSONResponse, HTMLResponse
-from starlette.concurrency import run_in_threadpool
 
 # Ensure we can import from local source if running as script
 import sys

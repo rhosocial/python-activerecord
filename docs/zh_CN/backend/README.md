@@ -1,4 +1,4 @@
-# 9. 后端系统 (Backend System)
+# 10. 后端系统 (Backend System)
 
 这是高级主题，面向希望深入了解 ORM 内部工作原理或需要支持新数据库的用户。
 
@@ -50,4 +50,4 @@ pip install rhosocial-activerecord[all]
 
 ## 示例代码
 
-本章的完整示例代码位于 `docs/examples/chapter_07_backend/`。
+本章的完整示例代码位于 `docs/examples/chapter_10_backend/`。

@@ -1,11 +1,12 @@
 # src/rhosocial/activerecord/query/set_operation.py
 """SetOperationQuery implementation for building UNION, INTERSECT, and EXCEPT queries."""
 
-from typing import Union, List, Dict, Any
+from typing import Union, List, Dict, Any, Optional
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import SetOperationExpression, bases
 from ..interface import IQuery, IAsyncQuery, ISetOperationQuery, IAsyncSetOperationQuery
+from ..logging.manager import get_logging_manager
 
 
 class SetOperationQuery(ISetOperationQuery):
@@ -19,6 +20,33 @@ class SetOperationQuery(ISetOperationQuery):
     indirectly through union(), intersect(), except_() methods on ActiveQuery
     or CTEQuery instances.
     """
+
+    # Instance-level custom logger name
+    _logger_name: Optional[str] = None
+
+    def _get_logger_name(self) -> str:
+        """Determine the appropriate logger name for this query class.
+
+        Naming rules:
+        1. If _logger_name is set, use it directly
+        2. For library query classes: Use 'rhosocial.activerecord.query.{ClassName}'
+        3. For custom query classes: Use module namespace
+
+        Returns:
+            str: The logger name.
+        """
+        if self._logger_name:
+            return self._logger_name
+
+        # Library class: use semantic naming
+        base_name = get_logging_manager().LOGGER_QUERY
+        return f"{base_name}.{self.__class__.__name__}"
+
+    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
+        """Log query-related messages using query's own logger."""
+        logger_name = self._get_logger_name()
+        logger = get_logging_manager().get_logger(logger_name)
+        logger.log(level, msg, *args, **kwargs)
 
     def __init__(
         self, left: Union[ISetOperationQuery, IQuery], right: Union[ISetOperationQuery, IQuery], operation: str
@@ -150,6 +178,8 @@ class SetOperationQuery(ISetOperationQuery):
             3. With explain enabled
             plan = query1.union(query2).explain().aggregate()
         """
+        import logging
+
         # Handle explain if enabled
         if self._explain_enabled:
             # Get backend instance and dialect
@@ -166,6 +196,8 @@ class SetOperationQuery(ISetOperationQuery):
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
+            self._log(logging.DEBUG, f"Executing EXPLAIN set operation: {explain_sql}, parameters: {explain_params}")
+
             # Execute the EXPLAIN query using the backend
             result = backend.fetch_all(explain_sql, explain_params)
 
@@ -173,6 +205,8 @@ class SetOperationQuery(ISetOperationQuery):
 
         # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
+
+        self._log(logging.DEBUG, f"Executing set operation: {sql}, parameters: {params}")
 
         # Execute the aggregate query
         backend = self.backend()
@@ -198,6 +232,33 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
     indirectly through union(), intersect(), except_() methods on AsyncActiveQuery
     or AsyncCTEQuery instances.
     """
+
+    # Instance-level custom logger name
+    _logger_name: Optional[str] = None
+
+    def _get_logger_name(self) -> str:
+        """Determine the appropriate logger name for this query class.
+
+        Naming rules:
+        1. If _logger_name is set, use it directly
+        2. For library query classes: Use 'rhosocial.activerecord.query.{ClassName}'
+        3. For custom query classes: Use module namespace
+
+        Returns:
+            str: The logger name.
+        """
+        if self._logger_name:
+            return self._logger_name
+
+        # Library class: use semantic naming
+        base_name = get_logging_manager().LOGGER_QUERY
+        return f"{base_name}.{self.__class__.__name__}"
+
+    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
+        """Log query-related messages using query's own logger."""
+        logger_name = self._get_logger_name()
+        logger = get_logging_manager().get_logger(logger_name)
+        logger.log(level, msg, *args, **kwargs)
 
     def __init__(
         self,
@@ -334,6 +395,8 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             3. With explain enabled
             plan = await query1.union(query2).explain().aggregate()
         """
+        import logging
+
         # Handle explain if enabled
         if self._explain_enabled:
             # Get backend instance and dialect
@@ -350,6 +413,8 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
+            self._log(logging.DEBUG, f"Executing async EXPLAIN set operation: {explain_sql}, parameters: {explain_params}")
+
             # Execute the EXPLAIN query using the async backend
             result = await backend.fetch_all(explain_sql, explain_params)
 
@@ -357,6 +422,8 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
 
         # Get SQL and parameters using the existing to_sql method
         sql, params = self.to_sql()
+
+        self._log(logging.DEBUG, f"Executing async set operation: {sql}, parameters: {params}")
 
         # Execute the aggregate query
         backend = self.backend()

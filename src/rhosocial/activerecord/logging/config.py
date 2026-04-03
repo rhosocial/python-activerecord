@@ -20,16 +20,25 @@ class LoggerConfig:
     This class defines the settings for an individual logger instance.
 
     Attributes:
-        name: The name of the logger (e.g., 'activerecord', 'storage').
+        name: The name of the logger (e.g., 'rhosocial.activerecord.model').
         level: The logging level (default: DEBUG).
         propagate: Whether to propagate logs to parent loggers (default: False).
         handlers: List of handlers to attach to the logger.
+        log_data_mode: Data summarization mode for this logger.
+            - 'summary': Truncate large values, mask sensitive fields
+            - 'keys_only': Only show field names, no values
+            - 'full': Show complete data
+            If None, uses the global LoggingConfig.log_data_mode.
+        summarizer_config: Custom SummarizerConfig for this logger.
+            If None, uses the global LoggingConfig.summarizer_config.
     """
 
     name: str
     level: int = logging.DEBUG
     propagate: bool = False
     handlers: List[logging.Handler] = field(default_factory=list)
+    log_data_mode: Optional[str] = None
+    summarizer_config: Optional[SummarizerConfig] = None
 
     def create_logger(self) -> logging.Logger:
         """Create and configure a logger instance.
@@ -105,39 +114,113 @@ class LoggingConfig:
     # Cached summarizer instance
     _summarizer: Optional[DataSummarizer] = field(default=None, repr=False, compare=False)
 
-    def get_summarizer(self) -> DataSummarizer:
+    # Cached summarizers for specific loggers (by logger name)
+    _logger_summarizers: Dict[str, DataSummarizer] = field(default_factory=dict, repr=False, compare=False)
+
+    def get_summarizer(self, logger_name: Optional[str] = None) -> DataSummarizer:
         """Get or create the DataSummarizer instance.
 
+        Args:
+            logger_name: Optional logger name to get a specific summarizer.
+                If provided and the logger has a custom summarizer_config,
+                returns a summarizer configured for that logger.
+                If None, returns the global summarizer.
+
         Returns:
-            DataSummarizer instance configured with this config.
+            DataSummarizer instance configured with appropriate config.
         """
-        if self._summarizer is None:
-            self._summarizer = DataSummarizer(self.summarizer_config)
-        return self._summarizer
+        if logger_name is None:
+            if self._summarizer is None:
+                self._summarizer = DataSummarizer(self.summarizer_config)
+            return self._summarizer
+
+        # Find matching logger config (supports hierarchical matching)
+        logger_config = self._find_logger_config(logger_name)
+
+        if logger_config is not None and logger_config.summarizer_config is not None:
+            # Use logger-specific summarizer config
+            if logger_name not in self._logger_summarizers:
+                self._logger_summarizers[logger_name] = DataSummarizer(logger_config.summarizer_config)
+            return self._logger_summarizers[logger_name]
+        else:
+            # Use global summarizer
+            return self.get_summarizer()
+
+    def _find_logger_config(self, logger_name: str) -> Optional['LoggerConfig']:
+        """Find the most specific LoggerConfig for a given logger name.
+
+        Performs hierarchical matching: for logger 'rhosocial.activerecord.model.User',
+        checks in order:
+        1. 'rhosocial.activerecord.model.User' (exact match)
+        2. 'rhosocial.activerecord.model' (parent)
+        3. 'rhosocial.activerecord' (grandparent)
+        ... and so on until a match is found.
+
+        Args:
+            logger_name: The full logger name to find config for.
+
+        Returns:
+            LoggerConfig if found, None otherwise.
+        """
+        # Check exact match first
+        if logger_name in self.loggers:
+            return self.loggers[logger_name]
+
+        # Check parent loggers (hierarchical matching)
+        parts = logger_name.split('.')
+        for i in range(len(parts) - 1, 0, -1):
+            parent_name = '.'.join(parts[:i])
+            if parent_name in self.loggers:
+                return self.loggers[parent_name]
+
+        return None
+
+    def get_log_data_mode(self, logger_name: Optional[str] = None) -> str:
+        """Get the effective log data mode for a logger.
+
+        Args:
+            logger_name: Optional logger name to get specific mode.
+                If provided and the logger has a custom log_data_mode,
+                returns that mode. Otherwise returns the global mode.
+
+        Returns:
+            The effective log data mode ('summary', 'keys_only', or 'full').
+        """
+        if logger_name is None:
+            return self.log_data_mode
+
+        logger_config = self._find_logger_config(logger_name)
+        if logger_config is not None and logger_config.log_data_mode is not None:
+            return logger_config.log_data_mode
+
+        return self.log_data_mode
 
     def summarize_data(
         self,
         data: Any,
-        mode: Optional[str] = None
+        mode: Optional[str] = None,
+        logger_name: Optional[str] = None
     ) -> Any:
         """Summarize data according to the configured mode.
 
         Args:
             data: The data to summarize.
             mode: Override mode ('summary', 'keys_only', 'full').
-                If None, uses the configured log_data_mode.
+                If None, uses the effective log_data_mode for the logger.
+            logger_name: Optional logger name to get logger-specific configuration.
+                If provided, uses the summarizer and mode configured for that logger.
 
         Returns:
             Summarized data according to the mode.
         """
-        effective_mode = mode or self.log_data_mode
+        effective_mode = mode or self.get_log_data_mode(logger_name)
 
         if effective_mode == 'full':
             return data
         elif effective_mode == 'keys_only':
-            return self.get_summarizer().summarize_keys_only(data)
+            return self.get_summarizer(logger_name).summarize_keys_only(data)
         else:  # 'summary' (default)
-            return self.get_summarizer().summarize(data)
+            return self.get_summarizer(logger_name).summarize(data)
 
     def get_logger(self, name: str) -> logging.Logger:
         """Get or create a logger with the configured settings.

@@ -11,9 +11,7 @@ Scenario:
   - Both classes map to a `users` table, but in different databases.
 """
 
-import os
 from typing import Optional, ClassVar
-from pathlib import Path
 
 # Import the ActiveRecord framework
 from rhosocial.activerecord.model import ActiveRecord

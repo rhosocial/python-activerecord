@@ -144,8 +144,8 @@ def demonstrate_development_env() -> None:
     # Confirm both models are configured (each with its own backend instance)
     assert "__backend__" in User.__dict__ and User.__dict__["__backend__"] is not None
     assert "__backend__" in Order.__dict__ and Order.__dict__["__backend__"] is not None
-    print(f"User configured : True")
-    print(f"Order configured: True")
+    print("User configured : True")
+    print("Order configured: True")
     print("\n✓ Development environment configured correctly.")
 
 

@@ -14,6 +14,7 @@ from ..backend.expression import (
     LimitOffsetClause,
 )
 from ..interface import IQueryBuilding
+from ..logging.manager import get_logging_manager
 
 
 class BaseQueryMixin(IQueryBuilding):
@@ -34,17 +35,38 @@ class BaseQueryMixin(IQueryBuilding):
     and AggregateQueryMixin.
     """
 
-    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
-        """Log query-related messages using backend's logger."""
-        # Log using backend's logger if available
-        backend = self.backend()
-        if hasattr(backend, "logger"):
-            backend.logger.log(level, msg, *args, **kwargs)
-        else:
-            # Fallback logging
-            import logging
+    # Instance-level custom logger name
+    _logger_name: Optional[str] = None
 
-            logging.log(level, msg, *args, **kwargs)
+    def _get_logger_name(self) -> str:
+        """Determine the appropriate logger name for this query class.
+
+        Naming rules:
+        1. If _logger_name is set, use it directly
+        2. For library query classes: Use 'rhosocial.activerecord.query.{ClassName}'
+        3. For custom query classes: Use module namespace
+
+        Returns:
+            str: The logger name.
+        """
+        if self._logger_name:
+            return self._logger_name
+
+        # Check if this is a library class
+        module = self.__class__.__module__
+        if module.startswith('rhosocial.activerecord'):
+            # Library class: use semantic naming
+            base_name = get_logging_manager().LOGGER_QUERY
+            return f"{base_name}.{self.__class__.__name__}"
+        else:
+            # Custom class: use module namespace
+            return f"{module}.{self.__class__.__name__}"
+
+    def _log(self, level: int, msg: str, *args, **kwargs) -> None:
+        """Log query-related messages using query's own logger."""
+        logger_name = self._get_logger_name()
+        logger = get_logging_manager().get_logger(logger_name)
+        logger.log(level, msg, *args, **kwargs)
 
     # region Basic Query Methods
     @overload

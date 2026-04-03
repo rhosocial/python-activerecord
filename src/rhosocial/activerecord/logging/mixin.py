@@ -19,14 +19,19 @@ class LoggingMixin:
     This mixin provides a unified logging interface for model classes.
     It supports:
     - Class-level logger configuration via __logger__ attribute
+    - Custom logger name via __logger_name__ attribute
+    - Automatic semantic logger naming for library classes
+    - User module namespace for user-defined classes
     - Automatic stack level calculation for correct source attribution
     - Optional formatter auto-setup (does NOT modify root logger)
 
     The mixin is designed to be inherited by model base classes.
 
     Class Attributes:
-        __logger__: Optional class-level logger instance. If None, uses
-            the global configuration's default logger.
+        __logger__: Optional class-level logger instance. If None, creates
+            a logger based on __logger_name__ or automatic naming.
+        __logger_name__: Optional custom logger name. If set, overrides
+            automatic naming. Useful for user-defined models.
 
     Usage:
         class MyModel(LoggingMixin, BaseModel):
@@ -34,10 +39,16 @@ class LoggingMixin:
 
             def save(self):
                 self.log(logging.INFO, "Saving record")
+
+        # User-defined model with custom logger name
+        class User(ActiveRecord):
+            __logger_name__ = 'myapp.user'  # Custom logger name
     """
 
     # Class-level logger (can be overridden by subclasses)
     __logger__: ClassVar[Optional[logging.Logger]] = None
+    # Custom logger name (can be overridden by subclasses)
+    __logger_name__: ClassVar[Optional[str]] = None
 
     @classmethod
     def get_logger(cls) -> logging.Logger:
@@ -60,13 +71,31 @@ class LoggingMixin:
     def _get_logger_name(cls) -> str:
         """Determine the appropriate logger name for this class.
 
+        Naming rules:
+        1. If __logger_name__ is set, use it directly
+        2. For library classes (module starts with 'rhosocial.activerecord'):
+           Use 'rhosocial.activerecord.model.{ClassName}'
+        3. For user-defined classes:
+           Use '{module}.{ClassName}'
+
         Subclasses can override this to customize logger naming.
 
         Returns:
-            str: The logger name (default: 'activerecord').
+            str: The logger name.
         """
-        # Default to 'activerecord' for models
-        return get_logging_manager().LOGGER_MODEL
+        # If custom logger name is set, use it
+        if cls.__logger_name__:
+            return cls.__logger_name__
+
+        # Check if this is a library class or user-defined class
+        module = cls.__module__
+        if module.startswith('rhosocial.activerecord'):
+            # Library class: use semantic naming
+            base_name = get_logging_manager().LOGGER_MODEL
+            return f"{base_name}.{cls.__name__}"
+        else:
+            # User-defined class: use user module namespace
+            return f"{module}.{cls.__name__}"
 
     @classmethod
     def set_logger(cls, logger: logging.Logger) -> None:
@@ -196,7 +225,7 @@ class LoggingMixin:
                 - 'summary': Truncate large values, mask sensitive fields (default)
                 - 'keys_only': Only show field names, no values
                 - 'full': Show complete data (use with caution)
-                If None, uses the configured log_data_mode.
+                If None, uses the configured log_data_mode for this logger.
             **kwargs: Additional keyword arguments for logging.
 
         Example:
@@ -212,7 +241,8 @@ class LoggingMixin:
             self.log_data(logging.DEBUG, "Full data", data, mode='full')
         """
         manager = get_logging_manager()
-        summarized = manager.config.summarize_data(data, mode)
+        logger_name = cls._get_logger_name()
+        summarized = manager.config.summarize_data(data, mode, logger_name)
         cls.log(level, f"{msg}: {summarized}", **kwargs)
 
     @classmethod
@@ -247,10 +277,16 @@ class BackendLoggingMixin:
     """Logging mixin specifically for Backend classes.
 
     This mixin is designed for storage backend implementations.
-    It uses 'storage' as the default logger name.
+    It uses semantic logger naming based on backend type.
 
     Instance Attributes:
         _logger: Instance-level logger storage.
+        _logger_name: Optional custom logger name.
+
+    Logger Naming:
+        - Library backends: 'rhosocial.activerecord.backend.{backend_type}'
+          (e.g., 'rhosocial.activerecord.backend.sqlite')
+        - Custom backends: Can set _logger_name or use module namespace
 
     Usage:
         class MyBackend(BackendLoggingMixin, StorageBackend):
@@ -259,6 +295,33 @@ class BackendLoggingMixin:
     """
 
     _logger: Optional[logging.Logger] = None
+    _logger_name: Optional[str] = None
+
+    def _get_logger_name(self) -> str:
+        """Determine the appropriate logger name for this backend.
+
+        Naming rules:
+        1. If _logger_name is set, use it directly
+        2. For library backends: Use 'rhosocial.activerecord.backend.{type}'
+        3. For custom backends: Use module namespace
+
+        Returns:
+            str: The logger name.
+        """
+        if self._logger_name:
+            return self._logger_name
+
+        # Check if this is a library backend
+        module = self.__class__.__module__
+        if module.startswith('rhosocial.activerecord'):
+            # Extract backend type from class name (SQLiteBackend -> sqlite)
+            class_name = self.__class__.__name__
+            backend_type = class_name.replace('Backend', '').lower()
+            base_name = get_logging_manager().LOGGER_BACKEND
+            return f"{base_name}.{backend_type}"
+        else:
+            # Custom backend: use module namespace
+            return f"{module}.{self.__class__.__name__}"
 
     @property
     def logger(self) -> logging.Logger:
@@ -268,7 +331,8 @@ class BackendLoggingMixin:
             logging.Logger: The logger instance for this backend.
         """
         if self._logger is None:
-            self._logger = get_logging_manager().get_storage_logger()
+            logger_name = self._get_logger_name()
+            self._logger = get_logging_manager().get_logger(logger_name)
         return self._logger
 
     @logger.setter
@@ -332,7 +396,7 @@ class BackendLoggingMixin:
                 - 'summary': Truncate large values, mask sensitive fields (default)
                 - 'keys_only': Only show field names, no values
                 - 'full': Show complete data (use with caution)
-                If None, uses the configured log_data_mode.
+                If None, uses the configured log_data_mode for this logger.
             **kwargs: Additional keyword arguments for logging.
 
         Example:
@@ -340,7 +404,8 @@ class BackendLoggingMixin:
             self.log_data(logging.INFO, "Executing query", params, mode='keys_only')
         """
         manager = get_logging_manager()
-        summarized = manager.config.summarize_data(data, mode)
+        logger_name = self._get_logger_name()
+        summarized = manager.config.summarize_data(data, mode, logger_name)
         self.log(level, f"{msg}: {summarized}", **kwargs)
 
     def log_data_keys_only(self, level: int, msg: str, data: Any, **kwargs) -> None:

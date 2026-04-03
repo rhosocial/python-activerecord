@@ -1,4 +1,4 @@
-# 11.2 GraphQL 集成 (GraphQL Integration)
+# 12.2 GraphQL 集成 (GraphQL Integration)
 
 GraphQL 是一种强大的 API 查询语言，允许客户端精确请求所需的数据。`rhosocial-activerecord` 可以与 Python 生态中的 GraphQL 库（如 `graphene`）无缝集成。
 
@@ -217,7 +217,7 @@ async def graphiql_interface():
 
 ## 完整示例
 
-完整的代码示例位于 `docs/examples/chapter_09_scenarios/graphql_fastapi` 目录中。
+完整的代码示例位于 `docs/examples/chapter_12_scenarios/graphql_fastapi` 目录中。
 
 该示例包含：
 *   完整的 `User`, `Post`, `Comment` 模型定义。
@@ -227,7 +227,7 @@ async def graphiql_interface():
 ### 运行示例
 
 ```bash
-cd docs/examples/chapter_09_scenarios/graphql_fastapi
+cd docs/examples/chapter_12_scenarios/graphql_fastapi
 pip install -r requirements.txt
 python main.py
 ```

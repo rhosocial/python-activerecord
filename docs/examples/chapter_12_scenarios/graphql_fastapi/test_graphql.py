@@ -1,7 +1,6 @@
 import sys
 import os
 import asyncio
-from promise import Promise
 
 # Add src to path
 current_dir = os.path.dirname(os.path.abspath(__file__))
@@ -12,13 +11,14 @@ sys.path.insert(0, src_dir)
 if current_dir not in sys.path:
     sys.path.insert(0, current_dir)
 
-from schema import schema
-from models import User, Post, Comment, setup_database, seed_data
-from main import Loaders # Import Loaders from main
+from schema import schema  # noqa: E402
+from models import User, Post, Comment  # noqa: E402
+from main import Loaders  # Import Loaders from main  # noqa: E402
 
 # Override backend to use memory for testing
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.backend.impl.sqlite import (  # noqa: E402
+    SQLiteBackend, SQLiteConnectionConfig
+)
 
 def test_query():
     # Setup DB
@@ -33,9 +33,21 @@ def test_query():
     
     # Create tables manually (copying from models.py essentially)
     with backend.connection as conn:
-        conn.execute(f"CREATE TABLE {User.table_name()} (id TEXT PRIMARY KEY, username TEXT, email TEXT, created_at INTEGER, updated_at INTEGER)")
-        conn.execute(f"CREATE TABLE {Post.table_name()} (id TEXT PRIMARY KEY, user_id TEXT, title TEXT, content TEXT, created_at INTEGER, updated_at INTEGER)")
-        conn.execute(f"CREATE TABLE {Comment.table_name()} (id TEXT PRIMARY KEY, user_id TEXT, post_id TEXT, content TEXT, created_at INTEGER, updated_at INTEGER)")
+        conn.execute(
+            f"CREATE TABLE {User.table_name()} ("
+            "id TEXT PRIMARY KEY, username TEXT, email TEXT, "
+            "created_at INTEGER, updated_at INTEGER)"
+        )
+        conn.execute(
+            f"CREATE TABLE {Post.table_name()} ("
+            "id TEXT PRIMARY KEY, user_id TEXT, title TEXT, content TEXT, "
+            "created_at INTEGER, updated_at INTEGER)"
+        )
+        conn.execute(
+            f"CREATE TABLE {Comment.table_name()} ("
+            "id TEXT PRIMARY KEY, user_id TEXT, post_id TEXT, content TEXT, "
+            "created_at INTEGER, updated_at INTEGER)"
+        )
         
     # Seed data
     u1 = User(username="alice", email="alice@example.com")

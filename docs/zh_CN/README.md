@@ -52,20 +52,25 @@
     *   **[并发控制 (Concurrency)](performance/concurrency.md)**: 使用乐观锁处理竞态条件。
     *   **[缓存机制 (Caching)](performance/caching.md)**: 理解内部缓存以避免重复工作。
 
-7.  **[事件系统 (Events)](events/README.md)**
+7.  **[日志系统 (Logging)](logging/README.md)**
+    *   **[日志命名空间](logging/namespace.md)**: 层次化日志命名，统一控制与精细调节。
+    *   **[数据摘要](logging/data_summarization.md)**: 自动屏蔽敏感字段、截断长字符串。
+    *   **[按层级配置](logging/per_logger_config.md)**: 为不同组件设置不同的日志模式。
+
+8.  **[事件系统 (Events)](events/README.md)**
     *   **[生命周期事件 (Lifecycle Events)](events/lifecycle.md)**: 业务逻辑解耦 (before_save, after_create 等)。
 
-8.  **[序列化 (Serialization)](serialization/README.md)**
+9.  **[序列化 (Serialization)](serialization/README.md)**
     *   **[JSON 序列化 (JSON Serialization)](serialization/json.md)**: 模型转换为 JSON/Dict，字段过滤。
 
-9.  **[后端系统 (Backend System)](backend/README.md)**
+10. **[后端系统 (Backend System)](backend/README.md)**
     *   **[表达式系统 (Expression System)](backend/expression/README.md)**: Python 对象如何安全地转换为 SQL 字符串。 💡 *AI 提示词："解释 ToSQLProtocol 协议，以及 Expression-Dialect 分离如何防止 SQL 注入攻击。"*
     *   **[自定义后端 (Custom Backend)](backend/custom_backend.md)**: 实现一个新的数据库驱动。
 
-10. **[测试指南 (Testing)](testing/README.md)**
+11. **[测试指南 (Testing)](testing/README.md)**
     *   **[测试策略 (Strategies)](testing/strategies.md)**: 零 IO 测试 vs 集成测试。
     *   **[Dummy Backend](testing/dummy.md)**: 使用内置的 Dummy Backend 进行单元测试。
 
-11. **[场景实战 (Scenarios)](scenarios/README.md)**
+12. **[场景实战 (Scenarios)](scenarios/README.md)**
     *   **[FastAPI 集成](scenarios/fastapi.md)**: 异步、依赖注入与 Pydantic 模型复用。
     *   **[GraphQL 集成](scenarios/graphql.md)**: 解决 N+1 问题，构建高效 API。
