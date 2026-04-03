@@ -117,6 +117,14 @@ class LoggingConfig:
     # Cached summarizers for specific loggers (by logger name)
     _logger_summarizers: Dict[str, DataSummarizer] = field(default_factory=dict, repr=False, compare=False)
 
+    def __setattr__(self, name: str, value: Any) -> None:
+        """Override setattr to invalidate cached summarizers when config changes."""
+        if name == 'summarizer_config':
+            # Clear cached summarizers when summarizer_config is updated
+            object.__setattr__(self, '_summarizer', None)
+            object.__setattr__(self, '_logger_summarizers', {})
+        object.__setattr__(self, name, value)
+
     def get_summarizer(self, logger_name: Optional[str] = None) -> DataSummarizer:
         """Get or create the DataSummarizer instance.
 

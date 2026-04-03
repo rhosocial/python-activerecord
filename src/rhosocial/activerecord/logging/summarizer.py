@@ -7,8 +7,11 @@ log messages while preserving useful information.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Set, Optional, Dict, List, Union
-import re
+from typing import Any, Set, Optional, Dict, List, Union, Callable
+
+
+MaskPlaceholderType = Union[str, Callable[[Any], Any]]
+"""Type for mask_placeholder: either a string or a callable that transforms the value."""
 
 
 @dataclass
@@ -24,7 +27,11 @@ class SummarizerConfig:
         string_placeholder: Placeholder for truncated strings.
         bytes_placeholder: Placeholder for truncated bytes.
         dict_placeholder: Placeholder for truncated collections.
-        mask_placeholder: Placeholder for masked sensitive fields.
+        mask_placeholder: Placeholder for masked sensitive fields. Can be a string
+            or a callable that takes the original value and returns the masked result.
+        field_maskers: Dictionary mapping field names to custom masker functions.
+            Each masker is a callable that takes the original value and returns
+            the masked result. Field names are case-insensitive.
         show_type_hint: Whether to show type hints in truncation messages.
     """
 
@@ -44,7 +51,8 @@ class SummarizerConfig:
     string_placeholder: str = "...[truncated, {length} chars total]"
     bytes_placeholder: str = "...[{length} bytes total]"
     dict_placeholder: str = "...[{count} more items]"
-    mask_placeholder: str = "***MASKED***"
+    mask_placeholder: MaskPlaceholderType = "***MASKED***"
+    field_maskers: Dict[str, Callable[[Any], Any]] = field(default_factory=dict)
     show_type_hint: bool = True
 
 
@@ -77,6 +85,10 @@ class DataSummarizer:
         self._sensitive_fields_lower = {
             f.lower() for f in self.config.sensitive_fields
         }
+        # Build lowercase mapping for field_maskers
+        self._field_maskers_lower = {
+            k.lower(): v for k, v in self.config.field_maskers.items()
+        }
 
     def _is_sensitive_field(self, field_name: str) -> bool:
         """Check if a field name is sensitive.
@@ -88,6 +100,39 @@ class DataSummarizer:
             True if the field is considered sensitive.
         """
         return field_name.lower() in self._sensitive_fields_lower
+
+    def _mask_field(self, field_name: str, value: Any) -> Any:
+        """Mask a sensitive field value.
+
+        Uses field-specific masker if available, otherwise uses the global
+        mask_placeholder (which can be a string or callable).
+
+        Args:
+            field_name: The field name (used to look up field-specific masker).
+            value: The original value to mask.
+
+        Returns:
+            The masked value.
+        """
+        field_lower = field_name.lower()
+
+        # Check for field-specific masker first
+        if field_lower in self._field_maskers_lower:
+            masker = self._field_maskers_lower[field_lower]
+            try:
+                return masker(value)
+            except Exception:
+                # If masker fails, fall back to default
+                pass
+
+        # Use global mask_placeholder
+        if callable(self.config.mask_placeholder):
+            try:
+                return self.config.mask_placeholder(value)
+            except Exception:
+                return "***MASKED***"
+        else:
+            return self.config.mask_placeholder
 
     def _truncate_string(self, value: str) -> str:
         """Truncate a string if it exceeds max length.
@@ -206,7 +251,7 @@ class DataSummarizer:
             # Mask sensitive fields
             str_key = str(key)
             if self._is_sensitive_field(str_key):
-                result[key] = self.config.mask_placeholder
+                result[key] = self._mask_field(str_key, value)
             elif keys_only:
                 # Only show key with value type hint
                 result[key] = f"<{type(value).__name__}>"
@@ -284,7 +329,7 @@ class DataSummarizer:
             for key, value in data.items():
                 str_key = str(key)
                 if self._is_sensitive_field(str_key):
-                    result[key] = self.config.mask_placeholder
+                    result[key] = self._mask_field(str_key, value)
                 else:
                     result[key] = self.mask_sensitive(value)
             return result

@@ -38,7 +38,7 @@ config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = config
+manager.config.summarizer_config = config
 ```
 
 ### Appending to Default Fields
@@ -47,13 +47,13 @@ manager._config.summarizer_config = config
 from rhosocial.activerecord.logging import get_logging_manager, SummarizerConfig
 
 manager = get_logging_manager()
-current_fields = manager._config.summarizer_config.sensitive_fields
+current_fields = manager.config.summarizer_config.sensitive_fields
 
 # Add new fields while preserving defaults
 new_config = SummarizerConfig(
     sensitive_fields=current_fields | {'credit_card', 'ssn'}
 )
-manager._config.summarizer_config = new_config
+manager.config.summarizer_config = new_config
 ```
 
 ### Disabling Sensitive Field Masking
@@ -72,7 +72,7 @@ config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = config
+manager.config.summarizer_config = config
 ```
 
 > ⚠️ **Warning**: Disabling sensitive field masking may cause passwords, tokens, and other sensitive information to appear in logs. Only use this configuration in secure, controlled environments.
@@ -86,7 +86,7 @@ Three modes control how data is logged:
 Truncates long values and masks sensitive fields:
 
 ```python
-manager._config.log_data_mode = 'summary'
+manager.config.log_data_mode = 'summary'
 
 # Result in logs:
 # {'title': 'Short', 'content': 'Lorem ipsum...[truncated, 1000 chars total]', 'password': '***MASKED***'}
@@ -97,7 +97,7 @@ manager._config.log_data_mode = 'summary'
 Shows only field names and type hints, not actual values:
 
 ```python
-manager._config.log_data_mode = 'keys_only'
+manager.config.log_data_mode = 'keys_only'
 
 # Result in logs:
 # {'title': '<str>', 'content': '<str>', 'password': '***MASKED***'}
@@ -110,7 +110,7 @@ This mode is ideal for production environments and GDPR/PCI compliance scenarios
 Shows complete data without summarization (use with caution):
 
 ```python
-manager._config.log_data_mode = 'full'
+manager.config.log_data_mode = 'full'
 
 # Result in logs (complete data):
 # {'title': 'Short', 'content': 'Lorem ipsum dolor...', 'password': 'secret123'}
@@ -129,9 +129,59 @@ All available `SummarizerConfig` options:
 | `max_dict_items` | 10 | Maximum items to show in dicts/lists |
 | `max_depth` | 5 | Maximum nesting depth for recursive data |
 | `sensitive_fields` | See above | Set of field names to mask |
-| `mask_placeholder` | `***MASKED***` | Placeholder for masked fields |
+| `mask_placeholder` | `***MASKED***` | Placeholder for masked fields (string or callable) |
+| `field_maskers` | `{}` | Mapping of field names to custom masker functions |
 | `string_placeholder` | `...[truncated, {length} chars total]` | Placeholder for truncated strings |
 | `show_type_hint` | True | Show type hints in truncation messages |
+
+### Custom Masker Functions
+
+`mask_placeholder` can be either a string or a callable (like a lambda function). When callable, it receives the original value and returns the masked result:
+
+```python
+from rhosocial.activerecord.logging import SummarizerConfig
+
+# Use callable mask_placeholder
+config = SummarizerConfig(
+    sensitive_fields={'password', 'token'},
+    mask_placeholder=lambda v: f'<{len(str(v))} chars hidden>'
+)
+
+# Result: {'password': '<9 chars hidden>', 'token': '<12 chars hidden>'}
+```
+
+### Field-Specific Custom Maskers
+
+`field_maskers` allows specifying custom masker functions for specific fields, taking precedence over the global `mask_placeholder`:
+
+```python
+from rhosocial.activerecord.logging import SummarizerConfig, get_logging_manager
+
+config = SummarizerConfig(
+    sensitive_fields={'password', 'email', 'api_key'},
+    # Global fallback masker
+    mask_placeholder='[REDACTED]',
+    # Field-specific custom maskers
+    field_maskers={
+        # Show first char of local part
+        'email': lambda v: v.split('@')[0][:1] + '***@' + v.split('@')[1] if '@' in str(v) else '***',
+        # Show password length as asterisks
+        'password': lambda v: '*' * min(len(str(v)), 8),
+    }
+)
+
+manager = get_logging_manager()
+manager.config.summarizer_config = config
+
+# Example result:
+# {'email': 'jo***@example.com', 'password': '********', 'api_key': '[REDACTED]'}
+```
+
+**Masking Priority**:
+
+1. Field-specific `field_maskers` (highest priority)
+2. Global `mask_placeholder`
+3. Default `***MASKED***` (fallback when masker raises exception)
 
 ### Complete Configuration Example
 
@@ -155,9 +205,9 @@ summarizer_config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = summarizer_config
-manager._config.log_data_mode = 'summary'
-manager._config.default_level = logging.DEBUG
+manager.config.summarizer_config = summarizer_config
+manager.config.log_data_mode = 'summary'
+manager.config.default_level = logging.DEBUG
 ```
 
 ## Using log_data Methods

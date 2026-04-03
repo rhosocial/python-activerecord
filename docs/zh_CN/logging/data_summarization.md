@@ -38,7 +38,7 @@ config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = config
+manager.config.summarizer_config = config
 ```
 
 ### 追加到默认字段
@@ -47,13 +47,13 @@ manager._config.summarizer_config = config
 from rhosocial.activerecord.logging import get_logging_manager, SummarizerConfig
 
 manager = get_logging_manager()
-current_fields = manager._config.summarizer_config.sensitive_fields
+current_fields = manager.config.summarizer_config.sensitive_fields
 
 # 在保留默认字段的同时添加新字段
 new_config = SummarizerConfig(
     sensitive_fields=current_fields | {'credit_card', 'ssn'}
 )
-manager._config.summarizer_config = new_config
+manager.config.summarizer_config = new_config
 ```
 
 ### 禁用敏感字段屏蔽
@@ -72,7 +72,7 @@ config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = config
+manager.config.summarizer_config = config
 ```
 
 > ⚠️ **警告**：禁用敏感字段屏蔽可能导致密码、令牌等敏感信息出现在日志中。请确保仅在安全可控的环境中使用此配置。
@@ -86,7 +86,7 @@ manager._config.summarizer_config = config
 截断长值并屏蔽敏感字段：
 
 ```python
-manager._config.log_data_mode = 'summary'
+manager.config.log_data_mode = 'summary'
 
 # 日志中的结果：
 # {'title': 'Short', 'content': 'Lorem ipsum...[truncated, 1000 chars total]', 'password': '***MASKED***'}
@@ -97,7 +97,7 @@ manager._config.log_data_mode = 'summary'
 只显示字段名和类型提示，不显示实际值：
 
 ```python
-manager._config.log_data_mode = 'keys_only'
+manager.config.log_data_mode = 'keys_only'
 
 # 日志中的结果：
 # {'title': '<str>', 'content': '<str>', 'password': '***MASKED***'}
@@ -110,7 +110,7 @@ manager._config.log_data_mode = 'keys_only'
 显示完整数据，不进行摘要（请谨慎使用）：
 
 ```python
-manager._config.log_data_mode = 'full'
+manager.config.log_data_mode = 'full'
 
 # 日志中的结果（完整数据）：
 # {'title': 'Short', 'content': 'Lorem ipsum dolor...', 'password': 'secret123'}
@@ -129,9 +129,59 @@ manager._config.log_data_mode = 'full'
 | `max_dict_items` | 10 | 字典/列表中显示的最大项数 |
 | `max_depth` | 5 | 递归数据的最大嵌套深度 |
 | `sensitive_fields` | 见上文 | 要屏蔽的字段名集合 |
-| `mask_placeholder` | `***MASKED***` | 被屏蔽字段的占位符 |
+| `mask_placeholder` | `***MASKED***` | 被屏蔽字段的占位符（字符串或可调用对象） |
+| `field_maskers` | `{}` | 字段名到自定义屏蔽函数的映射 |
 | `string_placeholder` | `...[truncated, {length} chars total]` | 截断字符串的占位符 |
 | `show_type_hint` | True | 在截断消息中显示类型提示 |
+
+### 自定义屏蔽函数
+
+`mask_placeholder` 可以是字符串或可调用对象（如 lambda 函数）。当为可调用对象时，它接收原始值并返回屏蔽后的结果：
+
+```python
+from rhosocial.activerecord.logging import SummarizerConfig
+
+# 使用可调用的 mask_placeholder
+config = SummarizerConfig(
+    sensitive_fields={'password', 'token'},
+    mask_placeholder=lambda v: f'<{len(str(v))} chars hidden>'
+)
+
+# 结果: {'password': '<9 chars hidden>', 'token': '<12 chars hidden>'}
+```
+
+### 字段级自定义屏蔽器
+
+`field_maskers` 允许为特定字段指定自定义屏蔽函数，优先级高于全局 `mask_placeholder`：
+
+```python
+from rhosocial.activerecord.logging import SummarizerConfig, get_logging_manager
+
+config = SummarizerConfig(
+    sensitive_fields={'password', 'email', 'api_key'},
+    # 全局备用屏蔽器
+    mask_placeholder='[REDACTED]',
+    # 字段级自定义屏蔽器
+    field_maskers={
+        # 显示邮箱本地部分的首字符
+        'email': lambda v: v.split('@')[0][:1] + '***@' + v.split('@')[1] if '@' in str(v) else '***',
+        # 用星号显示密码长度
+        'password': lambda v: '*' * min(len(str(v)), 8),
+    }
+)
+
+manager = get_logging_manager()
+manager.config.summarizer_config = config
+
+# 结果示例:
+# {'email': 'jo***@example.com', 'password': '********', 'api_key': '[REDACTED]'}
+```
+
+**屏蔽优先级**：
+
+1. 字段级 `field_maskers`（最高优先级）
+2. 全局 `mask_placeholder`
+3. 默认值 `***MASKED***`（当屏蔽器抛出异常时的回退）
 
 ### 完整配置示例
 
@@ -155,9 +205,9 @@ summarizer_config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = summarizer_config
-manager._config.log_data_mode = 'summary'
-manager._config.default_level = logging.DEBUG
+manager.config.summarizer_config = summarizer_config
+manager.config.log_data_mode = 'summary'
+manager.config.default_level = logging.DEBUG
 ```
 
 ## 使用 log_data 方法

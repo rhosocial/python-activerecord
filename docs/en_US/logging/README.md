@@ -71,7 +71,7 @@ config = SummarizerConfig(
 )
 
 manager = get_logging_manager()
-manager._config.summarizer_config = config
+manager.config.summarizer_config = config
 ```
 
 ## Example Code
