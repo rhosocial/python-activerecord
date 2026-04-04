@@ -115,6 +115,16 @@ class BaseQueryMixin(IQueryBuilding):
     def where(self, condition, params=None):
         """Add AND condition to the query.
 
+        **IMPORTANT**: This method must be called on a query object returned by Model.query().
+        Do NOT call it directly on the Model class like Django's incorrect approach
+        (e.g., Model.objects.filter(field=value) or Model.where(field=value)).
+        The correct pattern is:
+
+            Model.query().where(Model.c.field == value)
+
+        This design follows the Active Record pattern where Model.query() returns
+        a query builder object, and conditions are added via method chaining.
+
         Args:
             condition: Condition expression. Can be:
                       1. A predicate expression (e.g., User.c.age > 25, which is a SQLPredicate instance)

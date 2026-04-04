@@ -80,9 +80,25 @@ stateDiagram-v2
 ### 适用场景
 
 - **批量处理**：并行处理大量独立项目
-- **任务队列**：用多个 Worker 处理队列中的任务
 - **CPU 密集型工作**：跨进程分发 CPU 密集操作
 - **I/O 密集型工作**：并行数据库查询或 API 调用
+- **外部队列消费者**：作为 Celery、RQ 等任务队列的 Worker 进程池
+
+### 不适用场景
+
+WorkerPool **不是**完整的任务队列系统，以下功能需要使用专业库（如 Celery、RQ、Dramatiq）：
+
+| 功能 | WorkerPool | 专业任务队列 |
+| --- | ---------- | ------------ |
+| 任务优先级 | ❌ FIFO only | ✅ 支持 |
+| 任务持久化 | ❌ 内存队列 | ✅ Redis/DB |
+| 延迟任务 | ❌ 不支持 | ✅ 支持 |
+| 自动重试 | ❌ 不支持 | ✅ 支持 |
+| 任务去重 | ❌ 不支持 | ✅ 支持 |
+| 任务依赖 | ❌ 不支持 | ✅ 支持 |
+| 分布式 | ❌ 单进程 | ✅ 多节点 |
+
+如果你需要上述功能，可以将 WorkerPool 作为外部任务队列的消费者，或者直接使用专业任务队列库。
 
 ---
 
@@ -426,6 +442,43 @@ class Future:
 2. **必须可导入**：Worker 需要按名称导入函数
 3. **参数必须可 pickle 序列化**：基本类型、字典、列表都可以
 4. **返回值必须可 pickle 序列化**：与参数约束相同
+5. **支持异步函数**：`async def` 函数会被自动检测并用 `asyncio.run()` 执行
+
+### 异步任务函数
+
+WorkerPool 原生支持异步任务函数，可以直接传入 `async def` 定义的协程函数：
+
+```python
+# tasks.py
+async def async_query_task(params: dict) -> dict:
+    """使用 AsyncActiveRecord 的异步任务"""
+    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+    from myapp.models import User
+
+    config = SQLiteConnectionConfig(database=params['db_path'])
+    await User.async_configure(config, SQLiteBackend)
+
+    try:
+        async with User.async_transaction():
+            user = await User.find_one_async(params['user_id'])
+            # ... 异步操作
+            return {'status': 'success', 'user_id': user.id}
+    finally:
+        await User.async_backend().disconnect()
+
+# main.py
+with WorkerPool(n_workers=4) as pool:
+    # 直接提交异步函数，无需手动包装
+    future = pool.submit(async_query_task, {'db_path': 'app.db', 'user_id': 123})
+    result = future.result(timeout=30)
+```
+
+**注意事项**：
+
+- 异步函数在 Worker 进程内由 `asyncio.run()` 执行，每个任务创建独立的事件循环
+- `Future.result()` 仍是同步阻塞的（这是设计决策，因为进程间通信本身是同步的）
+- 异步任务与同步任务可以混合提交到同一个 WorkerPool
 
 ### 任务函数模板
 

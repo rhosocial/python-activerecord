@@ -9,6 +9,8 @@ DRAINING → STOPPING → KILLING → STOPPED.
 
 from __future__ import annotations
 
+import asyncio
+import inspect
 import multiprocessing as mp
 import threading
 import time
@@ -240,6 +242,10 @@ def _worker_entry(worker_id: int, task_q: mp.Queue, result_q: mp.Queue) -> None:
         1. __dequeued__ - Sent immediately after get(), enables crash attribution
         2. __started__  - Sent before fn(), enables timeout tracking
         3. ok/error     - Sent after fn() completes/fails
+
+    Async Support:
+        Both sync and async (coroutine) functions are supported as task functions.
+        Async functions are automatically wrapped with asyncio.run().
     """
     while True:
         try:
@@ -262,7 +268,11 @@ def _worker_entry(worker_id: int, task_q: mp.Queue, result_q: mp.Queue) -> None:
         result_q.put(("__started__", worker_id, task_id))
 
         try:
-            value = fn(*args, **kwargs)
+            # Support both sync and async task functions
+            if inspect.iscoroutinefunction(fn):
+                value = asyncio.run(fn(*args, **kwargs))
+            else:
+                value = fn(*args, **kwargs)
             result_q.put(("ok", task_id, value))
         except Exception as exc:
             result_q.put(("error", task_id, exc, traceback.format_exc()))

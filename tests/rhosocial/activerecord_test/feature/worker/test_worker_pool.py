@@ -1,21 +1,31 @@
 # tests/rhosocial/activerecord_test/feature/worker/test_worker_pool.py
-# ruff: noqa: E402
 """
 Test WorkerPool basic functionality and graceful shutdown.
+
+================================================================================
+DIRECTORY PURPOSE - PLEASE READ BEFORE MODIFYING
+================================================================================
+
+This directory (feature/worker/) is for ABSTRACT WorkerPool tests that do NOT
+depend on any database backend.
+
+WHAT BELONGS HERE:
+- Tests for rhosocial.activerecord.worker.pool abstract functionality
+- Tests that use simple task functions (no database I/O)
+- Tests for WorkerHandle, WorkerRegistry, Future, PoolState, etc.
+
+WHAT DOES NOT BELONG HERE:
+- Database-dependent WorkerPool tests (SQLite, MySQL, PostgreSQL, etc.)
+  → Put those in feature/basic/worker/ or feature/query/worker/
+- Backend-specific WorkerPool tests
+  → Put those in feature/backend/{backend}/worker/
 
 Note: All task functions must be module-level functions (pickle-able).
 Running tests requires if __name__ == '__main__' guard.
 """
 
-import os
-import sys
 import time
 import multiprocessing as mp
-
-# Ensure src directory is in path
-src = os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", "..", "..", "..", "src"))
-if src not in sys.path:
-    sys.path.insert(0, src)
 
 import pytest
 from rhosocial.activerecord.worker import (
@@ -63,6 +73,22 @@ def crash_task() -> None:
     """Task that crashes the process (simulate segfault)"""
     import os
     os._exit(1)
+
+
+async def async_simple_task(n: int) -> int:
+    """Simple async task: return n * 2"""
+    import asyncio
+    await asyncio.sleep(0.01)  # Small delay to verify async execution
+    return n * 2
+
+
+async def async_failing_task(n: int) -> int:
+    """Async task that fails"""
+    import asyncio
+    await asyncio.sleep(0.01)
+    if n < 0:
+        raise ValueError("n must be non-negative")
+    return n
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -873,6 +899,61 @@ class TestDefensiveBranches:
         # Task should NOT be marked as orphan (it's claimed)
         # Pool should still be running
         assert pool.state == PoolState.RUNNING
+
+        pool.shutdown(graceful_timeout=1.0)
+
+
+class TestAsyncTaskSupport:
+    """Test async task function support"""
+
+    def test_async_task_basic(self):
+        """Test basic async task execution"""
+        pool = WorkerPool(n_workers=2, check_interval=0.5)
+
+        fut = pool.submit(async_simple_task, 5)
+        result = fut.result(timeout=10)
+
+        assert result == 10
+        assert fut.succeeded
+        assert not fut.failed
+
+        pool.shutdown(graceful_timeout=1.0)
+
+    def test_async_task_exception(self):
+        """Test async task that raises exception"""
+        pool = WorkerPool(n_workers=2, check_interval=0.5)
+
+        fut = pool.submit(async_failing_task, -1)
+
+        with pytest.raises(ValueError, match="n must be non-negative"):
+            fut.result(timeout=10)
+
+        assert fut.failed
+        assert fut.traceback is not None
+
+        pool.shutdown(graceful_timeout=1.0)
+
+    def test_async_task_multiple(self):
+        """Test multiple async tasks"""
+        pool = WorkerPool(n_workers=4, check_interval=0.5)
+
+        futures = [pool.submit(async_simple_task, i) for i in range(10)]
+        results = [f.result(timeout=10) for f in futures]
+
+        assert results == [0, 2, 4, 6, 8, 10, 12, 14, 16, 18]
+
+        pool.shutdown(graceful_timeout=1.0)
+
+    def test_mixed_sync_async_tasks(self):
+        """Test mixing sync and async tasks in same pool"""
+        pool = WorkerPool(n_workers=4, check_interval=0.5)
+
+        # Submit mixed tasks
+        fut_sync = pool.submit(simple_task, 5)
+        fut_async = pool.submit(async_simple_task, 10)
+
+        assert fut_sync.result(timeout=10) == 10
+        assert fut_async.result(timeout=10) == 20
 
         pool.shutdown(graceful_timeout=1.0)
 

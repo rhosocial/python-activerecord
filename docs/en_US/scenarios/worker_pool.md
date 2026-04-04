@@ -80,9 +80,25 @@ stateDiagram-v2
 ### When to Use WorkerPool
 
 - **Batch processing**: Process many independent items in parallel
-- **Task queues**: Handle tasks from a queue with multiple workers
 - **CPU-bound work**: Distribute CPU-intensive operations across processes
 - **I/O-bound work**: Parallel database queries or API calls
+- **External queue consumers**: As a worker pool for Celery, RQ, or other task queues
+
+### When NOT to Use WorkerPool
+
+WorkerPool is **NOT** a complete task queue system. The following features require specialized libraries (e.g., Celery, RQ, Dramatiq):
+
+| Feature | WorkerPool | Professional Task Queues |
+|---------|------------|--------------------------|
+| Task Priority | ❌ FIFO only | ✅ Supported |
+| Task Persistence | ❌ In-memory queue | ✅ Redis/DB |
+| Delayed Tasks | ❌ Not supported | ✅ Supported |
+| Automatic Retry | ❌ Not supported | ✅ Supported |
+| Task Deduplication | ❌ Not supported | ✅ Supported |
+| Task Dependencies | ❌ Not supported | ✅ Supported |
+| Distributed | ❌ Single process | ✅ Multi-node |
+
+If you need these features, you can use WorkerPool as a consumer for external task queues, or use a professional task queue library directly.
 
 ---
 
@@ -426,6 +442,43 @@ class Future:
 2. **Must be importable**: Workers need to import the function by name
 3. **Arguments must be pickle-able**: Basic types, dicts, lists work well
 4. **Return pickle-able results**: Same constraint as arguments
+5. **Support for async functions**: `async def` functions are automatically detected and executed with `asyncio.run()`
+
+### Async Task Functions
+
+WorkerPool natively supports async task functions. You can directly pass `async def` coroutine functions:
+
+```python
+# tasks.py
+async def async_query_task(params: dict) -> dict:
+    """Async task using AsyncActiveRecord"""
+    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+    from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+    from myapp.models import User
+
+    config = SQLiteConnectionConfig(database=params['db_path'])
+    await User.async_configure(config, SQLiteBackend)
+
+    try:
+        async with User.async_transaction():
+            user = await User.find_one_async(params['user_id'])
+            # ... async operations
+            return {'status': 'success', 'user_id': user.id}
+    finally:
+        await User.async_backend().disconnect()
+
+# main.py
+with WorkerPool(n_workers=4) as pool:
+    # Submit async function directly, no manual wrapping needed
+    future = pool.submit(async_query_task, {'db_path': 'app.db', 'user_id': 123})
+    result = future.result(timeout=30)
+```
+
+**Important Notes**:
+
+- Async functions are executed via `asyncio.run()` in the worker process, with a separate event loop for each task
+- `Future.result()` is still synchronous blocking (this is a design decision, as inter-process communication is inherently synchronous)
+- Async and sync tasks can be mixed in the same WorkerPool
 
 ### Task Function Template
 
