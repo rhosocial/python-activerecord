@@ -164,14 +164,17 @@ AsyncColumnMappingModel = _select_model_class(AsyncColumnMappingModelBase, Async
 AsyncMixedAnnotationModel = _select_model_class(AsyncMixedAnnotationModelBase, AsyncMixedAnnotationModel312, AsyncMixedAnnotationModel311, AsyncMixedAnnotationModel310, "AsyncMixedAnnotationModel")
 
 from rhosocial.activerecord.testsuite.feature.basic.interfaces import IBasicProvider
+from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol
 # ...and the scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
 
 
-class BasicProvider(IBasicProvider):
+class BasicProvider(IBasicProvider, WorkerTestProtocol):
     """
     This is the SQLite backend's implementation for the basic features test group.
     It connects the generic tests in the testsuite with the actual SQLite database.
+
+    This provider also implements WorkerTestProtocol to enable WorkerPool tests.
     """
     
     def __init__(self):
@@ -460,3 +463,47 @@ class BasicProvider(IBasicProvider):
                     os.remove(config.database)
                 except OSError:
                     pass
+
+    # --- Implementation of WorkerTestProtocol ---
+
+    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = None) -> dict:
+        """
+        Return serializable connection parameters for Worker processes.
+
+        This method provides all information needed to recreate the database
+        connection in a Worker process, including the schema SQL for table creation.
+
+        Args:
+            scenario_name: The test scenario name
+            fixture_type: Optional fixture type hint (unused for basic provider)
+        """
+        # Get the database file path used in this scenario
+        if scenario_name in self._scenario_db_files:
+            database_path = self._scenario_db_files[scenario_name]
+        else:
+            _, config = get_scenario(scenario_name)
+            database_path = config.database
+
+        return {
+            'backend_module': 'rhosocial.activerecord.backend.impl.sqlite',
+            'backend_class_name': 'SQLiteBackend',
+            'config_class_module': 'rhosocial.activerecord.backend.impl.sqlite.config',
+            'config_class_name': 'SQLiteConnectionConfig',
+            'config_kwargs': {
+                'database': database_path,
+            },
+            'schema_sql': self._load_sqlite_schema('users.sql'),
+        }
+
+    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
+        """
+        Return the SQL statement to create a specific table.
+
+        Args:
+            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
+            table_name: Name of the table to create
+
+        Returns:
+            CREATE TABLE SQL statement
+        """
+        return self._load_sqlite_schema(f'{table_name}.sql')

@@ -12,7 +12,6 @@ Integrating `rhosocial-activerecord` into modern Web frameworks and using it cor
 
 Full example code for this chapter can be found at `docs/examples/chapter_12_scenarios/`.
 
-| Directory          | Contents                                             |
-|--------------------|------------------------------------------------------|
-| `worker_pool_web/` | Worker pool and web framework integration examples   |
-| `graphql_fastapi/` | GraphQL + FastAPI integration example                |
+| Directory          | Contents                             |
+|--------------------|--------------------------------------|
+| `graphql_fastapi/` | GraphQL + FastAPI integration example |

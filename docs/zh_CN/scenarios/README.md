@@ -12,7 +12,6 @@
 
 本章的完整示例代码位于 `docs/examples/chapter_12_scenarios/`。
 
-| 目录               | 内容                                     |
-|--------------------|------------------------------------------|
-| `worker_pool_web/` | Worker 池与 Web 框架集成示例             |
-| `graphql_fastapi/` | GraphQL + FastAPI 集成示例               |
+| 目录               | 内容                             |
+|--------------------|----------------------------------|
+| `graphql_fastapi/` | GraphQL + FastAPI 集成示例       |

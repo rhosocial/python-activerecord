@@ -59,6 +59,7 @@ class LoggingManager:
     LOGGER_BACKEND = 'rhosocial.activerecord.backend'
     LOGGER_QUERY = 'rhosocial.activerecord.query'
     LOGGER_TRANSACTION = 'rhosocial.activerecord.transaction'
+    LOGGER_WORKER = 'rhosocial.activerecord.worker'
 
     def __new__(cls) -> 'LoggingManager':
         """Create or return the singleton instance."""
@@ -165,6 +166,14 @@ class LoggingManager:
             Logger named 'rhosocial.activerecord.transaction'.
         """
         return self.get_logger(self.LOGGER_TRANSACTION)
+
+    def get_worker_logger(self) -> logging.Logger:
+        """Get the default logger for worker pool operations.
+
+        Returns:
+            Logger named 'rhosocial.activerecord.worker'.
+        """
+        return self.get_logger(self.LOGGER_WORKER)
 
     @property
     def config(self) -> LoggingConfig:

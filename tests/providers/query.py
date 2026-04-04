@@ -104,11 +104,12 @@ MappedPost = _select_model_class(MappedPostBase, MappedPost312, MappedPost311, M
 MappedComment = _select_model_class(MappedCommentBase, MappedComment312, MappedComment311, MappedComment310, "MappedComment")
 
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
+from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol
 # Scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
 
 
-class QueryProvider(IQueryProvider):
+class QueryProvider(IQueryProvider, WorkerTestProtocol):
     """
     This is the SQLite backend's implementation for the query features test group.
     It connects the generic tests in the testsuite with the actual SQLite database.
@@ -349,3 +350,82 @@ class QueryProvider(IQueryProvider):
         """Ensure all temp files are cleaned up when the provider is destroyed."""
         for scenario_name in list(self._scenario_db_files.keys()):
             self.cleanup_after_test(scenario_name)
+
+    # --- Implementation of WorkerTestProtocol ---
+
+    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = 'order') -> dict:
+        """
+        Return serializable connection parameters for Worker processes.
+
+        This method provides all information needed to recreate the database
+        connection in a Worker process, including the schema SQL for table creation.
+
+        Args:
+            scenario_name: The test scenario name
+            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined')
+
+        Returns:
+            Dictionary with connection parameters and schema SQL
+        """
+        # Get the database file path used in this scenario
+        if scenario_name in self._scenario_db_files:
+            # Use the first file from the list (they all share the same database)
+            database_path = self._scenario_db_files[scenario_name][0]
+        else:
+            _, config = get_scenario(scenario_name)
+            database_path = config.database
+
+        # Build schema SQL based on fixture type
+        schema_sql = self._get_schema_sql_for_fixture_type(fixture_type)
+
+        return {
+            'backend_module': 'rhosocial.activerecord.backend.impl.sqlite',
+            'backend_class_name': 'SQLiteBackend',
+            'config_class_module': 'rhosocial.activerecord.backend.impl.sqlite.config',
+            'config_class_name': 'SQLiteConnectionConfig',
+            'config_kwargs': {
+                'database': database_path,
+            },
+            'schema_sql': schema_sql,
+        }
+
+    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
+        """
+        Return the SQL statement to create a specific table.
+
+        Args:
+            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
+            table_name: Name of the table to create
+
+        Returns:
+            CREATE TABLE SQL statement
+        """
+        return self._load_sqlite_schema(f'{table_name}.sql')
+
+    def _get_schema_sql_for_fixture_type(self, fixture_type: str) -> dict:
+        """
+        Get schema SQL for a specific fixture type.
+
+        Args:
+            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined')
+
+        Returns:
+            Dictionary mapping table names to CREATE TABLE statements
+        """
+        schemas = {}
+
+        if fixture_type == 'order':
+            tables = ['users', 'orders', 'order_items']
+        elif fixture_type == 'blog':
+            tables = ['users', 'posts', 'comments']
+        elif fixture_type == 'user':
+            tables = ['users']
+        elif fixture_type == 'combined':
+            tables = ['users', 'orders', 'order_items', 'posts', 'comments']
+        else:
+            tables = ['users']
+
+        for table in tables:
+            schemas[table] = self._load_sqlite_schema(f'{table}.sql')
+
+        return schemas

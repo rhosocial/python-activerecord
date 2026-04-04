@@ -265,6 +265,7 @@ markers = [
 [tool.coverage.run]
 source = ["rhosocial"]
 branch = true
+concurrency = ["multiprocessing", "thread"]
 omit = [
     "*/tests/*",
     "*/test_*",
