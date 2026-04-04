@@ -74,3 +74,4 @@
 12. **[Scenarios](scenarios/README.md)**
     *   **[FastAPI Integration](scenarios/fastapi.md)**: Async support, dependency injection, and Pydantic model reuse.
     *   **[GraphQL Integration](scenarios/graphql.md)**: Solving N+1 problems with DataLoaders.
+    *   **[Parallel Workers](scenarios/parallel_workers.md)**: Multi-process vs. multi-threading, deadlock prevention, data partitioning, and atomic task claiming.
