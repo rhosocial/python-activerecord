@@ -347,6 +347,15 @@ class SQLiteDialect(
         """Whether FOR UPDATE SKIP LOCKED is supported."""
         return False
 
+    def supports_for_update(self) -> bool:
+        """Whether FOR UPDATE clause is supported in SELECT statements.
+
+        SQLite does not support FOR UPDATE as it uses database-level locking
+        (SHARED, RESERVED, PENDING, EXCLUSIVE) rather than row-level locking.
+        For write serialization, use BEGIN IMMEDIATE or BEGIN EXCLUSIVE transactions.
+        """
+        return False
+
     def supports_merge_statement(self) -> bool:
         """Whether MERGE statement is supported."""
         return False

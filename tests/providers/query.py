@@ -104,11 +104,12 @@ MappedPost = _select_model_class(MappedPostBase, MappedPost312, MappedPost311, M
 MappedComment = _select_model_class(MappedCommentBase, MappedComment312, MappedComment311, MappedComment310, "MappedComment")
 
 from rhosocial.activerecord.testsuite.feature.query.interfaces import IQueryProvider
+from rhosocial.activerecord.testsuite.core.protocols import WorkerTestProtocol
 # Scenarios are defined specifically for this backend.
 from .scenarios import get_enabled_scenarios, get_scenario
 
 
-class QueryProvider(IQueryProvider):
+class QueryProvider(IQueryProvider, WorkerTestProtocol):
     """
     This is the SQLite backend's implementation for the query features test group.
     It connects the generic tests in the testsuite with the actual SQLite database.
@@ -117,6 +118,16 @@ class QueryProvider(IQueryProvider):
     def __init__(self):
         # Track the actual database file used for each scenario in the current test run.
         self._scenario_db_files = {}
+        # Track active backend instances for proper cleanup.
+        # IMPORTANT: SQLite connections hold file locks. If we attempt to delete
+        # the database file before disconnecting, the file remains locked and
+        # subsequent tests will hang indefinitely waiting for the lock to release.
+        # This was discovered during WorkerPool tests where cleanup would hang
+        # on Windows and some Linux configurations.
+        # See: python-activerecord-mysql/docs/zh_CN/scenarios/parallel_workers.md
+        # See: python-activerecord-postgres/docs/zh_CN/scenarios/parallel_workers.md
+        self._active_backends = []
+        self._active_async_backends = []
 
     def get_test_scenarios(self) -> List[str]:
         """Returns a list of names for all enabled scenarios for this backend."""
@@ -144,6 +155,9 @@ class QueryProvider(IQueryProvider):
 
         if shared_backend is None:
             model_class.configure(config, backend_class)
+            # Track the backend instance for cleanup
+            if model_class.__backend__ not in self._active_backends:
+                self._active_backends.append(model_class.__backend__)
         else:
             model_class.__connection_config__ = config
             model_class.__backend_class__ = backend_class
@@ -215,6 +229,26 @@ class QueryProvider(IQueryProvider):
         return self._setup_multiple_models(models_and_tables, scenario_name)
 
     def cleanup_after_test(self, scenario_name: str):
+        """
+        Performs cleanup after a test, disconnecting backends and deleting files.
+
+        CRITICAL: Backend disconnection MUST happen before file deletion.
+        SQLite maintains file locks on open connections. Attempting to delete
+        a database file while connections are still open will:
+        1. Fail silently on Unix (file remains until all handles closed)
+        2. Hang indefinitely on Windows (exclusive lock prevents deletion)
+        3. Cause subsequent tests to fail due to locked database files
+        """
+        # First, disconnect all active backends
+        # This releases file locks before we attempt to delete the database file
+        for backend_instance in self._active_backends:
+            try:
+                backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_backends.clear()
+
+        # Then delete the database files
         if scenario_name in self._scenario_db_files:
             for db_file in self._scenario_db_files[scenario_name]:
                 if os.path.exists(db_file):
@@ -248,6 +282,9 @@ class QueryProvider(IQueryProvider):
         if shared_backend is None:
             await model_class.configure(config, AsyncSQLiteBackend)
             await model_class.__backend__.connect()
+            # Track the async backend instance for cleanup
+            if model_class.__backend__ not in self._active_async_backends:
+                self._active_async_backends.append(model_class.__backend__)
         else:
             model_class.__connection_config__ = config
             model_class.__backend_class__ = AsyncSQLiteBackend
@@ -333,8 +370,30 @@ class QueryProvider(IQueryProvider):
         return await self._setup_multiple_models_async(models_and_tables, scenario_name)
 
     async def cleanup_after_test_async(self, scenario_name: str):
-        """Performs async cleanup. Logic is identical to sync for file operations."""
-        self.cleanup_after_test(scenario_name)
+        """
+        Performs async cleanup, disconnecting backends and deleting files.
+
+        CRITICAL: Backend disconnection MUST happen before file deletion.
+        See cleanup_after_test() for details on SQLite file locking behavior.
+        """
+        # First, disconnect all active async backends
+        # This releases file locks before we attempt to delete the database file
+        for backend_instance in self._active_async_backends:
+            try:
+                await backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_async_backends.clear()
+
+        # Then delete the database files
+        if scenario_name in self._scenario_db_files:
+            for db_file in self._scenario_db_files[scenario_name]:
+                if os.path.exists(db_file):
+                    try:
+                        os.remove(db_file)
+                    except OSError:
+                        pass
+            del self._scenario_db_files[scenario_name]
 
     # --- Common Helpers ---
 
@@ -349,3 +408,90 @@ class QueryProvider(IQueryProvider):
         """Ensure all temp files are cleaned up when the provider is destroyed."""
         for scenario_name in list(self._scenario_db_files.keys()):
             self.cleanup_after_test(scenario_name)
+
+    # --- Implementation of WorkerTestProtocol ---
+
+    def get_worker_connection_params(self, scenario_name: str, fixture_type: str = 'order') -> dict:
+        """
+        Return serializable connection parameters for Worker processes.
+
+        This method provides all information needed to recreate the database
+        connection in a Worker process, including the schema SQL for table creation.
+
+        Args:
+            scenario_name: The test scenario name
+            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined',
+                         or with 'async_' prefix for async backends)
+
+        Returns:
+            Dictionary with connection parameters and schema SQL
+        """
+        # Get the database file path used in this scenario
+        if scenario_name in self._scenario_db_files:
+            # Use the first file from the list (they all share the same database)
+            database_path = self._scenario_db_files[scenario_name][0]
+        else:
+            _, config = get_scenario(scenario_name)
+            database_path = config.database
+
+        # Determine if async backend is needed based on fixture_type
+        is_async = fixture_type and fixture_type.startswith('async_')
+        backend_class_name = 'AsyncSQLiteBackend' if is_async else 'SQLiteBackend'
+
+        # Get base fixture type (remove 'async_' prefix if present)
+        base_fixture_type = fixture_type.replace('async_', '') if fixture_type else 'order'
+
+        # Build schema SQL based on fixture type
+        schema_sql = self._get_schema_sql_for_fixture_type(base_fixture_type)
+
+        return {
+            'backend_module': 'rhosocial.activerecord.backend.impl.sqlite',
+            'backend_class_name': backend_class_name,
+            'config_class_module': 'rhosocial.activerecord.backend.impl.sqlite.config',
+            'config_class_name': 'SQLiteConnectionConfig',
+            'config_kwargs': {
+                'database': database_path,
+            },
+            'schema_sql': schema_sql,
+        }
+
+    def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:
+        """
+        Return the SQL statement to create a specific table.
+
+        Args:
+            scenario_name: The test scenario name (unused for SQLite as schema is fixed)
+            table_name: Name of the table to create
+
+        Returns:
+            CREATE TABLE SQL statement
+        """
+        return self._load_sqlite_schema(f'{table_name}.sql')
+
+    def _get_schema_sql_for_fixture_type(self, fixture_type: str) -> dict:
+        """
+        Get schema SQL for a specific fixture type.
+
+        Args:
+            fixture_type: Type of fixture ('order', 'blog', 'user', 'combined')
+
+        Returns:
+            Dictionary mapping table names to CREATE TABLE statements
+        """
+        schemas = {}
+
+        if fixture_type == 'order':
+            tables = ['users', 'orders', 'order_items']
+        elif fixture_type == 'blog':
+            tables = ['users', 'posts', 'comments']
+        elif fixture_type == 'user':
+            tables = ['users']
+        elif fixture_type == 'combined':
+            tables = ['users', 'orders', 'order_items', 'posts', 'comments']
+        else:
+            tables = ['users']
+
+        for table in tables:
+            schemas[table] = self._load_sqlite_schema(f'{table}.sql')
+
+        return schemas

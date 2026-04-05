@@ -108,6 +108,56 @@ User.query().limit(10).offset(20)
   User.query().limit(10, offset=20)  # Or use parameter form
   ```
 
+### `for_update(nowait=False, skip_locked=False)`
+
+Row-level pessimistic locking for concurrent transaction scenarios. Locks selected rows within a transaction to prevent modifications by other transactions.
+
+* **Usage Examples**:
+
+```python
+# Lock rows within a transaction
+with User.transaction():
+    user = User.query().where(User.c.id == 1).for_update().one()
+    user.balance -= 100
+    user.save()
+```
+
+* **Parameter Description**:
+  * `nowait=True`: If rows are locked, immediately raise an error instead of waiting.
+  * `skip_locked=True`: Skip already locked rows (useful for task queue scenarios).
+
+* **Backend Support**:
+
+| Backend | Support | Notes |
+|---------|---------|-------|
+| MySQL | ✅ | Supports all parameters |
+| PostgreSQL | ✅ | Supports all parameters |
+| SQLite | ❌ | Not supported, uses file-level locks |
+
+> **Note**: The table above is for reference only. Backend capabilities may vary depending on version or configuration. Please use the `supports_for_update()` method to dynamically detect backend capabilities.
+
+* **Capability Detection**:
+
+Before using `for_update()`, it is recommended to check if the backend supports it:
+
+```python
+dialect = User.backend().dialect
+if dialect.supports_for_update():
+    user = User.query().where(User.c.id == 1).for_update().one()
+else:
+    # Unsupported backends like SQLite, use alternative approach
+    user = User.find_one(1)
+```
+
+If `for_update()` is called on an unsupported backend without detection, an `UnsupportedFeatureError` will be raised.
+
+* **Notes**:
+  - **Must be used within a transaction**: `FOR UPDATE` has no meaning outside a transaction.
+  - **Avoid deadlocks**: Locking resources in different orders across transactions may cause deadlocks.
+  - **Cross-database compatibility**: When writing cross-database code, always use `supports_for_update()` for detection.
+
+For detailed concurrency control strategies, please refer to [Concurrency Control](../performance/concurrency.md).
+
 ### `group_by(*columns)` / `having(condition)`
 
 Group statistics.

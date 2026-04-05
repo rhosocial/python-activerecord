@@ -3,6 +3,7 @@
 
 from typing import List, Tuple, Optional, Union, Any, overload
 
+from ..backend.dialect.exceptions import UnsupportedFeatureError
 from ..backend.expression import (
     BaseExpression,
     SQLPredicate,
@@ -12,6 +13,7 @@ from ..backend.expression import (
     GroupByHavingClause,
     OrderByClause,
     LimitOffsetClause,
+    ForUpdateClause,
 )
 from ..interface import IQueryBuilding
 from ..logging.manager import get_logging_manager
@@ -114,6 +116,16 @@ class BaseQueryMixin(IQueryBuilding):
 
     def where(self, condition, params=None):
         """Add AND condition to the query.
+
+        **IMPORTANT**: This method must be called on a query object returned by Model.query().
+        Do NOT call it directly on the Model class like Django's incorrect approach
+        (e.g., Model.objects.filter(field=value) or Model.where(field=value)).
+        The correct pattern is:
+
+            Model.query().where(Model.c.field == value)
+
+        This design follows the Active Record pattern where Model.query() returns
+        a query builder object, and conditions are added via method chaining.
 
         Args:
             condition: Condition expression. Can be:
@@ -529,6 +541,127 @@ class BaseQueryMixin(IQueryBuilding):
         # Enable explain mode
         self._explain_enabled = True
         self._explain_options = kwargs
+        return self
+
+    def for_update(
+        self,
+        of_columns: Optional[List[Union[str, BaseExpression]]] = None,
+        nowait: bool = False,
+        skip_locked: bool = False,
+    ) -> "BaseQueryMixin":
+        """Add FOR UPDATE clause for row-level locking in SELECT statements.
+
+        The FOR UPDATE clause locks selected rows preventing other transactions from
+        modifying them until the current transaction is committed or rolled back.
+        This is essential for preventing lost updates in concurrent transaction scenarios.
+
+        IMPORTANT: FOR UPDATE only takes effect when called within an active transaction.
+        Call backend.begin_transaction() before using this method.
+
+        Args:
+            of_columns: Optional list of columns to lock specifically. If None, all selected
+                       rows are locked. Can be column names (str) or expression objects.
+            nowait: If True, the query will fail immediately if a row is already locked
+                   by another transaction, instead of waiting. Default is False.
+            skip_locked: If True, locked rows will be skipped instead of waiting for them
+                        to be released. Default is False.
+
+        Returns:
+            BaseQueryMixin: Query instance for method chaining
+
+        Raises:
+            ValueError: If both nowait and skip_locked are True (mutually exclusive)
+            UnsupportedFeatureError: If the backend does not support FOR UPDATE
+
+        Examples:
+            1. Basic FOR UPDATE (lock all selected rows)
+            backend.begin_transaction()
+            user = User.query().where(User.c.id == 1).for_update().one()
+            user.balance -= 100
+            user.save()
+            backend.commit_transaction()
+
+            2. FOR UPDATE with NOWAIT (fail immediately if locked)
+            backend.begin_transaction()
+            try:
+                user = User.query().where(User.c.id == 1).for_update(nowait=True).one()
+            except DatabaseError:
+                # Row is locked by another transaction
+                backend.rollback_transaction()
+                return
+            user.balance -= 100
+            user.save()
+            backend.commit_transaction()
+
+            3. FOR UPDATE with SKIP LOCKED (skip locked rows)
+            backend.begin_transaction()
+            users = User.query().where(User.c.status == 'pending').for_update(skip_locked=True).all()
+            for user in users:
+                user.status = 'processing'
+                user.save()
+            backend.commit_transaction()
+
+            4. FOR UPDATE with specific columns (PostgreSQL/Oracle specific)
+            backend.begin_transaction()
+            user = User.query().where(User.c.id == 1).for_update(of_columns=[User.c.id]).one()
+            user.balance -= 100
+            user.save()
+            backend.commit_transaction()
+
+            5. Cross-database compatible usage
+            # Check if FOR UPDATE is supported before using it
+            if Model.backend().dialect.supports_for_update():
+                user = Model.query().where(Model.c.id == 1).for_update().one()
+            else:
+                # Use alternative locking strategy (e.g., BEGIN IMMEDIATE for SQLite)
+                user = Model.find_one({'id': 1})
+
+        Note:
+            - FOR UPDATE must be used within a transaction to have any effect
+            - Locking behavior varies by database backend:
+              - MySQL: Supports FOR UPDATE, FOR UPDATE NOWAIT (8.0+), FOR UPDATE SKIP LOCKED (8.0+)
+              - PostgreSQL: Supports FOR UPDATE, FOR UPDATE NOWAIT, FOR UPDATE SKIP LOCKED, FOR UPDATE OF
+              - SQLite: Does NOT support FOR UPDATE (uses database-level file locking instead)
+            - For SQLite, use backend.begin_transaction() with appropriate isolation level,
+              or check supports_for_update() before calling this method
+        """
+        # Validate mutually exclusive options
+        if nowait and skip_locked:
+            raise ValueError("nowait and skip_locked are mutually exclusive options")
+
+        # Get dialect from backend
+        dialect = self.backend().dialect
+
+        # Check if FOR UPDATE is supported by this backend
+        if not dialect.supports_for_update():
+            raise UnsupportedFeatureError(
+                dialect.name,
+                "FOR UPDATE clause",
+                "This backend does not support row-level locking with FOR UPDATE. "
+                "Use dialect.supports_for_update() to check support before calling this method. "
+                "For SQLite, use BEGIN IMMEDIATE transactions for write serialization."
+            )
+
+        # Convert string column names to Column objects
+        converted_columns = None
+        if of_columns is not None:
+            converted_columns = []
+            for col in of_columns:
+                if isinstance(col, str):
+                    converted_columns.append(Column(dialect, col))
+                elif isinstance(col, BaseExpression):
+                    converted_columns.append(col)
+                else:
+                    raise TypeError(f"Column must be str or BaseExpression, got {type(col)}")
+
+        # Create the FOR UPDATE clause
+        self._for_update_clause = ForUpdateClause(
+            dialect,
+            of_columns=converted_columns,
+            nowait=nowait,
+            skip_locked=skip_locked,
+        )
+
         return self
 
     # endregion

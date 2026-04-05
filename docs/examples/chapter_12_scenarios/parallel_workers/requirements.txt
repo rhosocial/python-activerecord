@@ -1,9 +1,0 @@
-# requirements.txt - 并行 Worker 实验依赖
-# docs/examples/chapter_12_scenarios/parallel_workers/requirements.txt
-
-# 核心包（本地 editable 安装或 PyPI）
-rhosocial-activerecord
-
-# SQLite 驱动（Python 标准库内置，无需额外安装）
-# mysql-connector-python>=8.0.0   # 如需 MySQL 实验，取消注释
-# psycopg[binary]>=3.1.0          # 如需 PostgreSQL 实验，取消注释

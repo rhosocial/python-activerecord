@@ -117,6 +117,7 @@ class TestDummyProtocolSupport:
     # region Locking Support
     def test_locking_support_methods(self, dialect):
         """Test LockingSupport protocol methods."""
+        assert dialect.supports_for_update() is True
         assert dialect.supports_for_update_skip_locked() is True
     # endregion
 
