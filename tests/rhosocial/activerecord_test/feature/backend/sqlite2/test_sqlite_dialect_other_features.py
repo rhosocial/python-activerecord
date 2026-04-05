@@ -51,6 +51,11 @@ class TestSQLiteDialectOtherFeatures:
         dialect = SQLiteDialect()
         assert dialect.supports_for_update_skip_locked() == False
 
+    def test_supports_for_update(self):
+        """Test FOR UPDATE support - SQLite uses database-level locking, not row-level."""
+        dialect = SQLiteDialect()
+        assert dialect.supports_for_update() == False
+
     def test_get_upsert_syntax_type(self):
         """Test UPSERT syntax type retrieval"""
         dialect = SQLiteDialect()

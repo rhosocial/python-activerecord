@@ -623,6 +623,61 @@ class IQueryBuilding(Protocol):
         """
         pass
 
+    def for_update(
+        self,
+        of_columns: Optional[List[Union[str, BaseExpression]]] = None,
+        nowait: bool = False,
+        skip_locked: bool = False,
+    ) -> "IQueryBuilding":
+        """
+        Add FOR UPDATE clause for row-level locking in SELECT statements.
+
+        The FOR UPDATE clause locks selected rows preventing other transactions from
+        modifying them until the current transaction is committed or rolled back.
+        This is essential for preventing lost updates in concurrent transaction scenarios.
+
+        IMPORTANT: FOR UPDATE only takes effect when called within an active transaction.
+        Call backend.begin_transaction() before using this method.
+
+        Args:
+            of_columns: Optional list of columns to lock specifically. If None, all selected
+                       rows are locked. Can be column names (str) or expression objects.
+            nowait: If True, the query will fail immediately if a row is already locked
+                   by another transaction, instead of waiting. Default is False.
+            skip_locked: If True, locked rows will be skipped instead of waiting for them
+                        to be released. Default is False.
+
+        Returns:
+            IQueryBuilding: Returns self for method chaining
+
+        Raises:
+            ValueError: If both nowait and skip_locked are True (mutually exclusive)
+
+        Example:
+            # Basic FOR UPDATE (lock all selected rows)
+            >>> backend.begin_transaction()
+            >>> user = User.query().where(User.c.id == 1).for_update().one()
+            >>> user.balance -= 100
+            >>> user.save()
+            >>> backend.commit_transaction()
+
+            # FOR UPDATE with NOWAIT (fail immediately if locked)
+            >>> backend.begin_transaction()
+            >>> user = User.query().where(User.c.id == 1).for_update(nowait=True).one()
+
+            # FOR UPDATE with SKIP LOCKED (skip locked rows)
+            >>> backend.begin_transaction()
+            >>> users = User.query().where(User.c.status == 'pending').for_update(skip_locked=True).all()
+
+        Note:
+            - FOR UPDATE must be used within a transaction to have any effect
+            - Locking behavior varies by database backend:
+              - MySQL: Supports FOR UPDATE, FOR UPDATE NOWAIT (8.0+), FOR UPDATE SKIP LOCKED (8.0+)
+              - PostgreSQL: Supports FOR UPDATE, FOR UPDATE NOWAIT, FOR UPDATE SKIP LOCKED, FOR UPDATE OF
+              - SQLite: Supports FOR UPDATE (parsed but may be ignored depending on configuration)
+        """
+        pass
+
 
 class IQuery(IBackend, ToSQLProtocol, ABC):
     """

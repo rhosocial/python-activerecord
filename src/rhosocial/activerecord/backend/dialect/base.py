@@ -615,6 +615,25 @@ class SQLDialectBase:
         # By default, assume the dialect does not support OFFSET without LIMIT
         return False
 
+    def supports_for_update(self) -> bool:
+        """Check if the dialect supports FOR UPDATE clause in SELECT statements.
+
+        Returns:
+            True if FOR UPDATE is supported, False otherwise.
+
+        Note:
+            FOR UPDATE is a row-level locking mechanism that is not supported by
+            all databases. SQLite, for example, uses database-level file locking
+            instead of row-level locks. Backends that support FOR UPDATE (MySQL,
+            PostgreSQL, Oracle, etc.) should override this method to return True.
+
+            For SQLite, use BEGIN IMMEDIATE or BEGIN EXCLUSIVE transactions for
+            write serialization.
+        """
+        # By default, assume the dialect does NOT support FOR UPDATE
+        # Dialects that support it (MySQL, PostgreSQL, etc.) must override this
+        return False
+
     def format_limit_offset(self, limit=None, offset=None) -> Tuple[str, List]:
         """
         Format LIMIT and/or OFFSET clause.
@@ -753,22 +772,34 @@ class SQLDialectBase:
             qualify_sql = f" QUALIFY {qualify_expr_sql}"
             all_params.extend(qualify_expr_params)
 
-        # Build initial SQL without FOR UPDATE
+        # Build initial SQL without FOR UPDATE or LIMIT/OFFSET
         sql = f"{select_sql}{from_sql}{where_sql}{group_by_having_sql}{order_by_sql}{qualify_sql}"
 
-        # Add FOR UPDATE clause at the end (if present)
-        if expr.for_update:
-            for_update_sql, for_update_params = expr.for_update.to_sql()
-            if for_update_sql:
-                sql += f" {for_update_sql}"
-                all_params.extend(for_update_params)
-
-        # Add LIMIT/OFFSET clause at the end (if present)
+        # Add LIMIT/OFFSET clause (must come before FOR UPDATE in MySQL)
         if expr.limit_offset:
             limit_offset_sql, limit_offset_params = expr.limit_offset.to_sql()
             if limit_offset_sql:
                 sql += f" {limit_offset_sql}"
                 all_params.extend(limit_offset_params)
+
+        # Add FOR UPDATE clause at the very end (after LIMIT/OFFSET)
+        if expr.for_update:
+            # Check if FOR UPDATE is supported by this dialect (safety net)
+            # This check is also performed in ActiveQuery.for_update(), but we keep it here
+            # as a defense-in-depth measure for users who directly construct QueryExpression
+            if not self.supports_for_update():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "FOR UPDATE clause",
+                    "This backend does not support row-level locking with FOR UPDATE. "
+                    "Use dialect.supports_for_update() to check support. "
+                    "For SQLite, use BEGIN IMMEDIATE transactions for write serialization."
+                )
+            for_update_sql, for_update_params = expr.for_update.to_sql()
+            if for_update_sql:
+                sql += f" {for_update_sql}"
+                all_params.extend(for_update_params)
+
         return sql, tuple(all_params)
 
     def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:

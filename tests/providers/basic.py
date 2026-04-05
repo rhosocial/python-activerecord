@@ -176,9 +176,18 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
     This provider also implements WorkerTestProtocol to enable WorkerPool tests.
     """
-    
+
     def __init__(self):
         self._scenario_db_files = {}
+        # Track active backend instances for proper cleanup.
+        # IMPORTANT: SQLite connections hold file locks. If we attempt to delete
+        # the database file before disconnecting, the file remains locked and
+        # subsequent tests will hang indefinitely waiting for the lock to release.
+        # This was discovered during WorkerPool tests where cleanup would hang
+        # on Windows and some Linux configurations.
+        # See: python-activerecord-mysql/docs/zh_CN/scenarios/parallel_workers.md
+        # See: python-activerecord-postgres/docs/zh_CN/scenarios/parallel_workers.md
+        self._active_backends = []
         self._active_async_backends = []
 
     def get_test_scenarios(self) -> List[str]:
@@ -230,6 +239,10 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
         schema_sql = self._load_sqlite_schema(f"{table_name}.sql")
         model_class.__backend__.execute(schema_sql, options=ExecutionOptions(stmt_type=StatementType.DDL))
+
+        # Track the backend for proper cleanup
+        if model_class.__backend__ not in self._active_backends:
+            self._active_backends.append(model_class.__backend__)
 
         return model_class
 
@@ -411,8 +424,24 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
     def cleanup_after_test(self, scenario_name: str):
         """
         Performs cleanup after a test. For file-based scenarios, this involves
-        deleting the temporary database file.
+        disconnecting backends and deleting the temporary database file.
+
+        CRITICAL: Backend disconnection MUST happen before file deletion.
+        SQLite maintains file locks on open connections. Attempting to delete
+        a database file while connections are still open will:
+        1. Fail silently on Unix (file remains until all handles closed)
+        2. Hang indefinitely on Windows (exclusive lock prevents deletion)
+        3. Cause subsequent tests to fail due to locked database files
         """
+        # First, disconnect all active sync backends
+        # This releases file locks before we attempt to delete the database file
+        for backend_instance in self._active_backends:
+            try:
+                backend_instance.disconnect()
+            except Exception:
+                pass
+        self._active_backends.clear()
+
         # Use the dynamically generated database file if available, otherwise use the original config
         if scenario_name in self._scenario_db_files:
             db_file = self._scenario_db_files[scenario_name]
@@ -440,7 +469,12 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
         """
         Performs async cleanup after a test. For file-based scenarios, this involves
         deleting the temporary database file.
+
+        CRITICAL: Backend disconnection MUST happen before file deletion.
+        See cleanup_after_test() for details on SQLite file locking behavior.
         """
+        # First, disconnect all active async backends
+        # This releases file locks before we attempt to delete the database file
         for backend_instance in self._active_async_backends:
             try:
                 await backend_instance.disconnect()
@@ -475,7 +509,8 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
 
         Args:
             scenario_name: The test scenario name
-            fixture_type: Optional fixture type hint (unused for basic provider)
+            fixture_type: Optional fixture type hint (e.g., 'user', 'async_user')
+                         Used to determine if async backend is needed
         """
         # Get the database file path used in this scenario
         if scenario_name in self._scenario_db_files:
@@ -484,15 +519,31 @@ class BasicProvider(IBasicProvider, WorkerTestProtocol):
             _, config = get_scenario(scenario_name)
             database_path = config.database
 
+        # Determine if async backend is needed based on fixture_type
+        is_async = fixture_type and fixture_type.startswith('async_')
+        backend_class_name = 'AsyncSQLiteBackend' if is_async else 'SQLiteBackend'
+
+        # Determine schema file based on fixture_type
+        table_name = 'users'  # default
+        if fixture_type:
+            # Remove 'async_' prefix if present to get the base type
+            base_type = fixture_type.replace('async_', '')
+            table_map = {
+                'user': 'users',
+                'order': 'orders',
+                'order_item': 'order_items',
+            }
+            table_name = table_map.get(base_type, 'users')
+
         return {
             'backend_module': 'rhosocial.activerecord.backend.impl.sqlite',
-            'backend_class_name': 'SQLiteBackend',
+            'backend_class_name': backend_class_name,
             'config_class_module': 'rhosocial.activerecord.backend.impl.sqlite.config',
             'config_class_name': 'SQLiteConnectionConfig',
             'config_kwargs': {
                 'database': database_path,
             },
-            'schema_sql': self._load_sqlite_schema('users.sql'),
+            'schema_sql': self._load_sqlite_schema(f'{table_name}.sql'),
         }
 
     def get_worker_schema_sql(self, scenario_name: str, table_name: str) -> str:

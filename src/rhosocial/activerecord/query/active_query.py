@@ -74,6 +74,7 @@ class ActiveQuery(
         self._adapt_params = True
         self._explain_enabled = False
         self._explain_options = {}
+        self._for_update_clause = None
 
         # Initialize attributes from JoinQueryMixin
         self.join_clause = None
@@ -174,6 +175,7 @@ class ActiveQuery(
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
             limit_offset=temp_limit_offset,  # Use temporary limit
+            for_update=self._for_update_clause,  # Pass FOR UPDATE clause for row locking
         )
 
         # Generate SQL using the temporary QueryExpression
@@ -222,6 +224,7 @@ class ActiveQuery(
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
             limit_offset=self.limit_offset_clause,
+            for_update=self._for_update_clause,
         )
 
         # Generate SQL using the QueryExpression
@@ -323,6 +326,7 @@ class AsyncActiveQuery(
         self._adapt_params = True
         self._explain_enabled = False
         self._explain_options = {}
+        self._for_update_clause = None
 
         # Initialize attributes from JoinQueryMixin
         self.join_clause = None
@@ -423,6 +427,7 @@ class AsyncActiveQuery(
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
             limit_offset=temp_limit_offset,  # Use temporary limit
+            for_update=self._for_update_clause,  # Pass FOR UPDATE clause for row locking
         )
 
         # Generate SQL using the temporary QueryExpression
@@ -471,6 +476,7 @@ class AsyncActiveQuery(
             group_by_having=self.group_by_having_clause,
             order_by=self.order_by_clause,
             limit_offset=self.limit_offset_clause,
+            for_update=self._for_update_clause,
         )
 
         # Generate SQL using the QueryExpression
