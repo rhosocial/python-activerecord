@@ -10,16 +10,18 @@ DRAINING → STOPPING → KILLING → STOPPED.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import inspect
 import logging
 import multiprocessing as mp
+import os
 import threading
 import time
 import traceback
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 
 from ..logging.manager import get_logging_manager
 
@@ -50,6 +52,79 @@ class StopSignal(Enum):
     SENTINEL = auto()   # STOP sentinel (queue-level): Worker exits after completing current task
     TERMINATE = auto()  # SIGTERM: Python default is immediate exit
     KILL = auto()       # SIGKILL: Cannot be caught, immediate termination
+
+
+class WorkerEvent(Enum):
+    """Worker lifecycle events for hook registration."""
+    WORKER_START = auto()  # Worker process startup
+    WORKER_STOP = auto()   # Worker process shutdown
+    TASK_START = auto()    # Task execution start
+    TASK_END = auto()      # Task execution end (success or failure)
+
+
+# ── Hook Context Types ───────────────────────────────────────────────────────
+
+@dataclass
+class WorkerContext:
+    """
+    Context passed to Worker-level hooks (WORKER_START/WORKER_STOP).
+
+    Attributes:
+        worker_id: Worker index (0, 1, 2, ...)
+        pid: Process ID
+        pool_id: Pool instance identifier
+        start_time: Worker startup timestamp (monotonic)
+        task_count: Number of tasks executed (incremented during WORKER_STOP)
+    """
+    worker_id: int
+    pid: int
+    pool_id: str
+    start_time: float = 0.0
+    task_count: int = 0
+
+
+@dataclass
+class TaskContext:
+    """
+    Context passed to Task-level hooks (TASK_START/TASK_END).
+
+    Attributes:
+        task_id: Task identifier
+        worker_ctx: Worker context
+        fn_name: Task function name
+        args: Task positional arguments
+        kwargs: Task keyword arguments
+        start_time: Task start timestamp (monotonic)
+        end_time: Task end timestamp (monotonic, set in TASK_END)
+        success: Whether task succeeded (set in TASK_END)
+        result: Task result (set in TASK_END on success)
+        error: Task exception (set in TASK_END on failure)
+    """
+    task_id: str
+    worker_ctx: WorkerContext
+    fn_name: str = ""
+    args: Tuple = ()
+    kwargs: Dict[str, Any] = field(default_factory=dict)
+    start_time: float = 0.0
+    end_time: float = 0.0
+    success: bool = False
+    result: Any = None
+    error: Optional[Exception] = None
+
+
+# ── Hook Type Aliases ────────────────────────────────────────────────────────
+
+# Synchronous hook types
+WorkerHook = Callable[[WorkerContext], None]
+TaskHook = Callable[[TaskContext], None]
+
+# Asynchronous hook types
+AsyncWorkerHook = Callable[[WorkerContext], Awaitable[None]]
+AsyncTaskHook = Callable[[TaskContext], Awaitable[None]]
+
+# Union types supporting both function objects and string paths
+AnyWorkerHook = Union[WorkerHook, AsyncWorkerHook, str]
+AnyTaskHook = Union[TaskHook, AsyncTaskHook, str]
 
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
@@ -229,9 +304,106 @@ class ShutdownReport:
 
 # ── Worker Process Entry Point (must be top-level function, spawn requires pickle) ────
 
-def _worker_entry(worker_id: int, task_q: mp.Queue, result_q: mp.Queue) -> None:  # pragma: no cover
+def _import_hook(path: str) -> Callable:
     """
-    Resident Worker main loop.
+    Dynamically import a hook function by its module path.
+
+    Args:
+        path: Full path to the function, e.g., "mymodule.hooks.on_start"
+
+    Returns:
+        The imported callable function
+    """
+    module_path, fn_name = path.rsplit('.', 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, fn_name)
+
+
+def _resolve_hooks(
+    hooks: Optional[Union[AnyWorkerHook, AnyTaskHook, List[Tuple[str, Any]]]]
+) -> List[Callable]:
+    """
+    Resolve hook specifications to actual callable functions.
+
+    Supports:
+    - None: returns empty list
+    - String path: imports the function
+    - String path with commas: imports multiple functions
+    - List of (name, hook) tuples: resolves each item
+    - Single callable: returns list with that callable
+
+    Args:
+        hooks: Hook specification in any supported format
+
+    Returns:
+        List of resolved callable functions
+    """
+    if hooks is None:
+        return []
+
+    if isinstance(hooks, str):
+        # String path(s) - support comma-separated multiple paths
+        if ',' in hooks:
+            paths = hooks.split(',')
+            return [_import_hook(p.strip()) for p in paths]
+        return [_import_hook(hooks)]
+
+    if isinstance(hooks, list):
+        # List format: [(name, hook), ...] or [hook, ...]
+        result = []
+        for item in hooks:
+            if isinstance(item, tuple):
+                _, hook = item
+            else:
+                hook = item
+            if isinstance(hook, str):
+                result.append(_import_hook(hook))
+            else:
+                result.append(hook)
+        return result
+
+    # Single callable object
+    return [hooks]
+
+
+def _execute_hooks(
+    hooks: List[Callable],
+    ctx: Union[WorkerContext, TaskContext],
+) -> Optional[Tuple[str, str]]:
+    """
+    Execute a list of hooks with the given context.
+
+    Args:
+        hooks: List of callable hook functions (sync or async)
+        ctx: Context to pass to hooks (WorkerContext or TaskContext)
+
+    Returns:
+        Tuple of (error_message, traceback) if any hook failed, None otherwise
+    """
+    for hook in hooks:
+        try:
+            if inspect.iscoroutinefunction(hook):
+                asyncio.run(hook(ctx))
+            else:
+                hook(ctx)
+        except Exception as e:
+            # Return error info for first failure
+            return (str(e), traceback.format_exc())
+    return None
+
+
+def _worker_entry(
+    worker_id: int,
+    task_q: mp.Queue,
+    result_q: mp.Queue,
+    pool_id: str,
+    on_worker_start: Optional[AnyWorkerHook] = None,
+    on_worker_stop: Optional[AnyWorkerHook] = None,
+    on_task_start: Optional[AnyTaskHook] = None,
+    on_task_end: Optional[AnyTaskHook] = None,
+) -> None:  # pragma: no cover
+    """
+    Resident Worker main loop with lifecycle hooks.
 
     Task-level exceptions caught here; process-level crashes handled by Supervisor.
 
@@ -239,46 +411,110 @@ def _worker_entry(worker_id: int, task_q: mp.Queue, result_q: mp.Queue) -> None:
     Coverage cannot track code executed in subprocesses with spawn mode.
     The logic is tested indirectly through integration tests.
 
+    Hook Execution:
+        WORKER_START: Executed before the main loop, failure prevents Worker startup
+        TASK_START: Executed before each task, failure is logged but doesn't affect task
+        TASK_END: Executed after each task (success or failure), failure is logged
+        WORKER_STOP: Executed in finally block, failure is logged
+
     Message sequence:
-        1. __dequeued__ - Sent immediately after get(), enables crash attribution
-        2. __started__  - Sent before fn(), enables timeout tracking
-        3. ok/error     - Sent after fn() completes/fails
+        1. __worker_ready__ / __worker_init_failed__ - After WORKER_START hooks
+        2. __dequeued__ - Sent immediately after get(), enables crash attribution
+        3. __started__  - Sent before fn(), enables timeout tracking
+        4. ok/error     - Sent after fn() completes/fails
 
     Async Support:
         Both sync and async (coroutine) functions are supported as task functions.
         Async functions are automatically wrapped with asyncio.run().
     """
-    while True:
-        try:
-            msg = task_q.get()
-        except (EOFError, OSError):
-            break
+    pid = os.getpid()
+    ctx = WorkerContext(
+        worker_id=worker_id,
+        pid=pid,
+        pool_id=pool_id,
+        start_time=time.monotonic(),
+        task_count=0,
+    )
 
-        if msg == _STOP:
-            break
+    # Resolve hooks once at startup
+    start_hooks = _resolve_hooks(on_worker_start)
+    stop_hooks = _resolve_hooks(on_worker_stop)
+    task_start_hooks = _resolve_hooks(on_task_start)
+    task_end_hooks = _resolve_hooks(on_task_end)
 
-        # ★ __dequeued__ sent immediately after get(), before unpacking.
-        #   This enables crash attribution from the moment task leaves queue.
-        #   If Worker dies between get() and this line, orphan scan catches it.
-        task_id = msg[0]
-        result_q.put(("__dequeued__", worker_id, task_id))
+    # Execute WORKER_START hooks
+    if start_hooks:
+        error_info = _execute_hooks(start_hooks, ctx)
+        if error_info:
+            error_msg, tb = error_info
+            result_q.put(("__worker_init_failed__", worker_id, error_msg, tb))
+            return  # Worker does not start
+        result_q.put(("__worker_ready__", worker_id, pid))
 
-        task_id, fn, args, kwargs = msg
+    try:
+        while True:
+            try:
+                msg = task_q.get()
+            except (EOFError, OSError):
+                break
 
-        # __started__ for timeout tracking (execution actually begins)
-        result_q.put(("__started__", worker_id, task_id))
+            if msg == _STOP:
+                break
 
-        try:
-            # Support both sync and async task functions
-            if inspect.iscoroutinefunction(fn):
-                value = asyncio.run(fn(*args, **kwargs))
-            else:
-                value = fn(*args, **kwargs)
-            result_q.put(("ok", task_id, value))
-        except Exception as exc:
-            result_q.put(("error", task_id, exc, traceback.format_exc()))
-        # Note: Process-level crashes (SIGSEGV, etc.) don't reach here,
-        # handled by Supervisor's is_alive() check.
+            # ★ __dequeued__ sent immediately after get(), before unpacking.
+            #   This enables crash attribution from the moment task leaves queue.
+            #   If Worker dies between get() and this line, orphan scan catches it.
+            task_id = msg[0]
+            result_q.put(("__dequeued__", worker_id, task_id))
+
+            task_id, fn, args, kwargs = msg
+
+            # __started__ for timeout tracking (execution actually begins)
+            result_q.put(("__started__", worker_id, task_id))
+
+            # Build task context
+            task_ctx = TaskContext(
+                task_id=task_id,
+                worker_ctx=ctx,
+                fn_name=getattr(fn, '__qualname__', str(fn)),
+                args=args,
+                kwargs=kwargs,
+                start_time=time.monotonic(),
+            )
+
+            # Execute TASK_START hooks (failures logged but don't affect task)
+            if task_start_hooks:
+                _execute_hooks(task_start_hooks, task_ctx)
+
+            # Execute the task
+            exc = None
+            tb_str = None
+            try:
+                # Support both sync and async task functions
+                if inspect.iscoroutinefunction(fn):
+                    value = asyncio.run(fn(*args, **kwargs))
+                else:
+                    value = fn(*args, **kwargs)
+                result_q.put(("ok", task_id, value))
+                task_ctx.success = True
+                task_ctx.result = value
+            except Exception as e:
+                exc = e
+                tb_str = traceback.format_exc()
+                result_q.put(("error", task_id, exc, tb_str))
+                task_ctx.success = False
+                task_ctx.error = exc
+
+            # Execute TASK_END hooks (failures logged but don't affect next task)
+            ctx.task_count += 1
+            task_ctx.end_time = time.monotonic()
+            if task_end_hooks:
+                _execute_hooks(task_end_hooks, task_ctx)
+
+    finally:
+        # Execute WORKER_STOP hooks (even on crash/exception)
+        if stop_hooks:
+            _execute_hooks(stop_hooks, ctx)
 
 
 # ── Future ────────────────────────────────────────────────────────────────────
@@ -373,13 +609,24 @@ class WorkerPool:
     Worker crash triggers automatic restart, crashed task marked as error.
     Three-phase shutdown: DRAINING → STOPPING → KILLING → STOPPED.
 
+    Lifecycle Hooks:
+        WORKER_START: Called when a Worker process starts (for resource initialization)
+        WORKER_STOP: Called when a Worker process stops (for resource cleanup)
+        TASK_START: Called before each task execution (for per-task setup)
+        TASK_END: Called after each task execution (for per-task cleanup/monitoring)
+
     Parameters
     ----------
-    n_workers      : Number of Worker processes
-    check_interval : Interval in seconds for Supervisor to check Worker health (default 0.5s)
+    n_workers        : Number of Worker processes
+    check_interval   : Interval in seconds for Supervisor to check Worker health (default 0.5s)
+    on_worker_start  : Hook for Worker startup (function or "module.path" string)
+    on_worker_stop   : Hook for Worker shutdown (function or "module.path" string)
+    on_task_start    : Hook for task start (function or "module.path" string)
+    on_task_end      : Hook for task end (function or "module.path" string)
 
     Usage Example
     -------------
+    # Basic usage
     if __name__ == '__main__':
         with WorkerPool(n_workers=4) as pool:
             futures = [pool.submit(my_task, i) for i in range(10)]
@@ -388,6 +635,23 @@ class WorkerPool:
                     print(f.result(timeout=10))
                 except Exception as e:
                     print(f"Error: {e}")
+
+    # With lifecycle hooks for database connections
+    def init_db(ctx: WorkerContext):
+        from myapp.db import Database
+        Database.connect()
+
+    def cleanup_db(ctx: WorkerContext):
+        from myapp.db import Database
+        Database.disconnect()
+
+    with WorkerPool(
+        n_workers=4,
+        on_worker_start=init_db,
+        on_worker_stop=cleanup_db,
+    ) as pool:
+        # Workers have database connections ready
+        pool.submit(process_data, data)
     """
 
     def __init__(
@@ -395,6 +659,11 @@ class WorkerPool:
         n_workers: int = 4,
         check_interval: float = 0.5,
         orphan_timeout: Optional[float] = None,
+        # Lifecycle hooks
+        on_worker_start: Optional[AnyWorkerHook] = None,
+        on_worker_stop: Optional[AnyWorkerHook] = None,
+        on_task_start: Optional[AnyTaskHook] = None,
+        on_task_end: Optional[AnyTaskHook] = None,
     ):
         """
         Initialize WorkerPool.
@@ -405,12 +674,17 @@ class WorkerPool:
             orphan_timeout: Max seconds a task can wait without being claimed before
                 considered orphaned (default: max(2.0, check_interval * 4)).
                 Should be much larger than normal scheduling delay (< 0.1s).
+            on_worker_start: Hook called when Worker process starts (for initialization)
+            on_worker_stop: Hook called when Worker process stops (for cleanup)
+            on_task_start: Hook called before each task execution
+            on_task_end: Hook called after each task execution (success or failure)
         """
         self._n = n_workers
         self._check_interval = check_interval
         self._orphan_timeout = orphan_timeout or max(2.0, check_interval * 4)
         self._ctx = mp.get_context("spawn")
         self._state = PoolState.RUNNING
+        self._pool_id = str(uuid.uuid4())[:8]  # Short ID for logging
 
         self._task_q: mp.Queue = self._ctx.Queue()
         self._result_q: mp.Queue = self._ctx.Queue()
@@ -429,9 +703,27 @@ class WorkerPool:
 
         self._registry = WorkerRegistry()   # Independent lock, never nested with self._lock
 
+        # Hook storage: Dict[WorkerEvent, List[Tuple[name, hook]]]
+        self._hooks: Dict[WorkerEvent, List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]] = {
+            WorkerEvent.WORKER_START: [],
+            WorkerEvent.WORKER_STOP: [],
+            WorkerEvent.TASK_START: [],
+            WorkerEvent.TASK_END: [],
+        }
+
+        # Register constructor-provided hooks
+        if on_worker_start:
+            self.register_hook(WorkerEvent.WORKER_START, on_worker_start)
+        if on_worker_stop:
+            self.register_hook(WorkerEvent.WORKER_STOP, on_worker_stop)
+        if on_task_start:
+            self.register_hook(WorkerEvent.TASK_START, on_task_start)
+        if on_task_end:
+            self.register_hook(WorkerEvent.TASK_END, on_task_end)
+
         logger.info(
-            "WorkerPool initializing | n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
-            n_workers, check_interval, self._orphan_timeout
+            "WorkerPool initializing | pool_id=%s, n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
+            self._pool_id, n_workers, check_interval, self._orphan_timeout
         )
 
         # Start Worker processes
@@ -450,14 +742,64 @@ class WorkerPool:
 
     # ── Internal: Process Management ────────────────────────────────────────
 
+    def _serialize_hooks(
+        self,
+        event: WorkerEvent
+    ) -> Optional[Union[str, List[Tuple[str, Any]]]]:
+        """
+        Serialize hooks for passing to Worker process.
+
+        For a single hook:
+        - String path: returned as-is
+        - Callable: returned directly (will be pickled)
+
+        For multiple hooks:
+        - Returns list of (name, hook) tuples
+
+        Args:
+            event: The WorkerEvent to serialize hooks for
+
+        Returns:
+            Serialized hook specification, or None if no hooks
+        """
+        hooks = self._hooks.get(event, [])
+        if not hooks:
+            return None
+
+        if len(hooks) == 1:
+            # Single hook: return string path or callable directly
+            _, hook = hooks[0]
+            if isinstance(hook, str):
+                return hook
+            return hook  # Let pickle handle the callable
+
+        # Multiple hooks: return as list
+        return hooks
+
     def _start_worker(self, wid: int) -> WorkerHandle:
         """
         Start a new Worker process and register it.
         Does not hold self._lock (registry.add uses its own lock).
+        Passes lifecycle hooks to the Worker process.
         """
+        # Serialize hooks for this Worker
+        on_start = self._serialize_hooks(WorkerEvent.WORKER_START)
+        on_stop = self._serialize_hooks(WorkerEvent.WORKER_STOP)
+        on_task_start = self._serialize_hooks(WorkerEvent.TASK_START)
+        on_task_end = self._serialize_hooks(WorkerEvent.TASK_END)
+
         p = self._ctx.Process(
             target=_worker_entry,
-            args=(wid, self._task_q, self._result_q),
+            args=(
+                wid,
+                self._task_q,
+                self._result_q,
+                self._pool_id,
+                on_start,
+                on_stop,
+                on_task_start,
+                on_task_end,
+            ),
             daemon=True,
             name=f"worker-{wid}",
         )
@@ -468,6 +810,85 @@ class WorkerPool:
             self._worker_start_time[wid] = None
         logger.debug("Started Worker-%d (pid=%d)", wid, p.pid)
         return handle
+
+    # ── Public: Hook Management ─────────────────────────────────────────────
+
+    def register_hook(
+        self,
+        event: WorkerEvent,
+        hook: Union[AnyWorkerHook, AnyTaskHook],
+        name: Optional[str] = None,
+    ) -> str:
+        """
+        Register a lifecycle hook.
+
+        Hooks can be registered for the following events:
+        - WORKER_START: Called when a Worker process starts
+        - WORKER_STOP: Called when a Worker process stops
+        - TASK_START: Called before each task execution
+        - TASK_END: Called after each task execution
+
+        Note: Hooks registered after Pool startup will only affect
+        newly started Workers (e.g., after crash recovery).
+
+        Args:
+            event: The WorkerEvent to hook into
+            hook: Hook function (sync/async) or string path "module.function"
+            name: Optional name for the hook (for later unregistration)
+
+        Returns:
+            Hook name (generated if not provided)
+
+        Example:
+            pool.register_hook(WorkerEvent.WORKER_START, init_db, "db_init")
+            pool.register_hook(WorkerEvent.TASK_END, log_task, "task_logger")
+        """
+        if name is None:
+            name = f"hook_{len(self._hooks[event])}"
+
+        self._hooks[event].append((name, hook))
+        logger.debug(
+            "Registered hook | event=%s, name=%s, hook_type=%s",
+            event.name, name, type(hook).__name__
+        )
+        return name
+
+    def unregister_hook(self, event: WorkerEvent, name: str) -> bool:
+        """
+        Unregister a lifecycle hook.
+
+        Note: Unregistering hooks after Pool startup will only affect
+        newly started Workers. Running Workers retain their original hooks.
+
+        Args:
+            event: The WorkerEvent the hook was registered for
+            name: The hook name (returned by register_hook)
+
+        Returns:
+            True if hook was found and removed, False otherwise
+        """
+        hooks = self._hooks[event]
+        for i, (hook_name, _) in enumerate(hooks):
+            if hook_name == name:
+                hooks.pop(i)
+                logger.debug("Unregistered hook | event=%s, name=%s", event.name, name)
+                return True
+        logger.debug("Hook not found | event=%s, name=%s", event.name, name)
+        return False
+
+    def get_hooks(self, event: WorkerEvent) -> List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]:
+        """
+        Get all registered hooks for an event.
+
+        Args:
+            event: The WorkerEvent to get hooks for
+
+        Returns:
+            List of (name, hook) tuples
+        """
+        return list(self._hooks.get(event, []))
+
+    # ── Internal: Worker Health Check ───────────────────────────────────────
 
     def _check_workers(self) -> None:
         """
@@ -575,6 +996,27 @@ class WorkerPool:
     def _dispatch(self, msg: tuple) -> None:
         """Dispatch result message"""
         kind = msg[0]
+
+        # Handle new Worker lifecycle messages
+        if kind == "__worker_ready__":
+            # Worker successfully initialized (WORKER_START hooks passed)
+            _, wid, pid = msg
+            logger.info(
+                "Worker-%d ready (pid=%d) | hooks initialized successfully",
+                wid, pid
+            )
+            return
+
+        if kind == "__worker_init_failed__":
+            # Worker initialization failed (WORKER_START hook threw exception)
+            _, wid, error, tb = msg
+            logger.error(
+                "Worker-%d initialization failed | error=%s\n%s",
+                wid, error, tb
+            )
+            # Worker will not start, no need to track it
+            # _check_workers will detect it as dead and may attempt restart
+            return
 
         if kind == "__dequeued__":
             # ★ Task has left the queue, Worker now "owns" it.
