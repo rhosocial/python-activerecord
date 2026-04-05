@@ -1830,9 +1830,13 @@ class WorkerPool:
                 f"Pool is {self._state.name} — no new tasks accepted. "
                 f"shutdown() was already called."
             )
-        task_id = str(uuid.uuid4())
-        fut = Future(task_id)
+        # Generate unique task_id (handle potential UUID collision in free-threaded Python)
         with self._lock:
+            task_id = str(uuid.uuid4())
+            # Ensure uniqueness (extremely rare but possible collision in concurrent scenarios)
+            while task_id in self._futures:
+                task_id = str(uuid.uuid4())
+            fut = Future(task_id)
             self._futures[task_id] = fut
             self._task_enqueue_time[task_id] = time.monotonic()
         with self._stats_lock:
