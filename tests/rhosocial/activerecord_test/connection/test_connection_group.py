@@ -67,9 +67,9 @@ class TestConnectionGroup:
         group.configure()
         assert group.is_configured()
 
-        # Verify backends are created
-        assert group.get_backend(User) is not None
-        assert group.get_backend(Post) is not None
+        # Verify shared backend is created
+        backend = group.get_backend()
+        assert backend is not None
 
         # Cleanup
         group.disconnect()
@@ -106,10 +106,10 @@ class TestConnectionGroup:
         )
 
         group.configure()
-        backend1 = group.get_backend(User)
+        backend1 = group.get_backend()
 
         group.configure()  # Second call should be no-op
-        backend2 = group.get_backend(User)
+        backend2 = group.get_backend()
 
         # Same backend instance
         assert backend1 is backend2
@@ -130,8 +130,7 @@ class TestConnectionGroup:
 
         group.disconnect()
         assert not group.is_configured()
-        assert group.get_backend(User) is None
-        assert group.get_backend(Post) is None
+        assert group.get_backend() is None
 
     def test_disconnect_idempotent(self, sqlite_config, backend_class):
         """Test that calling disconnect multiple times is safe."""
@@ -173,7 +172,7 @@ class TestConnectionGroup:
         assert not group.is_connected()
 
     def test_ping(self, sqlite_config, backend_class):
-        """Test ping method returns status for each model."""
+        """Test ping method returns connection status."""
         group = ConnectionGroup(
             name="main",
             models=[User, Post],
@@ -184,10 +183,7 @@ class TestConnectionGroup:
         group.configure()
         status = group.ping()
 
-        assert User in status
-        assert Post in status
-        assert status[User] is True
-        assert status[Post] is True
+        assert status is True
 
         group.disconnect()
 
@@ -228,17 +224,17 @@ class TestConnectionGroup:
             models=[User],
         )
 
-        assert group.get_backend(User) is None
+        assert group.get_backend() is None
 
     def test_ping_before_configure(self):
-        """Test ping returns empty dict before configuration."""
+        """Test ping returns False before configuration."""
         group = ConnectionGroup(
             name="main",
             models=[User],
         )
 
         status = group.ping()
-        assert status == {}
+        assert status is False
 
 
 class TestAsyncConnectionGroup:
@@ -317,10 +313,7 @@ class TestAsyncConnectionGroup:
         await group.configure()
         status = await group.ping()
 
-        assert AsyncUser in status
-        assert AsyncPost in status
-        assert status[AsyncUser] is True
-        assert status[AsyncPost] is True
+        assert status is True
 
         await group.disconnect()
 
