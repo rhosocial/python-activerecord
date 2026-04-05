@@ -118,12 +118,16 @@ class WorkerContext:
         pool_id: Pool instance identifier
         start_time: Worker startup timestamp (monotonic)
         task_count: Number of tasks executed (incremented during WORKER_STOP)
+        data: User-attached data storage (persisted across hooks and tasks)
+        event_loop: Event loop instance (available in async mode)
     """
     worker_id: int
     pid: int
     pool_id: str
     start_time: float = 0.0
     task_count: int = 0
+    data: Dict[str, Any] = field(default_factory=dict)
+    event_loop: Optional[asyncio.AbstractEventLoop] = None
 
 
 @dataclass
@@ -133,7 +137,7 @@ class TaskContext:
 
     Attributes:
         task_id: Task identifier
-        worker_ctx: Worker context
+        worker_ctx: Worker context (contains shared data across tasks)
         fn_name: Task function name
         args: Task positional arguments
         kwargs: Task keyword arguments
@@ -144,6 +148,7 @@ class TaskContext:
         error: Task exception (set in TASK_END on failure)
         memory_start: Memory usage at task start (bytes, RSS)
         memory_end: Memory usage at task end (bytes, RSS)
+        data: User-attached data storage (task-scoped)
     """
     task_id: str
     worker_ctx: WorkerContext
@@ -158,6 +163,8 @@ class TaskContext:
     # Resource monitoring
     memory_start: int = 0  # RSS in bytes at task start
     memory_end: int = 0    # RSS in bytes at task end
+    # User data storage
+    data: Dict[str, Any] = field(default_factory=dict)
 
     @property
     def duration(self) -> float:
@@ -442,46 +449,59 @@ def _import_hook(path: str) -> Callable:
 
 
 def _resolve_hooks(
-    hooks: Optional[Union[AnyWorkerHook, AnyTaskHook, List[Tuple[str, Any]]]]
-) -> List[Callable]:
+    hooks: Optional[Union[AnyWorkerHook, AnyTaskHook, List, Tuple]]
+) -> List[Union[Callable, Tuple]]:
     """
-    Resolve hook specifications to actual callable functions.
+    Resolve hook specifications to a list of hooks.
 
     Supports:
     - None: returns empty list
-    - String path: imports the function
-    - String path with commas: imports multiple functions
-    - List of (name, hook) tuples: resolves each item
     - Single callable: returns list with that callable
+    - Single string path: imports and returns the function
+    - Tuple of (callable, *args): wraps callable with args
+    - List of above: resolves each item
+
+    All hooks are called with ctx as the first argument.
+    For tuple format (callable, arg1, arg2): called as callable(ctx, arg1, arg2)
 
     Args:
         hooks: Hook specification in any supported format
 
     Returns:
-        List of resolved callable functions
+        List of resolved hooks (callables or (callable, args) tuples)
     """
     if hooks is None:
         return []
 
     if isinstance(hooks, str):
-        # String path(s) - support comma-separated multiple paths
-        if ',' in hooks:
-            paths = hooks.split(',')
-            return [_import_hook(p.strip()) for p in paths]
+        # Single string path - import the function
         return [_import_hook(hooks)]
 
+    if isinstance(hooks, tuple):
+        # Tuple format: (callable, *args) or (string_path, *args)
+        if len(hooks) == 0:
+            return []
+        first = hooks[0]
+        if isinstance(first, str):
+            # Import string path, keep args
+            return [(_import_hook(first),) + hooks[1:]]
+        # Assume first is callable
+        return [hooks]
+
     if isinstance(hooks, list):
-        # List format: [(name, hook), ...] or [hook, ...]
+        # List format: resolve each item
         result = []
         for item in hooks:
-            if isinstance(item, tuple):
-                _, hook = item
+            if isinstance(item, str):
+                result.append(_import_hook(item))
+            elif isinstance(item, tuple) and len(item) > 0:
+                first = item[0]
+                if isinstance(first, str):
+                    result.append((_import_hook(first),) + item[1:])
+                else:
+                    result.append(item)
             else:
-                hook = item
-            if isinstance(hook, str):
-                result.append(_import_hook(hook))
-            else:
-                result.append(hook)
+                result.append(item)
         return result
 
     # Single callable object
@@ -489,14 +509,14 @@ def _resolve_hooks(
 
 
 def _execute_hooks(
-    hooks: List[Callable],
+    hooks: List[Union[Callable, Tuple]],
     ctx: Union[WorkerContext, TaskContext],
 ) -> Optional[Tuple[str, str]]:
     """
-    Execute a list of hooks with the given context.
+    Execute a list of synchronous hooks with the given context.
 
     Args:
-        hooks: List of callable hook functions (sync or async)
+        hooks: List of hooks (callables or (callable, args) tuples)
         ctx: Context to pass to hooks (WorkerContext or TaskContext)
 
     Returns:
@@ -504,10 +524,43 @@ def _execute_hooks(
     """
     for hook in hooks:
         try:
-            if inspect.iscoroutinefunction(hook):
-                asyncio.run(hook(ctx))
+            if isinstance(hook, tuple):
+                # (callable, *args) format: call as callable(ctx, *args)
+                fn, *args = hook
+                fn(ctx, *args)
             else:
                 hook(ctx)
+        except Exception as e:
+            # Return error info for first failure
+            return (str(e), traceback.format_exc())
+    return None
+
+
+async def _execute_hooks_async(
+    hooks: List[Union[Callable, Tuple]],
+    ctx: Union[WorkerContext, TaskContext],
+) -> Optional[Tuple[str, str]]:
+    """
+    Execute a list of asynchronous hooks with the given context.
+
+    All hooks must be async coroutines. This function should only be called
+    within an async context (event loop).
+
+    Args:
+        hooks: List of hooks (callables or (callable, args) tuples)
+        ctx: Context to pass to hooks (WorkerContext or TaskContext)
+
+    Returns:
+        Tuple of (error_message, traceback) if any hook failed, None otherwise
+    """
+    for hook in hooks:
+        try:
+            if isinstance(hook, tuple):
+                # (callable, *args) format: call as callable(ctx, *args)
+                fn, *args = hook
+                await fn(ctx, *args)
+            else:
+                await hook(ctx)
         except Exception as e:
             # Return error info for first failure
             return (str(e), traceback.format_exc())
@@ -545,9 +598,21 @@ def _worker_entry(
         3. __started__  - Sent before fn(), enables timeout tracking
         4. ok/error     - Sent after fn() completes/fails
 
-    Async Support:
-        Both sync and async (coroutine) functions are supported as task functions.
-        Async functions are automatically wrapped with asyncio.run().
+    Mode Selection:
+        - Sync mode: All hooks are synchronous, no event loop created
+        - Async mode: At least one hook is async, single event loop for Worker lifetime
+
+    Task Function Signature:
+        Task functions must accept ctx: TaskContext as the first argument.
+        The framework injects ctx automatically before other arguments.
+
+    Mode Enforcement:
+        Sync and async hooks cannot be mixed. If any hook is async, all hooks
+        must be async. Mixing will raise a TypeError.
+
+    Warning:
+        In async mode, sync task functions will block the event loop.
+        Users should ensure all hooks and tasks are either sync or async, not mixed.
     """
     pid = os.getpid()
     ctx = WorkerContext(
@@ -564,14 +629,55 @@ def _worker_entry(
     task_start_hooks = _resolve_hooks(on_task_start)
     task_end_hooks = _resolve_hooks(on_task_end)
 
+    # Detect async mode and check for mixed hooks
+    all_hooks = start_hooks + stop_hooks + task_start_hooks + task_end_hooks
+    async_hooks = [h for h in all_hooks if inspect.iscoroutinefunction(h)]
+    sync_hooks = [h for h in all_hooks if not inspect.iscoroutinefunction(h)]
+
+    is_async = len(async_hooks) > 0
+
+    # Enforce no mixing of sync and async hooks
+    if is_async and len(sync_hooks) > 0:
+        async_names = [getattr(h, '__qualname__', str(h)) for h in async_hooks]
+        sync_names = [getattr(h, '__qualname__', str(h)) for h in sync_hooks]
+        raise TypeError(
+            f"Cannot mix sync and async hooks. "
+            f"Async hooks: {async_names}, Sync hooks: {sync_names}. "
+            f"All hooks must be either sync or async."
+        )
+
+    if is_async:
+        _run_async_worker(
+            ctx, task_q, result_q,
+            start_hooks, stop_hooks,
+            task_start_hooks, task_end_hooks
+        )
+    else:
+        _run_sync_worker(
+            ctx, task_q, result_q,
+            start_hooks, stop_hooks,
+            task_start_hooks, task_end_hooks
+        )
+
+
+def _run_sync_worker(
+    ctx: WorkerContext,
+    task_q: mp.Queue,
+    result_q: mp.Queue,
+    start_hooks: List[Callable],
+    stop_hooks: List[Callable],
+    task_start_hooks: List[Callable],
+    task_end_hooks: List[Callable],
+) -> None:  # pragma: no cover
+    """Run worker in pure synchronous mode."""
     # Execute WORKER_START hooks
     if start_hooks:
         error_info = _execute_hooks(start_hooks, ctx)
         if error_info:
             error_msg, tb = error_info
-            result_q.put(("__worker_init_failed__", worker_id, error_msg, tb))
-            return  # Worker does not start
-        result_q.put(("__worker_ready__", worker_id, pid))
+            result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+            return
+        result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
 
     try:
         while True:
@@ -583,18 +689,12 @@ def _worker_entry(
             if msg == _STOP:
                 break
 
-            # ★ __dequeued__ sent immediately after get(), before unpacking.
-            #   This enables crash attribution from the moment task leaves queue.
-            #   If Worker dies between get() and this line, orphan scan catches it.
             task_id = msg[0]
-            result_q.put(("__dequeued__", worker_id, task_id))
+            result_q.put(("__dequeued__", ctx.worker_id, task_id))
 
             task_id, fn, args, kwargs = msg
+            result_q.put(("__started__", ctx.worker_id, task_id))
 
-            # __started__ for timeout tracking (execution actually begins)
-            result_q.put(("__started__", worker_id, task_id))
-
-            # Build task context with resource monitoring
             task_ctx = TaskContext(
                 task_id=task_id,
                 worker_ctx=ctx,
@@ -605,19 +705,19 @@ def _worker_entry(
                 memory_start=_get_memory_usage(),
             )
 
-            # Execute TASK_START hooks (failures logged but don't affect task)
+            # Execute TASK_START hooks
             if task_start_hooks:
                 _execute_hooks(task_start_hooks, task_ctx)
 
-            # Execute the task
+            # Execute the task: ctx is the first argument
+            # In sync mode, async tasks use asyncio.run() (no context sharing)
             exc = None
             tb_str = None
             try:
-                # Support both sync and async task functions
                 if inspect.iscoroutinefunction(fn):
-                    value = asyncio.run(fn(*args, **kwargs))
+                    value = asyncio.run(fn(task_ctx, *args, **kwargs))
                 else:
-                    value = fn(*args, **kwargs)
+                    value = fn(task_ctx, *args, **kwargs)
                 task_ctx.success = True
                 task_ctx.result = value
             except Exception as e:
@@ -626,33 +726,137 @@ def _worker_entry(
                 task_ctx.success = False
                 task_ctx.error = exc
 
-            # Record end time and memory BEFORE sending result
             ctx.task_count += 1
             task_ctx.end_time = time.monotonic()
             task_ctx.memory_end = _get_memory_usage()
 
-            # Send result with metadata
             if exc is None:
                 result_q.put((
                     "ok", task_id, value,
-                    worker_id, task_ctx.start_time, task_ctx.end_time,
+                    ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
                     task_ctx.memory_start, task_ctx.memory_end
                 ))
             else:
                 result_q.put((
                     "error", task_id, exc, tb_str,
-                    worker_id, task_ctx.start_time, task_ctx.end_time,
+                    ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
                     task_ctx.memory_start, task_ctx.memory_end
                 ))
 
-            # Execute TASK_END hooks (failures logged but don't affect next task)
+            # Execute TASK_END hooks
             if task_end_hooks:
                 _execute_hooks(task_end_hooks, task_ctx)
 
     finally:
-        # Execute WORKER_STOP hooks (even on crash/exception)
+        # Execute WORKER_STOP hooks
         if stop_hooks:
             _execute_hooks(stop_hooks, ctx)
+
+
+def _run_async_worker(
+    ctx: WorkerContext,
+    task_q: mp.Queue,
+    result_q: mp.Queue,
+    start_hooks: List[Callable],
+    stop_hooks: List[Callable],
+    task_start_hooks: List[Callable],
+    task_end_hooks: List[Callable],
+) -> None:  # pragma: no cover
+    """Run worker with single event loop for async context sharing."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    ctx.event_loop = loop
+
+    try:
+        # Execute WORKER_START hooks
+        if start_hooks:
+            error_info = loop.run_until_complete(_execute_hooks_async(start_hooks, ctx))
+            if error_info:
+                error_msg, tb = error_info
+                result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+                return
+            result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+
+        try:
+            while True:
+                # Use executor to avoid blocking event loop on Queue.get
+                try:
+                    msg = loop.run_until_complete(
+                        loop.run_in_executor(None, task_q.get)
+                    )
+                except (EOFError, OSError):
+                    break
+
+                if msg == _STOP:
+                    break
+
+                task_id = msg[0]
+                result_q.put(("__dequeued__", ctx.worker_id, task_id))
+
+                task_id, fn, args, kwargs = msg
+                result_q.put(("__started__", ctx.worker_id, task_id))
+
+                task_ctx = TaskContext(
+                    task_id=task_id,
+                    worker_ctx=ctx,
+                    fn_name=getattr(fn, '__qualname__', str(fn)),
+                    args=args,
+                    kwargs=kwargs,
+                    start_time=time.monotonic(),
+                    memory_start=_get_memory_usage(),
+                )
+
+                # Execute TASK_START hooks
+                if task_start_hooks:
+                    loop.run_until_complete(_execute_hooks_async(task_start_hooks, task_ctx))
+
+                # Execute the task: ctx is the first argument
+                # Warning: sync task will block the event loop
+                exc = None
+                tb_str = None
+                try:
+                    if inspect.iscoroutinefunction(fn):
+                        value = loop.run_until_complete(fn(task_ctx, *args, **kwargs))
+                    else:
+                        # Sync task blocks event loop - user's responsibility
+                        value = fn(task_ctx, *args, **kwargs)
+                    task_ctx.success = True
+                    task_ctx.result = value
+                except Exception as e:
+                    exc = e
+                    tb_str = traceback.format_exc()
+                    task_ctx.success = False
+                    task_ctx.error = exc
+
+                ctx.task_count += 1
+                task_ctx.end_time = time.monotonic()
+                task_ctx.memory_end = _get_memory_usage()
+
+                if exc is None:
+                    result_q.put((
+                        "ok", task_id, value,
+                        ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
+                        task_ctx.memory_start, task_ctx.memory_end
+                    ))
+                else:
+                    result_q.put((
+                        "error", task_id, exc, tb_str,
+                        ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
+                        task_ctx.memory_start, task_ctx.memory_end
+                    ))
+
+                # Execute TASK_END hooks
+                if task_end_hooks:
+                    loop.run_until_complete(_execute_hooks_async(task_end_hooks, task_ctx))
+
+        finally:
+            # Execute WORKER_STOP hooks
+            if stop_hooks:
+                loop.run_until_complete(_execute_hooks_async(stop_hooks, ctx))
+
+    finally:
+        loop.close()
+        ctx.event_loop = None
 
 
 # ── Future ────────────────────────────────────────────────────────────────────
@@ -956,6 +1160,9 @@ class WorkerPool:
         if on_task_end:
             self.register_hook(WorkerEvent.TASK_END, on_task_end)
 
+        # Validate hooks: sync and async hooks cannot be mixed
+        self._validate_hook_consistency()
+
         logger.info(
             "WorkerPool initializing | pool_id=%s, n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
             self._pool_id, n_workers, check_interval, self._orphan_timeout
@@ -974,6 +1181,37 @@ class WorkerPool:
             "WorkerPool started | %d workers ready, supervisor thread active",
             self._registry.alive_count()
         )
+
+    # ── Internal: Hook Validation ────────────────────────────────────────────
+
+    def _validate_hook_consistency(self) -> None:
+        """
+        Validate that all hooks are either sync or async, not mixed.
+
+        Raises:
+            TypeError: If sync and async hooks are mixed
+        """
+        all_hooks = []
+        for event in WorkerEvent:
+            hooks = self._hooks.get(event, [])
+            for name, hook in hooks:
+                # Resolve string paths to check if they're async
+                resolved_hook = hook
+                if isinstance(hook, str):
+                    resolved_hook = _import_hook(hook)
+                all_hooks.append((name, resolved_hook, event))
+
+        async_hooks = [(n, h, e) for n, h, e in all_hooks if inspect.iscoroutinefunction(h)]
+        sync_hooks = [(n, h, e) for n, h, e in all_hooks if not inspect.iscoroutinefunction(h)]
+
+        if async_hooks and sync_hooks:
+            async_names = [f"{e.name}:{n}" for n, h, e in async_hooks]
+            sync_names = [f"{e.name}:{n}" for n, h, e in sync_hooks]
+            raise TypeError(
+                f"Cannot mix sync and async hooks. "
+                f"Async hooks: {async_names}, Sync hooks: {sync_names}. "
+                f"All hooks must be either sync or async."
+            )
 
     # ── Internal: Process Management ────────────────────────────────────────
 
