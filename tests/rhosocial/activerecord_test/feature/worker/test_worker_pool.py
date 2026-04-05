@@ -549,12 +549,15 @@ class TestWorkerPool:
 
     def test_worker_crash_and_restart(self):
         """Test Worker crash and restart"""
-        with WorkerPool(n_workers=2, check_interval=0.5) as pool:
+        # Use longer orphan_timeout to avoid false positive orphan detection
+        # during worker restart on slower/free-threaded Python builds
+        with WorkerPool(n_workers=2, check_interval=0.5, orphan_timeout=5.0) as pool:
             # Submit a task that crashes the process
             pool.submit(crash_task)
 
-            # Wait for crash to be detected
-            time.sleep(1.0)
+            # Wait for crash to be detected and worker to restart
+            # Need at least 2x check_interval for reliable detection
+            time.sleep(2.0)
 
             # Submit new task, should execute normally (Worker restarted)
             new_fut = pool.submit(simple_task, 42)
