@@ -13,7 +13,7 @@ This module is independent of the Worker module and can be used in:
 """
 
 from dataclasses import dataclass, field
-from typing import Type, List, Optional, Dict
+from typing import Type, List, Optional
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
@@ -22,10 +22,10 @@ from ..backend.config import ConnectionConfig
 @dataclass
 class ConnectionGroup:
     """
-    Connection Group: Manages database connections for a group of Model classes.
+    Connection Group: Manages a shared database connection for a group of Model classes.
 
-    Suitable for Worker-level or Task-level centralized connection management,
-    as well as standalone use in web applications, CLI tools, and cron jobs.
+    All models in the group share the same backend instance, ensuring that
+    transactions work correctly across multiple models.
 
     Example:
         # Basic usage
@@ -53,7 +53,7 @@ class ConnectionGroup:
     models: List[Type] = field(default_factory=list)
     config: Optional[ConnectionConfig] = None
     backend_class: Optional[Type[StorageBackend]] = None
-    _backends: Dict[Type, StorageBackend] = field(default_factory=dict, init=False)
+    _backend_instance: Optional[StorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
     def add_model(self, model: Type) -> 'ConnectionGroup':
@@ -79,10 +79,10 @@ class ConnectionGroup:
 
     def configure(self) -> None:
         """
-        Configure connections for all models in the group.
+        Configure a shared connection for all models in the group.
 
-        This calls Model.configure(config, backend_class) for each model.
-        After configuration, models can be used for database operations.
+        Creates a single backend instance and assigns it to all models,
+        ensuring that transactions work correctly across multiple models.
 
         Raises:
             ValueError: If config or backend_class is not set
@@ -99,42 +99,49 @@ class ConnectionGroup:
                 f"Backend class not set for ConnectionGroup '{self.name}'"
             )
 
+        # Create a single shared backend instance
+        self._backend_instance = self.backend_class(connection_config=self.config)
+
+        # Assign the shared backend to each model
         for model in self.models:
-            model.configure(self.config, self.backend_class)
-            self._backends[model] = model.backend()
+            model.__connection_config__ = self.config
+            model.__backend_class__ = self.backend_class
+            model.__backend__ = self._backend_instance
+
+        # Connect and introspect
+        if self.models:
+            self._backend_instance.logger = self.models[0].get_logger()
+        self._backend_instance.connect()
+        self._backend_instance.introspect_and_adapt()
 
         self._configured = True
 
     def disconnect(self) -> None:
         """
-        Disconnect all connections in the group.
+        Disconnect the shared connection.
 
         Safe to call multiple times. Errors during disconnection are caught
-        and logged, but do not prevent other connections from being closed.
+        and logged.
         """
-        if not self._configured:
-            return  # Not configured, nothing to disconnect
+        if not self._configured or self._backend_instance is None:
+            return
 
-        for backend in list(self._backends.values()):
-            try:
-                backend.disconnect()
-            except Exception:
-                pass  # Ignore disconnection errors
+        try:
+            self._backend_instance.disconnect()
+        except Exception:
+            pass  # Ignore disconnection errors
 
-        self._backends.clear()
+        self._backend_instance = None
         self._configured = False
 
-    def get_backend(self, model: Type) -> Optional[StorageBackend]:
+    def get_backend(self) -> Optional[StorageBackend]:
         """
-        Get the Backend instance for a specific Model.
-
-        Args:
-            model: The Model class to get backend for
+        Get the shared Backend instance.
 
         Returns:
             StorageBackend instance or None if not configured
         """
-        return self._backends.get(model)
+        return self._backend_instance
 
     def is_configured(self) -> bool:
         """
@@ -147,42 +154,30 @@ class ConnectionGroup:
 
     def is_connected(self) -> bool:
         """
-        Check if all connections in the group are valid.
+        Check if the connection is valid.
 
         Uses backend.ping(reconnect=False) to check connection health
         without attempting reconnection.
 
         Returns:
-            True if all connections are valid, False otherwise
+            True if the connection is valid, False otherwise
         """
-        if not self._configured:
+        if not self._configured or self._backend_instance is None:
             return False
 
-        for backend in self._backends.values():
-            try:
-                if not backend.ping(reconnect=False):
-                    return False
-            except Exception:
-                return False
+        try:
+            return self._backend_instance.ping(reconnect=False)
+        except Exception:
+            return False
 
-        return True
-
-    def ping(self) -> Dict[Type, bool]:
+    def ping(self) -> bool:
         """
-        Check connection status for each Model individually.
+        Check connection status.
 
         Returns:
-            Dictionary mapping Model class to connection status (True/False)
+            True if connected, False otherwise
         """
-        result: Dict[Type, bool] = {}
-
-        for model, backend in self._backends.items():
-            try:
-                result[model] = backend.ping(reconnect=False)
-            except Exception:
-                result[model] = False
-
-        return result
+        return self.is_connected()
 
     def __enter__(self) -> 'ConnectionGroup':
         """Context manager entry: configure connections."""
@@ -190,16 +185,17 @@ class ConnectionGroup:
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Context manager exit: disconnect all connections."""
+        """Context manager exit: disconnect the connection."""
         self.disconnect()
 
 
 @dataclass
 class AsyncConnectionGroup:
     """
-    Async Connection Group: Manages database connections for a group of Model classes.
+    Async Connection Group: Manages a shared database connection for a group of Model classes.
 
-    Async version of ConnectionGroup, suitable for async applications.
+    All models in the group share the same backend instance, ensuring that
+    transactions work correctly across multiple models.
 
     Example:
         async with AsyncConnectionGroup(
@@ -215,7 +211,7 @@ class AsyncConnectionGroup:
     models: List[Type] = field(default_factory=list)
     config: Optional[ConnectionConfig] = None
     backend_class: Optional[Type[AsyncStorageBackend]] = None
-    _backends: Dict[Type, AsyncStorageBackend] = field(default_factory=dict, init=False)
+    _backend_instance: Optional[AsyncStorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
     def add_model(self, model: Type) -> 'AsyncConnectionGroup':
@@ -241,9 +237,10 @@ class AsyncConnectionGroup:
 
     async def configure(self) -> None:
         """
-        Configure connections for all models in the group.
+        Configure a shared connection for all models in the group.
 
-        This calls await Model.async_configure(config, backend_class) for each model.
+        Creates a single backend instance and assigns it to all models,
+        ensuring that transactions work correctly across multiple models.
 
         Raises:
             ValueError: If config or backend_class is not set
@@ -260,42 +257,49 @@ class AsyncConnectionGroup:
                 f"Backend class not set for AsyncConnectionGroup '{self.name}'"
             )
 
+        # Create a single shared backend instance
+        self._backend_instance = self.backend_class(connection_config=self.config)
+
+        # Assign the shared backend to each model
         for model in self.models:
-            await model.configure(self.config, self.backend_class)
-            self._backends[model] = model.backend()
+            model.__connection_config__ = self.config
+            model.__backend_class__ = self.backend_class
+            model.__backend__ = self._backend_instance
+
+        # Connect and introspect
+        if self.models:
+            self._backend_instance.logger = self.models[0].get_logger()
+        await self._backend_instance.connect()
+        await self._backend_instance.introspect_and_adapt()
 
         self._configured = True
 
     async def disconnect(self) -> None:
         """
-        Disconnect all connections in the group.
+        Disconnect the shared connection.
 
         Safe to call multiple times. Errors during disconnection are caught
-        and logged, but do not prevent other connections from being closed.
+        and logged.
         """
-        if not self._configured:
-            return  # Not configured, nothing to disconnect
+        if not self._configured or self._backend_instance is None:
+            return
 
-        for backend in list(self._backends.values()):
-            try:
-                await backend.disconnect()
-            except Exception:
-                pass  # Ignore disconnection errors
+        try:
+            await self._backend_instance.disconnect()
+        except Exception:
+            pass  # Ignore disconnection errors
 
-        self._backends.clear()
+        self._backend_instance = None
         self._configured = False
 
-    def get_backend(self, model: Type) -> Optional[AsyncStorageBackend]:
+    def get_backend(self) -> Optional[AsyncStorageBackend]:
         """
-        Get the Backend instance for a specific Model.
-
-        Args:
-            model: The Model class to get backend for
+        Get the shared Backend instance.
 
         Returns:
             AsyncStorageBackend instance or None if not configured
         """
-        return self._backends.get(model)
+        return self._backend_instance
 
     def is_configured(self) -> bool:
         """
@@ -308,42 +312,30 @@ class AsyncConnectionGroup:
 
     async def is_connected(self) -> bool:
         """
-        Check if all connections in the group are valid.
+        Check if the connection is valid.
 
         Uses backend.ping(reconnect=False) to check connection health
         without attempting reconnection.
 
         Returns:
-            True if all connections are valid, False otherwise
+            True if the connection is valid, False otherwise
         """
-        if not self._configured:
+        if not self._configured or self._backend_instance is None:
             return False
 
-        for backend in self._backends.values():
-            try:
-                if not await backend.ping(reconnect=False):
-                    return False
-            except Exception:
-                return False
+        try:
+            return await self._backend_instance.ping(reconnect=False)
+        except Exception:
+            return False
 
-        return True
-
-    async def ping(self) -> Dict[Type, bool]:
+    async def ping(self) -> bool:
         """
-        Check connection status for each Model individually.
+        Check connection status.
 
         Returns:
-            Dictionary mapping Model class to connection status (True/False)
+            True if connected, False otherwise
         """
-        result: Dict[Type, bool] = {}
-
-        for model, backend in self._backends.items():
-            try:
-                result[model] = await backend.ping(reconnect=False)
-            except Exception:
-                result[model] = False
-
-        return result
+        return await self.is_connected()
 
     async def __aenter__(self) -> 'AsyncConnectionGroup':
         """Async context manager entry: configure connections."""
@@ -351,5 +343,5 @@ class AsyncConnectionGroup:
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb) -> None:
-        """Async context manager exit: disconnect all connections."""
+        """Async context manager exit: disconnect the connection."""
         await self.disconnect()
