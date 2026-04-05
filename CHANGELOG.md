@@ -1,3 +1,21 @@
+## [v1.0.0.dev21] - 2026-04-06
+
+
+### Added
+
+- Added `backend.explain(expression, options)` interface with typed, backend-specific result objects. SQLite backends return `SQLiteExplainResult` (bytecode) or `SQLiteExplainQueryPlanResult` (query plan), both with built-in index-usage analysis helpers (`analyze_index_usage()`, `is_full_scan`, `is_index_used`, `is_covering_index`). The interface follows the sync/async parity principle via `SyncExplainBackendMixin` and `AsyncExplainBackendMixin`. ([#56](https://github.com/rhosocial/python-activerecord/issues/56))
+- Added connection status display to info command and comprehensive usage examples to introspect subcommand in SQLite CLI ([#57](https://github.com/rhosocial/python-activerecord/issues/57))
+- Added intelligent data summarization for logging system with automatic sensitive field masking and configurable truncation. Supports summary, keys_only, and full logging modes. ([#58](https://github.com/rhosocial/python-activerecord/issues/58))
+- Added WorkerPool module for multiprocessing task execution with resident worker processes, task queue dispatch, and graceful shutdown. Added FOR UPDATE row-level locking support for SELECT queries with `nowait` and `skip_locked` options. ([#59](https://github.com/rhosocial/python-activerecord/issues/59))
+- Added lifecycle hooks for WorkerPool with `WORKER_START`, `WORKER_STOP`, `TASK_START`, `TASK_END` events, and `TaskContext` for task-level data sharing and resource monitoring. ([#60](https://github.com/rhosocial/python-activerecord/issues/60))
+
+
+
+### Changed
+
+- Refactored logging system to a separate `rhosocial.activerecord.logging` module with isolated loggers (`propagate=False` by default) to prevent root logger pollution. ([#55](https://github.com/rhosocial/python-activerecord/issues/55))
+
+
 ## [v1.0.0.dev20] - 2026-03-28
 
 
