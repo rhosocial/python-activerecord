@@ -14,15 +14,15 @@ class ModuleFormatter(logging.Formatter):
     """Formatter that includes module context in log records.
 
     This formatter adds a 'subpackage_module' attribute to each log record,
-    showing the directory and filename where the log message originated.
-    This provides more precise location information for debugging.
+    showing the fully qualified module name and line number where the log
+    message originated. This provides precise location information for debugging.
 
     Attributes:
-        subpackage_module: Added to each record, format: "{dirname}-{filename}"
+        subpackage_module: Added to each record, format: "{module_name}:{lineno}"
 
     Example:
         >>> formatter = ModuleFormatter(
-        ...     "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
+        ...     "%(asctime)s - %(levelname)s - [%(subpackage_module)s] - %(message)s"
         ... )
         >>> handler.setFormatter(formatter)
     """
@@ -36,9 +36,37 @@ class ModuleFormatter(logging.Formatter):
         Returns:
             Formatted log message string.
         """
-        module_dir = os.path.basename(os.path.dirname(record.pathname))
-        record.subpackage_module = f"{module_dir}-{record.filename}"
+        # Extract fully qualified module name from pathname
+        module_name = self._extract_module_name(record.pathname, record.filename)
+        record.subpackage_module = f"{module_name}:{record.lineno}"
         return super().format(record)
+
+    def _extract_module_name(self, pathname: str, filename: str) -> str:
+        """Extract fully qualified module name from file path.
+
+        Args:
+            pathname: Full path to the source file.
+            filename: The filename portion (with extension).
+
+        Returns:
+            Fully qualified module name (e.g., 'rhosocial.activerecord.backend.base').
+        """
+        # Normalize the path
+        path_parts = pathname.replace('\\', '/').split('/')
+
+        # Find 'rhosocial' in the path followed by 'activerecord'
+        # This ensures we get the correct package root, not a project directory name
+        for i in range(len(path_parts) - 1, -1, -1):
+            if path_parts[i] == 'rhosocial':
+                # Only accept if followed by 'activerecord'
+                if i + 1 < len(path_parts) and path_parts[i + 1] == 'activerecord':
+                    # Build module name: rhosocial.activerecord.xxx.filename (without .py)
+                    base_name = os.path.splitext(filename)[0]
+                    module_parts = path_parts[i:-1] + [base_name]
+                    return '.'.join(module_parts)
+
+        # Fallback: use filename without extension
+        return os.path.splitext(filename)[0]
 
 
 class ActiveRecordFormatter(ModuleFormatter):
@@ -48,10 +76,10 @@ class ActiveRecordFormatter(ModuleFormatter):
     logging. It extends ModuleFormatter with a predefined format string.
 
     Default Format:
-        "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
+        "%(asctime)s - %(levelname)s - [%(subpackage_module)s] - %(message)s"
 
     Example Output:
-        2024-01-15 10:30:45,123 - DEBUG - [base-base.py:42] - Executing query: SELECT * FROM users
+        2024-01-15 10:30:45,123 - DEBUG - [rhosocial.activerecord.backend.base:42] - Executing query: SELECT * FROM users
 
     Usage:
         >>> from rhosocial.activerecord.logging import ActiveRecordFormatter
@@ -64,7 +92,7 @@ class ActiveRecordFormatter(ModuleFormatter):
         ... )
     """
 
-    DEFAULT_FORMAT = "%(asctime)s - %(levelname)s - [%(subpackage_module)s:%(lineno)d] - %(message)s"
+    DEFAULT_FORMAT = "%(asctime)s - %(levelname)s - [%(subpackage_module)s] - %(message)s"
 
     def __init__(self, fmt: Optional[str] = None, datefmt: Optional[str] = None):
         """Initialize the formatter.

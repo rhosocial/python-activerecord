@@ -24,6 +24,7 @@
 2.  **[快速入门 (Getting Started)](getting_started/README.md)**
     *   **[安装指南 (Installation)](getting_started/installation.md)**: 环境要求 (Python 3.8+, Pydantic V2) 及 pip 安装。
     *   **[数据库配置 (Configuration)](getting_started/configuration.md)**: 设置 SQLite 后端及管理共享连接。
+    *   **[连接管理 (Connection Management)](getting_started/connection_management.md)**: 使用 ConnectionGroup 和 ConnectionManager 管理多模型、多数据库连接。
     *   **[快速开始 (Quick Start)](getting_started/quick_start.md)**: 一个完整的 "Hello World" 示例，定义 User/Post 模型并执行 CRUD。
     *   **[第一个 CRUD 应用](getting_started/first_crud.md)**: 从零开始构建完整的 Todo 应用，逐步学习创建、读取、更新、删除操作。
     *   **[常见错误解决](getting_started/troubleshooting.md)**: 遇到问题？常见错误及解决方案（后端未配置、FieldProxy 缺失、PYTHONPATH 问题等）。
