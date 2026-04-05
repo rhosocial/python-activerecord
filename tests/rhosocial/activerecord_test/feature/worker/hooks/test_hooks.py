@@ -43,7 +43,7 @@ def cleanup_marker_files():
     for f in glob.glob("/tmp/worker_hook_*.txt") + glob.glob("/tmp/task_hook_*.txt"):
         try:
             os.remove(f)
-        except:
+        except Exception:
             pass
 
 
@@ -233,6 +233,165 @@ def test_task_resource_monitoring():
     print("test_task_resource_monitoring PASSED")
 
 
+def test_future_metadata():
+    """Test that Future exposes execution metadata after completion."""
+    with WorkerPool(n_workers=2) as pool:
+        futures = [pool.submit(simple_task, i) for i in range(4)]
+
+        for f in futures:
+            result = f.result(timeout=10)
+            assert result is not None
+
+            # Verify metadata is available
+            assert f.worker_id is not None
+            assert f.worker_id >= 0
+            assert f.start_time is not None
+            assert f.end_time is not None
+            assert f.end_time >= f.start_time
+            assert f.duration >= 0
+            assert isinstance(f.memory_delta, int)
+            assert isinstance(f.memory_delta_mb, float)
+
+            print(f"Task {f.task_id[:8]}: result={result}")
+            print(f"  Worker: {f.worker_id}")
+            print(f"  Duration: {f.duration:.6f}s")
+            print(f"  Memory delta: {f.memory_delta_mb:.6f} MB")
+
+    print("test_future_metadata PASSED")
+
+
+def test_future_metadata_on_failure():
+    """Test that Future exposes metadata even when task fails."""
+    with WorkerPool(n_workers=2) as pool:
+        futures = [pool.submit(failing_task, i) for i in range(2)]
+
+        for f in futures:
+            try:
+                f.result(timeout=10)
+                raise AssertionError("Expected exception")
+            except ValueError:
+                pass  # Expected
+
+            # Verify metadata is still available on failure
+            assert f.worker_id is not None
+            assert f.start_time is not None
+            assert f.end_time is not None
+            assert f.duration >= 0
+            assert f.failed is True
+
+            print(f"Failed task {f.task_id[:8]}: Worker-{f.worker_id}, duration={f.duration:.6f}s")
+
+    print("test_future_metadata_on_failure PASSED")
+
+
+def test_pool_status_properties():
+    """Test pool status properties."""
+    with WorkerPool(n_workers=2) as pool:
+        # Test basic properties
+        assert pool.state.name == "RUNNING"
+        assert pool.n_workers == 2
+        assert pool.pool_id is not None
+        assert pool.alive_workers == 2
+
+        # Submit some tasks
+        futures = [pool.submit(simple_task, i) for i in range(5)]
+
+        # Check in_flight_tasks (at least some tasks should be in flight)
+        assert pool.in_flight_tasks >= 0
+        assert pool.queued_futures >= 0
+
+        # Wait for completion
+        for f in futures:
+            f.result(timeout=10)
+
+        # After completion
+        assert pool.queued_futures == 0
+
+    print("test_pool_status_properties PASSED")
+
+
+def test_pool_stats():
+    """Test pool statistics collection."""
+    with WorkerPool(n_workers=2) as pool:
+        # Initial stats
+        stats = pool.get_stats()
+        assert stats.total_workers == 2
+        assert stats.alive_workers == 2
+        assert stats.tasks_submitted == 0
+        assert stats.uptime >= 0
+
+        # Submit tasks
+        futures = [pool.submit(simple_task, i) for i in range(5)]
+
+        # Check stats during execution
+        stats = pool.get_stats()
+        assert stats.tasks_submitted == 5
+
+        # Wait for completion
+        for f in futures:
+            f.result(timeout=10)
+
+        # Check final stats
+        stats = pool.get_stats()
+        assert stats.tasks_completed == 5
+        assert stats.tasks_failed == 0
+        assert stats.total_task_duration >= 0
+        assert stats.avg_task_duration >= 0
+
+    print("test_pool_stats PASSED")
+
+
+def test_pool_stats_with_failures():
+    """Test that failed tasks are counted correctly."""
+    with WorkerPool(n_workers=2) as pool:
+        futures = [pool.submit(failing_task, i) for i in range(2)]
+
+        for f in futures:
+            try:
+                f.result(timeout=10)
+            except ValueError:
+                pass
+
+        stats = pool.get_stats()
+        assert stats.tasks_failed == 2
+        assert stats.tasks_completed == 0
+
+    print("test_pool_stats_with_failures PASSED")
+
+
+def test_health_check():
+    """Test health_check() method."""
+    with WorkerPool(n_workers=2) as pool:
+        health = pool.health_check()
+
+        assert health["healthy"] is True
+        assert health["state"] == "RUNNING"
+        assert health["alive_workers"] == 2
+        assert health["dead_workers"] == 0
+        assert len(health["warnings"]) == 0
+
+    print("test_health_check PASSED")
+
+
+def test_drain():
+    """Test drain() method."""
+    with WorkerPool(n_workers=2) as pool:
+        # Submit tasks
+        futures = [pool.submit(simple_task, i) for i in range(10)]
+
+        # Drain should wait for all tasks
+        result = pool.drain(timeout=30)
+
+        assert result is True
+        assert pool.queued_futures == 0
+
+        # Verify all completed
+        for f in futures:
+            assert f.done
+
+    print("test_drain PASSED")
+
+
 if __name__ == "__main__":
     # Run all tests
     print("Running hook tests...")
@@ -244,5 +403,12 @@ if __name__ == "__main__":
     test_task_end_hook_on_failure()
     test_string_path_hooks()
     test_task_resource_monitoring()
+    test_future_metadata()
+    test_future_metadata_on_failure()
+    test_pool_status_properties()
+    test_pool_stats()
+    test_pool_stats_with_failures()
+    test_health_check()
+    test_drain()
 
     print("\nAll tests PASSED!")

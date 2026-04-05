@@ -7,10 +7,12 @@
 1. [概述](#1-概述)
 2. [设计原则](#2-设计原则)
 3. [快速开始](#3-快速开始)
-4. [API 参考](#4-api-参考)
-5. [任务编写指南](#5-任务编写指南)
-6. [最佳实践](#6-最佳实践)
-7. [常见陷阱](#7-常见陷阱)
+4. [生命周期钩子](#4-生命周期钩子)
+5. [管理与统计](#5-管理与统计)
+6. [API 参考](#6-api-参考)
+7. [任务编写指南](#7-任务编写指南)
+8. [最佳实践](#8-最佳实践)
+9. [常见陷阱](#9-常见陷阱)
 
 ---
 
@@ -30,6 +32,9 @@
 | **任务追溯** | 即使 Worker 崩溃，失败任务也能被追踪 |
 | **Future 模式** | 支持超时的异步结果处理 |
 | **优雅停机** | 三段式停机：DRAINING → STOPPING → KILLING → STOPPED |
+| **生命周期钩子** | 支持 Worker 级和任务级的钩子函数 |
+| **资源监控** | 任务执行耗时、内存增量等资源统计 |
+| **管理统计** | 运行时状态查询、统计信息收集、健康检查 |
 
 ### 进程池状态机
 
@@ -248,7 +253,320 @@ if __name__ == '__main__':
 
 ---
 
-## 4. API 参考
+## 4. 生命周期钩子
+
+WorkerPool 支持在 Worker 进程和任务的关键生命周期节点执行自定义钩子函数。
+
+### 钩子类型
+
+| 事件 | 触发时机 | 典型用途 |
+|------|----------|----------|
+| `WORKER_START` | Worker 进程启动时 | 初始化数据库连接、加载配置 |
+| `WORKER_STOP` | Worker 进程退出前 | 关闭连接池、释放资源 |
+| `TASK_START` | 任务开始执行前 | 记录开始日志、建立任务级连接 |
+| `TASK_END` | 任务执行完成后 | 记录执行日志、清理资源、统计监控 |
+
+### 基本用法
+
+```python
+from rhosocial.activerecord.worker import WorkerPool, WorkerContext, TaskContext
+
+def init_worker(ctx: WorkerContext):
+    """Worker 启动时初始化数据库连接"""
+    from myapp.db import Database
+    Database.connect()
+    print(f"Worker-{ctx.worker_id} (pid={ctx.pid}) initialized")
+
+def cleanup_worker(ctx: WorkerContext):
+    """Worker 退出时清理资源"""
+    from myapp.db import Database
+    Database.disconnect()
+    print(f"Worker-{ctx.worker_id} processed {ctx.task_count} tasks")
+
+def log_task(ctx: TaskContext):
+    """任务完成后记录日志"""
+    import logging
+    logger = logging.getLogger(__name__)
+    status = "SUCCESS" if ctx.success else "FAILED"
+    logger.info(
+        f"Task {ctx.task_id[:8]}: {ctx.fn_name} - "
+        f"{status}, duration={ctx.duration:.3f}s, "
+        f"memory_delta={ctx.memory_delta_mb:.3f}MB"
+    )
+
+with WorkerPool(
+    n_workers=4,
+    on_worker_start=init_worker,
+    on_worker_stop=cleanup_worker,
+    on_task_end=log_task,
+) as pool:
+    futures = [pool.submit(process_data, i) for i in range(100)]
+    for f in futures:
+        f.result(timeout=30)
+```
+
+### 连接管理策略
+
+**设计原则**：框架不替用户做选择，由用户根据业务场景决定连接管理时机。
+
+| 策略 | 钩子位置 | 适用场景 | 特点 |
+|------|----------|----------|------|
+| **Worker 级连接** | WORKER_START/STOP | 高频短操作 | 连接复用，减少建立/断开开销 |
+| **Task 级连接** | TASK_START/END | 低频耗时操作 | 按需连接，及时释放，避免长期占用 |
+
+```python
+# 场景 1：高频短操作 → Worker 级连接
+def worker_connect(ctx: WorkerContext):
+    from myapp.db import Database
+    Database.connect()
+
+def worker_disconnect(ctx: WorkerContext):
+    from myapp.db import Database
+    Database.disconnect()
+
+pool = WorkerPool(
+    n_workers=4,
+    on_worker_start=worker_connect,
+    on_worker_stop=worker_disconnect,
+)
+# 结果：4 个 Worker，4 个连接，所有任务复用
+
+# 场景 2：低频耗时操作 → Task 级连接
+def task_connect(ctx: TaskContext):
+    from myapp.db import Database
+    Database.connect()
+
+def task_disconnect(ctx: TaskContext):
+    from myapp.db import Database
+    Database.disconnect()
+
+pool = WorkerPool(
+    n_workers=4,
+    on_task_start=task_connect,
+    on_task_end=task_disconnect,
+)
+# 结果：按需建立连接，任务完成后立即释放
+```
+
+### 上下文对象
+
+#### WorkerContext
+
+```python
+@dataclass
+class WorkerContext:
+    worker_id: int        # Worker 编号 (0, 1, 2, ...)
+    pid: int              # 进程 ID
+    pool_id: str          # Pool 实例唯一标识
+    start_time: float     # Worker 启动时间戳
+    task_count: int       # 已执行任务数
+```
+
+#### TaskContext
+
+```python
+@dataclass
+class TaskContext:
+    task_id: str                    # 任务 ID
+    worker_ctx: WorkerContext       # Worker 上下文
+    fn_name: str                    # 任务函数名
+    args: Tuple                     # 位置参数
+    kwargs: Dict[str, Any]          # 关键字参数
+    start_time: float               # 任务开始时间
+    end_time: float                 # 任务结束时间
+    success: bool                   # 是否成功
+    result: Any                     # 任务结果（成功时）
+    error: Optional[Exception]      # 任务异常（失败时）
+    memory_start: int               # 任务开始时内存（字节）
+    memory_end: int                 # 任务结束时内存（字节）
+
+    @property
+    def duration(self) -> float:
+        """任务耗时（秒）"""
+
+    @property
+    def memory_delta(self) -> int:
+        """内存增量（字节）"""
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """内存增量（MB）"""
+
+    def log_summary(self, logger, level=logging.INFO) -> None:
+        """记录任务执行摘要"""
+```
+
+### 动态注册钩子
+
+```python
+from rhosocial.activerecord.worker import WorkerEvent
+
+pool = WorkerPool(n_workers=4)
+
+# 动态注册
+name = pool.register_hook(WorkerEvent.TASK_END, log_task, "task_logger")
+
+# 注销钩子
+pool.unregister_hook(WorkerEvent.TASK_END, name)
+```
+
+### 字符串路径钩子
+
+钩子函数支持以字符串路径形式传入，便于配置化管理：
+
+```python
+with WorkerPool(
+    n_workers=4,
+    on_worker_start="myapp.hooks.init_worker",
+    on_worker_stop="myapp.hooks.cleanup_worker",
+    on_task_end="myapp.hooks.log_task",
+) as pool:
+    pool.submit(process_data, data)
+```
+
+---
+
+## 5. 管理与统计
+
+WorkerPool 提供了丰富的运行时状态查询和统计能力，便于监控和调试。
+
+### 状态属性
+
+```python
+with WorkerPool(n_workers=4) as pool:
+    # 基本状态
+    print(f"State: {pool.state.name}")           # RUNNING
+    print(f"Pool ID: {pool.pool_id}")            # 唯一标识
+    print(f"Workers: {pool.alive_workers}/{pool.n_workers}")
+
+    # 任务状态
+    print(f"Pending tasks: {pool.pending_tasks}")      # 队列中等待
+    print(f"In-flight tasks: {pool.in_flight_tasks}")  # 正在执行
+    print(f"Queued futures: {pool.queued_futures}")    # 等待结果
+```
+
+| 属性 | 说明 |
+|------|------|
+| `state` | Pool 状态 (RUNNING/DRAINING/STOPPING/KILLING/STOPPED) |
+| `pool_id` | Pool 唯一标识 |
+| `n_workers` | 配置的 Worker 数量 |
+| `alive_workers` | 存活的 Worker 数量 |
+| `pending_tasks` | 队列中等待的任务数（近似值） |
+| `in_flight_tasks` | 正在执行的任务数 |
+| `queued_futures` | 等待结果的 Future 数量 |
+
+### 统计信息
+
+```python
+stats = pool.get_stats()
+
+print(f"Tasks: {stats.tasks_submitted} submitted, "
+      f"{stats.tasks_completed} completed, "
+      f"{stats.tasks_failed} failed")
+
+print(f"Workers: {stats.worker_crashes} crashes, "
+      f"{stats.worker_restarts} restarts")
+
+print(f"Avg duration: {stats.avg_task_duration:.3f}s")
+print(f"Avg memory: {stats.avg_memory_delta_mb:.3f}MB")
+print(f"Uptime: {stats.uptime:.1f}s")
+```
+
+#### PoolStats 字段
+
+| 字段 | 说明 |
+|------|------|
+| `total_workers` | 配置的 Worker 数 |
+| `alive_workers` | 存活的 Worker 数 |
+| `worker_restarts` | Worker 重启次数 |
+| `worker_crashes` | Worker 崩溃次数 |
+| `tasks_submitted` | 提交的任务总数 |
+| `tasks_completed` | 成功完成的任务数 |
+| `tasks_failed` | 失败的任务数 |
+| `tasks_orphaned` | 孤儿任务数（因 Worker 崩溃丢失） |
+| `tasks_pending` | 等待中的任务数 |
+| `tasks_in_flight` | 执行中的任务数 |
+| `uptime` | Pool 运行时长（秒） |
+| `total_task_duration` | 所有任务总耗时 |
+| `avg_task_duration` | 平均任务耗时 |
+| `total_memory_delta` | 总内存增量（字节） |
+| `avg_memory_delta_mb` | 平均内存增量（MB） |
+
+### 健康检查
+
+```python
+health = pool.health_check()
+
+if not health["healthy"]:
+    print(f"Pool unhealthy: {health['state']}")
+    for warning in health["warnings"]:
+        print(f"  - {warning}")
+else:
+    print(f"Pool healthy: {health['alive_workers']} workers active")
+```
+
+返回字段：
+
+| 字段 | 说明 |
+|------|------|
+| `healthy` | 是否健康 |
+| `state` | 当前状态 |
+| `alive_workers` | 存活 Worker 数 |
+| `dead_workers` | 已死 Worker 数 |
+| `pending_tasks` | 等待中任务数 |
+| `in_flight_tasks` | 执行中任务数 |
+| `warnings` | 警告信息列表 |
+
+**警告条件**：
+
+- 高失败率（>10% 任务失败）
+- Worker 崩溃检测
+- 队列积压（>100 任务等待）
+- Pool 非运行状态
+
+### 等待完成
+
+```python
+# 提交所有任务
+futures = [pool.submit(process, i) for i in range(1000)]
+
+# 等待所有任务完成，最多等 60 秒
+if pool.drain(timeout=60):
+    print("所有任务已完成")
+else:
+    print(f"超时，仍有 {pool.queued_futures} 个任务未完成")
+```
+
+### Future 执行元数据
+
+任务完成后，`Future` 对象包含详细的执行元数据：
+
+```python
+future = pool.submit(process_data, data)
+result = future.result(timeout=30)
+
+# 执行元数据
+print(f"Worker: {future.worker_id}")
+print(f"Duration: {future.duration:.3f}s")
+print(f"Memory delta: {future.memory_delta_mb:.3f}MB")
+print(f"Start time: {future.start_time}")
+print(f"End time: {future.end_time}")
+```
+
+| 属性 | 说明 |
+|------|------|
+| `worker_id` | 执行任务的 Worker ID |
+| `start_time` | 任务开始时间戳 |
+| `end_time` | 任务结束时间戳 |
+| `duration` | 任务耗时（秒） |
+| `memory_start` | 开始时内存（字节） |
+| `memory_end` | 结束时内存（字节） |
+| `memory_delta` | 内存增量（字节） |
+| `memory_delta_mb` | 内存增量（MB） |
+
+---
+
+## 6. API 参考
 
 ### WorkerPool
 
@@ -261,95 +579,96 @@ class WorkerPool:
     任务通过队列分发，结果通过 Future 获取。
     Worker 崩溃会触发自动重启。
     三段式停机：DRAINING → STOPPING → KILLING → STOPPED。
+    支持生命周期钩子和资源监控。
     """
 
-    def __init__(self, n_workers: int = 4, check_interval: float = 0.5):
+    def __init__(
+        self,
+        n_workers: int = 4,
+        check_interval: float = 0.5,
+        orphan_timeout: Optional[float] = None,
+        on_worker_start: Optional[AnyWorkerHook] = None,
+        on_worker_stop: Optional[AnyWorkerHook] = None,
+        on_task_start: Optional[AnyTaskHook] = None,
+        on_task_end: Optional[AnyTaskHook] = None,
+    ):
         """
         初始化 WorkerPool。
 
         Args:
             n_workers: Worker 进程数量
             check_interval: 监控线程检查 Worker 健康状态的间隔（秒）
+            orphan_timeout: 孤儿任务检测超时（秒）
+            on_worker_start: Worker 启动钩子
+            on_worker_stop: Worker 退出钩子
+            on_task_start: 任务开始钩子
+            on_task_end: 任务结束钩子
         """
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
-        """
-        提交任务，立即返回 Future。
-
-        Args:
-            fn: 任务函数（必须是模块级函数）
-            *args: 位置参数
-            **kwargs: 关键字参数
-
-        Returns:
-            Future: 异步结果句柄
-
-        Raises:
-            PoolDrainingError: Pool 处于停机流程时抛出
-
-        Note:
-            fn 和所有参数必须可 pickle 序列化（spawn 限制）。
-        """
+        """提交任务，立即返回 Future。"""
 
     def map(self, fn: Callable, iterable, timeout: Optional[float] = None) -> list:
-        """
-        批量提交，按顺序收集结果。
-
-        Args:
-            fn: 任务函数
-            iterable: 参数迭代器
-            timeout: 每个任务的超时时间（秒）
-
-        Returns:
-            list: 结果列表（与输入顺序相同）
-
-        Raises:
-            Exception: 任意任务失败时抛出
-        """
+        """批量提交，按顺序收集结果。"""
 
     def shutdown(
         self,
         graceful_timeout: float = 10.0,
         term_timeout: float = 3.0,
     ) -> ShutdownReport:
-        """
-        三段式优雅停机。
+        """三段式优雅停机。"""
 
-        阶段一 · DRAINING（STOP 哨兵，等待自然退出）
-        - 立即拒绝新 submit()（PoolDrainingError）
-        - 向队列注入 STOP 哨兵
-        - Worker 完成当前任务后读到哨兵，自行退出
-        - 等待 graceful_timeout 秒
+    def register_hook(
+        self,
+        event: WorkerEvent,
+        hook: Union[AnyWorkerHook, AnyTaskHook],
+        name: Optional[str] = None,
+    ) -> str:
+        """注册生命周期钩子，返回钩子名称。"""
 
-        阶段二 · STOPPING（SIGTERM）
-        - graceful_timeout 到期仍有存活进程
-        - 向所有存活 Worker 发送 SIGTERM
-        - 等待 term_timeout 秒
+    def unregister_hook(self, event: WorkerEvent, name: str) -> bool:
+        """注销钩子，返回是否成功。"""
 
-        阶段三 · KILLING（SIGKILL）
-        - term_timeout 到期仍有存活进程
-        - 发送 SIGKILL（无法被捕获）
-        - 正在执行的任务彻底丢失
+    def get_hooks(self, event: WorkerEvent) -> List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]:
+        """获取指定事件的所有钩子。"""
 
-        Args:
-            graceful_timeout: 阶段一等待时间（默认 10s）
-            term_timeout: 阶段二等待时间（默认 3s）
+    def get_stats(self) -> PoolStats:
+        """获取当前统计信息快照。"""
 
-        Returns:
-            ShutdownReport: 包含停机耗时、完成阶段、任务损耗等信息
-        """
+    def health_check(self) -> Dict[str, Any]:
+        """执行健康检查，返回状态字典。"""
 
-    @property
-    def n_workers(self) -> int:
-        """Worker 进程数量"""
+    def drain(self, timeout: Optional[float] = None) -> bool:
+        """等待所有任务完成。"""
 
-    @property
-    def active_workers(self) -> int:
-        """存活的 Worker 进程数量"""
-
+    # 状态属性
     @property
     def state(self) -> PoolState:
         """当前 Pool 状态"""
+
+    @property
+    def pool_id(self) -> str:
+        """Pool 唯一标识"""
+
+    @property
+    def n_workers(self) -> int:
+        """配置的 Worker 数量"""
+
+    @property
+    def alive_workers(self) -> int:
+        """存活的 Worker 数量"""
+
+    @property
+    def pending_tasks(self) -> int:
+        """队列中等待的任务数"""
+
+    @property
+    def in_flight_tasks(self) -> int:
+        """正在执行的任务数"""
+
+    @property
+    def queued_futures(self) -> int:
+        """等待结果的 Future 数量"""
 ```
 
 ### PoolState
@@ -364,6 +683,97 @@ class PoolState(Enum):
     STOPPED = auto()   # 所有进程已终止
 ```
 
+### WorkerEvent
+
+```python
+class WorkerEvent(Enum):
+    """Worker 生命周期事件。"""
+    WORKER_START = auto()  # Worker 进程启动时
+    WORKER_STOP = auto()   # Worker 进程退出前
+    TASK_START = auto()    # 任务开始执行前
+    TASK_END = auto()      # 任务执行完成后
+```
+
+### PoolStats
+
+```python
+@dataclass
+class PoolStats:
+    """Pool 执行统计快照。"""
+    # Worker 统计
+    total_workers: int = 0
+    alive_workers: int = 0
+    worker_restarts: int = 0
+    worker_crashes: int = 0
+
+    # 任务统计
+    tasks_submitted: int = 0
+    tasks_completed: int = 0
+    tasks_failed: int = 0
+    tasks_orphaned: int = 0
+
+    # 队列统计
+    tasks_pending: int = 0
+    tasks_in_flight: int = 0
+
+    # 时间统计
+    uptime: float = 0.0
+    total_task_duration: float = 0.0
+    avg_task_duration: float = 0.0
+
+    # 内存统计
+    total_memory_delta: int = 0
+    avg_memory_delta_mb: float = 0.0
+```
+
+### WorkerContext
+
+```python
+@dataclass
+class WorkerContext:
+    """传递给 Worker 级钩子的上下文。"""
+    worker_id: int        # Worker 编号
+    pid: int              # 进程 ID
+    pool_id: str          # Pool 实例标识
+    start_time: float     # Worker 启动时间
+    task_count: int       # 已执行任务数
+```
+
+### TaskContext
+
+```python
+@dataclass
+class TaskContext:
+    """传递给任务级钩子的上下文。"""
+    task_id: str
+    worker_ctx: WorkerContext
+    fn_name: str
+    args: Tuple
+    kwargs: Dict[str, Any]
+    start_time: float
+    end_time: float
+    success: bool
+    result: Any
+    error: Optional[Exception]
+    memory_start: int
+    memory_end: int
+
+    @property
+    def duration(self) -> float:
+        """任务耗时（秒）"""
+
+    @property
+    def memory_delta(self) -> int:
+        """内存增量（字节）"""
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """内存增量（MB）"""
+
+    def log_summary(self, logger, level=logging.INFO) -> None:
+        """记录任务执行摘要"""
+```
+
 ### ShutdownReport
 
 ```python
@@ -371,10 +781,10 @@ class PoolState(Enum):
 class ShutdownReport:
     """shutdown() 的返回值，描述停机过程。"""
     duration: float          # 停机总耗时（秒）
-    final_phase: str         # 停机完成于哪个阶段："graceful" / "terminate" / "kill"
+    final_phase: str         # 停机完成阶段
     tasks_in_flight: int     # 停机开始时正在执行的任务数
     tasks_killed: int        # SIGKILL 后仍持有任务的 Worker 数
-    workers_killed: int      # exitcode == -9（被 SIGKILL）的 Worker 数
+    workers_killed: int      # 被 SIGKILL 的 Worker 数
 ```
 
 ### 异常
@@ -394,30 +804,14 @@ class WorkerCrashedError(RuntimeError):
 
 ```python
 class Future:
-    """
-    异步结果句柄。
-
-    线程安全，用于获取任务执行结果。
-    """
+    """异步结果句柄，包含执行元数据。"""
 
     def result(self, timeout: Optional[float] = None) -> Any:
-        """
-        阻塞等待结果。
-
-        Args:
-            timeout: 超时时间（秒），None 表示无限等待
-
-        Returns:
-            任务返回值
-
-        Raises:
-            TimeoutError: 超时
-            Exception: 任务抛出的原始异常
-        """
+        """阻塞等待结果。"""
 
     @property
     def done(self) -> bool:
-        """任务是否已完成（成功或失败）"""
+        """任务是否已完成"""
 
     @property
     def succeeded(self) -> bool:
@@ -429,12 +823,45 @@ class Future:
 
     @property
     def traceback(self) -> Optional[str]:
-        """任务失败时返回完整的堆栈追踪字符串"""
+        """任务失败时的堆栈追踪"""
+
+    # 执行元数据
+    @property
+    def worker_id(self) -> Optional[int]:
+        """执行任务的 Worker ID"""
+
+    @property
+    def start_time(self) -> Optional[float]:
+        """任务开始时间戳"""
+
+    @property
+    def end_time(self) -> Optional[float]:
+        """任务结束时间戳"""
+
+    @property
+    def duration(self) -> float:
+        """任务耗时（秒）"""
+
+    @property
+    def memory_start(self) -> int:
+        """任务开始时内存（字节）"""
+
+    @property
+    def memory_end(self) -> int:
+        """任务结束时内存（字节）"""
+
+    @property
+    def memory_delta(self) -> int:
+        """内存增量（字节）"""
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """内存增量（MB）"""
 ```
 
 ---
 
-## 5. 任务编写指南
+## 7. 任务编写指南
 
 ### 任务函数规则
 
@@ -537,7 +964,7 @@ def safe_task(params: dict) -> dict:
 
 ---
 
-## 6. 最佳实践
+## 8. 最佳实践
 
 ### 连接生命周期
 
@@ -672,7 +1099,7 @@ if report.final_phase != "graceful":
 
 ---
 
-## 7. 常见陷阱
+## 9. 常见陷阱
 
 ### 陷阱 1：局部函数定义
 

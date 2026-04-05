@@ -69,6 +69,42 @@ class WorkerEvent(Enum):
     TASK_END = auto()      # Task execution end (success or failure)
 
 
+# ── Statistics ────────────────────────────────────────────────────────────────
+
+@dataclass
+class PoolStats:
+    """
+    Pool execution statistics snapshot.
+
+    All statistics are point-in-time snapshots and may be stale immediately
+    after retrieval in a busy pool.
+    """
+    # Worker statistics
+    total_workers: int = 0           # Configured number of workers
+    alive_workers: int = 0           # Currently alive workers
+    worker_restarts: int = 0         # Worker restart count (after crash recovery)
+    worker_crashes: int = 0          # Worker crash count (unexpected termination)
+
+    # Task statistics
+    tasks_submitted: int = 0         # Total tasks submitted
+    tasks_completed: int = 0         # Successfully completed tasks
+    tasks_failed: int = 0            # Failed tasks (exception thrown)
+    tasks_orphaned: int = 0          # Orphaned tasks (lost due to worker crash)
+
+    # Queue statistics
+    tasks_pending: int = 0           # Tasks waiting in queue
+    tasks_in_flight: int = 0         # Tasks currently executing
+
+    # Time statistics
+    uptime: float = 0.0              # Pool uptime in seconds
+    total_task_duration: float = 0.0 # Sum of all task durations
+    avg_task_duration: float = 0.0   # Average task duration
+
+    # Memory statistics
+    total_memory_delta: int = 0      # Total memory delta in bytes
+    avg_memory_delta_mb: float = 0.0 # Average memory delta in MB
+
+
 # ── Hook Context Types ───────────────────────────────────────────────────────
 
 @dataclass
@@ -582,20 +618,34 @@ def _worker_entry(
                     value = asyncio.run(fn(*args, **kwargs))
                 else:
                     value = fn(*args, **kwargs)
-                result_q.put(("ok", task_id, value))
                 task_ctx.success = True
                 task_ctx.result = value
             except Exception as e:
                 exc = e
                 tb_str = traceback.format_exc()
-                result_q.put(("error", task_id, exc, tb_str))
                 task_ctx.success = False
                 task_ctx.error = exc
 
-            # Execute TASK_END hooks (failures logged but don't affect next task)
+            # Record end time and memory BEFORE sending result
             ctx.task_count += 1
             task_ctx.end_time = time.monotonic()
             task_ctx.memory_end = _get_memory_usage()
+
+            # Send result with metadata
+            if exc is None:
+                result_q.put((
+                    "ok", task_id, value,
+                    worker_id, task_ctx.start_time, task_ctx.end_time,
+                    task_ctx.memory_start, task_ctx.memory_end
+                ))
+            else:
+                result_q.put((
+                    "error", task_id, exc, tb_str,
+                    worker_id, task_ctx.start_time, task_ctx.end_time,
+                    task_ctx.memory_start, task_ctx.memory_end
+                ))
+
+            # Execute TASK_END hooks (failures logged but don't affect next task)
             if task_end_hooks:
                 _execute_hooks(task_end_hooks, task_ctx)
 
@@ -609,9 +659,17 @@ def _worker_entry(
 
 class Future:
     """
-    Asynchronous result handle.
+    Asynchronous result handle with execution metadata.
 
-    Thread-safe, used to retrieve task execution results.
+    Thread-safe, used to retrieve task execution results and metadata.
+
+    Attributes:
+        task_id: Task identifier
+        worker_id: ID of Worker that executed the task (available after completion)
+        start_time: Task start timestamp (monotonic, available after completion)
+        end_time: Task end timestamp (monotonic, available after completion)
+        memory_start: Memory at task start (bytes, available after completion)
+        memory_end: Memory at task end (bytes, available after completion)
     """
 
     def __init__(self, task_id: str):
@@ -620,18 +678,51 @@ class Future:
         self._value: Any = None
         self._exc: Optional[BaseException] = None
         self._tb: Optional[str] = None
+        # Execution metadata (populated on completion)
+        self._worker_id: Optional[int] = None
+        self._start_time: Optional[float] = None
+        self._end_time: Optional[float] = None
+        self._memory_start: int = 0
+        self._memory_end: int = 0
 
     # ── Internal methods (called by Supervisor thread) ────────────────────────
 
-    def _resolve(self, value: Any) -> None:
-        """Mark task as succeeded"""
+    def _resolve(
+        self,
+        value: Any,
+        worker_id: Optional[int] = None,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+        memory_start: int = 0,
+        memory_end: int = 0,
+    ) -> None:
+        """Mark task as succeeded with optional metadata."""
         self._value = value
+        self._worker_id = worker_id
+        self._start_time = start_time
+        self._end_time = end_time
+        self._memory_start = memory_start
+        self._memory_end = memory_end
         self._event.set()
 
-    def _reject(self, exc: BaseException, tb: str = "") -> None:
-        """Mark task as failed"""
+    def _reject(
+        self,
+        exc: BaseException,
+        tb: str = "",
+        worker_id: Optional[int] = None,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+        memory_start: int = 0,
+        memory_end: int = 0,
+    ) -> None:
+        """Mark task as failed with optional metadata."""
         self._exc = exc
         self._tb = tb
+        self._worker_id = worker_id
+        self._start_time = start_time
+        self._end_time = end_time
+        self._memory_start = memory_start
+        self._memory_end = memory_end
         self._event.set()
 
     # ── Public API ──────────────────────────────────────────────────────────
@@ -675,6 +766,50 @@ class Future:
     def traceback(self) -> Optional[str]:
         """Return full traceback string when task failed"""
         return self._tb
+
+    # ── Execution Metadata Properties ─────────────────────────────────────
+
+    @property
+    def worker_id(self) -> Optional[int]:
+        """ID of Worker that executed the task (available after completion)"""
+        return self._worker_id
+
+    @property
+    def start_time(self) -> Optional[float]:
+        """Task start timestamp (monotonic, available after completion)"""
+        return self._start_time
+
+    @property
+    def end_time(self) -> Optional[float]:
+        """Task end timestamp (monotonic, available after completion)"""
+        return self._end_time
+
+    @property
+    def duration(self) -> float:
+        """Task execution duration in seconds (0 if not completed)"""
+        if self._start_time and self._end_time:
+            return self._end_time - self._start_time
+        return 0.0
+
+    @property
+    def memory_start(self) -> int:
+        """Memory usage at task start in bytes"""
+        return self._memory_start
+
+    @property
+    def memory_end(self) -> int:
+        """Memory usage at task end in bytes"""
+        return self._memory_end
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta (end - start) in bytes"""
+        return self._memory_end - self._memory_start
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in megabytes"""
+        return self.memory_delta / (1024 * 1024)
 
     def __repr__(self) -> str:
         if not self.done:
@@ -799,6 +934,18 @@ class WorkerPool:
             WorkerEvent.TASK_END: [],
         }
 
+        # Statistics tracking
+        self._stats_lock = threading.Lock()
+        self._start_time: float = time.monotonic()
+        self._worker_restarts: int = 0
+        self._worker_crashes: int = 0
+        self._tasks_submitted: int = 0
+        self._tasks_completed: int = 0
+        self._tasks_failed: int = 0
+        self._tasks_orphaned: int = 0
+        self._total_task_duration: float = 0.0
+        self._total_memory_delta: int = 0
+
         # Register constructor-provided hooks
         if on_worker_start:
             self.register_hook(WorkerEvent.WORKER_START, on_worker_start)
@@ -898,6 +1045,167 @@ class WorkerPool:
             self._worker_start_time[wid] = None
         logger.debug("Started Worker-%d (pid=%d)", wid, p.pid)
         return handle
+
+    # ── Public: Status Properties ───────────────────────────────────────────
+
+    @property
+    def state(self) -> PoolState:
+        """Current pool state (RUNNING/DRAINING/STOPPING/KILLING/STOPPED)"""
+        return self._state
+
+    @property
+    def pool_id(self) -> str:
+        """Unique pool identifier"""
+        return self._pool_id
+
+    @property
+    def n_workers(self) -> int:
+        """Configured number of workers"""
+        return self._n
+
+    @property
+    def alive_workers(self) -> int:
+        """Number of currently alive workers"""
+        return self._registry.alive_count()
+
+    @property
+    def pending_tasks(self) -> int:
+        """Number of tasks waiting in queue (approximate, may not be available on all platforms)"""
+        try:
+            return self._task_q.qsize()
+        except NotImplementedError:
+            return -1  # Not available on some platforms (e.g., macOS)
+
+    @property
+    def in_flight_tasks(self) -> int:
+        """Number of tasks currently being executed"""
+        with self._lock:
+            return len([t for t in self._worker_task.values() if t is not None])
+
+    @property
+    def queued_futures(self) -> int:
+        """Number of futures waiting for result"""
+        with self._lock:
+            return len(self._futures)
+
+    def get_stats(self) -> PoolStats:
+        """
+        Get current pool statistics snapshot.
+
+        Returns:
+            PoolStats with current worker, task, queue, time, and memory statistics.
+            Note: This is a point-in-time snapshot and may be stale immediately
+            after retrieval in a busy pool.
+        """
+        with self._stats_lock:
+            completed = self._tasks_completed
+            total_duration = self._total_task_duration
+            total_memory = self._total_memory_delta
+
+            return PoolStats(
+                total_workers=self._n,
+                alive_workers=self._registry.alive_count(),
+                worker_restarts=self._worker_restarts,
+                worker_crashes=self._worker_crashes,
+                tasks_submitted=self._tasks_submitted,
+                tasks_completed=completed,
+                tasks_failed=self._tasks_failed,
+                tasks_orphaned=self._tasks_orphaned,
+                tasks_pending=self.pending_tasks,
+                tasks_in_flight=self.in_flight_tasks,
+                uptime=time.monotonic() - self._start_time,
+                total_task_duration=total_duration,
+                avg_task_duration=total_duration / completed if completed > 0 else 0.0,
+                total_memory_delta=total_memory,
+                avg_memory_delta_mb=(total_memory / (1024 * 1024) / completed) if completed > 0 else 0.0,
+            )
+
+    def health_check(self) -> Dict[str, Any]:
+        """
+        Perform health check and return status.
+
+        Returns:
+            Dictionary containing:
+            - healthy: bool - True if pool is healthy
+            - state: str - Current pool state
+            - alive_workers: int - Number of alive workers
+            - dead_workers: int - Number of dead workers
+            - pending_tasks: int - Tasks waiting in queue
+            - in_flight_tasks: int - Tasks currently executing
+            - warnings: List[str] - Warning messages (if any)
+
+        Warnings may include:
+        - "High failure rate" - >10% tasks failing
+        - "Worker crashes detected" - Workers have crashed
+        - "Queue backlog" - Many tasks waiting
+        - "Pool not running" - Pool is in shutdown state
+        """
+        warnings = []
+
+        stats = self.get_stats()
+
+        # Check for warning conditions
+        if stats.tasks_submitted > 10:
+            failure_rate = stats.tasks_failed / stats.tasks_submitted
+            if failure_rate > 0.1:
+                warnings.append(f"High failure rate: {failure_rate:.1%}")
+
+        if stats.worker_crashes > 0:
+            warnings.append(f"Worker crashes detected: {stats.worker_crashes}")
+
+        if stats.tasks_pending > 100:
+            warnings.append(f"Queue backlog: {stats.tasks_pending} tasks waiting")
+
+        if self._state != PoolState.RUNNING:
+            warnings.append(f"Pool not running: {self._state.name}")
+
+        dead_workers = stats.total_workers - stats.alive_workers
+        healthy = (
+            self._state == PoolState.RUNNING
+            and stats.alive_workers > 0
+            and len(warnings) == 0
+        )
+
+        return {
+            "healthy": healthy,
+            "state": self._state.name,
+            "alive_workers": stats.alive_workers,
+            "dead_workers": dead_workers,
+            "pending_tasks": stats.tasks_pending,
+            "in_flight_tasks": stats.tasks_in_flight,
+            "warnings": warnings,
+        }
+
+    def drain(self, timeout: Optional[float] = None) -> bool:
+        """
+        Wait for all pending and in-flight tasks to complete.
+
+        This method blocks until all submitted tasks have completed
+        (successfully or with error), or until timeout expires.
+
+        Args:
+            timeout: Maximum time to wait in seconds. None means wait forever.
+
+        Returns:
+            True if all tasks completed, False if timeout expired.
+
+        Note:
+            This method does NOT prevent new tasks from being submitted.
+            For a clean shutdown, use shutdown() instead.
+        """
+        start = time.monotonic()
+        while True:
+            with self._lock:
+                pending = len(self._futures)
+            if pending == 0:
+                return True
+            if timeout is not None:
+                elapsed = time.monotonic() - start
+                if elapsed >= timeout:
+                    return False
+                time.sleep(min(0.1, timeout - elapsed))
+            else:
+                time.sleep(0.1)
 
     # ── Public: Hook Management ─────────────────────────────────────────────
 
@@ -1038,16 +1346,24 @@ class WorkerPool:
                         ),
                         tb=f"Worker process terminated unexpectedly (exit={exit_reason})",
                     )
+                with self._stats_lock:
+                    self._worker_crashes += 1
             else:
                 logger.log(
                     log_level,
                     "Worker-%d (pid=%s) exited (exit=%s), no task was in progress",
                     wid, handle.pid, exit_reason
                 )
+                # Count as crash only if non-normal exit
+                if exitcode != 0:
+                    with self._stats_lock:
+                        self._worker_crashes += 1
 
             # Restart only if RUNNING
             if self._state == PoolState.RUNNING:
                 new_handle = self._start_worker(wid)
+                with self._stats_lock:
+                    self._worker_restarts += 1
                 logger.info(
                     "Worker-%d restarted (old_pid=%s, new_pid=%s)",
                     wid, handle.pid, new_handle.pid
@@ -1135,37 +1451,41 @@ class WorkerPool:
             )
 
         elif kind == "ok":
-            _, task_id, value = msg
-            # Find Worker ID before clearing
-            wid = self._find_worker_by_task(task_id)
-            handle = self._registry.get(wid) if wid is not None else None
-            pid = handle.pid if handle else None
+            _, task_id, value, worker_id, start_time, end_time, memory_start, memory_end = msg
             self._clear_worker_task(task_id)
+            handle = self._registry.get(worker_id) if worker_id is not None else None
+            pid = handle.pid if handle else None
             with self._lock:
                 fut = self._futures.pop(task_id, None)
                 self._task_enqueue_time.pop(task_id, None)  # Defensive cleanup
             if fut:  # pragma: no cover - Future may already be removed due to timeout
-                fut._resolve(value)
+                fut._resolve(value, worker_id, start_time, end_time, memory_start, memory_end)
+                duration = end_time - start_time if end_time and start_time else 0
+                memory_delta = memory_end - memory_start if memory_end and memory_start else 0
+                with self._stats_lock:
+                    self._tasks_completed += 1
+                    self._total_task_duration += duration
+                    self._total_memory_delta += memory_delta
                 logger.debug(
-                    "Task[%s] completed | Worker-%d (pid=%s)",
-                    task_id[:8], wid, pid
+                    "Task[%s] completed | Worker-%d (pid=%s) | duration=%.3fs",
+                    task_id[:8], worker_id, pid, duration
                 )
 
         elif kind == "error":
-            _, task_id, exc, tb = msg
-            # Find Worker ID before clearing
-            wid = self._find_worker_by_task(task_id)
-            handle = self._registry.get(wid) if wid is not None else None
-            pid = handle.pid if handle else None
+            _, task_id, exc, tb, worker_id, start_time, end_time, memory_start, memory_end = msg
             self._clear_worker_task(task_id)
+            handle = self._registry.get(worker_id) if worker_id is not None else None
+            pid = handle.pid if handle else None
             with self._lock:
                 fut = self._futures.pop(task_id, None)
                 self._task_enqueue_time.pop(task_id, None)  # Defensive cleanup
             if fut:  # pragma: no cover - Future may already be removed due to timeout
-                fut._reject(exc, tb)
+                fut._reject(exc, tb, worker_id, start_time, end_time, memory_start, memory_end)
+                with self._stats_lock:
+                    self._tasks_failed += 1
                 logger.warning(
                     "Task[%s] failed | Worker-%d (pid=%s) | error=%s: %s",
-                    task_id[:8], wid, pid, type(exc).__name__, exc
+                    task_id[:8], worker_id, pid, type(exc).__name__, exc
                 )
 
     def _find_worker_by_task(self, task_id: str) -> Optional[int]:
@@ -1245,6 +1565,8 @@ class WorkerPool:
                     ),
                     tb="Worker process terminated during task dispatch",
                 )
+                with self._stats_lock:
+                    self._tasks_orphaned += 1
 
     # ── Public API ──────────────────────────────────────────────────────────
 
@@ -1275,6 +1597,8 @@ class WorkerPool:
         with self._lock:
             self._futures[task_id] = fut
             self._task_enqueue_time[task_id] = time.monotonic()
+        with self._stats_lock:
+            self._tasks_submitted += 1
         self._task_q.put((task_id, fn, args, kwargs))
         logger.debug("Task[%s] submitted | fn=%s", task_id[:8], fn.__name__)
         return fut
@@ -1423,19 +1747,9 @@ class WorkerPool:
         return report
 
     @property
-    def n_workers(self) -> int:
-        """Number of Worker processes"""
-        return self._n
-
-    @property
     def active_workers(self) -> int:
         """Number of alive Worker processes"""
         return self._registry.alive_count()
-
-    @property
-    def state(self) -> PoolState:
-        """Current pool state"""
-        return self._state
 
     def __enter__(self) -> "WorkerPool":
         logger.debug("WorkerPool context entered | state=%s", self._state.name)

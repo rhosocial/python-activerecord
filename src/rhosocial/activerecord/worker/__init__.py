@@ -73,6 +73,7 @@ from .pool import (
     WorkerPool,
     Future,
     PoolState,
+    PoolStats,
     ShutdownReport,
     # Exceptions
     PoolDrainingError,
@@ -89,6 +90,7 @@ __all__ = [
     "WorkerPool",
     "Future",
     "PoolState",
+    "PoolStats",
     "ShutdownReport",
     # Exceptions
     "PoolDrainingError",

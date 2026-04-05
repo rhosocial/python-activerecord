@@ -10,4 +10,5 @@ In this chapter, we explore the core concepts that make this library unique.
 *   **[A Tour of Key Features](key_features.md)**: Even if you are a beginner, take this guided tour to experience the core capabilities using a blog system example.
 *   **[Philosophy](philosophy.md)**: Why do we need a "Gradual ORM"?
 *   **[Comparison](comparison.md)**: How we compare to SQLModel, SQLAlchemy, and Django.
+*   **[Competitor Analysis](competitor_analysis/)**: Detailed comparison analysis with mainstream Python ORM frameworks to help developers choose the right tool.
 *   **[Architecture](architecture.md)**: (Advanced) A look under the hood at our layered design.

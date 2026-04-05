@@ -7,10 +7,12 @@ The `WorkerPool` module provides a simple, lightweight resident worker pool for 
 1. [Overview](#1-overview)
 2. [Design Principles](#2-design-principles)
 3. [Quick Start](#3-quick-start)
-4. [API Reference](#4-api-reference)
-5. [Task Writing Guide](#5-task-writing-guide)
-6. [Best Practices](#6-best-practices)
-7. [Common Pitfalls](#7-common-pitfalls)
+4. [Lifecycle Hooks](#4-lifecycle-hooks)
+5. [Management & Statistics](#5-management--statistics)
+6. [API Reference](#6-api-reference)
+7. [Task Writing Guide](#7-task-writing-guide)
+8. [Best Practices](#8-best-practices)
+9. [Common Pitfalls](#9-common-pitfalls)
 
 ---
 
@@ -30,6 +32,9 @@ The `WorkerPool` module provides a simple, lightweight resident worker pool for 
 | **Task Attribution** | Failed tasks are tracked even if the worker crashes |
 | **Future Pattern** | Async result handling with timeout support |
 | **Graceful Shutdown** | Three-phase shutdown: DRAINING → STOPPING → KILLING → STOPPED |
+| **Lifecycle Hooks** | Worker-level and task-level hook functions |
+| **Resource Monitoring** | Task duration, memory delta, and other resource statistics |
+| **Management & Statistics** | Runtime status query, statistics collection, health check |
 
 ### Pool State Machine
 
@@ -248,7 +253,320 @@ if __name__ == '__main__':
 
 ---
 
-## 4. API Reference
+## 4. Lifecycle Hooks
+
+WorkerPool supports custom hook functions at key lifecycle points for both workers and tasks.
+
+### Hook Types
+
+| Event | When Triggered | Typical Use |
+|-------|----------------|-------------|
+| `WORKER_START` | Worker process starts | Initialize database connections, load config |
+| `WORKER_STOP` | Worker process exits | Close connection pools, release resources |
+| `TASK_START` | Before task execution | Log start, establish task-level connection |
+| `TASK_END` | After task execution | Log execution, cleanup, statistics monitoring |
+
+### Hook Usage Example
+
+```python
+from rhosocial.activerecord.worker import WorkerPool, WorkerContext, TaskContext
+
+def init_worker(ctx: WorkerContext):
+    """Initialize database connection when worker starts"""
+    from myapp.db import Database
+    Database.connect()
+    print(f"Worker-{ctx.worker_id} (pid={ctx.pid}) initialized")
+
+def cleanup_worker(ctx: WorkerContext):
+    """Cleanup resources when worker exits"""
+    from myapp.db import Database
+    Database.disconnect()
+    print(f"Worker-{ctx.worker_id} processed {ctx.task_count} tasks")
+
+def log_task(ctx: TaskContext):
+    """Log after task completes"""
+    import logging
+    logger = logging.getLogger(__name__)
+    status = "SUCCESS" if ctx.success else "FAILED"
+    logger.info(
+        f"Task {ctx.task_id[:8]}: {ctx.fn_name} - "
+        f"{status}, duration={ctx.duration:.3f}s, "
+        f"memory_delta={ctx.memory_delta_mb:.3f}MB"
+    )
+
+with WorkerPool(
+    n_workers=4,
+    on_worker_start=init_worker,
+    on_worker_stop=cleanup_worker,
+    on_task_end=log_task,
+) as pool:
+    futures = [pool.submit(process_data, i) for i in range(100)]
+    for f in futures:
+        f.result(timeout=30)
+```
+
+### Connection Management Strategies
+
+**Design Principle**: The framework doesn't make choices for users - let them decide when to manage connections based on their business scenarios.
+
+| Strategy | Hook Location | Use Case | Characteristics |
+|----------|---------------|----------|-----------------|
+| **Worker-level connection** | WORKER_START/STOP | High-frequency short operations | Connection reuse, reduced overhead |
+| **Task-level connection** | TASK_START/END | Low-frequency long operations | On-demand connection, timely release |
+
+```python
+# Scenario 1: High-frequency short operations → Worker-level connection
+def worker_connect(ctx: WorkerContext):
+    from myapp.db import Database
+    Database.connect()
+
+def worker_disconnect(ctx: WorkerContext):
+    from myapp.db import Database
+    Database.disconnect()
+
+pool = WorkerPool(
+    n_workers=4,
+    on_worker_start=worker_connect,
+    on_worker_stop=worker_disconnect,
+)
+# Result: 4 workers, 4 connections, all tasks reuse them
+
+# Scenario 2: Low-frequency long operations → Task-level connection
+def task_connect(ctx: TaskContext):
+    from myapp.db import Database
+    Database.connect()
+
+def task_disconnect(ctx: TaskContext):
+    from myapp.db import Database
+    Database.disconnect()
+
+pool = WorkerPool(
+    n_workers=4,
+    on_task_start=task_connect,
+    on_task_end=task_disconnect,
+)
+# Result: On-demand connections, released after task completion
+```
+
+### Context Objects
+
+#### WorkerContext
+
+```python
+@dataclass
+class WorkerContext:
+    worker_id: int        # Worker index (0, 1, 2, ...)
+    pid: int              # Process ID
+    pool_id: str          # Pool instance unique identifier
+    start_time: float     # Worker start timestamp
+    task_count: int       # Number of tasks executed
+```
+
+#### TaskContext
+
+```python
+@dataclass
+class TaskContext:
+    task_id: str                    # Task ID
+    worker_ctx: WorkerContext       # Worker context
+    fn_name: str                    # Task function name
+    args: Tuple                     # Positional arguments
+    kwargs: Dict[str, Any]          # Keyword arguments
+    start_time: float               # Task start time
+    end_time: float                 # Task end time
+    success: bool                   # Whether succeeded
+    result: Any                     # Task result (on success)
+    error: Optional[Exception]      # Task exception (on failure)
+    memory_start: int               # Memory at task start (bytes)
+    memory_end: int                 # Memory at task end (bytes)
+
+    @property
+    def duration(self) -> float:
+        """Task duration in seconds"""
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta in bytes"""
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in MB"""
+
+    def log_summary(self, logger, level=logging.INFO) -> None:
+        """Log task execution summary"""
+```
+
+### Dynamic Hook Registration
+
+```python
+from rhosocial.activerecord.worker import WorkerEvent
+
+pool = WorkerPool(n_workers=4)
+
+# Dynamic registration
+name = pool.register_hook(WorkerEvent.TASK_END, log_task, "task_logger")
+
+# Unregister hook
+pool.unregister_hook(WorkerEvent.TASK_END, name)
+```
+
+### String Path Hooks
+
+Hooks can be specified as string paths for configuration-driven setups:
+
+```python
+with WorkerPool(
+    n_workers=4,
+    on_worker_start="myapp.hooks.init_worker",
+    on_worker_stop="myapp.hooks.cleanup_worker",
+    on_task_end="myapp.hooks.log_task",
+) as pool:
+    pool.submit(process_data, data)
+```
+
+---
+
+## 5. Management & Statistics
+
+WorkerPool provides rich runtime status query and statistics capabilities for monitoring and debugging.
+
+### Status Properties
+
+```python
+with WorkerPool(n_workers=4) as pool:
+    # Basic status
+    print(f"State: {pool.state.name}")           # RUNNING
+    print(f"Pool ID: {pool.pool_id}")            # Unique identifier
+    print(f"Workers: {pool.alive_workers}/{pool.n_workers}")
+
+    # Task status
+    print(f"Pending tasks: {pool.pending_tasks}")      # Waiting in queue
+    print(f"In-flight tasks: {pool.in_flight_tasks}")  # Currently executing
+    print(f"Queued futures: {pool.queued_futures}")    # Waiting for result
+```
+
+| Property | Description |
+|----------|-------------|
+| `state` | Pool state (RUNNING/DRAINING/STOPPING/KILLING/STOPPED) |
+| `pool_id` | Pool unique identifier |
+| `n_workers` | Configured number of workers |
+| `alive_workers` | Number of alive workers |
+| `pending_tasks` | Tasks waiting in queue (approximate) |
+| `in_flight_tasks` | Tasks currently executing |
+| `queued_futures` | Futures waiting for result |
+
+### Statistics
+
+```python
+stats = pool.get_stats()
+
+print(f"Tasks: {stats.tasks_submitted} submitted, "
+      f"{stats.tasks_completed} completed, "
+      f"{stats.tasks_failed} failed")
+
+print(f"Workers: {stats.worker_crashes} crashes, "
+      f"{stats.worker_restarts} restarts")
+
+print(f"Avg duration: {stats.avg_task_duration:.3f}s")
+print(f"Avg memory: {stats.avg_memory_delta_mb:.3f}MB")
+print(f"Uptime: {stats.uptime:.1f}s")
+```
+
+#### PoolStats Fields
+
+| Field | Description |
+|-------|-------------|
+| `total_workers` | Configured number of workers |
+| `alive_workers` | Number of alive workers |
+| `worker_restarts` | Worker restart count |
+| `worker_crashes` | Worker crash count |
+| `tasks_submitted` | Total tasks submitted |
+| `tasks_completed` | Successfully completed tasks |
+| `tasks_failed` | Failed tasks |
+| `tasks_orphaned` | Orphaned tasks (lost due to worker crash) |
+| `tasks_pending` | Tasks waiting |
+| `tasks_in_flight` | Tasks executing |
+| `uptime` | Pool uptime in seconds |
+| `total_task_duration` | Sum of all task durations |
+| `avg_task_duration` | Average task duration |
+| `total_memory_delta` | Total memory delta in bytes |
+| `avg_memory_delta_mb` | Average memory delta in MB |
+
+### Health Check
+
+```python
+health = pool.health_check()
+
+if not health["healthy"]:
+    print(f"Pool unhealthy: {health['state']}")
+    for warning in health["warnings"]:
+        print(f"  - {warning}")
+else:
+    print(f"Pool healthy: {health['alive_workers']} workers active")
+```
+
+Return fields:
+
+| Field | Description |
+|-------|-------------|
+| `healthy` | Whether healthy |
+| `state` | Current state |
+| `alive_workers` | Alive worker count |
+| `dead_workers` | Dead worker count |
+| `pending_tasks` | Pending task count |
+| `in_flight_tasks` | In-flight task count |
+| `warnings` | Warning messages list |
+
+**Warning conditions**:
+
+- High failure rate (>10% tasks failing)
+- Worker crashes detected
+- Queue backlog (>100 tasks waiting)
+- Pool not in running state
+
+### Wait for Completion
+
+```python
+# Submit all tasks
+futures = [pool.submit(process, i) for i in range(1000)]
+
+# Wait for all tasks to complete, max 60 seconds
+if pool.drain(timeout=60):
+    print("All tasks completed")
+else:
+    print(f"Timeout, {pool.queued_futures} tasks still pending")
+```
+
+### Future Execution Metadata
+
+After task completion, the `Future` object contains detailed execution metadata:
+
+```python
+future = pool.submit(process_data, data)
+result = future.result(timeout=30)
+
+# Execution metadata
+print(f"Worker: {future.worker_id}")
+print(f"Duration: {future.duration:.3f}s")
+print(f"Memory delta: {future.memory_delta_mb:.3f}MB")
+print(f"Start time: {future.start_time}")
+print(f"End time: {future.end_time}")
+```
+
+| Property | Description |
+|----------|-------------|
+| `worker_id` | Worker ID that executed the task |
+| `start_time` | Task start timestamp |
+| `end_time` | Task end timestamp |
+| `duration` | Task duration in seconds |
+| `memory_start` | Memory at start in bytes |
+| `memory_end` | Memory at end in bytes |
+| `memory_delta` | Memory delta in bytes |
+| `memory_delta_mb` | Memory delta in MB |
+
+---
+
+## 6. API Reference
 
 ### WorkerPool
 
@@ -261,107 +579,199 @@ class WorkerPool:
     Tasks dispatched via Queue, results captured via Future.
     Worker crash triggers automatic restart.
     Three-phase shutdown: DRAINING → STOPPING → KILLING → STOPPED.
+    Supports lifecycle hooks and resource monitoring.
     """
 
-    def __init__(self, n_workers: int = 4, check_interval: float = 0.5):
+    def __init__(
+        self,
+        n_workers: int = 4,
+        check_interval: float = 0.5,
+        orphan_timeout: Optional[float] = None,
+        on_worker_start: Optional[AnyWorkerHook] = None,
+        on_worker_stop: Optional[AnyWorkerHook] = None,
+        on_task_start: Optional[AnyTaskHook] = None,
+        on_task_end: Optional[AnyTaskHook] = None,
+    ):
         """
         Initialize WorkerPool.
 
         Args:
             n_workers: Number of worker processes
-            check_interval: Interval in seconds for supervisor to check worker health
+            check_interval: Interval for supervisor to check worker health
+            orphan_timeout: Orphan task detection timeout
+            on_worker_start: Worker startup hook
+            on_worker_stop: Worker exit hook
+            on_task_start: Task start hook
+            on_task_end: Task end hook
         """
 
     def submit(self, fn: Callable, *args, **kwargs) -> Future:
-        """
-        Submit a task, immediately return Future.
-
-        Args:
-            fn: Task function (must be module-level function)
-            *args: Positional arguments
-            **kwargs: Keyword arguments
-
-        Returns:
-            Future: Async result handle
-
-        Raises:
-            PoolDrainingError: Pool is in shutdown flow
-
-        Note:
-            fn and all arguments must be pickle-able (spawn limitation).
-        """
+        """Submit a task, immediately return Future."""
 
     def map(self, fn: Callable, iterable, timeout: Optional[float] = None) -> list:
-        """
-        Batch submit, collect results in order.
-
-        Args:
-            fn: Task function
-            iterable: Argument iterator
-            timeout: Timeout in seconds for each task
-
-        Returns:
-            list: Result list (same order as input)
-
-        Raises:
-            Exception: Raised if any task fails
-        """
+        """Batch submit, collect results in order."""
 
     def shutdown(
         self,
         graceful_timeout: float = 10.0,
         term_timeout: float = 3.0,
     ) -> ShutdownReport:
-        """
-        Three-phase graceful shutdown.
+        """Three-phase graceful shutdown."""
 
-        Phase 1 · DRAINING (STOP sentinel, wait for natural exit)
-        - Immediately reject new submit() (PoolDrainingError)
-        - Inject STOP sentinels into queue
-        - Workers exit voluntarily after completing current task
-        - Wait for graceful_timeout seconds
+    def register_hook(
+        self,
+        event: WorkerEvent,
+        hook: Union[AnyWorkerHook, AnyTaskHook],
+        name: Optional[str] = None,
+    ) -> str:
+        """Register lifecycle hook, returns hook name."""
 
-        Phase 2 · STOPPING (SIGTERM)
-        - graceful_timeout expired but workers still alive
-        - Send SIGTERM to all alive workers
-        - Wait for term_timeout seconds
+    def unregister_hook(self, event: WorkerEvent, name: str) -> bool:
+        """Unregister hook, returns whether successful."""
 
-        Phase 3 · KILLING (SIGKILL)
-        - term_timeout expired but workers still alive
-        - Send SIGKILL (cannot be caught)
-        - Tasks being executed are lost
+    def get_hooks(self, event: WorkerEvent) -> List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]:
+        """Get all hooks for specified event."""
 
-        Args:
-            graceful_timeout: Phase 1 wait time (default 10s)
-            term_timeout: Phase 2 wait time (default 3s)
+    def get_stats(self) -> PoolStats:
+        """Get current statistics snapshot."""
 
-        Returns:
-            ShutdownReport: Contains shutdown duration, completion phase, task loss info
-        """
+    def health_check(self) -> Dict[str, Any]:
+        """Perform health check, returns status dict."""
+
+    def drain(self, timeout: Optional[float] = None) -> bool:
+        """Wait for all tasks to complete."""
+
+    # Status properties
+    @property
+    def state(self) -> PoolState:
+        """Current Pool state"""
+
+    @property
+    def pool_id(self) -> str:
+        """Pool unique identifier"""
 
     @property
     def n_workers(self) -> int:
-        """Number of worker processes"""
+        """Configured number of workers"""
 
     @property
-    def active_workers(self) -> int:
-        """Number of alive worker processes"""
+    def alive_workers(self) -> int:
+        """Number of alive workers"""
 
     @property
-    def state(self) -> PoolState:
-        """Current pool state"""
+    def pending_tasks(self) -> int:
+        """Tasks waiting in queue"""
+
+    @property
+    def in_flight_tasks(self) -> int:
+        """Tasks currently executing"""
+
+    @property
+    def queued_futures(self) -> int:
+        """Futures waiting for result"""
 ```
 
 ### PoolState
 
 ```python
 class PoolState(Enum):
-    """Pool state machine for shutdown flow."""
+    """Pool state machine (shutdown flow)."""
     RUNNING = auto()   # Normal operation, accepting tasks
-    DRAINING = auto()  # Rejecting new tasks, waiting for in-flight tasks
+    DRAINING = auto()  # Rejecting new tasks, waiting for in-flight
     STOPPING = auto()  # SIGTERM sent
-    KILLING = auto()   # Sending SIGKILL
-    STOPPED = auto()   # All workers terminated
+    KILLING = auto()   # SIGKILL being sent
+    STOPPED = auto()   # All processes terminated
+```
+
+### WorkerEvent
+
+```python
+class WorkerEvent(Enum):
+    """Worker lifecycle events."""
+    WORKER_START = auto()  # Worker process starts
+    WORKER_STOP = auto()   # Worker process exits
+    TASK_START = auto()    # Before task execution
+    TASK_END = auto()      # After task execution
+```
+
+### PoolStats
+
+```python
+@dataclass
+class PoolStats:
+    """Pool execution statistics snapshot."""
+    # Worker statistics
+    total_workers: int = 0
+    alive_workers: int = 0
+    worker_restarts: int = 0
+    worker_crashes: int = 0
+
+    # Task statistics
+    tasks_submitted: int = 0
+    tasks_completed: int = 0
+    tasks_failed: int = 0
+    tasks_orphaned: int = 0
+
+    # Queue statistics
+    tasks_pending: int = 0
+    tasks_in_flight: int = 0
+
+    # Time statistics
+    uptime: float = 0.0
+    total_task_duration: float = 0.0
+    avg_task_duration: float = 0.0
+
+    # Memory statistics
+    total_memory_delta: int = 0
+    avg_memory_delta_mb: float = 0.0
+```
+
+### WorkerContext
+
+```python
+@dataclass
+class WorkerContext:
+    """Context passed to worker-level hooks."""
+    worker_id: int        # Worker index
+    pid: int              # Process ID
+    pool_id: str          # Pool instance identifier
+    start_time: float     # Worker start time
+    task_count: int       # Tasks executed
+```
+
+### TaskContext
+
+```python
+@dataclass
+class TaskContext:
+    """Context passed to task-level hooks."""
+    task_id: str
+    worker_ctx: WorkerContext
+    fn_name: str
+    args: Tuple
+    kwargs: Dict[str, Any]
+    start_time: float
+    end_time: float
+    success: bool
+    result: Any
+    error: Optional[Exception]
+    memory_start: int
+    memory_end: int
+
+    @property
+    def duration(self) -> float:
+        """Task duration in seconds"""
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta in bytes"""
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in MB"""
+
+    def log_summary(self, logger, level=logging.INFO) -> None:
+        """Log task execution summary"""
 ```
 
 ### ShutdownReport
@@ -369,22 +779,22 @@ class PoolState(Enum):
 ```python
 @dataclass
 class ShutdownReport:
-    """Return value of shutdown(), describing the shutdown process."""
-    duration: float          # Total shutdown time (seconds)
-    final_phase: str         # Phase where shutdown completed: "graceful" / "terminate" / "kill"
-    tasks_in_flight: int     # Tasks executing when shutdown started
-    tasks_killed: int        # Workers still holding tasks after SIGKILL
-    workers_killed: int      # Workers with exitcode == -9 (SIGKILL'd)
+    """Return value of shutdown(), describes shutdown process."""
+    duration: float          # Total shutdown time in seconds
+    final_phase: str         # Phase where shutdown completed
+    tasks_in_flight: int     # Tasks in progress when shutdown started
+    tasks_killed: int        # Workers with tasks when SIGKILL sent
+    workers_killed: int      # Workers killed by SIGKILL
 ```
 
 ### Exceptions
 
 ```python
 class PoolDrainingError(RuntimeError):
-    """Pool is in shutdown flow, no longer accepting new tasks."""
+    """Pool is in shutdown flow, no new tasks accepted."""
 
 class TaskTimeoutError(TimeoutError):
-    """Task execution timeout."""
+    """Task execution timed out."""
 
 class WorkerCrashedError(RuntimeError):
     """Worker process crashed, task could not complete."""
@@ -394,30 +804,14 @@ class WorkerCrashedError(RuntimeError):
 
 ```python
 class Future:
-    """
-    Asynchronous result handle.
-
-    Thread-safe, used to retrieve task execution results.
-    """
+    """Async result handle with execution metadata."""
 
     def result(self, timeout: Optional[float] = None) -> Any:
-        """
-        Block and wait for result.
-
-        Args:
-            timeout: Timeout in seconds, None means infinite wait
-
-        Returns:
-            Task return value
-
-        Raises:
-            TimeoutError: Timeout exceeded
-            Exception: Original exception raised by task
-        """
+        """Block and wait for result."""
 
     @property
     def done(self) -> bool:
-        """Whether task has completed (success or failure)"""
+        """Whether task has completed"""
 
     @property
     def succeeded(self) -> bool:
@@ -429,12 +823,45 @@ class Future:
 
     @property
     def traceback(self) -> Optional[str]:
-        """Return full traceback string when task failed"""
+        """Traceback string when task failed"""
+
+    # Execution metadata
+    @property
+    def worker_id(self) -> Optional[int]:
+        """Worker ID that executed the task"""
+
+    @property
+    def start_time(self) -> Optional[float]:
+        """Task start timestamp"""
+
+    @property
+    def end_time(self) -> Optional[float]:
+        """Task end timestamp"""
+
+    @property
+    def duration(self) -> float:
+        """Task duration in seconds"""
+
+    @property
+    def memory_start(self) -> int:
+        """Memory at task start in bytes"""
+
+    @property
+    def memory_end(self) -> int:
+        """Memory at task end in bytes"""
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta in bytes"""
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in MB"""
 ```
 
 ---
 
-## 5. Task Writing Guide
+## 7. Task Writing Guide
 
 ### Rules for Task Functions
 
@@ -537,7 +964,7 @@ def safe_task(params: dict) -> dict:
 
 ---
 
-## 6. Best Practices
+## 8. Best Practices
 
 ### Connection Lifecycle
 
@@ -672,7 +1099,7 @@ if report.final_phase != "graceful":
 
 ---
 
-## 7. Common Pitfalls
+## 9. Common Pitfalls
 
 ### Pitfall 1: Local Function Definition
 
