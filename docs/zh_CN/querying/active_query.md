@@ -108,6 +108,56 @@ User.query().limit(10).offset(20)
   User.query().limit(10, offset=20)  # 或使用参数形式
   ```
 
+### `for_update(nowait=False, skip_locked=False)`
+
+行级悲观锁，用于并发事务场景。在事务中对选中的行加锁，防止其他事务修改。
+
+* **用法示例**：
+
+```python
+# 在事务中锁定行
+with User.transaction():
+    user = User.query().where(User.c.id == 1).for_update().one()
+    user.balance -= 100
+    user.save()
+```
+
+* **参数说明**：
+  * `nowait=True`：如果行被锁定，立即抛出错误而非等待。
+  * `skip_locked=True`：跳过已锁定的行（适用于任务队列场景）。
+
+* **后端支持情况**：
+
+| 后端 | 支持 | 说明 |
+|------|------|------|
+| MySQL | ✅ | 支持所有参数 |
+| PostgreSQL | ✅ | 支持所有参数 |
+| SQLite | ❌ | 不支持，使用文件级锁 |
+
+> **注意**：上表仅供参考，具体后端的能力可能因版本或配置而变化。请使用 `supports_for_update()` 方法动态检测后端能力。
+
+* **能力检测**：
+
+在使用 `for_update()` 前，建议先检测后端是否支持：
+
+```python
+dialect = User.backend().dialect
+if dialect.supports_for_update():
+    user = User.query().where(User.c.id == 1).for_update().one()
+else:
+    # SQLite 等不支持的后端，使用替代方案
+    user = User.find_one(1)
+```
+
+如果不检测直接在不支持的后端上调用 `for_update()`，会抛出 `UnsupportedFeatureError`。
+
+* **注意事项**：
+  - **必须在事务中使用**：`FOR UPDATE` 在事务外无意义。
+  - **避免死锁**：多个事务以不同顺序锁定资源可能导致死锁。
+  - **跨数据库兼容**：编写跨数据库代码时，务必使用 `supports_for_update()` 检测。
+
+详细的并发控制策略，请参阅 [并发控制](../performance/concurrency.md)。
+
 ### `group_by(*columns)` / `having(condition)`
 
 分组统计。

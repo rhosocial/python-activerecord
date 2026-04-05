@@ -120,8 +120,14 @@ class TestQueryParts:
         assert sqlite_dialect_3_8_0.supports_qualify_clause() is False
 
     def test_for_update_clause_not_supported(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test that FOR UPDATE clause is not supported in SQLite."""
+        """Test that FOR UPDATE clause is not supported in SQLite.
+
+        SQLite uses database-level locking (SHARED, RESERVED, PENDING, EXCLUSIVE)
+        rather than row-level locking. For write serialization, use BEGIN IMMEDIATE
+        or BEGIN EXCLUSIVE transactions.
+        """
         # Check if the capability is correctly reported as not supported
+        assert sqlite_dialect_3_8_0.supports_for_update() is False
         assert sqlite_dialect_3_8_0.supports_for_update_skip_locked() is False
 
     def test_filter_clause_supported(self, sqlite_dialect_3_30_0: SQLiteDialect):

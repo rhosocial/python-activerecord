@@ -261,6 +261,9 @@ class DummyDialect(
     def supports_for_update_skip_locked(self) -> bool:
         return True
 
+    def supports_for_update(self) -> bool:
+        return True
+
     def supports_graph_match(self) -> bool:
         return True
 
