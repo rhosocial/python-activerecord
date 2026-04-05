@@ -20,6 +20,7 @@ from tests.rhosocial.activerecord_test.feature.worker.hooks.sample_hooks import 
     simple_stop_hook,
     task_start_hook,
     task_end_hook,
+    logging_task_end_hook,
 )
 
 
@@ -202,6 +203,36 @@ def test_no_hooks():
     print("test_no_hooks PASSED")
 
 
+def test_task_resource_monitoring():
+    """Test that TaskContext provides resource monitoring (duration, memory)."""
+    cleanup_marker_files()
+
+    with WorkerPool(
+        n_workers=2,
+        on_task_end=logging_task_end_hook,
+    ) as pool:
+        futures = [pool.submit(simple_task, i) for i in range(3)]
+        for f in futures:
+            f.result(timeout=10)
+
+    # Check logging markers were created with resource info
+    logging_markers = glob.glob("/tmp/task_hook_logging_*.txt")
+    assert len(logging_markers) >= 3, f"Expected at least 3 logging markers, found {len(logging_markers)}"
+
+    for marker_file in logging_markers:
+        with open(marker_file) as f:
+            content = f.read()
+            # Verify duration is recorded
+            assert "duration=" in content
+            # Verify memory_delta is recorded
+            assert "memory_delta_mb=" in content
+            # Verify success status
+            assert "success=True" in content
+
+    cleanup_marker_files()
+    print("test_task_resource_monitoring PASSED")
+
+
 if __name__ == "__main__":
     # Run all tests
     print("Running hook tests...")
@@ -212,5 +243,6 @@ if __name__ == "__main__":
     test_task_hooks()
     test_task_end_hook_on_failure()
     test_string_path_hooks()
+    test_task_resource_monitoring()
 
     print("\nAll tests PASSED!")

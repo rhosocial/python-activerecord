@@ -5,7 +5,10 @@ Sample hook functions for testing WorkerPool lifecycle hooks.
 These functions must be in a proper Python module to be picklable in spawn mode.
 """
 
-import os
+import logging
+
+# Set up a simple logger for testing
+logger = logging.getLogger(__name__)
 
 
 def simple_init_hook(ctx):
@@ -39,6 +42,29 @@ def task_end_hook(ctx):
     marker_file = f"/tmp/task_hook_end_{ctx.task_id[:8]}.txt"
     with open(marker_file, 'w') as f:
         f.write(f"task_end:{ctx.task_id}:{ctx.success}:{ctx.worker_ctx.task_count}")
+
+
+def logging_task_end_hook(ctx):
+    """
+    Hook that logs task execution summary with resource usage.
+
+    This hook demonstrates the recommended pattern for production use:
+    - Logs duration, memory delta, and success/failure status
+    - Uses the built-in log_summary() method for consistent formatting
+    """
+    # Use the built-in summary method
+    ctx.log_summary(logger, level=logging.INFO)
+
+    # Also write to marker file for testing
+    marker_file = f"/tmp/task_hook_logging_{ctx.task_id[:8]}.txt"
+    with open(marker_file, 'w') as f:
+        f.write(
+            f"task_id={ctx.task_id}:"
+            f"fn={ctx.fn_name}:"
+            f"duration={ctx.duration:.3f}:"
+            f"memory_delta_mb={ctx.memory_delta_mb:.3f}:"
+            f"success={ctx.success}"
+        )
 
 
 def async_init_hook(ctx):

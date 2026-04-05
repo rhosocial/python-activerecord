@@ -23,6 +23,13 @@ from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
 
+# Resource monitoring support
+try:
+    import resource
+    _HAS_RESOURCE = True
+except ImportError:
+    _HAS_RESOURCE = False  # Windows doesn't have resource module
+
 from ..logging.manager import get_logging_manager
 
 # Use semantic logger naming: rhosocial.activerecord.worker
@@ -99,6 +106,8 @@ class TaskContext:
         success: Whether task succeeded (set in TASK_END)
         result: Task result (set in TASK_END on success)
         error: Task exception (set in TASK_END on failure)
+        memory_start: Memory usage at task start (bytes, RSS)
+        memory_end: Memory usage at task end (bytes, RSS)
     """
     task_id: str
     worker_ctx: WorkerContext
@@ -110,6 +119,52 @@ class TaskContext:
     success: bool = False
     result: Any = None
     error: Optional[Exception] = None
+    # Resource monitoring
+    memory_start: int = 0  # RSS in bytes at task start
+    memory_end: int = 0    # RSS in bytes at task end
+
+    @property
+    def duration(self) -> float:
+        """Task execution duration in seconds."""
+        return self.end_time - self.start_time if self.end_time else 0.0
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta in bytes (end - start)."""
+        return self.memory_end - self.memory_start
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in megabytes."""
+        return self.memory_delta / (1024 * 1024)
+
+    def log_summary(
+        self,
+        logger: Optional[logging.Logger] = None,
+        level: int = logging.INFO
+    ) -> None:
+        """
+        Log a summary of task execution.
+
+        Args:
+            logger: Logger to use (defaults to module logger)
+            level: Log level (default: INFO)
+        """
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
+        status = "SUCCESS" if self.success else "FAILED"
+        msg = (
+            f"Task[{self.task_id[:8]}] {status} | "
+            f"fn={self.fn_name}, "
+            f"duration={self.duration:.3f}s"
+        )
+        if self.memory_start > 0:
+            msg += f", memory_delta={self.memory_delta_mb:+.2f}MB"
+        if not self.success and self.error:
+            msg += f", error={type(self.error).__name__}: {self.error}"
+
+        logger.log(level, msg)
 
 
 # ── Hook Type Aliases ────────────────────────────────────────────────────────
@@ -304,6 +359,37 @@ class ShutdownReport:
 
 # ── Worker Process Entry Point (must be top-level function, spawn requires pickle) ────
 
+def _get_memory_usage() -> int:
+    """
+    Get current process memory usage (RSS) in bytes.
+
+    Uses resource module on Unix systems.
+    Returns 0 if memory info is unavailable (e.g., on Windows without psutil).
+
+    Returns:
+        Resident Set Size (RSS) in bytes
+    """
+    if _HAS_RESOURCE:
+        # resource.getrusage returns values in kilobytes on most systems
+        # RUSAGE_SELF = current process
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        # ru_maxrss is in kilobytes on Linux, bytes on macOS
+        # We normalize to bytes
+        if hasattr(os, 'uname') and os.uname().sysname == 'Darwin':
+            # macOS: ru_maxrss is already in bytes
+            return rusage.ru_maxrss
+        else:
+            # Linux and others: ru_maxrss is in kilobytes
+            return rusage.ru_maxrss * 1024
+    else:
+        # Windows: try to use psutil if available, otherwise return 0
+        try:
+            import psutil
+            return psutil.Process(os.getpid()).memory_info().rss
+        except ImportError:
+            return 0
+
+
 def _import_hook(path: str) -> Callable:
     """
     Dynamically import a hook function by its module path.
@@ -472,7 +558,7 @@ def _worker_entry(
             # __started__ for timeout tracking (execution actually begins)
             result_q.put(("__started__", worker_id, task_id))
 
-            # Build task context
+            # Build task context with resource monitoring
             task_ctx = TaskContext(
                 task_id=task_id,
                 worker_ctx=ctx,
@@ -480,6 +566,7 @@ def _worker_entry(
                 args=args,
                 kwargs=kwargs,
                 start_time=time.monotonic(),
+                memory_start=_get_memory_usage(),
             )
 
             # Execute TASK_START hooks (failures logged but don't affect task)
@@ -508,6 +595,7 @@ def _worker_entry(
             # Execute TASK_END hooks (failures logged but don't affect next task)
             ctx.task_count += 1
             task_ctx.end_time = time.monotonic()
+            task_ctx.memory_end = _get_memory_usage()
             if task_end_hooks:
                 _execute_hooks(task_end_hooks, task_ctx)
 
