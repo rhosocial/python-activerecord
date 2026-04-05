@@ -11,6 +11,7 @@ from __future__ import annotations
 
 import asyncio
 import inspect
+import logging
 import multiprocessing as mp
 import threading
 import time
@@ -428,6 +429,11 @@ class WorkerPool:
 
         self._registry = WorkerRegistry()   # Independent lock, never nested with self._lock
 
+        logger.info(
+            "WorkerPool initializing | n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
+            n_workers, check_interval, self._orphan_timeout
+        )
+
         # Start Worker processes
         for wid in range(n_workers):
             self._start_worker(wid)
@@ -437,6 +443,10 @@ class WorkerPool:
             target=self._supervise, daemon=True, name="pool-supervisor"
         )
         self._sv_thread.start()
+        logger.info(
+            "WorkerPool started | %d workers ready, supervisor thread active",
+            self._registry.alive_count()
+        )
 
     # ── Internal: Process Management ────────────────────────────────────────
 
@@ -466,8 +476,8 @@ class WorkerPool:
         """
         dead_handles = self._registry.dead()    # registry._lock, not holding self._lock
 
-        if dead_handles:
-            logger.debug("Detected %d dead worker(s)", len(dead_handles))
+        if not dead_handles:
+            return
 
         for handle in dead_handles:
             wid = handle.wid
@@ -487,10 +497,27 @@ class WorkerPool:
                 # ★ Record death time to trigger orphan scan
                 self._last_worker_death = time.monotonic()
 
+            exitcode = handle.exitcode
+            # Determine exit reason for logging
+            if exitcode == 0:
+                # Normal exit (STOP sentinel received during shutdown)
+                exit_reason = "normal"
+                log_level = logging.DEBUG
+            elif exitcode and exitcode < 0:
+                # Killed by signal (e.g., -9 = SIGKILL, -15 = SIGTERM)
+                import signal
+                sig_name = signal.Signals(-exitcode).name if hasattr(signal, 'Signals') else str(-exitcode)
+                exit_reason = f"signal({sig_name})"
+                log_level = logging.WARNING
+            else:
+                # Non-zero exit code (error)
+                exit_reason = f"error(code={exitcode})"
+                log_level = logging.WARNING
+
             if lost_task_id:
                 logger.warning(
-                    "Worker-%d (pid=%s) crashed while executing task %s (exitcode=%s)",
-                    wid, handle.pid, lost_task_id[:8], handle.exitcode
+                    "Worker-%d (pid=%s) crashed while executing task %s (exit=%s)",
+                    wid, handle.pid, lost_task_id[:8], exit_reason
                 )
                 with self._lock:
                     fut = self._futures.pop(lost_task_id, None)
@@ -500,12 +527,13 @@ class WorkerPool:
                             f"Worker-{wid} (pid={handle.pid}) crashed "
                             f"while executing task {lost_task_id!r}"
                         ),
-                        tb=f"Worker process terminated unexpectedly (exitcode={handle.exitcode})",
+                        tb=f"Worker process terminated unexpectedly (exit={exit_reason})",
                     )
             else:
-                logger.debug(
-                    "Worker-%d (pid=%s) exited (exitcode=%s), no task was in progress",
-                    wid, handle.pid, handle.exitcode
+                logger.log(
+                    log_level,
+                    "Worker-%d (pid=%s) exited (exit=%s), no task was in progress",
+                    wid, handle.pid, exit_reason
                 )
 
             # Restart only if RUNNING
@@ -517,6 +545,10 @@ class WorkerPool:
                 )
             else:
                 # During shutdown: don't restart, just clean registry
+                logger.debug(
+                    "Worker-%d removed from registry (pool state=%s)",
+                    wid, self._state.name
+                )
                 self._registry.remove(wid, signal=StopSignal.SENTINEL)
 
     # ── Internal: Supervisor Thread ─────────────────────────────────────────
@@ -589,7 +621,7 @@ class WorkerPool:
                     task_id[:8], wid, pid
                 )
 
-        elif kind == "error":  # pragma: no cover - defensive branch for unknown message types
+        elif kind == "error":
             _, task_id, exc, tb = msg
             # Find Worker ID before clearing
             wid = self._find_worker_by_task(task_id)
@@ -601,9 +633,9 @@ class WorkerPool:
                 self._task_enqueue_time.pop(task_id, None)  # Defensive cleanup
             if fut:  # pragma: no cover - Future may already be removed due to timeout
                 fut._reject(exc, tb)
-                logger.debug(
-                    "Task[%s] failed | Worker-%d (pid=%s) | error=%s",
-                    task_id[:8], wid, pid, exc
+                logger.warning(
+                    "Task[%s] failed | Worker-%d (pid=%s) | error=%s: %s",
+                    task_id[:8], wid, pid, type(exc).__name__, exc
                 )
 
     def _find_worker_by_task(self, task_id: str) -> Optional[int]:
@@ -793,6 +825,10 @@ class WorkerPool:
         deadline = time.monotonic() + graceful_timeout
         while time.monotonic() < deadline:
             if self._registry.alive_count() == 0:
+                logger.info(
+                    "DRAINING complete | all workers exited gracefully (duration=%.2fs)",
+                    time.monotonic() - start_time
+                )
                 break
             time.sleep(0.1)
         else:
@@ -805,11 +841,16 @@ class WorkerPool:
                 len(alive),
             )
             for h in alive:
+                logger.debug("Sending SIGTERM to Worker-%d (pid=%d)", h.wid, h.pid)
                 h.terminate()
 
             deadline2 = time.monotonic() + term_timeout
             while time.monotonic() < deadline2:
                 if self._registry.alive_count() == 0:
+                    logger.info(
+                        "STOPPING complete | all workers terminated via SIGTERM (duration=%.2fs)",
+                        time.monotonic() - start_time
+                    )
                     break
                 time.sleep(0.1)
             else:
@@ -822,6 +863,7 @@ class WorkerPool:
                     len(still_alive),
                 )
                 for h in still_alive:
+                    logger.debug("Sending SIGKILL to Worker-%d (pid=%d)", h.wid, h.pid)
                     h.kill()
                 for h in still_alive:
                     h.join(timeout=2)
@@ -866,8 +908,21 @@ class WorkerPool:
         return self._state
 
     def __enter__(self) -> "WorkerPool":
+        logger.debug("WorkerPool context entered | state=%s", self._state.name)
         return self
 
-    def __exit__(self, *_):
+    def __exit__(self, exc_type, exc_val, exc_tb):
         if self._state == PoolState.RUNNING:
+            if exc_type is not None:
+                logger.info(
+                    "WorkerPool context exiting with exception | %s: %s",
+                    exc_type.__name__, exc_val
+                )
+            else:
+                logger.debug("WorkerPool context exiting normally")
             self.shutdown()
+        else:
+            logger.debug(
+                "WorkerPool context exit | shutdown already in progress (state=%s)",
+                self._state.name
+            )
