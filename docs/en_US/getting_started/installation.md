@@ -8,6 +8,8 @@ Getting started with `rhosocial-activerecord` is straightforward. This guide pro
 *   **Python 3.8+** — Supports latest Python 3.14 and free-threaded builds (3.13t, 3.14t)
 *   **Recommended Version**: Python 3.11+ for optimal performance and feature support
 
+> ⚠️ **Known Issue for Python 3.13t**: Python 3.13 free-threaded build has a known issue with WorkerPool's orphan process detection timing. If you need to use the WorkerPool feature with crash detection, we recommend using Python 3.14t instead, which does not have this issue.
+
 ### Core Dependencies
 *   **Pydantic V2** — Data validation and serialization framework
     *   Python 3.8: pydantic 2.10.6 (due to compatibility constraints)

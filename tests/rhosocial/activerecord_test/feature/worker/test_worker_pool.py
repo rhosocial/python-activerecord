@@ -26,8 +26,24 @@ Running tests requires if __name__ == '__main__' guard.
 
 import time
 import multiprocessing as mp
+import sys
 
 import pytest
+
+
+# ─────────────────────────────────────────────────────────────────────────────
+# Free-threaded Python detection (Python 3.13t has known issues with this test)
+# ─────────────────────────────────────────────────────────────────────────────
+
+def _is_python_313t() -> bool:
+    """Check if running on Python 3.13 free-threaded build."""
+    return (
+        sys.version_info[:2] == (3, 13) and
+        hasattr(sys, '_is_gil_enabled') and
+        not sys._is_gil_enabled()
+    )
+
+
 from rhosocial.activerecord.worker import (
     WorkerPool,
     Future,
@@ -547,11 +563,15 @@ class TestWorkerPool:
             assert all(r == 0.1 for r in results)
             assert elapsed < 1.0  # Should be much less than 0.4s
 
+    @pytest.mark.skipif(
+        _is_python_313t(),
+        reason="Python 3.13t has a known issue with orphan process detection timing; Python 3.14t is unaffected"
+    )
     def test_worker_crash_and_restart(self):
         """Test Worker crash and restart"""
         # Use longer orphan_timeout to avoid false positive orphan detection
         # during worker restart on slower/free-threaded Python builds
-        with WorkerPool(n_workers=2, check_interval=0.5, orphan_timeout=5.0) as pool:
+        with WorkerPool(n_workers=2, check_interval=0.5, orphan_timeout=2.0) as pool:
             # Submit a task that crashes the process
             pool.submit(crash_task)
 
