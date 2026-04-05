@@ -10,16 +10,25 @@ DRAINING → STOPPING → KILLING → STOPPED.
 from __future__ import annotations
 
 import asyncio
+import importlib
 import inspect
 import logging
 import multiprocessing as mp
+import os
 import threading
 import time
 import traceback
 import uuid
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from enum import Enum, auto
-from typing import Any, Callable, Dict, List, Optional
+from typing import Any, Awaitable, Callable, Dict, List, Optional, Tuple, Union
+
+# Resource monitoring support
+try:
+    import resource
+    _HAS_RESOURCE = True
+except ImportError:
+    _HAS_RESOURCE = False  # Windows doesn't have resource module
 
 from ..logging.manager import get_logging_manager
 
@@ -50,6 +59,170 @@ class StopSignal(Enum):
     SENTINEL = auto()   # STOP sentinel (queue-level): Worker exits after completing current task
     TERMINATE = auto()  # SIGTERM: Python default is immediate exit
     KILL = auto()       # SIGKILL: Cannot be caught, immediate termination
+
+
+class WorkerEvent(Enum):
+    """Worker lifecycle events for hook registration."""
+    WORKER_START = auto()  # Worker process startup
+    WORKER_STOP = auto()   # Worker process shutdown
+    TASK_START = auto()    # Task execution start
+    TASK_END = auto()      # Task execution end (success or failure)
+
+
+# ── Statistics ────────────────────────────────────────────────────────────────
+
+@dataclass
+class PoolStats:
+    """
+    Pool execution statistics snapshot.
+
+    All statistics are point-in-time snapshots and may be stale immediately
+    after retrieval in a busy pool.
+    """
+    # Worker statistics
+    total_workers: int = 0           # Configured number of workers
+    alive_workers: int = 0           # Currently alive workers
+    worker_restarts: int = 0         # Worker restart count (after crash recovery)
+    worker_crashes: int = 0          # Worker crash count (unexpected termination)
+
+    # Task statistics
+    tasks_submitted: int = 0         # Total tasks submitted
+    tasks_completed: int = 0         # Successfully completed tasks
+    tasks_failed: int = 0            # Failed tasks (exception thrown)
+    tasks_orphaned: int = 0          # Orphaned tasks (lost due to worker crash)
+
+    # Queue statistics
+    tasks_pending: int = 0           # Tasks waiting in queue
+    tasks_in_flight: int = 0         # Tasks currently executing
+
+    # Time statistics
+    uptime: float = 0.0              # Pool uptime in seconds
+    total_task_duration: float = 0.0 # Sum of all task durations
+    avg_task_duration: float = 0.0   # Average task duration
+
+    # Memory statistics
+    total_memory_delta: int = 0      # Total memory delta in bytes
+    avg_memory_delta_mb: float = 0.0 # Average memory delta in MB
+
+
+# ── Hook Context Types ───────────────────────────────────────────────────────
+
+@dataclass
+class WorkerContext:
+    """
+    Context passed to Worker-level hooks (WORKER_START/WORKER_STOP).
+
+    Attributes:
+        worker_id: Worker index (0, 1, 2, ...)
+        pid: Process ID
+        pool_id: Pool instance identifier
+        start_time: Worker startup timestamp (monotonic)
+        task_count: Number of tasks executed (incremented during WORKER_STOP)
+        data: User-attached data storage (persisted across hooks and tasks)
+        event_loop: Event loop instance (available in async mode)
+    """
+    worker_id: int
+    pid: int
+    pool_id: str
+    start_time: float = 0.0
+    task_count: int = 0
+    data: Dict[str, Any] = field(default_factory=dict)
+    event_loop: Optional[asyncio.AbstractEventLoop] = None
+
+
+@dataclass
+class TaskContext:
+    """
+    Context passed to Task-level hooks (TASK_START/TASK_END).
+
+    Attributes:
+        task_id: Task identifier
+        worker_ctx: Worker context (contains shared data across tasks)
+        fn_name: Task function name
+        args: Task positional arguments
+        kwargs: Task keyword arguments
+        start_time: Task start timestamp (monotonic)
+        end_time: Task end timestamp (monotonic, set in TASK_END)
+        success: Whether task succeeded (set in TASK_END)
+        result: Task result (set in TASK_END on success)
+        error: Task exception (set in TASK_END on failure)
+        memory_start: Memory usage at task start (bytes, RSS)
+        memory_end: Memory usage at task end (bytes, RSS)
+        data: User-attached data storage (task-scoped)
+    """
+    task_id: str
+    worker_ctx: WorkerContext
+    fn_name: str = ""
+    args: Tuple = ()
+    kwargs: Dict[str, Any] = field(default_factory=dict)
+    start_time: float = 0.0
+    end_time: float = 0.0
+    success: bool = False
+    result: Any = None
+    error: Optional[Exception] = None
+    # Resource monitoring
+    memory_start: int = 0  # RSS in bytes at task start
+    memory_end: int = 0    # RSS in bytes at task end
+    # User data storage
+    data: Dict[str, Any] = field(default_factory=dict)
+
+    @property
+    def duration(self) -> float:
+        """Task execution duration in seconds."""
+        return self.end_time - self.start_time if self.end_time else 0.0
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta in bytes (end - start)."""
+        return self.memory_end - self.memory_start
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in megabytes."""
+        return self.memory_delta / (1024 * 1024)
+
+    def log_summary(
+        self,
+        logger: Optional[logging.Logger] = None,
+        level: int = logging.INFO
+    ) -> None:
+        """
+        Log a summary of task execution.
+
+        Args:
+            logger: Logger to use (defaults to module logger)
+            level: Log level (default: INFO)
+        """
+        if logger is None:
+            logger = logging.getLogger(__name__)
+
+        status = "SUCCESS" if self.success else "FAILED"
+        msg = (
+            f"Task[{self.task_id[:8]}] {status} | "
+            f"fn={self.fn_name}, "
+            f"duration={self.duration:.3f}s"
+        )
+        if self.memory_start > 0:
+            msg += f", memory_delta={self.memory_delta_mb:+.2f}MB"
+        if not self.success and self.error:
+            msg += f", error={type(self.error).__name__}: {self.error}"
+
+        logger.log(level, msg)
+
+
+# ── Hook Type Aliases ────────────────────────────────────────────────────────
+
+# Synchronous hook types
+WorkerHook = Callable[[WorkerContext], None]
+TaskHook = Callable[[TaskContext], None]
+
+# Asynchronous hook types
+AsyncWorkerHook = Callable[[WorkerContext], Awaitable[None]]
+AsyncTaskHook = Callable[[TaskContext], Awaitable[None]]
+
+# Union types supporting both function objects and string paths
+AnyWorkerHook = Union[WorkerHook, AsyncWorkerHook, str]
+AnyTaskHook = Union[TaskHook, AsyncTaskHook, str]
 
 
 # ── Exceptions ───────────────────────────────────────────────────────────────
@@ -229,9 +402,183 @@ class ShutdownReport:
 
 # ── Worker Process Entry Point (must be top-level function, spawn requires pickle) ────
 
-def _worker_entry(worker_id: int, task_q: mp.Queue, result_q: mp.Queue) -> None:  # pragma: no cover
+def _get_memory_usage() -> int:
     """
-    Resident Worker main loop.
+    Get current process memory usage (RSS) in bytes.
+
+    Uses resource module on Unix systems.
+    Returns 0 if memory info is unavailable (e.g., on Windows without psutil).
+
+    Returns:
+        Resident Set Size (RSS) in bytes
+    """
+    if _HAS_RESOURCE:
+        # resource.getrusage returns values in kilobytes on most systems
+        # RUSAGE_SELF = current process
+        rusage = resource.getrusage(resource.RUSAGE_SELF)
+        # ru_maxrss is in kilobytes on Linux, bytes on macOS
+        # We normalize to bytes
+        if hasattr(os, 'uname') and os.uname().sysname == 'Darwin':
+            # macOS: ru_maxrss is already in bytes
+            return rusage.ru_maxrss
+        else:
+            # Linux and others: ru_maxrss is in kilobytes
+            return rusage.ru_maxrss * 1024
+    else:
+        # Windows: try to use psutil if available, otherwise return 0
+        try:
+            import psutil
+            return psutil.Process(os.getpid()).memory_info().rss
+        except ImportError:
+            return 0
+
+
+def _import_hook(path: str) -> Callable:
+    """
+    Dynamically import a hook function by its module path.
+
+    Args:
+        path: Full path to the function, e.g., "mymodule.hooks.on_start"
+
+    Returns:
+        The imported callable function
+    """
+    module_path, fn_name = path.rsplit('.', 1)
+    module = importlib.import_module(module_path)
+    return getattr(module, fn_name)
+
+
+def _resolve_hooks(
+    hooks: Optional[Union[AnyWorkerHook, AnyTaskHook, List, Tuple]]
+) -> List[Union[Callable, Tuple]]:
+    """
+    Resolve hook specifications to a list of hooks.
+
+    Supports:
+    - None: returns empty list
+    - Single callable: returns list with that callable
+    - Single string path: imports and returns the function
+    - Tuple of (callable, *args): wraps callable with args
+    - List of above: resolves each item
+
+    All hooks are called with ctx as the first argument.
+    For tuple format (callable, arg1, arg2): called as callable(ctx, arg1, arg2)
+
+    Args:
+        hooks: Hook specification in any supported format
+
+    Returns:
+        List of resolved hooks (callables or (callable, args) tuples)
+    """
+    if hooks is None:
+        return []
+
+    if isinstance(hooks, str):
+        # Single string path - import the function
+        return [_import_hook(hooks)]
+
+    if isinstance(hooks, tuple):
+        # Tuple format: (callable, *args) or (string_path, *args)
+        if len(hooks) == 0:
+            return []
+        first = hooks[0]
+        if isinstance(first, str):
+            # Import string path, keep args
+            return [(_import_hook(first),) + hooks[1:]]
+        # Assume first is callable
+        return [hooks]
+
+    if isinstance(hooks, list):
+        # List format: resolve each item
+        result = []
+        for item in hooks:
+            if isinstance(item, str):
+                result.append(_import_hook(item))
+            elif isinstance(item, tuple) and len(item) > 0:
+                first = item[0]
+                if isinstance(first, str):
+                    result.append((_import_hook(first),) + item[1:])
+                else:
+                    result.append(item)
+            else:
+                result.append(item)
+        return result
+
+    # Single callable object
+    return [hooks]
+
+
+def _execute_hooks(
+    hooks: List[Union[Callable, Tuple]],
+    ctx: Union[WorkerContext, TaskContext],
+) -> Optional[Tuple[str, str]]:
+    """
+    Execute a list of synchronous hooks with the given context.
+
+    Args:
+        hooks: List of hooks (callables or (callable, args) tuples)
+        ctx: Context to pass to hooks (WorkerContext or TaskContext)
+
+    Returns:
+        Tuple of (error_message, traceback) if any hook failed, None otherwise
+    """
+    for hook in hooks:
+        try:
+            if isinstance(hook, tuple):
+                # (callable, *args) format: call as callable(ctx, *args)
+                fn, *args = hook
+                fn(ctx, *args)
+            else:
+                hook(ctx)
+        except Exception as e:
+            # Return error info for first failure
+            return (str(e), traceback.format_exc())
+    return None
+
+
+async def _execute_hooks_async(
+    hooks: List[Union[Callable, Tuple]],
+    ctx: Union[WorkerContext, TaskContext],
+) -> Optional[Tuple[str, str]]:
+    """
+    Execute a list of asynchronous hooks with the given context.
+
+    All hooks must be async coroutines. This function should only be called
+    within an async context (event loop).
+
+    Args:
+        hooks: List of hooks (callables or (callable, args) tuples)
+        ctx: Context to pass to hooks (WorkerContext or TaskContext)
+
+    Returns:
+        Tuple of (error_message, traceback) if any hook failed, None otherwise
+    """
+    for hook in hooks:
+        try:
+            if isinstance(hook, tuple):
+                # (callable, *args) format: call as callable(ctx, *args)
+                fn, *args = hook
+                await fn(ctx, *args)
+            else:
+                await hook(ctx)
+        except Exception as e:
+            # Return error info for first failure
+            return (str(e), traceback.format_exc())
+    return None
+
+
+def _worker_entry(
+    worker_id: int,
+    task_q: mp.Queue,
+    result_q: mp.Queue,
+    pool_id: str,
+    on_worker_start: Optional[AnyWorkerHook] = None,
+    on_worker_stop: Optional[AnyWorkerHook] = None,
+    on_task_start: Optional[AnyTaskHook] = None,
+    on_task_end: Optional[AnyTaskHook] = None,
+) -> None:  # pragma: no cover
+    """
+    Resident Worker main loop with lifecycle hooks.
 
     Task-level exceptions caught here; process-level crashes handled by Supervisor.
 
@@ -239,55 +586,294 @@ def _worker_entry(worker_id: int, task_q: mp.Queue, result_q: mp.Queue) -> None:
     Coverage cannot track code executed in subprocesses with spawn mode.
     The logic is tested indirectly through integration tests.
 
+    Hook Execution:
+        WORKER_START: Executed before the main loop, failure prevents Worker startup
+        TASK_START: Executed before each task, failure is logged but doesn't affect task
+        TASK_END: Executed after each task (success or failure), failure is logged
+        WORKER_STOP: Executed in finally block, failure is logged
+
     Message sequence:
-        1. __dequeued__ - Sent immediately after get(), enables crash attribution
-        2. __started__  - Sent before fn(), enables timeout tracking
-        3. ok/error     - Sent after fn() completes/fails
+        1. __worker_ready__ / __worker_init_failed__ - After WORKER_START hooks
+        2. __dequeued__ - Sent immediately after get(), enables crash attribution
+        3. __started__  - Sent before fn(), enables timeout tracking
+        4. ok/error     - Sent after fn() completes/fails
 
-    Async Support:
-        Both sync and async (coroutine) functions are supported as task functions.
-        Async functions are automatically wrapped with asyncio.run().
+    Mode Selection:
+        - Sync mode: All hooks are synchronous, no event loop created
+        - Async mode: At least one hook is async, single event loop for Worker lifetime
+
+    Task Function Signature:
+        Task functions must accept ctx: TaskContext as the first argument.
+        The framework injects ctx automatically before other arguments.
+
+    Mode Enforcement:
+        Sync and async hooks cannot be mixed. If any hook is async, all hooks
+        must be async. Mixing will raise a TypeError.
+
+    Warning:
+        In async mode, sync task functions will block the event loop.
+        Users should ensure all hooks and tasks are either sync or async, not mixed.
     """
-    while True:
-        try:
-            msg = task_q.get()
-        except (EOFError, OSError):
-            break
+    pid = os.getpid()
+    ctx = WorkerContext(
+        worker_id=worker_id,
+        pid=pid,
+        pool_id=pool_id,
+        start_time=time.monotonic(),
+        task_count=0,
+    )
 
-        if msg == _STOP:
-            break
+    # Resolve hooks once at startup
+    start_hooks = _resolve_hooks(on_worker_start)
+    stop_hooks = _resolve_hooks(on_worker_stop)
+    task_start_hooks = _resolve_hooks(on_task_start)
+    task_end_hooks = _resolve_hooks(on_task_end)
 
-        # ★ __dequeued__ sent immediately after get(), before unpacking.
-        #   This enables crash attribution from the moment task leaves queue.
-        #   If Worker dies between get() and this line, orphan scan catches it.
-        task_id = msg[0]
-        result_q.put(("__dequeued__", worker_id, task_id))
+    # Detect async mode and check for mixed hooks
+    all_hooks = start_hooks + stop_hooks + task_start_hooks + task_end_hooks
+    async_hooks = [h for h in all_hooks if inspect.iscoroutinefunction(h)]
+    sync_hooks = [h for h in all_hooks if not inspect.iscoroutinefunction(h)]
 
-        task_id, fn, args, kwargs = msg
+    is_async = len(async_hooks) > 0
 
-        # __started__ for timeout tracking (execution actually begins)
-        result_q.put(("__started__", worker_id, task_id))
+    # Enforce no mixing of sync and async hooks
+    if is_async and len(sync_hooks) > 0:
+        async_names = [getattr(h, '__qualname__', str(h)) for h in async_hooks]
+        sync_names = [getattr(h, '__qualname__', str(h)) for h in sync_hooks]
+        raise TypeError(
+            f"Cannot mix sync and async hooks. "
+            f"Async hooks: {async_names}, Sync hooks: {sync_names}. "
+            f"All hooks must be either sync or async."
+        )
 
-        try:
-            # Support both sync and async task functions
-            if inspect.iscoroutinefunction(fn):
-                value = asyncio.run(fn(*args, **kwargs))
+    if is_async:
+        _run_async_worker(
+            ctx, task_q, result_q,
+            start_hooks, stop_hooks,
+            task_start_hooks, task_end_hooks
+        )
+    else:
+        _run_sync_worker(
+            ctx, task_q, result_q,
+            start_hooks, stop_hooks,
+            task_start_hooks, task_end_hooks
+        )
+
+
+def _run_sync_worker(
+    ctx: WorkerContext,
+    task_q: mp.Queue,
+    result_q: mp.Queue,
+    start_hooks: List[Callable],
+    stop_hooks: List[Callable],
+    task_start_hooks: List[Callable],
+    task_end_hooks: List[Callable],
+) -> None:  # pragma: no cover
+    """Run worker in pure synchronous mode."""
+    # Execute WORKER_START hooks
+    if start_hooks:
+        error_info = _execute_hooks(start_hooks, ctx)
+        if error_info:
+            error_msg, tb = error_info
+            result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+            return
+        result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+
+    try:
+        while True:
+            try:
+                msg = task_q.get()
+            except (EOFError, OSError):
+                break
+
+            if msg == _STOP:
+                break
+
+            task_id = msg[0]
+            result_q.put(("__dequeued__", ctx.worker_id, task_id))
+
+            task_id, fn, args, kwargs = msg
+            result_q.put(("__started__", ctx.worker_id, task_id))
+
+            task_ctx = TaskContext(
+                task_id=task_id,
+                worker_ctx=ctx,
+                fn_name=getattr(fn, '__qualname__', str(fn)),
+                args=args,
+                kwargs=kwargs,
+                start_time=time.monotonic(),
+                memory_start=_get_memory_usage(),
+            )
+
+            # Execute TASK_START hooks
+            if task_start_hooks:
+                _execute_hooks(task_start_hooks, task_ctx)
+
+            # Execute the task: ctx is the first argument
+            # In sync mode, async tasks use asyncio.run() (no context sharing)
+            exc = None
+            tb_str = None
+            try:
+                if inspect.iscoroutinefunction(fn):
+                    value = asyncio.run(fn(task_ctx, *args, **kwargs))
+                else:
+                    value = fn(task_ctx, *args, **kwargs)
+                task_ctx.success = True
+                task_ctx.result = value
+            except Exception as e:
+                exc = e
+                tb_str = traceback.format_exc()
+                task_ctx.success = False
+                task_ctx.error = exc
+
+            ctx.task_count += 1
+            task_ctx.end_time = time.monotonic()
+            task_ctx.memory_end = _get_memory_usage()
+
+            if exc is None:
+                result_q.put((
+                    "ok", task_id, value,
+                    ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
+                    task_ctx.memory_start, task_ctx.memory_end
+                ))
             else:
-                value = fn(*args, **kwargs)
-            result_q.put(("ok", task_id, value))
-        except Exception as exc:
-            result_q.put(("error", task_id, exc, traceback.format_exc()))
-        # Note: Process-level crashes (SIGSEGV, etc.) don't reach here,
-        # handled by Supervisor's is_alive() check.
+                result_q.put((
+                    "error", task_id, exc, tb_str,
+                    ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
+                    task_ctx.memory_start, task_ctx.memory_end
+                ))
+
+            # Execute TASK_END hooks
+            if task_end_hooks:
+                _execute_hooks(task_end_hooks, task_ctx)
+
+    finally:
+        # Execute WORKER_STOP hooks
+        if stop_hooks:
+            _execute_hooks(stop_hooks, ctx)
+
+
+def _run_async_worker(
+    ctx: WorkerContext,
+    task_q: mp.Queue,
+    result_q: mp.Queue,
+    start_hooks: List[Callable],
+    stop_hooks: List[Callable],
+    task_start_hooks: List[Callable],
+    task_end_hooks: List[Callable],
+) -> None:  # pragma: no cover
+    """Run worker with single event loop for async context sharing."""
+    loop = asyncio.new_event_loop()
+    asyncio.set_event_loop(loop)
+    ctx.event_loop = loop
+
+    try:
+        # Execute WORKER_START hooks
+        if start_hooks:
+            error_info = loop.run_until_complete(_execute_hooks_async(start_hooks, ctx))
+            if error_info:
+                error_msg, tb = error_info
+                result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+                return
+            result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+
+        try:
+            while True:
+                # Use executor to avoid blocking event loop on Queue.get
+                try:
+                    msg = loop.run_until_complete(
+                        loop.run_in_executor(None, task_q.get)
+                    )
+                except (EOFError, OSError):
+                    break
+
+                if msg == _STOP:
+                    break
+
+                task_id = msg[0]
+                result_q.put(("__dequeued__", ctx.worker_id, task_id))
+
+                task_id, fn, args, kwargs = msg
+                result_q.put(("__started__", ctx.worker_id, task_id))
+
+                task_ctx = TaskContext(
+                    task_id=task_id,
+                    worker_ctx=ctx,
+                    fn_name=getattr(fn, '__qualname__', str(fn)),
+                    args=args,
+                    kwargs=kwargs,
+                    start_time=time.monotonic(),
+                    memory_start=_get_memory_usage(),
+                )
+
+                # Execute TASK_START hooks
+                if task_start_hooks:
+                    loop.run_until_complete(_execute_hooks_async(task_start_hooks, task_ctx))
+
+                # Execute the task: ctx is the first argument
+                # Warning: sync task will block the event loop
+                exc = None
+                tb_str = None
+                try:
+                    if inspect.iscoroutinefunction(fn):
+                        value = loop.run_until_complete(fn(task_ctx, *args, **kwargs))
+                    else:
+                        # Sync task blocks event loop - user's responsibility
+                        value = fn(task_ctx, *args, **kwargs)
+                    task_ctx.success = True
+                    task_ctx.result = value
+                except Exception as e:
+                    exc = e
+                    tb_str = traceback.format_exc()
+                    task_ctx.success = False
+                    task_ctx.error = exc
+
+                ctx.task_count += 1
+                task_ctx.end_time = time.monotonic()
+                task_ctx.memory_end = _get_memory_usage()
+
+                if exc is None:
+                    result_q.put((
+                        "ok", task_id, value,
+                        ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
+                        task_ctx.memory_start, task_ctx.memory_end
+                    ))
+                else:
+                    result_q.put((
+                        "error", task_id, exc, tb_str,
+                        ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
+                        task_ctx.memory_start, task_ctx.memory_end
+                    ))
+
+                # Execute TASK_END hooks
+                if task_end_hooks:
+                    loop.run_until_complete(_execute_hooks_async(task_end_hooks, task_ctx))
+
+        finally:
+            # Execute WORKER_STOP hooks
+            if stop_hooks:
+                loop.run_until_complete(_execute_hooks_async(stop_hooks, ctx))
+
+    finally:
+        loop.close()
+        ctx.event_loop = None
 
 
 # ── Future ────────────────────────────────────────────────────────────────────
 
 class Future:
     """
-    Asynchronous result handle.
+    Asynchronous result handle with execution metadata.
 
-    Thread-safe, used to retrieve task execution results.
+    Thread-safe, used to retrieve task execution results and metadata.
+
+    Attributes:
+        task_id: Task identifier
+        worker_id: ID of Worker that executed the task (available after completion)
+        start_time: Task start timestamp (monotonic, available after completion)
+        end_time: Task end timestamp (monotonic, available after completion)
+        memory_start: Memory at task start (bytes, available after completion)
+        memory_end: Memory at task end (bytes, available after completion)
     """
 
     def __init__(self, task_id: str):
@@ -296,18 +882,51 @@ class Future:
         self._value: Any = None
         self._exc: Optional[BaseException] = None
         self._tb: Optional[str] = None
+        # Execution metadata (populated on completion)
+        self._worker_id: Optional[int] = None
+        self._start_time: Optional[float] = None
+        self._end_time: Optional[float] = None
+        self._memory_start: int = 0
+        self._memory_end: int = 0
 
     # ── Internal methods (called by Supervisor thread) ────────────────────────
 
-    def _resolve(self, value: Any) -> None:
-        """Mark task as succeeded"""
+    def _resolve(
+        self,
+        value: Any,
+        worker_id: Optional[int] = None,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+        memory_start: int = 0,
+        memory_end: int = 0,
+    ) -> None:
+        """Mark task as succeeded with optional metadata."""
         self._value = value
+        self._worker_id = worker_id
+        self._start_time = start_time
+        self._end_time = end_time
+        self._memory_start = memory_start
+        self._memory_end = memory_end
         self._event.set()
 
-    def _reject(self, exc: BaseException, tb: str = "") -> None:
-        """Mark task as failed"""
+    def _reject(
+        self,
+        exc: BaseException,
+        tb: str = "",
+        worker_id: Optional[int] = None,
+        start_time: Optional[float] = None,
+        end_time: Optional[float] = None,
+        memory_start: int = 0,
+        memory_end: int = 0,
+    ) -> None:
+        """Mark task as failed with optional metadata."""
         self._exc = exc
         self._tb = tb
+        self._worker_id = worker_id
+        self._start_time = start_time
+        self._end_time = end_time
+        self._memory_start = memory_start
+        self._memory_end = memory_end
         self._event.set()
 
     # ── Public API ──────────────────────────────────────────────────────────
@@ -352,6 +971,50 @@ class Future:
         """Return full traceback string when task failed"""
         return self._tb
 
+    # ── Execution Metadata Properties ─────────────────────────────────────
+
+    @property
+    def worker_id(self) -> Optional[int]:
+        """ID of Worker that executed the task (available after completion)"""
+        return self._worker_id
+
+    @property
+    def start_time(self) -> Optional[float]:
+        """Task start timestamp (monotonic, available after completion)"""
+        return self._start_time
+
+    @property
+    def end_time(self) -> Optional[float]:
+        """Task end timestamp (monotonic, available after completion)"""
+        return self._end_time
+
+    @property
+    def duration(self) -> float:
+        """Task execution duration in seconds (0 if not completed)"""
+        if self._start_time and self._end_time:
+            return self._end_time - self._start_time
+        return 0.0
+
+    @property
+    def memory_start(self) -> int:
+        """Memory usage at task start in bytes"""
+        return self._memory_start
+
+    @property
+    def memory_end(self) -> int:
+        """Memory usage at task end in bytes"""
+        return self._memory_end
+
+    @property
+    def memory_delta(self) -> int:
+        """Memory delta (end - start) in bytes"""
+        return self._memory_end - self._memory_start
+
+    @property
+    def memory_delta_mb(self) -> float:
+        """Memory delta in megabytes"""
+        return self.memory_delta / (1024 * 1024)
+
     def __repr__(self) -> str:
         if not self.done:
             state = "pending"
@@ -373,13 +1036,24 @@ class WorkerPool:
     Worker crash triggers automatic restart, crashed task marked as error.
     Three-phase shutdown: DRAINING → STOPPING → KILLING → STOPPED.
 
+    Lifecycle Hooks:
+        WORKER_START: Called when a Worker process starts (for resource initialization)
+        WORKER_STOP: Called when a Worker process stops (for resource cleanup)
+        TASK_START: Called before each task execution (for per-task setup)
+        TASK_END: Called after each task execution (for per-task cleanup/monitoring)
+
     Parameters
     ----------
-    n_workers      : Number of Worker processes
-    check_interval : Interval in seconds for Supervisor to check Worker health (default 0.5s)
+    n_workers        : Number of Worker processes
+    check_interval   : Interval in seconds for Supervisor to check Worker health (default 0.5s)
+    on_worker_start  : Hook for Worker startup (function or "module.path" string)
+    on_worker_stop   : Hook for Worker shutdown (function or "module.path" string)
+    on_task_start    : Hook for task start (function or "module.path" string)
+    on_task_end      : Hook for task end (function or "module.path" string)
 
     Usage Example
     -------------
+    # Basic usage
     if __name__ == '__main__':
         with WorkerPool(n_workers=4) as pool:
             futures = [pool.submit(my_task, i) for i in range(10)]
@@ -388,6 +1062,23 @@ class WorkerPool:
                     print(f.result(timeout=10))
                 except Exception as e:
                     print(f"Error: {e}")
+
+    # With lifecycle hooks for database connections
+    def init_db(ctx: WorkerContext):
+        from myapp.db import Database
+        Database.connect()
+
+    def cleanup_db(ctx: WorkerContext):
+        from myapp.db import Database
+        Database.disconnect()
+
+    with WorkerPool(
+        n_workers=4,
+        on_worker_start=init_db,
+        on_worker_stop=cleanup_db,
+    ) as pool:
+        # Workers have database connections ready
+        pool.submit(process_data, data)
     """
 
     def __init__(
@@ -395,6 +1086,11 @@ class WorkerPool:
         n_workers: int = 4,
         check_interval: float = 0.5,
         orphan_timeout: Optional[float] = None,
+        # Lifecycle hooks
+        on_worker_start: Optional[AnyWorkerHook] = None,
+        on_worker_stop: Optional[AnyWorkerHook] = None,
+        on_task_start: Optional[AnyTaskHook] = None,
+        on_task_end: Optional[AnyTaskHook] = None,
     ):
         """
         Initialize WorkerPool.
@@ -405,12 +1101,17 @@ class WorkerPool:
             orphan_timeout: Max seconds a task can wait without being claimed before
                 considered orphaned (default: max(2.0, check_interval * 4)).
                 Should be much larger than normal scheduling delay (< 0.1s).
+            on_worker_start: Hook called when Worker process starts (for initialization)
+            on_worker_stop: Hook called when Worker process stops (for cleanup)
+            on_task_start: Hook called before each task execution
+            on_task_end: Hook called after each task execution (success or failure)
         """
         self._n = n_workers
         self._check_interval = check_interval
         self._orphan_timeout = orphan_timeout or max(2.0, check_interval * 4)
         self._ctx = mp.get_context("spawn")
         self._state = PoolState.RUNNING
+        self._pool_id = str(uuid.uuid4())[:8]  # Short ID for logging
 
         self._task_q: mp.Queue = self._ctx.Queue()
         self._result_q: mp.Queue = self._ctx.Queue()
@@ -429,9 +1130,42 @@ class WorkerPool:
 
         self._registry = WorkerRegistry()   # Independent lock, never nested with self._lock
 
+        # Hook storage: Dict[WorkerEvent, List[Tuple[name, hook]]]
+        self._hooks: Dict[WorkerEvent, List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]] = {
+            WorkerEvent.WORKER_START: [],
+            WorkerEvent.WORKER_STOP: [],
+            WorkerEvent.TASK_START: [],
+            WorkerEvent.TASK_END: [],
+        }
+
+        # Statistics tracking
+        self._stats_lock = threading.Lock()
+        self._start_time: float = time.monotonic()
+        self._worker_restarts: int = 0
+        self._worker_crashes: int = 0
+        self._tasks_submitted: int = 0
+        self._tasks_completed: int = 0
+        self._tasks_failed: int = 0
+        self._tasks_orphaned: int = 0
+        self._total_task_duration: float = 0.0
+        self._total_memory_delta: int = 0
+
+        # Register constructor-provided hooks
+        if on_worker_start:
+            self.register_hook(WorkerEvent.WORKER_START, on_worker_start)
+        if on_worker_stop:
+            self.register_hook(WorkerEvent.WORKER_STOP, on_worker_stop)
+        if on_task_start:
+            self.register_hook(WorkerEvent.TASK_START, on_task_start)
+        if on_task_end:
+            self.register_hook(WorkerEvent.TASK_END, on_task_end)
+
+        # Validate hooks: sync and async hooks cannot be mixed
+        self._validate_hook_consistency()
+
         logger.info(
-            "WorkerPool initializing | n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
-            n_workers, check_interval, self._orphan_timeout
+            "WorkerPool initializing | pool_id=%s, n_workers=%d, check_interval=%.2fs, orphan_timeout=%.2fs",
+            self._pool_id, n_workers, check_interval, self._orphan_timeout
         )
 
         # Start Worker processes
@@ -448,16 +1182,97 @@ class WorkerPool:
             self._registry.alive_count()
         )
 
+    # ── Internal: Hook Validation ────────────────────────────────────────────
+
+    def _validate_hook_consistency(self) -> None:
+        """
+        Validate that all hooks are either sync or async, not mixed.
+
+        Raises:
+            TypeError: If sync and async hooks are mixed
+        """
+        all_hooks = []
+        for event in WorkerEvent:
+            hooks = self._hooks.get(event, [])
+            for name, hook in hooks:
+                # Resolve string paths to check if they're async
+                resolved_hook = hook
+                if isinstance(hook, str):
+                    resolved_hook = _import_hook(hook)
+                all_hooks.append((name, resolved_hook, event))
+
+        async_hooks = [(n, h, e) for n, h, e in all_hooks if inspect.iscoroutinefunction(h)]
+        sync_hooks = [(n, h, e) for n, h, e in all_hooks if not inspect.iscoroutinefunction(h)]
+
+        if async_hooks and sync_hooks:
+            async_names = [f"{e.name}:{n}" for n, h, e in async_hooks]
+            sync_names = [f"{e.name}:{n}" for n, h, e in sync_hooks]
+            raise TypeError(
+                f"Cannot mix sync and async hooks. "
+                f"Async hooks: {async_names}, Sync hooks: {sync_names}. "
+                f"All hooks must be either sync or async."
+            )
+
     # ── Internal: Process Management ────────────────────────────────────────
+
+    def _serialize_hooks(
+        self,
+        event: WorkerEvent
+    ) -> Optional[Union[str, List[Tuple[str, Any]]]]:
+        """
+        Serialize hooks for passing to Worker process.
+
+        For a single hook:
+        - String path: returned as-is
+        - Callable: returned directly (will be pickled)
+
+        For multiple hooks:
+        - Returns list of (name, hook) tuples
+
+        Args:
+            event: The WorkerEvent to serialize hooks for
+
+        Returns:
+            Serialized hook specification, or None if no hooks
+        """
+        hooks = self._hooks.get(event, [])
+        if not hooks:
+            return None
+
+        if len(hooks) == 1:
+            # Single hook: return string path or callable directly
+            _, hook = hooks[0]
+            if isinstance(hook, str):
+                return hook
+            return hook  # Let pickle handle the callable
+
+        # Multiple hooks: return as list
+        return hooks
 
     def _start_worker(self, wid: int) -> WorkerHandle:
         """
         Start a new Worker process and register it.
         Does not hold self._lock (registry.add uses its own lock).
+        Passes lifecycle hooks to the Worker process.
         """
+        # Serialize hooks for this Worker
+        on_start = self._serialize_hooks(WorkerEvent.WORKER_START)
+        on_stop = self._serialize_hooks(WorkerEvent.WORKER_STOP)
+        on_task_start = self._serialize_hooks(WorkerEvent.TASK_START)
+        on_task_end = self._serialize_hooks(WorkerEvent.TASK_END)
+
         p = self._ctx.Process(
             target=_worker_entry,
-            args=(wid, self._task_q, self._result_q),
+            args=(
+                wid,
+                self._task_q,
+                self._result_q,
+                self._pool_id,
+                on_start,
+                on_stop,
+                on_task_start,
+                on_task_end,
+            ),
             daemon=True,
             name=f"worker-{wid}",
         )
@@ -468,6 +1283,246 @@ class WorkerPool:
             self._worker_start_time[wid] = None
         logger.debug("Started Worker-%d (pid=%d)", wid, p.pid)
         return handle
+
+    # ── Public: Status Properties ───────────────────────────────────────────
+
+    @property
+    def state(self) -> PoolState:
+        """Current pool state (RUNNING/DRAINING/STOPPING/KILLING/STOPPED)"""
+        return self._state
+
+    @property
+    def pool_id(self) -> str:
+        """Unique pool identifier"""
+        return self._pool_id
+
+    @property
+    def n_workers(self) -> int:
+        """Configured number of workers"""
+        return self._n
+
+    @property
+    def alive_workers(self) -> int:
+        """Number of currently alive workers"""
+        return self._registry.alive_count()
+
+    @property
+    def pending_tasks(self) -> int:
+        """Number of tasks waiting in queue (approximate, may not be available on all platforms)"""
+        try:
+            return self._task_q.qsize()
+        except NotImplementedError:
+            return -1  # Not available on some platforms (e.g., macOS)
+
+    @property
+    def in_flight_tasks(self) -> int:
+        """Number of tasks currently being executed"""
+        with self._lock:
+            return len([t for t in self._worker_task.values() if t is not None])
+
+    @property
+    def queued_futures(self) -> int:
+        """Number of futures waiting for result"""
+        with self._lock:
+            return len(self._futures)
+
+    def get_stats(self) -> PoolStats:
+        """
+        Get current pool statistics snapshot.
+
+        Returns:
+            PoolStats with current worker, task, queue, time, and memory statistics.
+            Note: This is a point-in-time snapshot and may be stale immediately
+            after retrieval in a busy pool.
+        """
+        with self._stats_lock:
+            completed = self._tasks_completed
+            total_duration = self._total_task_duration
+            total_memory = self._total_memory_delta
+
+            return PoolStats(
+                total_workers=self._n,
+                alive_workers=self._registry.alive_count(),
+                worker_restarts=self._worker_restarts,
+                worker_crashes=self._worker_crashes,
+                tasks_submitted=self._tasks_submitted,
+                tasks_completed=completed,
+                tasks_failed=self._tasks_failed,
+                tasks_orphaned=self._tasks_orphaned,
+                tasks_pending=self.pending_tasks,
+                tasks_in_flight=self.in_flight_tasks,
+                uptime=time.monotonic() - self._start_time,
+                total_task_duration=total_duration,
+                avg_task_duration=total_duration / completed if completed > 0 else 0.0,
+                total_memory_delta=total_memory,
+                avg_memory_delta_mb=(total_memory / (1024 * 1024) / completed) if completed > 0 else 0.0,
+            )
+
+    def health_check(self) -> Dict[str, Any]:
+        """
+        Perform health check and return status.
+
+        Returns:
+            Dictionary containing:
+            - healthy: bool - True if pool is healthy
+            - state: str - Current pool state
+            - alive_workers: int - Number of alive workers
+            - dead_workers: int - Number of dead workers
+            - pending_tasks: int - Tasks waiting in queue
+            - in_flight_tasks: int - Tasks currently executing
+            - warnings: List[str] - Warning messages (if any)
+
+        Warnings may include:
+        - "High failure rate" - >10% tasks failing
+        - "Worker crashes detected" - Workers have crashed
+        - "Queue backlog" - Many tasks waiting
+        - "Pool not running" - Pool is in shutdown state
+        """
+        warnings = []
+
+        stats = self.get_stats()
+
+        # Check for warning conditions
+        if stats.tasks_submitted > 10:
+            failure_rate = stats.tasks_failed / stats.tasks_submitted
+            if failure_rate > 0.1:
+                warnings.append(f"High failure rate: {failure_rate:.1%}")
+
+        if stats.worker_crashes > 0:
+            warnings.append(f"Worker crashes detected: {stats.worker_crashes}")
+
+        if stats.tasks_pending > 100:
+            warnings.append(f"Queue backlog: {stats.tasks_pending} tasks waiting")
+
+        if self._state != PoolState.RUNNING:
+            warnings.append(f"Pool not running: {self._state.name}")
+
+        dead_workers = stats.total_workers - stats.alive_workers
+        healthy = (
+            self._state == PoolState.RUNNING
+            and stats.alive_workers > 0
+            and len(warnings) == 0
+        )
+
+        return {
+            "healthy": healthy,
+            "state": self._state.name,
+            "alive_workers": stats.alive_workers,
+            "dead_workers": dead_workers,
+            "pending_tasks": stats.tasks_pending,
+            "in_flight_tasks": stats.tasks_in_flight,
+            "warnings": warnings,
+        }
+
+    def drain(self, timeout: Optional[float] = None) -> bool:
+        """
+        Wait for all pending and in-flight tasks to complete.
+
+        This method blocks until all submitted tasks have completed
+        (successfully or with error), or until timeout expires.
+
+        Args:
+            timeout: Maximum time to wait in seconds. None means wait forever.
+
+        Returns:
+            True if all tasks completed, False if timeout expired.
+
+        Note:
+            This method does NOT prevent new tasks from being submitted.
+            For a clean shutdown, use shutdown() instead.
+        """
+        start = time.monotonic()
+        while True:
+            with self._lock:
+                pending = len(self._futures)
+            if pending == 0:
+                return True
+            if timeout is not None:
+                elapsed = time.monotonic() - start
+                if elapsed >= timeout:
+                    return False
+                time.sleep(min(0.1, timeout - elapsed))
+            else:
+                time.sleep(0.1)
+
+    # ── Public: Hook Management ─────────────────────────────────────────────
+
+    def register_hook(
+        self,
+        event: WorkerEvent,
+        hook: Union[AnyWorkerHook, AnyTaskHook],
+        name: Optional[str] = None,
+    ) -> str:
+        """
+        Register a lifecycle hook.
+
+        Hooks can be registered for the following events:
+        - WORKER_START: Called when a Worker process starts
+        - WORKER_STOP: Called when a Worker process stops
+        - TASK_START: Called before each task execution
+        - TASK_END: Called after each task execution
+
+        Note: Hooks registered after Pool startup will only affect
+        newly started Workers (e.g., after crash recovery).
+
+        Args:
+            event: The WorkerEvent to hook into
+            hook: Hook function (sync/async) or string path "module.function"
+            name: Optional name for the hook (for later unregistration)
+
+        Returns:
+            Hook name (generated if not provided)
+
+        Example:
+            pool.register_hook(WorkerEvent.WORKER_START, init_db, "db_init")
+            pool.register_hook(WorkerEvent.TASK_END, log_task, "task_logger")
+        """
+        if name is None:
+            name = f"hook_{len(self._hooks[event])}"
+
+        self._hooks[event].append((name, hook))
+        logger.debug(
+            "Registered hook | event=%s, name=%s, hook_type=%s",
+            event.name, name, type(hook).__name__
+        )
+        return name
+
+    def unregister_hook(self, event: WorkerEvent, name: str) -> bool:
+        """
+        Unregister a lifecycle hook.
+
+        Note: Unregistering hooks after Pool startup will only affect
+        newly started Workers. Running Workers retain their original hooks.
+
+        Args:
+            event: The WorkerEvent the hook was registered for
+            name: The hook name (returned by register_hook)
+
+        Returns:
+            True if hook was found and removed, False otherwise
+        """
+        hooks = self._hooks[event]
+        for i, (hook_name, _) in enumerate(hooks):
+            if hook_name == name:
+                hooks.pop(i)
+                logger.debug("Unregistered hook | event=%s, name=%s", event.name, name)
+                return True
+        logger.debug("Hook not found | event=%s, name=%s", event.name, name)
+        return False
+
+    def get_hooks(self, event: WorkerEvent) -> List[Tuple[str, Union[AnyWorkerHook, AnyTaskHook]]]:
+        """
+        Get all registered hooks for an event.
+
+        Args:
+            event: The WorkerEvent to get hooks for
+
+        Returns:
+            List of (name, hook) tuples
+        """
+        return list(self._hooks.get(event, []))
+
+    # ── Internal: Worker Health Check ───────────────────────────────────────
 
     def _check_workers(self) -> None:
         """
@@ -529,16 +1584,24 @@ class WorkerPool:
                         ),
                         tb=f"Worker process terminated unexpectedly (exit={exit_reason})",
                     )
+                with self._stats_lock:
+                    self._worker_crashes += 1
             else:
                 logger.log(
                     log_level,
                     "Worker-%d (pid=%s) exited (exit=%s), no task was in progress",
                     wid, handle.pid, exit_reason
                 )
+                # Count as crash only if non-normal exit
+                if exitcode != 0:
+                    with self._stats_lock:
+                        self._worker_crashes += 1
 
             # Restart only if RUNNING
             if self._state == PoolState.RUNNING:
                 new_handle = self._start_worker(wid)
+                with self._stats_lock:
+                    self._worker_restarts += 1
                 logger.info(
                     "Worker-%d restarted (old_pid=%s, new_pid=%s)",
                     wid, handle.pid, new_handle.pid
@@ -576,6 +1639,27 @@ class WorkerPool:
         """Dispatch result message"""
         kind = msg[0]
 
+        # Handle new Worker lifecycle messages
+        if kind == "__worker_ready__":
+            # Worker successfully initialized (WORKER_START hooks passed)
+            _, wid, pid = msg
+            logger.info(
+                "Worker-%d ready (pid=%d) | hooks initialized successfully",
+                wid, pid
+            )
+            return
+
+        if kind == "__worker_init_failed__":
+            # Worker initialization failed (WORKER_START hook threw exception)
+            _, wid, error, tb = msg
+            logger.error(
+                "Worker-%d initialization failed | error=%s\n%s",
+                wid, error, tb
+            )
+            # Worker will not start, no need to track it
+            # _check_workers will detect it as dead and may attempt restart
+            return
+
         if kind == "__dequeued__":
             # ★ Task has left the queue, Worker now "owns" it.
             #   From this point, if Worker crashes, _check_workers can attribute
@@ -605,37 +1689,41 @@ class WorkerPool:
             )
 
         elif kind == "ok":
-            _, task_id, value = msg
-            # Find Worker ID before clearing
-            wid = self._find_worker_by_task(task_id)
-            handle = self._registry.get(wid) if wid is not None else None
-            pid = handle.pid if handle else None
+            _, task_id, value, worker_id, start_time, end_time, memory_start, memory_end = msg
             self._clear_worker_task(task_id)
+            handle = self._registry.get(worker_id) if worker_id is not None else None
+            pid = handle.pid if handle else None
             with self._lock:
                 fut = self._futures.pop(task_id, None)
                 self._task_enqueue_time.pop(task_id, None)  # Defensive cleanup
             if fut:  # pragma: no cover - Future may already be removed due to timeout
-                fut._resolve(value)
+                fut._resolve(value, worker_id, start_time, end_time, memory_start, memory_end)
+                duration = end_time - start_time if end_time and start_time else 0
+                memory_delta = memory_end - memory_start if memory_end and memory_start else 0
+                with self._stats_lock:
+                    self._tasks_completed += 1
+                    self._total_task_duration += duration
+                    self._total_memory_delta += memory_delta
                 logger.debug(
-                    "Task[%s] completed | Worker-%d (pid=%s)",
-                    task_id[:8], wid, pid
+                    "Task[%s] completed | Worker-%d (pid=%s) | duration=%.3fs",
+                    task_id[:8], worker_id, pid, duration
                 )
 
         elif kind == "error":
-            _, task_id, exc, tb = msg
-            # Find Worker ID before clearing
-            wid = self._find_worker_by_task(task_id)
-            handle = self._registry.get(wid) if wid is not None else None
-            pid = handle.pid if handle else None
+            _, task_id, exc, tb, worker_id, start_time, end_time, memory_start, memory_end = msg
             self._clear_worker_task(task_id)
+            handle = self._registry.get(worker_id) if worker_id is not None else None
+            pid = handle.pid if handle else None
             with self._lock:
                 fut = self._futures.pop(task_id, None)
                 self._task_enqueue_time.pop(task_id, None)  # Defensive cleanup
             if fut:  # pragma: no cover - Future may already be removed due to timeout
-                fut._reject(exc, tb)
+                fut._reject(exc, tb, worker_id, start_time, end_time, memory_start, memory_end)
+                with self._stats_lock:
+                    self._tasks_failed += 1
                 logger.warning(
                     "Task[%s] failed | Worker-%d (pid=%s) | error=%s: %s",
-                    task_id[:8], wid, pid, type(exc).__name__, exc
+                    task_id[:8], worker_id, pid, type(exc).__name__, exc
                 )
 
     def _find_worker_by_task(self, task_id: str) -> Optional[int]:
@@ -715,6 +1803,8 @@ class WorkerPool:
                     ),
                     tb="Worker process terminated during task dispatch",
                 )
+                with self._stats_lock:
+                    self._tasks_orphaned += 1
 
     # ── Public API ──────────────────────────────────────────────────────────
 
@@ -740,11 +1830,17 @@ class WorkerPool:
                 f"Pool is {self._state.name} — no new tasks accepted. "
                 f"shutdown() was already called."
             )
-        task_id = str(uuid.uuid4())
-        fut = Future(task_id)
+        # Generate unique task_id (handle potential UUID collision in free-threaded Python)
         with self._lock:
+            task_id = str(uuid.uuid4())
+            # Ensure uniqueness (extremely rare but possible collision in concurrent scenarios)
+            while task_id in self._futures:
+                task_id = str(uuid.uuid4())
+            fut = Future(task_id)
             self._futures[task_id] = fut
             self._task_enqueue_time[task_id] = time.monotonic()
+        with self._stats_lock:
+            self._tasks_submitted += 1
         self._task_q.put((task_id, fn, args, kwargs))
         logger.debug("Task[%s] submitted | fn=%s", task_id[:8], fn.__name__)
         return fut
@@ -893,19 +1989,9 @@ class WorkerPool:
         return report
 
     @property
-    def n_workers(self) -> int:
-        """Number of Worker processes"""
-        return self._n
-
-    @property
     def active_workers(self) -> int:
         """Number of alive Worker processes"""
         return self._registry.alive_count()
-
-    @property
-    def state(self) -> PoolState:
-        """Current pool state"""
-        return self._state
 
     def __enter__(self) -> "WorkerPool":
         logger.debug("WorkerPool context entered | state=%s", self._state.name)

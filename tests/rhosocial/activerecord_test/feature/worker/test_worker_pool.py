@@ -46,43 +46,46 @@ from rhosocial.activerecord.worker.pool import (
 # Test task functions (must be module-level functions, pickle-able)
 # ─────────────────────────────────────────────────────────────────────────────
 
-def simple_task(n: int) -> int:
+from rhosocial.activerecord.worker import TaskContext
+
+
+def simple_task(ctx: TaskContext, n: int) -> int:
     """Simple task: return n * 2"""
     return n * 2
 
 
-def slow_task(seconds: float) -> float:
+def slow_task(ctx: TaskContext, seconds: float) -> float:
     """Slow task: sleep for specified seconds"""
     time.sleep(seconds)
     return seconds
 
 
-def very_slow_task() -> None:
+def very_slow_task(ctx: TaskContext) -> None:
     """Very slow task: sleep for 10 seconds"""
     time.sleep(10)
 
 
-def failing_task(n: int) -> int:
+def failing_task(ctx: TaskContext, n: int) -> int:
     """Task that fails"""
     if n < 0:
         raise ValueError("n must be non-negative")
     return n
 
 
-def crash_task() -> None:
+def crash_task(ctx: TaskContext) -> None:
     """Task that crashes the process (simulate segfault)"""
     import os
     os._exit(1)
 
 
-async def async_simple_task(n: int) -> int:
+async def async_simple_task(ctx: TaskContext, n: int) -> int:
     """Simple async task: return n * 2"""
     import asyncio
     await asyncio.sleep(0.01)  # Small delay to verify async execution
     return n * 2
 
 
-async def async_failing_task(n: int) -> int:
+async def async_failing_task(ctx: TaskContext, n: int) -> int:
     """Async task that fails"""
     import asyncio
     await asyncio.sleep(0.01)

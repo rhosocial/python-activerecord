@@ -10,4 +10,5 @@
 *   **[核心特性之旅](key_features.md)**: 即使你是初学者，也可以通过这个博客系统的例子，快速体验核心功能。
 *   **[设计哲学](philosophy.md)**: 为什么我们需要 "渐进式 ORM" (Gradual ORM)？
 *   **[技术选型指南](comparison.md)**: 选择哪个 ORM？基于场景对比 SQLAlchemy、Django、SQLModel 等。
+*   **[竞争对手分析](competitor_analysis/)**: 与主流 Python ORM 框架的详细对比分析，帮助开发者选择适合的工具。
 *   **[架构设计](architecture.md)**: (进阶) 深入了解我们的分层设计。
