@@ -8,7 +8,7 @@ ActiveRecord context awareness.
 import os
 import tempfile
 import uuid
-from typing import Type, Tuple
+from typing import Type, Tuple, Optional
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
@@ -37,7 +37,7 @@ def _create_test_model_class(base_class, class_name: str):
 class SyncTestUser(ActiveRecord):
     """Sync test user model for connection pool tests."""
     __table_name__ = "test_users"
-    id: int = None
+    id: Optional[int] = None
     name: str
     email: str
 
@@ -45,7 +45,7 @@ class SyncTestUser(ActiveRecord):
 class AsyncTestUser(AsyncActiveRecord):
     """Async test user model for connection pool tests."""
     __table_name__ = "test_users"
-    id: int = None
+    id: Optional[int] = None
     name: str
     email: str
 
@@ -115,48 +115,37 @@ class BasicConnectionProvider(IBasicConnectionProvider):
 
         return pool, SyncTestUser
 
-    def setup_async_pool_and_model(self, scenario_name: str) -> Tuple[AsyncBackendPool, Type[AsyncActiveRecord]]:
+    async def setup_async_pool_and_model(self, scenario_name: str) -> Tuple[AsyncBackendPool, Type[AsyncActiveRecord]]:
         """Setup async connection pool and model for context tests."""
-        # Create connection pool
-        import asyncio
-
         config = PoolConfig(
             min_size=1,
             max_size=5,
             backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
 
-        # Create pool synchronously using asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        pool = loop.run_until_complete(AsyncBackendPool.create(config))
+        # Create pool
+        pool = await AsyncBackendPool.create(config)
 
         # Create table
-        async def setup_table():
-            async with pool.connection() as backend:
-                try:
-                    await backend.execute("DROP TABLE IF EXISTS test_users", options=ExecutionOptions(stmt_type=StatementType.DDL))
-                except Exception:
-                    pass
-                await backend.execute("""
-                    CREATE TABLE test_users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        email TEXT NOT NULL
-                    )
-                """, options=ExecutionOptions(stmt_type=StatementType.DDL))
-                self._active_async_backends.append(backend)
-
-        loop.run_until_complete(setup_table())
+        async with pool.connection() as backend:
+            try:
+                await backend.execute("DROP TABLE IF EXISTS test_users", options=ExecutionOptions(stmt_type=StatementType.DDL))
+            except Exception:
+                pass
+            await backend.execute("""
+                CREATE TABLE test_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL
+                )
+            """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+            self._active_async_backends.append(backend)
 
         # Configure model
-        async def configure_model():
-            await AsyncTestUser.configure(
-                SQLiteConnectionConfig(database=":memory:"),
-                AsyncSQLiteBackend
-            )
-
-        loop.run_until_complete(configure_model())
+        await AsyncTestUser.configure(
+            SQLiteConnectionConfig(database=":memory:"),
+            AsyncSQLiteBackend
+        )
         self._active_async_backends.append(AsyncTestUser.__backend__)
 
         return pool, AsyncTestUser
@@ -209,4 +198,4 @@ class BasicConnectionProvider(IBasicConnectionProvider):
 
     async def setup_async_pool_for_crud(self, scenario_name: str) -> Tuple[AsyncBackendPool, Type[AsyncActiveRecord]]:
         """Setup async connection pool for CRUD tests."""
-        return self.setup_async_pool_and_model(scenario_name)
+        return await self.setup_async_pool_and_model(scenario_name)

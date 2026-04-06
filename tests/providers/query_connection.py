@@ -8,7 +8,7 @@ query classes context awareness (ActiveQuery, CTEQuery, SetOperationQuery).
 import os
 import tempfile
 import uuid
-from typing import Type, Tuple
+from typing import Type, Tuple, Optional
 
 from rhosocial.activerecord.model import ActiveRecord, AsyncActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
@@ -24,7 +24,7 @@ from rhosocial.activerecord.testsuite.feature.query.connection.interfaces import
 class SyncQueryTestUser(ActiveRecord):
     """Sync test user model for query connection pool tests."""
     __table_name__ = "test_users"
-    id: int = None
+    id: Optional[int] = None
     name: str
     email: str
 
@@ -32,7 +32,7 @@ class SyncQueryTestUser(ActiveRecord):
 class AsyncQueryTestUser(AsyncActiveRecord):
     """Async test user model for query connection pool tests."""
     __table_name__ = "test_users"
-    id: int = None
+    id: Optional[int] = None
     name: str
     email: str
 
@@ -101,47 +101,37 @@ class QueryConnectionProvider(IQueryConnectionProvider):
 
         return pool, SyncQueryTestUser
 
-    def setup_async_pool_and_model(self, scenario_name: str) -> Tuple[AsyncBackendPool, Type[AsyncActiveRecord]]:
+    async def setup_async_pool_and_model(self, scenario_name: str) -> Tuple[AsyncBackendPool, Type[AsyncActiveRecord]]:
         """Setup async connection pool and model for query context tests."""
-        import asyncio
-
         config = PoolConfig(
             min_size=1,
             max_size=5,
             backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
 
-        # Create pool synchronously using asyncio
-        loop = asyncio.new_event_loop()
-        asyncio.set_event_loop(loop)
-        pool = loop.run_until_complete(AsyncBackendPool.create(config))
+        # Create pool
+        pool = await AsyncBackendPool.create(config)
 
         # Create table
-        async def setup_table():
-            async with pool.connection() as backend:
-                try:
-                    await backend.execute("DROP TABLE IF EXISTS test_users", options=ExecutionOptions(stmt_type=StatementType.DDL))
-                except Exception:
-                    pass
-                await backend.execute("""
-                    CREATE TABLE test_users (
-                        id INTEGER PRIMARY KEY AUTOINCREMENT,
-                        name TEXT NOT NULL,
-                        email TEXT NOT NULL
-                    )
-                """, options=ExecutionOptions(stmt_type=StatementType.DDL))
-                self._active_async_backends.append(backend)
-
-        loop.run_until_complete(setup_table())
+        async with pool.connection() as backend:
+            try:
+                await backend.execute("DROP TABLE IF EXISTS test_users", options=ExecutionOptions(stmt_type=StatementType.DDL))
+            except Exception:
+                pass
+            await backend.execute("""
+                CREATE TABLE test_users (
+                    id INTEGER PRIMARY KEY AUTOINCREMENT,
+                    name TEXT NOT NULL,
+                    email TEXT NOT NULL
+                )
+            """, options=ExecutionOptions(stmt_type=StatementType.DDL))
+            self._active_async_backends.append(backend)
 
         # Configure model
-        async def configure_model():
-            await AsyncQueryTestUser.configure(
-                SQLiteConnectionConfig(database=":memory:"),
-                AsyncSQLiteBackend
-            )
-
-        loop.run_until_complete(configure_model())
+        await AsyncQueryTestUser.configure(
+            SQLiteConnectionConfig(database=":memory:"),
+            AsyncSQLiteBackend
+        )
         self._active_async_backends.append(AsyncQueryTestUser.__backend__)
 
         return pool, AsyncQueryTestUser
