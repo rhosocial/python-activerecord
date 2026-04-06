@@ -46,6 +46,21 @@ class IsolationLevel(Enum):
     SERIALIZABLE = auto()
 
 
+class TransactionMode(Enum):
+    """Transaction access mode.
+
+    Defines the access mode for a transaction:
+    - READ_WRITE: Transaction can read and write data (default)
+    - READ_ONLY: Transaction can only read data, no modifications allowed
+
+    Note: READ_ONLY is a transaction mode, not an isolation level.
+    It can be combined with any isolation level.
+    """
+
+    READ_WRITE = auto()
+    READ_ONLY = auto()
+
+
 class TransactionState(Enum):
     """Transaction states"""
 
@@ -63,6 +78,7 @@ class TransactionManagerBase(ABC):
         self._transaction_level = 0
         self._savepoint_prefix = "SP"
         self._isolation_level: Optional[IsolationLevel] = None
+        self._transaction_mode: TransactionMode = TransactionMode.READ_WRITE
         # Use semantic logger naming: rhosocial.activerecord.transaction
         self._logger = logger or get_logging_manager().get_logger(
             get_logging_manager().LOGGER_TRANSACTION
@@ -144,6 +160,27 @@ class TransactionManagerBase(ABC):
             self.log(logging.ERROR, "Cannot change isolation level during active transaction")
             raise IsolationLevelError("Cannot change isolation level during active transaction")
         self._isolation_level = level
+
+    @property
+    def transaction_mode(self) -> TransactionMode:
+        """Get the current transaction mode"""
+        return self._transaction_mode
+
+    @transaction_mode.setter
+    def transaction_mode(self, mode: TransactionMode):
+        """Set the transaction mode
+
+        Args:
+            mode: The transaction mode to be set (READ_WRITE or READ_ONLY)
+
+        Raises:
+            TransactionError: If attempting to change mode while transaction is active
+        """
+        self.log(logging.DEBUG, f"Setting transaction mode to {mode}")
+        if self.is_active:
+            self.log(logging.ERROR, "Cannot change transaction mode during active transaction")
+            raise TransactionError("Cannot change transaction mode during active transaction")
+        self._transaction_mode = mode
 
     def _get_savepoint_name(self, level: int) -> str:
         """Generate savepoint name
@@ -466,13 +503,39 @@ class TransactionManager(TransactionManagerBase):
             raise TransactionError(error_msg) from e
 
     @contextmanager
-    def transaction(self) -> Generator[None, None, None]:
+    def transaction(
+        self,
+        isolation_level: Optional[IsolationLevel] = None,
+        mode: Optional[TransactionMode] = None,
+    ) -> Generator[None, None, None]:
         """Context manager for transaction blocks.
+
+        Args:
+            isolation_level: Optional isolation level for this transaction.
+                If not specified, uses the currently set isolation level.
+            mode: Optional transaction mode (READ_WRITE or READ_ONLY).
+                If not specified, uses the currently set mode.
 
         Usage:
             with manager.transaction():
                 # Operations within transaction
+
+            with manager.transaction(isolation_level=IsolationLevel.SERIALIZABLE):
+                # Transaction with specific isolation level
+
+            with manager.transaction(mode=TransactionMode.READ_ONLY):
+                # Read-only transaction
         """
+        # Save current settings
+        original_isolation_level = self._isolation_level
+        original_mode = self._transaction_mode
+
+        # Apply new settings if provided
+        if isolation_level is not None:
+            self._isolation_level = isolation_level
+        if mode is not None:
+            self._transaction_mode = mode
+
         try:
             self.begin()
             yield
@@ -481,6 +544,10 @@ class TransactionManager(TransactionManagerBase):
             if self.is_active:
                 self.rollback()
             raise
+        finally:
+            # Restore original settings
+            self._isolation_level = original_isolation_level
+            self._transaction_mode = original_mode
 
 
 class AsyncTransactionManager(TransactionManagerBase):
@@ -691,8 +758,39 @@ class AsyncTransactionManager(TransactionManagerBase):
             raise TransactionError(error_msg) from e
 
     @asynccontextmanager
-    async def transaction(self) -> AsyncGenerator[None, None]:
-        """Context manager for async transaction blocks."""
+    async def transaction(
+        self,
+        isolation_level: Optional[IsolationLevel] = None,
+        mode: Optional[TransactionMode] = None,
+    ) -> AsyncGenerator[None, None]:
+        """Context manager for async transaction blocks.
+
+        Args:
+            isolation_level: Optional isolation level for this transaction.
+                If not specified, uses the currently set isolation level.
+            mode: Optional transaction mode (READ_WRITE or READ_ONLY).
+                If not specified, uses the currently set mode.
+
+        Usage:
+            async with manager.transaction():
+                # Operations within transaction
+
+            async with manager.transaction(isolation_level=IsolationLevel.SERIALIZABLE):
+                # Transaction with specific isolation level
+
+            async with manager.transaction(mode=TransactionMode.READ_ONLY):
+                # Read-only transaction
+        """
+        # Save current settings
+        original_isolation_level = self._isolation_level
+        original_mode = self._transaction_mode
+
+        # Apply new settings if provided
+        if isolation_level is not None:
+            self._isolation_level = isolation_level
+        if mode is not None:
+            self._transaction_mode = mode
+
         try:
             await self.begin()
             yield
@@ -701,3 +799,7 @@ class AsyncTransactionManager(TransactionManagerBase):
             if self.is_active:
                 await self.rollback()
             raise
+        finally:
+            # Restore original settings
+            self._isolation_level = original_isolation_level
+            self._transaction_mode = original_mode
