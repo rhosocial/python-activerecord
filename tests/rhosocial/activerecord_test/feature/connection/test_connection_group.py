@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/connection/test_connection_group.py
+# tests/rhosocial/activerecord_test/feature/connection/test_connection_group.py
 """
 Tests for ConnectionGroup and AsyncConnectionGroup classes.
 """
@@ -8,7 +8,7 @@ import pytest
 from rhosocial.activerecord.connection import ConnectionGroup, AsyncConnectionGroup
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 # Import models from local conftest using absolute path
-from tests.rhosocial.activerecord_test.connection.conftest import (
+from tests.rhosocial.activerecord_test.feature.connection.conftest import (
     User, Post, Comment, AsyncUser, AsyncPost
 )
 
