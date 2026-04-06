@@ -1135,6 +1135,16 @@ class WorkerPool:
         """Number of alive workers"""
 
     @property
+    def ready_workers(self) -> int:
+        """Number of workers that completed initialization and are ready to process tasks.
+
+        Unlike alive_workers, ready_workers only counts Workers that have sent the
+        __worker_ready__ message. A Worker process must complete WORKER_START hooks
+        before sending the ready signal. This helps distinguish between "process has
+        started" and "process is ready to handle tasks".
+        """
+
+    @property
     def pending_tasks(self) -> int:
         """Tasks waiting in queue"""
 
@@ -1801,6 +1811,39 @@ except RuntimeError as e:
     else:
         raise
 ```
+
+### Pitfall 6: Using os._exit() Causes Queue State Corruption
+
+```python
+# WRONG: Using os._exit() corrupts multiprocessing.Queue state
+def crash_task(ctx: TaskContext):
+    import os
+    os._exit(1)  # Bypasses normal cleanup, may corrupt shared Queue
+
+# Why is this a problem?
+# os._exit() immediately terminates the process, bypassing Python's normal
+# cleanup mechanisms. This can leave shared multiprocessing.Queue pipe
+# state corrupted, preventing restarted Workers from communicating through
+# that Queue.
+
+# If you need to simulate a crash (e.g., for testing), be aware:
+# 1. os._exit() corrupts Queue state
+# 2. Signals (SIGKILL/SIGTERM) have similar issues
+# 3. Actual segfaults typically don't corrupt Queue the same way
+
+# CORRECT: Let tasks complete normally or raise exceptions
+def task_with_error(ctx: TaskContext):
+    raise RuntimeError("Task failed")  # Worker catches and handles normally
+```
+
+**Technical Details**:
+
+WorkerPool's orphan task detection mechanism needs to distinguish between:
+
+- Worker process has started but not yet completed initialization
+- Worker is ready to process tasks
+
+Newly started Workers are not counted in `ready_workers` until they send the `__worker_ready__` message. If `os._exit()` causes a Worker to terminate abnormally, the Queue pipe may be corrupted, and the restarted Worker won't be able to send the ready message, causing `ready_workers` count to never recover.
 
 ---
 

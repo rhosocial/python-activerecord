@@ -1135,6 +1135,15 @@ class WorkerPool:
         """存活的 Worker 数量"""
 
     @property
+    def ready_workers(self) -> int:
+        """已完成初始化、准备好处理任务的 Worker 数量
+
+        与 alive_workers 不同，ready_workers 只统计已发送 __worker_ready__
+        消息的 Worker。Worker 进程启动后需要完成 WORKER_START 钩子执行
+        才会发送就绪消息。这有助于区分"进程已启动"和"进程已准备好处理任务"。
+        """
+
+    @property
     def pending_tasks(self) -> int:
         """队列中等待的任务数"""
 
@@ -1801,6 +1810,39 @@ except RuntimeError as e:
     else:
         raise
 ```
+
+### 陷阱 6：使用 os._exit() 导致 Queue 状态损坏
+
+```python
+# 错误：使用 os._exit() 会导致 multiprocessing.Queue 状态不一致
+def crash_task(ctx: TaskContext):
+    import os
+    os._exit(1)  # 绕过正常清理，可能损坏共享 Queue
+
+# 为什么这是个问题？
+# os._exit() 立即终止进程，绕过 Python 的正常清理机制。
+# 这可能导致共享的 multiprocessing.Queue 管道状态损坏，
+# 使得重启后的 Worker 无法通过该 Queue 发送消息。
+
+# 如果需要模拟崩溃（例如测试），了解以下限制：
+# 1. os._exit() 会损坏 Queue 状态
+# 2. 信号（如 SIGKILL/SIGTERM）也有类似问题
+# 3. 实际的段错误（segfault）通常不会以同样方式损坏 Queue
+
+# 正确做法：让任务正常完成或抛出异常
+def task_with_error(ctx: TaskContext):
+    raise RuntimeError("任务失败")  # Worker 会捕获并正常处理
+```
+
+**技术细节**：
+
+WorkerPool 的孤儿任务检测机制需要区分以下情况：
+- Worker 进程已启动但尚未完成初始化
+- Worker 已准备好处理任务
+
+新启动的 Worker 在发送 `__worker_ready__` 消息前不会被计入 `ready_workers`。
+如果使用 `os._exit()` 导致 Worker 异常终止，Queue 管道可能损坏，
+重启的 Worker 将无法发送就绪消息，导致 `ready_workers` 计数无法恢复。
 
 ---
 
