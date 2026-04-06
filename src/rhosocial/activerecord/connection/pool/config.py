@@ -19,6 +19,7 @@ class PoolConfig:
         timeout: Timeout for acquiring a connection (seconds).
         idle_timeout: Idle timeout for connections (seconds), closed after timeout.
         max_lifetime: Maximum lifetime of a connection (seconds).
+        close_timeout: Timeout for graceful close - waiting for active connections (seconds).
         validate_on_borrow: Whether to validate connection when borrowing.
         validate_on_return: Whether to validate connection when returning.
         validation_query: Validation query statement (SQL string).
@@ -52,6 +53,7 @@ class PoolConfig:
     timeout: float = 30.0  # Acquire timeout (seconds)
     idle_timeout: float = 300.0  # Idle timeout (seconds), closed after timeout
     max_lifetime: float = 3600.0  # Maximum connection lifetime (seconds)
+    close_timeout: float = 5.0  # Graceful close timeout (seconds), 0 = no wait
 
     # Validation settings
     validate_on_borrow: bool = True  # Validate connection when borrowing
@@ -76,6 +78,8 @@ class PoolConfig:
             raise ValueError("idle_timeout must be >= 0")
         if self.max_lifetime <= 0:
             raise ValueError("max_lifetime must be > 0")
+        if self.close_timeout < 0:
+            raise ValueError("close_timeout must be >= 0")
 
         # Validate validation_query logic
         if self.validation_query is None:
@@ -105,6 +109,7 @@ class PoolConfig:
             'timeout': self.timeout,
             'idle_timeout': self.idle_timeout,
             'max_lifetime': self.max_lifetime,
+            'close_timeout': self.close_timeout,
             'validate_on_borrow': self.validate_on_borrow,
             'validate_on_return': self.validate_on_return,
             'validation_query': self.validation_query,
