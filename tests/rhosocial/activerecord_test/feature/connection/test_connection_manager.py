@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/connection/test_connection_manager.py
+# tests/rhosocial/activerecord_test/feature/connection/test_connection_manager.py
 """
 Tests for ConnectionManager and AsyncConnectionManager classes.
 """
@@ -7,7 +7,7 @@ import pytest
 
 from rhosocial.activerecord.connection import ConnectionManager, AsyncConnectionManager
 # Import models from local conftest using absolute path
-from tests.rhosocial.activerecord_test.connection.conftest import (
+from tests.rhosocial.activerecord_test.feature.connection.conftest import (
     User, Post, Comment, AsyncUser, AsyncPost
 )
 
