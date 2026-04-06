@@ -27,13 +27,16 @@ class BackendPool:
         stats: Connection pool statistics.
 
     Example:
-        # Create connection pool
+        # Create connection pool (with warmup)
         config = PoolConfig(
             min_size=2,
             max_size=10,
             backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
-        pool = BackendPool(config)
+        pool = BackendPool.create(config)
+
+        # Or create without warmup (lazy initialization)
+        # pool = BackendPool(config)
 
         # Method 1: Manual acquire/release
         backend = pool.acquire()
@@ -57,6 +60,9 @@ class BackendPool:
     def __init__(self, config: PoolConfig):
         """Initialize connection pool.
 
+        Note: This does not warmup connections. Use create() class method
+        for immediate warmup, or connections will be created lazily on first acquire.
+
         Args:
             config: Connection pool configuration
         """
@@ -67,12 +73,35 @@ class BackendPool:
         self._lock = threading.RLock()
         self._condition = threading.Condition(self._lock)
         self._closed = False
+        self._initialized = False
 
-        # Warmup connections
-        self._warmup()
+    @classmethod
+    def create(cls, config: PoolConfig) -> 'BackendPool':
+        """Create and initialize connection pool with warmup.
 
-    def _warmup(self) -> None:
-        """Warmup minimum number of connections."""
+        This is the recommended way to create a sync pool, ensuring
+        min_size connections are ready immediately.
+
+        Args:
+            config: Connection pool configuration
+
+        Returns:
+            Initialized BackendPool with min_size connections ready
+
+        Example:
+            config = PoolConfig(min_size=2, max_size=10, ...)
+            pool = BackendPool.create(config)
+            # Pool is ready with 2 connections warmed up
+        """
+        pool = cls(config)
+        pool._initialize()
+        return pool
+
+    def _initialize(self) -> None:
+        """Initialize and warmup connections."""
+        if self._initialized:
+            return
+
         for _ in range(self.config.min_size):
             try:
                 pooled = self._create_backend()
@@ -82,6 +111,8 @@ class BackendPool:
             except Exception:
                 # Warmup failure does not prevent pool creation
                 self._stats.total_errors += 1
+
+        self._initialized = True
 
     def _create_backend(self) -> Optional[PooledBackend]:
         """Create new Backend instance.
@@ -162,6 +193,7 @@ class BackendPool:
             True if connection is valid
         """
         if not pooled.is_healthy:
+            self._stats.total_validation_failures += 1
             return False
 
         if pooled.is_expired(self.config.max_lifetime):
@@ -200,6 +232,10 @@ class BackendPool:
             RuntimeError: If pool is closed
             TimeoutError: If cannot acquire connection within timeout
         """
+        # Ensure initialized
+        if not self._initialized:
+            self._initialize()
+
         if timeout is None:
             timeout = self.config.timeout
 
@@ -353,6 +389,7 @@ class BackendPool:
         """Transaction context manager, ensures connection exclusivity.
 
         Acquires connection and starts transaction, auto commits or rolls back.
+        If already in a transaction context, reuses that transaction.
 
         Args:
             timeout: Acquire timeout (seconds)
@@ -367,6 +404,31 @@ class BackendPool:
         """
         from . import context as ctx
 
+        # Check if already in a transaction context - reuse it
+        existing_tx = ctx.get_current_transaction_backend()
+        if existing_tx is not None:
+            # Reuse existing transaction
+            yield existing_tx
+            return
+
+        # Check if already in a connection context - use that connection
+        existing_conn = ctx.get_current_connection_backend()
+
+        if existing_conn is not None:
+            # Use existing connection, start transaction on it
+            tx_token = ctx._set_transaction_backend(existing_conn)
+            try:
+                existing_conn.begin_transaction()
+                yield existing_conn
+                existing_conn.commit_transaction()
+            except Exception:
+                existing_conn.rollback_transaction()
+                raise
+            finally:
+                ctx._reset_transaction_backend(tx_token)
+            return
+
+        # No existing context - acquire new connection
         backend = self.acquire(timeout)
         tx_token = ctx._set_transaction_backend(backend)
         conn_token = ctx._set_connection_backend(backend)
@@ -382,25 +444,75 @@ class BackendPool:
             ctx._reset_transaction_backend(tx_token)
             self.release(backend)
 
-    def close(self) -> None:
-        """Close connection pool.
+    def close(self, timeout: Optional[float] = None, force: bool = False) -> None:
+        """Close connection pool gracefully.
 
-        Destroys all connections, pool cannot be used after closing.
+        Waits for active connections to be returned before closing.
+        If timeout is reached and force is False, raises RuntimeError.
+        If force is True, forcefully closes all connections after timeout.
+
+        Args:
+            timeout: Maximum time to wait for active connections (seconds).
+                     None uses config.close_timeout. 0 means no wait.
+            force: If True, forcefully close after timeout.
+                   If False (default), raise RuntimeError on timeout.
+
+        Raises:
+            RuntimeError: If timeout reached and force=False, or if pool already closed
+
+        Example:
+            # Graceful close with default timeout
+            pool.close()
+
+            # Quick close for tests
+            pool.close(timeout=0.1)
+
+            # Force close (for emergency cleanup)
+            pool.close(timeout=1.0, force=True)
         """
+        if timeout is None:
+            timeout = self.config.close_timeout
+
+        deadline = time.time() + timeout
+
         with self._lock:
+            if self._closed:
+                raise RuntimeError("Pool is already closed")
+
+            # Mark as closed to prevent new acquires
             self._closed = True
+
+            # Wait for active connections to be returned
+            if self._in_use and timeout > 0:
+                while self._in_use and time.time() < deadline:
+                    # Wait for connections to be released
+                    remaining = deadline - time.time()
+                    if remaining <= 0:
+                        break
+                    self._condition.wait(remaining)
+
+            # Check if all connections returned
+            if self._in_use:
+                if not force:
+                    # Reopen pool (connections still active)
+                    self._closed = False
+                    in_use_count = len(self._in_use)
+                    raise RuntimeError(
+                        f"Pool close timeout: {in_use_count} connection(s) still in use. "
+                        f"Use force=True to forcefully close, or ensure all connections "
+                        f"are properly returned using context managers."
+                    )
+                # Force close: destroy in-use connections
+                for pooled in list(self._in_use.values()):
+                    self._destroy_backend(pooled)
+                self._in_use.clear()
+                self._stats.current_in_use = 0
 
             # Destroy all available connections
             while self._available:
                 pooled = self._available.popleft()
                 self._destroy_backend(pooled)
                 self._stats.current_available -= 1
-
-            # Destroy all in-use connections (forced)
-            for pooled in list(self._in_use.values()):
-                self._destroy_backend(pooled)
-            self._in_use.clear()
-            self._stats.current_in_use = 0
 
             self._condition.notify_all()
 

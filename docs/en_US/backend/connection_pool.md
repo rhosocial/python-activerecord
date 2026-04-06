@@ -11,6 +11,94 @@ Connection pooling improves application performance by:
 - **Limiting resources**: Prevents database overload with connection limits
 - **Context awareness**: Enables classes to sense current connection/transaction context
 
+## Connection Pool Workflow
+
+### Connection Lifecycle
+
+```mermaid
+flowchart TB
+    subgraph PoolCreation["Create Pool"]
+        A1["BackendPool(config)"]
+        A2["Warmup min_size connections"]
+        A1 --> A2
+    end
+
+    subgraph AcquireRelease["Acquire & Release"]
+        B1["acquire()"]
+        B2{"Available?"}
+        B3["Take from pool"]
+        B4{"Under limit?"}
+        B5["Create new connection"]
+        B6["Wait for timeout"]
+        B7["Use connection"]
+        B8["release()"]
+        B9["Return to pool"]
+
+        B1 --> B2
+        B2 -->|Yes| B3
+        B2 -->|No| B4
+        B4 -->|Yes| B5
+        B4 -->|No| B6
+        B3 --> B7
+        B5 --> B7
+        B7 --> B8
+        B8 --> B9
+    end
+
+    subgraph Close["Close Pool"]
+        C1["close()"]
+        C2{"Active connections?"}
+        C3["Wait for return<br/>(max close_timeout sec)"]
+        C4{"Timeout?"}
+        C5["Raise RuntimeError"]
+        C6["Destroy all connections"]
+        C7["force=True?"]
+        C8["Force destroy active"]
+
+        C1 --> C2
+        C2 -->|Yes| C3
+        C2 -->|No| C6
+        C3 --> C4
+        C4 -->|Yes| C7
+        C4 -->|No| C6
+        C7 -->|No| C5
+        C7 -->|Yes| C8
+        C8 --> C6
+    end
+
+    A2 --> B1
+    B9 --> B1
+    B9 --> C1
+
+    style PoolCreation fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style AcquireRelease fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Close fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+```
+
+### Recommended Usage: Context Managers
+
+```mermaid
+flowchart LR
+    subgraph Recommended["Recommended"]
+        D1["with pool.connection() as backend:"]
+        D2["Execute database operations"]
+        D3["Auto return connection"]
+        D1 --> D2 --> D3
+    end
+
+    subgraph NotRecommended["Not Recommended"]
+        E1["backend = pool.acquire()"]
+        E2["Execute database operations"]
+        E3["pool.release(backend)"]
+        E4["May forget to release!"]
+        E1 --> E2 --> E3
+        E3 -.->|Risk| E4
+    end
+
+    style Recommended fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style NotRecommended fill:#ffebee,stroke:#c62828,stroke-width:2px
+```
+
 ## Quick Start
 
 ### Sync and Async Parity
@@ -19,7 +107,8 @@ Connection pooling improves application performance by:
 
 | Operation | Synchronous | Asynchronous |
 |-----------|-------------|--------------|
-| Create pool | `BackendPool(config)` | `AsyncBackendPool(config)` |
+| Create pool (recommended) | `BackendPool.create(config)` | `await AsyncBackendPool.create(config)` |
+| Create pool (lazy init) | `BackendPool(config)` | `AsyncBackendPool(config)` |
 | Acquire connection | `pool.acquire()` | `await pool.acquire()` |
 | Release connection | `pool.release(backend)` | `await pool.release(backend)` |
 | Connection context | `with pool.connection() as backend:` | `async with pool.connection() as backend:` |
@@ -42,7 +131,12 @@ config = PoolConfig(
     max_size=10,     # Maximum connections allowed
     backend_factory=lambda: SQLiteBackend(database="app.db")
 )
-pool = BackendPool(config)
+
+# Recommended: Create with factory method (immediate warmup)
+pool = BackendPool.create(config)
+
+# Alternative: Direct construction (lazy initialization)
+# pool = BackendPool(config)
 
 # Method 1: Manual acquire/release
 backend = pool.acquire()
@@ -78,7 +172,13 @@ config = PoolConfig(
     max_size=10,     # Maximum connections allowed
     backend_factory=lambda: AsyncSQLiteBackend(database="app.db")
 )
-pool = AsyncBackendPool(config)
+
+# Recommended: Create with warmup (mirrors sync BackendPool behavior)
+pool = await AsyncBackendPool.create(config)
+
+# Alternative: Create without warmup (lazy initialization)
+# pool = AsyncBackendPool(config)
+# Connections are created on first acquire
 
 # Method 1: Manual acquire/release (just add await)
 backend = await pool.acquire()
@@ -118,6 +218,7 @@ config = PoolConfig(
     timeout=30.0,            # Acquire timeout in seconds (default: 30.0)
     idle_timeout=300.0,      # Idle connection timeout (default: 300.0)
     max_lifetime=3600.0,     # Maximum connection lifetime (default: 3600.0)
+    close_timeout=5.0,       # Graceful close wait time (default: 5.0)
 
     # Validation settings
     validate_on_borrow=True, # Validate when acquiring (default: True)
