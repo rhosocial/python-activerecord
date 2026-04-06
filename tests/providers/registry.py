@@ -29,6 +29,8 @@ from .basic import BasicProvider
 from .events import EventsProvider
 from .mixins import MixinsProvider
 from .query import QueryProvider
+from .basic_connection import BasicConnectionProvider
+from .query_connection import QueryConnectionProvider
 
 # Create a single, global instance of the ProviderRegistry.
 provider_registry = ProviderRegistry()
@@ -50,3 +52,11 @@ provider_registry.register("feature.mixins.IMixinsProvider", MixinsProvider)
 # Register the concrete `QueryProvider` as the implementation for the
 # `feature.query.IQueryProvider` interface defined in the testsuite.
 provider_registry.register("feature.query.IQueryProvider", QueryProvider)
+
+# Register the concrete `BasicConnectionProvider` as the implementation for the
+# `feature.basic.connection.IBasicConnectionProvider` interface defined in the testsuite.
+provider_registry.register("feature.basic.connection.IBasicConnectionProvider", BasicConnectionProvider)
+
+# Register the concrete `QueryConnectionProvider` as the implementation for the
+# `feature.query.connection.IQueryConnectionProvider` interface defined in the testsuite.
+provider_registry.register("feature.query.connection.IQueryConnectionProvider", QueryConnectionProvider)
