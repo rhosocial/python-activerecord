@@ -42,6 +42,20 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
 
     @classmethod
     def backend(cls) -> StorageBackend:
+        """Get storage backend instance with context awareness.
+
+        Returns the appropriate backend:
+        1. Sync context backend (transaction/connection) if available
+        2. Class-level backend as fallback
+        """
+        from ..connection.pool import get_current_backend
+
+        # Sync context takes priority
+        context_backend = get_current_backend()
+        if context_backend is not None:
+            return context_backend
+
+        # Fallback to parent implementation
         return super().backend()
 
     @classmethod
@@ -525,6 +539,20 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
 
     @classmethod
     def backend(cls) -> AsyncStorageBackend:
+        """Get storage backend instance with context awareness.
+
+        Returns the appropriate backend:
+        1. Async context backend (transaction/connection) if available
+        2. Class-level backend as fallback
+        """
+        from ..connection.pool import get_current_async_backend
+
+        # Async context takes priority
+        context_backend = get_current_async_backend()
+        if context_backend is not None:
+            return context_backend
+
+        # Fallback to parent implementation
         return super().backend()
 
     @classmethod
