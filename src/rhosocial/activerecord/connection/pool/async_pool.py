@@ -27,12 +27,15 @@ class AsyncBackendPool:
         stats: Connection pool statistics.
 
     Example:
-        # Create connection pool
+        # Create connection pool (with warmup)
         config = PoolConfig(
             min_size=2,
             max_size=10,
             backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
+        pool = await AsyncBackendPool.create(config)
+
+        # Or create without warmup (lazy initialization)
         pool = AsyncBackendPool(config)
 
         # Method 1: Manual acquire/release
@@ -57,6 +60,9 @@ class AsyncBackendPool:
     def __init__(self, config: PoolConfig):
         """Initialize connection pool.
 
+        Note: This does not warmup connections. Use create() class method
+        for immediate warmup, or connections will be created lazily on first acquire.
+
         Args:
             config: Connection pool configuration
         """
@@ -68,6 +74,28 @@ class AsyncBackendPool:
         self._semaphore: Optional[asyncio.Semaphore] = None
         self._closed = False
         self._initialized = False
+
+    @classmethod
+    async def create(cls, config: PoolConfig) -> 'AsyncBackendPool':
+        """Create and initialize connection pool with warmup.
+
+        This is the recommended way to create an async pool, as it mirrors
+        the synchronous BackendPool behavior of warming up connections immediately.
+
+        Args:
+            config: Connection pool configuration
+
+        Returns:
+            Initialized AsyncBackendPool with min_size connections ready
+
+        Example:
+            config = PoolConfig(min_size=2, max_size=10, ...)
+            pool = await AsyncBackendPool.create(config)
+            # Pool is ready with 2 connections warmed up
+        """
+        pool = cls(config)
+        await pool._initialize()
+        return pool
 
     async def _initialize(self) -> None:
         """Asynchronous initialization, warmup connections."""
@@ -177,6 +205,7 @@ class AsyncBackendPool:
             True if connection is valid
         """
         if not pooled.is_healthy:
+            self._stats.total_validation_failures += 1
             return False
 
         if pooled.is_expired(self.config.max_lifetime):
@@ -373,6 +402,7 @@ class AsyncBackendPool:
         """Async transaction context manager, ensures connection exclusivity.
 
         Acquires connection and starts transaction, auto commits or rolls back.
+        If already in a transaction context, reuses that transaction.
 
         Args:
             timeout: Acquire timeout (seconds)
@@ -387,6 +417,31 @@ class AsyncBackendPool:
         """
         from . import context as ctx
 
+        # Check if already in a transaction context - reuse it
+        existing_tx = ctx.get_current_async_transaction_backend()
+        if existing_tx is not None:
+            # Reuse existing transaction
+            yield existing_tx
+            return
+
+        # Check if already in a connection context - use that connection
+        existing_conn = ctx.get_current_async_connection_backend()
+
+        if existing_conn is not None:
+            # Use existing connection, start transaction on it
+            tx_token = ctx._set_async_transaction_backend(existing_conn)
+            try:
+                await existing_conn.begin_transaction()
+                yield existing_conn
+                await existing_conn.commit_transaction()
+            except Exception:
+                await existing_conn.rollback_transaction()
+                raise
+            finally:
+                ctx._reset_async_transaction_backend(tx_token)
+            return
+
+        # No existing context - acquire new connection
         backend = await self.acquire(timeout)
         tx_token = ctx._set_async_transaction_backend(backend)
         conn_token = ctx._set_async_connection_backend(backend)
@@ -402,23 +457,77 @@ class AsyncBackendPool:
             ctx._reset_async_transaction_backend(tx_token)
             await self.release(backend)
 
-    async def close(self) -> None:
-        """Close connection pool.
+    async def close(self, timeout: Optional[float] = None, force: bool = False) -> None:
+        """Close connection pool gracefully.
 
-        Destroys all connections, pool cannot be used after closing.
+        Waits for active connections to be returned before closing.
+        If timeout is reached and force is False, raises RuntimeError.
+        If force is True, forcefully closes all connections after timeout.
+
+        Args:
+            timeout: Maximum time to wait for active connections (seconds).
+                     None uses config.close_timeout. 0 means no wait.
+            force: If True, forcefully close after timeout.
+                   If False (default), raise RuntimeError on timeout.
+
+        Raises:
+            RuntimeError: If timeout reached and force=False, or if pool already closed
+
+        Example:
+            # Graceful close with default timeout
+            await pool.close()
+
+            # Quick close for tests
+            await pool.close(timeout=0.1)
+
+            # Force close (for emergency cleanup)
+            await pool.close(timeout=1.0, force=True)
         """
+        if timeout is None:
+            timeout = self.config.close_timeout
+
+        deadline = time.time() + timeout
+
         async with self._lock:
+            if self._closed:
+                raise RuntimeError("Pool is already closed")
+
+            # Mark as closed to prevent new acquires
             self._closed = True
 
+            # Wait for active connections to be returned
+            if self._in_use and timeout > 0:
+                check_interval = 0.01  # Check every 10ms
+                while self._in_use and time.time() < deadline:
+                    # Release lock temporarily to allow release() to proceed
+                    self._lock.release()
+                    try:
+                        await asyncio.sleep(min(check_interval, deadline - time.time()))
+                    finally:
+                        await self._lock.acquire()
+
+            # Check if all connections returned
+            if self._in_use:
+                if not force:
+                    # Reopen pool (connections still active)
+                    self._closed = False
+                    in_use_count = len(self._in_use)
+                    raise RuntimeError(
+                        f"Pool close timeout: {in_use_count} connection(s) still in use. "
+                        f"Use force=True to forcefully close, or ensure all connections "
+                        f"are properly returned using context managers."
+                    )
+                # Force close: destroy in-use connections
+                for pooled in list(self._in_use.values()):
+                    await self._destroy_backend(pooled)
+                self._in_use.clear()
+                self._stats.current_in_use = 0
+
+            # Destroy all available connections
             while self._available:
                 pooled = self._available.popleft()
                 await self._destroy_backend(pooled)
                 self._stats.current_available -= 1
-
-            for pooled in list(self._in_use.values()):
-                await self._destroy_backend(pooled)
-            self._in_use.clear()
-            self._stats.current_in_use = 0
 
     def get_stats(self) -> PoolStats:
         """Get statistics.

@@ -11,6 +11,94 @@
 - **资源限制**：通过连接数限制防止数据库过载
 - **上下文感知**：使类能够感知当前连接/事务上下文
 
+## 连接池工作流程
+
+### 连接生命周期
+
+```mermaid
+flowchart TB
+    subgraph PoolCreation["创建连接池"]
+        A1["BackendPool(config)"]
+        A2["预热 min_size 个连接"]
+        A1 --> A2
+    end
+
+    subgraph AcquireRelease["获取与释放连接"]
+        B1["acquire()"]
+        B2{"有空闲连接?"}
+        B3["从池中取出"]
+        B4{"未达上限?"}
+        B5["创建新连接"]
+        B6["等待超时"]
+        B7["使用连接"]
+        B8["release()"]
+        B9["归还到池中"]
+
+        B1 --> B2
+        B2 -->|是| B3
+        B2 -->|否| B4
+        B4 -->|是| B5
+        B4 -->|否| B6
+        B3 --> B7
+        B5 --> B7
+        B7 --> B8
+        B8 --> B9
+    end
+
+    subgraph Close["关闭连接池"]
+        C1["close()"]
+        C2{"有活动连接?"}
+        C3["等待归还<br/>(最多 close_timeout 秒)"]
+        C4{"超时?"}
+        C5["抛出 RuntimeError"]
+        C6["销毁所有连接"]
+        C7["force=True?"]
+        C8["强制销毁活动连接"]
+
+        C1 --> C2
+        C2 -->|是| C3
+        C2 -->|否| C6
+        C3 --> C4
+        C4 -->|是| C7
+        C4 -->|否| C6
+        C7 -->|否| C5
+        C7 -->|是| C8
+        C8 --> C6
+    end
+
+    A2 --> B1
+    B9 --> B1
+    B9 --> C1
+
+    style PoolCreation fill:#e3f2fd,stroke:#1976d2,stroke-width:2px
+    style AcquireRelease fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style Close fill:#fff3e0,stroke:#f57c00,stroke-width:2px
+```
+
+### 推荐用法：上下文管理器
+
+```mermaid
+flowchart LR
+    subgraph Recommended["推荐用法"]
+        D1["with pool.connection() as backend:"]
+        D2["执行数据库操作"]
+        D3["自动归还连接"]
+        D1 --> D2 --> D3
+    end
+
+    subgraph NotRecommended["不推荐用法"]
+        E1["backend = pool.acquire()"]
+        E2["执行数据库操作"]
+        E3["pool.release(backend)"]
+        E4["可能忘记释放!"]
+        E1 --> E2 --> E3
+        E3 -.->|风险| E4
+    end
+
+    style Recommended fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    style NotRecommended fill:#ffebee,stroke:#c62828,stroke-width:2px
+```
+
 ## 快速入门
 
 ### 同步与异步对等
@@ -19,7 +107,8 @@
 
 | 操作 | 同步 | 异步 |
 | --- | --- | --- |
-| 创建连接池 | `BackendPool(config)` | `AsyncBackendPool(config)` |
+| 创建连接池（推荐） | `BackendPool.create(config)` | `await AsyncBackendPool.create(config)` |
+| 创建连接池（延迟初始化） | `BackendPool(config)` | `AsyncBackendPool(config)` |
 | 获取连接 | `pool.acquire()` | `await pool.acquire()` |
 | 释放连接 | `pool.release(backend)` | `await pool.release(backend)` |
 | 连接上下文 | `with pool.connection() as backend:` | `async with pool.connection() as backend:` |
@@ -42,7 +131,12 @@ config = PoolConfig(
     max_size=10,     # 最大连接数
     backend_factory=lambda: SQLiteBackend(database="app.db")
 )
-pool = BackendPool(config)
+
+# 推荐方式：使用工厂方法创建（立即预热）
+pool = BackendPool.create(config)
+
+# 替代方式：直接构造（延迟初始化，首次获取时才创建连接）
+# pool = BackendPool(config)
 
 # 方式 1：手动获取/释放
 backend = pool.acquire()
@@ -78,7 +172,12 @@ config = PoolConfig(
     max_size=10,     # 最大连接数
     backend_factory=lambda: AsyncSQLiteBackend(database="app.db")
 )
-pool = AsyncBackendPool(config)
+
+# 推荐方式：使用工厂方法创建（与同步池行为一致，立即预热）
+pool = await AsyncBackendPool.create(config)
+
+# 替代方式：直接构造（延迟初始化，首次获取时才创建连接）
+# pool = AsyncBackendPool(config)
 
 # 方式 1：手动获取/释放（只需添加 await）
 backend = await pool.acquire()
@@ -118,6 +217,7 @@ config = PoolConfig(
     timeout=30.0,            # 获取连接超时时间，秒（默认：30.0）
     idle_timeout=300.0,      # 空闲连接超时时间（默认：300.0）
     max_lifetime=3600.0,     # 连接最大生存时间（默认：3600.0）
+    close_timeout=5.0,       # 优雅关闭等待时间，秒（默认：5.0）
 
     # 验证设置
     validate_on_borrow=True, # 获取时验证连接（默认：True）
