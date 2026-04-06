@@ -83,8 +83,20 @@ class ActiveQuery(
         self._eager_loads = ThreadSafeDict()
 
     def backend(self) -> StorageBackend:
-        """Get the backend for this query."""
-        # Always return the backend from the model class to avoid duplication
+        """Get the backend for this query with context awareness.
+
+        Returns the appropriate backend:
+        1. Sync context backend if available
+        2. Model class backend as fallback
+        """
+        from ..connection.pool import get_current_backend
+
+        # Sync context takes priority
+        context_backend = get_current_backend()
+        if context_backend is not None:
+            return context_backend
+
+        # Fallback to model class backend
         return self.model_class.backend()
 
     def all(self) -> List[IActiveRecord]:
@@ -335,8 +347,20 @@ class AsyncActiveQuery(
         self._eager_loads = ThreadSafeDict()
 
     def backend(self) -> AsyncStorageBackend:
-        """Get the backend for this query."""
-        # Always return the backend from the model class to avoid duplication
+        """Get the backend for this query with context awareness.
+
+        Returns the appropriate backend:
+        1. Async context backend if available
+        2. Model class backend as fallback
+        """
+        from ..connection.pool import get_current_async_backend
+
+        # Async context takes priority
+        context_backend = get_current_async_backend()
+        if context_backend is not None:
+            return context_backend
+
+        # Fallback to model class backend
         return self.model_class.backend()
 
     async def all(self) -> List[IActiveRecord]:

@@ -39,6 +39,7 @@ pip install rhosocial-activerecord[all]
 
 ## Contents
 
+* **[Connection Pool](connection_pool.md)**: Efficient connection management with context awareness.
 * **[Database Introspection](introspection.md)**: Query database structure metadata.
 * **[Query Explain Interface](explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
 * **[Expression System](expression/README.md)**: How Python objects are transformed into SQL strings.

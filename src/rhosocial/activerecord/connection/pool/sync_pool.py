@@ -299,11 +299,27 @@ class BackendPool:
 
             self._condition.notify()
 
+    def context(self) -> 'PoolContext':
+        """Get pool context manager.
+
+        Returns a context manager that sets this pool in the current context.
+
+        Returns:
+            PoolContext instance
+
+        Example:
+            with pool.context():
+                # Inside context, ActiveRecord can sense the pool
+                users = User.query().all()
+        """
+        return PoolContext(self)
+
     @contextmanager
     def connection(self, timeout: Optional[float] = None) -> Generator[Any, None, None]:
         """Context manager for acquiring connection.
 
         Automatically acquires and releases connection.
+        If already in a connection context, reuses that connection.
 
         Args:
             timeout: Acquire timeout (seconds)
@@ -315,10 +331,21 @@ class BackendPool:
             with pool.connection() as backend:
                 result = backend.execute("SELECT 1")
         """
+        from . import context as ctx
+
+        # Check if already in a connection context
+        existing_conn = ctx.get_current_connection_backend()
+        if existing_conn is not None:
+            # Reuse existing connection
+            yield existing_conn
+            return
+
         backend = self.acquire(timeout)
+        conn_token = ctx._set_connection_backend(backend)
         try:
             yield backend
         finally:
+            ctx._reset_connection_backend(conn_token)
             self.release(backend)
 
     @contextmanager
@@ -338,7 +365,11 @@ class BackendPool:
                 backend.execute("INSERT INTO users (name) VALUES (?)", ["Alice"])
                 # Auto commit or rollback
         """
+        from . import context as ctx
+
         backend = self.acquire(timeout)
+        tx_token = ctx._set_transaction_backend(backend)
+        conn_token = ctx._set_connection_backend(backend)
         try:
             backend.begin_transaction()
             yield backend
@@ -347,6 +378,8 @@ class BackendPool:
             backend.rollback_transaction()
             raise
         finally:
+            ctx._reset_connection_backend(conn_token)
+            ctx._reset_transaction_backend(tx_token)
             self.release(backend)
 
     def close(self) -> None:
@@ -439,3 +472,35 @@ class BackendPool:
             f"in_use={self._stats.current_in_use}, "
             f"closed={self._closed})"
         )
+
+
+class PoolContext:
+    """Context manager for setting pool context.
+
+    This class provides the context() method functionality for BackendPool.
+
+    Attributes:
+        _pool: The BackendPool instance.
+        _pool_token: Token for resetting pool context.
+    """
+
+    def __init__(self, pool: 'BackendPool'):
+        """Initialize PoolContext.
+
+        Args:
+            pool: The BackendPool instance.
+        """
+        self._pool = pool
+        self._pool_token = None
+
+    def __enter__(self) -> 'PoolContext':
+        """Enter context, set pool in context."""
+        from . import context as ctx
+        self._pool_token = ctx._set_pool(self._pool)
+        return self
+
+    def __exit__(self, exc_type, exc_val, exc_tb) -> None:
+        """Exit context, reset pool context."""
+        from . import context as ctx
+        if self._pool_token is not None:
+            ctx._reset_pool(self._pool_token)

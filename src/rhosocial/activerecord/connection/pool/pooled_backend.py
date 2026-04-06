@@ -21,6 +21,7 @@ class PooledBackend:
         pool_key: Pool identifier.
         created_at: Creation time.
         last_used_at: Last used time.
+        acquired_at: Time when last acquired (for hold time tracking).
         use_count: Usage count.
         is_healthy: Health status.
 
@@ -35,6 +36,7 @@ class PooledBackend:
     pool_key: str  # Pool identifier
     created_at: Optional[datetime] = None  # Creation time
     last_used_at: Optional[datetime] = None  # Last used time
+    acquired_at: Optional[datetime] = None  # Time when last acquired
     use_count: int = 0  # Usage count
     is_healthy: bool = True  # Health status
 
@@ -49,9 +51,22 @@ class PooledBackend:
         """Mark as used.
 
         Updates last used time and increments usage count.
+        Also sets acquired_at for hold time tracking.
         """
-        self.last_used_at = datetime.now()
+        now = datetime.now()
+        self.last_used_at = now
+        self.acquired_at = now
         self.use_count += 1
+
+    def hold_time(self) -> float:
+        """Get current hold time (seconds).
+
+        Returns:
+            Time since last acquired, 0.0 if not currently held.
+        """
+        if self.acquired_at is None:
+            return 0.0
+        return (datetime.now() - self.acquired_at).total_seconds()
 
     def is_expired(self, max_lifetime: float) -> bool:
         """Check if maximum lifetime has been exceeded.
@@ -104,10 +119,11 @@ class PooledBackend:
     def reset(self) -> None:
         """Reset state.
 
-        Called when returning connection; resets health status.
+        Called when returning connection; resets health status and clears acquired_at.
         Note: Does not reset use_count and timestamps, used for statistics.
         """
         self.is_healthy = True
+        self.acquired_at = None
 
     def mark_unhealthy(self) -> None:
         """Mark as unhealthy."""
