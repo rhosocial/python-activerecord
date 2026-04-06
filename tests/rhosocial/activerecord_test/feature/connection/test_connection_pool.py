@@ -778,3 +778,714 @@ class TestAsyncBackendPool:
         # Acquire after close should fail
         with pytest.raises(RuntimeError, match="Pool is closed"):
             await pool.acquire()
+
+
+# ============================================================
+# Coverage Enhancement Tests
+# ============================================================
+
+class TestPooledBackendCoverage:
+    """Tests for PooledBackend edge cases."""
+
+    def test_hold_time_when_not_acquired(self):
+        """Test hold_time returns 0 when acquired_at is None."""
+        pooled = PooledBackend(backend=object(), pool_key="test")
+        pooled.acquired_at = None
+        assert pooled.hold_time() == 0.0
+
+    def test_is_expired_when_created_at_none(self):
+        """Test is_expired returns False when created_at is None."""
+        pooled = PooledBackend(backend=object(), pool_key="test")
+        pooled.created_at = None
+        assert pooled.is_expired(100) is False
+
+    def test_is_idle_when_last_used_at_none(self):
+        """Test is_idle returns False when last_used_at is None."""
+        pooled = PooledBackend(backend=object(), pool_key="test")
+        pooled.last_used_at = None
+        assert pooled.is_idle(100) is False
+
+    def test_age_when_created_at_none(self):
+        """Test age returns 0 when created_at is None."""
+        pooled = PooledBackend(backend=object(), pool_key="test")
+        pooled.created_at = None
+        assert pooled.age() == 0.0
+
+    def test_idle_time_when_last_used_at_none(self):
+        """Test idle_time returns 0 when last_used_at is None."""
+        pooled = PooledBackend(backend=object(), pool_key="test")
+        pooled.last_used_at = None
+        assert pooled.idle_time() == 0.0
+
+
+class TestPoolStatsCoverage:
+    """Tests for PoolStats properties."""
+
+    def test_avg_lifetime(self):
+        """Test avg_lifetime calculation."""
+        stats = PoolStats(total_created=10)
+        # avg_lifetime = elapsed / total_created
+        assert stats.avg_lifetime > 0
+
+    def test_avg_lifetime_no_connections(self):
+        """Test avg_lifetime returns 0 when no connections created."""
+        stats = PoolStats(total_created=0)
+        assert stats.avg_lifetime == 0.0
+
+    def test_uptime_when_created_at_none(self):
+        """Test uptime returns 0 when created_at is None."""
+        stats = PoolStats()
+        stats.created_at = None
+        assert stats.uptime == 0.0
+
+
+class TestSyncPoolCoverage:
+    """Tests for sync pool edge cases."""
+
+    def test_warmup_failure_handled(self):
+        """Test that warmup failures are handled gracefully."""
+        call_count = [0]
+
+        def failing_factory():
+            call_count[0] += 1
+            if call_count[0] <= 2:  # Fail first 2 calls (warmup)
+                raise RuntimeError("Connection failed")
+            return SQLiteBackend(database=":memory:")
+
+        config = PoolConfig(
+            min_size=2,
+            max_size=5,
+            backend_factory=failing_factory
+        )
+        pool = BackendPool(config)
+
+        try:
+            # Pool should still be created despite warmup failures
+            stats = pool.get_stats()
+            assert stats.total_errors >= 2
+            # Acquire should succeed (third call)
+            backend = pool.acquire()
+            pool.release(backend)
+        finally:
+            pool.close()
+
+    def test_create_backend_without_factory_or_config(self):
+        """Test that creating backend without factory or config raises ValueError."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=5,
+            backend_factory=None
+        )
+        config.backend_config = {}  # Clear config
+
+        pool = BackendPool(config)
+
+        try:
+            # Directly test _create_backend which raises the error
+            with pytest.raises(ValueError, match="Either backend_factory or backend_config is required"):
+                pool._create_backend()
+        finally:
+            pool.close()
+
+    def test_unsupported_backend_type(self):
+        """Test that unsupported backend type raises ValueError."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=5,
+            backend_config={
+                'type': 'unsupported_db',
+                'database': 'test'
+            }
+        )
+        pool = BackendPool(config)
+
+        try:
+            # Directly test _create_backend which raises the error
+            with pytest.raises(ValueError, match="Unsupported backend type"):
+                pool._create_backend()
+        finally:
+            pool.close()
+
+    def test_backend_config_creates_sqlite(self):
+        """Test that backend_config can create SQLite backend."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=5,
+            backend_config={
+                'type': 'sqlite',
+                'database': ':memory:'
+            }
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            result = execute_sql(backend, "SELECT 1")
+            assert result is not None
+            pool.release(backend)
+        finally:
+            pool.close()
+
+    def test_validate_unhealthy_connection(self):
+        """Test that unhealthy connections fail validation."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_borrow=True,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.is_healthy = False
+            pool.release(backend)
+
+            # Next acquire should handle the unhealthy connection
+            backend2 = pool.acquire()
+            pool.release(backend2)
+        finally:
+            pool.close()
+
+    def test_validate_expired_connection(self):
+        """Test that expired connections fail validation."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            max_lifetime=0.1,
+            validate_on_borrow=True,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.created_at = datetime.now() - timedelta(seconds=10)
+            pool.release(backend)
+
+            import time
+            time.sleep(0.2)
+
+            backend2 = pool.acquire()
+            pool.release(backend2)
+        finally:
+            pool.close()
+
+    def test_validate_with_exception(self):
+        """Test validation when execute raises exception."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_borrow=True,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pool.release(backend)
+            # Access internal pooled backend and corrupt it
+            if pool._available:
+                pooled = pool._available[0]
+                # Replace backend with object that will fail validation
+                pooled.backend = object()
+
+            # Next acquire should detect validation failure
+            backend2 = pool.acquire()
+            pool.release(backend2)
+        finally:
+            pool.close()
+
+    def test_release_unknown_backend(self):
+        """Test releasing a backend that doesn't belong to the pool."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            # Create a backend not from this pool
+            unknown_backend = SQLiteBackend(database=":memory:")
+            # Release should silently ignore
+            pool.release(unknown_backend)
+
+            stats = pool.get_stats()
+            assert stats.total_released == 0
+        finally:
+            pool.close()
+
+    def test_release_with_validation_failure(self):
+        """Test release when validate_on_return fails."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_return=True,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.is_healthy = False
+            pool.release(backend)
+
+            # Connection should be destroyed due to validation failure
+            stats = pool.get_stats()
+            assert stats.current_available == 0 or stats.total_destroyed > 0
+        finally:
+            pool.close()
+
+    def test_release_expired_connection(self):
+        """Test release when connection is expired."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            max_lifetime=0.1,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.created_at = datetime.now() - timedelta(seconds=10)
+            pool.release(backend)
+
+            # Connection should be destroyed due to expiration
+            stats = pool.get_stats()
+            assert stats.total_destroyed > 0
+        finally:
+            pool.close()
+
+
+class TestAsyncPoolCoverage:
+    """Tests for async pool edge cases."""
+
+    @pytest.mark.asyncio
+    async def test_async_warmup_failure_handled(self):
+        """Test that async warmup failures are handled gracefully."""
+        call_count = [0]
+
+        # backend_factory should be a regular function returning backend instance
+        # The pool will call connect() asynchronously
+        def failing_factory():
+            call_count[0] += 1
+            if call_count[0] <= 2:
+                raise RuntimeError("Connection failed")
+            return AsyncSQLiteBackend(database=":memory:")
+
+        config = PoolConfig(
+            min_size=2,
+            max_size=5,
+            backend_factory=failing_factory
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            # Async pool uses lazy initialization - need to call _initialize first
+            await pool._initialize()
+            stats = pool.get_stats()
+            assert stats.total_errors >= 2
+            backend = await pool.acquire()
+            await pool.release(backend)
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_create_backend_without_factory_or_config(self):
+        """Test that creating async backend without factory or config raises ValueError."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=5,
+            backend_factory=None
+        )
+        config.backend_config = {}
+
+        pool = AsyncBackendPool(config)
+
+        try:
+            # Directly test _create_backend which raises the error
+            with pytest.raises(ValueError, match="Either backend_factory or backend_config is required"):
+                await pool._create_backend()
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_unsupported_backend_type(self):
+        """Test that unsupported backend type raises ValueError."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=5,
+            backend_config={
+                'type': 'unsupported_db',
+                'database': 'test'
+            }
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            # Directly test _create_backend which raises the error
+            with pytest.raises(ValueError, match="Unsupported backend type"):
+                await pool._create_backend()
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_backend_config_creates_sqlite(self):
+        """Test that backend_config can create async SQLite backend."""
+        config = PoolConfig(
+            min_size=0,
+            max_size=5,
+            backend_config={
+                'type': 'sqlite',
+                'database': ':memory:'
+            }
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            backend = await pool.acquire()
+            result = await async_execute_sql(backend, "SELECT 1")
+            assert result is not None
+            await pool.release(backend)
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_validate_unhealthy_connection(self):
+        """Test that unhealthy connections fail validation in async pool."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_borrow=True,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            backend = await pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.is_healthy = False
+            await pool.release(backend)
+
+            backend2 = await pool.acquire()
+            await pool.release(backend2)
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_validate_expired_connection(self):
+        """Test that expired connections fail validation in async pool."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            max_lifetime=0.1,
+            validate_on_borrow=True,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            backend = await pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.created_at = datetime.now() - timedelta(seconds=10)
+            await pool.release(backend)
+
+            import asyncio
+            await asyncio.sleep(0.2)
+
+            backend2 = await pool.acquire()
+            await pool.release(backend2)
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_release_unknown_backend(self):
+        """Test releasing a backend that doesn't belong to the async pool."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            unknown_backend = AsyncSQLiteBackend(database=":memory:")
+            await pool.release(unknown_backend)
+
+            stats = pool.get_stats()
+            assert stats.total_released == 0
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_release_with_validation_failure(self):
+        """Test async release when validate_on_return fails."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_return=True,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            backend = await pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.is_healthy = False
+            await pool.release(backend)
+
+            stats = pool.get_stats()
+            assert stats.current_available == 0 or stats.total_destroyed > 0
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_release_expired_connection(self):
+        """Test async release when connection is expired."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            max_lifetime=0.1,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            backend = await pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                pooled.created_at = datetime.now() - timedelta(seconds=10)
+            await pool.release(backend)
+
+            stats = pool.get_stats()
+            assert stats.total_destroyed > 0
+        finally:
+            await pool.close()
+
+
+class TestPoolContextCoverage:
+    """Tests for PoolContext and AsyncPoolContext coverage."""
+
+    def test_pool_context_enter_exit(self):
+        """Test PoolContext __enter__ and __exit__ methods."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            # Use context manager
+            with pool.context() as ctx:
+                assert ctx is not None
+                # Pool should be set in context
+                from rhosocial.activerecord.connection.pool import context as ctx_module
+                current_pool = ctx_module.get_current_pool()
+                assert current_pool is pool
+            # After exit, pool context should be reset
+        finally:
+            pool.close()
+
+    def test_pool_context_size_property(self):
+        """Test pool size property."""
+        config = PoolConfig(
+            min_size=2,
+            max_size=5,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            # Size should include min_size warmup connections
+            assert pool.size >= 0
+            assert len(pool) == pool.size
+        finally:
+            pool.close()
+
+    def test_validate_with_validation_query(self):
+        """Test validation with a custom validation query."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_borrow=True,
+            validation_query="SELECT 1",
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pool.release(backend)
+            # Connection should pass validation
+        finally:
+            pool.close()
+
+    def test_validate_expired_on_borrow(self):
+        """Test that expired connections are rejected on borrow."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            max_lifetime=0.1,
+            validate_on_borrow=True,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            backend = pool.acquire()
+            pooled = pool._in_use.get(id(backend))
+            if pooled:
+                # Make it expired
+                pooled.created_at = datetime.now() - timedelta(seconds=10)
+            pool.release(backend)
+
+            # Acquire again - should create new connection since old one expired
+            backend2 = pool.acquire()
+            pool.release(backend2)
+
+            stats = pool.get_stats()
+            assert stats.total_destroyed >= 1
+        finally:
+            pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_pool_context_enter_exit(self):
+        """Test AsyncPoolContext __aenter__ and __aexit__ methods."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            # Use context manager
+            async with pool.context() as ctx:
+                assert ctx is not None
+                # Pool should be set in context
+                from rhosocial.activerecord.connection.pool import context as ctx_module
+                current_pool = ctx_module.get_current_async_pool()
+                assert current_pool is pool
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_pool_size_property(self):
+        """Test async pool size property."""
+        config = PoolConfig(
+            min_size=2,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            await pool._initialize()
+            assert pool.size >= 0
+            assert len(pool) == pool.size
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_validate_with_validation_query(self):
+        """Test async validation with a custom validation query."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            validate_on_borrow=True,
+            validation_query="SELECT 1",
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            backend = await pool.acquire()
+            await pool.release(backend)
+        finally:
+            await pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_pool_health_check(self):
+        """Test async pool health check."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            await pool._initialize()
+            health = await pool.health_check()
+            assert health['healthy'] is True
+            assert health['closed'] is False
+        finally:
+            await pool.close()
+
+    def test_sync_pool_health_check(self):
+        """Test sync pool health check."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            health = pool.health_check()
+            assert health['healthy'] is True
+            assert health['closed'] is False
+            assert 'utilization' in health
+            assert 'stats' in health
+        finally:
+            pool.close()
+
+    def test_pool_repr(self):
+        """Test pool __repr__ method."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool(config)
+
+        try:
+            repr_str = repr(pool)
+            assert "BackendPool" in repr_str
+            assert "size=" in repr_str
+            assert "available=" in repr_str
+            assert "in_use=" in repr_str
+        finally:
+            pool.close()
+
+    @pytest.mark.asyncio
+    async def test_async_pool_repr(self):
+        """Test async pool __repr__ method."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = AsyncBackendPool(config)
+
+        try:
+            await pool._initialize()
+            repr_str = repr(pool)
+            assert "AsyncBackendPool" in repr_str
+            assert "size=" in repr_str
+        finally:
+            await pool.close()

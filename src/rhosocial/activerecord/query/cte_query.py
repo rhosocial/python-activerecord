@@ -82,7 +82,20 @@ class CTEQuery(
         self._explain_options = {}
 
     def backend(self):
-        """Get the backend for this query."""
+        """Get the backend for this query with context awareness.
+
+        Returns the appropriate backend:
+        1. Sync context backend if available
+        2. Constructor-provided backend as fallback
+        """
+        from ..connection.pool import get_current_backend
+
+        # Sync context takes priority
+        context_backend = get_current_backend()
+        if context_backend is not None:
+            return context_backend
+
+        # Fallback to constructor-provided backend
         return self._backend
 
     # region CTE Methods
@@ -371,7 +384,20 @@ class AsyncCTEQuery(
         self._explain_options = {}
 
     def backend(self):
-        """Get the backend for this query."""
+        """Get the backend for this query with context awareness.
+
+        Returns the appropriate backend:
+        1. Async context backend if available
+        2. Constructor-provided backend as fallback
+        """
+        from ..connection.pool import get_current_async_backend
+
+        # Async context takes priority
+        context_backend = get_current_async_backend()
+        if context_backend is not None:
+            return context_backend
+
+        # Fallback to constructor-provided backend
         return self._backend
 
     # region CTE Methods
