@@ -14,6 +14,11 @@ Classes:
     AsyncConnectionGroup: Async version of ConnectionGroup
     ConnectionManager: Manage multiple named connection groups
     AsyncConnectionManager: Async version of ConnectionManager
+    PoolConfig: Connection pool configuration
+    PoolStats: Connection pool statistics
+    PooledBackend: Wrapper for pooled Backend instances
+    BackendPool: Synchronous connection pool
+    AsyncBackendPool: Asynchronous connection pool
 
 Example:
     # Single database connection
@@ -38,14 +43,41 @@ Example:
         # All connections configured
         user = User.find_one(1)
         log = Log.create(...)
+
+    # Connection pool usage
+    from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
+
+    config = PoolConfig(
+        min_size=2,
+        max_size=10,
+        backend_factory=lambda: SQLiteBackend(database=":memory:")
+    )
+    pool = BackendPool(config)
+
+    with pool.connection() as backend:
+        result = backend.execute("SELECT 1")
+
+    pool.close()
 """
 
 from .group import ConnectionGroup, AsyncConnectionGroup
 from .manager import ConnectionManager, AsyncConnectionManager
+from .pool import (
+    PoolConfig,
+    PoolStats,
+    PooledBackend,
+    BackendPool,
+    AsyncBackendPool,
+)
 
 __all__ = [
     "ConnectionGroup",
     "AsyncConnectionGroup",
     "ConnectionManager",
     "AsyncConnectionManager",
+    "PoolConfig",
+    "PoolStats",
+    "PooledBackend",
+    "BackendPool",
+    "AsyncBackendPool",
 ]
