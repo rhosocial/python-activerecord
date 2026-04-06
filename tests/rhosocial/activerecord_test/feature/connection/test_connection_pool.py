@@ -24,13 +24,27 @@ from rhosocial.activerecord.backend.schema import StatementType
 
 def execute_sql(backend, sql: str, params=None):
     """Helper to execute SQL with proper options."""
-    options = ExecutionOptions(stmt_type=StatementType.DDL if 'CREATE' in sql.upper() else StatementType.DML)
+    sql_upper = sql.upper().strip()
+    if 'CREATE' in sql_upper or 'DROP' in sql_upper or 'ALTER' in sql_upper:
+        stmt_type = StatementType.DDL
+    elif sql_upper.startswith('SELECT'):
+        stmt_type = StatementType.DQL
+    else:
+        stmt_type = StatementType.DML
+    options = ExecutionOptions(stmt_type=stmt_type)
     return backend.execute(sql, params or [], options=options)
 
 
 async def async_execute_sql(backend, sql: str, params=None):
     """Helper to execute SQL asynchronously with proper options."""
-    options = ExecutionOptions(stmt_type=StatementType.DDL if 'CREATE' in sql.upper() else StatementType.DML)
+    sql_upper = sql.upper().strip()
+    if 'CREATE' in sql_upper or 'DROP' in sql_upper or 'ALTER' in sql_upper:
+        stmt_type = StatementType.DDL
+    elif sql_upper.startswith('SELECT'):
+        stmt_type = StatementType.DQL
+    else:
+        stmt_type = StatementType.DML
+    options = ExecutionOptions(stmt_type=stmt_type)
     return await backend.execute(sql, params or [], options=options)
 
 
@@ -1862,6 +1876,235 @@ class TestConcurrentAccess:
         finally:
             pool.close(timeout=0.1)
 
+    def test_multiple_connections_isolation(self):
+        """Test that multiple connections are isolated and operations don't interfere.
+
+        This test uses a shared SQLite file database to verify that:
+        1. Multiple connections can work concurrently without data corruption
+        2. Each connection's operations are atomic and isolated
+        3. No deadlocks occur during concurrent operations
+        """
+        import threading
+        import tempfile
+        import os
+
+        # Create a temporary file database
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            db_path = f.name
+
+        try:
+            # Use check_same_thread=False for multi-threaded access
+            config = PoolConfig(
+                min_size=1,
+                max_size=5,
+                backend_factory=lambda: SQLiteBackend(database=db_path, check_same_thread=False)
+            )
+            pool = BackendPool.create(config)
+
+            # Create shared table
+            with pool.connection() as backend:
+                execute_sql(backend, """
+                    CREATE TABLE isolation_test (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        thread_id INTEGER NOT NULL,
+                        value TEXT NOT NULL,
+                        created_at REAL NOT NULL
+                    )
+                """)
+
+            results = {}
+            errors = []
+            lock = threading.Lock()
+            num_threads = 5
+            operations_per_thread = 10
+
+            def worker(thread_id):
+                """Each thread performs multiple insert operations."""
+                thread_results = []
+                try:
+                    for op_num in range(operations_per_thread):
+                        with pool.connection() as backend:
+                            # Insert data with thread identifier
+                            value = f"thread_{thread_id}_op_{op_num}"
+                            execute_sql(backend,
+                                f"INSERT INTO isolation_test (thread_id, value, created_at) VALUES ({thread_id}, '{value}', julianday('now'))"
+                            )
+
+                            # Immediately verify the insert
+                            result = execute_sql(backend,
+                                f"SELECT value FROM isolation_test WHERE thread_id = {thread_id} ORDER BY id DESC LIMIT 1"
+                            )
+                            thread_results.append((op_num, result.data[0]['value'] if result.data else None))
+
+                except Exception as e:
+                    with lock:
+                        errors.append((thread_id, str(e)))
+
+                with lock:
+                    results[thread_id] = thread_results
+
+            # Start all threads
+            threads = []
+            for i in range(num_threads):
+                t = threading.Thread(target=worker, args=(i,))
+                threads.append(t)
+                t.start()
+
+            # Wait for all threads to complete
+            for t in threads:
+                t.join(timeout=30.0)
+
+            # Verify results
+            assert len(errors) == 0, f"Errors occurred: {errors}"
+
+            # Each thread should have completed all operations
+            for thread_id in range(num_threads):
+                assert thread_id in results
+                assert len(results[thread_id]) == operations_per_thread
+
+            # Verify data integrity in database
+            with pool.connection() as backend:
+                # Count total records
+                count_result = execute_sql(backend, "SELECT COUNT(*) as cnt FROM isolation_test")
+                expected_count = num_threads * operations_per_thread
+                assert count_result.data[0]['cnt'] == expected_count, \
+                    f"Expected {expected_count} records, got {count_result.data[0]['cnt']}"
+
+                # Verify each thread's records
+                for thread_id in range(num_threads):
+                    thread_result = execute_sql(backend,
+                        f"SELECT COUNT(*) as cnt FROM isolation_test WHERE thread_id = {thread_id}"
+                    )
+                    assert thread_result.data[0]['cnt'] == operations_per_thread, \
+                        f"Thread {thread_id} expected {operations_per_thread} records, got {thread_result.data[0]['cnt']}"
+
+                    # Verify all values are correct
+                    values_result = execute_sql(backend,
+                        f"SELECT value FROM isolation_test WHERE thread_id = {thread_id} ORDER BY id"
+                    )
+                    for i, row in enumerate(values_result.data):
+                        expected_value = f"thread_{thread_id}_op_{i}"
+                        assert row['value'] == expected_value, \
+                            f"Thread {thread_id} op {i}: expected '{expected_value}', got '{row['value']}'"
+
+            pool.close(timeout=1.0)
+
+        finally:
+            # Cleanup
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    def test_concurrent_transactions_isolation(self):
+        """Test that concurrent transactions on different connections are isolated.
+
+        This test verifies transaction isolation - each transaction should see
+        a consistent view of the database.
+        """
+        import threading
+        import tempfile
+        import os
+        import time
+
+        # Create a temporary file database
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            db_path = f.name
+
+        try:
+            # Use check_same_thread=False for multi-threaded access
+            config = PoolConfig(
+                min_size=2,
+                max_size=5,
+                backend_factory=lambda: SQLiteBackend(database=db_path, check_same_thread=False)
+            )
+            pool = BackendPool.create(config)
+
+            # Create shared table
+            with pool.connection() as backend:
+                execute_sql(backend, """
+                    CREATE TABLE tx_isolation_test (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        value INTEGER NOT NULL
+                    )
+                """)
+                # Insert initial data
+                execute_sql(backend, "INSERT INTO tx_isolation_test (name, value) VALUES ('initial', 0)")
+
+            errors = []
+            lock = threading.Lock()
+            barrier = threading.Barrier(3)  # Synchronize threads
+
+            def reader_thread():
+                """Reader thread that reads data during concurrent transactions."""
+                try:
+                    barrier.wait(timeout=5.0)  # Synchronize start
+                    time.sleep(0.1)  # Let writers start their transactions
+
+                    with pool.connection() as backend:
+                        # Should only see committed data
+                        result = execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
+                        count = result.data[0]['cnt']
+
+                        # We should see at least the initial record
+                        # But might not see uncommitted data from writers
+                        assert count >= 1, f"Expected at least 1 record, got {count}"
+
+                except Exception as e:
+                    with lock:
+                        errors.append(('reader', str(e)))
+
+            def writer_thread(thread_name, value):
+                """Writer thread that performs a transaction."""
+                try:
+                    barrier.wait(timeout=5.0)  # Synchronize start
+
+                    with pool.transaction() as backend:
+                        # Insert data
+                        execute_sql(backend,
+                            f"INSERT INTO tx_isolation_test (name, value) VALUES ('{thread_name}', {value})"
+                        )
+                        time.sleep(0.2)  # Hold transaction open briefly
+                        # Transaction will commit on exit
+
+                except Exception as e:
+                    with lock:
+                        errors.append((thread_name, str(e)))
+
+            # Start threads
+            threads = [
+                threading.Thread(target=reader_thread),
+                threading.Thread(target=writer_thread, args=('writer1', 100)),
+                threading.Thread(target=writer_thread, args=('writer2', 200)),
+            ]
+
+            for t in threads:
+                t.start()
+            for t in threads:
+                t.join(timeout=10.0)
+
+            # Verify results
+            assert len(errors) == 0, f"Errors occurred: {errors}"
+
+            # Verify final state
+            with pool.connection() as backend:
+                result = execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
+                assert result.data[0]['cnt'] == 3, "Should have 3 records (initial + 2 writers)"
+
+                # Verify writer1's data
+                w1_result = execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer1'")
+                assert w1_result.data[0]['value'] == 100
+
+                # Verify writer2's data
+                w2_result = execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer2'")
+                assert w2_result.data[0]['value'] == 200
+
+            pool.close(timeout=1.0)
+
+        finally:
+            # Cleanup
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
 
 # ============================================================
 # Nested Context Tests
@@ -2276,6 +2519,211 @@ class TestAsyncConcurrentAccess:
             assert timeout_count[0] >= 1  # At least 1 should timeout
         finally:
             await pool.close(timeout=0.1)
+
+    @pytest.mark.asyncio
+    async def test_multiple_connections_isolation(self):
+        """Test that multiple async connections are isolated and operations don't interfere.
+
+        This test uses a shared SQLite file database to verify that:
+        1. Multiple connections can work concurrently without data corruption
+        2. Each connection's operations are atomic and isolated
+        3. No deadlocks occur during concurrent operations
+        """
+        import asyncio
+        import tempfile
+        import os
+
+        # Create a temporary file database
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            db_path = f.name
+
+        try:
+            config = PoolConfig(
+                min_size=1,
+                max_size=5,
+                backend_factory=lambda: AsyncSQLiteBackend(database=db_path)
+            )
+            pool = await AsyncBackendPool.create(config)
+
+            # Create shared table
+            async with pool.connection() as backend:
+                await async_execute_sql(backend, """
+                    CREATE TABLE isolation_test (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        task_id INTEGER NOT NULL,
+                        value TEXT NOT NULL,
+                        created_at REAL NOT NULL
+                    )
+                """)
+
+            results = {}
+            errors = []
+            num_tasks = 5
+            operations_per_task = 10
+
+            async def worker(task_id):
+                """Each task performs multiple insert operations."""
+                task_results = []
+                try:
+                    for op_num in range(operations_per_task):
+                        async with pool.connection() as backend:
+                            # Insert data with task identifier
+                            value = f"task_{task_id}_op_{op_num}"
+                            await async_execute_sql(backend,
+                                f"INSERT INTO isolation_test (task_id, value, created_at) VALUES ({task_id}, '{value}', julianday('now'))"
+                            )
+
+                            # Immediately verify the insert
+                            result = await async_execute_sql(backend,
+                                f"SELECT value FROM isolation_test WHERE task_id = {task_id} ORDER BY id DESC LIMIT 1"
+                            )
+                            task_results.append((op_num, result.data[0]['value'] if result.data else None))
+
+                except Exception as e:
+                    errors.append((task_id, str(e)))
+
+                results[task_id] = task_results
+
+            # Run all tasks concurrently
+            tasks = [worker(i) for i in range(num_tasks)]
+            await asyncio.gather(*tasks)
+
+            # Verify results
+            assert len(errors) == 0, f"Errors occurred: {errors}"
+
+            # Each task should have completed all operations
+            for task_id in range(num_tasks):
+                assert task_id in results
+                assert len(results[task_id]) == operations_per_task
+
+            # Verify data integrity in database
+            async with pool.connection() as backend:
+                # Count total records
+                count_result = await async_execute_sql(backend, "SELECT COUNT(*) as cnt FROM isolation_test")
+                expected_count = num_tasks * operations_per_task
+                assert count_result.data[0]['cnt'] == expected_count, \
+                    f"Expected {expected_count} records, got {count_result.data[0]['cnt']}"
+
+                # Verify each task's records
+                for task_id in range(num_tasks):
+                    task_result = await async_execute_sql(backend,
+                        f"SELECT COUNT(*) as cnt FROM isolation_test WHERE task_id = {task_id}"
+                    )
+                    assert task_result.data[0]['cnt'] == operations_per_task, \
+                        f"Task {task_id} expected {operations_per_task} records, got {task_result.data[0]['cnt']}"
+
+                    # Verify all values are correct
+                    values_result = await async_execute_sql(backend,
+                        f"SELECT value FROM isolation_test WHERE task_id = {task_id} ORDER BY id"
+                    )
+                    for i, row in enumerate(values_result.data):
+                        expected_value = f"task_{task_id}_op_{i}"
+                        assert row['value'] == expected_value, \
+                            f"Task {task_id} op {i}: expected '{expected_value}', got '{row['value']}'"
+
+            await pool.close(timeout=1.0)
+
+        finally:
+            # Cleanup
+            if os.path.exists(db_path):
+                os.unlink(db_path)
+
+    @pytest.mark.asyncio
+    async def test_concurrent_transactions_isolation(self):
+        """Test that concurrent async transactions on different connections are isolated.
+
+        This test verifies transaction isolation - each transaction should see
+        a consistent view of the database.
+        """
+        import asyncio
+        import tempfile
+        import os
+
+        # Create a temporary file database
+        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+            db_path = f.name
+
+        try:
+            config = PoolConfig(
+                min_size=2,
+                max_size=5,
+                backend_factory=lambda: AsyncSQLiteBackend(database=db_path)
+            )
+            pool = await AsyncBackendPool.create(config)
+
+            # Create shared table
+            async with pool.connection() as backend:
+                await async_execute_sql(backend, """
+                    CREATE TABLE tx_isolation_test (
+                        id INTEGER PRIMARY KEY AUTOINCREMENT,
+                        name TEXT NOT NULL,
+                        value INTEGER NOT NULL
+                    )
+                """)
+                # Insert initial data
+                await async_execute_sql(backend, "INSERT INTO tx_isolation_test (name, value) VALUES ('initial', 0)")
+
+            errors = []
+
+            async def reader_task():
+                """Reader task that reads data during concurrent transactions."""
+                try:
+                    await asyncio.sleep(0.1)  # Let writers start their transactions
+
+                    async with pool.connection() as backend:
+                        # Should only see committed data
+                        result = await async_execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
+                        count = result.data[0]['cnt']
+
+                        # We should see at least the initial record
+                        assert count >= 1, f"Expected at least 1 record, got {count}"
+
+                except Exception as e:
+                    errors.append(('reader', str(e)))
+
+            async def writer_task(task_name, value):
+                """Writer task that performs a transaction."""
+                try:
+                    async with pool.transaction() as backend:
+                        # Insert data
+                        await async_execute_sql(backend,
+                            f"INSERT INTO tx_isolation_test (name, value) VALUES ('{task_name}', {value})"
+                        )
+                        await asyncio.sleep(0.2)  # Hold transaction open briefly
+                        # Transaction will commit on exit
+
+                except Exception as e:
+                    errors.append((task_name, str(e)))
+
+            # Run all tasks concurrently
+            await asyncio.gather(
+                reader_task(),
+                writer_task('writer1', 100),
+                writer_task('writer2', 200),
+            )
+
+            # Verify results
+            assert len(errors) == 0, f"Errors occurred: {errors}"
+
+            # Verify final state
+            async with pool.connection() as backend:
+                result = await async_execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
+                assert result.data[0]['cnt'] == 3, "Should have 3 records (initial + 2 writers)"
+
+                # Verify writer1's data
+                w1_result = await async_execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer1'")
+                assert w1_result.data[0]['value'] == 100
+
+                # Verify writer2's data
+                w2_result = await async_execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer2'")
+                assert w2_result.data[0]['value'] == 200
+
+            await pool.close(timeout=1.0)
+
+        finally:
+            # Cleanup
+            if os.path.exists(db_path):
+                os.unlink(db_path)
 
 
 # ============================================================
