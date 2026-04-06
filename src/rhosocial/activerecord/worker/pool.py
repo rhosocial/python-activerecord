@@ -613,6 +613,16 @@ def _worker_entry(
     Warning:
         In async mode, sync task functions will block the event loop.
         Users should ensure all hooks and tasks are either sync or async, not mixed.
+
+    Known Limitation:
+        Using os._exit() in task functions can corrupt multiprocessing.Queue state.
+        When a Worker process exits via os._exit(), it bypasses Python's normal
+        cleanup, potentially leaving shared Queue pipes in an inconsistent state.
+        This may prevent restarted Workers from communicating properly through
+        the shared Queue. For simulating crashes in tests, consider using signals
+        (e.g., os.kill(os.getpid(), signal.SIGTERM)) instead, though this also
+        has limitations. Real-world crash recovery works correctly because actual
+        segfaults don't corrupt Queue state the same way os._exit() does.
     """
     pid = os.getpid()
     ctx = WorkerContext(
@@ -677,7 +687,8 @@ def _run_sync_worker(
             error_msg, tb = error_info
             result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
             return
-        result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+    # Always send ready signal, even if no hooks
+    result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
 
     try:
         while True:
@@ -775,7 +786,8 @@ def _run_async_worker(
                 error_msg, tb = error_info
                 result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
                 return
-            result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+        # Always send ready signal, even if no hooks
+        result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
 
         try:
             while True:
@@ -1122,6 +1134,10 @@ class WorkerPool:
         self._worker_task: Dict[int, Optional[str]] = {}
         # wid → monotonic, set by __started__ (timeout tracking from execution start)
         self._worker_start_time: Dict[int, Optional[float]] = {}
+        # wid → ready status, set by __worker_ready__ (Worker initialization complete)
+        # Used to distinguish between "Worker process started" and "Worker ready to process tasks"
+        # Important: Worker sends __worker_ready__ after WORKER_START hooks complete successfully
+        self._worker_ready: Dict[int, bool] = {}
         self._futures: Dict[str, Future] = {}
         # task_id → enqueue timestamp (for orphan detection)
         self._task_enqueue_time: Dict[str, float] = {}
@@ -1178,7 +1194,7 @@ class WorkerPool:
         )
         self._sv_thread.start()
         logger.info(
-            "WorkerPool started | %d workers ready, supervisor thread active",
+            "WorkerPool started | %d workers started, supervisor thread active (workers will report ready after initialization)",
             self._registry.alive_count()
         )
 
@@ -1281,6 +1297,9 @@ class WorkerPool:
         with self._lock:                          # self._lock only (no nesting)
             self._worker_task[wid] = None
             self._worker_start_time[wid] = None
+            # Worker process started but not ready to process tasks yet.
+            # Will be set to True when __worker_ready__ message is received.
+            self._worker_ready[wid] = False
         logger.debug("Started Worker-%d (pid=%d)", wid, p.pid)
         return handle
 
@@ -1549,6 +1568,7 @@ class WorkerPool:
             with self._lock:                    # self._lock (no nesting)
                 lost_task_id = self._worker_task.pop(wid, None)
                 self._worker_start_time.pop(wid, None)
+                self._worker_ready[wid] = False  # Mark as not ready until restarted Worker reports ready
                 # ★ Record death time to trigger orphan scan
                 self._last_worker_death = time.monotonic()
 
@@ -1643,6 +1663,8 @@ class WorkerPool:
         if kind == "__worker_ready__":
             # Worker successfully initialized (WORKER_START hooks passed)
             _, wid, pid = msg
+            with self._lock:
+                self._worker_ready[wid] = True
             logger.info(
                 "Worker-%d ready (pid=%d) | hooks initialized successfully",
                 wid, pid
@@ -1751,24 +1773,33 @@ class WorkerPool:
         task_q.get() and result_q.put("__dequeued__", ...), leaving
         the task permanently pending.
 
-        Trigger conditions (BOTH must be true to avoid false positives on busy queues):
+        Trigger conditions (ALL must be true to avoid false positives):
           1. Recent Worker death (_last_worker_death within orphan_timeout * 3 seconds)
           2. Task has been enqueued > orphan_timeout seconds without being claimed
+          3. NO alive workers are ready (otherwise task is just waiting in queue)
 
         Orphan cause:
           Worker died in the tiny window between get() and put(__dequeued__).
           Task left queue but no wid ever claimed it in _worker_task.
 
         False positive analysis:
-          On busy pools, tasks may legitimately wait > orphan_timeout in queue.
-          By requiring recent Worker death, we avoid triggering during normal operation.
-          Default orphan_timeout=2s is much larger than normal dispatch delay (< 0.1s).
+          If any Worker is alive and ready, tasks in queue are just waiting to be
+          processed. We only mark as orphan when no Worker can claim the task.
         """
         now = time.monotonic()
 
         # Only scan within the window after Worker death (3 × orphan_timeout)
         # This avoids false positives on busy queues where tasks legitimately wait
         if now - self._last_worker_death > self._orphan_timeout * 3:
+            return
+
+        # Check if any Worker is alive and ready to process tasks
+        # If so, tasks in queue are just waiting - not orphans
+        with self._lock:
+            ready_count = sum(1 for ready in self._worker_ready.values() if ready)
+
+        if ready_count > 0:
+            # Workers are available, tasks are just waiting in queue
             return
 
         # Collect claimed task IDs (set by __dequeued__)
@@ -1793,13 +1824,13 @@ class WorkerPool:
             if fut:
                 logger.warning(
                     "Task[%s] orphaned (enqueued %.1fs ago, never claimed) | "
-                    "Worker likely died in get()→__dequeued__ window",
+                    "No ready workers available",
                     task_id[:8], wait_time
                 )
                 fut._reject(
                     WorkerCrashedError(
-                        f"Task {task_id!r} was dequeued by a Worker that crashed "
-                        f"before sending __dequeued__ (waited {wait_time:.1f}s)"
+                        f"Task {task_id!r} was orphaned - no ready workers available "
+                        f"after {wait_time:.1f}s"
                     ),
                     tb="Worker process terminated during task dispatch",
                 )
@@ -1992,6 +2023,12 @@ class WorkerPool:
     def active_workers(self) -> int:
         """Number of alive Worker processes"""
         return self._registry.alive_count()
+
+    @property
+    def ready_workers(self) -> int:
+        """Number of Workers that have completed initialization and are ready to process tasks."""
+        with self._lock:
+            return sum(1 for ready in self._worker_ready.values() if ready)
 
     def __enter__(self) -> "WorkerPool":
         logger.debug("WorkerPool context entered | state=%s", self._state.name)
