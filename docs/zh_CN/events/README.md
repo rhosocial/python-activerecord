@@ -1,4 +1,4 @@
-# 8. 事件系统 (Events)
+# 9. 事件系统 (Events)
 
 rhosocial-activerecord 的事件系统是实现业务逻辑解耦的关键机制。通过监听生命周期事件，你可以在不修改模型核心逻辑的情况下，添加诸如日志记录、数据校验、关联更新等功能。
 
@@ -14,10 +14,10 @@ rhosocial-activerecord 的事件系统是实现业务逻辑解耦的关键机制
 
 ## 示例代码
 
-本章的完整示例代码位于 `docs/examples/chapter_08_events/` 目录：
+本章的完整示例代码位于 `docs/examples/chapter_09_events/` 目录：
 
 | 文件 | 说明 |
 |------|------|
-| [01_lifecycle_hooks.py](../../examples/chapter_08_events/01_lifecycle_hooks.py) | 生命周期钩子：before_save、after_save、before_delete、after_delete |
-| [02_event_listeners.py](../../examples/chapter_08_events/02_event_listeners.py) | 事件监听器：on() 方法、多监听器、动态注册 |
-| [03_mixin_pattern.py](../../examples/chapter_08_events/03_mixin_pattern.py) | Mixin 模式：可复用事件逻辑、组合多个 Mixin
+| [01_lifecycle_hooks.py](../../examples/chapter_09_events/01_lifecycle_hooks.py) | 生命周期钩子：before_save、after_save、before_delete、after_delete |
+| [02_event_listeners.py](../../examples/chapter_09_events/02_event_listeners.py) | 事件监听器：on() 方法、多监听器、动态注册 |
+| [03_mixin_pattern.py](../../examples/chapter_09_events/03_mixin_pattern.py) | Mixin 模式：可复用事件逻辑、组合多个 Mixin

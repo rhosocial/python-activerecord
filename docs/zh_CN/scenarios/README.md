@@ -1,4 +1,4 @@
-# 12. 场景实战 (Scenarios)
+# 13. 场景实战 (Scenarios)
 
 将 `rhosocial-activerecord` 集成到现代 Web 框架中，以及在复杂并发场景下的正确用法。
 
@@ -10,7 +10,7 @@
 
 ## 示例代码
 
-本章的完整示例代码位于 `docs/examples/chapter_12_scenarios/`。
+本章的完整示例代码位于 `docs/examples/chapter_13_scenarios/`。
 
 | 目录               | 内容                             |
 |--------------------|----------------------------------|
