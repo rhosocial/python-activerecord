@@ -39,7 +39,6 @@ pip install rhosocial-activerecord[all]
 
 ## 目录
 
-* **[连接池 (Connection Pool)](connection_pool.md)**: 高效连接管理与上下文感知。
 * **[数据库内省 (Introspection)](introspection.md)**: 查询数据库结构元数据。
 * **[查询解释接口 (Query Explain)](explain.md)**: 执行 EXPLAIN 语句，分析查询计划和索引使用情况。
 * **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。

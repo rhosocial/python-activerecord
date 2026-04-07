@@ -36,6 +36,7 @@ from rhosocial.activerecord.worker import (
     PoolState,
     PoolDrainingError,
     ShutdownReport,
+    WorkerCrashedError,
 )
 from rhosocial.activerecord.worker.pool import (
     WorkerHandle,
@@ -551,22 +552,16 @@ class TestWorkerPool:
             assert all(r == 0.1 for r in results)
             assert elapsed < 1.0  # Should be much less than 0.4s
 
-    @pytest.mark.skip(
-        reason="os._exit() causes multiprocessing.Queue state inconsistency; "
-               "restarted Worker may not be able to communicate through the shared Queue. "
-               "This is a known behavior of Python's multiprocessing module - os._exit() "
-               "bypasses normal cleanup, potentially leaving shared resources in inconsistent state."
-    )
     def test_worker_crash_and_restart(self):
-        """Test Worker crash and restart
+        """
+        Test Worker crash and restart recovery.
 
-        NOTE: This test is skipped because os._exit() (used to simulate crash)
-        corrupts the multiprocessing.Queue pipe state. When a Worker process
-        exits via os._exit(), the shared Queue becomes unusable for subsequent
-        Workers, causing the restarted Worker to be unable to send __worker_ready__.
-
-        This is a fundamental limitation of Python's multiprocessing module,
-        not a bug in WorkerPool implementation.
+        This test verifies that the independent Pipe architecture correctly
+        handles Worker crashes caused by os._exit(). Unlike the previous
+        shared Queue architecture, the new architecture isolates each Worker's
+        communication channel, so a crashed Worker's Pipe can be closed and
+        a new Pipe created for the restarted Worker without affecting other
+        Workers.
         """
         # Use longer orphan_timeout to avoid false positive orphan detection
         # during worker restart on slower/free-threaded Python builds
@@ -584,9 +579,8 @@ class TestWorkerPool:
             try:
                 crash_fut.result(timeout=5.0)
                 pytest.fail("crash_task should have raised WorkerCrashedError")
-            except Exception as e:
-                # Expected: crash_fut should fail
-                pass
+            except WorkerCrashedError:
+                pass  # Expected
 
             # Now wait for the crashed worker to restart and become ready again
             deadline = time.monotonic() + 5.0
