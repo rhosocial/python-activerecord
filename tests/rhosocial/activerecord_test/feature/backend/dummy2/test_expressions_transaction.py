@@ -342,3 +342,107 @@ class TestAllIsolationLevels:
         expr.isolation_level(level)
         sql, params = expr.to_sql()
         assert expected_name in sql
+
+
+class TestDummyDialectTransactionCapabilities:
+    """Tests for Dummy dialect transaction capability methods."""
+
+    def test_supports_transaction_mode(self, dummy_dialect: DummyDialect):
+        """Test supports_transaction_mode returns True."""
+        assert dummy_dialect.supports_transaction_mode() is True
+
+    def test_supports_isolation_level_in_begin(self, dummy_dialect: DummyDialect):
+        """Test supports_isolation_level_in_begin returns True."""
+        assert dummy_dialect.supports_isolation_level_in_begin() is True
+
+    def test_supports_read_only_transaction(self, dummy_dialect: DummyDialect):
+        """Test supports_read_only_transaction returns True."""
+        assert dummy_dialect.supports_read_only_transaction() is True
+
+    def test_supports_deferrable_transaction(self, dummy_dialect: DummyDialect):
+        """Test supports_deferrable_transaction returns True."""
+        assert dummy_dialect.supports_deferrable_transaction() is True
+
+    def test_supports_savepoint(self, dummy_dialect: DummyDialect):
+        """Test supports_savepoint returns True."""
+        assert dummy_dialect.supports_savepoint() is True
+
+
+class TestReleaseSavepointSQL:
+    """Tests for ReleaseSavepointExpression SQL output."""
+
+    def test_release_savepoint_sql(self, dummy_dialect: DummyDialect):
+        """Test RELEASE SAVEPOINT SQL output."""
+        expr = ReleaseSavepointExpression(dummy_dialect, "my_savepoint")
+        sql, params = expr.to_sql()
+        assert "RELEASE SAVEPOINT" in sql
+        assert "my_savepoint" in sql
+        assert params == ()
+
+    def test_release_savepoint_with_special_chars(self, dummy_dialect: DummyDialect):
+        """Test RELEASE SAVEPOINT with special characters in name."""
+        expr = ReleaseSavepointExpression(dummy_dialect, "sp_with_underscore")
+        sql, params = expr.to_sql()
+        assert "RELEASE SAVEPOINT" in sql
+        assert "sp_with_underscore" in sql
+        assert params == ()
+
+
+class TestSQLiteDialectTransactionCapabilities:
+    """Tests for SQLite dialect transaction capability methods."""
+
+    @pytest.fixture
+    def sqlite_dialect(self):
+        """Provides a SQLiteDialect instance."""
+        return SQLiteDialect()
+
+    def test_not_supports_transaction_mode(self, sqlite_dialect: SQLiteDialect):
+        """Test supports_transaction_mode returns False for SQLite."""
+        assert sqlite_dialect.supports_transaction_mode() is False
+
+    def test_not_supports_isolation_level_in_begin(self, sqlite_dialect: SQLiteDialect):
+        """Test supports_isolation_level_in_begin returns False for SQLite."""
+        assert sqlite_dialect.supports_isolation_level_in_begin() is False
+
+    def test_not_supports_read_only_transaction(self, sqlite_dialect: SQLiteDialect):
+        """Test supports_read_only_transaction returns False for SQLite."""
+        assert sqlite_dialect.supports_read_only_transaction() is False
+
+    def test_not_supports_deferrable_transaction(self, sqlite_dialect: SQLiteDialect):
+        """Test supports_deferrable_transaction returns False for SQLite."""
+        assert sqlite_dialect.supports_deferrable_transaction() is False
+
+    def test_supports_savepoint(self, sqlite_dialect: SQLiteDialect):
+        """Test supports_savepoint returns True for SQLite."""
+        assert sqlite_dialect.supports_savepoint() is True
+
+    def test_begin_raises_error_for_read_only(self, sqlite_dialect: SQLiteDialect):
+        """Test BEGIN with READ ONLY raises UnsupportedTransactionModeError."""
+        expr = BeginTransactionExpression(sqlite_dialect)
+        expr.read_only()
+        with pytest.raises(UnsupportedTransactionModeError) as exc_info:
+            expr.to_sql()
+        assert "READ ONLY" in str(exc_info.value)
+
+    def test_begin_serializable_uses_immediate(self, sqlite_dialect: SQLiteDialect):
+        """Test BEGIN with SERIALIZABLE uses IMMEDIATE keyword."""
+        expr = BeginTransactionExpression(sqlite_dialect)
+        expr.isolation_level(IsolationLevel.SERIALIZABLE)
+        sql, params = expr.to_sql()
+        assert sql == "BEGIN IMMEDIATE TRANSACTION"
+        assert params == ()
+
+    def test_begin_read_uncommitted_uses_deferred(self, sqlite_dialect: SQLiteDialect):
+        """Test BEGIN with READ_UNCOMMITTED uses DEFERRED keyword."""
+        expr = BeginTransactionExpression(sqlite_dialect)
+        expr.isolation_level(IsolationLevel.READ_UNCOMMITTED)
+        sql, params = expr.to_sql()
+        assert sql == "BEGIN DEFERRED TRANSACTION"
+        assert params == ()
+
+    def test_begin_default_uses_immediate(self, sqlite_dialect: SQLiteDialect):
+        """Test default BEGIN uses IMMEDIATE for better concurrency."""
+        expr = BeginTransactionExpression(sqlite_dialect)
+        sql, params = expr.to_sql()
+        assert sql == "BEGIN IMMEDIATE TRANSACTION"
+        assert params == ()
