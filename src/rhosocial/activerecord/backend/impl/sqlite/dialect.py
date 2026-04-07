@@ -40,6 +40,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     GeneratedColumnSupport,
     # Introspection Protocol
     IntrospectionSupport,
+    # Transaction Control Protocol
+    TransactionControlSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -177,6 +179,8 @@ class SQLiteDialect(
     SQLitePragmaSupport,
     # Introspection Protocol
     IntrospectionSupport,
+    # Transaction Control Protocol
+    TransactionControlSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -1012,6 +1016,91 @@ class SQLiteDialect(
             all_params.extend(gen_params)
 
         return col_sql, tuple(all_params)
+
+    # region Transaction Control
+
+    def supports_transaction_mode(self) -> bool:
+        """SQLite does not support READ ONLY transactions.
+
+        SQLite transactions are always read-write by default.
+        There's no SQL syntax to specify READ ONLY mode.
+        """
+        return False
+
+    def supports_isolation_level_in_begin(self) -> bool:
+        """SQLite does not support isolation level in BEGIN statement.
+
+        SQLite uses PRAGMA read_uncommitted to control isolation,
+        not the BEGIN statement syntax.
+        """
+        return False
+
+    def supports_read_only_transaction(self) -> bool:
+        """SQLite does not support READ ONLY transactions.
+
+        While SQLite supports read-only database connections at the OS level,
+        it does not support the SQL-level READ ONLY transaction mode.
+        """
+        return False
+
+    def supports_deferrable_transaction(self) -> bool:
+        """SQLite does not support DEFERRABLE mode.
+
+        DEFERRABLE is PostgreSQL-specific for SERIALIZABLE transactions.
+        """
+        return False
+
+    def supports_savepoint(self) -> bool:
+        """SQLite supports savepoints.
+
+        SQLite has full support for SAVEPOINT, RELEASE SAVEPOINT,
+        and ROLLBACK TO SAVEPOINT.
+        """
+        return True
+
+    def format_begin_transaction(
+        self, expr: "BeginTransactionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format BEGIN TRANSACTION statement for SQLite.
+
+        SQLite uses BEGIN {DEFERRED|IMMEDIATE|EXCLUSIVE} TRANSACTION syntax.
+        Isolation level is controlled via PRAGMA read_uncommitted.
+        READ ONLY mode is NOT supported - raises error if requested.
+
+        Args:
+            expr: BeginTransactionExpression with isolation level and mode.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+
+        Raises:
+            UnsupportedTransactionModeError: If READ ONLY mode is requested.
+        """
+        from rhosocial.activerecord.backend.errors import UnsupportedTransactionModeError
+        from rhosocial.activerecord.backend.transaction import IsolationLevel, TransactionMode
+
+        params = expr.get_params()
+        mode = params.get("mode")
+
+        # Check for unsupported features
+        if mode == TransactionMode.READ_ONLY:
+            raise UnsupportedTransactionModeError(
+                feature="READ ONLY transactions",
+                backend="SQLite",
+                message="Consider using a separate read-only database connection."
+            )
+
+        # Map isolation level to BEGIN type
+        # SQLite's default is SERIALIZABLE, DEFERRED gives READ_UNCOMMITTED via PRAGMA
+        isolation = params.get("isolation_level")
+
+        if isolation == IsolationLevel.READ_UNCOMMITTED:
+            # Use DEFERRED + PRAGMA read_uncommitted = 1
+            # Note: PRAGMA must be executed separately by the transaction manager
+            return "BEGIN DEFERRED TRANSACTION", ()
+        else:
+            # Default to IMMEDIATE for better concurrency
+            return "BEGIN IMMEDIATE TRANSACTION", ()
 
     # endregion
 

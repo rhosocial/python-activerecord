@@ -309,7 +309,7 @@ class AsyncSQLiteBackend(AsyncExplainBackendMixin, IntrospectorBackendMixin, SQL
         if self._transaction_manager is None:
             if self._connection is None:
                 raise ConnectionError("Not connected to database")
-            self._transaction_manager = AsyncSQLiteTransactionManager(self._connection, self.logger)
+            self._transaction_manager = AsyncSQLiteTransactionManager(self, self.logger)
         return self._transaction_manager
 
     async def insert(self, options: InsertOptions) -> QueryResult:

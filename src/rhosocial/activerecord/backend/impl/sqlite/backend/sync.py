@@ -336,7 +336,7 @@ class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBac
                 self.log(logging.DEBUG, "Initializing connection for transaction manager")
                 self.connect()
             self.log(logging.DEBUG, "Creating new transaction manager")
-            self._transaction_manager = SQLiteTransactionManager(self._connection, self.logger)
+            self._transaction_manager = SQLiteTransactionManager(self, self.logger)
         return self._transaction_manager
 
     def insert(self, options: InsertOptions) -> QueryResult:

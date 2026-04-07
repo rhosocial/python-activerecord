@@ -17,22 +17,14 @@ from ..type_registry import TypeRegistry
 
 
 class StorageBackendBase(ABC):
-    """Minimal base for configuration and connection state only."""
+    """Minimal base for configuration and connection state only.
 
-    def _register_default_adapters(self) -> None:
-        adapters = [
-            DateTimeAdapter(),
-            JSONAdapter(),
-            UUIDAdapter(),
-            EnumAdapter(),
-            BooleanAdapter(),
-            DecimalAdapter(),
-        ]
-        for adapter in adapters:
-            for py_type, db_types in adapter.supported_types.items():
-                for db_type in db_types:
-                    self.adapter_registry.register(adapter, py_type, db_type)
-        self.logger.debug("Registered all standard type adapters.")
+    This base class provides:
+    - Configuration management
+    - Connection state tracking
+    - Logger initialization
+    - Type adapter registry
+    """
 
     def __init__(self, **kwargs) -> None:
         """Initialize storage backend with all required attributes."""
@@ -61,6 +53,22 @@ class StorageBackendBase(ABC):
         self.adapter_registry = TypeRegistry()
         self._register_default_adapters()
         self.logger.info("Initialized TypeAdaptionMixin with SQLTypeAdapter registry.")
+
+    def _register_default_adapters(self) -> None:
+        """Register default type adapters."""
+        adapters = [
+            DateTimeAdapter(),
+            JSONAdapter(),
+            UUIDAdapter(),
+            EnumAdapter(),
+            BooleanAdapter(),
+            DecimalAdapter(),
+        ]
+        for adapter in adapters:
+            for py_type, db_types in adapter.supported_types.items():
+                for db_type in db_types:
+                    self.adapter_registry.register(adapter, py_type, db_type)
+        self.logger.debug("Registered all standard type adapters.")
 
     @property
     @abstractmethod
