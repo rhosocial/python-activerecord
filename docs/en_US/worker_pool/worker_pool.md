@@ -84,6 +84,7 @@ stateDiagram-v2
 - **CPU-bound work**: Distribute CPU-intensive operations across processes
 - **I/O-bound work**: Parallel database queries or API calls
 - **External queue consumers**: As a worker pool for Celery, RQ, or other task queues
+- **Parallel execution of existing single-threaded modules**: When existing modules are designed for single-threaded use with shared ActiveRecord backend instances, WorkerPool enables parallel execution without connection state pollution
 
 ---
 
@@ -116,15 +117,15 @@ When dealing with database operations in concurrent scenarios, WorkerPool and Co
 
 ### When NOT to Use WorkerPool
 
-| Scenario | Reason | Recommended Alternative |
-|----------|--------|------------------------|
-| **Frequent Small Tasks** | Process startup and communication overhead exceeds task itself | Connection pool + thread/coroutine |
-| **Low Latency Requirements** | IPC serialization adds latency | Connection pool |
-| **Memory-Constrained Environment** | Each process has independent memory space | Connection pool |
-| **Large Shared Data** | Cross-process data transfer requires serialization | Thread + connection pool |
-| **Simple Concurrent Queries** | Process overhead is unnecessary | Connection pool |
-| **Shared Transactions Needed** | Cannot share transaction state across processes | Connection pool's `transaction()` |
-| **High-Concurrency Web** | Process count limited, cannot handle high concurrency | Async + connection pool |
+| Scenario | Recommended Alternative |
+|----------|------------------------|
+| **Frequent Small Tasks** | Connection pool + thread/coroutine |
+| **Low Latency Requirements** | Connection pool |
+| **Memory-Constrained Environment** | Connection pool |
+| **Large Shared Data** | Thread + connection pool |
+| **Simple Concurrent Queries** | Connection pool |
+| **Shared Transactions Needed** | Connection pool's `transaction()` |
+| **High-Concurrency Web** | Async + connection pool |
 
 ### When to Use WorkerPool (Recommended Scenarios)
 
