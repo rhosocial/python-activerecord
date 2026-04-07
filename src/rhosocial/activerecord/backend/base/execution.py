@@ -35,7 +35,7 @@ class ExecutionMixin:
     behavior across all database operations.
     """
 
-    def execute(self, sql: str, params: Optional[Tuple] = None, *, options: ExecutionOptions) -> QueryResult:
+    def execute(self, sql: str, params: Optional[Tuple] = None, *, options: Optional[ExecutionOptions] = None) -> QueryResult:
         """
         Execute a SQL statement synchronously with comprehensive parameter and result processing.
 
@@ -70,6 +70,11 @@ class ExecutionMixin:
         try:
             if not self._connection:
                 self.connect()
+
+            # Handle default options for simplified execution (e.g., transaction control)
+            if options is None:
+                options = ExecutionOptions(stmt_type=StatementType.DDL)
+
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
             # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior
@@ -172,7 +177,7 @@ class AsyncExecutionMixin:
     in a single location to ensure consistent behavior across all async database operations.
     """
 
-    async def execute(self, sql: str, params: Optional[Tuple] = None, *, options: ExecutionOptions) -> QueryResult:
+    async def execute(self, sql: str, params: Optional[Tuple] = None, *, options: Optional[ExecutionOptions] = None) -> QueryResult:
         """
         Execute a SQL statement asynchronously with comprehensive parameter and result processing.
 
@@ -207,6 +212,11 @@ class AsyncExecutionMixin:
         try:
             if not self._connection:
                 await self.connect()
+
+            # Handle default options for simplified execution (e.g., transaction control)
+            if options is None:
+                options = ExecutionOptions(stmt_type=StatementType.DDL)
+
             stmt_type = options.stmt_type
             # Determine if result set should be processed based on statement type and process_result_set flag
             # If process_result_set is explicitly set, use that; otherwise, default to DQL behavior

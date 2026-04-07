@@ -15,7 +15,7 @@ from .backend.sync import SQLiteBackend
 from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect
 from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
-from .transaction import SQLiteTransactionManager, SQLiteTransactionMixin
+from .transaction import SQLiteTransactionManager
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
 from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteExtensionMixin
 
@@ -109,7 +109,6 @@ __all__ = [
     "SQLiteUUIDAdapter",
     "SQLiteTransactionManager",
     "AsyncSQLiteTransactionManager",
-    "SQLiteTransactionMixin",
     # SQLite-specific protocols and mixins
     "SQLiteExtensionSupport",
     "SQLitePragmaSupport",

@@ -171,6 +171,15 @@ from .introspection import (
     TriggerListExpression,
     TriggerInfoExpression,
 )
+from .transaction import (
+    TransactionExpression,
+    BeginTransactionExpression,
+    CommitTransactionExpression,
+    RollbackTransactionExpression,
+    SavepointExpression,
+    ReleaseSavepointExpression,
+    SetTransactionExpression,
+)
 
 # Import all function factories
 from .functions import (
@@ -409,6 +418,14 @@ __all__ = [
     "ViewInfoExpression",
     "TriggerListExpression",
     "TriggerInfoExpression",
+    # Transaction Control
+    "TransactionExpression",
+    "BeginTransactionExpression",
+    "CommitTransactionExpression",
+    "RollbackTransactionExpression",
+    "SavepointExpression",
+    "ReleaseSavepointExpression",
+    "SetTransactionExpression",
     # Functions
     "count",
     "sum_",

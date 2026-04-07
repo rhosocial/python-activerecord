@@ -1071,7 +1071,7 @@ class TestAsyncSQLiteTransaction:
     @pytest.mark.asyncio
     async def test_supports_savepoint(self, backend):
         """Test savepoint support check"""
-        assert backend.transaction_manager.supports_savepoint() is True
+        assert await backend.transaction_manager.supports_savepoint() is True
 
     @pytest.mark.asyncio
     async def test_mixed_savepoint_transactions(self, backend):
