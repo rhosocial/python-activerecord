@@ -1,4 +1,4 @@
-# 13. 场景实战 (Scenarios)
+# 14. 场景实战 (Scenarios)
 
 将 `rhosocial-activerecord` 集成到现代 Web 框架中，以及在复杂并发场景下的正确用法。
 
@@ -6,11 +6,10 @@
 
 *   **[FastAPI 集成](fastapi.md)**: 异步、依赖注入与 Pydantic 模型复用。
 *   **[GraphQL 集成](graphql.md)**: 解决 N+1 问题，构建高效 API。
-*   **[Worker Pool 独立模块](worker_pool.md)**: 独立 worker_pool 模块使用指南、常见陷阱与解决方案、最佳实践。
 
 ## 示例代码
 
-本章的完整示例代码位于 `docs/examples/chapter_13_scenarios/`。
+本章的完整示例代码位于 `docs/examples/chapter_14_scenarios/`。
 
 | 目录               | 内容                             |
 |--------------------|----------------------------------|

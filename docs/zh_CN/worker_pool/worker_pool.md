@@ -1970,6 +1970,18 @@ WorkerPool 的孤儿任务检测机制需要区分以下情况：
 
 ---
 
+## 示例代码
+
+本章的完整示例代码位于 `docs/examples/chapter_07_worker_pool/` 目录。
+
+| 文件 | 说明 |
+|------|------|
+| [basic_usage.py](../../examples/chapter_07_worker_pool/basic_usage.py) | 基本用法：创建进程池、提交任务、获取结果 |
+| [async_mode.py](../../examples/chapter_07_worker_pool/async_mode.py) | 异步模式：使用异步 API 进行任务管理 |
+| [connection_management.py](../../examples/chapter_07_worker_pool/connection_management.py) | 连接管理：在 Worker 中管理数据库连接 |
+
+---
+
 ## 总结
 
 `WorkerPool` 模块为并行任务执行提供了简单、可靠的基础。遵循这些准则：
