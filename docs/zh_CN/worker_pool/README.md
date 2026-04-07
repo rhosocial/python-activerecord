@@ -4,7 +4,12 @@
 
 ## 目录
 
-*   **[Worker Pool 使用指南](worker_pool.md)**: 完整的 Worker Pool 使用指南，包括生命周期钩子、管理与统计、最佳实践和常见陷阱。
+*   **[Worker Pool 使用指南](worker_pool.md)**: 概述、核心特性、状态机、设计原则、快速开始。
+*   **[生命周期钩子](lifecycle_hooks.md)**: Worker 级和任务级钩子函数的使用。
+*   **[管理与统计](management_statistics.md)**: 运行时状态查询、统计信息收集、健康检查。
+*   **[API 参考](api_reference.md)**: 完整的类、枚举、数据类和异常定义。
+*   **[任务编写指南](task_guide.md)**: 任务函数规则、模板和错误处理。
+*   **[最佳实践与陷阱](best_practices.md)**: 最佳实践和常见陷阱及解决方案。
 
 ## 核心特性
 
