@@ -89,7 +89,126 @@ stateDiagram-v2
 - **I/O-bound work**: Parallel database queries or API calls
 - **External queue consumers**: As a worker pool for Celery, RQ, or other task queues
 
-### When NOT to Use WorkerPool
+### WorkerPool vs Connection Pool: How to Choose?
+
+When dealing with database operations in concurrent scenarios, WorkerPool and Connection Pool (`BackendPool`) are two different solutions with different use cases:
+
+| Scenario | WorkerPool | Connection Pool |
+|----------|------------|-----------------|
+| **Connection Isolation** | ✓ Each worker has independent connection | ✗ Connections are reused, not isolated |
+| **Complex Long-running Tasks** | ✓ Process isolation, crashes don't affect others | ✗ Long transactions may timeout |
+| **Crash Isolation** | ✓ Worker crashes auto-restart | ✗ Affects shared connections |
+| **Simple Concurrent Queries** | ✗ Process creation overhead | ✓ Lightweight and efficient |
+| **Shared Transaction Context** | ✗ Cannot share across processes | ✓ Context awareness |
+| **Context Awareness** | ✗ None | ✓ ActiveRecord integration |
+
+### Process-Level Overhead and Limitations
+
+**Important Reminder**: WorkerPool is a **process-level** concurrency solution with significant overhead compared to connection pools (thread/coroutine level):
+
+#### Management Overhead
+
+| Overhead Type | WorkerPool (Process) | Connection Pool (Thread/Coroutine) |
+|---------------|---------------------|-----------------------------------|
+| **Creation Overhead** | High (process fork, memory allocation) | Low (connection object creation) |
+| **Memory Usage** | High (independent memory space per process) | Low (shared memory space) |
+| **Communication Overhead** | High (IPC serialization/deserialization) | Low (direct memory access) |
+| **Context Switching** | High (process switching) | Low (thread/coroutine switching) |
+| **Startup Latency** | Milliseconds | Microseconds |
+
+#### Specific Overhead Examples
+
+```python
+# WorkerPool: Process-level overhead
+# - Each worker has independent memory space (typically 10-50MB/process)
+# - Task parameters must be pickle-serialized for transfer
+# - Return results must be pickle-deserialized to receive
+# - Inter-process communication (IPC) overhead
+
+# Connection Pool: Thread/coroutine-level overhead
+# - Shared memory space, no serialization needed
+# - Connection objects are lightweight (typically < 1MB/connection)
+# - Direct memory access, no IPC overhead
+```
+
+### When NOT to Use WorkerPool (Performance Considerations)
+
+| Scenario | Reason | Recommended Alternative |
+|----------|--------|------------------------|
+| **Frequent Small Tasks** | Process startup and communication overhead exceeds task itself | Connection pool + thread/coroutine |
+| **Low Latency Requirements** | IPC serialization adds latency | Connection pool |
+| **Memory-Constrained Environment** | Each process has independent memory space | Connection pool |
+| **Large Shared Data** | Cross-process data transfer requires serialization | Thread + connection pool |
+| **Simple Concurrent Queries** | Process overhead is unnecessary | Connection pool |
+| **Shared Transactions Needed** | Cannot share transaction state across processes | Connection pool's `transaction()` |
+| **High-Concurrency Web** | Process count limited, cannot handle high concurrency | Async + connection pool |
+
+#### Overhead Comparison Example
+
+```python
+import time
+from rhosocial.activerecord.connection.pool import BackendPool, PoolConfig
+from rhosocial.activerecord.worker import WorkerPool
+
+# Scenario: Execute 1000 simple queries
+
+# WorkerPool approach (NOT recommended)
+def worker_query(user_id):
+    # IPC overhead for each call
+    return User.find_one(id=user_id)
+
+worker_pool = WorkerPool(num_workers=4)
+start = time.time()
+futures = [worker_pool.submit(worker_query, i) for i in range(1000)]
+results = [f.result() for f in futures]
+print(f"WorkerPool: {time.time() - start:.2f}s")  # May take 5-10 seconds
+
+# Connection pool approach (recommended)
+pool = BackendPool(PoolConfig(min_size=4, max_size=10, ...))
+start = time.time()
+with pool.connection():
+    results = [User.find_one(id=i) for i in range(1000)]
+print(f"Connection Pool: {time.time() - start:.2f}s")  # May take only 0.5-1 second
+```
+
+### When to Use WorkerPool (Recommended Scenarios)
+
+1. **Strict connection isolation required**: Each worker process has its own database connection, avoiding connection state pollution
+2. **Complex database tasks**: Long-running tasks requiring process-level isolation
+3. **Task crashes shouldn't affect others**: Workers auto-restart on crash, failed tasks are traceable
+4. **CPU-intensive + database operations**: True parallelism, bypassing GIL
+
+#### When to Use Connection Pool
+
+1. **Simple concurrent queries**: Lightweight connection reuse, no process overhead
+2. **Shared transaction context needed**: `pool.transaction()` provides transaction context awareness
+3. **ActiveRecord integration**: Models automatically sense connection pool context
+4. **Web application request handling**: Each request gets independent connection, returned after request ends
+
+#### Hybrid Usage Example
+
+```python
+from rhosocial.activerecord.connection.pool import BackendPool, PoolConfig
+from rhosocial.activerecord.worker import WorkerPool
+
+# Connection Pool: For web request handling
+web_pool = BackendPool(PoolConfig(
+    min_size=5,
+    max_size=20,
+    backend_factory=lambda: SQLiteBackend(database="app.db")
+))
+
+# WorkerPool: For background batch processing
+worker_pool = WorkerPool(num_workers=4)
+
+# Each worker gets its own connection when needed
+def process_batch(items):
+    with pool.connection() as conn:
+        # Process with isolated connection
+        pass
+```
+
+### When NOT to Use WorkerPool (Feature Limitations)
 
 WorkerPool is **NOT** a complete task queue system. The following features require specialized libraries (e.g., Celery, RQ, Dramatiq):
 

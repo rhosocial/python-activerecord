@@ -4,7 +4,6 @@ Ready to start building? This section covers everything you need to go from zero
 
 * **[Installation](installation.md)**: How to install the library.
 * **[Configuration](configuration.md)**: Setting up your database connection.
-* **[Connection Management](connection_management.md)**: Using ConnectionGroup and ConnectionManager to manage multi-model and multi-database connections.
 * **[Quick Start](quick_start.md)**: A 5-minute tutorial to build a simple blog.
 * **[Your First CRUD App](first_crud.md)**: Build a complete Todo application from scratch, learning Create, Read, Update, Delete operations.
 * **[Troubleshooting](troubleshooting.md)**: Running into issues? Here are the most common errors and their solutions.

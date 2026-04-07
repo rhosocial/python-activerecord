@@ -15,6 +15,8 @@ import inspect
 import logging
 import multiprocessing as mp
 import os
+import select
+import sys
 import threading
 import time
 import traceback
@@ -29,6 +31,15 @@ try:
     _HAS_RESOURCE = True
 except ImportError:
     _HAS_RESOURCE = False  # Windows doesn't have resource module
+
+from .scheduling import (
+    SchedulePolicy,
+    SchedulingStrategy,
+    LeastTasksStrategy,
+    RoundRobinStrategy,
+    RandomStrategy,
+    create_scheduler,
+)
 
 from ..logging.manager import get_logging_manager
 
@@ -569,8 +580,7 @@ async def _execute_hooks_async(
 
 def _worker_entry(
     worker_id: int,
-    task_q: mp.Queue,
-    result_q: mp.Queue,
+    conn: mp.connection.Connection,
     pool_id: str,
     on_worker_start: Optional[AnyWorkerHook] = None,
     on_worker_stop: Optional[AnyWorkerHook] = None,
@@ -594,7 +604,7 @@ def _worker_entry(
 
     Message sequence:
         1. __worker_ready__ / __worker_init_failed__ - After WORKER_START hooks
-        2. __dequeued__ - Sent immediately after get(), enables crash attribution
+        2. __dequeued__ - Sent immediately after recv(), enables crash attribution
         3. __started__  - Sent before fn(), enables timeout tracking
         4. ok/error     - Sent after fn() completes/fails
 
@@ -614,15 +624,10 @@ def _worker_entry(
         In async mode, sync task functions will block the event loop.
         Users should ensure all hooks and tasks are either sync or async, not mixed.
 
-    Known Limitation:
-        Using os._exit() in task functions can corrupt multiprocessing.Queue state.
-        When a Worker process exits via os._exit(), it bypasses Python's normal
-        cleanup, potentially leaving shared Queue pipes in an inconsistent state.
-        This may prevent restarted Workers from communicating properly through
-        the shared Queue. For simulating crashes in tests, consider using signals
-        (e.g., os.kill(os.getpid(), signal.SIGTERM)) instead, though this also
-        has limitations. Real-world crash recovery works correctly because actual
-        segfaults don't corrupt Queue state the same way os._exit() does.
+    Note on Pipe vs Queue:
+        Using independent Pipe per Worker provides isolation - if one Worker
+        crashes, other Workers' communication channels remain unaffected.
+        This solves the os._exit() Queue corruption issue.
     """
     pid = os.getpid()
     ctx = WorkerContext(
@@ -658,13 +663,13 @@ def _worker_entry(
 
     if is_async:
         _run_async_worker(
-            ctx, task_q, result_q,
+            ctx, conn,
             start_hooks, stop_hooks,
             task_start_hooks, task_end_hooks
         )
     else:
         _run_sync_worker(
-            ctx, task_q, result_q,
+            ctx, conn,
             start_hooks, stop_hooks,
             task_start_hooks, task_end_hooks
         )
@@ -672,8 +677,7 @@ def _worker_entry(
 
 def _run_sync_worker(
     ctx: WorkerContext,
-    task_q: mp.Queue,
-    result_q: mp.Queue,
+    conn: mp.connection.Connection,
     start_hooks: List[Callable],
     stop_hooks: List[Callable],
     task_start_hooks: List[Callable],
@@ -685,15 +689,16 @@ def _run_sync_worker(
         error_info = _execute_hooks(start_hooks, ctx)
         if error_info:
             error_msg, tb = error_info
-            result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+            conn.send(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+            conn.close()
             return
     # Always send ready signal, even if no hooks
-    result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+    conn.send(("__worker_ready__", ctx.worker_id, ctx.pid))
 
     try:
         while True:
             try:
-                msg = task_q.get()
+                msg = conn.recv()
             except (EOFError, OSError):
                 break
 
@@ -701,10 +706,10 @@ def _run_sync_worker(
                 break
 
             task_id = msg[0]
-            result_q.put(("__dequeued__", ctx.worker_id, task_id))
+            conn.send(("__dequeued__", ctx.worker_id, task_id))
 
             task_id, fn, args, kwargs = msg
-            result_q.put(("__started__", ctx.worker_id, task_id))
+            conn.send(("__started__", ctx.worker_id, task_id))
 
             task_ctx = TaskContext(
                 task_id=task_id,
@@ -742,13 +747,13 @@ def _run_sync_worker(
             task_ctx.memory_end = _get_memory_usage()
 
             if exc is None:
-                result_q.put((
+                conn.send((
                     "ok", task_id, value,
                     ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
                     task_ctx.memory_start, task_ctx.memory_end
                 ))
             else:
-                result_q.put((
+                conn.send((
                     "error", task_id, exc, tb_str,
                     ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
                     task_ctx.memory_start, task_ctx.memory_end
@@ -762,12 +767,12 @@ def _run_sync_worker(
         # Execute WORKER_STOP hooks
         if stop_hooks:
             _execute_hooks(stop_hooks, ctx)
+        conn.close()
 
 
 def _run_async_worker(
     ctx: WorkerContext,
-    task_q: mp.Queue,
-    result_q: mp.Queue,
+    conn: mp.connection.Connection,
     start_hooks: List[Callable],
     stop_hooks: List[Callable],
     task_start_hooks: List[Callable],
@@ -784,17 +789,17 @@ def _run_async_worker(
             error_info = loop.run_until_complete(_execute_hooks_async(start_hooks, ctx))
             if error_info:
                 error_msg, tb = error_info
-                result_q.put(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
+                conn.send(("__worker_init_failed__", ctx.worker_id, error_msg, tb))
                 return
         # Always send ready signal, even if no hooks
-        result_q.put(("__worker_ready__", ctx.worker_id, ctx.pid))
+        conn.send(("__worker_ready__", ctx.worker_id, ctx.pid))
 
         try:
             while True:
-                # Use executor to avoid blocking event loop on Queue.get
                 try:
+                    # Use executor to avoid blocking event loop on conn.recv
                     msg = loop.run_until_complete(
-                        loop.run_in_executor(None, task_q.get)
+                        loop.run_in_executor(None, conn.recv)
                     )
                 except (EOFError, OSError):
                     break
@@ -803,10 +808,10 @@ def _run_async_worker(
                     break
 
                 task_id = msg[0]
-                result_q.put(("__dequeued__", ctx.worker_id, task_id))
+                conn.send(("__dequeued__", ctx.worker_id, task_id))
 
                 task_id, fn, args, kwargs = msg
-                result_q.put(("__started__", ctx.worker_id, task_id))
+                conn.send(("__started__", ctx.worker_id, task_id))
 
                 task_ctx = TaskContext(
                     task_id=task_id,
@@ -845,13 +850,13 @@ def _run_async_worker(
                 task_ctx.memory_end = _get_memory_usage()
 
                 if exc is None:
-                    result_q.put((
+                    conn.send((
                         "ok", task_id, value,
                         ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
                         task_ctx.memory_start, task_ctx.memory_end
                     ))
                 else:
-                    result_q.put((
+                    conn.send((
                         "error", task_id, exc, tb_str,
                         ctx.worker_id, task_ctx.start_time, task_ctx.end_time,
                         task_ctx.memory_start, task_ctx.memory_end
@@ -1098,6 +1103,7 @@ class WorkerPool:
         n_workers: int = 4,
         check_interval: float = 0.5,
         orphan_timeout: Optional[float] = None,
+        schedule_policy: SchedulePolicy = SchedulePolicy.LEAST_TASKS,
         # Lifecycle hooks
         on_worker_start: Optional[AnyWorkerHook] = None,
         on_worker_stop: Optional[AnyWorkerHook] = None,
@@ -1113,6 +1119,8 @@ class WorkerPool:
             orphan_timeout: Max seconds a task can wait without being claimed before
                 considered orphaned (default: max(2.0, check_interval * 4)).
                 Should be much larger than normal scheduling delay (< 0.1s).
+            schedule_policy: Scheduling strategy for task distribution.
+                Options: LEAST_TASKS (default), ROUND_ROBIN, RANDOM.
             on_worker_start: Hook called when Worker process starts (for initialization)
             on_worker_stop: Hook called when Worker process stops (for cleanup)
             on_task_start: Hook called before each task execution
@@ -1125,8 +1133,13 @@ class WorkerPool:
         self._state = PoolState.RUNNING
         self._pool_id = str(uuid.uuid4())[:8]  # Short ID for logging
 
-        self._task_q: mp.Queue = self._ctx.Queue()
-        self._result_q: mp.Queue = self._ctx.Queue()
+        # Independent Pipe per Worker (replaces shared Queue)
+        # wid -> (parent_conn, child_conn)
+        self._worker_pipes: Dict[int, Tuple[mp.connection.Connection, mp.connection.Connection]] = {}
+        # Task count per Worker (for scheduling)
+        self._worker_task_count: Dict[int, int] = {}
+        # Scheduling strategy
+        self._scheduler: SchedulingStrategy = create_scheduler(schedule_policy)
 
         # self._lock protects the following fields (never call registry methods while holding)
         self._lock = threading.Lock()
@@ -1270,7 +1283,11 @@ class WorkerPool:
         Start a new Worker process and register it.
         Does not hold self._lock (registry.add uses its own lock).
         Passes lifecycle hooks to the Worker process.
+        Creates a dedicated Pipe for this Worker.
         """
+        # Create dedicated Pipe for this Worker
+        parent_conn, child_conn = self._ctx.Pipe()
+
         # Serialize hooks for this Worker
         on_start = self._serialize_hooks(WorkerEvent.WORKER_START)
         on_stop = self._serialize_hooks(WorkerEvent.WORKER_STOP)
@@ -1281,8 +1298,7 @@ class WorkerPool:
             target=_worker_entry,
             args=(
                 wid,
-                self._task_q,
-                self._result_q,
+                child_conn,  # Worker gets the child end of Pipe
                 self._pool_id,
                 on_start,
                 on_stop,
@@ -1294,7 +1310,13 @@ class WorkerPool:
         )
         p.start()
         handle = self._registry.add(wid, p)      # registry._lock only
+
+        # Close child_conn in parent process (Worker owns it now)
+        child_conn.close()
+
         with self._lock:                          # self._lock only (no nesting)
+            self._worker_pipes[wid] = (parent_conn, child_conn)
+            self._worker_task_count[wid] = 0
             self._worker_task[wid] = None
             self._worker_start_time[wid] = None
             # Worker process started but not ready to process tasks yet.
@@ -1327,11 +1349,15 @@ class WorkerPool:
 
     @property
     def pending_tasks(self) -> int:
-        """Number of tasks waiting in queue (approximate, may not be available on all platforms)"""
-        try:
-            return self._task_q.qsize()
-        except NotImplementedError:
-            return -1  # Not available on some platforms (e.g., macOS)
+        """
+        Number of tasks waiting to be dispatched.
+
+        Note: With independent Pipe architecture, tasks are immediately dispatched
+        to Workers. This returns the count of tasks that have been submitted but
+        not yet claimed by any Worker.
+        """
+        with self._lock:
+                return len(self._task_enqueue_time)
 
     @property
     def in_flight_tasks(self) -> int:
@@ -1541,6 +1567,38 @@ class WorkerPool:
         """
         return list(self._hooks.get(event, []))
 
+    # ── Public: Schedule Policy Management ─────────────────────────────────────
+
+    def set_schedule_policy(self, policy: SchedulePolicy) -> None:
+        """
+        Change the scheduling policy at runtime.
+
+        This method allows switching between scheduling strategies
+        without restarting the pool. The change takes effect immediately
+        for subsequent task submissions.
+
+        Args:
+            policy: The new scheduling policy to use.
+                Options: LEAST_TASKS, ROUND_ROBIN, RANDOM
+
+        Example:
+            pool.set_schedule_policy(SchedulePolicy.ROUND_ROBIN)
+        """
+        self._scheduler = create_scheduler(policy)
+        logger.info("Schedule policy changed to %s", policy.value)
+
+    @property
+    def schedule_policy(self) -> SchedulePolicy:
+        """Get the current scheduling policy name."""
+        if isinstance(self._scheduler, LeastTasksStrategy):
+            return SchedulePolicy.LEAST_TASKS
+        elif isinstance(self._scheduler, RoundRobinStrategy):
+            return SchedulePolicy.ROUND_ROBIN
+        elif isinstance(self._scheduler, RandomStrategy):
+            return SchedulePolicy.RANDOM
+        else:
+            return SchedulePolicy.LEAST_TASKS  # Fallback
+
     # ── Internal: Worker Health Check ───────────────────────────────────────
 
     def _check_workers(self) -> None:
@@ -1564,11 +1622,22 @@ class WorkerPool:
 
             handle.join(timeout=1)
 
+            # Close old Pipe before creating new one
+            with self._lock:
+                old_pipe = self._worker_pipes.pop(wid, None)
+                if old_pipe:
+                    try:
+                        old_pipe[0].close()
+                        old_pipe[1].close()
+                    except Exception:
+                        pass  # Already closed
+
             # Attribute the task being executed
             with self._lock:                    # self._lock (no nesting)
                 lost_task_id = self._worker_task.pop(wid, None)
                 self._worker_start_time.pop(wid, None)
                 self._worker_ready[wid] = False  # Mark as not ready until restarted Worker reports ready
+                self._worker_task_count.pop(wid, None)
                 # ★ Record death time to trigger orphan scan
                 self._last_worker_death = time.monotonic()
 
@@ -1637,16 +1706,12 @@ class WorkerPool:
     # ── Internal: Supervisor Thread ─────────────────────────────────────────
 
     def _supervise(self) -> None:
-        """Supervisor main loop: consume result queue + periodically check Worker health"""
+        """Supervisor main loop: collect results from all Pipes + periodically check Worker health"""
         last_check = time.monotonic()
 
         while self._state not in (PoolState.KILLING, PoolState.STOPPED):
-            # Non-blocking consume result queue (small timeout to avoid busy-wait)
-            try:
-                msg = self._result_q.get(timeout=0.05)
-                self._dispatch(msg)
-            except Exception:
-                pass  # queue.Empty or other noise
+            # Cross-platform result collection
+            self._collect_results()
 
             # Periodically check Worker health and orphaned tasks
             now = time.monotonic()
@@ -1654,6 +1719,51 @@ class WorkerPool:
                 last_check = now
                 self._check_workers()
                 self._check_orphaned_tasks()
+
+    def _collect_results(self) -> None:
+        """
+        Collect results from all Worker Pipes (cross-platform).
+
+        On Unix: Use select.select() for multiplexed I/O
+        On Windows: Use Connection.poll() for non-blocking check
+        """
+        # Get all parent connections
+        with self._lock:
+            parent_conns = {
+                wid: pipe[0]
+                for wid, pipe in self._worker_pipes.items()
+            }
+
+        if not parent_conns:
+            time.sleep(0.05)  # No workers, brief sleep to avoid busy-wait
+            return
+
+        if sys.platform == "win32":
+            # Windows: poll each connection
+            for wid, conn in parent_conns.items():
+                try:
+                    if conn.poll(0):  # Non-blocking check
+                        msg = conn.recv()
+                        self._dispatch(msg)
+                except (EOFError, OSError, ConnectionError):
+                    # Pipe closed, will be handled by _check_workers
+                    pass
+        else:
+            # Unix: use select for multiplexed I/O
+            try:
+                readable, _, _ = select.select(
+                    list(parent_conns.values()), [], [], 0.05
+                )
+                for conn in readable:
+                    try:
+                        msg = conn.recv()
+                        self._dispatch(msg)
+                    except (EOFError, OSError, ConnectionError):
+                        # Pipe closed, will be handled by _check_workers
+                        pass
+            except (OSError, ValueError):
+                # Invalid file descriptor, brief sleep
+                time.sleep(0.05)
 
     def _dispatch(self, msg: tuple) -> None:
         """Dispatch result message"""
@@ -1855,12 +1965,37 @@ class WorkerPool:
 
         Raises:
             PoolDrainingError: Pool is in shutdown flow
+            RuntimeError: No workers available within timeout
         """
         if self._state != PoolState.RUNNING:
             raise PoolDrainingError(
                 f"Pool is {self._state.name} — no new tasks accepted. "
                 f"shutdown() was already called."
             )
+
+        # Wait for at least one Worker to be ready (with timeout)
+        max_wait = 5.0  # Maximum wait time for workers to be ready
+        start_wait = time.monotonic()
+        while True:
+            with self._lock:
+                wid = self._scheduler.select_worker(
+                    self._worker_task_count, self._worker_ready
+                )
+                if wid is not None:
+                    break
+            # Check pool state
+            if self._state != PoolState.RUNNING:
+                raise PoolDrainingError(
+                    f"Pool is {self._state.name} — no new tasks accepted."
+                )
+            # Check timeout
+            if time.monotonic() - start_wait > max_wait:
+                raise RuntimeError(
+                    f"No ready workers available after {max_wait}s. "
+                    f"Workers may have failed to initialize."
+                )
+            time.sleep(0.01)  # Brief sleep before retry
+
         # Generate unique task_id (handle potential UUID collision in free-threaded Python)
         with self._lock:
             task_id = str(uuid.uuid4())
@@ -1870,10 +2005,16 @@ class WorkerPool:
             fut = Future(task_id)
             self._futures[task_id] = fut
             self._task_enqueue_time[task_id] = time.monotonic()
+            self._worker_task_count[wid] += 1
+
         with self._stats_lock:
             self._tasks_submitted += 1
-        self._task_q.put((task_id, fn, args, kwargs))
-        logger.debug("Task[%s] submitted | fn=%s", task_id[:8], fn.__name__)
+
+        # Send task to selected Worker's Pipe
+        parent_conn = self._worker_pipes[wid][0]
+        parent_conn.send((task_id, fn, args, kwargs))
+
+        logger.debug("Task[%s] submitted | fn=%s | Worker-%d", task_id[:8], fn.__name__, wid)
         return fut
 
     def map(self, fn: Callable, iterable, timeout: Optional[float] = None) -> list:
@@ -1938,11 +2079,15 @@ class WorkerPool:
         with self._lock:
             tasks_in_flight = sum(1 for t in self._worker_task.values() if t is not None)
 
-        # Inject sentinels into shared queue. Workers read sentinel after completing
-        # current task and exit voluntarily.
-        # Sentinel count = Worker count (FIFO queue guarantees each Worker gets one).
-        for _ in range(self._n):
-            self._task_q.put(_STOP)
+        # Send STOP sentinel to all Worker Pipes
+        # Each Worker reads sentinel after completing current task and exits voluntarily.
+        with self._lock:
+            for wid, (parent_conn, _) in self._worker_pipes.items():
+                try:
+                    parent_conn.send(_STOP)
+                except (EOFError, OSError, ConnectionError):
+                    # Pipe already closed, Worker may have exited
+                    pass
 
         logger.info(
             "Shutdown initiated | DRAINING (graceful_timeout=%.1fs, in_flight=%d)",
