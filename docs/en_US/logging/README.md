@@ -1,4 +1,4 @@
-# 7. Logging System
+# 8. Logging System
 
 > 💡 **AI Prompt**: "How does ActiveRecord's logging system prevent sensitive data from appearing in logs?"
 
@@ -76,21 +76,21 @@ manager.config.summarizer_config = config
 
 ## Example Code
 
-Complete example code is located in the `docs/examples/chapter_07_logging/` directory:
+Complete example code is located in the `docs/examples/chapter_08_logging/` directory:
 
 | File | Description |
 |------|-------------|
-| [01_basic_configuration.py](../../examples/chapter_07_logging/01_basic_configuration.py) | Basic configuration: log level settings, namespace hierarchy, runtime level changes |
-| [02_data_summarization.py](../../examples/chapter_07_logging/02_data_summarization.py) | Data summarization: sensitive field masking, string truncation, three logging modes |
-| [03_per_logger_config.py](../../examples/chapter_07_logging/03_per_logger_config.py) | Per-logger configuration: different modes for different components, hierarchical inheritance |
-| [04_advanced_scenarios.py](../../examples/chapter_07_logging/04_advanced_scenarios.py) | Advanced scenarios: production/development configs, custom logger names, application integration |
+| [01_basic_configuration.py](../../examples/chapter_08_logging/01_basic_configuration.py) | Basic configuration: log level settings, namespace hierarchy, runtime level changes |
+| [02_data_summarization.py](../../examples/chapter_08_logging/02_data_summarization.py) | Data summarization: sensitive field masking, string truncation, three logging modes |
+| [03_per_logger_config.py](../../examples/chapter_08_logging/03_per_logger_config.py) | Per-logger configuration: different modes for different components, hierarchical inheritance |
+| [04_advanced_scenarios.py](../../examples/chapter_08_logging/04_advanced_scenarios.py) | Advanced scenarios: production/development configs, custom logger names, application integration |
 
 Running the examples:
 
 ```bash
 cd python-activerecord
 source .venv3.8/bin/activate
-python docs/examples/chapter_07_logging/01_basic_configuration.py
+python docs/examples/chapter_08_logging/01_basic_configuration.py
 ```
 
 ## Best Practices

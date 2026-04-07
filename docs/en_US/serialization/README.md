@@ -1,4 +1,4 @@
-# 9. Serialization
+# 10. Serialization
 
 rhosocial-activerecord fully leverages Pydantic V2's serialization capabilities, making conversion between models and formats like JSON or dictionaries extremely simple and type-safe.
 
@@ -14,10 +14,10 @@ rhosocial-activerecord fully leverages Pydantic V2's serialization capabilities,
 
 ## Example Code
 
-Complete example code for this chapter can be found at `docs/examples/chapter_09_serialization/`.
+Complete example code for this chapter can be found at `docs/examples/chapter_10_serialization/`.
 
 | File | Description |
 |------|-------------|
-| [01_basic_serialization.py](../../examples/chapter_09_serialization/01_basic_serialization.py) | Basic serialization: model_dump(), model_dump_json(), field types |
-| [02_field_filtering.py](../../examples/chapter_09_serialization/02_field_filtering.py) | Field filtering: exclude, include, nested filtering, context-aware |
-| [03_related_data.py](../../examples/chapter_09_serialization/03_related_data.py) | Related data: serializing relationships, computed_field, nested patterns
+| [01_basic_serialization.py](../../examples/chapter_10_serialization/01_basic_serialization.py) | Basic serialization: model_dump(), model_dump_json(), field types |
+| [02_field_filtering.py](../../examples/chapter_10_serialization/02_field_filtering.py) | Field filtering: exclude, include, nested filtering, context-aware |
+| [03_related_data.py](../../examples/chapter_10_serialization/03_related_data.py) | Related data: serializing relationships, computed_field, nested patterns

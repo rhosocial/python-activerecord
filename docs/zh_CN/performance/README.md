@@ -1,4 +1,4 @@
-# 6. 性能与优化 (Performance & Optimization)
+# 7. 性能与优化 (Performance & Optimization)
 
 "渐进式 ORM" 的核心在于：你可以根据需求在开发效率与运行效率之间自由切换。
 
@@ -11,4 +11,4 @@
 
 ## 示例代码
 
-本章的完整示例代码位于 `docs/examples/chapter_06_performance/`。
+本章的完整示例代码位于 `docs/examples/chapter_07_performance/`。
