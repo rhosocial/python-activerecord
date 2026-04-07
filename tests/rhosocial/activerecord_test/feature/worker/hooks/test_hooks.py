@@ -72,6 +72,12 @@ def data_access_task(ctx: TaskContext, x):
     }
 
 
+def slow_task(ctx: TaskContext, x):
+    """Task that takes a long time (for timeout testing)."""
+    time.sleep(5)  # Long sleep
+    return x
+
+
 # ── Test Cases ────────────────────────────────────────────────────────────────
 
 def cleanup_marker_files():
@@ -738,13 +744,7 @@ def test_future_duration_before_completion():
 
 def test_drain_with_timeout_expiry():
     """Test drain() with timeout that expires before all tasks complete."""
-    import time
-
-    def slow_task(ctx: TaskContext, x):
-        """Task that takes a long time."""
-        time.sleep(5)  # Long sleep
-        return x
-
+    # Note: slow_task is defined at module level for pickle compatibility
     with WorkerPool(n_workers=1) as pool:
         # Submit tasks that will take longer than our drain timeout
         futures = [pool.submit(slow_task, i) for i in range(3)]
