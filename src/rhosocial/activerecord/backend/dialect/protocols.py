@@ -1743,9 +1743,19 @@ class TransactionControlSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple).
 
+        Important:
+            MUST return a SINGLE SQL statement. Multiple statements separated by
+            semicolons are NOT allowed because backend.execute() only supports
+            single-statement execution. For databases that require multiple
+            statements (e.g., MySQL needs SET TRANSACTION before START TRANSACTION),
+            the TransactionManager subclass should override _do_begin() to execute
+            them separately.
+
         Note:
-            For MySQL, this may return multiple statements separated by semicolons
-            (e.g., "SET TRANSACTION ISOLATION LEVEL ...; START TRANSACTION").
+            - MySQL: Returns "START TRANSACTION" only; SET TRANSACTION is handled
+              by MySQLTransactionManager._do_begin() separately.
+            - PostgreSQL: Returns "BEGIN ISOLATION LEVEL ... READ ONLY ..." as single statement.
+            - SQLite: Returns "BEGIN [DEFERRED|IMMEDIATE] TRANSACTION" as single statement.
         """
         ...  # pragma: no cover
 
