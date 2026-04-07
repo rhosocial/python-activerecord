@@ -1,4 +1,4 @@
-# 10. Backend System
+# 11. Backend System
 
 This is an advanced topic for users who want to understand the internal workings of the ORM or need to support a new database.
 
@@ -39,7 +39,6 @@ pip install rhosocial-activerecord[all]
 
 ## Contents
 
-* **[Connection Pool](connection_pool.md)**: Efficient connection management with context awareness.
 * **[Database Introspection](introspection.md)**: Query database structure metadata.
 * **[Query Explain Interface](explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
 * **[Expression System](expression/README.md)**: How Python objects are transformed into SQL strings.
@@ -51,4 +50,4 @@ pip install rhosocial-activerecord[all]
 
 ## Example Code
 
-Full example code for this chapter can be found at `docs/examples/chapter_10_backend/`.
+Full example code for this chapter can be found at `docs/examples/chapter_11_backend/`.

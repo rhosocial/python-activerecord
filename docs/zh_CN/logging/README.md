@@ -1,4 +1,4 @@
-# 7. 日志系统
+# 8. 日志系统
 
 > 💡 **AI 提示**: "ActiveRecord 的日志系统如何防止敏感数据出现在日志中？"
 
@@ -76,21 +76,21 @@ manager.config.summarizer_config = config
 
 ## 示例代码
 
-完整的示例代码位于 `docs/examples/chapter_07_logging/` 目录：
+完整的示例代码位于 `docs/examples/chapter_08_logging/` 目录：
 
 | 文件 | 说明 |
 |------|------|
-| [01_basic_configuration.py](../../examples/chapter_07_logging/01_basic_configuration.py) | 基本配置：日志级别设置、命名空间层次、运行时级别调整 |
-| [02_data_summarization.py](../../examples/chapter_07_logging/02_data_summarization.py) | 数据摘要：敏感字段屏蔽、字符串截断、三种日志模式 |
-| [03_per_logger_config.py](../../examples/chapter_07_logging/03_per_logger_config.py) | 按层级配置：不同组件使用不同摘要模式、层次继承 |
-| [04_advanced_scenarios.py](../../examples/chapter_07_logging/04_advanced_scenarios.py) | 高级场景：生产/开发环境配置、自定义日志器名称、与应用集成 |
+| [01_basic_configuration.py](../../examples/chapter_08_logging/01_basic_configuration.py) | 基本配置：日志级别设置、命名空间层次、运行时级别调整 |
+| [02_data_summarization.py](../../examples/chapter_08_logging/02_data_summarization.py) | 数据摘要：敏感字段屏蔽、字符串截断、三种日志模式 |
+| [03_per_logger_config.py](../../examples/chapter_08_logging/03_per_logger_config.py) | 按层级配置：不同组件使用不同摘要模式、层次继承 |
+| [04_advanced_scenarios.py](../../examples/chapter_08_logging/04_advanced_scenarios.py) | 高级场景：生产/开发环境配置、自定义日志器名称、与应用集成 |
 
 运行示例：
 
 ```bash
 cd python-activerecord
 source .venv3.8/bin/activate
-python docs/examples/chapter_07_logging/01_basic_configuration.py
+python docs/examples/chapter_08_logging/01_basic_configuration.py
 ```
 
 ## 最佳实践
