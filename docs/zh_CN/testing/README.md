@@ -1,4 +1,4 @@
-# 11. 测试 (Testing)
+# 13. 测试 (Testing)
 
 rhosocial-activerecord 提倡 "Zero-IO" 测试理念。通过内置的 `DummyBackend`，你可以在不依赖真实数据库环境的情况下，快速验证模型逻辑和 SQL 生成。
 

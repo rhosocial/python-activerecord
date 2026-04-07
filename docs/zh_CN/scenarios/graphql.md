@@ -217,7 +217,7 @@ async def graphiql_interface():
 
 ## 完整示例
 
-完整的代码示例位于 `docs/examples/chapter_13_scenarios/graphql_fastapi` 目录中。
+完整的代码示例位于 `docs/examples/chapter_14_scenarios/graphql_fastapi` 目录中。
 
 该示例包含：
 *   完整的 `User`, `Post`, `Comment` 模型定义。
@@ -227,7 +227,7 @@ async def graphiql_interface():
 ### 运行示例
 
 ```bash
-cd docs/examples/chapter_13_scenarios/graphql_fastapi
+cd docs/examples/chapter_14_scenarios/graphql_fastapi
 pip install -r requirements.txt
 python main.py
 ```
