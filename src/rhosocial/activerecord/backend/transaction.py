@@ -10,24 +10,28 @@ a base class for shared logic:
     for both sync and async operations.
 
 2.  **TransactionManager**: The synchronous transaction manager, which inherits from
-    `TransactionManagerBase` and implements the synchronous, I/O-bound `_do_*` methods.
+    `TransactionManagerBase` and implements the synchronous, I/O-bound `_do_*` methods
+    by delegating to `backend.execute()`.
 
 3.  **AsyncTransactionManager**: The asynchronous transaction manager, which also
     inherits from `TransactionManagerBase` and implements the asynchronous `_do_*`
-    methods using `async def`.
+    methods using `async def` and `await backend.execute()`.
 
 This structure ensures that the complex state management of nested transactions is
 written only once and shared, reducing duplication and potential for bugs.
 """
 
 import logging
-from abc import ABC, abstractmethod
+from abc import ABC
 from contextlib import contextmanager, asynccontextmanager
 from enum import Enum, auto
-from typing import Optional, Generator, AsyncGenerator
+from typing import Optional, Generator, AsyncGenerator, Tuple, TYPE_CHECKING
 
 from .errors import TransactionError, IsolationLevelError
 from ..logging.manager import get_logging_manager
+
+if TYPE_CHECKING:
+    from .base import StorageBackend, AsyncStorageBackend
 
 
 class IsolationLevel(Enum):
@@ -71,10 +75,17 @@ class TransactionState(Enum):
 
 
 class TransactionManagerBase(ABC):
-    """Base class for transaction managers, containing shared non-I/O logic."""
+    """Base class for transaction managers, containing shared non-I/O logic.
 
-    def __init__(self, connection, logger=None):
-        self._connection = connection
+    Attributes:
+        _backend: Storage backend instance.
+        _transaction_level: Current nesting level of transactions.
+        _isolation_level: Current isolation level setting.
+        _transaction_mode: Current transaction mode (READ_WRITE or READ_ONLY).
+    """
+
+    def __init__(self, backend: "StorageBackend", logger=None):
+        self._backend = backend
         self._transaction_level = 0
         self._savepoint_prefix = "SP"
         self._isolation_level: Optional[IsolationLevel] = None
@@ -86,6 +97,16 @@ class TransactionManagerBase(ABC):
         self._savepoint_count = 0  # Track savepoint count
         self._active_savepoints = []  # Track active savepoints
         self._state = TransactionState.INACTIVE  # Track transaction state
+
+    @property
+    def backend(self):
+        """Get the storage backend."""
+        return self._backend
+
+    @property
+    def dialect(self):
+        """Get the SQL dialect from backend."""
+        return self._backend.dialect
 
     @property
     def logger(self):
@@ -112,10 +133,6 @@ class TransactionManagerBase(ABC):
         """
         if self._logger:
             self._logger.log(level, msg, *args, **kwargs)
-
-    @property
-    def connection(self):
-        return self._connection
 
     @property
     def is_active(self) -> bool:
@@ -193,82 +210,146 @@ class TransactionManagerBase(ABC):
         """
         return f"{self._savepoint_prefix}_{level}"
 
+    def _build_begin_sql(self) -> Tuple[str, tuple]:
+        """Build BEGIN TRANSACTION SQL using expression system.
+
+        This method creates a BeginTransactionExpression and delegates
+        SQL generation to the backend's dialect.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from .expression.transaction import BeginTransactionExpression
+
+        expr = BeginTransactionExpression(self._backend.dialect)
+
+        if self._isolation_level is not None:
+            expr.isolation_level(self._isolation_level)
+
+        if self._transaction_mode == TransactionMode.READ_ONLY:
+            expr.read_only()
+
+        return expr.to_sql()
+
+    def _build_commit_sql(self) -> Tuple[str, tuple]:
+        """Build COMMIT SQL using expression system.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from .expression.transaction import CommitTransactionExpression
+
+        expr = CommitTransactionExpression(self._backend.dialect)
+        return expr.to_sql()
+
+    def _build_rollback_sql(self, savepoint: Optional[str] = None) -> Tuple[str, tuple]:
+        """Build ROLLBACK SQL using expression system.
+
+        Args:
+            savepoint: Optional savepoint name to rollback to.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from .expression.transaction import RollbackTransactionExpression
+
+        expr = RollbackTransactionExpression(self._backend.dialect)
+        if savepoint:
+            expr.to_savepoint(savepoint)
+        return expr.to_sql()
+
+    def _build_savepoint_sql(self, name: str) -> Tuple[str, tuple]:
+        """Build SAVEPOINT SQL using expression system.
+
+        Args:
+            name: Savepoint name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from .expression.transaction import SavepointExpression
+
+        expr = SavepointExpression(self._backend.dialect, name)
+        return expr.to_sql()
+
+    def _build_release_savepoint_sql(self, name: str) -> Tuple[str, tuple]:
+        """Build RELEASE SAVEPOINT SQL using expression system.
+
+        Args:
+            name: Savepoint name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        from .expression.transaction import ReleaseSavepointExpression
+
+        expr = ReleaseSavepointExpression(self._backend.dialect, name)
+        return expr.to_sql()
+
 
 class TransactionManager(TransactionManagerBase):
-    """Base transaction manager implementing nested transactions.
+    """Synchronous transaction manager implementing nested transactions.
 
     Features:
     - Nested transaction support using save-points
     - Isolation level management
     - Context manager interface for 'with' statement
     - Automatic rollback on exceptions
+    - Executes SQL via backend.execute()
     """
 
-    def __init__(self, connection, logger=None):
-        super().__init__(connection, logger)
+    def __init__(self, backend: "StorageBackend", logger=None):
+        super().__init__(backend, logger)
 
-    @abstractmethod
     def _do_begin(self) -> None:
-        """Begin a new transaction
+        """Begin a new transaction via backend.execute()."""
+        sql, params = self._build_begin_sql()
+        self._backend.execute(sql, params)
 
-        To be implemented by specific database implementation classes.
-        Should perform the actual transaction start operation.
-        """
-        pass
-
-    @abstractmethod
     def _do_commit(self) -> None:
-        """Commit the current transaction
+        """Commit the current transaction via backend.execute()."""
+        sql, params = self._build_commit_sql()
+        self._backend.execute(sql, params)
 
-        To be implemented by specific database implementation classes.
-        Should perform the actual transaction commit operation.
-        """
-        pass
-
-    @abstractmethod
     def _do_rollback(self) -> None:
-        """Rollback the current transaction
+        """Rollback the current transaction via backend.execute()."""
+        sql, params = self._build_rollback_sql()
+        self._backend.execute(sql, params)
 
-        To be implemented by specific database implementation classes.
-        Should perform the actual transaction rollback operation.
-        """
-        pass
-
-    @abstractmethod
     def _do_create_savepoint(self, name: str) -> None:
-        """Create a savepoint
+        """Create a savepoint via backend.execute().
 
         Args:
             name: Name of the savepoint
         """
-        pass
+        sql, params = self._build_savepoint_sql(name)
+        self._backend.execute(sql, params)
 
-    @abstractmethod
     def _do_release_savepoint(self, name: str) -> None:
-        """Release a savepoint
+        """Release a savepoint via backend.execute().
 
         Args:
             name: Name of the savepoint
         """
-        pass
+        sql, params = self._build_release_savepoint_sql(name)
+        self._backend.execute(sql, params)
 
-    @abstractmethod
     def _do_rollback_savepoint(self, name: str) -> None:
-        """Rollback to a specified savepoint
+        """Rollback to a specified savepoint via backend.execute().
 
         Args:
             name: Name of the savepoint
         """
-        pass
+        sql, params = self._build_rollback_sql(savepoint=name)
+        self._backend.execute(sql, params)
 
-    @abstractmethod
     def supports_savepoint(self) -> bool:
-        """Check if savepoints are supported
+        """Check if savepoints are supported.
 
         Returns:
             bool: True if savepoints are supported, False otherwise
         """
-        pass
+        return self._backend.dialect.supports_savepoint()
 
     def begin(self) -> None:
         """Begin a transaction or create a savepoint
@@ -281,21 +362,26 @@ class TransactionManager(TransactionManagerBase):
         self.log(logging.DEBUG, f"Beginning transaction (level {self._transaction_level})")
 
         try:
-            if self._transaction_level == 0:
-                # Start actual transaction
+            # Increment transaction level FIRST to prevent auto-commit during _do_begin()
+            # This ensures that execute() will see in_transaction=True
+            self._transaction_level += 1
+
+            if self._transaction_level == 1:
+                # Start actual transaction (now that level is 1, auto-commit won't trigger)
                 self.log(logging.INFO, f"Starting new transaction with isolation level {self._isolation_level}")
                 self._do_begin()
                 self._state = TransactionState.ACTIVE
             else:
                 # Create savepoint for nested transaction
-                savepoint_name = self._get_savepoint_name(self._transaction_level)
+                savepoint_name = self._get_savepoint_name(self._transaction_level - 1)
                 self.log(logging.INFO, f"Creating savepoint {savepoint_name} for nested transaction")
                 self._do_create_savepoint(savepoint_name)
                 self._active_savepoints.append(savepoint_name)
 
-            self._transaction_level += 1
             self.log(logging.DEBUG, f"Transaction begun at level {self._transaction_level}")
         except Exception as e:
+            # Decrement level on failure since we incremented it first
+            self._transaction_level -= 1
             error_msg = f"Failed to begin transaction: {str(e)}"
             self.log(logging.ERROR, error_msg)
             raise TransactionError(error_msg) from e
@@ -551,62 +637,91 @@ class TransactionManager(TransactionManagerBase):
 
 
 class AsyncTransactionManager(TransactionManagerBase):
-    def __init__(self, connection, logger=None):
-        super().__init__(connection, logger)
+    """Asynchronous transaction manager implementing nested transactions.
 
-    @abstractmethod
+    Features:
+    - Nested transaction support using save-points
+    - Isolation level management
+    - Context manager interface for 'async with' statement
+    - Automatic rollback on exceptions
+    - Executes SQL via await backend.execute()
+    """
+
+    def __init__(self, backend: "AsyncStorageBackend", logger=None):
+        super().__init__(backend, logger)
+
     async def _do_begin(self) -> None:
-        """Begin a new transaction"""
-        pass
+        """Begin a new transaction via backend.execute()."""
+        sql, params = self._build_begin_sql()
+        await self._backend.execute(sql, params)
 
-    @abstractmethod
     async def _do_commit(self) -> None:
-        """Commit the current transaction"""
-        pass
+        """Commit the current transaction via backend.execute()."""
+        sql, params = self._build_commit_sql()
+        await self._backend.execute(sql, params)
 
-    @abstractmethod
     async def _do_rollback(self) -> None:
-        """Rollback the current transaction"""
-        pass
+        """Rollback the current transaction via backend.execute()."""
+        sql, params = self._build_rollback_sql()
+        await self._backend.execute(sql, params)
 
-    @abstractmethod
     async def _do_create_savepoint(self, name: str) -> None:
-        """Create a savepoint"""
-        pass
+        """Create a savepoint via backend.execute().
 
-    @abstractmethod
+        Args:
+            name: Name of the savepoint
+        """
+        sql, params = self._build_savepoint_sql(name)
+        await self._backend.execute(sql, params)
+
     async def _do_release_savepoint(self, name: str) -> None:
-        """Release a savepoint"""
-        pass
+        """Release a savepoint via backend.execute().
 
-    @abstractmethod
+        Args:
+            name: Name of the savepoint
+        """
+        sql, params = self._build_release_savepoint_sql(name)
+        await self._backend.execute(sql, params)
+
     async def _do_rollback_savepoint(self, name: str) -> None:
-        """Rollback to a specified savepoint"""
-        pass
+        """Rollback to a specified savepoint via backend.execute().
 
-    @abstractmethod
+        Args:
+            name: Name of the savepoint
+        """
+        sql, params = self._build_rollback_sql(savepoint=name)
+        await self._backend.execute(sql, params)
+
     async def supports_savepoint(self) -> bool:
-        """Check if savepoints are supported"""
-        pass
+        """Check if savepoints are supported.
+
+        Returns:
+            bool: True if savepoints are supported, False otherwise
+        """
+        return self._backend.dialect.supports_savepoint()
 
     async def begin(self) -> None:
         """Begin a transaction or create a savepoint"""
         self.log(logging.DEBUG, f"Beginning transaction (level {self._transaction_level})")
 
         try:
-            if self._transaction_level == 0:
+            # Increment transaction level FIRST to prevent auto-commit during _do_begin()
+            self._transaction_level += 1
+
+            if self._transaction_level == 1:
                 self.log(logging.INFO, f"Starting new transaction with isolation level {self._isolation_level}")
                 await self._do_begin()
                 self._state = TransactionState.ACTIVE
             else:
-                savepoint_name = self._get_savepoint_name(self._transaction_level)
+                savepoint_name = self._get_savepoint_name(self._transaction_level - 1)
                 self.log(logging.INFO, f"Creating savepoint {savepoint_name} for nested transaction")
                 await self._do_create_savepoint(savepoint_name)
                 self._active_savepoints.append(savepoint_name)
 
-            self._transaction_level += 1
             self.log(logging.DEBUG, f"Transaction begun at level {self._transaction_level}")
         except Exception as e:
+            # Decrement level on failure since we incremented it first
+            self._transaction_level -= 1
             error_msg = f"Failed to begin transaction: {str(e)}"
             self.log(logging.ERROR, error_msg)
             raise TransactionError(error_msg) from e

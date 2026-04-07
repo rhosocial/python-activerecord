@@ -41,6 +41,14 @@ if TYPE_CHECKING:
         TableConstraint,
     )
     from ..expression.query_parts import WhereClause, GroupByHavingClause, LimitOffsetClause, OrderByClause
+    from ..expression.transaction import (
+        BeginTransactionExpression,
+        CommitTransactionExpression,
+        RollbackTransactionExpression,
+        SavepointExpression,
+        ReleaseSavepointExpression,
+        SetTransactionExpression,
+    )
 
 
 class SQLDialectBase:
@@ -86,6 +94,27 @@ class SQLDialectBase:
             Placeholder string
         """
         return "?"
+
+    # Standard isolation level name mapping
+    # Maps IsolationLevel enum name to SQL standard name
+    ISOLATION_LEVEL_NAMES = {
+        'READ_UNCOMMITTED': 'READ UNCOMMITTED',
+        'READ_COMMITTED': 'READ COMMITTED',
+        'REPEATABLE_READ': 'REPEATABLE READ',
+        'SERIALIZABLE': 'SERIALIZABLE',
+    }
+
+    def get_isolation_level_name(self, level) -> str:
+        """Get SQL standard name for isolation level.
+
+        Args:
+            level: IsolationLevel enum value or string.
+
+        Returns:
+            SQL standard isolation level name.
+        """
+        level_name = level.name if hasattr(level, "name") else str(level)
+        return self.ISOLATION_LEVEL_NAMES.get(level_name, level_name.replace('_', ' '))
 
     # endregion Core & General
 
@@ -1489,3 +1518,102 @@ class SQLDialectBase:
             col_sql += f" COMMENT '{col_def.comment}'"
 
         return col_sql, tuple(all_params)
+
+
+    # region Transaction Control
+    # Default implementations for transaction control statements.
+    # Dialects can override these methods to provide database-specific SQL generation.
+
+    def format_begin_transaction(
+        self, expr: "BeginTransactionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format BEGIN TRANSACTION statement.
+
+        Default implementation generates standard SQL BEGIN statement.
+        Dialects should override this method to handle:
+        - Isolation level specification
+        - Transaction mode (READ ONLY/READ WRITE)
+        - Database-specific syntax
+
+        Args:
+            expr: BeginTransactionExpression with isolation level and mode.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        # Default: simple BEGIN (no isolation level or mode support)
+        return "BEGIN", ()
+
+    def format_commit_transaction(
+        self, expr: "CommitTransactionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format COMMIT statement.
+
+        Args:
+            expr: CommitTransactionExpression.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return "COMMIT", ()
+
+    def format_rollback_transaction(
+        self, expr: "RollbackTransactionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format ROLLBACK statement.
+
+        Args:
+            expr: RollbackTransactionExpression with optional savepoint.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        params = expr.get_params()
+        savepoint = params.get("savepoint")
+        if savepoint:
+            return f"ROLLBACK TO SAVEPOINT {savepoint}", ()
+        return "ROLLBACK", ()
+
+    def format_savepoint(self, expr: "SavepointExpression") -> Tuple[str, tuple]:
+        """Format SAVEPOINT statement.
+
+        Args:
+            expr: SavepointExpression with savepoint name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return f"SAVEPOINT {expr.name}", ()
+
+    def format_release_savepoint(
+        self, expr: "ReleaseSavepointExpression"
+    ) -> Tuple[str, tuple]:
+        """Format RELEASE SAVEPOINT statement.
+
+        Args:
+            expr: ReleaseSavepointExpression with savepoint name.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        return f"RELEASE SAVEPOINT {expr.name}", ()
+
+    def format_set_transaction(
+        self, expr: "SetTransactionExpression"
+    ) -> Tuple[str, tuple]:
+        """Format SET TRANSACTION statement.
+
+        Default implementation raises NotImplementedError as this is
+        database-specific. MySQL and PostgreSQL should override this.
+
+        Args:
+            expr: SetTransactionExpression with isolation level and/or mode.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
+        raise NotImplementedError(
+            f"{self.name} dialect does not support SET TRANSACTION statement"
+        )
+
+    # endregion Transaction Control

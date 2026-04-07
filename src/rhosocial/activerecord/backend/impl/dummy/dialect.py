@@ -73,6 +73,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     GeneratedColumnSupport,
     # Introspection Protocols
     IntrospectionSupport,
+    # Transaction Control Protocol
+    TransactionControlSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin,
@@ -177,6 +179,8 @@ class DummyDialect(
     GeneratedColumnSupport,
     # Introspection Protocols
     IntrospectionSupport,
+    # Transaction Control Protocol
+    TransactionControlSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -613,6 +617,113 @@ class DummyDialect(
 
     # No format_* methods for introspection - the mixin defaults will raise
     # UnsupportedFeatureError when called, which is the correct behavior.
+
+    # endregion
+
+    # region Transaction Control Support
+    def supports_transaction_mode(self) -> bool:
+        """Dummy backend supports all transaction modes."""
+        return True
+
+    def supports_isolation_level_in_begin(self) -> bool:
+        """Dummy backend supports isolation level in BEGIN statement."""
+        return True
+
+    def supports_read_only_transaction(self) -> bool:
+        """Dummy backend supports READ ONLY transactions."""
+        return True
+
+    def supports_deferrable_transaction(self) -> bool:
+        """Dummy backend supports DEFERRABLE transactions."""
+        return True
+
+    def supports_savepoint(self) -> bool:
+        """Dummy backend supports savepoints."""
+        return True
+
+    def format_begin_transaction(self, expr) -> Tuple[str, tuple]:
+        """Format BEGIN TRANSACTION statement for dummy dialect."""
+        params = expr.get_params()
+        parts = ["BEGIN"]
+
+        isolation = params.get("isolation_level")
+        if isolation:
+            level_str = self.get_isolation_level_name(isolation)
+            parts.append(f"ISOLATION LEVEL {level_str}")
+
+        mode = params.get("mode")
+        if mode:
+            mode_name = mode.name if hasattr(mode, "name") else str(mode)
+            if mode_name == "READ_ONLY":
+                parts.append("READ ONLY")
+            elif mode_name == "READ_WRITE":
+                parts.append("READ WRITE")
+
+        deferrable = params.get("deferrable")
+        if deferrable is not None and isolation:
+            isolation_name = isolation.name if hasattr(isolation, "name") else str(isolation)
+            if isolation_name == "SERIALIZABLE":
+                parts.append("DEFERRABLE" if deferrable else "NOT DEFERRABLE")
+
+        return " ".join(parts), ()
+
+    def format_commit_transaction(self, expr) -> Tuple[str, tuple]:
+        """Format COMMIT TRANSACTION statement for dummy dialect."""
+        return "COMMIT", ()
+
+    def format_rollback_transaction(self, expr) -> Tuple[str, tuple]:
+        """Format ROLLBACK TRANSACTION statement for dummy dialect."""
+        params = expr.get_params()
+        savepoint = params.get("savepoint")
+        if savepoint:
+            return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
+        return "ROLLBACK", ()
+
+    def format_savepoint(self, expr) -> Tuple[str, tuple]:
+        """Format SAVEPOINT statement for dummy dialect."""
+        params = expr.get_params()
+        name = params.get("name", "")
+        return f"SAVEPOINT {self.format_identifier(name)}", ()
+
+    def format_release_savepoint(self, expr) -> Tuple[str, tuple]:
+        """Format RELEASE SAVEPOINT statement for dummy dialect."""
+        params = expr.get_params()
+        name = params.get("name", "")
+        return f"RELEASE SAVEPOINT {self.format_identifier(name)}", ()
+
+    def format_set_transaction(self, expr) -> Tuple[str, tuple]:
+        """Format SET TRANSACTION statement for dummy dialect."""
+        params = expr.get_params()
+        parts = []
+
+        if params.get("session"):
+            parts.append("SET SESSION CHARACTERISTICS AS TRANSACTION")
+        else:
+            parts.append("SET TRANSACTION")
+
+        options = []
+
+        isolation = params.get("isolation_level")
+        if isolation:
+            level_str = self.get_isolation_level_name(isolation)
+            options.append(f"ISOLATION LEVEL {level_str}")
+
+        mode = params.get("mode")
+        if mode:
+            mode_name = mode.name if hasattr(mode, "name") else str(mode)
+            if mode_name == "READ_ONLY":
+                options.append("READ ONLY")
+            elif mode_name == "READ_WRITE":
+                options.append("READ WRITE")
+
+        deferrable = params.get("deferrable")
+        if deferrable is not None:
+            options.append("DEFERRABLE" if deferrable else "NOT DEFERRABLE")
+
+        if options:
+            parts.append(" ".join(options))
+
+        return " ".join(parts), ()
 
     # endregion
 
