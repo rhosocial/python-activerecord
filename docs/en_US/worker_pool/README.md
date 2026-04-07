@@ -2,9 +2,14 @@
 
 `WorkerPool` is a standalone module that provides a resident worker process pool for parallel task execution. It uses `spawn` mode multiprocessing to ensure cross-platform consistency.
 
-## Contents
+## Table of Contents
 
-*   **[Worker Pool Guide](worker_pool.md)**: Complete guide for using Worker Pool, including lifecycle hooks, management and statistics, best practices, and common pitfalls.
+* **[Worker Pool Guide](worker_pool.md)**: Overview, core features, state machine, design principles, quick start.
+* **[Lifecycle Hooks](lifecycle_hooks.md)**: Worker-level and task-level hook functions.
+* **[Management & Statistics](management_statistics.md)**: Runtime status query, statistics collection, health check.
+* **[API Reference](api_reference.md)**: Complete class, enum, data class, and exception definitions.
+* **[Task Writing Guide](task_guide.md)**: Task function rules, templates, and error handling.
+* **[Best Practices & Pitfalls](best_practices.md)**: Best practices and common pitfalls with solutions.
 
 ## Core Features
 
@@ -31,4 +36,4 @@
 
 ## Example Code
 
-Complete example code for this chapter can be found at `docs/examples/chapter_07_worker_pool/`.
+Complete example code for this chapter can be found in `docs/examples/chapter_07_worker_pool/`.
