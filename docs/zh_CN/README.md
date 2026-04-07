@@ -24,7 +24,6 @@
 2.  **[快速入门 (Getting Started)](getting_started/README.md)**
     *   **[安装指南 (Installation)](getting_started/installation.md)**: 环境要求 (Python 3.8+, Pydantic V2) 及 pip 安装。
     *   **[数据库配置 (Configuration)](getting_started/configuration.md)**: 设置 SQLite 后端及管理共享连接。
-    *   **[连接管理 (Connection Management)](getting_started/connection_management.md)**: 使用 ConnectionGroup 和 ConnectionManager 管理多模型、多数据库连接。
     *   **[快速开始 (Quick Start)](getting_started/quick_start.md)**: 一个完整的 "Hello World" 示例，定义 User/Post 模型并执行 CRUD。
     *   **[第一个 CRUD 应用](getting_started/first_crud.md)**: 从零开始构建完整的 Todo 应用，逐步学习创建、读取、更新、删除操作。
     *   **[常见错误解决](getting_started/troubleshooting.md)**: 遇到问题？常见错误及解决方案（后端未配置、FieldProxy 缺失、PYTHONPATH 问题等）。
@@ -48,31 +47,38 @@
     *   **[查询速查表](querying/cheatsheet.md)**: 常见查询模式速查。
     *   **[复杂查询实战](querying/recipes.md)**: 常见业务场景的查询解决方案。
 
-6.  **[性能与优化 (Performance)](performance/README.md)**
+6.  **[连接管理 (Connection Management)](connection/README.md)**
+    *   **[连接组与连接管理器](connection/connection_management.md)**: 使用 `ConnectionGroup` 和 `ConnectionManager` 管理多模型、多数据库连接。
+    *   **[连接池 (Connection Pool)](connection/connection_pool.md)**: 高效连接管理与上下文感知访问模式，支持连接复用、生命周期管理和 ActiveRecord 集成。
+
+7.  **[性能与优化 (Performance)](performance/README.md)**
     *   **[运行模式 (Strict vs Raw)](performance/modes.md)**: 何时使用 `.aggregate()` 绕过 Pydantic 开销。
     *   **[并发控制 (Concurrency)](performance/concurrency.md)**: 使用乐观锁处理竞态条件。
     *   **[缓存机制 (Caching)](performance/caching.md)**: 理解内部缓存以避免重复工作。
 
-7.  **[日志系统 (Logging)](logging/README.md)**
+8.  **[日志系统 (Logging)](logging/README.md)**
     *   **[日志命名空间](logging/namespace.md)**: 层次化日志命名，统一控制与精细调节。
     *   **[数据摘要](logging/data_summarization.md)**: 自动屏蔽敏感字段、截断长字符串。
     *   **[按层级配置](logging/per_logger_config.md)**: 为不同组件设置不同的日志模式。
 
-8.  **[事件系统 (Events)](events/README.md)**
+9.  **[事件系统 (Events)](events/README.md)**
     *   **[生命周期事件 (Lifecycle Events)](events/lifecycle.md)**: 业务逻辑解耦 (before_save, after_create 等)。
 
-9.  **[序列化 (Serialization)](serialization/README.md)**
+10. **[序列化 (Serialization)](serialization/README.md)**
     *   **[JSON 序列化 (JSON Serialization)](serialization/json.md)**: 模型转换为 JSON/Dict，字段过滤。
 
-10. **[后端系统 (Backend System)](backend/README.md)**
+11. **[后端系统 (Backend System)](backend/README.md)**
+    *   **[数据库内省 (Introspection)](backend/introspection.md)**: 查询数据库结构元数据。
+    *   **[查询解释接口 (Query Explain)](backend/explain.md)**: 执行 EXPLAIN 语句，分析查询计划和索引使用情况。
     *   **[表达式系统 (Expression System)](backend/expression/README.md)**: Python 对象如何安全地转换为 SQL 字符串。 💡 *AI 提示词："解释 ToSQLProtocol 协议，以及 Expression-Dialect 分离如何防止 SQL 注入攻击。"*
     *   **[自定义后端 (Custom Backend)](backend/custom_backend.md)**: 实现一个新的数据库驱动。
+    *   **[SQLite 后端](backend/sqlite/README.md)**: SQLite 特定功能和特性。
 
-11. **[测试指南 (Testing)](testing/README.md)**
+12. **[测试指南 (Testing)](testing/README.md)**
     *   **[测试策略 (Strategies)](testing/strategies.md)**: 零 IO 测试 vs 集成测试。
     *   **[Dummy Backend](testing/dummy.md)**: 使用内置的 Dummy Backend 进行单元测试。
 
-12. **[场景实战 (Scenarios)](scenarios/README.md)**
+13. **[场景实战 (Scenarios)](scenarios/README.md)**
     *   **[FastAPI 集成](scenarios/fastapi.md)**: 异步、依赖注入与 Pydantic 模型复用。
     *   **[GraphQL 集成](scenarios/graphql.md)**: 解决 N+1 问题，构建高效 API。
     *   **[并行 Worker 场景](scenarios/parallel_workers.md)**: 多进程 vs 多线程、死锁预防、数据分区与原子领取。

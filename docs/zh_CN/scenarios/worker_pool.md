@@ -89,6 +89,130 @@ stateDiagram-v2
 - **I/O 密集型工作**：并行数据库查询或 API 调用
 - **外部队列消费者**：作为 Celery、RQ 等任务队列的 Worker 进程池
 
+### WorkerPool vs 连接池：如何选择？
+
+在涉及数据库操作的并发场景中，WorkerPool 和连接池（`BackendPool`）是两种不同的解决方案，各有适用场景：
+
+| 场景 | WorkerPool | 连接池 |
+|------|------------|--------|
+| **连接隔离需求** | ✓ 每个 Worker 进程独立连接 | ✗ 连接复用，不隔离 |
+| **复杂长时间任务** | ✓ 进程隔离，崩溃不影响其他 | ✗ 长事务可能超时 |
+| **崩溃隔离** | ✓ Worker 崩溃自动重启 | ✗ 影响共享连接 |
+| **简单并发查询** | ✗ 进程创建开销大 | ✓ 轻量高效 |
+| **共享事务上下文** | ✗ 进程间无法共享 | ✓ 上下文感知 |
+| **上下文感知** | ✗ 无 | ✓ ActiveRecord 集成 |
+
+### 进程级别的开销与限制
+
+**重要提醒**：WorkerPool 是**进程级别**的并发解决方案，相比连接池（线程/协程级别）有显著的开销：
+
+#### 管理开销
+
+| 开销类型 | WorkerPool（进程） | 连接池（线程/协程） |
+|----------|-------------------|-------------------|
+| **创建开销** | 高（进程复制、内存分配） | 低（连接对象创建） |
+| **内存占用** | 高（每个进程独立内存空间） | 低（共享内存空间） |
+| **通信开销** | 高（IPC 序列化/反序列化） | 低（直接内存访问） |
+| **上下文切换** | 高（进程切换） | 低（线程/协程切换） |
+| **启动延迟** | 毫秒级 | 微秒级 |
+
+#### 具体开销示例
+
+```python
+# WorkerPool：进程级别开销
+# - 每个 Worker 进程独立内存空间（通常 10-50MB/进程）
+# - 任务参数需要 pickle 序列化传递
+# - 返回结果需要 pickle 反序列化接收
+# - 进程间通信（IPC）开销
+
+# 连接池：线程/协程级别开销
+# - 共享内存空间，无需序列化
+# - 连接对象轻量（通常 < 1MB/连接）
+# - 直接内存访问，无 IPC 开销
+```
+
+### 不推荐使用 WorkerPool 的场景
+
+| 场景 | 原因 | 推荐替代方案 |
+|------|------|--------------|
+| **频繁的小任务** | 进程启动和通信开销远超任务本身 | 连接池 + 线程/协程 |
+| **低延迟要求** | IPC 序列化增加延迟 | 连接池 |
+| **内存受限环境** | 每个进程独立内存空间 | 连接池 |
+| **需要共享大量数据** | 进程间数据传递需序列化 | 线程 + 连接池 |
+| **简单并发查询** | 进程开销不必要 | 连接池 |
+| **需要共享事务** | 进程间无法共享事务状态 | 连接池的 `transaction()` |
+| **单机高并发 Web** | 进程数受限，无法应对高并发 | 异步 + 连接池 |
+
+#### 开销对比示例
+
+```python
+import time
+from rhosocial.activerecord.connection.pool import BackendPool, PoolConfig
+from rhosocial.activerecord.worker import WorkerPool
+
+# 场景：执行 1000 个简单查询
+
+# WorkerPool 方式（不推荐）
+def worker_query(user_id):
+    # 每次调用都有 IPC 开销
+    return User.find_one(id=user_id)
+
+worker_pool = WorkerPool(num_workers=4)
+start = time.time()
+futures = [worker_pool.submit(worker_query, i) for i in range(1000)]
+results = [f.result() for f in futures]
+print(f"WorkerPool: {time.time() - start:.2f}s")  # 可能需要 5-10 秒
+
+# 连接池方式（推荐）
+pool = BackendPool(PoolConfig(min_size=4, max_size=10, ...))
+start = time.time()
+with pool.connection():
+    results = [User.find_one(id=i) for i in range(1000)]
+print(f"Connection Pool: {time.time() - start:.2f}s")  # 可能只需 0.5-1 秒
+```
+
+### 推荐使用 WorkerPool 的场景
+
+1. **需要严格区分连接实例**：每个 Worker 进程拥有独立的数据库连接，避免连接状态污染
+2. **复杂的数据库任务**：长时间运行的任务，需要进程级别的隔离
+3. **任务崩溃不影响其他任务**：Worker 崩溃后自动重启，失败任务可追溯
+4. **CPU 密集型 + 数据库操作**：真正并行执行，绕过 GIL 限制
+
+#### 推荐使用连接池的场景
+
+1. **简单的并发查询**：轻量级连接复用，无需进程开销
+2. **需要共享事务上下文**：`pool.transaction()` 提供事务上下文感知
+3. **ActiveRecord 集成**：模型自动感知连接池上下文
+4. **Web 应用请求处理**：每个请求获取独立连接，请求结束后归还
+
+#### 混合使用示例
+
+```python
+from rhosocial.activerecord.connection.pool import BackendPool, PoolConfig
+from rhosocial.activerecord.worker import WorkerPool
+
+# 连接池：用于 Web 请求处理
+web_pool = BackendPool(PoolConfig(
+    min_size=5,
+    max_size=20,
+    backend_factory=lambda: SQLiteBackend(database="app.db")
+))
+
+# WorkerPool：用于后台批量任务
+worker_pool = WorkerPool(num_workers=4)
+
+def process_batch_task(item_ids: list):
+    """每个 Worker 进程有独立的数据库连接"""
+    # Worker 进程内部可以使用连接池
+    with web_pool.connection() as conn:
+        for item_id in item_ids:
+            # 处理任务...
+            pass
+
+# 提交批量任务
+worker_pool.submit(process_batch_task, item_ids=[1, 2, 3, 4, 5])
+```
+
 ### 不适用场景
 
 WorkerPool **不是**完整的任务队列系统，以下功能需要使用专业库（如 Celery、RQ、Dramatiq）：

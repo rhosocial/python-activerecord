@@ -135,6 +135,13 @@ from .pool import (
     WorkerContext,
     TaskContext,
 )
+from .scheduling import (
+    SchedulePolicy,
+    SchedulingStrategy,
+    LeastTasksStrategy,
+    RoundRobinStrategy,
+    RandomStrategy,
+)
 
 __all__ = [
     # Core classes
@@ -151,4 +158,10 @@ __all__ = [
     "WorkerEvent",
     "WorkerContext",
     "TaskContext",
+    # Scheduling
+    "SchedulePolicy",
+    "SchedulingStrategy",
+    "LeastTasksStrategy",
+    "RoundRobinStrategy",
+    "RandomStrategy",
 ]

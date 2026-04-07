@@ -47,31 +47,38 @@
     *   **[Query Cheatsheet](querying/cheatsheet.md)**: Quick reference for common query patterns.
     *   **[Query Recipes](querying/recipes.md)**: Query solutions for common business scenarios.
 
-6.  **[Performance](performance/README.md)**
+6.  **[Connection Management](connection/README.md)**
+    *   **[Connection Groups & Manager](connection/connection_management.md)**: Using `ConnectionGroup` and `ConnectionManager` to manage multi-model, multi-database connections.
+    *   **[Connection Pool](connection/connection_pool.md)**: Efficient connection management with context-aware access patterns, connection reuse, lifecycle management, and ActiveRecord integration.
+
+7.  **[Performance](performance/README.md)**
     *   **[Strict vs Raw Modes](performance/modes.md)**: When to use `.aggregate()` to bypass Pydantic overhead.
     *   **[Concurrency Control](performance/concurrency.md)**: Handling race conditions with Optimistic Locking.
     *   **[Caching](performance/caching.md)**: Understanding internal caching to avoid redundant work.
 
-7.  **[Logging](logging/README.md)**
+8.  **[Logging](logging/README.md)**
     *   **[Logger Namespace](logging/namespace.md)**: Hierarchical logger naming for unified control and fine-grained tuning.
     *   **[Data Summarization](logging/data_summarization.md)**: Automatic sensitive field masking and long string truncation.
     *   **[Per-Logger Configuration](logging/per_logger_config.md)**: Setting different summarization modes for different components.
 
-8.  **[Events](events/README.md)**
+9.  **[Events](events/README.md)**
     *   **[Lifecycle Events](events/lifecycle.md)**: Hooks for Decoupling business logic (before_save, after_create, etc.).
 
-9.  **[Serialization](serialization/README.md)**
+10. **[Serialization](serialization/README.md)**
     *   **[JSON Serialization](serialization/json.md)**: Converting models to JSON/Dicts, field filtering.
 
-10. **[Backend System](backend/README.md)**
+11. **[Backend System](backend/README.md)**
+    *   **[Introspection](backend/introspection.md)**: Querying database structure metadata.
+    *   **[Query Explain](backend/explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
     *   **[Expression System](backend/expression/README.md)**: How Python objects are safely transformed into SQL strings. 💡 *AI Prompt: "Explain ToSQLProtocol and how Expression-Dialect separation prevents SQL injection."*
     *   **[Custom Backend](backend/custom_backend.md)**: Implementing a new database driver.
+    *   **[SQLite Backend](backend/sqlite/README.md)**: SQLite-specific features and capabilities.
 
-11. **[Testing](testing/README.md)**
+12. **[Testing](testing/README.md)**
     *   **[Strategies](testing/strategies.md)**: Zero-IO Testing vs Integration Testing.
     *   **[Dummy Backend](testing/dummy.md)**: Using the dummy backend for unit tests.
 
-12. **[Scenarios](scenarios/README.md)**
+13. **[Scenarios](scenarios/README.md)**
     *   **[FastAPI Integration](scenarios/fastapi.md)**: Async support, dependency injection, and Pydantic model reuse.
     *   **[GraphQL Integration](scenarios/graphql.md)**: Solving N+1 problems with DataLoaders.
     *   **[Parallel Workers](scenarios/parallel_workers.md)**: Multi-process vs. multi-threading, deadlock prevention, data partitioning, and atomic task claiming.
