@@ -3,10 +3,11 @@
 
 from datetime import datetime, timezone
 from pydantic import Field
-from typing import Dict, Any
+from typing import Dict, Any, Union
 
 from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
+from ..interface.model import IActiveRecord, IAsyncActiveRecord
 
 
 class TimestampMixin(IUpdateBehavior):
@@ -30,7 +31,12 @@ class TimestampMixin(IUpdateBehavior):
         self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
         self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
-    def _set_timestamps_on_insert(self, instance: "TimestampMixin", data: Dict[str, Any], **kwargs):
+    def _set_timestamps_on_insert(
+        self,
+        instance: Union["IActiveRecord", "IAsyncActiveRecord"],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
         """Set both created_at and updated_at for INSERT operations.
 
         This callback is triggered before INSERT to set timestamps for new records.
@@ -39,7 +45,7 @@ class TimestampMixin(IUpdateBehavior):
         ensuring consistent format across database backends.
 
         Args:
-            instance: The model instance being saved
+            instance: The model instance being saved (ActiveRecord or AsyncActiveRecord)
             data: The data dictionary to be inserted (can be modified)
             **kwargs: Additional event arguments
         """
@@ -50,7 +56,12 @@ class TimestampMixin(IUpdateBehavior):
         data['created_at'] = now
         data['updated_at'] = now
 
-    def _set_updated_at(self, instance: "TimestampMixin", data: Dict[str, Any], **kwargs):
+    def _set_updated_at(
+        self,
+        instance: Union["IActiveRecord", "IAsyncActiveRecord"],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
         """Set updated_at for UPDATE operations.
 
         This callback is triggered before UPDATE to refresh the updated_at timestamp.
@@ -58,7 +69,7 @@ class TimestampMixin(IUpdateBehavior):
         ensuring consistent format across database backends.
 
         Args:
-            instance: The model instance being saved
+            instance: The model instance being saved (ActiveRecord or AsyncActiveRecord)
             data: The data dictionary to be updated (can be modified)
             **kwargs: Additional event arguments (includes dirty_fields)
         """

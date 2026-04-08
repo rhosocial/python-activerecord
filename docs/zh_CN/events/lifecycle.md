@@ -113,6 +113,7 @@ sequenceDiagram
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord, ModelEvent
+from typing import Dict, Any
 
 class User(ActiveRecord):
     username: str
@@ -121,7 +122,12 @@ class User(ActiveRecord):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_INSERT, self.encrypt_password)
 
-    def encrypt_password(self, instance, data, **kwargs):
+    def encrypt_password(
+        self,
+        instance: 'User',
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
         # 新记录的加密逻辑
         pass
 ```
@@ -131,32 +137,100 @@ class User(ActiveRecord):
 Mixin 是复用事件逻辑的最佳方式。例如，`TimestampMixin` 通过注册分离的事件来实现 INSERT 和 UPDATE 的不同处理。
 
 ```python
+from typing import Union, Dict, Any
+from datetime import datetime, timezone
+from rhosocial.activerecord.interface.base import ModelEvent
+from rhosocial.activerecord.interface.model import IActiveRecord, IAsyncActiveRecord
+
 class TimestampMixin:
     def __init__(self, **data):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
         self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
-    def _set_timestamps_on_insert(self, instance, data, **kwargs):
+    def _set_timestamps_on_insert(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
         now = datetime.now(timezone.utc)
-        self.created_at = now
-        self.updated_at = now
+        instance.created_at = now
+        instance.updated_at = now
+        data['created_at'] = now
+        data['updated_at'] = now
 
-    def _set_updated_at(self, instance, data, **kwargs):
-        self.updated_at = datetime.now(timezone.utc)
+    def _set_updated_at(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        instance.updated_at = now
+        data['updated_at'] = now
 ```
 
 ## 回调函数签名
 
 回调函数应接受 `instance` 和额外的上下文参数。
 
-### 通用模式
+> **注意**：`instance` 参数的类型取决于回调定义的位置：
+> - **在具体模型类中**：使用具体模型类型（如 `User`、`Product`）
+> - **在 Mixin 中**：使用 `Union['ActiveRecord', 'AsyncActiveRecord']`，因为 Mixin 同时适用于同步和异步模型
+
+### 重要约束
+
+**1. 类型匹配**：回调函数的 `instance` 类型必须与实际模型类型匹配：
+- 在 `User(ActiveRecord)` 的回调中 → `instance` 是 `User`/`ActiveRecord`
+- 在 `AsyncUser(AsyncActiveRecord)` 的回调中 → `instance` 是 `AsyncUser`/`AsyncActiveRecord`
+- **不能混用类型**，除非回调仅访问实例属性（不涉及 I/O 操作）
+
+**2. 轻量操作**：回调函数应当是轻量级的、非阻塞的：
+- 避免重计算或长时间运行的操作
+- 避免阻塞式 I/O（网络请求、文件操作等）
+- 回调在 save/delete 流程中同步执行，会阻塞主操作
+- 对于异步模型，如需 I/O 操作应使用异步操作，但要保持快速
+
+### 在具体模型类中
 
 ```python
-def callback(instance: 'ActiveRecord', **kwargs):
-    # instance: 触发事件的模型实例
-    # kwargs: 上下文参数（根据事件类型变化）
-    pass
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.interface.base import ModelEvent
+from typing import Dict, Any
+
+class User(ActiveRecord):
+    username: str
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.on(ModelEvent.BEFORE_INSERT, self.encrypt_password)
+
+    def encrypt_password(
+        self,
+        instance: 'User',  # 具体类型 - 这里始终是 User
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        # instance 这里始终是 User 类型
+        instance.encrypted_password = hash(instance.username)
+```
+
+### 在 Mixin 中（同时适用于同步和异步）
+
+```python
+from typing import Union, Dict, Any
+from rhosocial.activerecord.interface.model import IActiveRecord, IAsyncActiveRecord
+
+class TimestampMixin:
+    def _set_timestamps_on_insert(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],  # 可能是任一种
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        # 同时适用于 ActiveRecord 和 AsyncActiveRecord
+        instance.created_at = datetime.now(timezone.utc)
 ```
 
 ### 特定事件参数
@@ -173,12 +247,25 @@ def callback(instance: 'ActiveRecord', **kwargs):
 你可以在 `BEFORE_INSERT` 和 `BEFORE_UPDATE` 回调中修改 `data` 字典来改变保存的内容：
 
 ```python
-def before_insert_handler(instance, data, **kwargs):
+import uuid
+from typing import Dict, Any, Set
+from rhosocial.activerecord.model import ActiveRecord
+
+def before_insert_handler(
+    instance: 'ActiveRecord',  # 或使用具体模型类型如 'User'
+    data: Dict[str, Any],
+    **kwargs
+) -> None:
     # 在插入前添加计算字段
     data['uuid'] = str(uuid.uuid4())
     data['status'] = 'pending'
 
-def before_update_handler(instance, data, dirty_fields, **kwargs):
+def before_update_handler(
+    instance: 'ActiveRecord',  # 或使用具体模型类型如 'User'
+    data: Dict[str, Any],
+    dirty_fields: Set[str],
+    **kwargs
+) -> None:
     # 当特定字段变更时设置状态
     if 'email' in dirty_fields:
         data['email_verified'] = False
@@ -188,18 +275,24 @@ def before_update_handler(instance, data, dirty_fields, **kwargs):
 
 ```python
 import uuid
-from rhosocial.activerecord.model import ActiveRecord
+from typing import Union, Dict, Any
 from rhosocial.activerecord.interface.base import ModelEvent
+from rhosocial.activerecord.interface.model import IActiveRecord, IAsyncActiveRecord
 
 class UUIDMixin:
     def __init__(self, **data):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_INSERT, self._ensure_id)
 
-    def _ensure_id(self, instance, data, **kwargs):
-        if not self.id:
-            self.id = str(uuid.uuid4())
-            data['id'] = self.id
+    def _ensure_id(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        if not instance.id:
+            instance.id = str(uuid.uuid4())
+            data['id'] = instance.id
 
 class User(UUIDMixin, ActiveRecord):
     id: str
@@ -249,11 +342,23 @@ def handler(instance, is_new=False, **kwargs):
 
 **新代码：**
 ```python
-def insert_handler(instance, data, **kwargs):
+from typing import Dict, Any, Set
+from rhosocial.activerecord.model import ActiveRecord
+
+def insert_handler(
+    instance: 'ActiveRecord',  # 或使用你的具体模型类型
+    data: Dict[str, Any],
+    **kwargs
+) -> None:
     # 仅 INSERT 逻辑
     pass
 
-def update_handler(instance, data, dirty_fields, **kwargs):
+def update_handler(
+    instance: 'ActiveRecord',  # 或使用你的具体模型类型
+    data: Dict[str, Any],
+    dirty_fields: Set[str],
+    **kwargs
+) -> None:
     # 仅 UPDATE 逻辑
     pass
 

@@ -114,6 +114,7 @@ You can register instance-level callbacks in `__init__` or elsewhere using the `
 ```python
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface.base import ModelEvent
+from typing import Dict, Any
 
 class User(ActiveRecord):
     username: str
@@ -122,7 +123,12 @@ class User(ActiveRecord):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_INSERT, self.encrypt_password)
 
-    def encrypt_password(self, instance, data, **kwargs):
+    def encrypt_password(
+        self,
+        instance: 'User',
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
         # Encryption logic for new records
         pass
 ```
@@ -132,32 +138,100 @@ class User(ActiveRecord):
 Mixins are the best way to reuse event logic. For example, `TimestampMixin` is implemented by registering separate events for INSERT and UPDATE.
 
 ```python
+from typing import Union, Dict, Any
+from datetime import datetime, timezone
+from rhosocial.activerecord.interface.base import ModelEvent
+from rhosocial.activerecord.interface.model import IActiveRecord, IAsyncActiveRecord
+
 class TimestampMixin:
     def __init__(self, **data):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
         self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
-    def _set_timestamps_on_insert(self, instance, data, **kwargs):
+    def _set_timestamps_on_insert(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
         now = datetime.now(timezone.utc)
-        self.created_at = now
-        self.updated_at = now
+        instance.created_at = now
+        instance.updated_at = now
+        data['created_at'] = now
+        data['updated_at'] = now
 
-    def _set_updated_at(self, instance, data, **kwargs):
-        self.updated_at = datetime.now(timezone.utc)
+    def _set_updated_at(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        now = datetime.now(timezone.utc)
+        instance.updated_at = now
+        data['updated_at'] = now
 ```
 
 ## Callback Signature
 
 Callbacks should accept `instance` and additional context arguments.
 
-### Common Pattern
+> **Note**: The `instance` parameter type depends on where the callback is defined:
+> - **In a specific model class**: Use the concrete model type (e.g., `User`, `Product`)
+> - **In a Mixin**: Use `Union['ActiveRecord', 'AsyncActiveRecord']` since Mixins work with both sync and async models
+
+### Important Constraints
+
+**1. Type Matching**: The callback's `instance` type must match the actual model type:
+- In `User(ActiveRecord)` callbacks → `instance` is `User`/`ActiveRecord`
+- In `AsyncUser(AsyncActiveRecord)` callbacks → `instance` is `AsyncUser`/`AsyncActiveRecord`
+- **Do NOT mix types** unless the callback only accesses instance attributes (no I/O operations)
+
+**2. Lightweight Operations**: Callback functions should be lightweight and non-blocking:
+- Avoid heavy computations or long-running operations
+- Avoid blocking I/O (network requests, file operations, etc.)
+- The callback runs synchronously in the save/delete workflow and will block the main operation
+- For async models, prefer async operations if I/O is necessary, but keep them fast
+
+### In a Specific Model Class
 
 ```python
-def callback(instance: 'ActiveRecord', **kwargs):
-    # instance: The model instance triggering the event
-    # kwargs: Context arguments (varies by event type)
-    pass
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.interface.base import ModelEvent
+from typing import Dict, Any
+
+class User(ActiveRecord):
+    username: str
+
+    def __init__(self, **data):
+        super().__init__(**data)
+        self.on(ModelEvent.BEFORE_INSERT, self.encrypt_password)
+
+    def encrypt_password(
+        self,
+        instance: 'User',  # Concrete type - this is always User
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        # instance is always User here
+        instance.encrypted_password = hash(instance.username)
+```
+
+### In a Mixin (Generic for Both Sync and Async)
+
+```python
+from typing import Union, Dict, Any
+from rhosocial.activerecord.interface.model import IActiveRecord, IAsyncActiveRecord
+
+class TimestampMixin:
+    def _set_timestamps_on_insert(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],  # Could be either
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        # Works with both ActiveRecord and AsyncActiveRecord
+        instance.created_at = datetime.now(timezone.utc)
 ```
 
 ### Specific Event Arguments
@@ -174,12 +248,25 @@ def callback(instance: 'ActiveRecord', **kwargs):
 You can modify the `data` dictionary in `BEFORE_INSERT` and `BEFORE_UPDATE` callbacks to change what gets saved:
 
 ```python
-def before_insert_handler(instance, data, **kwargs):
+import uuid
+from typing import Dict, Any, Set
+from rhosocial.activerecord.model import ActiveRecord
+
+def before_insert_handler(
+    instance: 'ActiveRecord',  # Or use specific model type like 'User'
+    data: Dict[str, Any],
+    **kwargs
+) -> None:
     # Add computed fields before insert
     data['uuid'] = str(uuid.uuid4())
     data['status'] = 'pending'
 
-def before_update_handler(instance, data, dirty_fields, **kwargs):
+def before_update_handler(
+    instance: 'ActiveRecord',  # Or use specific model type like 'User'
+    data: Dict[str, Any],
+    dirty_fields: Set[str],
+    **kwargs
+) -> None:
     # Set status when specific fields change
     if 'email' in dirty_fields:
         data['email_verified'] = False
@@ -189,18 +276,24 @@ def before_update_handler(instance, data, dirty_fields, **kwargs):
 
 ```python
 import uuid
-from rhosocial.activerecord.model import ActiveRecord
+from typing import Union, Dict, Any
 from rhosocial.activerecord.interface.base import ModelEvent
+from rhosocial.activerecord.interface.model import IActiveRecord, IAsyncActiveRecord
 
 class UUIDMixin:
     def __init__(self, **data):
         super().__init__(**data)
         self.on(ModelEvent.BEFORE_INSERT, self._ensure_id)
 
-    def _ensure_id(self, instance, data, **kwargs):
-        if not self.id:
-            self.id = str(uuid.uuid4())
-            data['id'] = self.id
+    def _ensure_id(
+        self,
+        instance: Union['IActiveRecord', 'IAsyncActiveRecord'],
+        data: Dict[str, Any],
+        **kwargs
+    ) -> None:
+        if not instance.id:
+            instance.id = str(uuid.uuid4())
+            data['id'] = instance.id
 
 class User(UUIDMixin, ActiveRecord):
     id: str
@@ -250,11 +343,23 @@ def handler(instance, is_new=False, **kwargs):
 
 **New code:**
 ```python
-def insert_handler(instance, data, **kwargs):
+from typing import Dict, Any, Set
+from rhosocial.activerecord.model import ActiveRecord
+
+def insert_handler(
+    instance: 'ActiveRecord',  # Or use your specific model type
+    data: Dict[str, Any],
+    **kwargs
+) -> None:
     # INSERT logic only
     pass
 
-def update_handler(instance, data, dirty_fields, **kwargs):
+def update_handler(
+    instance: 'ActiveRecord',  # Or use your specific model type
+    data: Dict[str, Any],
+    dirty_fields: Set[str],
+    **kwargs
+) -> None:
     # UPDATE logic only
     pass
 

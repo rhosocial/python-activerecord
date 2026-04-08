@@ -1,13 +1,14 @@
 # src/rhosocial/activerecord/field/version.py
 """Module providing version control functionality."""
 
-from typing import Any, Dict, List
+from typing import Any, Dict, List, Union
 
 from ..backend.errors import DatabaseError
 from ..backend.expression import SQLPredicate, SQLValueExpression
 from ..backend.result import QueryResult
 from ..interface import ModelEvent
 from ..interface.update import IUpdateBehavior
+from ..interface.model import IActiveRecord, IAsyncActiveRecord
 
 
 class Version:
@@ -133,7 +134,9 @@ class OptimisticLockMixin(IUpdateBehavior):
         return {}
 
     def _handle_version_after_insert(
-        self, instance: "OptimisticLockMixin", *,
+        self,
+        instance: Union["IActiveRecord", "IAsyncActiveRecord"],
+        *,
         data: Dict[str, Any] = None,
         result: "QueryResult" = None,
         **kwargs
@@ -144,7 +147,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         is properly initialized to 1 for new records.
 
         Args:
-            instance: The model instance
+            instance: The model instance (ActiveRecord or AsyncActiveRecord)
             data: The data that was inserted
             result: The insert operation result containing affected_rows and returned data
             **kwargs: Additional event arguments
@@ -181,7 +184,9 @@ class OptimisticLockMixin(IUpdateBehavior):
         )
 
     def _handle_version_after_update(
-        self, instance: "OptimisticLockMixin", *,
+        self,
+        instance: Union["IActiveRecord", "IAsyncActiveRecord"],
+        *,
         data: Dict[str, Any] = None,
         dirty_fields: set = None,
         result: "QueryResult" = None,
@@ -193,7 +198,7 @@ class OptimisticLockMixin(IUpdateBehavior):
         and update the version number.
 
         Args:
-            instance: The model instance
+            instance: The model instance (ActiveRecord or AsyncActiveRecord)
             data: The data that was updated
             dirty_fields: Set of fields that were changed
             result: The update operation result containing affected_rows and returned data
