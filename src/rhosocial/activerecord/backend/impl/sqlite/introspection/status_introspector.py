@@ -588,3 +588,13 @@ class AsyncSQLiteStatusIntrospector(
             Empty SessionInfo
         """
         return SessionInfo()
+
+    async def list_users(self) -> List[UserInfo]:
+        """List users.
+
+        SQLite has no user management, so this returns empty list.
+
+        Returns:
+            Empty list
+        """
+        return []
