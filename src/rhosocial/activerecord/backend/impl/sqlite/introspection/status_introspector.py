@@ -23,6 +23,7 @@ from rhosocial.activerecord.backend.introspection.status import (
     UserInfo,
     ConnectionInfo,
     StorageInfo,
+    SessionInfo,
     SyncAbstractStatusIntrospector,
     AsyncAbstractStatusIntrospector,
 )
@@ -288,6 +289,16 @@ class SyncSQLiteStatusIntrospector(
         """
         return ConnectionInfo()
 
+    def get_session_info(self) -> SessionInfo:
+        """Get current session/connection information.
+
+        SQLite doesn't have sessions, so this returns empty info.
+
+        Returns:
+            Empty SessionInfo
+        """
+        return SessionInfo()
+
     def get_storage_info(self) -> StorageInfo:
         """Get storage information.
 
@@ -485,6 +496,14 @@ class AsyncSQLiteStatusIntrospector(
         """
         return ConnectionInfo()
 
+    async def get_session_info(self) -> SessionInfo:
+        """Get current session/connection information (empty for SQLite).
+
+        Returns:
+            Empty SessionInfo
+        """
+        return SessionInfo()
+
     async def get_storage_info(self) -> StorageInfo:
         """Get storage information.
 
@@ -562,10 +581,10 @@ class AsyncSQLiteStatusIntrospector(
 
         return databases
 
-    async def list_users(self) -> List[UserInfo]:
-        """List users (empty for SQLite).
+    async def get_session_info(self) -> SessionInfo:
+        """Get current session/connection information (empty for SQLite).
 
         Returns:
-            Empty list
+            Empty SessionInfo
         """
-        return []
+        return SessionInfo()
