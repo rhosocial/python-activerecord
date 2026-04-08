@@ -1,3 +1,12 @@
+## [v1.0.0.dev22] - 2026-04-08
+
+### Added
+
+- Added connection pool management system with context awareness, graceful shutdown, and WorkerPool independent Pipe architecture for improved parallel processing capabilities. ([#63](https://github.com/rhosocial/python-activerecord/issues/63))
+- Added transaction expression module with BeginTransactionExpression, CommitExpression, RollbackExpression, and SavepointExpression for building transaction SQL statements. ([#64](https://github.com/rhosocial/python-activerecord/issues/64))
+- Added server status overview support for SQLite introspection system with sync/async parity, including PRAGMA-based configuration metrics, storage info, and CLI status subcommand. ([#65](https://github.com/rhosocial/python-activerecord/issues/65))
+
+
 ## [v1.0.0.dev21] - 2026-04-06
 
 
