@@ -51,6 +51,10 @@ from .pragma_introspector import (
     SyncPragmaIntrospector,
     AsyncPragmaIntrospector,
 )
+from .status_introspector import (
+    SyncSQLiteStatusIntrospector,
+    AsyncSQLiteStatusIntrospector,
+)
 
 
 class SQLiteIntrospectorMixin(IntrospectorMixin):
@@ -291,6 +295,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     def __init__(self, backend: Any, executor: SyncIntrospectorExecutor) -> None:
         super().__init__(backend, executor)
         self._pragma_instance: Optional[SyncPragmaIntrospector] = None
+        self._status_instance: Optional[SyncSQLiteStatusIntrospector] = None
 
     @property
     def pragma(self) -> SyncPragmaIntrospector:
@@ -298,6 +303,13 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
         if self._pragma_instance is None:
             self._pragma_instance = SyncPragmaIntrospector(self._backend, self._executor)
         return self._pragma_instance
+
+    @property
+    def status(self) -> SyncSQLiteStatusIntrospector:
+        """SQLite status introspector (lazily created)."""
+        if self._status_instance is None:
+            self._status_instance = SyncSQLiteStatusIntrospector(self._backend)
+        return self._status_instance
 
     # ------------------------------------------------------------------ #
     # Override list_indexes for SQLite's two-step index query
@@ -418,6 +430,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     def __init__(self, backend: Any, executor: AsyncIntrospectorExecutor) -> None:
         super().__init__(backend, executor)
         self._pragma_instance: Optional[AsyncPragmaIntrospector] = None
+        self._status_instance: Optional[AsyncSQLiteStatusIntrospector] = None
 
     @property
     def pragma(self) -> AsyncPragmaIntrospector:
@@ -425,6 +438,13 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
         if self._pragma_instance is None:
             self._pragma_instance = AsyncPragmaIntrospector(self._backend, self._executor)
         return self._pragma_instance
+
+    @property
+    def status(self) -> AsyncSQLiteStatusIntrospector:
+        """SQLite status introspector (lazily created)."""
+        if self._status_instance is None:
+            self._status_instance = AsyncSQLiteStatusIntrospector(self._backend)
+        return self._status_instance
 
     # ------------------------------------------------------------------ #
     # Override list_indexes for SQLite's two-step index query
