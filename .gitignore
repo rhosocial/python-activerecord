@@ -183,4 +183,5 @@ cython_debug/
 # Examples
 examples/**
 .gemini/
+.claude/plans/
 gha-creds-*.json
