@@ -21,6 +21,13 @@ from .types import (
     ArchiveInfo,
     SecurityInfo,
     ExtensionInfo,
+    InnoDBInfo,
+    BinaryLogInfo,
+    ProcessInfo,
+    SlowQueryInfo,
+    ReplicationSlaveInfo,
+    ReplicationMasterInfo,
+    MySQLReplicationInfo,
 )
 from .base import (
     StatusIntrospectorMixin,
@@ -43,6 +50,14 @@ __all__ = [
     "ArchiveInfo",
     "SecurityInfo",
     "ExtensionInfo",
+    # MySQL specific types
+    "InnoDBInfo",
+    "BinaryLogInfo",
+    "ProcessInfo",
+    "SlowQueryInfo",
+    "ReplicationSlaveInfo",
+    "ReplicationMasterInfo",
+    "MySQLReplicationInfo",
     # Base classes
     "StatusIntrospectorMixin",
     "SyncAbstractStatusIntrospector",
