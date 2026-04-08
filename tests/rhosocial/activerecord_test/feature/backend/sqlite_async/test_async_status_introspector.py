@@ -304,7 +304,7 @@ class TestAsyncSQLiteStatusIntrospectorMixin:
     async def test_get_database_file_info_file(self, async_sqlite_backend):
         """Test _get_database_file_info for file database."""
         status = async_sqlite_backend.introspector.status
-        db_path = async_sqlite_backend.connection_config.database
+        db_path = async_sqlite_backend.config.database
 
         info = status._get_database_file_info(db_path)
 

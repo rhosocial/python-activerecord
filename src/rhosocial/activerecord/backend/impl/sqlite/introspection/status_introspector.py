@@ -512,7 +512,7 @@ class AsyncSQLiteStatusIntrospector(
         """
         storage = StorageInfo()
 
-        db_path = self._backend.connection_config.database
+        db_path = self._backend.config.database
 
         if db_path == ":memory:":
             storage.total_size_bytes = 0
@@ -550,7 +550,7 @@ class AsyncSQLiteStatusIntrospector(
         """
         databases = []
 
-        db_path = self._backend.connection_config.database
+        db_path = self._backend.config.database
         main_db = DatabaseBriefInfo(
             name="main",
             schema=None,
