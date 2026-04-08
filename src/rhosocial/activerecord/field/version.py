@@ -95,16 +95,22 @@ class OptimisticLockMixin(IUpdateBehavior):
 
     Uses VersionField (a PrivateAttr) to manage a Version instance.
     The database column name and increment amount can be customized.
+
+    Events used:
+    - AFTER_INSERT: Ensures version is set to 1 for new records
+    - AFTER_UPDATE: Verifies the update was successful and updates version
     """
 
     _version: Version = Version(value=1, increment_by=1)
 
     def __init__(self, **data):
-        """Initialize mixin and register event handler"""
+        """Initialize mixin and register event handlers"""
         super().__init__(**data)
         version_value = data.get("version", 1)
         self._version = Version(value=version_value, increment_by=1)
-        self.on(ModelEvent.AFTER_SAVE, self._handle_version_after_save)
+        # Register separate handlers for INSERT and UPDATE operations
+        self.on(ModelEvent.AFTER_INSERT, self._handle_version_after_insert)
+        self.on(ModelEvent.AFTER_UPDATE, self._handle_version_after_update)
 
     @property
     def version(self) -> int:
@@ -126,42 +132,87 @@ class OptimisticLockMixin(IUpdateBehavior):
             return {self._version.db_column: self._version.get_update_expression(backend.dialect)}
         return {}
 
-    def _handle_version_after_save(
-        self, instance: "OptimisticLockMixin", *, is_new: bool = False, result: "QueryResult" = None, **kwargs
+    def _handle_version_after_insert(
+        self, instance: "OptimisticLockMixin", *,
+        data: Dict[str, Any] = None,
+        result: "QueryResult" = None,
+        **kwargs
     ) -> None:
-        """Handle version management after save
+        """Handle version initialization after INSERT operation
+
+        This callback is triggered after INSERT to ensure the version
+        is properly initialized to 1 for new records.
 
         Args:
             instance: The model instance
-            is_new: Whether this is a new record
-            result: The save operation result containing affected_rows and returned data
+            data: The data that was inserted
+            result: The insert operation result containing affected_rows and returned data
+            **kwargs: Additional event arguments
+        """
+        # Ensure version is set to 1 for new records
+        # Check if result has data and contains the version column (from RETURNING clause)
+        if result.data is not None:
+            if isinstance(result.data, list) and len(result.data) > 0:
+                first_row = result.data[0]
+                if isinstance(first_row, dict) and self._version.db_column in first_row:
+                    new_version = first_row[self._version.db_column]
+                    if new_version is not None:
+                        self._version = Version(
+                            value=new_version,
+                            increment_by=self._version.increment_by,
+                            db_column=self._version.db_column,
+                        )
+                        return
+            elif isinstance(result.data, dict) and self._version.db_column in result.data:
+                new_version = result.data[self._version.db_column]
+                if new_version is not None:
+                    self._version = Version(
+                        value=new_version,
+                        increment_by=self._version.increment_by,
+                        db_column=self._version.db_column,
+                    )
+                    return
+
+        # If no returned data, ensure version is 1
+        self._version = Version(
+            value=1,
+            increment_by=self._version.increment_by,
+            db_column=self._version.db_column,
+        )
+
+    def _handle_version_after_update(
+        self, instance: "OptimisticLockMixin", *,
+        data: Dict[str, Any] = None,
+        dirty_fields: set = None,
+        result: "QueryResult" = None,
+        **kwargs
+    ) -> None:
+        """Handle version management after UPDATE operation
+
+        This callback is triggered after UPDATE to verify the optimistic lock
+        and update the version number.
+
+        Args:
+            instance: The model instance
+            data: The data that was updated
+            dirty_fields: Set of fields that were changed
+            result: The update operation result containing affected_rows and returned data
             **kwargs: Additional event arguments
 
         Raises:
-            DatabaseError: If optimistic lock check fails
+            DatabaseError: If optimistic lock check fails (record was updated by another process)
         """
-        if not is_new:
-            if result.affected_rows == 0:
-                raise DatabaseError("Record was updated by another process")
+        if result.affected_rows == 0:
+            raise DatabaseError("Record was updated by another process")
 
-            # Check if result has data and contains the version column
-            if result.data is not None:
-                # If result.data is a list (e.g., from RETURNING clause with multiple rows)
-                if isinstance(result.data, list) and len(result.data) > 0:
-                    # Take the first row if it's a list of rows
-                    first_row = result.data[0]
-                    if isinstance(first_row, dict) and self._version.db_column in first_row:
-                        new_version = first_row[self._version.db_column]
-                        if new_version is not None:
-                            self._version = Version(
-                                value=new_version,
-                                increment_by=self._version.increment_by,
-                                db_column=self._version.db_column,
-                            )
-                            return  # Successfully updated from returned data
-                # If result.data is a dictionary (single row)
-                elif isinstance(result.data, dict) and self._version.db_column in result.data:
-                    new_version = result.data[self._version.db_column]
+        # Check if result has data and contains the version column
+        if result.data is not None:
+            # If result.data is a list (e.g., from RETURNING clause with multiple rows)
+            if isinstance(result.data, list) and len(result.data) > 0:
+                # Take the first row if it's a list of rows
+                first_row = result.data[0]
+                if isinstance(first_row, dict) and self._version.db_column in first_row:
+                    new_version = first_row[self._version.db_column]
                     if new_version is not None:
                         self._version = Version(
                             value=new_version,
@@ -169,9 +220,19 @@ class OptimisticLockMixin(IUpdateBehavior):
                             db_column=self._version.db_column,
                         )
                         return  # Successfully updated from returned data
+            # If result.data is a dictionary (single row)
+            elif isinstance(result.data, dict) and self._version.db_column in result.data:
+                new_version = result.data[self._version.db_column]
+                if new_version is not None:
+                    self._version = Version(
+                        value=new_version,
+                        increment_by=self._version.increment_by,
+                        db_column=self._version.db_column,
+                    )
+                    return  # Successfully updated from returned data
 
-            # If we couldn't get the version from the returned data, increment locally
-            self._version.increment()
+        # If we couldn't get the version from the returned data, increment locally
+        self._version.increment()
 
     def model_dump(self, **kwargs) -> Dict[str, Any]:
         """Include version in serialized data"""

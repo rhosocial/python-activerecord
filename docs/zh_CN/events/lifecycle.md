@@ -1,15 +1,24 @@
 # 生命周期事件 (Lifecycle Events)
 
-rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许你在模型保存、删除、验证前后插入自定义逻辑。
+rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许你在模型插入、更新、删除、验证前后插入自定义逻辑。
 
 ## 支持的事件
 
 定义在 `rhosocial.activerecord.interface.base.ModelEvent` 枚举中：
 
+### 验证事件
 *   `BEFORE_VALIDATE`: 验证前
 *   `AFTER_VALIDATE`: 验证后
-*   `BEFORE_SAVE`: 保存前（创建或更新）
-*   `AFTER_SAVE`: 保存后（创建或更新）
+
+### 插入事件（新记录）
+*   `BEFORE_INSERT`: INSERT 操作前
+*   `AFTER_INSERT`: INSERT 操作后
+
+### 更新事件（现有记录）
+*   `BEFORE_UPDATE`: UPDATE 操作前
+*   `AFTER_UPDATE`: UPDATE 操作后
+
+### 删除事件
 *   `BEFORE_DELETE`: 删除前
 *   `AFTER_DELETE`: 删除后
 
@@ -21,8 +30,10 @@ rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许
 |---------|---------|---------|
 | `before_validate()` | `BEFORE_VALIDATE` | Pydantic 验证前 |
 | `after_validate()` | `AFTER_VALIDATE` | Pydantic 验证后 |
-| `before_save()` | `BEFORE_SAVE` | INSERT/UPDATE 前 |
-| `after_save()` | `AFTER_SAVE` | INSERT/UPDATE 后 |
+| - | `BEFORE_INSERT` | INSERT 前（新记录） |
+| - | `AFTER_INSERT` | INSERT 后（新记录） |
+| - | `BEFORE_UPDATE` | UPDATE 前（现有记录） |
+| - | `AFTER_UPDATE` | UPDATE 后（现有记录） |
 | `before_delete()` | `BEFORE_DELETE` | DELETE 前 |
 | `after_delete()` | `AFTER_DELETE` | DELETE 后 |
 
@@ -31,7 +42,7 @@ rhosocial-activerecord 提供了一套完整的生命周期事件系统，允许
 *   **钩子方法**：在模型类中覆写方法，适合简单的业务逻辑
 *   **事件监听**：通过 `self.on(ModelEvent.XXX, callback)` 注册，适合需要动态添加/移除监听器的场景
 
-> 💡 **AI提示词示例**: "如何在 before_save 中区分新建记录和更新记录？is_new 参数如何使用？"
+> 💡 **AI提示词示例**: "如何使用 BEFORE_INSERT 和 BEFORE_UPDATE 事件分别为新记录和现有记录执行不同的逻辑？"
 
 ## save() 方法生命周期
 
@@ -45,7 +56,7 @@ sequenceDiagram
     participant DB as Database Backend
 
     User->>Model: save()
-    
+
     rect rgb(240, 248, 255)
         Note over Model: 1. 验证阶段 (Validation)
         Model->>Model: validate_fields()
@@ -59,31 +70,29 @@ sequenceDiagram
         Model-->>User: 返回 0
     end
 
-    rect rgb(255, 250, 240)
-        Note over Model: 2. 保存前处理
-        Model->>Model: 触发 BEFORE_SAVE
-    end
-
     rect rgb(240, 255, 240)
-        Note over Model: 3. 执行保存 (_save_internal)
+        Note over Model: 2. 执行保存 (_save_internal)
         Model->>Model: _prepare_save_data()
         Model->>Mixins: prepare_save_data()
-        
-        alt 新记录 (New Record)
+
+        alt 新记录 (INSERT)
+            Model->>Model: 触发 BEFORE_INSERT
             Model->>DB: INSERT
-        else 现有记录 (Existing Record)
+            DB-->>Model: Result (affected_rows)
+            Model->>Model: 触发 AFTER_INSERT
+        else 现有记录 (UPDATE)
+            Model->>Model: 触发 BEFORE_UPDATE
             Model->>DB: UPDATE
+            DB-->>Model: Result (affected_rows)
+            Model->>Model: 触发 AFTER_UPDATE
         end
-        
-        DB-->>Model: Result (affected_rows)
     end
 
     rect rgb(255, 240, 245)
-        Note over Model: 4. 保存后处理
+        Note over Model: 3. 保存后处理
         Model->>Model: _after_save()
         Model->>Mixins: after_save()
         Model->>Model: reset_tracking()
-        Model->>Model: 触发 AFTER_SAVE
     end
 
     Model-->>User: 返回 affected_rows
@@ -94,7 +103,7 @@ sequenceDiagram
 事件处理器的执行是同步的，并且是 `save()` 流程的一部分。因此：
 
 1.  **异常中断**：如果任何一个事件处理器抛出异常，整个 `save()` 过程将立即中断，后续步骤（包括实际的数据库操作或后续事件）都不会执行。异常会向上传播给调用者。
-2.  **事务回滚**：如果 `save()` 操作被包裹在数据库事务中（推荐做法），事件处理器引发的异常将导致整个事务回滚。这确保了数据的一致性——例如，如果 `AFTER_SAVE` 钩子失败，之前在 `save()` 中执行的数据库 INSERT/UPDATE 操作也会被回滚。
+2.  **事务回滚**：如果 `save()` 操作被包裹在数据库事务中（推荐做法），事件处理器引发的异常将导致整个事务回滚。这确保了数据的一致性——例如，如果 `AFTER_UPDATE` 钩子失败，之前在 `save()` 中执行的数据库 UPDATE 操作也会被回滚。
 
 ## 注册事件处理器
 
@@ -110,47 +119,70 @@ class User(ActiveRecord):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.BEFORE_SAVE, self.encrypt_password)
+        self.on(ModelEvent.BEFORE_INSERT, self.encrypt_password)
 
-    def encrypt_password(self, instance, **kwargs):
-        # 加密逻辑
+    def encrypt_password(self, instance, data, **kwargs):
+        # 新记录的加密逻辑
         pass
 ```
 
 ### 2. 使用 Mixin (推荐)
 
-Mixin 是复用事件逻辑的最佳方式。例如，`TimestampMixin` 就是通过注册事件来实现的。
+Mixin 是复用事件逻辑的最佳方式。例如，`TimestampMixin` 通过注册分离的事件来实现 INSERT 和 UPDATE 的不同处理。
 
 ```python
 class TimestampMixin:
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.BEFORE_SAVE, self._update_timestamps)
+        self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
+        self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
-    def _update_timestamps(self, instance, is_new=False, **kwargs):
-        now = datetime.utcnow()
-        if is_new:
-            self.created_at = now
+    def _set_timestamps_on_insert(self, instance, data, **kwargs):
+        now = datetime.now(timezone.utc)
+        self.created_at = now
         self.updated_at = now
+
+    def _set_updated_at(self, instance, data, **kwargs):
+        self.updated_at = datetime.now(timezone.utc)
 ```
 
 ## 回调函数签名
 
-回调函数应接受 `instance` 和 `**kwargs` 参数。
+回调函数应接受 `instance` 和额外的上下文参数。
+
+### 通用模式
 
 ```python
 def callback(instance: 'ActiveRecord', **kwargs):
     # instance: 触发事件的模型实例
-    # kwargs: 上下文参数
+    # kwargs: 上下文参数（根据事件类型变化）
     pass
 ```
 
 ### 特定事件参数
 
-*   `BEFORE_SAVE`, `AFTER_SAVE`:
-    *   `is_new` (bool): 是否为新记录
-*   `AFTER_SAVE`:
-    *   `result` (QueryResult): 数据库操作结果（包含 `affected_rows`, `data` 等）
+| 事件 | 参数 |
+|------|------|
+| `BEFORE_INSERT` | `data: Dict[str, Any]` - 待插入数据（可修改） |
+| `AFTER_INSERT` | `data: Dict[str, Any]`, `result: QueryResult` - 数据库操作结果 |
+| `BEFORE_UPDATE` | `data: Dict[str, Any]`, `dirty_fields: Set[str]` - 变更字段名 |
+| `AFTER_UPDATE` | `data: Dict[str, Any]`, `dirty_fields: Set[str]`, `result: QueryResult` |
+
+### 修改保存数据
+
+你可以在 `BEFORE_INSERT` 和 `BEFORE_UPDATE` 回调中修改 `data` 字典来改变保存的内容：
+
+```python
+def before_insert_handler(instance, data, **kwargs):
+    # 在插入前添加计算字段
+    data['uuid'] = str(uuid.uuid4())
+    data['status'] = 'pending'
+
+def before_update_handler(instance, data, dirty_fields, **kwargs):
+    # 当特定字段变更时设置状态
+    if 'email' in dirty_fields:
+        data['email_verified'] = False
+```
 
 ## 示例：自动生成 UUID
 
@@ -162,13 +194,69 @@ from rhosocial.activerecord.interface.base import ModelEvent
 class UUIDMixin:
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.BEFORE_SAVE, self._ensure_id)
+        self.on(ModelEvent.BEFORE_INSERT, self._ensure_id)
 
-    def _ensure_id(self, instance, is_new=False, **kwargs):
-        if is_new and not self.id:
+    def _ensure_id(self, instance, data, **kwargs):
+        if not self.id:
             self.id = str(uuid.uuid4())
+            data['id'] = self.id
 
 class User(UUIDMixin, ActiveRecord):
     id: str
     username: str
+```
+
+## 示例：使用 AFTER_UPDATE 实现乐观锁
+
+```python
+from rhosocial.activerecord.field.version import OptimisticLockMixin
+from rhosocial.activerecord.interface.base import ModelEvent
+from rhosocial.activerecord.backend.errors import DatabaseError
+
+class Product(OptimisticLockMixin, ActiveRecord):
+    name: str
+    price: float
+    version: int
+
+# OptimisticLockMixin 使用 AFTER_UPDATE 来验证更新：
+# - 检查 result.affected_rows > 0
+# - 如果记录被其他进程更新则抛出 DatabaseError
+```
+
+## 迁移指南
+
+### 从 BEFORE_SAVE/AFTER_SAVE 迁移
+
+如果你之前使用 `BEFORE_SAVE` 或 `AFTER_SAVE` 事件，请按以下方式迁移：
+
+| 旧事件 | 条件 | 新事件 |
+|--------|------|--------|
+| `BEFORE_SAVE` + `is_new=True` | → | `BEFORE_INSERT` |
+| `BEFORE_SAVE` + `is_new=False` | → | `BEFORE_UPDATE` |
+| `AFTER_SAVE` + `is_new=True` | → | `AFTER_INSERT` |
+| `AFTER_SAVE` + `is_new=False` | → | `AFTER_UPDATE` |
+
+**旧代码：**
+```python
+def handler(instance, is_new=False, **kwargs):
+    if is_new:
+        # INSERT 逻辑
+        pass
+    else:
+        # UPDATE 逻辑
+        pass
+```
+
+**新代码：**
+```python
+def insert_handler(instance, data, **kwargs):
+    # 仅 INSERT 逻辑
+    pass
+
+def update_handler(instance, data, dirty_fields, **kwargs):
+    # 仅 UPDATE 逻辑
+    pass
+
+instance.on(ModelEvent.BEFORE_INSERT, insert_handler)
+instance.on(ModelEvent.BEFORE_UPDATE, update_handler)
 ```

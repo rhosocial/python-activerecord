@@ -345,8 +345,8 @@ class IActiveRecord(ActiveRecordBase):
         process including:
         1. Data preparation with mixin processing
         2. Conditional execution of insert or update based on record state
-        3. Post-save processing and event triggering
-        4. Tracking reset after successful save
+        3. Event triggering (BEFORE_INSERT/AFTER_INSERT or BEFORE_UPDATE/AFTER_UPDATE)
+        4. Post-save processing and tracking reset
 
         For both insert and update operations, if the backend supports RETURNING clauses,
         the methods will utilize them to retrieve relevant data efficiently.
@@ -358,15 +358,28 @@ class IActiveRecord(ActiveRecordBase):
 
         # Prepare data for saving (including mixin processing)
         data = self._prepare_save_data()
-        result = self._insert_internal(data) if is_new else self._update_internal(data)
 
-        if result is not None and result.affected_rows > 0:
-            self._after_save(is_new)
-            self.reset_tracking()
+        if is_new:
+            # INSERT operation for new records
+            self._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
+            result = self._insert_internal(data)
+            if result is not None and result.affected_rows > 0:
+                self._after_save(is_new)
+                self.reset_tracking()
+            self._trigger_event(ModelEvent.AFTER_INSERT, data=data, result=result)
+        else:
+            # UPDATE operation for existing records
+            dirty_fields = self.dirty_fields.copy()
+            self._trigger_event(ModelEvent.BEFORE_UPDATE, data=data, dirty_fields=dirty_fields)
+            result = self._update_internal(data)
+            if result is not None and result.affected_rows > 0:
+                self._after_save(is_new)
+                self.reset_tracking()
+            # Always trigger AFTER_UPDATE to allow mixins to check result
+            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data,
+                               dirty_fields=dirty_fields, result=result)
 
-        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
-
-        return result.affected_rows
+        return result.affected_rows if result else 0
 
     @abstractmethod
     def save(self) -> int:
@@ -378,8 +391,11 @@ class IActiveRecord(ActiveRecordBase):
         If the record already exists, it performs an UPDATE operation with only
         the changed fields.
 
-        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
-        and handles dirty field tracking to optimize updates.
+        The save operation triggers appropriate model events:
+        - For new records: BEFORE_INSERT, AFTER_INSERT
+        - For existing records: BEFORE_UPDATE, AFTER_UPDATE
+
+        It also handles dirty field tracking to optimize updates.
 
         Returns:
             int: Number of affected rows in the database
@@ -543,20 +559,47 @@ class IAsyncActiveRecord(ActiveRecordBase):
     async def _save_internal(self) -> int:
         """
         Internal method for saving the record (either insert or update).
+
+        This method determines whether to perform an insert or update operation based on
+        whether this is a new record or an existing one. It handles the complete save
+        process including:
+        1. Data preparation with mixin processing
+        2. Conditional execution of insert or update based on record state
+        3. Event triggering (BEFORE_INSERT/AFTER_INSERT or BEFORE_UPDATE/AFTER_UPDATE)
+        4. Post-save processing and tracking reset
+
+        For both insert and update operations, if the backend supports RETURNING clauses,
+        the methods will utilize them to retrieve relevant data efficiently.
+
+        Returns:
+            int: Number of affected rows from the underlying insert or update operation
         """
         is_new = self.is_new_record
 
         # Prepare data for saving (including mixin processing)
         data = self._prepare_save_data()
-        result = await self._insert_internal(data) if is_new else await self._update_internal(data)
 
-        if result is not None and result.affected_rows > 0:
-            self._after_save(is_new)
-            self.reset_tracking()
+        if is_new:
+            # INSERT operation for new records
+            self._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
+            result = await self._insert_internal(data)
+            if result is not None and result.affected_rows > 0:
+                self._after_save(is_new)
+                self.reset_tracking()
+            self._trigger_event(ModelEvent.AFTER_INSERT, data=data, result=result)
+        else:
+            # UPDATE operation for existing records
+            dirty_fields = self.dirty_fields.copy()
+            self._trigger_event(ModelEvent.BEFORE_UPDATE, data=data, dirty_fields=dirty_fields)
+            result = await self._update_internal(data)
+            if result is not None and result.affected_rows > 0:
+                self._after_save(is_new)
+                self.reset_tracking()
+            # Always trigger AFTER_UPDATE to allow mixins to check result
+            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data,
+                               dirty_fields=dirty_fields, result=result)
 
-        self._trigger_event(ModelEvent.AFTER_SAVE, is_new=is_new, result=result)
-
-        return result.affected_rows
+        return result.affected_rows if result else 0
 
     @abstractmethod
     async def save(self) -> int:
@@ -568,8 +611,11 @@ class IAsyncActiveRecord(ActiveRecordBase):
         If the record already exists, it performs an UPDATE operation with only
         the changed fields.
 
-        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
-        and handles dirty field tracking to optimize updates.
+        The save operation triggers appropriate model events:
+        - For new records: BEFORE_INSERT, AFTER_INSERT
+        - For existing records: BEFORE_UPDATE, AFTER_UPDATE
+
+        It also handles dirty field tracking to optimize updates.
 
         Returns:
             int: Number of affected rows in the database

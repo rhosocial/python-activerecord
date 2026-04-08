@@ -6,7 +6,7 @@ Demonstrates core concepts:
 3. Real-world Mixin examples (Timestamp, SoftDelete, Audit)
 """
 
-from datetime import datetime
+from datetime import datetime, timezone
 from typing import Optional, ClassVar
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.interface.base import ModelEvent
@@ -17,18 +17,34 @@ from rhosocial.activerecord.backend.schema import StatementType
 # --- Reusable Mixins ---
 
 class TimestampMixin:
-    """Mixin that automatically manages created_at and updated_at timestamps."""
+    """Mixin that automatically manages created_at and updated_at timestamps.
+
+    Uses separate events for INSERT and UPDATE operations:
+    - BEFORE_INSERT: Sets both created_at and updated_at for new records
+    - BEFORE_UPDATE: Updates only updated_at for existing records
+    """
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.BEFORE_SAVE, self._update_timestamps)
+        self.on(ModelEvent.BEFORE_INSERT, self._set_timestamps_on_insert)
+        self.on(ModelEvent.BEFORE_UPDATE, self._set_updated_at)
 
-    def _update_timestamps(self, instance, is_new=False, **kwargs):
-        now = datetime.now()
-        if is_new and hasattr(self, 'created_at'):
+    def _set_timestamps_on_insert(self, instance, data, **kwargs):
+        """Set both created_at and updated_at for INSERT operations."""
+        now = datetime.now(timezone.utc)
+        if hasattr(self, 'created_at'):
             self.created_at = now
+            data['created_at'] = now
         if hasattr(self, 'updated_at'):
             self.updated_at = now
+            data['updated_at'] = now
+
+    def _set_updated_at(self, instance, data, **kwargs):
+        """Set updated_at for UPDATE operations."""
+        if hasattr(self, 'updated_at'):
+            now = datetime.now(timezone.utc)
+            self.updated_at = now
+            data['updated_at'] = now
 
 
 class SoftDeleteMixin:
@@ -41,7 +57,7 @@ class SoftDeleteMixin:
     def _soft_delete(self, instance, **kwargs):
         """Prevent actual deletion, set deleted_at instead."""
         if hasattr(self, 'deleted_at'):
-            self.deleted_at = datetime.now()
+            self.deleted_at = datetime.now(timezone.utc)
             # Cancel the actual delete by raising an exception
             # or override delete() method
             print(f"  [SoftDelete] Marking '{self}' as deleted")
@@ -52,31 +68,47 @@ class SoftDeleteMixin:
 
 
 class AuditMixin:
-    """Mixin that logs all changes for audit purposes."""
+    """Mixin that logs all changes for audit purposes.
+
+    Uses separate events for INSERT and UPDATE to provide
+    more specific audit information.
+    """
 
     _audit_log: ClassVar[list] = []
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.AFTER_SAVE, self._log_save)
+        self.on(ModelEvent.AFTER_INSERT, self._log_insert)
+        self.on(ModelEvent.AFTER_UPDATE, self._log_update)
         self.on(ModelEvent.AFTER_DELETE, self._log_delete)
 
-    def _log_save(self, instance, is_new=False, result=None, **kwargs):
-        action = "CREATE" if is_new else "UPDATE"
+    def _log_insert(self, instance, data, result, **kwargs):
+        """Log INSERT operations."""
         AuditMixin._audit_log.append({
-            'action': action,
+            'action': 'CREATE',
             'model': self.__class__.__name__,
             'id': self.id,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now(timezone.utc).isoformat()
         })
-        print(f"  [Audit] {action}: {self.__class__.__name__}#{self.id}")
+        print(f"  [Audit] CREATE: {self.__class__.__name__}#{self.id}")
 
-    def _log_delete(self, instance, result=None, **kwargs):
+    def _log_update(self, instance, data, dirty_fields, result, **kwargs):
+        """Log UPDATE operations."""
+        AuditMixin._audit_log.append({
+            'action': 'UPDATE',
+            'model': self.__class__.__name__,
+            'id': self.id,
+            'timestamp': datetime.now(timezone.utc).isoformat()
+        })
+        print(f"  [Audit] UPDATE: {self.__class__.__name__}#{self.id}")
+
+    def _log_delete(self, instance, result, **kwargs):
+        """Log DELETE operations."""
         AuditMixin._audit_log.append({
             'action': 'DELETE',
             'model': self.__class__.__name__,
             'id': self.id,
-            'timestamp': datetime.now().isoformat()
+            'timestamp': datetime.now(timezone.utc).isoformat()
         })
         print(f"  [Audit] DELETE: {self.__class__.__name__}#{self.id}")
 
@@ -90,7 +122,8 @@ class CacheInvalidationMixin:
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.AFTER_SAVE, self._invalidate_cache)
+        self.on(ModelEvent.AFTER_INSERT, self._invalidate_cache)
+        self.on(ModelEvent.AFTER_UPDATE, self._invalidate_cache)
         self.on(ModelEvent.AFTER_DELETE, self._invalidate_cache)
 
     def _invalidate_cache(self, instance, **kwargs):
