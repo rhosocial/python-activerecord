@@ -4,7 +4,7 @@ Demonstrates core concepts:
 1. Using on() method to register event listeners
 2. Multiple listeners for the same event
 3. Dynamic listener registration and removal
-4. Using ModelEvent enum
+4. Using ModelEvent enum with INSERT/UPDATE specific events
 """
 
 from datetime import datetime
@@ -35,29 +35,43 @@ class User(ActiveRecord):
 
     def __init__(self, **data):
         super().__init__(**data)
-        # Register event listeners in __init__
-        self.on(ModelEvent.BEFORE_SAVE, self._hash_password)
-        self.on(ModelEvent.BEFORE_SAVE, self._set_timestamp)
-        self.on(ModelEvent.AFTER_SAVE, self._log_save)
+        # Register event listeners using INSERT/UPDATE specific events
+        self.on(ModelEvent.BEFORE_INSERT, self._hash_password_on_insert)
+        self.on(ModelEvent.BEFORE_INSERT, self._set_created_at)
+        self.on(ModelEvent.AFTER_INSERT, self._log_insert)
+        self.on(ModelEvent.BEFORE_UPDATE, self._hash_password_on_update)
+        self.on(ModelEvent.AFTER_UPDATE, self._log_update)
 
-    def _hash_password(self, instance, is_new=False, **kwargs):
-        """Hash password before saving."""
+    def _hash_password_on_insert(self, instance, data, **kwargs):
+        """Hash password before insert."""
         if self._plain_password and not self.password_hash:
-            # Simulate password hashing
             self.password_hash = f"hashed_{self._plain_password}"
-            self._plain_password = None  # Clear plain password
+            data['password_hash'] = self.password_hash
+            self._plain_password = None
             print(f"  [Listener] Password hashed for '{self.username}'")
 
-    def _set_timestamp(self, instance, is_new=False, **kwargs):
-        """Set creation timestamp."""
-        if is_new:
-            self.created_at = datetime.now()
-            print(f"  [Listener] Timestamp set for '{self.username}'")
+    def _hash_password_on_update(self, instance, data, dirty_fields, **kwargs):
+        """Hash password before update (if changed)."""
+        if self._plain_password:
+            self.password_hash = f"hashed_{self._plain_password}"
+            data['password_hash'] = self.password_hash
+            self._plain_password = None
+            print(f"  [Listener] Password updated for '{self.username}'")
 
-    def _log_save(self, instance, is_new=False, result=None, **kwargs):
-        """Log save operation."""
-        action = "created" if is_new else "updated"
-        print(f"  [Listener] User '{self.username}' {action} successfully")
+    def _set_created_at(self, instance, data, **kwargs):
+        """Set creation timestamp for new records."""
+        now = datetime.now()
+        self.created_at = now
+        data['created_at'] = now
+        print(f"  [Listener] Timestamp set for '{self.username}'")
+
+    def _log_insert(self, instance, data, result, **kwargs):
+        """Log insert operation."""
+        print(f"  [Listener] User '{self.username}' created successfully")
+
+    def _log_update(self, instance, data, dirty_fields, result, **kwargs):
+        """Log update operation."""
+        print(f"  [Listener] User '{self.username}' updated successfully")
 
 
 class AuditedModel(ActiveRecord):
@@ -65,15 +79,19 @@ class AuditedModel(ActiveRecord):
 
     def __init__(self, **data):
         super().__init__(**data)
-        self.on(ModelEvent.AFTER_SAVE, self._audit_save)
+        self.on(ModelEvent.AFTER_INSERT, self._audit_insert)
+        self.on(ModelEvent.AFTER_UPDATE, self._audit_update)
         self.on(ModelEvent.AFTER_DELETE, self._audit_delete)
 
-    def _audit_save(self, instance, is_new=False, result=None, **kwargs):
-        """Audit log for save operations."""
-        action = "CREATE" if is_new else "UPDATE"
-        print(f"  [Audit] {action}: {self.__class__.__name__} id={self.id}")
+    def _audit_insert(self, instance, data, result, **kwargs):
+        """Audit log for insert operations."""
+        print(f"  [Audit] CREATE: {self.__class__.__name__} id={self.id}")
 
-    def _audit_delete(self, instance, result=None, **kwargs):
+    def _audit_update(self, instance, data, dirty_fields, result, **kwargs):
+        """Audit log for update operations."""
+        print(f"  [Audit] UPDATE: {self.__class__.__name__} id={self.id}")
+
+    def _audit_delete(self, instance, result, **kwargs):
         """Audit log for delete operations."""
         print(f"  [Audit] DELETE: {self.__class__.__name__} id={self.id}")
 
@@ -110,7 +128,7 @@ def main():
 
     # 1. Multiple listeners on same event
     print("\n" + "-" * 40)
-    print("Multiple listeners (BEFORE_SAVE):")
+    print("Multiple listeners (BEFORE_INSERT):")
     print("-" * 40)
     user = User(username="alice", email="alice@example.com")
     user.set_password("secret123")
@@ -152,7 +170,7 @@ def main():
     # Add temporary listener
     user2 = User(username="bob", email="bob@example.com")
     user2.set_password("pass456")
-    user2.on(ModelEvent.BEFORE_SAVE, temporary_listener)
+    user2.on(ModelEvent.BEFORE_INSERT, temporary_listener)
     print("Saving with temporary listener:")
     user2.save()
 

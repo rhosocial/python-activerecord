@@ -19,13 +19,28 @@ DictT = TypeVar("DictT", bound=Dict[str, Any])
 class ModelEvent(Enum):
     """Model lifecycle events that can be subscribed to.
 
-    Events are triggered during key operations like save and delete,
+    Events are triggered during key operations like insert, update, and delete,
     allowing custom behavior to be injected.
+
+    The events are organized by operation type:
+    - Validation events: BEFORE_VALIDATE, AFTER_VALIDATE
+    - Insert events: BEFORE_INSERT, AFTER_INSERT (triggered on new record creation)
+    - Update events: BEFORE_UPDATE, AFTER_UPDATE (triggered on existing record modification)
+    - Delete events: BEFORE_DELETE, AFTER_DELETE
     """
 
-    BEFORE_SAVE = auto()
-    AFTER_SAVE = auto()
-    BEFORE_DELETE = auto()
-    AFTER_DELETE = auto()
+    # Validation events
     BEFORE_VALIDATE = auto()
     AFTER_VALIDATE = auto()
+
+    # Insert events (for new records)
+    BEFORE_INSERT = auto()
+    AFTER_INSERT = auto()
+
+    # Update events (for existing records)
+    BEFORE_UPDATE = auto()
+    AFTER_UPDATE = auto()
+
+    # Delete events
+    BEFORE_DELETE = auto()
+    AFTER_DELETE = auto()

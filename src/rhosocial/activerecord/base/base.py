@@ -382,8 +382,11 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         If the record already exists and has changes, it performs an UPDATE operation with only
         the changed fields.
 
-        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
-        and handles dirty field tracking to optimize updates.
+        The save operation triggers appropriate model events:
+        - For new records: BEFORE_INSERT, AFTER_INSERT
+        - For existing records: BEFORE_UPDATE, AFTER_UPDATE
+
+        It also handles dirty field tracking to optimize updates.
 
         Returns:
             int: Number of affected rows in the database
@@ -405,11 +408,6 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             raise DBValidationError(str(e)) from e
         if not self.is_new_record and not self.is_dirty:
             return 0
-        try:
-            self._trigger_event(ModelEvent.BEFORE_SAVE, is_new=self.is_new_record)
-        except Exception as e:
-            self.log(logging.ERROR, f"Trigger event error: {str(e)}")
-            raise
         try:
             return self._save_internal()
         except Exception as e:
@@ -879,8 +877,11 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
         If the record already exists and has changes, it performs an UPDATE operation with only
         the changed fields.
 
-        The save operation triggers appropriate model events (BEFORE_SAVE, AFTER_SAVE)
-        and handles dirty field tracking to optimize updates.
+        The save operation triggers appropriate model events:
+        - For new records: BEFORE_INSERT, AFTER_INSERT
+        - For existing records: BEFORE_UPDATE, AFTER_UPDATE
+
+        It also handles dirty field tracking to optimize updates.
 
         Returns:
             int: Number of affected rows in the database
@@ -902,11 +903,6 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             raise DBValidationError(str(e)) from e
         if not self.is_new_record and not self.is_dirty:
             return 0
-        try:
-            self._trigger_event(ModelEvent.BEFORE_SAVE, is_new=self.is_new_record)
-        except Exception as e:
-            self.log(logging.ERROR, f"Trigger event error: {str(e)}")
-            raise
         try:
             return await self._save_internal()
         except Exception as e:
