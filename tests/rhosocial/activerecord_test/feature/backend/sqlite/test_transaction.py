@@ -1,6 +1,7 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite/test_transaction.py
 import logging
 import sqlite3
+import uuid
 from unittest.mock import MagicMock, patch
 
 import pytest
@@ -84,6 +85,12 @@ class TestSQLiteTransactionManager:
 
     def test_log_method(self, transaction_manager):
         """Test log method"""
+        # Use a dedicated logger to avoid interference from GC-triggered
+        # disconnect calls on other backend instances sharing the same
+        # singleton logger. When __del__ fires on a stale backend during GC,
+        # its disconnect() logs through the shared logger, polluting the mock.
+        dedicated_logger = logging.getLogger(f"test_log_method_{uuid.uuid4().hex}")
+        transaction_manager._logger = dedicated_logger
         with patch.object(transaction_manager._logger, 'log') as mock_log:
             transaction_manager.log(logging.INFO, "Test message")
             mock_log.assert_called_once_with(logging.INFO, "Test message")
