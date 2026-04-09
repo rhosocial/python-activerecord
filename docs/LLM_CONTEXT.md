@@ -251,14 +251,16 @@ pytest --cov=rhosocial.activerecord
 
 ### Event System Reference
 
-| Event Enum | Hook Method | Trigger Point |
-|------------|-------------|---------------|
-| BEFORE_VALIDATE | before_validate() | Before Pydantic validation |
-| AFTER_VALIDATE | after_validate() | After Pydantic validation |
-| BEFORE_SAVE | before_save() | Before INSERT/UPDATE |
-| AFTER_SAVE | after_save() | After INSERT/UPDATE |
-| BEFORE_DELETE | before_delete() | Before DELETE |
-| AFTER_DELETE | after_delete() | After DELETE |
+| Event Enum | Trigger Point | Arguments |
+|------------|---------------|-----------|
+| BEFORE_VALIDATE | Before Pydantic validation | - |
+| AFTER_VALIDATE | After Pydantic validation | - |
+| BEFORE_INSERT | Before INSERT (new records) | `data: Dict` |
+| AFTER_INSERT | After INSERT (new records) | `data: Dict`, `result: QueryResult` |
+| BEFORE_UPDATE | Before UPDATE (existing records) | `data: Dict`, `dirty_fields: Set[str]` |
+| AFTER_UPDATE | After UPDATE (existing records) | `data: Dict`, `dirty_fields: Set[str]`, `result: QueryResult` |
+| BEFORE_DELETE | Before DELETE | - |
+| AFTER_DELETE | After DELETE | - |
 
 ### Relation Descriptors
 

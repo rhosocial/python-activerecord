@@ -37,7 +37,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev9
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev10"
 
     - name: Run tests with coverage
       run: |
@@ -83,7 +83,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev9
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev10"
 
     - name: Run tests
       run: |
@@ -118,7 +118,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev9
+        pip install "rhosocial-activerecord-testsuite @ git+https://github.com/rhosocial/python-activerecord-testsuite@release/v1.0.0.dev10"
 
     - name: Run tests
       run: |
