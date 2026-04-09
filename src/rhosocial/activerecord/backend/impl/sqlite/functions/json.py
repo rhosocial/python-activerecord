@@ -39,7 +39,13 @@ def _convert_to_expression(
     """
     if isinstance(expr, bases.BaseExpression):
         return expr
-    elif handle_numeric_literals and isinstance(expr, (int, float)):
+    elif isinstance(expr, (int, float)):
+        # Numeric values: convert to Literal if handle_numeric_literals is True
+        if handle_numeric_literals:
+            return core.Literal(dialect, expr)
+        return core.Column(dialect, str(expr))
+    elif isinstance(expr, str):
+        # Strings: always convert to Literal for JSON functions
         return core.Literal(dialect, expr)
     else:
         return core.Column(dialect, expr)

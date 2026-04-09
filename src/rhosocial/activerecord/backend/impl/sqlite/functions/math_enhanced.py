@@ -32,7 +32,17 @@ def _convert_to_expression(
     """
     if isinstance(expr, bases.BaseExpression):
         return expr
-    return core.Column(dialect, expr)
+    elif isinstance(expr, (int, float)):
+        return core.Literal(dialect, expr)
+    elif isinstance(expr, str):
+        # Try to parse as number first
+        try:
+            return core.Literal(dialect, float(expr) if '.' in expr else int(expr))
+        except ValueError:
+            # Not a number, treat as column name
+            return core.Column(dialect, expr)
+    else:
+        return core.Column(dialect, expr)
 
 
 def round_sql(
