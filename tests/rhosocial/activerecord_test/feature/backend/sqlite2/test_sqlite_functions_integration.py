@@ -66,7 +66,7 @@ class TestMathFunctionsIntegration:
         )
         assert query_result.data[0]["result"] == 4.0
 
-    def test_round_sql_execution(self, sqlite_backend_with_data):
+    def test_round__execution(self, sqlite_backend_with_data):
         """Test ROUND function execution."""
         backend, dialect = sqlite_backend_with_data
 
@@ -173,7 +173,7 @@ class TestMathFunctionsIntegration:
         )
         assert query_result.data[0]["result"] == 3.0
 
-    def test_max_sql_execution(self, sqlite_backend_with_data):
+    def test_max__execution(self, sqlite_backend_with_data):
         """Test MAX function execution."""
         backend, dialect = sqlite_backend_with_data
 
@@ -188,7 +188,7 @@ class TestMathFunctionsIntegration:
         )
         assert query_result.data[0]["result"] == 9
 
-    def test_min_sql_execution(self, sqlite_backend_with_data):
+    def test_min__execution(self, sqlite_backend_with_data):
         """Test MIN function execution."""
         backend, dialect = sqlite_backend_with_data
 

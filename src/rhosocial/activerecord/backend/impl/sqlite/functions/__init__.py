@@ -85,7 +85,7 @@ from .json import (
 )
 
 from .math_enhanced import (
-    round_sql,
+    round_,
     pow,
     power,
     sqrt,
@@ -93,8 +93,8 @@ from .math_enhanced import (
     ceil,
     floor,
     trunc,
-    max_sql,
-    min_sql,
+    max_,
+    min_,
     avg,
 )
 
@@ -123,7 +123,7 @@ __all__ = [
     "sign",
     "total",
     # Math enhanced functions
-    "round_sql",
+    "round_",
     "pow",
     "power",
     "sqrt",
@@ -131,8 +131,8 @@ __all__ = [
     "ceil",
     "floor",
     "trunc",
-    "max_sql",
-    "min_sql",
+    "max_",
+    "min_",
     "avg",
     # Blob functions
     "zeroblob",

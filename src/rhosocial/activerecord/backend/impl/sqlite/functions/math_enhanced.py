@@ -5,7 +5,7 @@ SQLite enhanced math function factories.
 Additional mathematical functions beyond the basic math module.
 Includes: round, pow, power, sqrt, mod, ceil, floor, truncate, max, min, avg
 
-Functions: round_sql, pow, power, sqrt, mod, ceil, floor, trunc, max_sql, min_sql, avg
+Functions: round_, pow, power, sqrt, mod, ceil, floor, trunc, max_, min_, avg
 """
 
 from typing import Union, TYPE_CHECKING
@@ -45,7 +45,7 @@ def _convert_to_expression(
         return core.Column(dialect, expr)
 
 
-def round_sql(
+def round_(
     dialect: "SQLDialectBase",
     expr: Union[str, "bases.BaseExpression"],
     precision: int = 0,
@@ -56,8 +56,8 @@ def round_sql(
     Rounds a numeric value to the specified number of decimal places.
 
     Usage:
-        - round_sql(dialect, Column("price")) -> ROUND("price")
-        - round_sql(dialect, Column("price"), 2) -> ROUND("price", 2)
+        - round_(dialect, Column("price")) -> ROUND("price")
+        - round_(dialect, Column("price"), 2) -> ROUND("price", 2)
 
     Args:
         dialect: The SQL dialect instance
@@ -249,7 +249,7 @@ def trunc(
     return core.FunctionCall(dialect, "TRUNC", target_expr)
 
 
-def max_sql(
+def max_(
     dialect: "SQLDialectBase",
     expr1: Union[str, "bases.BaseExpression"],
     expr2: Union[str, "bases.BaseExpression"],
@@ -261,8 +261,8 @@ def max_sql(
     Returns the maximum value among the arguments.
 
     Usage:
-        - max_sql(dialect, 1, 2) -> MAX(1, 2)
-        - max_sql(dialect, Column("a"), Column("b")) -> MAX("a", "b")
+        - max_(dialect, 1, 2) -> MAX(1, 2)
+        - max_(dialect, Column("a"), Column("b")) -> MAX("a", "b")
 
     Args:
         dialect: The SQL dialect instance
@@ -279,7 +279,7 @@ def max_sql(
     return core.FunctionCall(dialect, "MAX", *exprs)
 
 
-def min_sql(
+def min_(
     dialect: "SQLDialectBase",
     expr1: Union[str, "bases.BaseExpression"],
     expr2: Union[str, "bases.BaseExpression"],
@@ -291,8 +291,8 @@ def min_sql(
     Returns the minimum value among the arguments.
 
     Usage:
-        - min_sql(dialect, 1, 2) -> MIN(1, 2)
-        - min_sql(dialect, Column("a"), Column("b")) -> MIN("a", "b")
+        - min_(dialect, 1, 2) -> MIN(1, 2)
+        - min_(dialect, Column("a"), Column("b")) -> MIN("a", "b")
 
     Args:
         dialect: The SQL dialect instance
@@ -333,7 +333,7 @@ def avg(
 
 
 __all__ = [
-    "round_sql",
+    "round_",
     "pow",
     "power",
     "sqrt",
@@ -341,7 +341,7 @@ __all__ = [
     "ceil",
     "floor",
     "trunc",
-    "max_sql",
-    "min_sql",
+    "max_",
+    "min_",
     "avg",
 ]

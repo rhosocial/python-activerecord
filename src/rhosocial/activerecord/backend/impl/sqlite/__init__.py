@@ -94,7 +94,7 @@ from .functions import (
     sign,
     total,
     # Math enhanced functions
-    round_sql,
+    round_,
     pow,
     power,
     sqrt,
@@ -102,8 +102,8 @@ from .functions import (
     ceil,
     floor,
     trunc,
-    max_sql,
-    min_sql,
+    max_,
+    min_,
     avg,
     # Blob functions
     zeroblob,
@@ -220,7 +220,7 @@ __all__ = [
     "rtrim",
     "iif",
     # Math enhanced functions
-    "round_sql",
+    "round_",
     "pow",
     "power",
     "sqrt",
@@ -228,8 +228,8 @@ __all__ = [
     "ceil",
     "floor",
     "trunc",
-    "max_sql",
-    "min_sql",
+    "max_",
+    "min_",
     "avg",
     # JSON functions
     "json",

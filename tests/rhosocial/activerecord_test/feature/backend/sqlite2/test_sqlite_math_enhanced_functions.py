@@ -6,7 +6,7 @@ These include additional mathematical functions beyond the basic math module.
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.functions.math_enhanced import (
-    round_sql,
+    round_,
     pow,
     power,
     sqrt,
@@ -14,8 +14,8 @@ from rhosocial.activerecord.backend.impl.sqlite.functions.math_enhanced import (
     ceil,
     floor,
     trunc,
-    max_sql,
-    min_sql,
+    max_,
+    min_,
     avg,
 )
 
@@ -23,23 +23,23 @@ from rhosocial.activerecord.backend.impl.sqlite.functions.math_enhanced import (
 class TestSQLiteMathEnhancedFunctions:
     """Tests for SQLite enhanced math functions."""
 
-    def test_round_sql_default(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test round_sql() with default precision."""
-        result = round_sql(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "value"))
+    def test_round__default(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test round_() with default precision."""
+        result = round_(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "value"))
         sql, _ = result.to_sql()
         assert "ROUND(" in sql
         assert '"value"' in sql
 
-    def test_round_sql_with_precision(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test round_sql() with precision."""
-        result = round_sql(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), 2)
+    def test_round__with_precision(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test round_() with precision."""
+        result = round_(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), 2)
         sql, _ = result.to_sql()
         assert "ROUND(" in sql
         # precision is stored as literal in expression, not as param
 
-    def test_round_sql_with_literal(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test round_sql() with literal value."""
-        result = round_sql(sqlite_dialect_3_8_0, 3.14159, 2)
+    def test_round__with_literal(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test round_() with literal value."""
+        result = round_(sqlite_dialect_3_8_0, 3.14159, 2)
         sql, _ = result.to_sql()
         assert "ROUND(" in sql
 
@@ -133,15 +133,15 @@ class TestSQLiteMathEnhancedFunctions:
         sql, _ = result.to_sql()
         assert "TRUNC(" in sql
 
-    def test_max_sql_two_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test max_sql() with two arguments."""
-        result = max_sql(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "a"), Column(sqlite_dialect_3_8_0, "b"))
+    def test_max__two_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test max_() with two arguments."""
+        result = max_(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "a"), Column(sqlite_dialect_3_8_0, "b"))
         sql, _ = result.to_sql()
         assert "MAX(" in sql
 
-    def test_max_sql_multiple_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test max_sql() with multiple arguments."""
-        result = max_sql(
+    def test_max__multiple_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test max_() with multiple arguments."""
+        result = max_(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "a"),
             Column(sqlite_dialect_3_8_0, "b"),
@@ -150,21 +150,21 @@ class TestSQLiteMathEnhancedFunctions:
         sql, _ = result.to_sql()
         assert "MAX(" in sql
 
-    def test_max_sql_with_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test max_sql() with literal values."""
-        result = max_sql(sqlite_dialect_3_8_0, 1, 2, 3)
+    def test_max__with_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test max_() with literal values."""
+        result = max_(sqlite_dialect_3_8_0, 1, 2, 3)
         sql, _ = result.to_sql()
         assert "MAX(" in sql
 
-    def test_min_sql_two_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test min_sql() with two arguments."""
-        result = min_sql(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "a"), Column(sqlite_dialect_3_8_0, "b"))
+    def test_min__two_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test min_() with two arguments."""
+        result = min_(sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "a"), Column(sqlite_dialect_3_8_0, "b"))
         sql, _ = result.to_sql()
         assert "MIN(" in sql
 
-    def test_min_sql_multiple_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test min_sql() with multiple arguments."""
-        result = min_sql(
+    def test_min__multiple_args(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test min_() with multiple arguments."""
+        result = min_(
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "a"),
             Column(sqlite_dialect_3_8_0, "b"),
@@ -173,9 +173,9 @@ class TestSQLiteMathEnhancedFunctions:
         sql, _ = result.to_sql()
         assert "MIN(" in sql
 
-    def test_min_sql_with_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test min_sql() with literal values."""
-        result = min_sql(sqlite_dialect_3_8_0, 1, 2, 3)
+    def test_min__with_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test min_() with literal values."""
+        result = min_(sqlite_dialect_3_8_0, 1, 2, 3)
         sql, _ = result.to_sql()
         assert "MIN(" in sql
 
@@ -192,21 +192,21 @@ class TestSQLiteMathEnhancedFunctions:
         sql, _ = result.to_sql()
         assert "AVG(" in sql
 
-    def test_round_sql_with_string_integer(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test round_sql() with string integer value."""
-        result = round_sql(sqlite_dialect_3_8_0, "123", 2)
+    def test_round__with_string_integer(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test round_() with string integer value."""
+        result = round_(sqlite_dialect_3_8_0, "123", 2)
         sql, _ = result.to_sql()
         assert "ROUND(" in sql
 
-    def test_round_sql_with_string_float(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test round_sql() with string float value."""
-        result = round_sql(sqlite_dialect_3_8_0, "3.14159", 2)
+    def test_round__with_string_float(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test round_() with string float value."""
+        result = round_(sqlite_dialect_3_8_0, "3.14159", 2)
         sql, _ = result.to_sql()
         assert "ROUND(" in sql
 
-    def test_round_sql_with_string_column_name(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test round_sql() with non-numeric string treated as column."""
-        result = round_sql(sqlite_dialect_3_8_0, "column_name", 2)
+    def test_round__with_string_column_name(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test round_() with non-numeric string treated as column."""
+        result = round_(sqlite_dialect_3_8_0, "column_name", 2)
         sql, _ = result.to_sql()
         assert "ROUND(" in sql
         assert '"column_name"' in sql
@@ -229,15 +229,15 @@ class TestSQLiteMathEnhancedFunctions:
         sql, _ = result.to_sql()
         assert "MOD(" in sql
 
-    def test_max_sql_with_string_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test max_sql() with string numeric values."""
-        result = max_sql(sqlite_dialect_3_8_0, "1", "2", "3")
+    def test_max__with_string_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test max_() with string numeric values."""
+        result = max_(sqlite_dialect_3_8_0, "1", "2", "3")
         sql, _ = result.to_sql()
         assert "MAX(" in sql
 
-    def test_min_sql_with_string_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
-        """Test min_sql() with string numeric values."""
-        result = min_sql(sqlite_dialect_3_8_0, "1", "2", "3")
+    def test_min__with_string_literals(self, sqlite_dialect_3_8_0: SQLiteDialect):
+        """Test min_() with string numeric values."""
+        result = min_(sqlite_dialect_3_8_0, "1", "2", "3")
         sql, _ = result.to_sql()
         assert "MIN(" in sql
 
