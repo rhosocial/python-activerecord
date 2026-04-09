@@ -11,7 +11,7 @@ import abc
 from typing import Tuple, Protocol, TYPE_CHECKING
 from typing import runtime_checkable
 
-from . import mixins
+from .mixins import LogicalMixin
 
 # Type alias for the return type of to_sql() method
 # This alias represents the standard return format for all SQL expression objects:
@@ -113,7 +113,7 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         raise NotImplementedError
 
 
-class SQLPredicate(mixins.LogicalMixin, BaseExpression):
+class SQLPredicate(LogicalMixin, BaseExpression):
     """
     Abstract base class for SQL expressions that return a boolean value (predicates).
     """

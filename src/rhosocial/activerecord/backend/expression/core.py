@@ -5,19 +5,25 @@ Core SQL expression components like columns, literals, function calls, and subqu
 
 from typing import Any, Tuple, Optional, Dict, TYPE_CHECKING, Union
 
-from . import bases
-from . import mixins
+from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression, is_sql_query_and_params
+from .mixins import (
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
 class Literal(
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.StringMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """Represents a literal value in a SQL query."""
 
@@ -25,7 +31,7 @@ class Literal(
         super().__init__(dialect)
         self.value = value
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         sql = self.dialect.get_parameter_placeholder()
         params = (self.value,)
 
@@ -40,12 +46,12 @@ class Literal(
 
 
 class Column(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.StringMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """Represents a column in a SQL query."""
 
@@ -55,7 +61,7 @@ class Column(
         self.table = table
         self.alias = alias
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # Generate base column SQL
         if self.table:
             sql = f"{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
@@ -75,12 +81,12 @@ class Column(
 
 
 class FunctionCall(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.StringMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """Represents a scalar SQL function call, such as LOWER, CONCAT, etc."""
 
@@ -88,7 +94,7 @@ class FunctionCall(
         self,
         dialect: "SQLDialectBase",
         func_name: str,
-        *args: "bases.BaseExpression",
+        *args: "BaseExpression",
         is_distinct: bool = False,
         alias: Optional[str] = None,
     ):
@@ -98,17 +104,17 @@ class FunctionCall(
         self.is_distinct = is_distinct
         self.alias = alias
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_function_call(self)
 
 
-class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, SQLValueExpression):
     """Represents a subquery in a SQL expression."""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        query_input: Union[str, "bases.SQLQueryAndParams", "bases.BaseExpression", "Subquery"],
+        query_input: Union[str, "SQLQueryAndParams", "BaseExpression", "Subquery"],
         query_params: Optional[Tuple[Any, ...]] = None,
         alias: Optional[str] = None,
     ):
@@ -128,7 +134,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
                 # If input is a string, use it directly with empty params
                 self.query_sql = query
                 self.query_params = ()
-            elif bases.is_sql_query_and_params(query):
+            elif is_sql_query_and_params(query):
                 # If input is a SQLQueryAndParams (str, tuple), extract SQL and params
                 sql_str, params = query
                 # If params is None, use an empty tuple
@@ -139,7 +145,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
                 self.query_sql = query.query_sql
                 self.query_params = query.query_params
                 self.alias = query.alias or alias
-            elif isinstance(query, bases.BaseExpression):
+            elif isinstance(query, BaseExpression):
                 # If input is a BaseExpression, call its to_sql method
                 self.query_sql, self.query_params = query.to_sql()
             else:
@@ -147,7 +153,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
                 self.query_sql = str(query)
                 self.query_params = ()
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         sql = f"({self.query_sql})"
         params = self.query_params
 
@@ -162,7 +168,7 @@ class Subquery(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonM
         return sql, params
 
 
-class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
+class TableExpression(AliasableMixin, BaseExpression):
     """Represents a table or view in a SQL query, optionally with schema and alias.
 
     Supports SQL standard schema-qualified table names (schema_name.table_name).
@@ -207,7 +213,7 @@ class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
         self.alias = alias
         self.temporal_options = temporal_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         table_sql, params = self.dialect.format_table(self.name, self.alias, self.schema_name)
         if self.temporal_options:
             result = self.dialect.format_temporal_options(self.temporal_options)
@@ -218,7 +224,7 @@ class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
         return table_sql, params
 
 
-class WildcardExpression(bases.SQLValueExpression):
+class WildcardExpression(SQLValueExpression):
     """Represents a wildcard expression (SELECT *) in a SQL query.
 
     Important: When constructing queries that include wildcards (SELECT *),
@@ -241,5 +247,5 @@ class WildcardExpression(bases.SQLValueExpression):
         super().__init__(dialect)
         self.table = table  # Optional table qualifier for SELECT table.*
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_wildcard(self.table)

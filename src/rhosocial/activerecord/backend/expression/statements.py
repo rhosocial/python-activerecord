@@ -13,9 +13,9 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Tuple, Any, List, Optional, Dict, Union, TYPE_CHECKING
 
-from . import bases
-from . import core
-from . import mixins
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from .core import Subquery, TableExpression
+from .mixins import ArithmeticMixin, ComparisonMixin
 from .query_parts import (
     WhereClause,
     GroupByHavingClause,
@@ -41,8 +41,8 @@ if TYPE_CHECKING:  # pragma: no cover
 # Define type aliases for complex union types
 FromSourceType = Union[
     str,  # Table name as string
-    "core.TableExpression",  # Single table
-    "core.Subquery",  # Subquery
+    "TableExpression",  # Single table
+    "Subquery",  # Subquery
     "SetOperationExpression",  # Set operations (UNION, etc.)
     "JoinExpression",  # Join expression (treated as a single object)
     "ValuesExpression",  # VALUES expression
@@ -71,12 +71,12 @@ class MergeAction:
     """
 
     action_type: MergeActionType
-    assignments: Optional[Dict[str, "bases.BaseExpression"]] = field(default_factory=dict)  # For UPDATE SET clause
-    values: Optional[List["bases.BaseExpression"]] = field(default_factory=list)  # For INSERT VALUES clause
-    condition: Optional["bases.SQLPredicate"] = None  # Optional additional condition for the WHEN clause
+    assignments: Optional[Dict[str, "BaseExpression"]] = field(default_factory=dict)  # For UPDATE SET clause
+    values: Optional[List["BaseExpression"]] = field(default_factory=list)  # For INSERT VALUES clause
+    condition: Optional["SQLPredicate"] = None  # Optional additional condition for the WHEN clause
 
 
-class MergeExpression(bases.BaseExpression):
+class MergeExpression(BaseExpression):
     """
     Represents a SQL MERGE statement conforming to SQL standard syntax.
 
@@ -123,11 +123,11 @@ class MergeExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        target_table: Union[str, "core.TableExpression"],
+        target_table: Union[str, "TableExpression"],
         source: Union[
-            "core.Subquery", "core.TableExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"
+            "Subquery", "TableExpression", "ValuesExpression", "TableFunctionExpression", "LateralExpression"
         ],
-        on_condition: "bases.SQLPredicate",  # The main matching condition
+        on_condition: "SQLPredicate",  # The main matching condition
         when_matched: Optional[List[MergeAction]] = None,  # WHEN MATCHED THEN ...
         when_not_matched: Optional[List[MergeAction]] = None,  # WHEN NOT MATCHED THEN ...
         when_not_matched_by_source: Optional[List[MergeAction]] = None,
@@ -135,8 +135,8 @@ class MergeExpression(bases.BaseExpression):
         super().__init__(dialect)
         self.target_table = (
             target_table
-            if isinstance(target_table, core.TableExpression)
-            else core.TableExpression(dialect, str(target_table))
+            if isinstance(target_table, TableExpression)
+            else TableExpression(dialect, str(target_table))
         )
         self.source = source
         self.on_condition = on_condition
@@ -144,7 +144,7 @@ class MergeExpression(bases.BaseExpression):
         self.when_not_matched = when_not_matched or []
         self.when_not_matched_by_source = when_not_matched_by_source or []
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the MERGE statement to the configured dialect."""
         return self.dialect.format_merge_statement(self)
 
@@ -166,7 +166,7 @@ class SelectModifier(Enum):
     ALL = "ALL"
 
 
-class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
     """
     Represents a complete SELECT query expression with all clauses supported by the framework.
 
@@ -270,7 +270,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        select: List["bases.BaseExpression"],  # SELECT clause - required, list of selected expressions
+        select: List["BaseExpression"],  # SELECT clause - required, list of selected expressions
         from_: Optional[
             Union[  # FROM clause - optional, but determines the nature of the query
                 FromSourceType,  # Single data source type
@@ -278,7 +278,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                 List[FromSourceType],
             ]
         ] = None,
-        where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
+        where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         group_by_having: Optional["GroupByHavingClause"] = None,  # Combined GROUP BY/HAVING clause object
         order_by: Optional["OrderByClause"] = None,  # ORDER BY clause object
         qualify: Optional["QualifyClause"] = None,  # QUALIFY clause object
@@ -372,7 +372,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         def _is_valid_from_source(item):
             """Check if an item is a valid FROM source type."""
             # Check if it's one of the valid types: basic types or specific expression classes
-            return isinstance(item, (str, core.TableExpression, core.Subquery)) or type(item).__name__ in [
+            return isinstance(item, (str, TableExpression, Subquery)) or type(item).__name__ in [
                 "SetOperationExpression",
                 "JoinExpression",
                 "ValuesExpression",
@@ -400,7 +400,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
                     )
 
         # Validate where parameter
-        if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):
+        if self.where is not None and not isinstance(self.where, (WhereClause, SQLPredicate)):
             raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
 
         # Validate group_by_having parameter
@@ -427,7 +427,7 @@ class QueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLV
         if self.select_modifier is not None and not isinstance(self.select_modifier, SelectModifier):
             raise TypeError(f"select_modifier must be SelectModifier, got {type(self.select_modifier)}")
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """
         Generate the SQL string and parameters for this query expression.
 
@@ -502,7 +502,7 @@ class ExplainOptions:
     dialect_options: Optional[Dict[str, Any]] = None
 
 
-class ExplainExpression(bases.BaseExpression):
+class ExplainExpression(BaseExpression):
     """
     Unified EXPLAIN expression class that supports differences across database dialects.
 
@@ -545,7 +545,7 @@ class ExplainExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        statement: "bases.BaseExpression",  # Statement to be analyzed
+        statement: "BaseExpression",  # Statement to be analyzed
         options: Optional[ExplainOptions] = None,
     ):  # EXPLAIN options
         super().__init__(dialect)
@@ -560,7 +560,7 @@ class ExplainExpression(bases.BaseExpression):
 # endregion Explain Statement
 
 
-class ReturningClause(bases.BaseExpression):
+class ReturningClause(BaseExpression):
     """
     Represents a RETURNING clause used in INSERT, UPDATE, and DELETE statements.
 
@@ -600,7 +600,7 @@ class ReturningClause(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expressions: List["bases.BaseExpression"],  # List of expressions to return
+        expressions: List["BaseExpression"],  # List of expressions to return
         alias: Optional[str] = None,  # Optional alias for the returning result
         dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
@@ -615,7 +615,7 @@ class ReturningClause(bases.BaseExpression):
 
 
 # region Delete Statement
-class DeleteExpression(bases.BaseExpression):
+class DeleteExpression(BaseExpression):
     """
     Represents an SQL DELETE statement, allowing removal of rows from a table.
     It supports specifying a target table, an optional FROM clause for joining
@@ -627,18 +627,18 @@ class DeleteExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "core.TableExpression", List[Union[str, "core.TableExpression"]]],
+        table: Union[str, "TableExpression", List[Union[str, "TableExpression"]]],
         *,  # Enforce keyword-only arguments for optional parameters
         using: Optional[
             Union[
-                "core.TableExpression",
-                "core.Subquery",
+                "TableExpression",
+                "Subquery",
                 "SetOperationExpression",
                 "JoinExpression",
                 List[
                     Union[
-                        "core.TableExpression",
-                        "core.Subquery",
+                        "TableExpression",
+                        "Subquery",
                         "SetOperationExpression",
                         "JoinExpression",
                         "ValuesExpression",
@@ -648,7 +648,7 @@ class DeleteExpression(bases.BaseExpression):
                 ],
             ]
         ] = None,
-        where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
+        where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -660,14 +660,14 @@ class DeleteExpression(bases.BaseExpression):
                 raise ValueError("Table list cannot be empty for a DELETE statement.")
             self.tables = []
             for t in table:
-                if isinstance(t, core.TableExpression):
+                if isinstance(t, TableExpression):
                     self.tables.append(t)
                 else:
-                    self.tables.append(core.TableExpression(dialect, str(t)))
+                    self.tables.append(TableExpression(dialect, str(t)))
         else:
             # Single table
             single_table = (
-                table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
+                table if isinstance(table, TableExpression) else TableExpression(dialect, str(table))
             )
             self.tables = [single_table]
 
@@ -706,13 +706,13 @@ class DeleteExpression(bases.BaseExpression):
         if not self.tables:
             raise ValueError("Tables cannot be empty for a DELETE statement.")
         for i, table in enumerate(self.tables):
-            if not isinstance(table, core.TableExpression):
+            if not isinstance(table, TableExpression):
                 raise TypeError(f"tables[{i}] must be TableExpression, got {type(table)}")
 
         # Validate using parameter
         if self.using is not None:
             # Check if it's one of the valid types using isinstance with type names
-            valid_types = (str, core.TableExpression, core.Subquery)
+            valid_types = (str, TableExpression, Subquery)
             if not isinstance(self.using, valid_types) and not isinstance(self.using, list):
                 # For complex types, check their type names
                 using_type_name = type(self.using).__name__
@@ -732,14 +732,14 @@ class DeleteExpression(bases.BaseExpression):
                     )
 
         # Validate where parameter
-        if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):
+        if self.where is not None and not isinstance(self.where, (WhereClause, SQLPredicate)):
             raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
 
         # Validate returning parameter
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the DELETE statement to the configured dialect."""
         return self.dialect.format_delete_statement(self)
 
@@ -748,7 +748,7 @@ class DeleteExpression(bases.BaseExpression):
 
 
 # region Update Statement
-class UpdateExpression(bases.BaseExpression):
+class UpdateExpression(BaseExpression):
     """
     Represents an SQL UPDATE statement, allowing modification of existing rows
     in a table. It supports a target table, assignment of new values to columns,
@@ -761,22 +761,22 @@ class UpdateExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "core.TableExpression"],
-        assignments: Dict[str, "bases.BaseExpression"],
+        table: Union[str, "TableExpression"],
+        assignments: Dict[str, "BaseExpression"],
         *,  # Enforce keyword-only arguments for optional parameters
         from_: Optional[
             Union[  # Optional FROM clause, compatible with various SQL dialects.
                 # SQLite's UPDATE FROM is more restrictive, typically allowing only
                 # a comma-separated list of table-or-subquery or a single JOIN clause.
                 # More advanced SQL dialects (e.g., PostgreSQL) allow richer FROM sources.
-                "core.TableExpression",
-                "core.Subquery",
+                "TableExpression",
+                "Subquery",
                 "SetOperationExpression",
                 "JoinExpression",
                 List[
                     Union[
-                        "core.TableExpression",
-                        "core.Subquery",
+                        "TableExpression",
+                        "Subquery",
                         "SetOperationExpression",
                         "JoinExpression",
                         "ValuesExpression",
@@ -786,7 +786,7 @@ class UpdateExpression(bases.BaseExpression):
                 ],
             ]
         ] = None,
-        where: Optional[Union["bases.SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
+        where: Optional[Union["SQLPredicate", "WhereClause"]] = None,  # WHERE condition or clause object
         returning: Optional["ReturningClause"] = None,  # RETURNING clause object
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -797,7 +797,7 @@ class UpdateExpression(bases.BaseExpression):
             raise ValueError("Assignments cannot be empty for an UPDATE statement.")
 
         # Normalize the target table to a TableExpression
-        self.table = table if isinstance(table, core.TableExpression) else core.TableExpression(dialect, str(table))
+        self.table = table if isinstance(table, TableExpression) else TableExpression(dialect, str(table))
         self.assignments = assignments
         self.from_ = from_
 
@@ -837,7 +837,7 @@ class UpdateExpression(bases.BaseExpression):
         # Validate from_ parameter
         if self.from_ is not None:
             # Check if it's one of the valid types using isinstance with type names
-            valid_types = (str, core.TableExpression, core.Subquery)
+            valid_types = (str, TableExpression, Subquery)
             if not isinstance(self.from_, valid_types) and not isinstance(self.from_, list):
                 # For complex types, check their type names
                 from_type_name = type(self.from_).__name__
@@ -856,14 +856,14 @@ class UpdateExpression(bases.BaseExpression):
                     )
 
         # Validate where parameter
-        if self.where is not None and not isinstance(self.where, (WhereClause, bases.SQLPredicate)):
+        if self.where is not None and not isinstance(self.where, (WhereClause, SQLPredicate)):
             raise TypeError(f"where must be WhereClause or SQLPredicate, got {type(self.where)}")
 
         # Validate returning parameter
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""
         return self.dialect.format_update_statement(self)
 
@@ -896,7 +896,7 @@ class ValuesSource(InsertDataSource):
     Each element in `values_list` is itself a list, representing a single row,
     and each element within a row list must be an expression.
 
-    Currently, the type hint for these expressions is `bases.BaseExpression`.
+    Currently, the type hint for these expressions is `BaseExpression`.
     This generic type allows for various expression types (e.g., `Literal`, `Column`,
     `RawSQLExpression`, scalar `QueryExpression` as subqueries) to be used as values.
     It is a pragmatic choice given the current stage of framework development.
@@ -907,12 +907,12 @@ class ValuesSource(InsertDataSource):
     and do not represent a single value or expression suitable for a `VALUES` clause.
 
     In future iterations, as the framework matures, the type hint may be refined
-    to a more specific `Union` of supported `bases.BaseExpression` derived classes
+    to a more specific `Union` of supported `BaseExpression` derived classes
     (e.g., `Union[Literal, Column, ScalarSubquery]`) to provide stricter type checking
     and clearer developer guidance on what constitutes a valid value expression.
     """
 
-    def __init__(self, dialect: "SQLDialectBase", values_list: List[List["bases.BaseExpression"]]):
+    def __init__(self, dialect: "SQLDialectBase", values_list: List[List["BaseExpression"]]):
         super().__init__(dialect)
         if not values_list or not all(isinstance(row, list) for row in values_list):
             raise ValueError("'values_list' must be a non-empty list of lists.")
@@ -935,7 +935,7 @@ class DefaultValuesSource(InsertDataSource):
     pass
 
 
-class OnConflictClause(bases.BaseExpression):
+class OnConflictClause(BaseExpression):
     """
     Represents an ON CONFLICT clause for "upsert" operations, supporting
     both DO NOTHING and DO UPDATE actions.
@@ -944,11 +944,11 @@ class OnConflictClause(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        conflict_target: Optional[List[Union[str, "bases.BaseExpression"]]],
+        conflict_target: Optional[List[Union[str, "BaseExpression"]]],
         *,
         do_nothing: bool = False,
-        update_assignments: Optional[Dict[str, "bases.BaseExpression"]] = None,
-        update_where: Optional["bases.SQLPredicate"] = None,
+        update_assignments: Optional[Dict[str, "BaseExpression"]] = None,
+        update_where: Optional["SQLPredicate"] = None,
     ):
         super().__init__(dialect)
         if do_nothing and (update_assignments is not None):
@@ -961,12 +961,12 @@ class OnConflictClause(bases.BaseExpression):
         self.update_assignments = update_assignments
         self.update_where = update_where
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates formatting of the ON CONFLICT clause to the configured dialect."""
         return self.dialect.format_on_conflict_clause(self)
 
 
-class InsertExpression(bases.BaseExpression):
+class InsertExpression(BaseExpression):
     """
     Represents a structured INSERT statement, supporting various data sources,
     upsert logic (ON CONFLICT), and RETURNING clauses.
@@ -975,7 +975,7 @@ class InsertExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        into: Union[str, "core.TableExpression"],
+        into: Union[str, "TableExpression"],
         source: InsertDataSource,
         columns: Optional[List[str]] = None,
         *,
@@ -985,7 +985,7 @@ class InsertExpression(bases.BaseExpression):
     ):
         super().__init__(dialect)
 
-        self.into = into if isinstance(into, core.TableExpression) else core.TableExpression(dialect, str(into))
+        self.into = into if isinstance(into, TableExpression) else TableExpression(dialect, str(into))
         self.source = source
         self.columns = columns
         self.on_conflict = on_conflict
@@ -1015,7 +1015,7 @@ class InsertExpression(bases.BaseExpression):
             return
 
         # Validate into parameter
-        if not isinstance(self.into, (str, core.TableExpression)):
+        if not isinstance(self.into, (str, TableExpression)):
             raise TypeError(f"into must be str or TableExpression, got {type(self.into)}")
 
         # Validate source parameter
@@ -1034,7 +1034,7 @@ class InsertExpression(bases.BaseExpression):
         if self.returning is not None and not isinstance(self.returning, ReturningClause):
             raise TypeError(f"returning must be ReturningClause, got {type(self.returning)}")
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the INSERT statement to the configured dialect."""
         return self.dialect.format_insert_statement(self)
 
@@ -1065,7 +1065,7 @@ class ColumnConstraint:
 
     constraint_type: ColumnConstraintType
     name: Optional[str] = None  # Optional constraint name
-    check_condition: Optional["bases.SQLPredicate"] = None  # For CHECK constraints
+    check_condition: Optional["SQLPredicate"] = None  # For CHECK constraints
     foreign_key_reference: Optional[Tuple[str, List[str]]] = None  # (referenced_table, referenced_columns)
     default_value: Any = None  # For DEFAULT constraints
     is_auto_increment: bool = False  # For AUTO_INCREMENT/IDENTITY columns
@@ -1089,7 +1089,7 @@ class ColumnDefinition:
     comment: Optional[str] = None  # Column comment
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
     # Generated column support (SQLite 3.31.0+, PostgreSQL, MySQL)
-    generated_expression: Optional["bases.BaseExpression"] = None  # Expression for generated column
+    generated_expression: Optional["BaseExpression"] = None  # Expression for generated column
     generated_type: Optional[GeneratedColumnType] = None  # STORED or VIRTUAL
 
 
@@ -1120,7 +1120,7 @@ class TableConstraint:
     constraint_type: TableConstraintType
     name: Optional[str] = None  # Optional constraint name
     columns: Optional[List[str]] = None  # For PK, UK constraints
-    check_condition: Optional["bases.SQLPredicate"] = None  # For CHECK constraints
+    check_condition: Optional["SQLPredicate"] = None  # For CHECK constraints
     foreign_key_table: Optional[str] = None  # For FK constraints
     foreign_key_columns: Optional[List[str]] = None  # For FK constraints
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
@@ -1144,18 +1144,18 @@ class IndexDefinition:
     columns: List[str]  # List of column names to index
     unique: bool = False  # Whether the index enforces uniqueness
     type: Optional[str] = None  # Index type: BTREE, HASH, GIN, etc.
-    partial_condition: Optional["bases.SQLPredicate"] = None  # For partial indexes (PostgreSQL)
+    partial_condition: Optional["SQLPredicate"] = None  # For partial indexes (PostgreSQL)
     include_columns: Optional[List[str]] = None  # Included columns (non-key columns in index, SQL Server/PostgreSQL)
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
-class CreateTableExpression(bases.BaseExpression):
+class CreateTableExpression(BaseExpression):
     """Represents a comprehensive CREATE TABLE statement supporting full SQL standard features."""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: Union[str, "core.TableExpression"],
+        table_name: Union[str, "TableExpression"],
         columns: List[ColumnDefinition],  # List of column definitions with constraints
         indexes: Optional[List[IndexDefinition]] = None,  # Table indexes
         table_constraints: Optional[List[TableConstraint]] = None,  # Table-level constraints
@@ -1176,8 +1176,8 @@ class CreateTableExpression(bases.BaseExpression):
         super().__init__(dialect)
         # Validate and normalize table_name
         if isinstance(table_name, str):
-            self.table = core.TableExpression(dialect, table_name)
-        elif isinstance(table_name, core.TableExpression):
+            self.table = TableExpression(dialect, table_name)
+        elif isinstance(table_name, TableExpression):
             self.table = table_name
         else:
             raise TypeError(f"table_name must be str or TableExpression, got {type(table_name).__name__}")
@@ -1198,12 +1198,12 @@ class CreateTableExpression(bases.BaseExpression):
         """Get the table name (for backward compatibility)."""
         return self.table.name
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the CREATE TABLE statement to the configured dialect."""
         return self.dialect.format_create_table_statement(self)
 
 
-class DropTableExpression(bases.BaseExpression):
+class DropTableExpression(BaseExpression):
     """Represents a DROP TABLE statement conforming to SQL standard.
 
     SQL Standard Syntax:
@@ -1251,7 +1251,7 @@ class DropTableExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: Union[str, "core.TableExpression"],
+        table_name: Union[str, "TableExpression"],
         if_exists: bool = False,
         cascade: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -1259,8 +1259,8 @@ class DropTableExpression(bases.BaseExpression):
         super().__init__(dialect)
         # Validate and normalize table_name
         if isinstance(table_name, str):
-            self.table = core.TableExpression(dialect, table_name)
-        elif isinstance(table_name, core.TableExpression):
+            self.table = TableExpression(dialect, table_name)
+        elif isinstance(table_name, TableExpression):
             self.table = table_name
         else:
             raise TypeError(f"table_name must be str or TableExpression, got {type(table_name).__name__}")
@@ -1268,7 +1268,7 @@ class DropTableExpression(bases.BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the DROP TABLE statement to the configured dialect."""
         return self.dialect.format_drop_table_statement(self)
 
@@ -1489,7 +1489,7 @@ class ViewOptions:
     dialect_options: Optional[Dict[str, Any]] = None  # Database-specific options
 
 
-class CreateViewExpression(bases.BaseExpression):
+class CreateViewExpression(BaseExpression):
     """
     Represents a CREATE VIEW statement supporting full SQL standard features and extensions.
 
@@ -1552,12 +1552,12 @@ class CreateViewExpression(bases.BaseExpression):
         self.temporary = temporary  # Whether to create a temporary view
         self.options = options or ViewOptions()
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the CREATE VIEW statement to the configured dialect."""
         return self.dialect.format_create_view_statement(self)
 
 
-class DropViewExpression(bases.BaseExpression):
+class DropViewExpression(BaseExpression):
     """
     Represents a DROP VIEW statement supporting standard and extended features.
 
@@ -1594,12 +1594,12 @@ class DropViewExpression(bases.BaseExpression):
         self.if_exists = if_exists
         self.cascade = cascade
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the DROP VIEW statement to the configured dialect."""
         return self.dialect.format_drop_view_statement(self)
 
 
-class CreateMaterializedViewExpression(bases.BaseExpression):
+class CreateMaterializedViewExpression(BaseExpression):
     """
     Represents a CREATE MATERIALIZED VIEW statement.
 
@@ -1665,12 +1665,12 @@ class CreateMaterializedViewExpression(bases.BaseExpression):
         self.storage_options = storage_options or {}
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for CREATE MATERIALIZED VIEW to the dialect."""
         return self.dialect.format_create_materialized_view_statement(self)
 
 
-class DropMaterializedViewExpression(bases.BaseExpression):
+class DropMaterializedViewExpression(BaseExpression):
     """
     Represents a DROP MATERIALIZED VIEW statement.
 
@@ -1711,12 +1711,12 @@ class DropMaterializedViewExpression(bases.BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for DROP MATERIALIZED VIEW to the dialect."""
         return self.dialect.format_drop_materialized_view_statement(self)
 
 
-class RefreshMaterializedViewExpression(bases.BaseExpression):
+class RefreshMaterializedViewExpression(BaseExpression):
     """
     Represents a REFRESH MATERIALIZED VIEW statement.
 
@@ -1760,12 +1760,12 @@ class RefreshMaterializedViewExpression(bases.BaseExpression):
         self.with_data = with_data
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for REFRESH MATERIALIZED VIEW to the dialect."""
         return self.dialect.format_refresh_materialized_view_statement(self)
 
 
-class TruncateExpression(bases.BaseExpression):
+class TruncateExpression(BaseExpression):
     """
     Represents a TRUNCATE TABLE statement supporting SQL standard and database-specific features.
 
@@ -1821,7 +1821,7 @@ class TruncateExpression(bases.BaseExpression):
         self.cascade = cascade  # For PostgreSQL-style CASCADE
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """
         Generate the SQL string and parameters for this TRUNCATE expression.
 
@@ -1836,7 +1836,7 @@ class TruncateExpression(bases.BaseExpression):
         return self.dialect.format_truncate_statement(self)
 
 
-class AlterTableExpression(bases.BaseExpression):
+class AlterTableExpression(BaseExpression):
     """
     Represents a comprehensive ALTER TABLE statement supporting SQL standard functionality.
 
@@ -1939,7 +1939,7 @@ class AlterTableExpression(bases.BaseExpression):
             self.actions.append(action)
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """
         Generate the SQL string and parameters for this ALTER TABLE expression per SQL standard.
 
@@ -1959,7 +1959,7 @@ class AlterTableExpression(bases.BaseExpression):
 # region Schema DDL Expressions
 
 
-class CreateSchemaExpression(bases.BaseExpression):
+class CreateSchemaExpression(BaseExpression):
     """
     Represents a CREATE SCHEMA statement.
 
@@ -2006,11 +2006,11 @@ class CreateSchemaExpression(bases.BaseExpression):
         self.authorization = authorization
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_create_schema_statement(self)
 
 
-class DropSchemaExpression(bases.BaseExpression):
+class DropSchemaExpression(BaseExpression):
     """
     Represents a DROP SCHEMA statement.
 
@@ -2051,7 +2051,7 @@ class DropSchemaExpression(bases.BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_drop_schema_statement(self)
 
 
@@ -2061,7 +2061,7 @@ class DropSchemaExpression(bases.BaseExpression):
 # region Index DDL Expressions
 
 
-class CreateIndexExpression(bases.BaseExpression):
+class CreateIndexExpression(BaseExpression):
     """
     Represents a CREATE INDEX statement for standalone index creation.
 
@@ -2119,11 +2119,11 @@ class CreateIndexExpression(bases.BaseExpression):
         dialect: "SQLDialectBase",
         index_name: str,
         table_name: str,
-        columns: List[Union[str, "bases.BaseExpression"]],
+        columns: List[Union[str, "BaseExpression"]],
         unique: bool = False,
         if_not_exists: bool = False,
         index_type: Optional[str] = None,
-        where: Optional["bases.SQLPredicate"] = None,
+        where: Optional["SQLPredicate"] = None,
         include: Optional[List[str]] = None,
         tablespace: Optional[str] = None,
         concurrent: bool = False,
@@ -2143,11 +2143,11 @@ class CreateIndexExpression(bases.BaseExpression):
         self.concurrent = concurrent
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_create_index_statement(self)
 
 
-class DropIndexExpression(bases.BaseExpression):
+class DropIndexExpression(BaseExpression):
     """
     Represents a DROP INDEX statement.
 
@@ -2188,11 +2188,11 @@ class DropIndexExpression(bases.BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_drop_index_statement(self)
 
 
-class CreateFulltextIndexExpression(bases.BaseExpression):
+class CreateFulltextIndexExpression(BaseExpression):
     """
     Represents a CREATE FULLTEXT INDEX statement.
 
@@ -2250,11 +2250,11 @@ class CreateFulltextIndexExpression(bases.BaseExpression):
         self.if_not_exists = if_not_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_create_fulltext_index_statement(self)
 
 
-class DropFulltextIndexExpression(bases.BaseExpression):
+class DropFulltextIndexExpression(BaseExpression):
     """
     Represents a DROP FULLTEXT INDEX statement.
 
@@ -2290,7 +2290,7 @@ class DropFulltextIndexExpression(bases.BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_drop_fulltext_index_statement(self)
 
 
@@ -2300,7 +2300,7 @@ class DropFulltextIndexExpression(bases.BaseExpression):
 # region Sequence DDL Expressions
 
 
-class CreateSequenceExpression(bases.BaseExpression):
+class CreateSequenceExpression(BaseExpression):
     """
     Represents a CREATE SEQUENCE statement.
 
@@ -2363,11 +2363,11 @@ class CreateSequenceExpression(bases.BaseExpression):
         self.owned_by = owned_by
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_create_sequence_statement(self)
 
 
-class DropSequenceExpression(bases.BaseExpression):
+class DropSequenceExpression(BaseExpression):
     """
     Represents a DROP SEQUENCE statement.
 
@@ -2399,11 +2399,11 @@ class DropSequenceExpression(bases.BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_drop_sequence_statement(self)
 
 
-class AlterSequenceExpression(bases.BaseExpression):
+class AlterSequenceExpression(BaseExpression):
     """
     Represents an ALTER SEQUENCE statement.
 
@@ -2461,7 +2461,7 @@ class AlterSequenceExpression(bases.BaseExpression):
         self.owned_by = owned_by
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_alter_sequence_statement(self)
 
 
@@ -2495,7 +2495,7 @@ class TriggerLevel(Enum):
     STATEMENT = "FOR EACH STATEMENT"
 
 
-class CreateTriggerExpression(bases.BaseExpression):
+class CreateTriggerExpression(BaseExpression):
     """SQL:1999 standard CREATE TRIGGER statement.
 
     Examples:
@@ -2532,7 +2532,7 @@ class CreateTriggerExpression(bases.BaseExpression):
         events: List[TriggerEvent],
         function_name: str,
         level: TriggerLevel = TriggerLevel.ROW,
-        condition: Optional["bases.SQLPredicate"] = None,
+        condition: Optional["SQLPredicate"] = None,
         update_columns: Optional[List[str]] = None,
         referencing: Optional[str] = None,
         if_not_exists: bool = False,
@@ -2552,11 +2552,11 @@ class CreateTriggerExpression(bases.BaseExpression):
         self.if_not_exists = if_not_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_create_trigger_statement(self)
 
 
-class DropTriggerExpression(bases.BaseExpression):
+class DropTriggerExpression(BaseExpression):
     """SQL:1999 standard DROP TRIGGER statement.
 
     Examples:
@@ -2582,7 +2582,7 @@ class DropTriggerExpression(bases.BaseExpression):
         self.if_exists = if_exists
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_drop_trigger_statement(self)
 
 
@@ -2592,7 +2592,7 @@ class DropTriggerExpression(bases.BaseExpression):
 # region Function DDL Expressions
 
 
-class CreateFunctionExpression(bases.BaseExpression):
+class CreateFunctionExpression(BaseExpression):
     """SQL/PSM standard CREATE FUNCTION statement.
 
     Examples:
@@ -2630,11 +2630,11 @@ class CreateFunctionExpression(bases.BaseExpression):
         self.or_replace = or_replace
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_create_function_statement(self)
 
 
-class DropFunctionExpression(bases.BaseExpression):
+class DropFunctionExpression(BaseExpression):
     """SQL/PSM standard DROP FUNCTION statement.
 
     Examples:
@@ -2662,7 +2662,7 @@ class DropFunctionExpression(bases.BaseExpression):
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_drop_function_statement(self)
 
 

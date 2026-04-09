@@ -6,8 +6,13 @@ and the base class for expressions that support filtering.
 
 from typing import Optional, TYPE_CHECKING
 
-from . import bases
-from . import mixins
+from .bases import SQLQueryAndParams, SQLValueExpression
+from .mixins import (
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from .bases import SQLPredicate
@@ -15,11 +20,11 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 class AggregateFunctionCall(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """
     Represents a call to a SQL aggregate function, such as COUNT, SUM, AVG.
@@ -47,7 +52,7 @@ class AggregateFunctionCall(
             self._filter_predicate = predicate
         return self
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """
         Generates the SQL string and parameters for this aggregate function call,
         including any attached FILTER clause.
