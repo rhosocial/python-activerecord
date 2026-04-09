@@ -10,16 +10,16 @@ lateral expressions, and common table expressions.
 from dataclasses import dataclass
 from typing import Tuple, Any, List, Optional, Union, TYPE_CHECKING, Dict
 
-from . import bases
-from . import core
-from . import mixins
+from .bases import BaseExpression, SQLQueryAndParams, SQLValueExpression
+from .core import Subquery, TableExpression
+from .mixins import ArithmeticMixin, ComparisonMixin
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
     from .query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
 
 
-class SetOperationExpression(bases.BaseExpression):
+class SetOperationExpression(BaseExpression):
     """Represents a set operation (UNION, INTERSECT, EXCEPT) between two queries.
 
     This class is commonly used for:
@@ -118,8 +118,8 @@ class SetOperationExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        left: "bases.BaseExpression",
-        right: "bases.BaseExpression",
+        left: "BaseExpression",
+        right: "BaseExpression",
         operation: str,
         alias: Optional[str] = None,
         all_: bool = False,
@@ -151,7 +151,7 @@ class SetOperationExpression(bases.BaseExpression):
         self.limit_offset_clause = limit_offset_clause
         self.for_update_clause = for_update_clause
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Generate the SQL representation of the set operation with optional clauses."""
         return self.dialect.format_set_operation_expression(
             self.left,
@@ -165,7 +165,7 @@ class SetOperationExpression(bases.BaseExpression):
         )
 
 
-class CTEExpression(bases.BaseExpression):
+class CTEExpression(BaseExpression):
     """Represents a Common Table Expression (CTE) expression (WITH ... AS ...).
 
     Common Table Expressions (CTEs) allow defining temporary result sets that can be referenced
@@ -238,7 +238,7 @@ class CTEExpression(bases.BaseExpression):
         self,
         dialect: "SQLDialectBase",
         name: str,
-        query: Union["bases.BaseExpression", "bases.SQLQueryAndParams"],
+        query: Union["BaseExpression", "SQLQueryAndParams"],
         columns: Optional[List[str]] = None,
         materialized: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -280,7 +280,7 @@ class CTEExpression(bases.BaseExpression):
             provide parameters as tuples directly.
         """
         # Handle different query types that may be stored in self.query:
-        if isinstance(self.query, bases.BaseExpression):
+        if isinstance(self.query, BaseExpression):
             # When query is a BaseExpression (e.g., Subquery, QueryExpression),
             # call its to_sql() method to get SQL and parameters
             query_sql, query_params = self.query.to_sql()
@@ -306,7 +306,7 @@ class CTEExpression(bases.BaseExpression):
         return sql, query_params
 
 
-class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class WithQueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
     """Represents a query with Common Table Expressions (WITH clause).
 
     This class allows combining multiple CTEs with a main query. It's commonly used for:
@@ -366,7 +366,7 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         self,
         dialect: "SQLDialectBase",
         ctes: List[CTEExpression],
-        main_query: "bases.BaseExpression",
+        main_query: "BaseExpression",
         recursive: bool = False,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
@@ -376,7 +376,7 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         self.recursive = recursive
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         all_params: List[Any] = []
         cte_sql_parts = []
         for cte in self.ctes:
@@ -395,7 +395,7 @@ class WithQueryExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.
         return sql, tuple(all_params)
 
 
-class ValuesExpression(bases.BaseExpression):
+class ValuesExpression(BaseExpression):
     """Represents a VALUES clause (row constructor) as a data source.
 
     This class is commonly used for:
@@ -451,11 +451,11 @@ class ValuesExpression(bases.BaseExpression):
         super().__init__(dialect)
         self.values, self.alias, self.column_names = values, alias, column_names
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_values_expression(self.values, self.alias, self.column_names)
 
 
-class TableFunctionExpression(bases.BaseExpression):
+class TableFunctionExpression(BaseExpression):
     """Represents a table-valued function or array expansion function (e.g., UNNEST, JSON_TABLE).
 
     Example Usage:
@@ -481,14 +481,14 @@ class TableFunctionExpression(bases.BaseExpression):
         self,
         dialect: "SQLDialectBase",
         func_name: str,
-        *args: "bases.BaseExpression",
+        *args: "BaseExpression",
         alias: Optional[str] = None,
         column_names: Optional[List[str]] = None,
     ):
         super().__init__(dialect)
         self.func_name, self.args, self.alias, self.column_names = func_name, list(args), alias, column_names
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         formatted_args_sql = [arg.to_sql()[0] for arg in self.args]
         all_params = [p for arg in self.args for p in arg.to_sql()[1]]
         return self.dialect.format_table_function_expression(
@@ -496,7 +496,7 @@ class TableFunctionExpression(bases.BaseExpression):
         )
 
 
-class LateralExpression(bases.BaseExpression):
+class LateralExpression(BaseExpression):
     """Represents a LATERAL subquery or table function call.
 
     Example Usage:
@@ -517,14 +517,14 @@ class LateralExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        expression: Union["core.Subquery", "TableFunctionExpression"],
+        expression: Union["Subquery", "TableFunctionExpression"],
         alias: Optional[str] = None,
         join_type: str = "CROSS",
     ):
         super().__init__(dialect)
         self.expression, self.alias, self.join_type = expression, alias, join_type
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         expr_sql, expr_params = self.expression.to_sql()
         return self.dialect.format_lateral_expression(expr_sql, expr_params, self.alias, self.join_type)
 
@@ -536,7 +536,7 @@ class JSONTableColumn:
     path: str
 
 
-class JSONTableExpression(core.TableExpression):
+class JSONTableExpression(TableExpression):
     """Represents a JSON_TABLE function call.
 
     Example Usage:
@@ -561,7 +561,7 @@ class JSONTableExpression(core.TableExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        json_column: Union[str, "bases.BaseExpression"],
+        json_column: Union[str, "BaseExpression"],
         path: str,
         columns: List[JSONTableColumn],
         alias: Optional[str] = None,
@@ -569,8 +569,8 @@ class JSONTableExpression(core.TableExpression):
         super().__init__(dialect, name="JSON_TABLE", alias=alias)
         self.json_column, self.path, self.columns = json_column, path, columns
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
-        if isinstance(self.json_column, bases.BaseExpression):
+    def to_sql(self) -> "SQLQueryAndParams":
+        if isinstance(self.json_column, BaseExpression):
             json_col_sql, json_col_params = self.json_column.to_sql()
         else:
             json_col_sql, json_col_params = self.dialect.format_identifier(str(self.json_column)), ()

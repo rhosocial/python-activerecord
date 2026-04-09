@@ -9,7 +9,7 @@ SQL 2023 (ISO/IEC 9075-16:2023) for querying property graphs.
 from enum import Enum
 from typing import Union, TYPE_CHECKING
 
-from . import bases
+from .bases import BaseExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
@@ -24,7 +24,7 @@ class GraphEdgeDirection(Enum):
     NONE = "-"  # Undirected: -[edge]-
 
 
-class GraphVertex(bases.BaseExpression):
+class GraphVertex(BaseExpression):
     """Represents a vertex in a graph pattern according to SQL 2023 standard."""
 
     def __init__(self, dialect: "SQLDialectBase", variable: str, table: str):
@@ -32,13 +32,13 @@ class GraphVertex(bases.BaseExpression):
         self.variable = variable
         self.table = table
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # According to SQL 2023 (ISO/IEC 9075-16), vertex syntax is (variable IS table)
         # Use the dialect's format_graph_vertex method for proper formatting
         return self.dialect.format_graph_vertex(self.variable, self.table)
 
 
-class GraphEdge(bases.BaseExpression):
+class GraphEdge(BaseExpression):
     """Represents an edge in a graph pattern."""
 
     def __init__(self, dialect: "SQLDialectBase", variable: str, table: str, direction: GraphEdgeDirection):
@@ -47,20 +47,20 @@ class GraphEdge(bases.BaseExpression):
         self.table = table
         self.direction = direction
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # According to SQL 2023 (ISO/IEC 9075-16), the edge syntax is:
         # Use the dialect's format_graph_edge method for proper formatting
         return self.dialect.format_graph_edge(self.variable, self.table, self.direction)
 
 
-class MatchClause(bases.BaseExpression):
+class MatchClause(BaseExpression):
     """Represents a MATCH clause with one or more path patterns according to SQL 2023 standard."""
 
     def __init__(self, dialect: "SQLDialectBase", *path: Union[GraphVertex, GraphEdge]):
         super().__init__(dialect)
         self.path = list(path)
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """
         Generates SQL for the MATCH clause according to SQL 2023 standard.
         The actual formatting depends on the dialect's implementation of format_match_clause.

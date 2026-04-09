@@ -4,22 +4,27 @@ SQL operations like binary, unary, and arithmetic expressions.
 """
 
 from typing import Any, Tuple, List, TYPE_CHECKING
-from . import bases
-from . import mixins
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from .mixins import (
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+)
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class SQLOperation(bases.BaseExpression):
+class SQLOperation(BaseExpression):
     """Represents a generic SQL operation."""
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, *operands: "bases.BaseExpression"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, *operands: "BaseExpression"):
         super().__init__(dialect)
         self.op = op
         self.operands = list(operands)
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         formatted_operands_sql = []
         params: List[Any] = []
         for operand in self.operands:
@@ -32,36 +37,36 @@ class SQLOperation(bases.BaseExpression):
             return f"{self.op}()", tuple(params)
 
 
-class BinaryExpression(bases.BaseExpression):
+class BinaryExpression(BaseExpression):
     """Represents a binary SQL operation."""
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, left: "bases.BaseExpression", right: "bases.BaseExpression"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "BaseExpression", right: "BaseExpression"):
         super().__init__(dialect)
         self.op = op
         self.left = left
         self.right = right
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         left_sql, left_params = self.left.to_sql()
         right_sql, right_params = self.right.to_sql()
         return self.dialect.format_binary_operator(self.op, left_sql, right_sql, left_params, right_params)
 
 
-class UnaryExpression(bases.BaseExpression):
+class UnaryExpression(BaseExpression):
     """Represents a unary SQL operation."""
 
-    def __init__(self, dialect: "SQLDialectBase", op: str, operand: "bases.BaseExpression", pos: str = "before"):
+    def __init__(self, dialect: "SQLDialectBase", op: str, operand: "BaseExpression", pos: str = "before"):
         super().__init__(dialect)
         self.op = op
         self.operand = operand
         self.pos = pos
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         operand_sql, operand_params = self.operand.to_sql()
         return self.dialect.format_unary_operator(self.op, operand_sql, self.pos, operand_params)
 
 
-class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
+class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringMixin, SQLValueExpression):
     """Represents a raw SQL expression string that is directly embedded.
 
     Note: This class should be used with caution. It bypasses the normal expression
@@ -81,11 +86,11 @@ class RawSQLExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.St
         self.expression = expression
         self.params = params
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.expression, self.params
 
 
-class RawSQLPredicate(bases.SQLPredicate):
+class RawSQLPredicate(SQLPredicate):
     """Represents a raw SQL predicate string that is directly embedded as a predicate.
 
     Note: This class should be used with caution. It bypasses the normal expression
@@ -105,17 +110,17 @@ class RawSQLPredicate(bases.SQLPredicate):
         self.expression = expression
         self.params = params
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.expression, self.params
 
 
 class BinaryArithmeticExpression(
-    mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.TypeCastingMixin, bases.SQLValueExpression
+    ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression
 ):
     """Represents a binary arithmetic operation."""
 
     def __init__(
-        self, dialect: "SQLDialectBase", op: str, left: "bases.SQLValueExpression", right: "bases.SQLValueExpression"
+        self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"
     ):
         super().__init__(dialect)
         self.op = op
