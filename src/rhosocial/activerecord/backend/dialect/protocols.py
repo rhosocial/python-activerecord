@@ -652,7 +652,7 @@ class LockingSupport(Protocol):
 
     def format_for_update_clause(self, clause: "ForUpdateClause") -> Tuple[str, tuple]:
         """
-        Formats a FOR UPDATE/FOR SHARE clause with optional locking modifiers.
+        Formats a FOR UPDATE clause with optional locking modifiers.
 
         Args:
             clause: ForUpdateClause object containing locking options
