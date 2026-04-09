@@ -8,17 +8,27 @@ to prevent circular imports.
 """
 
 import abc
+import sys
 from typing import Tuple, Protocol, TYPE_CHECKING
 from typing import runtime_checkable
 
-from . import mixins
+if sys.version_info >= (3, 10):
+    from typing import TypeAlias
+else:
+    from typing_extensions import TypeAlias
+
+from .mixins import LogicalMixin
 
 # Type alias for the return type of to_sql() method
 # This alias represents the standard return format for all SQL expression objects:
 # a tuple containing the SQL string and a tuple of parameters for prepared statements.
 # Using this alias improves code readability and maintainability by providing
 # a consistent type definition across the entire expression system.
-SQLQueryAndParams = Tuple[str, tuple]
+SQLQueryAndParams: TypeAlias = Tuple[str, tuple]
+# TypeAlias annotation is for static type checkers; at runtime, the object's
+# __module__ attribute still points to 'typing'. We explicitly set it here
+# so introspection tools can correctly identify the defining module.
+SQLQueryAndParams.__module__ = __name__
 
 
 def is_sql_query_and_params(obj):
@@ -113,7 +123,7 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
         raise NotImplementedError
 
 
-class SQLPredicate(mixins.LogicalMixin, BaseExpression):
+class SQLPredicate(LogicalMixin, BaseExpression):
     """
     Abstract base class for SQL expressions that return a boolean value (predicates).
     """

@@ -6,24 +6,30 @@ JSON operations, and Array operations.
 
 from typing import Any, List, Optional, Union, TYPE_CHECKING, Dict
 
-from . import bases
-from . import core
-from . import mixins
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
+from .core import Column, Subquery
+from .mixins import (
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+)
 from .query_parts import OrderByClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
 
 
-class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLValueExpression):
+class CaseExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
     """Represents a CASE expression (e.g., CASE WHEN condition THEN result ELSE result END)."""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        value: Optional["bases.BaseExpression"] = None,
+        value: Optional["BaseExpression"] = None,
         cases: Optional[list] = None,
-        else_result: Optional["bases.BaseExpression"] = None,
+        else_result: Optional["BaseExpression"] = None,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
@@ -32,7 +38,7 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         self.else_result = else_result
         self.alias = alias
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         value_sql, value_params = self.value.to_sql() if self.value else (None, ())
         conditions_results = []
         all_params = list(value_params) if value_params else []
@@ -55,61 +61,61 @@ class CaseExpression(mixins.ArithmeticMixin, mixins.ComparisonMixin, bases.SQLVa
         )
 
 
-class ExistsExpression(bases.SQLPredicate):
+class ExistsExpression(SQLPredicate):
     """Represents an EXISTS predicate (e.g., EXISTS(subquery))."""
 
     def __init__(
-        self, dialect: "SQLDialectBase", subquery: Union["core.Subquery", "bases.BaseExpression"], is_not: bool = False
+        self, dialect: "SQLDialectBase", subquery: Union["Subquery", "BaseExpression"], is_not: bool = False
     ):
         super().__init__(dialect)
         # Automatically wrap BaseExpression in Subquery if needed
-        if isinstance(subquery, core.Subquery):
+        if isinstance(subquery, Subquery):
             self.subquery = subquery
         elif hasattr(subquery, "to_sql"):
             # Create a Subquery from BaseExpression
-            self.subquery = core.Subquery(dialect, subquery)
+            self.subquery = Subquery(dialect, subquery)
         else:
             raise TypeError(f"subquery must be Subquery or BaseExpression, got {type(subquery)}")
         self.is_not = is_not
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # Delegate to the dialect's format_exists_expression method
         return self.dialect.format_exists_expression(self.subquery, self.is_not)
 
 
-class AnyExpression(bases.SQLPredicate):
+class AnyExpression(SQLPredicate):
     """Represents an ANY predicate (e.g., expr = ANY(array_expr) or expr > ANY(subquery))."""
 
     def __init__(
-        self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"
+        self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"
     ):
         super().__init__(dialect)
         self.expr = expr
         self.op = op
         self.array_expr = array_expr
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # Delegate to the dialect's format_any_expression method
         return self.dialect.format_any_expression(self.expr, self.op, self.array_expr)
 
 
-class AllExpression(bases.SQLPredicate):
+class AllExpression(SQLPredicate):
     """Represents an ALL predicate (e.g., expr > ALL(array_expr) or expr = ALL(subquery))."""
 
     def __init__(
-        self, dialect: "SQLDialectBase", expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"
+        self, dialect: "SQLDialectBase", expr: "BaseExpression", op: str, array_expr: "BaseExpression"
     ):
         super().__init__(dialect)
         self.expr = expr
         self.op = op
         self.array_expr = array_expr
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # Delegate to the dialect's format_all_expression method
         return self.dialect.format_all_expression(self.expr, self.op, self.array_expr)
 
 
-class WindowFrameSpecification(bases.BaseExpression):
+class WindowFrameSpecification(BaseExpression):
     """Window frame specification (frame_type [BETWEEN start_frame AND end_frame])"""
 
     def __init__(
@@ -126,18 +132,18 @@ class WindowFrameSpecification(bases.BaseExpression):
         self.end_frame = end_frame
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegate to dialect for window frame formatting"""
         return self.dialect.format_window_frame_specification(self)
 
 
-class WindowSpecification(bases.BaseExpression):
+class WindowSpecification(BaseExpression):
     """Window specification (PARTITION BY ..., ORDER BY ..., frame)"""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        partition_by: Optional[List[Union["bases.BaseExpression", str]]] = None,
+        partition_by: Optional[List[Union["BaseExpression", str]]] = None,
         order_by: Optional[Union["OrderByClause", str]] = None,  # Accept only single OrderByClause or str
         frame: Optional[WindowFrameSpecification] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -150,7 +156,7 @@ class WindowSpecification(bases.BaseExpression):
             self.order_by = None
         elif isinstance(order_by, str):
             # Convert string to OrderByClause - create a column expression from the string
-            self.order_by = OrderByClause(dialect, [core.Column(dialect, order_by)])
+            self.order_by = OrderByClause(dialect, [Column(dialect, order_by)])
         elif isinstance(order_by, OrderByClause):
             self.order_by = order_by
         else:
@@ -159,12 +165,12 @@ class WindowSpecification(bases.BaseExpression):
         self.frame = frame
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegate to dialect for window specification formatting"""
         return self.dialect.format_window_specification(self)
 
 
-class WindowDefinition(bases.BaseExpression):
+class WindowDefinition(BaseExpression):
     """Named window definition (name AS window_specification)"""
 
     def __init__(
@@ -179,12 +185,12 @@ class WindowDefinition(bases.BaseExpression):
         self.specification = specification
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegate to dialect for named window definition formatting"""
         return self.dialect.format_window_definition(self)
 
 
-class WindowClause(bases.BaseExpression):
+class WindowClause(BaseExpression):
     """Complete WINDOW clause"""
 
     def __init__(
@@ -197,17 +203,17 @@ class WindowClause(bases.BaseExpression):
         self.definitions = definitions
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegate to dialect for WINDOW clause formatting"""
         return self.dialect.format_window_clause(self)
 
 
 class WindowFunctionCall(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """
     Window function call, supporting inline window specification or named window reference
@@ -217,7 +223,7 @@ class WindowFunctionCall(
         self,
         dialect: "SQLDialectBase",
         function_name: str,
-        args: Optional[List[Union["bases.BaseExpression", Any]]] = None,
+        args: Optional[List[Union["BaseExpression", Any]]] = None,
         window_spec: Optional[Union[WindowSpecification, str]] = None,
         alias: Optional[str] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -229,25 +235,25 @@ class WindowFunctionCall(
         self.alias = alias
         self.dialect_options = dialect_options or {}
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegate to dialect for window function call formatting"""
         return self.dialect.format_window_function_call(self)
 
 
 class JSONExpression(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.StringMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    StringMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """Represents JSON operations like json->, json->>."""
 
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        column: Union["bases.BaseExpression", str],
+        column: Union["BaseExpression", str],
         path: str,
         operation: str = "->",
         alias: Optional[str] = None,
@@ -258,17 +264,17 @@ class JSONExpression(
         self.operation = operation
         self.alias = alias
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # Delegate to the dialect's format_json_expression method
         return self.dialect.format_json_expression(self)
 
 
 class ArrayExpression(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """Represents array operations like ANY, ALL, and array access."""
 
@@ -276,9 +282,9 @@ class ArrayExpression(
         self,
         dialect: "SQLDialectBase",
         operation: str,
-        base_expr: Optional["bases.BaseExpression"] = None,
-        index_expr: Optional["bases.BaseExpression"] = None,
-        elements: Optional[List["bases.BaseExpression"]] = None,
+        base_expr: Optional["BaseExpression"] = None,
+        index_expr: Optional["BaseExpression"] = None,
+        elements: Optional[List["BaseExpression"]] = None,
         alias: Optional[str] = None,
     ):
         super().__init__(dialect)
@@ -288,17 +294,17 @@ class ArrayExpression(
         self.elements = elements
         self.alias = alias
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         # Delegate to the dialect's format_array_expression method
         return self.dialect.format_array_expression(self)
 
 
 class OrderedSetAggregation(
-    mixins.AliasableMixin,
-    mixins.ArithmeticMixin,
-    mixins.ComparisonMixin,
-    mixins.TypeCastingMixin,
-    bases.SQLValueExpression,
+    AliasableMixin,
+    ArithmeticMixin,
+    ComparisonMixin,
+    TypeCastingMixin,
+    SQLValueExpression,
 ):
     """Represents an ordered-set aggregate function call with WITHIN GROUP (ORDER BY ...)."""
 
@@ -306,7 +312,7 @@ class OrderedSetAggregation(
         self,
         dialect: "SQLDialectBase",
         func_name: str,
-        args: List["bases.BaseExpression"],
+        args: List["BaseExpression"],
         order_by: Union["OrderByClause", str],
         alias: Optional[str] = None,
     ):
@@ -316,7 +322,7 @@ class OrderedSetAggregation(
 
         # Strictly validate and process order_by parameter - accept OrderByClause or str
         if isinstance(order_by, str):
-            self.order_by = OrderByClause(dialect, [core.Column(dialect, order_by)])
+            self.order_by = OrderByClause(dialect, [Column(dialect, order_by)])
         elif isinstance(order_by, OrderByClause):
             self.order_by = order_by
         else:
@@ -324,5 +330,5 @@ class OrderedSetAggregation(
 
         self.alias = alias
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_ordered_set_aggregation(self)

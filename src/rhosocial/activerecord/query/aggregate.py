@@ -4,7 +4,7 @@
 import logging
 from typing import List, Union, Any, Optional, Dict
 
-from ..backend.expression import functions, statements, BaseExpression, WildcardExpression, TableExpression
+from ..backend.expression import functions, statements, BaseExpression, WildcardExpression, TableExpression, Column
 
 
 class AggregateQueryMixin:
@@ -61,7 +61,7 @@ class AggregateQueryMixin:
         if isinstance(column, str) and column == "*":
             column_arg = WildcardExpression(dialect)
         else:
-            column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+            column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
 
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.count(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
@@ -114,7 +114,7 @@ class AggregateQueryMixin:
 
         backend = self.backend()
         dialect = backend.dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.sum_(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
@@ -166,7 +166,7 @@ class AggregateQueryMixin:
 
         backend = self.backend()
         dialect = backend.dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.avg(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
@@ -214,7 +214,7 @@ class AggregateQueryMixin:
             raise ValueError("MIN(*) is not a valid SQL operation. Please specify a column.")
 
         dialect = self.backend().dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.min_(dialect, column_arg, alias=result_alias)
 
@@ -262,7 +262,7 @@ class AggregateQueryMixin:
             raise ValueError("MAX(*) is not a valid SQL operation. Please specify a column.")
 
         dialect = self.backend().dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.max_(dialect, column_arg, alias=result_alias)
 
@@ -445,7 +445,7 @@ class AsyncAggregateQueryMixin:
         if isinstance(column, str) and column == "*":
             column_arg = WildcardExpression(dialect)
         else:
-            column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+            column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
 
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.count(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
@@ -492,7 +492,7 @@ class AsyncAggregateQueryMixin:
             raise ValueError("SUM(*) is not a valid SQL operation. Please specify a column.")
 
         dialect = self.backend().dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.sum_(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
@@ -546,7 +546,7 @@ class AsyncAggregateQueryMixin:
             raise ValueError("AVG(*) is not a valid SQL operation. Please specify a column.")
 
         dialect = self.backend().dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.avg(dialect, column_arg, is_distinct=is_distinct, alias=result_alias)
 
@@ -595,7 +595,7 @@ class AsyncAggregateQueryMixin:
             raise ValueError("MIN(*) is not a valid SQL operation. Please specify a column.")
 
         dialect = self.backend().dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.min_(dialect, column_arg, alias=result_alias)
 
@@ -644,7 +644,7 @@ class AsyncAggregateQueryMixin:
             raise ValueError("MAX(*) is not a valid SQL operation. Please specify a column.")
 
         dialect = self.backend().dialect
-        column_arg = column if isinstance(column, BaseExpression) else functions.core.Column(dialect, str(column))
+        column_arg = column if isinstance(column, BaseExpression) else Column(dialect, str(column))
         result_alias = alias if alias else "agg_0"
         agg_expr = functions.max_(dialect, column_arg, alias=result_alias)
 

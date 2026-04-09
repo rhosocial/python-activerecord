@@ -9,8 +9,8 @@ and delegate SQL generation to backend-specific dialects.
 from enum import Enum
 from typing import Tuple, List, Union, Optional, Any, Dict, TYPE_CHECKING
 
-from . import bases
-from . import core
+from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
+from .core import Subquery, TableExpression
 
 
 class JoinType(Enum):
@@ -36,7 +36,7 @@ if TYPE_CHECKING:  # pragma: no cover
     from .statements import QueryExpression
 
 
-class WhereClause(bases.BaseExpression):
+class WhereClause(BaseExpression):
     """
     Represents a WHERE clause in a SQL query.
 
@@ -58,11 +58,11 @@ class WhereClause(bases.BaseExpression):
         where_clause = WhereClause(dialect, condition=condition)
     """
 
-    def __init__(self, dialect: "SQLDialectBase", condition: "bases.SQLPredicate"):
+    def __init__(self, dialect: "SQLDialectBase", condition: "SQLPredicate"):
         super().__init__(dialect)
         self.condition = condition  # The filtering condition (predicate)
 
-    def and_(self, predicate: "bases.SQLPredicate") -> "WhereClause":
+    def and_(self, predicate: "SQLPredicate") -> "WhereClause":
         """
         Add an AND condition to the existing WHERE clause.
 
@@ -76,12 +76,12 @@ class WhereClause(bases.BaseExpression):
         self.condition = self.condition & predicate
         return self
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the WHERE clause to the configured dialect."""
         return self.dialect.format_where_clause(self)
 
 
-class GroupByHavingClause(bases.BaseExpression):
+class GroupByHavingClause(BaseExpression):
     """
     Represents combined GROUP BY and HAVING clauses in a SQL query.
 
@@ -117,8 +117,8 @@ class GroupByHavingClause(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        group_by: Optional[List["bases.BaseExpression"]] = None,  # List of grouping expressions
-        having: Optional["bases.SQLPredicate"] = None,
+        group_by: Optional[List["BaseExpression"]] = None,  # List of grouping expressions
+        having: Optional["SQLPredicate"] = None,
     ):  # HAVING condition (requires GROUP BY)
         super().__init__(dialect)
 
@@ -129,12 +129,12 @@ class GroupByHavingClause(bases.BaseExpression):
         if having is not None and not self.group_by:
             raise ValueError("HAVING clause requires GROUP BY clause")
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the GROUP BY/HAVING clause combination to the configured dialect."""
         return self.dialect.format_group_by_having_clause(self)
 
 
-class OrderByClause(bases.BaseExpression):
+class OrderByClause(BaseExpression):
     """
     Represents an ORDER BY clause in a SQL query.
 
@@ -170,20 +170,20 @@ class OrderByClause(bases.BaseExpression):
         dialect: "SQLDialectBase",
         expressions: List[
             Union[
-                "bases.BaseExpression",  # Expression with default ASC direction
-                Tuple["bases.BaseExpression", str],  # (expression, direction)
+                "BaseExpression",  # Expression with default ASC direction
+                Tuple["BaseExpression", str],  # (expression, direction)
             ]
         ],
     ):
         super().__init__(dialect)
         self.expressions = expressions  # List of ordering specifications
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the ORDER BY clause to the configured dialect."""
         return self.dialect.format_order_by_clause(self)
 
 
-class LimitOffsetClause(bases.BaseExpression):
+class LimitOffsetClause(BaseExpression):
     """
     Represents LIMIT and/or OFFSET clauses in a SQL query.
 
@@ -204,8 +204,8 @@ class LimitOffsetClause(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        limit: Optional[Union[int, "bases.BaseExpression"]] = None,
-        offset: Optional[Union[int, "bases.BaseExpression"]] = None,
+        limit: Optional[Union[int, "BaseExpression"]] = None,
+        offset: Optional[Union[int, "BaseExpression"]] = None,
     ):
         super().__init__(dialect)
 
@@ -220,12 +220,12 @@ class LimitOffsetClause(bases.BaseExpression):
         self.limit = limit  # Maximum number of rows to return (optional)
         self.offset = offset  # Number of rows to skip (optional, requires LIMIT in most dialects)
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the LIMIT/OFFSET clauses to the configured dialect."""
         return self.dialect.format_limit_offset_clause(self)
 
 
-class QualifyClause(bases.BaseExpression):
+class QualifyClause(BaseExpression):
     """
     Represents a QUALIFY clause in a SQL query (available in some SQL dialects like Snowflake).
 
@@ -251,16 +251,16 @@ class QualifyClause(bases.BaseExpression):
         )
     """
 
-    def __init__(self, dialect: "SQLDialectBase", condition: "bases.SQLPredicate"):
+    def __init__(self, dialect: "SQLDialectBase", condition: "SQLPredicate"):
         super().__init__(dialect)
         self.condition = condition  # The window function filter condition (predicate)
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the QUALIFY clause to the configured dialect."""
         return self.dialect.format_qualify_clause(self)
 
 
-class ForUpdateClause(bases.BaseExpression):
+class ForUpdateClause(BaseExpression):
     """
     Represents a FOR UPDATE clause used for row-level locking in SELECT statements.
 
@@ -287,7 +287,7 @@ class ForUpdateClause(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        of_columns: Optional[List[Union[str, "bases.BaseExpression"]]] = None,  # Specify columns to lock
+        of_columns: Optional[List[Union[str, "BaseExpression"]]] = None,  # Specify columns to lock
         nowait: bool = False,  # NOWAIT option - fail immediately if locked
         skip_locked: bool = False,  # SKIP LOCKED option - skip locked rows
         dialect_options: Optional[Dict[str, Any]] = None,
@@ -298,7 +298,7 @@ class ForUpdateClause(bases.BaseExpression):
         self.skip_locked = skip_locked  # If True, skip locked rows instead of waiting
         self.dialect_options = dialect_options or {}  # Additional dialect-specific options
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """
         Generate the SQL representation of the FOR UPDATE clause.
 
@@ -316,10 +316,10 @@ class ForUpdateClause(bases.BaseExpression):
         return self.dialect.format_for_update_clause(self)
 
 
-class GroupingExpression(bases.BaseExpression):
+class GroupingExpression(BaseExpression):
     """Represents grouping operations like ROLLUP, CUBE, and GROUPING SETS."""
 
-    def __init__(self, dialect: "SQLDialectBase", operation: str, expressions: List["bases.BaseExpression"]):
+    def __init__(self, dialect: "SQLDialectBase", operation: str, expressions: List["BaseExpression"]):
         super().__init__(dialect)
         self.operation = operation
         self.expressions = expressions
@@ -329,7 +329,7 @@ class GroupingExpression(bases.BaseExpression):
         return self.dialect.format_grouping_expression(self.operation, self.expressions)
 
 
-class JoinExpression(bases.BaseExpression):
+class JoinExpression(BaseExpression):
     """
     Represents a JOIN expression (e.g., table1 JOIN table2 ON condition).
 
@@ -384,10 +384,10 @@ class JoinExpression(bases.BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        left_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+        left_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
         join_type: str = "JOIN",
-        condition: Optional["bases.SQLPredicate"] = None,  # ON condition (mutually exclusive with 'using')
+        condition: Optional["SQLPredicate"] = None,  # ON condition (mutually exclusive with 'using')
         using: Optional[List[str]] = None,  # USING clause columns (mutually exclusive with 'condition')
         natural: bool = False,  # NATURAL join flag
         alias: Optional[str] = None,  # Alias for the joined result
@@ -400,13 +400,13 @@ class JoinExpression(bases.BaseExpression):
         # Normalize table inputs
         self.left_table = (
             left_table
-            if isinstance(left_table, (core.TableExpression, core.Subquery, JoinExpression, QueryExpression))
-            else core.TableExpression(dialect, str(left_table))
+            if isinstance(left_table, (TableExpression, Subquery, JoinExpression, QueryExpression))
+            else TableExpression(dialect, str(left_table))
         )
         self.right_table = (
             right_table
-            if isinstance(right_table, (core.TableExpression, core.Subquery, JoinExpression, QueryExpression))
-            else core.TableExpression(dialect, str(right_table))
+            if isinstance(right_table, (TableExpression, Subquery, JoinExpression, QueryExpression))
+            else TableExpression(dialect, str(right_table))
         )
 
         # Store join_type as string
@@ -423,15 +423,15 @@ class JoinExpression(bases.BaseExpression):
         self.alias = alias  # Alias for the join result
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 
-    def to_sql(self) -> "bases.SQLQueryAndParams":
+    def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the JOIN expression to the configured dialect."""
         return self.dialect.format_join_expression(self)
 
     def join(
         self,
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
         join_type: str = "JOIN",
-        condition: Optional["bases.SQLPredicate"] = None,
+        condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         natural: bool = False,
         alias: Optional[str] = None,
@@ -468,8 +468,8 @@ class JoinExpression(bases.BaseExpression):
 
     def inner_join(
         self,
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
-        condition: Optional["bases.SQLPredicate"] = None,
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
     ) -> "JoinExpression":
@@ -478,8 +478,8 @@ class JoinExpression(bases.BaseExpression):
 
     def left_join(
         self,
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
-        condition: Optional["bases.SQLPredicate"] = None,
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
     ) -> "JoinExpression":
@@ -488,8 +488,8 @@ class JoinExpression(bases.BaseExpression):
 
     def right_join(
         self,
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
-        condition: Optional["bases.SQLPredicate"] = None,
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
     ) -> "JoinExpression":
@@ -498,8 +498,8 @@ class JoinExpression(bases.BaseExpression):
 
     def full_join(
         self,
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
-        condition: Optional["bases.SQLPredicate"] = None,
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
+        condition: Optional["SQLPredicate"] = None,
         using: Optional[List[str]] = None,
         alias: Optional[str] = None,
     ) -> "JoinExpression":
@@ -508,7 +508,7 @@ class JoinExpression(bases.BaseExpression):
 
     def cross_join(
         self,
-        right_table: Union[str, "core.TableExpression", "core.Subquery", "QueryExpression", "JoinExpression"],
+        right_table: Union[str, "TableExpression", "Subquery", "QueryExpression", "JoinExpression"],
         alias: Optional[str] = None,
     ) -> "JoinExpression":
         """Create a cross join with another table."""
