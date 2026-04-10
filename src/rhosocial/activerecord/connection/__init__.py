@@ -2,18 +2,33 @@
 """
 Connection Management Module.
 
-Provides classes for managing database connections across multiple ActiveRecord models.
-This module is independent of the Worker module and can be used in:
+Provides classes for managing database backend instances across multiple
+ActiveRecord models. This module is independent of the Worker module and
+can be used in:
 - Web applications (FastAPI, Flask, etc.)
 - CLI tools
 - Cron jobs
 - Worker pools
 
+NOTE: Despite the "connection" module naming, this module manages
+**backend instances**, not connections. The module name "connection"
+reflects the user-facing purpose: conveniently managing groups of
+related ActiveRecord classes' backend instances and providing
+connection convenience. The actual management target is the backend.
+
+This module does NOT manage connection timing. Users are responsible for
+deciding when to connect and disconnect, with the following options:
+
+1. Manual: Call ``backend.connect()`` / ``backend.introspect_and_adapt()``
+   / ``backend.disconnect()`` directly.
+2. Convenience: Use ``with backend.context() as ctx:`` for on-demand
+   connection lifecycle control ("connect on demand, disconnect after use").
+
 Classes:
-    ConnectionGroup: Manage connections for a group of Model classes
-    AsyncConnectionGroup: Async version of ConnectionGroup
-    ConnectionManager: Manage multiple named connection groups
-    AsyncConnectionManager: Async version of ConnectionManager
+    BackendGroup: Manage backend instances for a group of Model classes
+    AsyncBackendGroup: Async version of BackendGroup
+    BackendManager: Manage multiple named backend groups
+    AsyncBackendManager: Async version of BackendManager
     PoolConfig: Connection pool configuration
     PoolStats: Connection pool statistics
     PooledBackend: Wrapper for pooled Backend instances
@@ -21,28 +36,34 @@ Classes:
     AsyncBackendPool: Asynchronous connection pool
 
 Example:
-    # Single database connection
-    from rhosocial.activerecord.connection import ConnectionGroup
+    # Single database
+    from rhosocial.activerecord.connection import BackendGroup
 
-    with ConnectionGroup(
+    group = BackendGroup(
         name="main",
         models=[User, Post],
         config=MySQLConnectionConfig(host="localhost"),
         backend_class=MySQLBackend,
-    ) as group:
+    )
+    group.configure()
+
+    with group.get_backend().context() as ctx:
         user = User.find_one(1)
+
+    group.disconnect()
 
     # Multiple databases
-    from rhosocial.activerecord.connection import ConnectionManager
+    from rhosocial.activerecord.connection import BackendManager
 
-    manager = ConnectionManager()
+    manager = BackendManager()
     manager.create_group(name="main", config=main_config, ...)
     manager.create_group(name="stats", config=stats_config, ...)
+    manager.configure_all()
 
-    with manager:
-        # All connections configured
+    with manager.get_group("main").get_backend().context() as ctx:
         user = User.find_one(1)
-        log = Log.create(...)
+
+    manager.disconnect_all()
 
     # Connection pool usage
     from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
@@ -60,8 +81,8 @@ Example:
     pool.close()
 """
 
-from .group import ConnectionGroup, AsyncConnectionGroup
-from .manager import ConnectionManager, AsyncConnectionManager
+from .group import BackendGroup, AsyncBackendGroup
+from .manager import BackendManager, AsyncBackendManager
 from .pool import (
     PoolConfig,
     PoolStats,
@@ -71,10 +92,10 @@ from .pool import (
 )
 
 __all__ = [
-    "ConnectionGroup",
-    "AsyncConnectionGroup",
-    "ConnectionManager",
-    "AsyncConnectionManager",
+    "BackendGroup",
+    "AsyncBackendGroup",
+    "BackendManager",
+    "AsyncBackendManager",
     "PoolConfig",
     "PoolStats",
     "PooledBackend",

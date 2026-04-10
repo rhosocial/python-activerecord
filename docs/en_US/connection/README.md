@@ -4,7 +4,7 @@ This chapter covers how to manage database connections, from basic connection gr
 
 ## Table of Contents
 
-* **[Connection Groups & Manager](connection_management.md)**: Using `ConnectionGroup` and `ConnectionManager` to manage multi-model, multi-database connections.
+* **[Connection Groups & Manager](connection_management.md)**: Using `BackendGroup` and `BackendManager` to manage multi-model, multi-database connections.
 * **[Connection Pool](connection_pool.md)**: Efficient connection management with context-aware access patterns, connection reuse, lifecycle management, and ActiveRecord integration.
 
 ## Overview
@@ -14,8 +14,8 @@ This chapter covers how to manage database connections, from basic connection gr
 ```mermaid
 graph TB
     subgraph Basic["Basic Layer"]
-        CG["ConnectionGroup<br/>Single Group Models"]
-        CM["ConnectionManager<br/>Multi-Group Models"]
+        CG["BackendGroup<br/>Single Group Models"]
+        CM["BackendManager<br/>Multi-Group Models"]
     end
 
     subgraph Advanced["Advanced Layer"]
@@ -39,7 +39,7 @@ graph TB
 
 ### Feature Comparison
 
-| Feature | ConnectionGroup | ConnectionManager | BackendPool |
+| Feature | BackendGroup | BackendManager | BackendPool |
 |---------|-----------------|-------------------|-------------|
 | Multi-model Connection | ✓ | ✓ | ✓ |
 | Multi-database | ✗ | ✓ | ✓ |

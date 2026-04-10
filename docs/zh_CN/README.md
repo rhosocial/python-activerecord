@@ -48,7 +48,7 @@
     *   **[复杂查询实战](querying/recipes.md)**: 常见业务场景的查询解决方案。
 
 6.  **[连接管理 (Connection Management)](connection/README.md)**
-    *   **[连接组与连接管理器](connection/connection_management.md)**: 使用 `ConnectionGroup` 和 `ConnectionManager` 管理多模型、多数据库连接。
+    *   **[连接组与连接管理器](connection/connection_management.md)**: 使用 `BackendGroup` 和 `BackendManager` 管理多模型、多数据库连接。
     *   **[连接池 (Connection Pool)](connection/connection_pool.md)**: 高效连接管理与上下文感知访问模式，支持连接复用、生命周期管理和 ActiveRecord 集成。
 
 7.  **[Worker Pool 模块 (Worker Pool)](worker_pool/README.md)**

@@ -18,25 +18,34 @@ from .pooled_backend import PooledBackend
 
 
 class BackendPool:
-    """Synchronous connection pool.
+    """Synchronous connection pool (QueuePool strategy).
 
     Manages Backend instance pooling with support for warmup, validation, timeout, etc.
+    Connections can be acquired by one thread and released by another (cross-thread
+    reuse), which requires the underlying database driver to be thread-safe.
+
+    .. warning::
+        This pool uses a **QueuePool** strategy where connections flow between
+        threads. It is suitable **only** for backends whose driver reports
+        ``threadsafety >= 2`` (e.g., PostgreSQL with psycopg).
+
+        For SQLite and MySQL, whose drivers do not guarantee thread-safe connection
+        sharing (threadsafety < 2), use ``BackendGroup`` with ``backend.context()``
+        instead. Each thread should manage its own connection lifecycle, which
+        naturally avoids cross-thread issues.
 
     Attributes:
         config: Connection pool configuration.
         stats: Connection pool statistics.
 
     Example:
-        # Create connection pool (with warmup)
+        # PostgreSQL — suitable for connection pool (threadsafety=2)
         config = PoolConfig(
             min_size=2,
             max_size=10,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: PostgresBackend(host="localhost")
         )
         pool = BackendPool.create(config)
-
-        # Or create without warmup (lazy initialization)
-        # pool = BackendPool(config)
 
         # Method 1: Manual acquire/release
         backend = pool.acquire()

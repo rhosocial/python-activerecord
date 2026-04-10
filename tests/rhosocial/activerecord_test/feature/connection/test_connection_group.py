@@ -1,11 +1,15 @@
 # tests/rhosocial/activerecord_test/feature/connection/test_connection_group.py
 """
-Tests for ConnectionGroup and AsyncConnectionGroup classes.
+Tests for BackendGroup and AsyncBackendGroup classes.
+
+Tests the context-based lifecycle: configure() prepares backends without
+connecting, and users manage connections via backend.context() or
+manual connect()/disconnect() calls.
 """
 
 import pytest
 
-from rhosocial.activerecord.connection import ConnectionGroup, AsyncConnectionGroup
+from rhosocial.activerecord.connection import BackendGroup, AsyncBackendGroup
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 # Import models from local conftest using absolute path
 from tests.rhosocial.activerecord_test.feature.connection.conftest import (
@@ -13,12 +17,12 @@ from tests.rhosocial.activerecord_test.feature.connection.conftest import (
 )
 
 
-class TestConnectionGroup:
-    """Tests for ConnectionGroup class."""
+class TestBackendGroup:
+    """Tests for BackendGroup class."""
 
-    def test_create_connection_group(self):
-        """Test creating a ConnectionGroup with basic parameters."""
-        group = ConnectionGroup(
+    def test_create_backend_group(self):
+        """Test creating a BackendGroup with basic parameters."""
+        group = BackendGroup(
             name="main",
             models=[],
         )
@@ -28,9 +32,9 @@ class TestConnectionGroup:
         assert group.backend_class is None
         assert not group.is_configured()
 
-    def test_create_connection_group_with_models(self):
-        """Test creating a ConnectionGroup with models."""
-        group = ConnectionGroup(
+    def test_create_backend_group_with_models(self):
+        """Test creating a BackendGroup with models."""
+        group = BackendGroup(
             name="main",
             models=[User, Post],
         )
@@ -41,7 +45,7 @@ class TestConnectionGroup:
 
     def test_add_model(self):
         """Test adding models using add_model method."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
         )
@@ -55,8 +59,8 @@ class TestConnectionGroup:
         assert Comment in group.models
 
     def test_configure_success(self, sqlite_config, backend_class):
-        """Test successful configuration of ConnectionGroup."""
-        group = ConnectionGroup(
+        """Test successful configuration of BackendGroup."""
+        group = BackendGroup(
             name="main",
             models=[User, Post],
             config=sqlite_config,
@@ -71,12 +75,15 @@ class TestConnectionGroup:
         backend = group.get_backend()
         assert backend is not None
 
+        # Configure does NOT connect
+        assert not group.is_connected()
+
         # Cleanup
         group.disconnect()
 
     def test_configure_without_config_raises(self):
         """Test that configure raises error when config is not set."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
             backend_class=SQLiteBackend,
@@ -87,7 +94,7 @@ class TestConnectionGroup:
 
     def test_configure_without_backend_class_raises(self, sqlite_config):
         """Test that configure raises error when backend_class is not set."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
             config=sqlite_config,
@@ -98,7 +105,7 @@ class TestConnectionGroup:
 
     def test_configure_idempotent(self, sqlite_config, backend_class):
         """Test that calling configure multiple times is safe."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
             config=sqlite_config,
@@ -118,7 +125,7 @@ class TestConnectionGroup:
 
     def test_disconnect(self, sqlite_config, backend_class):
         """Test disconnect method."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User, Post],
             config=sqlite_config,
@@ -134,7 +141,7 @@ class TestConnectionGroup:
 
     def test_disconnect_idempotent(self, sqlite_config, backend_class):
         """Test that calling disconnect multiple times is safe."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
             config=sqlite_config,
@@ -147,15 +154,15 @@ class TestConnectionGroup:
 
     def test_disconnect_without_configure(self):
         """Test that disconnect without configure is safe."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
         )
         group.disconnect()  # Should not raise
 
-    def test_is_connected(self, sqlite_config, backend_class):
-        """Test is_connected method."""
-        group = ConnectionGroup(
+    def test_is_connected_after_configure(self, sqlite_config, backend_class):
+        """Test is_connected returns False after configure (no persistent connection)."""
+        group = BackendGroup(
             name="main",
             models=[User, Post],
             config=sqlite_config,
@@ -166,14 +173,15 @@ class TestConnectionGroup:
         assert not group.is_connected()
 
         group.configure()
-        assert group.is_connected()
+        # Still not connected after configure (context-based lifecycle)
+        assert not group.is_connected()
 
         group.disconnect()
         assert not group.is_connected()
 
-    def test_ping(self, sqlite_config, backend_class):
-        """Test ping method returns connection status."""
-        group = ConnectionGroup(
+    def test_is_connected_inside_backend_context(self, sqlite_config, backend_class):
+        """Test is_connected returns True inside backend.context() block."""
+        group = BackendGroup(
             name="main",
             models=[User, Post],
             config=sqlite_config,
@@ -181,29 +189,74 @@ class TestConnectionGroup:
         )
 
         group.configure()
-        status = group.ping()
+        assert not group.is_connected()
 
-        assert status is True
+        with group.get_backend().context():
+            assert group.is_connected()
+
+        # After context exit, not connected again
+        assert not group.is_connected()
 
         group.disconnect()
 
-    def test_context_manager(self, sqlite_config, backend_class):
-        """Test using ConnectionGroup as context manager."""
-        with ConnectionGroup(
+    def test_is_connected_manual_connect(self, sqlite_config, backend_class):
+        """Test is_connected returns True after manual connect()."""
+        group = BackendGroup(
+            name="main",
+            models=[User, Post],
+            config=sqlite_config,
+            backend_class=backend_class,
+        )
+
+        group.configure()
+        assert not group.is_connected()
+
+        # Manual connect
+        group.get_backend().connect()
+        group.get_backend().introspect_and_adapt()
+        assert group.is_connected()
+
+        # Manual disconnect
+        group.get_backend().disconnect()
+        assert not group.is_connected()
+
+        group.disconnect()
+
+    def test_ping_after_configure(self, sqlite_config, backend_class):
+        """Test ping returns False after configure (no persistent connection)."""
+        group = BackendGroup(
+            name="main",
+            models=[User, Post],
+            config=sqlite_config,
+            backend_class=backend_class,
+        )
+
+        group.configure()
+        assert group.ping() is False
+
+        group.disconnect()
+
+    def test_context_manager_pattern(self, sqlite_config, backend_class):
+        """Test using BackendGroup as context manager."""
+        with BackendGroup(
             name="main",
             models=[User],
             config=sqlite_config,
             backend_class=backend_class,
         ) as group:
             assert group.is_configured()
-            assert group.is_connected()
+            # Not connected yet - user manages connections
+            assert not group.is_connected()
 
-        # After context, should be disconnected
+            with group.get_backend().context():
+                assert group.is_connected()
+
+        # After context, should be cleaned up
         assert not group.is_configured()
 
     def test_add_model_after_configure_raises(self, sqlite_config, backend_class):
         """Test that adding model after configure raises error."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
             config=sqlite_config,
@@ -219,7 +272,7 @@ class TestConnectionGroup:
 
     def test_get_backend_before_configure(self):
         """Test get_backend returns None before configuration."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
         )
@@ -228,7 +281,7 @@ class TestConnectionGroup:
 
     def test_ping_before_configure(self):
         """Test ping returns False before configuration."""
-        group = ConnectionGroup(
+        group = BackendGroup(
             name="main",
             models=[User],
         )
@@ -236,14 +289,50 @@ class TestConnectionGroup:
         status = group.ping()
         assert status is False
 
+    def test_disconnect_clears_model_backends(self, sqlite_config, backend_class):
+        """Test that disconnect clears model __backend__ references."""
+        group = BackendGroup(
+            name="main",
+            models=[User],
+            config=sqlite_config,
+            backend_class=backend_class,
+        )
+        group.configure()
+        assert User.__backend__ is not None
 
-class TestAsyncConnectionGroup:
-    """Tests for AsyncConnectionGroup class."""
+        group.disconnect()
+        assert User.__backend__ is None
+
+    def test_backend_context_multiple_cycles(self, sqlite_config, backend_class):
+        """Test multiple backend.context() cycles within same group."""
+        group = BackendGroup(
+            name="main",
+            models=[User],
+            config=sqlite_config,
+            backend_class=backend_class,
+        )
+        group.configure()
+
+        # First context
+        with group.get_backend().context():
+            assert group.is_connected()
+        assert not group.is_connected()
+
+        # Second context
+        with group.get_backend().context():
+            assert group.is_connected()
+        assert not group.is_connected()
+
+        group.disconnect()
+
+
+class TestAsyncBackendGroup:
+    """Tests for AsyncBackendGroup class."""
 
     @pytest.mark.asyncio
-    async def test_async_create_connection_group(self):
-        """Test creating an AsyncConnectionGroup."""
-        group = AsyncConnectionGroup(
+    async def test_async_create_backend_group(self):
+        """Test creating an AsyncBackendGroup."""
+        group = AsyncBackendGroup(
             name="main",
             models=[],
         )
@@ -252,8 +341,8 @@ class TestAsyncConnectionGroup:
 
     @pytest.mark.asyncio
     async def test_async_configure_success(self, sqlite_config, async_backend_class):
-        """Test successful async configuration."""
-        group = AsyncConnectionGroup(
+        """Test successful async configuration (without connecting)."""
+        group = AsyncBackendGroup(
             name="main",
             models=[AsyncUser, AsyncPost],
             config=sqlite_config,
@@ -263,13 +352,15 @@ class TestAsyncConnectionGroup:
         assert not group.is_configured()
         await group.configure()
         assert group.is_configured()
+        # Not connected after configure
+        assert not await group.is_connected()
 
         await group.disconnect()
 
     @pytest.mark.asyncio
     async def test_async_disconnect(self, sqlite_config, async_backend_class):
         """Test async disconnect method."""
-        group = AsyncConnectionGroup(
+        group = AsyncBackendGroup(
             name="main",
             models=[AsyncUser],
             config=sqlite_config,
@@ -283,9 +374,9 @@ class TestAsyncConnectionGroup:
         assert not group.is_configured()
 
     @pytest.mark.asyncio
-    async def test_async_is_connected(self, sqlite_config, async_backend_class):
-        """Test async is_connected method."""
-        group = AsyncConnectionGroup(
+    async def test_async_is_connected_after_configure(self, sqlite_config, async_backend_class):
+        """Test async is_connected returns False after configure."""
+        group = AsyncBackendGroup(
             name="main",
             models=[AsyncUser],
             config=sqlite_config,
@@ -295,15 +386,36 @@ class TestAsyncConnectionGroup:
         assert not await group.is_connected()
 
         await group.configure()
-        assert await group.is_connected()
+        # Not connected after configure (context-based lifecycle)
+        assert not await group.is_connected()
 
         await group.disconnect()
         assert not await group.is_connected()
 
     @pytest.mark.asyncio
+    async def test_async_is_connected_inside_backend_context(self, sqlite_config, async_backend_class):
+        """Test async is_connected returns True inside backend.context() block."""
+        group = AsyncBackendGroup(
+            name="main",
+            models=[AsyncUser],
+            config=sqlite_config,
+            backend_class=async_backend_class,
+        )
+
+        await group.configure()
+        assert not await group.is_connected()
+
+        async with group.get_backend().context():
+            assert await group.is_connected()
+
+        assert not await group.is_connected()
+
+        await group.disconnect()
+
+    @pytest.mark.asyncio
     async def test_async_ping(self, sqlite_config, async_backend_class):
         """Test async ping method."""
-        group = AsyncConnectionGroup(
+        group = AsyncBackendGroup(
             name="main",
             models=[AsyncUser, AsyncPost],
             config=sqlite_config,
@@ -311,23 +423,43 @@ class TestAsyncConnectionGroup:
         )
 
         await group.configure()
-        status = await group.ping()
-
-        assert status is True
+        assert await group.ping() is False
 
         await group.disconnect()
 
     @pytest.mark.asyncio
     async def test_async_context_manager(self, sqlite_config, async_backend_class):
-        """Test using AsyncConnectionGroup as async context manager."""
-        async with AsyncConnectionGroup(
+        """Test using AsyncBackendGroup as async context manager."""
+        async with AsyncBackendGroup(
             name="main",
             models=[AsyncUser],
             config=sqlite_config,
             backend_class=async_backend_class,
         ) as group:
             assert group.is_configured()
-            assert await group.is_connected()
+            # Not connected - user manages connections
+            assert not await group.is_connected()
 
-        # After context, should be disconnected
+            async with group.get_backend().context():
+                assert await group.is_connected()
+
+        # After context, should be cleaned up
         assert not group.is_configured()
+
+    @pytest.mark.asyncio
+    async def test_async_backend_context_multiple_cycles(self, sqlite_config, async_backend_class):
+        """Test multiple async backend.context() cycles."""
+        group = AsyncBackendGroup(
+            name="main",
+            models=[AsyncUser],
+            config=sqlite_config,
+            backend_class=async_backend_class,
+        )
+        await group.configure()
+
+        for _ in range(3):
+            async with group.get_backend().context():
+                assert await group.is_connected()
+            assert not await group.is_connected()
+
+        await group.disconnect()

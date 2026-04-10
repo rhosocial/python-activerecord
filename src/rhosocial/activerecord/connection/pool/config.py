@@ -13,6 +13,13 @@ from typing import Callable, Optional, Any, Dict
 class PoolConfig:
     """Connection pool configuration.
 
+    .. note::
+        The connection pool uses a QueuePool strategy where connections can be
+        acquired and released across different threads. This is suitable only for
+        backends whose driver reports ``threadsafety >= 2`` (e.g., PostgreSQL
+        with psycopg). For SQLite and MySQL, use ``BackendGroup`` with
+        ``backend.context()`` instead.
+
     Attributes:
         min_size: Minimum number of connections (warmup).
         max_size: Maximum number of connections.
@@ -27,14 +34,14 @@ class PoolConfig:
         backend_config: Backend configuration dictionary.
 
     Example:
-        # Using backend_factory
+        # PostgreSQL — suitable for connection pool (threadsafety=2)
         config = PoolConfig(
             min_size=2,
             max_size=10,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: PostgresBackend(host="localhost")
         )
 
-        # Using backend_config
+        # Using backend_config (built-in sqlite only)
         config = PoolConfig(
             min_size=2,
             max_size=10,

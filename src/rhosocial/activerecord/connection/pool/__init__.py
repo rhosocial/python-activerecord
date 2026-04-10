@@ -4,12 +4,31 @@ Connection Pool Module.
 
 Provides connection pool implementation for managing Backend instances.
 
+.. note::
+    The connection pool (BackendPool / AsyncBackendPool) uses a QueuePool strategy
+    where connections can be acquired and released across different threads/tasks.
+    This is suitable **only** for database backends whose drivers report
+    ``threadsafety >= 2`` (i.e., connections can be safely shared across threads).
+
+    **Suitable backends**: PostgreSQL (psycopg, threadsafety=2), and any backend
+    whose driver guarantees thread-safe connection objects.
+
+    **Unsuitable backends**: SQLite (``check_same_thread`` restriction),
+    MySQL (mysql-connector-python, threadsafety=1), and any backend whose driver
+    does not guarantee thread-safe connection sharing.
+
+    For SQLite and MySQL, use ``BackendGroup`` with ``backend.context()`` instead.
+    Each thread/task should manage its own connection lifecycle via context manager,
+    which naturally avoids cross-thread issues.
+
 Classes:
     PoolConfig: Connection pool configuration.
     PoolStats: Connection pool statistics.
     PooledBackend: Wrapper for pooled Backend instances.
-    BackendPool: Synchronous connection pool.
+    BackendPool: Synchronous connection pool (QueuePool strategy).
     AsyncBackendPool: Asynchronous connection pool.
+    PoolContext: Synchronous pool context manager.
+    AsyncPoolContext: Asynchronous pool context manager.
 
 Context Functions (Synchronous):
     get_current_pool: Get current synchronous pool from context.
@@ -24,67 +43,39 @@ Context Functions (Asynchronous):
     get_current_async_backend: Get current async backend for database operations.
 
 Example:
-    # Synchronous usage
+    # PostgreSQL — suitable for connection pool (threadsafety=2)
     from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
+    from rhosocial.activerecord.backend.impl.postgres import PostgresBackend
 
     config = PoolConfig(
         min_size=2,
         max_size=10,
-        backend_factory=lambda: SQLiteBackend(database=":memory:")
+        backend_factory=lambda: PostgresBackend(host="localhost", database="mydb")
     )
-    pool = BackendPool(config)
+    pool = BackendPool.create(config)
 
     with pool.connection() as backend:
         result = backend.execute("SELECT 1")
 
     pool.close()
 
-    # Asynchronous usage
-    from rhosocial.activerecord.connection.pool import PoolConfig, AsyncBackendPool
+    # SQLite/MySQL — use BackendGroup + backend.context() instead
+    from rhosocial.activerecord.connection import BackendGroup
+    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
-    config = PoolConfig(
-        min_size=2,
-        max_size=10,
-        backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+    group = BackendGroup(
+        name="app",
+        models=[User, Post],
+        config=sqlite_config,
+        backend_class=SQLiteBackend,
     )
-    pool = AsyncBackendPool(config)
+    group.configure()
 
-    async with pool.connection() as backend:
-        result = await backend.execute("SELECT 1")
-
-    await pool.close()
-
-    # Context awareness example (synchronous)
-    from rhosocial.activerecord.connection.pool import (
-        get_current_pool,
-        get_current_connection_backend,
-        get_current_transaction_backend
-    )
-
-    with pool.context():
-        # Inside context, can sense the pool
-        current_pool = get_current_pool()
-
-        with pool.transaction() as backend:
-            # Inside transaction, can sense both transaction and connection
-            tx_backend = get_current_transaction_backend()
-            conn_backend = get_current_connection_backend()
-
-    # Context awareness example (asynchronous)
-    from rhosocial.activerecord.connection.pool import (
-        get_current_async_pool,
-        get_current_async_connection_backend,
-        get_current_async_transaction_backend
-    )
-
-    async with pool.context():
-        # Inside context, can sense the async pool
-        current_pool = get_current_async_pool()
-
-        async with pool.transaction() as backend:
-            # Inside transaction, can sense both transaction and connection
-            tx_backend = get_current_async_transaction_backend()
-            conn_backend = get_current_async_connection_backend()
+    # Each thread manages its own connection lifecycle
+    backend = group.get_backend()
+    with backend.context():
+        result = backend.execute("SELECT 1")
+    # Auto-disconnect on context exit — no cross-thread issues
 """
 
 from .config import PoolConfig
