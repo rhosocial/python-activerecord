@@ -51,6 +51,7 @@ from typing import Type, List, Optional
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
+from ..interface import IActiveRecord, IAsyncActiveRecord
 
 
 @dataclass
@@ -116,13 +117,13 @@ class BackendGroup:
     """
 
     name: str
-    models: List[Type] = field(default_factory=list)
+    models: List[Type[IActiveRecord]] = field(default_factory=list)
     config: Optional[ConnectionConfig] = None
     backend_class: Optional[Type[StorageBackend]] = None
     _backend_instance: Optional[StorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
-    def add_model(self, model: Type) -> 'BackendGroup':
+    def add_model(self, model: Type[IActiveRecord]) -> 'BackendGroup':
         """
         Add a Model class to the backend group.
 
@@ -312,13 +313,13 @@ class AsyncBackendGroup:
     """
 
     name: str
-    models: List[Type] = field(default_factory=list)
+    models: List[Type[IAsyncActiveRecord]] = field(default_factory=list)
     config: Optional[ConnectionConfig] = None
     backend_class: Optional[Type[AsyncStorageBackend]] = None
     _backend_instance: Optional[AsyncStorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
-    def add_model(self, model: Type) -> 'AsyncBackendGroup':
+    def add_model(self, model: Type[IAsyncActiveRecord]) -> 'AsyncBackendGroup':
         """
         Add a Model class to the backend group.
 

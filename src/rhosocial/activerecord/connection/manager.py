@@ -32,6 +32,7 @@ from typing import Dict, List, Optional, Type
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
+from ..interface import IActiveRecord, IAsyncActiveRecord
 from .group import BackendGroup, AsyncBackendGroup
 
 
@@ -98,7 +99,7 @@ class BackendManager:
         name: str,
         config: ConnectionConfig,
         backend_class: Type[StorageBackend],
-        models: Optional[List[Type]] = None,
+        models: Optional[List[Type[IActiveRecord]]] = None,
     ) -> BackendGroup:
         """
         Create and register a new backend group.
@@ -107,7 +108,7 @@ class BackendManager:
             name: Unique name for the backend group
             config: Connection configuration
             backend_class: Backend class to use
-            models: Optional list of Model classes to include
+            models: Optional list of ActiveRecord Model classes to include
 
         Returns:
             The created BackendGroup instance
@@ -270,7 +271,7 @@ class AsyncBackendManager:
         name: str,
         config: ConnectionConfig,
         backend_class: Type[AsyncStorageBackend],
-        models: Optional[List[Type]] = None,
+        models: Optional[List[Type[IAsyncActiveRecord]]] = None,
     ) -> AsyncBackendGroup:
         """
         Create and register a new async backend group.
@@ -279,7 +280,7 @@ class AsyncBackendManager:
             name: Unique name for the backend group
             config: Connection configuration
             backend_class: Async backend class to use
-            models: Optional list of Model classes to include
+            models: Optional list of async ActiveRecord Model classes to include
 
         Returns:
             The created AsyncBackendGroup instance
