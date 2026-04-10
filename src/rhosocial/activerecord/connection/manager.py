@@ -1,26 +1,36 @@
 # src/rhosocial/activerecord/connection/manager.py
 """
-Connection Manager Module.
+Backend Manager Module.
 
-Provides ConnectionManager class for managing multiple named connection groups.
+Provides BackendManager class for managing multiple named backend groups.
+
+NOTE: Despite the "connection" module naming, this module manages
+**backend instances**, not connections. The module name "connection"
+reflects the user-facing purpose: conveniently managing groups of
+related ActiveRecord classes' backend instances and providing
+connection convenience. The actual management target is the backend.
 """
 
 from typing import Dict, List, Optional, Type
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
-from .group import ConnectionGroup, AsyncConnectionGroup
+from .group import BackendGroup, AsyncBackendGroup
 
 
-class ConnectionManager:
+class BackendManager:
     """
-    Connection Manager: Manages multiple named connection groups.
+    Backend Manager: Manages multiple named backend groups.
 
     Suitable for applications that need to connect to multiple databases,
     such as main database + statistics database, or master-slave setups.
 
+    Despite the "connection" module naming, this class manages **backend
+    instances**, not connections. It provides convenience for connection
+    management but does not interfere with connection timing.
+
     Example:
-        manager = ConnectionManager()
+        manager = BackendManager()
 
         # Create groups
         manager.create_group(
@@ -36,22 +46,25 @@ class ConnectionManager:
             models=[Log, Metric],
         )
 
-        # Configure all
+        # Configure all (creates backends but does NOT connect)
         manager.configure_all()
 
-        # ... use models ...
+        # Use backend.context() for on-demand connections
+        with manager.get_group("main").get_backend().context() as ctx:
+            user = User.find_one(1)
 
-        # Disconnect all
+        # Disconnect all (cleanup)
         manager.disconnect_all()
 
         # Or use as context manager
-        with ConnectionManager() as manager:
+        with BackendManager() as manager:
             manager.create_group(...)
-            # ... use models ...
+            with manager.get_group("main").get_backend().context() as ctx:
+                user = User.find_one(1)
     """
 
     def __init__(self):
-        self._groups: Dict[str, ConnectionGroup] = {}
+        self._groups: Dict[str, BackendGroup] = {}
 
     def create_group(
         self,
@@ -59,26 +72,26 @@ class ConnectionManager:
         config: ConnectionConfig,
         backend_class: Type[StorageBackend],
         models: Optional[List[Type]] = None,
-    ) -> ConnectionGroup:
+    ) -> BackendGroup:
         """
-        Create and register a new connection group.
+        Create and register a new backend group.
 
         Args:
-            name: Unique name for the connection group
+            name: Unique name for the backend group
             config: Connection configuration
             backend_class: Backend class to use
             models: Optional list of Model classes to include
 
         Returns:
-            The created ConnectionGroup instance
+            The created BackendGroup instance
 
         Raises:
             ValueError: If a group with the same name already exists
         """
         if name in self._groups:
-            raise ValueError(f"ConnectionGroup '{name}' already exists")
+            raise ValueError(f"BackendGroup '{name}' already exists")
 
-        group = ConnectionGroup(
+        group = BackendGroup(
             name=name,
             models=models or [],
             config=config,
@@ -87,24 +100,24 @@ class ConnectionManager:
         self._groups[name] = group
         return group
 
-    def get_group(self, name: str) -> Optional[ConnectionGroup]:
+    def get_group(self, name: str) -> Optional[BackendGroup]:
         """
-        Get a connection group by name.
+        Get a backend group by name.
 
         Args:
-            name: Name of the connection group
+            name: Name of the backend group
 
         Returns:
-            ConnectionGroup instance or None if not found
+            BackendGroup instance or None if not found
         """
         return self._groups.get(name)
 
     def has_group(self, name: str) -> bool:
         """
-        Check if a connection group exists.
+        Check if a backend group exists.
 
         Args:
-            name: Name of the connection group
+            name: Name of the backend group
 
         Returns:
             True if the group exists
@@ -113,10 +126,10 @@ class ConnectionManager:
 
     def remove_group(self, name: str, disconnect: bool = True) -> bool:
         """
-        Remove a connection group from the manager.
+        Remove a backend group from the manager.
 
         Args:
-            name: Name of the connection group
+            name: Name of the backend group
             disconnect: Whether to disconnect before removing
 
         Returns:
@@ -133,16 +146,18 @@ class ConnectionManager:
 
     def configure_all(self) -> None:
         """
-        Configure all connection groups.
+        Configure all backend groups.
 
-        Calls configure() on each registered group.
+        Calls configure() on each registered group. This creates
+        backends but does NOT establish connections. Use each group's
+        ``get_backend().context()`` for on-demand connections.
         """
         for group in self._groups.values():
             group.configure()
 
     def disconnect_all(self) -> None:
         """
-        Disconnect all connection groups.
+        Disconnect all backend groups.
 
         Calls disconnect() on each registered group.
         """
@@ -151,7 +166,10 @@ class ConnectionManager:
 
     def is_connected(self) -> bool:
         """
-        Check if all connection groups have valid connections.
+        Check if all backend groups have active connections.
+
+        Note: With the context-based lifecycle, this returns True only
+        when backends are explicitly connected.
 
         Returns:
             True if all groups report connected, False otherwise
@@ -160,15 +178,15 @@ class ConnectionManager:
 
     def get_group_names(self) -> List[str]:
         """
-        Get names of all registered connection groups.
+        Get names of all registered backend groups.
 
         Returns:
             List of group names
         """
         return list(self._groups.keys())
 
-    def __enter__(self) -> 'ConnectionManager':
-        """Context manager entry: configure all groups."""
+    def __enter__(self) -> 'BackendManager':
+        """Context manager entry: configure all groups (without connecting)."""
         self.configure_all()
         return self
 
@@ -177,33 +195,38 @@ class ConnectionManager:
         self.disconnect_all()
 
     def __len__(self) -> int:
-        """Return the number of registered connection groups."""
+        """Return the number of registered backend groups."""
         return len(self._groups)
 
     def __contains__(self, name: str) -> bool:
-        """Check if a connection group exists by name."""
+        """Check if a backend group exists by name."""
         return name in self._groups
 
 
-class AsyncConnectionManager:
+class AsyncBackendManager:
     """
-    Async Connection Manager: Manages multiple named async connection groups.
+    Async Backend Manager: Manages multiple named async backend groups.
 
-    Async version of ConnectionManager, suitable for async applications.
+    Async version of BackendManager, suitable for async applications.
+
+    Despite the "connection" module naming, this class manages **backend
+    instances**, not connections. It provides convenience for connection
+    management but does not interfere with connection timing.
 
     Example:
-        async with AsyncConnectionManager() as manager:
+        async with AsyncBackendManager() as manager:
             manager.create_group(
                 name="main",
                 config=config,
                 backend_class=AsyncMySQLBackend,
-                models=[User, Post],
+                models=[AsyncUser, AsyncPost],
             )
-            # ... use models ...
+            async with manager.get_group("main").get_backend().context() as ctx:
+                user = await AsyncUser.find_one(1)
     """
 
     def __init__(self):
-        self._groups: Dict[str, AsyncConnectionGroup] = {}
+        self._groups: Dict[str, AsyncBackendGroup] = {}
 
     def create_group(
         self,
@@ -211,26 +234,26 @@ class AsyncConnectionManager:
         config: ConnectionConfig,
         backend_class: Type[AsyncStorageBackend],
         models: Optional[List[Type]] = None,
-    ) -> AsyncConnectionGroup:
+    ) -> AsyncBackendGroup:
         """
-        Create and register a new async connection group.
+        Create and register a new async backend group.
 
         Args:
-            name: Unique name for the connection group
+            name: Unique name for the backend group
             config: Connection configuration
             backend_class: Async backend class to use
             models: Optional list of Model classes to include
 
         Returns:
-            The created AsyncConnectionGroup instance
+            The created AsyncBackendGroup instance
 
         Raises:
             ValueError: If a group with the same name already exists
         """
         if name in self._groups:
-            raise ValueError(f"AsyncConnectionGroup '{name}' already exists")
+            raise ValueError(f"AsyncBackendGroup '{name}' already exists")
 
-        group = AsyncConnectionGroup(
+        group = AsyncBackendGroup(
             name=name,
             models=models or [],
             config=config,
@@ -239,24 +262,24 @@ class AsyncConnectionManager:
         self._groups[name] = group
         return group
 
-    def get_group(self, name: str) -> Optional[AsyncConnectionGroup]:
+    def get_group(self, name: str) -> Optional[AsyncBackendGroup]:
         """
-        Get an async connection group by name.
+        Get an async backend group by name.
 
         Args:
-            name: Name of the connection group
+            name: Name of the backend group
 
         Returns:
-            AsyncConnectionGroup instance or None if not found
+            AsyncBackendGroup instance or None if not found
         """
         return self._groups.get(name)
 
     def has_group(self, name: str) -> bool:
         """
-        Check if an async connection group exists.
+        Check if an async backend group exists.
 
         Args:
-            name: Name of the connection group
+            name: Name of the backend group
 
         Returns:
             True if the group exists
@@ -265,10 +288,10 @@ class AsyncConnectionManager:
 
     async def remove_group(self, name: str, disconnect: bool = True) -> bool:
         """
-        Remove an async connection group from the manager.
+        Remove an async backend group from the manager.
 
         Args:
-            name: Name of the connection group
+            name: Name of the backend group
             disconnect: Whether to disconnect before removing
 
         Returns:
@@ -285,16 +308,18 @@ class AsyncConnectionManager:
 
     async def configure_all(self) -> None:
         """
-        Configure all async connection groups.
+        Configure all async backend groups.
 
-        Calls await configure() on each registered group.
+        Calls await configure() on each registered group. This creates
+        backends but does NOT establish connections. Use each group's
+        ``get_backend().context()`` for on-demand connections.
         """
         for group in self._groups.values():
             await group.configure()
 
     async def disconnect_all(self) -> None:
         """
-        Disconnect all async connection groups.
+        Disconnect all async backend groups.
 
         Calls await disconnect() on each registered group.
         """
@@ -303,7 +328,10 @@ class AsyncConnectionManager:
 
     async def is_connected(self) -> bool:
         """
-        Check if all async connection groups have valid connections.
+        Check if all async backend groups have active connections.
+
+        Note: With the context-based lifecycle, this returns True only
+        when backends are explicitly connected.
 
         Returns:
             True if all groups report connected, False otherwise
@@ -315,15 +343,15 @@ class AsyncConnectionManager:
 
     def get_group_names(self) -> List[str]:
         """
-        Get names of all registered async connection groups.
+        Get names of all registered async backend groups.
 
         Returns:
             List of group names
         """
         return list(self._groups.keys())
 
-    async def __aenter__(self) -> 'AsyncConnectionManager':
-        """Async context manager entry: configure all groups."""
+    async def __aenter__(self) -> 'AsyncBackendManager':
+        """Async context manager entry: configure all groups (without connecting)."""
         await self.configure_all()
         return self
 
@@ -332,9 +360,9 @@ class AsyncConnectionManager:
         await self.disconnect_all()
 
     def __len__(self) -> int:
-        """Return the number of registered async connection groups."""
+        """Return the number of registered async backend groups."""
         return len(self._groups)
 
     def __contains__(self, name: str) -> bool:
-        """Check if an async connection group exists by name."""
+        """Check if an async backend group exists by name."""
         return name in self._groups

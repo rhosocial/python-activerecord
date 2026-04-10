@@ -2,7 +2,7 @@
 """
 Pytest fixtures for connection management tests.
 
-This module provides fixtures for testing ConnectionGroup, ConnectionManager,
+This module provides fixtures for testing BackendGroup, BackendManager,
 and session-aware connection pool classes with SQLite backends.
 """
 
