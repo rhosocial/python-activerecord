@@ -35,12 +35,6 @@ Classes:
     BackendPool: Synchronous connection pool
     AsyncBackendPool: Asynchronous connection pool
 
-Deprecated Aliases:
-    ConnectionGroup: Alias for BackendGroup (will be removed in a future version)
-    AsyncConnectionGroup: Alias for AsyncBackendGroup (will be removed)
-    ConnectionManager: Alias for BackendManager (will be removed)
-    AsyncConnectionManager: Alias for AsyncBackendManager (will be removed)
-
 Example:
     # Single database
     from rhosocial.activerecord.connection import BackendGroup
@@ -87,8 +81,6 @@ Example:
     pool.close()
 """
 
-import warnings
-
 from .group import BackendGroup, AsyncBackendGroup
 from .manager import BackendManager, AsyncBackendManager
 from .pool import (
@@ -98,26 +90,6 @@ from .pool import (
     BackendPool,
     AsyncBackendPool,
 )
-
-# Deprecated aliases for backward compatibility
-def __getattr__(name):
-    """Provide deprecated aliases for backward compatibility."""
-    aliases = {
-        "ConnectionGroup": ("BackendGroup", BackendGroup),
-        "AsyncConnectionGroup": ("AsyncBackendGroup", AsyncBackendGroup),
-        "ConnectionManager": ("BackendManager", BackendManager),
-        "AsyncConnectionManager": ("AsyncBackendManager", AsyncBackendManager),
-    }
-    if name in aliases:
-        new_name, cls = aliases[name]
-        warnings.warn(
-            f"{name} is deprecated, use {new_name} instead. "
-            f"{name} will be removed in a future version.",
-            DeprecationWarning,
-            stacklevel=2,
-        )
-        return cls
-    raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 __all__ = [
     "BackendGroup",
@@ -129,9 +101,4 @@ __all__ = [
     "PooledBackend",
     "BackendPool",
     "AsyncBackendPool",
-    # Deprecated aliases (for backward compatibility)
-    "ConnectionGroup",
-    "AsyncConnectionGroup",
-    "ConnectionManager",
-    "AsyncConnectionManager",
 ]

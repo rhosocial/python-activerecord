@@ -859,19 +859,97 @@ if stats.total_validation_failures > 0:
 
 ## Thread Safety
 
-### Synchronous Pool
+> **Important**: The connection pool uses a **QueuePool** strategy where connections can flow between threads. This is suitable **only** for database backends whose driver reports `threadsafety >= 2` (i.e., connection objects can be safely shared across threads).
 
-The synchronous `BackendPool` is thread-safe using `threading.RLock` and `threading.Condition`. Multiple threads can safely acquire and release connections concurrently.
+### When to Use BackendPool
+
+| Database | Driver threadsafety | Suitable for BackendPool? | Recommendation |
+|----------|-------------------|--------------------------|----------------|
+| PostgreSQL (psycopg v3) | 2 | **Yes** | BackendPool recommended for connection reuse |
+| SQLite (sqlite3) | N/A (check_same_thread) | **No** | Use BackendGroup + backend.context() |
+| MySQL (mysql-connector-python) | 1 | **No** | Use BackendGroup + backend.context() |
+
+**Why SQLite and MySQL are unsuitable for BackendPool**:
+
+- **SQLite**: The Python `sqlite3` module enforces `check_same_thread=True` by default, which prevents a connection created in one thread from being used in another. When the pool's `close()` method tries to disconnect connections created by worker threads, SQLite raises cross-thread warnings. Setting `check_same_thread=False` only suppresses the check but does not guarantee thread-safe behavior.
+- **MySQL**: The driver reports `threadsafety=1`, meaning connection objects should not be shared across threads. Unlike SQLite, MySQL does not actively enforce this — violations may cause **silent data corruption** without any error or warning.
+
+### When to Use BackendGroup + backend.context()
+
+For SQLite and MySQL, use `BackendGroup` with `backend.context()` instead of `BackendPool`. Each thread manages its own connection lifecycle, naturally avoiding cross-thread issues.
+
+There are two usage patterns:
+
+#### Pattern 1: Manual Connection Management
+
+Use `backend.connect()` and `backend.disconnect()` directly when you need fine-grained control over connection timing:
+
+```python
+from rhosocial.activerecord.connection import BackendGroup
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+# Create and configure a BackendGroup
+group = BackendGroup(
+    name="app",
+    models=[User, Post],
+    config=sqlite_config,
+    backend_class=SQLiteBackend,
+)
+group.configure()
+
+# Get the shared backend instance
+backend = group.get_backend()
+
+# Manually connect when needed
+backend.connect()
+backend.introspect_and_adapt()
+try:
+    # Execute operations
+    User.create(name="Alice", email="alice@example.com")
+    users = User.query().all()
+finally:
+    # Disconnect when done
+    backend.disconnect()
+```
+
+#### Pattern 2: Context-Based Automatic Management (Recommended)
+
+Use `backend.context()` for automatic connect/disconnect — enter the context to connect, exit to disconnect:
+
+```python
+from rhosocial.activerecord.connection import BackendGroup
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+# Create and configure a BackendGroup
+group = BackendGroup(
+    name="app",
+    models=[User, Post],
+    config=sqlite_config,
+    backend_class=SQLiteBackend,
+)
+group.configure()
+
+backend = group.get_backend()
+
+# Context automatically manages connect/disconnect
+with backend.context():
+    # Connected — introspect_and_adapt() called automatically on first entry
+    User.create(name="Alice", email="alice@example.com")
+    users = User.query().all()
+# Auto-disconnected on context exit
+```
+
+This pattern is especially useful in multi-threaded scenarios:
 
 ```python
 import threading
 
-pool = BackendPool(config)
-
 def worker(worker_id):
-    with pool.connection() as backend:
-        result = backend.execute("SELECT * FROM users WHERE id = ?", [worker_id])
-        print(f"Worker {worker_id}: {result}")
+    """Each thread manages its own connection via context."""
+    with backend.context():  # Connect in this thread
+        User.create(name=f"User-{worker_id}")
+        users = User.query().all()
+    # Auto-disconnect — no cross-thread issues
 
 threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
 for t in threads:
@@ -880,18 +958,49 @@ for t in threads:
     t.join()
 ```
 
+### Synchronous Pool (PostgreSQL Only)
+
+The synchronous `BackendPool` is thread-safe using `threading.RLock` and `threading.Condition`. Multiple threads can safely acquire and release connections concurrently. **This is suitable for PostgreSQL (threadsafety=2) where connections can be shared across threads.**
+
+```python
+import threading
+from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
+
+# PostgreSQL — suitable for connection pool (threadsafety=2)
+config = PoolConfig(
+    min_size=2,
+    max_size=10,
+    backend_factory=lambda: PostgresBackend(host="localhost", database="mydb")
+)
+pool = BackendPool.create(config)
+
+def worker(worker_id):
+    with pool.connection() as backend:
+        result = backend.execute("SELECT * FROM users WHERE id = $1", [worker_id])
+        print(f"Worker {worker_id}: {result}")
+
+threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+pool.close()
+```
+
 ### Async Pool
 
-The `AsyncBackendPool` uses `asyncio.Lock` and `asyncio.Semaphore` for concurrency control. It's designed for use in async contexts.
+The `AsyncBackendPool` runs on a single-threaded event loop, so cross-thread issues do not apply. It can be used with any backend in async contexts.
 
 ```python
 import asyncio
+from rhosocial.activerecord.connection.pool import PoolConfig, AsyncBackendPool
 
 pool = AsyncBackendPool(config)
 
 async def worker(worker_id):
     async with pool.connection() as backend:
-        result = await backend.execute("SELECT * FROM users WHERE id = ?", [worker_id])
+        result = await backend.execute("SELECT * FROM users WHERE id = $1", [worker_id])
         print(f"Worker {worker_id}: {result}")
 
 async def main():

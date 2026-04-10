@@ -4,7 +4,7 @@
 
 ## 目录
 
-* **[连接组与连接管理器](connection_management.md)**: 使用 `ConnectionGroup` 和 `ConnectionManager` 管理多模型、多数据库连接。
+* **[连接组与连接管理器](connection_management.md)**: 使用 `BackendGroup` 和 `BackendManager` 管理多模型、多数据库连接。
 * **[连接池 (Connection Pool)](connection_pool.md)**: 高效连接管理与上下文感知访问模式，支持连接复用、生命周期管理和 ActiveRecord 集成。
 
 ## 概述
@@ -14,8 +14,8 @@
 ```mermaid
 graph TB
     subgraph Basic["基础层"]
-        CG["ConnectionGroup<br/>单组模型连接"]
-        CM["ConnectionManager<br/>多组模型连接"]
+        CG["BackendGroup<br/>单组模型连接"]
+        CM["BackendManager<br/>多组模型连接"]
     end
 
     subgraph Advanced["高级层"]
@@ -39,7 +39,7 @@ graph TB
 
 ### 功能对比
 
-| 功能 | ConnectionGroup | ConnectionManager | BackendPool |
+| 功能 | BackendGroup | BackendManager | BackendPool |
 |------|-----------------|-------------------|-------------|
 | 多模型连接 | ✓ | ✓ | ✓ |
 | 多数据库 | ✗ | ✓ | ✓ |
