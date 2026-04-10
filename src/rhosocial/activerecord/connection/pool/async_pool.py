@@ -22,6 +22,13 @@ class AsyncBackendPool:
 
     Manages Async Backend instance pooling with support for warmup, validation, timeout, etc.
 
+    .. note::
+        The async pool runs on a single-threaded event loop, so cross-thread
+        connection issues do not apply. However, for SQLite and MySQL backends
+        where connection pooling is less beneficial (connections are cheap or
+        cannot be shared across threads), consider using ``BackendGroup`` with
+        ``backend.context()`` for simpler connection management.
+
     Attributes:
         config: Connection pool configuration.
         stats: Connection pool statistics.
@@ -34,9 +41,6 @@ class AsyncBackendPool:
             backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
         pool = await AsyncBackendPool.create(config)
-
-        # Or create without warmup (lazy initialization)
-        pool = AsyncBackendPool(config)
 
         # Method 1: Manual acquire/release
         backend = await pool.acquire()

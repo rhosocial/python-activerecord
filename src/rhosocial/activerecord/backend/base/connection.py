@@ -1,5 +1,6 @@
 # src/rhosocial/activerecord/backend/base/connection.py
-from typing import Any
+from contextlib import contextmanager, asynccontextmanager
+from typing import Any, Generator
 
 
 class ConnectionMixin:
@@ -57,6 +58,33 @@ class ConnectionMixin:
             exc_tb: Exception traceback if an exception occurred, None otherwise
         """
         self.disconnect()
+
+    @contextmanager
+    def context(self) -> Generator['ConnectionMixin', None, None]:
+        """
+        Context manager for explicit connection lifecycle control.
+
+        Establishes a connection on context entry and disconnects on context exit.
+        This ensures the connection is created and destroyed in the same thread,
+        avoiding cross-thread SQLite connection issues.
+
+        After connecting, introspect_and_adapt() is called to ensure the dialect
+        is properly configured based on the actual database server capabilities.
+
+        Usage:
+            with backend.context() as ctx:
+                result = ctx.execute("SELECT 1")
+
+        Yields:
+            The backend instance for use within the context block.
+        """
+        self.connect()
+        try:
+            # Ensure dialect is properly configured based on actual server capabilities
+            self.introspect_and_adapt()
+            yield self
+        finally:
+            self.disconnect()
 
     def __del__(self):
         """
@@ -136,3 +164,30 @@ class AsyncConnectionMixin:
             exc_tb: Exception traceback if an exception occurred, None otherwise
         """
         await self.disconnect()
+
+    @asynccontextmanager
+    async def context(self) -> Generator['AsyncConnectionMixin', None, None]:
+        """
+        Async context manager for explicit connection lifecycle control.
+
+        Establishes a connection on context entry and disconnects on context exit.
+        This ensures the connection is created and destroyed in the same async context,
+        avoiding cross-thread/cross-task SQLite connection issues.
+
+        After connecting, introspect_and_adapt() is called to ensure the dialect
+        is properly configured based on the actual database server capabilities.
+
+        Usage:
+            async with backend.context() as ctx:
+                result = await ctx.execute("SELECT 1")
+
+        Yields:
+            The backend instance for use within the context block.
+        """
+        await self.connect()
+        try:
+            # Ensure dialect is properly configured based on actual server capabilities
+            await self.introspect_and_adapt()
+            yield self
+        finally:
+            await self.disconnect()

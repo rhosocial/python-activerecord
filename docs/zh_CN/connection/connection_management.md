@@ -1,26 +1,26 @@
 # 连接管理 (Connection Management)
 
-在 [数据库配置](configuration.md) 中，我们介绍了如何为单个模型或所有模型配置数据库连接。但在实际应用中，你可能需要管理多个模型共享同一个连接，或者连接多个不同的数据库。`rhosocial.activerecord.connection` 模块提供了 `ConnectionGroup` 和 `ConnectionManager` 来简化这些场景。
+在 [数据库配置](configuration.md) 中，我们介绍了如何为单个模型或所有模型配置数据库连接。但在实际应用中，你可能需要管理多个模型共享同一个连接，或者连接多个不同的数据库。`rhosocial.activerecord.connection` 模块提供了 `BackendGroup` 和 `BackendManager` 来简化这些场景。
 
 > 💡 **AI 提示词示例**: "我有一个应用需要连接多个数据库（主库和统计库），如何优雅地管理这些连接？"
 
 ## 目录
 
-1. [ConnectionGroup - 连接组](#1-connectiongroup---连接组)
-2. [ConnectionManager - 多数据库管理](#2-connectionmanager---多数据库管理)
+1. [BackendGroup - 连接组](#1-backendgroup---连接组)
+2. [BackendManager - 多数据库管理](#2-backendmanager---多数据库管理)
 3. [异步支持](#3-异步支持)
 4. [实战示例](#4-实战示例)
 
-## 1. ConnectionGroup - 连接组
+## 1. BackendGroup - 连接组
 
-`ConnectionGroup` 用于管理一组模型的数据库连接。它提供了上下文管理器，自动处理连接的建立和断开。
+`BackendGroup` 用于管理一组模型的数据库连接。它提供了上下文管理器，自动处理连接的建立和断开。
 
 ### 基本用法
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
-from rhosocial.activerecord.connection import ConnectionGroup
+from rhosocial.activerecord.connection import BackendGroup
 
 # 定义模型
 class User(ActiveRecord):
@@ -33,7 +33,7 @@ class Post(ActiveRecord):
     user_id: int
 
 # 创建连接组
-with ConnectionGroup(
+with BackendGroup(
     name="main",
     models=[User, Post],
     config=SQLiteConnectionConfig(database="app.db"),
@@ -55,7 +55,7 @@ with ConnectionGroup(
 
 ```python
 # 创建连接组
-group = ConnectionGroup(
+group = BackendGroup(
     name="main",
     models=[User, Post],
     config=SQLiteConnectionConfig(database="app.db"),
@@ -79,7 +79,7 @@ group.disconnect()
 ### 动态添加模型
 
 ```python
-group = ConnectionGroup(
+group = BackendGroup(
     name="main",
     config=SQLiteConnectionConfig(database="app.db"),
     backend_class=SQLiteBackend,
@@ -94,7 +94,7 @@ group.configure()
 ### 连接健康检查
 
 ```python
-with ConnectionGroup(...) as group:
+with BackendGroup(...) as group:
     # 检查整体连接状态
     if group.is_connected():
         print("所有连接正常")
@@ -105,18 +105,18 @@ with ConnectionGroup(...) as group:
         print(f"{model.__name__}: {'正常' if is_connected else '断开'}")
 ```
 
-## 2. ConnectionManager - 多数据库管理
+## 2. BackendManager - 多数据库管理
 
-当你需要连接多个数据库（例如主库 + 统计库，或主从架构）时，可以使用 `ConnectionManager`。
+当你需要连接多个数据库（例如主库 + 统计库，或主从架构）时，可以使用 `BackendManager`。
 
 ### 基本用法
 
 ```python
-from rhosocial.activerecord.connection import ConnectionManager
+from rhosocial.activerecord.connection import BackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 
 # 创建管理器
-manager = ConnectionManager()
+manager = BackendManager()
 
 # 创建主库连接组
 manager.create_group(
@@ -148,7 +148,7 @@ manager.disconnect_all()
 ### 作为上下文管理器
 
 ```python
-with ConnectionManager() as manager:
+with BackendManager() as manager:
     manager.create_group(
         name="main",
         config=SQLiteConnectionConfig(database="main.db"),
@@ -173,7 +173,7 @@ with ConnectionManager() as manager:
 ### 管理连接组
 
 ```python
-manager = ConnectionManager()
+manager = BackendManager()
 
 # 创建连接组
 manager.create_group("main", config=config, backend_class=SQLiteBackend, models=[User])
@@ -198,10 +198,10 @@ print(manager.is_connected())  # True/False
 
 `rhosocial.activerecord.connection` 提供完整的异步支持，遵循项目的同步异步对等原则。
 
-### AsyncConnectionGroup
+### AsyncBackendGroup
 
 ```python
-from rhosocial.activerecord.connection import AsyncConnectionGroup
+from rhosocial.activerecord.connection import AsyncBackendGroup
 from rhosocial.activerecord.model import AsyncActiveRecord
 
 class User(AsyncActiveRecord):
@@ -209,7 +209,7 @@ class User(AsyncActiveRecord):
     email: str
 
 # 使用异步连接组
-async with AsyncConnectionGroup(
+async with AsyncBackendGroup(
     name="main",
     models=[User],
     config=SQLiteConnectionConfig(database="app.db"),
@@ -220,12 +220,12 @@ async with AsyncConnectionGroup(
     await user.save()
 ```
 
-### AsyncConnectionManager
+### AsyncBackendManager
 
 ```python
-from rhosocial.activerecord.connection import AsyncConnectionManager
+from rhosocial.activerecord.connection import AsyncBackendManager
 
-async with AsyncConnectionManager() as manager:
+async with AsyncBackendManager() as manager:
     manager.create_group(
         name="main",
         config=SQLiteConnectionConfig(database="main.db"),
@@ -249,17 +249,17 @@ async with AsyncConnectionManager() as manager:
 
 ### CLI 工具场景
 
-在 CLI 工具中，使用 `ConnectionGroup` 可以确保脚本结束时正确关闭连接：
+在 CLI 工具中，使用 `BackendGroup` 可以确保脚本结束时正确关闭连接：
 
 ```python
 # scripts/migrate_users.py
-from rhosocial.activerecord.connection import ConnectionGroup
+from rhosocial.activerecord.connection import BackendGroup
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from app.models import User, Post
 
 def migrate_users():
     """迁移用户数据的脚本。"""
-    with ConnectionGroup(
+    with BackendGroup(
         name="migration",
         models=[User, Post],
         config=SQLiteConnectionConfig(database="production.db"),
@@ -279,13 +279,13 @@ if __name__ == "__main__":
 
 ```python
 # tasks/daily_report.py
-from rhosocial.activerecord.connection import ConnectionManager
+from rhosocial.activerecord.connection import BackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from app.models import User, Order, Report
 
 def generate_daily_report():
     """生成每日报告的定时任务。"""
-    with ConnectionManager() as manager:
+    with BackendManager() as manager:
         # 主库：读取用户和订单数据
         manager.create_group(
             name="main",
@@ -324,10 +324,10 @@ def generate_daily_report():
 # app/database.py
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from rhosocial.activerecord.connection import AsyncConnectionManager
+from rhosocial.activerecord.connection import AsyncBackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteConnectionConfig
 
-manager = AsyncConnectionManager()
+manager = AsyncBackendManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -352,14 +352,14 @@ app = FastAPI(lifespan=lifespan)
 ### 多租户场景
 
 ```python
-from rhosocial.activerecord.connection import ConnectionManager
+from rhosocial.activerecord.connection import BackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 
 class TenantManager:
     """多租户连接管理器。"""
 
     def __init__(self):
-        self.manager = ConnectionManager()
+        self.manager = BackendManager()
 
     def setup_tenant(self, tenant_id: str, models: list):
         """为租户创建独立的数据库连接。"""
@@ -389,7 +389,7 @@ tenant_manager.setup_tenant("company_b", [User, Post])
 
 ## API 速查
 
-### ConnectionGroup
+### BackendGroup
 
 | 方法 | 说明 |
 |------|------|
@@ -401,7 +401,7 @@ tenant_manager.setup_tenant("company_b", [User, Post])
 | `add_model(model)` | 添加模型（需在 configure 前调用） |
 | `get_backend(model)` | 获取模型的后端实例 |
 
-### ConnectionManager
+### BackendManager
 
 | 方法 | 说明 |
 |------|------|

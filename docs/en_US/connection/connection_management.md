@@ -1,26 +1,26 @@
 # Connection Management
 
-In [Database Configuration](configuration.md), we covered how to configure database connections for individual models or all models. However, in real-world applications, you may need to manage multiple models sharing the same connection, or connect to multiple different databases. The `rhosocial.activerecord.connection` module provides `ConnectionGroup` and `ConnectionManager` to simplify these scenarios.
+In [Database Configuration](configuration.md), we covered how to configure database connections for individual models or all models. However, in real-world applications, you may need to manage multiple models sharing the same connection, or connect to multiple different databases. The `rhosocial.activerecord.connection` module provides `BackendGroup` and `BackendManager` to simplify these scenarios.
 
 > 💡 **AI Prompt Example**: "I have an application that needs to connect to multiple databases (main database and statistics database), how can I elegantly manage these connections?"
 
 ## Table of Contents
 
-1. [ConnectionGroup - Connection Group](#1-connectiongroup---connection-group)
-2. [ConnectionManager - Multi-Database Management](#2-connectionmanager---multi-database-management)
+1. [BackendGroup - Connection Group](#1-backendgroup---connection-group)
+2. [BackendManager - Multi-Database Management](#2-backendmanager---multi-database-management)
 3. [Async Support](#3-async-support)
 4. [Practical Examples](#4-practical-examples)
 
-## 1. ConnectionGroup - Connection Group
+## 1. BackendGroup - Connection Group
 
-`ConnectionGroup` manages database connections for a group of models. It provides a context manager that automatically handles connection establishment and teardown.
+`BackendGroup` manages database connections for a group of models. It provides a context manager that automatically handles connection establishment and teardown.
 
 ### Basic Usage
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
-from rhosocial.activerecord.connection import ConnectionGroup
+from rhosocial.activerecord.connection import BackendGroup
 
 # Define models
 class User(ActiveRecord):
@@ -33,7 +33,7 @@ class Post(ActiveRecord):
     user_id: int
 
 # Create connection group
-with ConnectionGroup(
+with BackendGroup(
     name="main",
     models=[User, Post],
     config=SQLiteConnectionConfig(database="app.db"),
@@ -55,7 +55,7 @@ For finer-grained control, you can manually call `configure()` and `disconnect()
 
 ```python
 # Create connection group
-group = ConnectionGroup(
+group = BackendGroup(
     name="main",
     models=[User, Post],
     config=SQLiteConnectionConfig(database="app.db"),
@@ -79,7 +79,7 @@ group.disconnect()
 ### Adding Models Dynamically
 
 ```python
-group = ConnectionGroup(
+group = BackendGroup(
     name="main",
     config=SQLiteConnectionConfig(database="app.db"),
     backend_class=SQLiteBackend,
@@ -94,7 +94,7 @@ group.configure()
 ### Connection Health Check
 
 ```python
-with ConnectionGroup(...) as group:
+with BackendGroup(...) as group:
     # Check overall connection status
     if group.is_connected():
         print("All connections are healthy")
@@ -105,18 +105,18 @@ with ConnectionGroup(...) as group:
         print(f"{model.__name__}: {'OK' if is_connected else 'Disconnected'}")
 ```
 
-## 2. ConnectionManager - Multi-Database Management
+## 2. BackendManager - Multi-Database Management
 
-When you need to connect to multiple databases (e.g., main database + statistics database, or master-slave architecture), you can use `ConnectionManager`.
+When you need to connect to multiple databases (e.g., main database + statistics database, or master-slave architecture), you can use `BackendManager`.
 
 ### Basic Usage
 
 ```python
-from rhosocial.activerecord.connection import ConnectionManager
+from rhosocial.activerecord.connection import BackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 
 # Create manager
-manager = ConnectionManager()
+manager = BackendManager()
 
 # Create main database connection group
 manager.create_group(
@@ -148,7 +148,7 @@ manager.disconnect_all()
 ### As Context Manager
 
 ```python
-with ConnectionManager() as manager:
+with BackendManager() as manager:
     manager.create_group(
         name="main",
         config=SQLiteConnectionConfig(database="main.db"),
@@ -173,7 +173,7 @@ with ConnectionManager() as manager:
 ### Managing Connection Groups
 
 ```python
-manager = ConnectionManager()
+manager = BackendManager()
 
 # Create connection group
 manager.create_group("main", config=config, backend_class=SQLiteBackend, models=[User])
@@ -198,10 +198,10 @@ print(manager.is_connected())  # True/False
 
 `rhosocial.activerecord.connection` provides full async support, following the project's sync-async parity principle.
 
-### AsyncConnectionGroup
+### AsyncBackendGroup
 
 ```python
-from rhosocial.activerecord.connection import AsyncConnectionGroup
+from rhosocial.activerecord.connection import AsyncBackendGroup
 from rhosocial.activerecord.model import AsyncActiveRecord
 
 class User(AsyncActiveRecord):
@@ -209,7 +209,7 @@ class User(AsyncActiveRecord):
     email: str
 
 # Use async connection group
-async with AsyncConnectionGroup(
+async with AsyncBackendGroup(
     name="main",
     models=[User],
     config=SQLiteConnectionConfig(database="app.db"),
@@ -220,12 +220,12 @@ async with AsyncConnectionGroup(
     await user.save()
 ```
 
-### AsyncConnectionManager
+### AsyncBackendManager
 
 ```python
-from rhosocial.activerecord.connection import AsyncConnectionManager
+from rhosocial.activerecord.connection import AsyncBackendManager
 
-async with AsyncConnectionManager() as manager:
+async with AsyncBackendManager() as manager:
     manager.create_group(
         name="main",
         config=SQLiteConnectionConfig(database="main.db"),
@@ -249,17 +249,17 @@ async with AsyncConnectionManager() as manager:
 
 ### CLI Tool Scenario
 
-In CLI tools, using `ConnectionGroup` ensures connections are properly closed when the script ends:
+In CLI tools, using `BackendGroup` ensures connections are properly closed when the script ends:
 
 ```python
 # scripts/migrate_users.py
-from rhosocial.activerecord.connection import ConnectionGroup
+from rhosocial.activerecord.connection import BackendGroup
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from app.models import User, Post
 
 def migrate_users():
     """Script to migrate user data."""
-    with ConnectionGroup(
+    with BackendGroup(
         name="migration",
         models=[User, Post],
         config=SQLiteConnectionConfig(database="production.db"),
@@ -279,13 +279,13 @@ if __name__ == "__main__":
 
 ```python
 # tasks/daily_report.py
-from rhosocial.activerecord.connection import ConnectionManager
+from rhosocial.activerecord.connection import BackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 from app.models import User, Order, Report
 
 def generate_daily_report():
     """Scheduled task to generate daily reports."""
-    with ConnectionManager() as manager:
+    with BackendManager() as manager:
         # Main database: read user and order data
         manager.create_group(
             name="main",
@@ -324,10 +324,10 @@ In web frameworks like FastAPI, you can manage connections in the application li
 # app/database.py
 from contextlib import asynccontextmanager
 from fastapi import FastAPI
-from rhosocial.activerecord.connection import AsyncConnectionManager
+from rhosocial.activerecord.connection import AsyncBackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteConnectionConfig
 
-manager = AsyncConnectionManager()
+manager = AsyncBackendManager()
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -352,14 +352,14 @@ app = FastAPI(lifespan=lifespan)
 ### Multi-Tenant Scenario
 
 ```python
-from rhosocial.activerecord.connection import ConnectionManager
+from rhosocial.activerecord.connection import BackendManager
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
 
 class TenantManager:
     """Multi-tenant connection manager."""
 
     def __init__(self):
-        self.manager = ConnectionManager()
+        self.manager = BackendManager()
 
     def setup_tenant(self, tenant_id: str, models: list):
         """Create independent database connection for tenant."""
@@ -389,7 +389,7 @@ tenant_manager.setup_tenant("company_b", [User, Post])
 
 ## API Quick Reference
 
-### ConnectionGroup
+### BackendGroup
 
 | Method | Description |
 |--------|-------------|
@@ -401,7 +401,7 @@ tenant_manager.setup_tenant("company_b", [User, Post])
 | `add_model(model)` | Add model (must call before configure) |
 | `get_backend(model)` | Get backend instance for model |
 
-### ConnectionManager
+### BackendManager
 
 | Method | Description |
 |--------|-------------|

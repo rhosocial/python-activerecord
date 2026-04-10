@@ -48,7 +48,7 @@
     *   **[Query Recipes](querying/recipes.md)**: Query solutions for common business scenarios.
 
 6.  **[Connection Management](connection/README.md)**
-    *   **[Connection Groups & Manager](connection/connection_management.md)**: Using `ConnectionGroup` and `ConnectionManager` to manage multi-model, multi-database connections.
+    *   **[Connection Groups & Manager](connection/connection_management.md)**: Using `BackendGroup` and `BackendManager` to manage multi-model, multi-database connections.
     *   **[Connection Pool](connection/connection_pool.md)**: Efficient connection management with context-aware access patterns, connection reuse, lifecycle management, and ActiveRecord integration.
 
 7.  **[Worker Pool Module](worker_pool/README.md)**

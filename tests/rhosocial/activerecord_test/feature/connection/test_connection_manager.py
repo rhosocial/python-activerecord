@@ -1,29 +1,33 @@
 # tests/rhosocial/activerecord_test/feature/connection/test_connection_manager.py
 """
-Tests for ConnectionManager and AsyncConnectionManager classes.
+Tests for BackendManager and AsyncBackendManager classes.
+
+Tests the context-based lifecycle: configure_all() prepares backends
+without connecting, and users manage connections via
+group.get_backend().context() or manual connect()/disconnect() calls.
 """
 
 import pytest
 
-from rhosocial.activerecord.connection import ConnectionManager, AsyncConnectionManager
+from rhosocial.activerecord.connection import BackendManager, AsyncBackendManager
 # Import models from local conftest using absolute path
 from tests.rhosocial.activerecord_test.feature.connection.conftest import (
     User, Post, Comment, AsyncUser, AsyncPost
 )
 
 
-class TestConnectionManager:
-    """Tests for ConnectionManager class."""
+class TestBackendManager:
+    """Tests for BackendManager class."""
 
     def test_create_manager(self):
-        """Test creating a ConnectionManager."""
-        manager = ConnectionManager()
+        """Test creating a BackendManager."""
+        manager = BackendManager()
         assert len(manager) == 0
         assert manager.get_group_names() == []
 
     def test_create_group(self, sqlite_config, backend_class):
-        """Test creating a connection group through manager."""
-        manager = ConnectionManager()
+        """Test creating a backend group through manager."""
+        manager = BackendManager()
         group = manager.create_group(
             name="main",
             config=sqlite_config,
@@ -39,7 +43,7 @@ class TestConnectionManager:
 
     def test_create_duplicate_group_raises(self, sqlite_config, backend_class):
         """Test that creating duplicate group raises error."""
-        manager = ConnectionManager()
+        manager = BackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -56,8 +60,8 @@ class TestConnectionManager:
             )
 
     def test_get_group(self, sqlite_config, backend_class):
-        """Test getting a connection group."""
-        manager = ConnectionManager()
+        """Test getting a backend group."""
+        manager = BackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -73,8 +77,8 @@ class TestConnectionManager:
         assert manager.get_group("nonexistent") is None
 
     def test_remove_group(self, sqlite_config, backend_class):
-        """Test removing a connection group."""
-        manager = ConnectionManager()
+        """Test removing a backend group."""
+        manager = BackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -91,8 +95,8 @@ class TestConnectionManager:
         assert manager.get_group("main") is None
 
     def test_remove_configured_group(self, sqlite_config, backend_class):
-        """Test removing a configured connection group."""
-        manager = ConnectionManager()
+        """Test removing a configured backend group."""
+        manager = BackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -110,13 +114,13 @@ class TestConnectionManager:
 
     def test_remove_nonexistent_group(self):
         """Test removing a non-existent group."""
-        manager = ConnectionManager()
+        manager = BackendManager()
         result = manager.remove_group("nonexistent")
         assert result is False
 
     def test_configure_all(self, sqlite_config, backend_class):
         """Test configuring all groups."""
-        manager = ConnectionManager()
+        manager = BackendManager()
 
         manager.create_group(
             name="main",
@@ -138,12 +142,14 @@ class TestConnectionManager:
 
         assert manager.get_group("main").is_configured()
         assert manager.get_group("stats").is_configured()
+        # But not connected
+        assert not manager.is_connected()
 
         manager.disconnect_all()
 
     def test_disconnect_all(self, sqlite_config, backend_class):
         """Test disconnecting all groups."""
-        manager = ConnectionManager()
+        manager = BackendManager()
 
         manager.create_group(
             name="main",
@@ -168,7 +174,7 @@ class TestConnectionManager:
 
     def test_is_connected(self, sqlite_config, backend_class):
         """Test is_connected method."""
-        manager = ConnectionManager()
+        manager = BackendManager()
 
         # Empty manager is "connected" (vacuously true)
         assert manager.is_connected()
@@ -190,14 +196,20 @@ class TestConnectionManager:
         assert not manager.is_connected()
 
         manager.configure_all()
-        assert manager.is_connected()
+        # Still not connected after configure (context-based lifecycle)
+        assert not manager.is_connected()
+
+        # Connected only inside backend.context()
+        with manager.get_group("main").get_backend().context():
+            with manager.get_group("stats").get_backend().context():
+                assert manager.is_connected()
 
         manager.disconnect_all()
         assert not manager.is_connected()
 
     def test_get_group_names(self, sqlite_config, backend_class):
         """Test get_group_names method."""
-        manager = ConnectionManager()
+        manager = BackendManager()
         assert manager.get_group_names() == []
 
         manager.create_group(
@@ -220,8 +232,8 @@ class TestConnectionManager:
         assert "stats" in names
 
     def test_context_manager(self, sqlite_config, backend_class):
-        """Test using ConnectionManager as context manager."""
-        manager = ConnectionManager()
+        """Test using BackendManager as context manager."""
+        manager = BackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -238,15 +250,16 @@ class TestConnectionManager:
         with manager:
             assert manager.get_group("main").is_configured()
             assert manager.get_group("stats").is_configured()
-            assert manager.is_connected()
+            # Not connected - user manages connections
+            assert not manager.is_connected()
 
-        # After context, all should be disconnected
+        # After context, all should be cleaned up
         assert not manager.get_group("main").is_configured()
         assert not manager.get_group("stats").is_configured()
 
     def test_contains_operator(self, sqlite_config, backend_class):
         """Test __contains__ operator."""
-        manager = ConnectionManager()
+        manager = BackendManager()
 
         assert "main" not in manager
 
@@ -262,7 +275,7 @@ class TestConnectionManager:
 
     def test_len_operator(self, sqlite_config, backend_class):
         """Test __len__ operator."""
-        manager = ConnectionManager()
+        manager = BackendManager()
         assert len(manager) == 0
 
         manager.create_group(
@@ -282,19 +295,19 @@ class TestConnectionManager:
         assert len(manager) == 2
 
 
-class TestAsyncConnectionManager:
-    """Tests for AsyncConnectionManager class."""
+class TestAsyncBackendManager:
+    """Tests for AsyncBackendManager class."""
 
     @pytest.mark.asyncio
     async def test_async_create_manager(self):
-        """Test creating an AsyncConnectionManager."""
-        manager = AsyncConnectionManager()
+        """Test creating an AsyncBackendManager."""
+        manager = AsyncBackendManager()
         assert len(manager) == 0
 
     @pytest.mark.asyncio
     async def test_async_create_group(self, sqlite_config, async_backend_class):
-        """Test creating a connection group through async manager."""
-        manager = AsyncConnectionManager()
+        """Test creating a backend group through async manager."""
+        manager = AsyncBackendManager()
         group = manager.create_group(
             name="main",
             config=sqlite_config,
@@ -309,7 +322,7 @@ class TestAsyncConnectionManager:
     @pytest.mark.asyncio
     async def test_async_configure_all(self, sqlite_config, async_backend_class):
         """Test async configuring all groups."""
-        manager = AsyncConnectionManager()
+        manager = AsyncBackendManager()
 
         manager.create_group(
             name="main",
@@ -330,13 +343,15 @@ class TestAsyncConnectionManager:
 
         assert manager.get_group("main").is_configured()
         assert manager.get_group("stats").is_configured()
+        # Not connected after configure
+        assert not await manager.is_connected()
 
         await manager.disconnect_all()
 
     @pytest.mark.asyncio
     async def test_async_disconnect_all(self, sqlite_config, async_backend_class):
         """Test async disconnecting all groups."""
-        manager = AsyncConnectionManager()
+        manager = AsyncBackendManager()
 
         manager.create_group(
             name="main",
@@ -354,7 +369,7 @@ class TestAsyncConnectionManager:
     @pytest.mark.asyncio
     async def test_async_is_connected(self, sqlite_config, async_backend_class):
         """Test async is_connected method."""
-        manager = AsyncConnectionManager()
+        manager = AsyncBackendManager()
 
         manager.create_group(
             name="main",
@@ -366,15 +381,16 @@ class TestAsyncConnectionManager:
         assert not await manager.is_connected()
 
         await manager.configure_all()
-        assert await manager.is_connected()
+        # Not connected after configure
+        assert not await manager.is_connected()
 
         await manager.disconnect_all()
         assert not await manager.is_connected()
 
     @pytest.mark.asyncio
     async def test_async_remove_group(self, sqlite_config, async_backend_class):
-        """Test async removing a connection group."""
-        manager = AsyncConnectionManager()
+        """Test async removing a backend group."""
+        manager = AsyncBackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -391,8 +407,8 @@ class TestAsyncConnectionManager:
 
     @pytest.mark.asyncio
     async def test_async_context_manager(self, sqlite_config, async_backend_class):
-        """Test using AsyncConnectionManager as async context manager."""
-        manager = AsyncConnectionManager()
+        """Test using AsyncBackendManager as async context manager."""
+        manager = AsyncBackendManager()
         manager.create_group(
             name="main",
             config=sqlite_config,
@@ -409,8 +425,9 @@ class TestAsyncConnectionManager:
         async with manager:
             assert manager.get_group("main").is_configured()
             assert manager.get_group("stats").is_configured()
-            assert await manager.is_connected()
+            # Not connected - user manages connections
+            assert not await manager.is_connected()
 
-        # After context, all should be disconnected
+        # After context, all should be cleaned up
         assert not manager.get_group("main").is_configured()
         assert not manager.get_group("stats").is_configured()

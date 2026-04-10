@@ -858,19 +858,97 @@ if stats.total_validation_failures > 0:
 
 ## 线程安全
 
-### 同步连接池
+> **重要提示**：连接池使用 **QueuePool** 策略，连接可以在不同线程之间流转。这**仅适用于**驱动报告 `threadsafety >= 2`（即连接对象可以安全地跨线程共享）的数据库后端。
 
-同步 `BackendPool` 使用 `threading.RLock` 和 `threading.Condition` 实现线程安全。多个线程可以安全地并发获取和释放连接。
+### 何时使用 BackendPool
+
+| 数据库 | 驱动 threadsafety | 适合 BackendPool？ | 建议 |
+| ------ | ----------------- | ------------------ | ---- |
+| PostgreSQL (psycopg v3) | 2 | **是** | 推荐使用 BackendPool 复用连接 |
+| SQLite (sqlite3) | N/A（check_same_thread） | **否** | 使用 BackendGroup + backend.context() |
+| MySQL (mysql-connector-python) | 1 | **否** | 使用 BackendGroup + backend.context() |
+
+**SQLite 和 MySQL 不适合 BackendPool 的原因**：
+
+- **SQLite**：Python `sqlite3` 模块默认启用 `check_same_thread=True`，阻止在一个线程中创建的连接被另一个线程使用。当连接池的 `close()` 方法尝试断开工作线程创建的连接时，SQLite 会抛出跨线程警告。设置 `check_same_thread=False` 仅取消检查，但并不保证线程安全行为。
+- **MySQL**：驱动报告 `threadsafety=1`，意味着连接对象不应跨线程共享。与 SQLite 不同，MySQL 不会主动强制执行此限制——违规可能导致**静默数据损坏**，而不会产生任何错误或警告。
+
+### 何时使用 BackendGroup + backend.context()
+
+对于 SQLite 和 MySQL，请使用 `BackendGroup` 配合 `backend.context()` 代替 `BackendPool`。每个线程自行管理连接生命周期，自然避免了跨线程问题。
+
+有两种使用方式：
+
+#### 方式一：手动管理连接
+
+当需要精确控制连接时机时，直接使用 `backend.connect()` 和 `backend.disconnect()`：
+
+```python
+from rhosocial.activerecord.connection import BackendGroup
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+# 创建并配置 BackendGroup
+group = BackendGroup(
+    name="app",
+    models=[User, Post],
+    config=sqlite_config,
+    backend_class=SQLiteBackend,
+)
+group.configure()
+
+# 获取共享的后端实例
+backend = group.get_backend()
+
+# 需要时手动连接
+backend.connect()
+backend.introspect_and_adapt()
+try:
+    # 执行操作
+    User.create(name="Alice", email="alice@example.com")
+    users = User.query().all()
+finally:
+    # 完成后断开连接
+    backend.disconnect()
+```
+
+#### 方式二：上下文自动管理（推荐）
+
+使用 `backend.context()` 自动管理连接——进入上下文时自动连接，退出时自动断开：
+
+```python
+from rhosocial.activerecord.connection import BackendGroup
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+# 创建并配置 BackendGroup
+group = BackendGroup(
+    name="app",
+    models=[User, Post],
+    config=sqlite_config,
+    backend_class=SQLiteBackend,
+)
+group.configure()
+
+backend = group.get_backend()
+
+# 上下文自动管理连接和断开
+with backend.context():
+    # 已连接 — 首次进入时自动调用 introspect_and_adapt()
+    User.create(name="Alice", email="alice@example.com")
+    users = User.query().all()
+# 退出上下文时自动断开连接
+```
+
+此方式在多线程场景下尤为适用：
 
 ```python
 import threading
 
-pool = BackendPool(config)
-
 def worker(worker_id):
-    with pool.connection() as backend:
-        result = backend.execute("SELECT * FROM users WHERE id = ?", [worker_id])
-        print(f"Worker {worker_id}: {result}")
+    """每个线程通过上下文管理自己的连接。"""
+    with backend.context():  # 在当前线程中连接
+        User.create(name=f"User-{worker_id}")
+        users = User.query().all()
+    # 自动断开 —— 无跨线程问题
 
 threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
 for t in threads:
@@ -879,18 +957,49 @@ for t in threads:
     t.join()
 ```
 
+### 同步连接池（仅限 PostgreSQL）
+
+同步 `BackendPool` 使用 `threading.RLock` 和 `threading.Condition` 实现线程安全。多个线程可以安全地并发获取和释放连接。**这适用于 PostgreSQL（threadsafety=2），其连接可以安全地跨线程共享。**
+
+```python
+import threading
+from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
+
+# PostgreSQL — 适合使用连接池（threadsafety=2）
+config = PoolConfig(
+    min_size=2,
+    max_size=10,
+    backend_factory=lambda: PostgresBackend(host="localhost", database="mydb")
+)
+pool = BackendPool.create(config)
+
+def worker(worker_id):
+    with pool.connection() as backend:
+        result = backend.execute("SELECT * FROM users WHERE id = $1", [worker_id])
+        print(f"Worker {worker_id}: {result}")
+
+threads = [threading.Thread(target=worker, args=(i,)) for i in range(10)]
+for t in threads:
+    t.start()
+for t in threads:
+    t.join()
+
+pool.close()
+```
+
 ### 异步连接池
 
-`AsyncBackendPool` 使用 `asyncio.Lock` 和 `asyncio.Semaphore` 进行并发控制。它专为异步上下文设计。
+`AsyncBackendPool` 运行在单线程事件循环上，不存在跨线程问题，可在异步上下文中配合任何后端使用。
 
 ```python
 import asyncio
+from rhosocial.activerecord.connection.pool import PoolConfig, AsyncBackendPool
 
 pool = AsyncBackendPool(config)
 
 async def worker(worker_id):
     async with pool.connection() as backend:
-        result = await backend.execute("SELECT * FROM users WHERE id = ?", [worker_id])
+        result = await backend.execute("SELECT * FROM users WHERE id = $1", [worker_id])
         print(f"Worker {worker_id}: {result}")
 
 async def main():
