@@ -9,6 +9,23 @@ NOTE: Despite the "connection" module naming, this module manages
 reflects the user-facing purpose: conveniently managing groups of
 related ActiveRecord classes' backend instances and providing
 connection convenience. The actual management target is the backend.
+
+Design Intent:
+    BackendManager orchestrates multiple BackendGroup instances, each
+    representing a set of ActiveRecord classes that share a single
+    backend (and therefore a single connection). This is useful when:
+
+    1. An application connects to multiple databases — e.g., a main
+       database for business data and a stats database for analytics.
+    2. Different groups of models have independent connection lifecycles
+       — one group may stay connected while another disconnects.
+    3. Each group's models are logically related, sequential, and may
+       share transactions within the group, while different groups
+       operate on separate databases or connection scopes.
+
+    Synchronous and asynchronous versions are fully parallel (same API
+    with async/await), but MUST NOT be mixed: BackendManager with
+    synchronous groups, AsyncBackendManager with asynchronous groups.
 """
 
 from typing import Dict, List, Optional, Type
@@ -25,9 +42,19 @@ class BackendManager:
     Suitable for applications that need to connect to multiple databases,
     such as main database + statistics database, or master-slave setups.
 
+    Each group managed by this class contains ActiveRecord models that
+    share a single backend instance — they operate on the same active
+    connection simultaneously. This enables transactional consistency
+    and unified connection lifecycle within each group, while different
+    groups maintain independent backends and connection scopes.
+
     Despite the "connection" module naming, this class manages **backend
     instances**, not connections. It provides convenience for connection
     management but does not interfere with connection timing.
+
+    IMPORTANT: Synchronous BackendManager MUST be used with synchronous
+    backends and models only. For async backends and models, use
+    AsyncBackendManager instead. Mixing sync and async is not supported.
 
     Example:
         manager = BackendManager()
@@ -209,9 +236,19 @@ class AsyncBackendManager:
 
     Async version of BackendManager, suitable for async applications.
 
+    Each group managed by this class contains ActiveRecord models that
+    share a single backend instance — they operate on the same active
+    connection simultaneously. This enables transactional consistency
+    and unified connection lifecycle within each group, while different
+    groups maintain independent backends and connection scopes.
+
     Despite the "connection" module naming, this class manages **backend
     instances**, not connections. It provides convenience for connection
     management but does not interfere with connection timing.
+
+    IMPORTANT: AsyncBackendManager MUST be used with asynchronous backends
+    and models only. For synchronous backends and models, use
+    BackendManager instead. Mixing sync and async is not supported.
 
     Example:
         async with AsyncBackendManager() as manager:

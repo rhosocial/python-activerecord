@@ -11,6 +11,26 @@ reflects the user-facing purpose: conveniently managing a group of
 related ActiveRecord classes' backend instances and providing
 connection convenience. The actual management target is the backend.
 
+Design Intent:
+    The core purpose of BackendGroup is to make multiple ActiveRecord
+    classes share a single backend instance. All models in the same
+    group operate on the same active connection simultaneously, which
+    is essential when:
+
+    1. Operations across models are logically related and sequential —
+       e.g., creating an Order and its OrderItems within the same
+       transaction.
+    2. Models need a shared connection lifecycle — connect and
+       disconnect together, avoiding partial states where some models
+       are connected while others are not.
+    3. Transaction consistency is required — since all models share
+       one backend, they naturally participate in the same transaction
+       scope.
+
+    Synchronous and asynchronous versions are fully parallel (same API
+    with async/await), but MUST NOT be mixed: BackendGroup with
+    synchronous backends, AsyncBackendGroup with asynchronous backends.
+
 This module does NOT manage connection timing. Users are responsible for
 deciding when to connect and disconnect, with the following options:
 
@@ -43,11 +63,23 @@ class BackendGroup:
     actual management target: a group of related ActiveRecord classes
     sharing the same backend instance, with connection convenience provided.
 
-    All models in the group share the same backend instance, ensuring that
-    transactions work correctly across multiple models.
+    All models in the group share the same backend instance, meaning they
+    operate on the same active connection simultaneously. This design is
+    intentional for scenarios where:
+
+    - Operations across models are logically related and sequential
+      (e.g., creating an Order and its OrderItems together).
+    - Models may participate in the same transaction, requiring a
+      shared connection to ensure atomicity.
+    - Models should share a unified connection lifecycle — connect and
+      disconnect together rather than independently.
 
     This class does NOT manage connection timing. Users decide when to
     connect and disconnect using either manual calls or ``backend.context()``.
+
+    IMPORTANT: Synchronous BackendGroup MUST be used with synchronous
+    backends and models only. For async backends and models, use
+    AsyncBackendGroup instead. Mixing sync and async is not supported.
 
     Example:
         # Basic usage
@@ -238,11 +270,23 @@ class AsyncBackendGroup:
     actual management target: a group of related ActiveRecord classes
     sharing the same backend instance, with connection convenience provided.
 
-    All models in the group share the same backend instance, ensuring that
-    transactions work correctly across multiple models.
+    All models in the group share the same backend instance, meaning they
+    operate on the same active connection simultaneously. This design is
+    intentional for scenarios where:
+
+    - Operations across models are logically related and sequential
+      (e.g., creating an Order and its OrderItems together).
+    - Models may participate in the same transaction, requiring a
+      shared connection to ensure atomicity.
+    - Models should share a unified connection lifecycle — connect and
+      disconnect together rather than independently.
 
     This class does NOT manage connection timing. Users decide when to
     connect and disconnect using either manual calls or ``backend.context()``.
+
+    IMPORTANT: AsyncBackendGroup MUST be used with asynchronous backends
+    and models only. For synchronous backends and models, use BackendGroup
+    instead. Mixing sync and async is not supported.
 
     Example:
         group = AsyncBackendGroup(
