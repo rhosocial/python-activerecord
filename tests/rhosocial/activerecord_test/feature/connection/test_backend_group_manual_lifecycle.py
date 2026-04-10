@@ -362,6 +362,182 @@ class TestManualLifecycle:
         backend.disconnect()
         assert not group.is_connected()
 
+    # ============================================================
+    # Transaction Tests
+    # ============================================================
+
+    def test_manual_transaction_commit(self, manual_group):
+        """Test manual transaction: begin → CRUD → commit."""
+        group = manual_group
+        backend = group.get_backend()
+
+        backend.connect()
+        backend.introspect_and_adapt()
+
+        backend.begin_transaction()
+        assert backend.in_transaction
+        backend.execute(
+            "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+            ["Alice", "alice@example.com"],
+            options=DML_OPTIONS,
+        )
+        backend.commit_transaction()
+        assert not backend.in_transaction
+
+        # Data committed and visible
+        result = backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 1
+        assert result.data[0]["name"] == "Alice"
+
+        backend.disconnect()
+
+    def test_manual_transaction_rollback(self, manual_group):
+        """Test manual transaction: begin → CRUD → rollback."""
+        group = manual_group
+        backend = group.get_backend()
+
+        backend.connect()
+        backend.introspect_and_adapt()
+
+        backend.begin_transaction()
+        assert backend.in_transaction
+        backend.execute(
+            "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+            ["Alice", "alice@example.com"],
+            options=DML_OPTIONS,
+        )
+        backend.rollback_transaction()
+        assert not backend.in_transaction
+
+        # Data rolled back, not visible
+        result = backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 0
+
+        backend.disconnect()
+
+    def test_transaction_context_manager(self, manual_group):
+        """Test transaction as context manager with auto-commit."""
+        group = manual_group
+        backend = group.get_backend()
+
+        backend.connect()
+        backend.introspect_and_adapt()
+
+        with backend.transaction():
+            assert backend.in_transaction
+            backend.execute(
+                "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+
+        assert not backend.in_transaction
+        result = backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 1
+
+        backend.disconnect()
+
+    def test_transaction_context_rollback_on_exception(self, manual_group):
+        """Test transaction auto-rollback on exception."""
+        group = manual_group
+        backend = group.get_backend()
+
+        backend.connect()
+        backend.introspect_and_adapt()
+
+        with pytest.raises(ValueError):
+            with backend.transaction():
+                backend.execute(
+                    "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+                raise ValueError("Test exception")
+
+        assert not backend.in_transaction
+        result = backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 0
+
+        backend.disconnect()
+
+    def test_nested_transaction_savepoint(self, manual_group):
+        """Test nested transaction with savepoint."""
+        group = manual_group
+        backend = group.get_backend()
+
+        backend.connect()
+        backend.introspect_and_adapt()
+
+        with backend.transaction():
+            backend.execute(
+                "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+
+            # Nested transaction creates a savepoint
+            with backend.transaction():
+                backend.execute(
+                    "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                    ["Bob", "bob@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+            # Both records visible after inner transaction
+            result = backend.execute(
+                "SELECT * FROM manual_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 2
+
+        # Outer transaction committed
+        result = backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 2
+
+        backend.disconnect()
+
+    def test_transaction_persistence_across_connections(self, manual_group):
+        """Test committed transactions persist across connect/disconnect."""
+        group = manual_group
+        backend = group.get_backend()
+
+        # First connection: insert in transaction
+        backend.connect()
+        backend.introspect_and_adapt()
+        with backend.transaction():
+            backend.execute(
+                "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+        backend.disconnect()
+
+        # Second connection: verify data persists
+        backend.connect()
+        backend.introspect_and_adapt()
+        result = backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 1
+        assert result.data[0]["name"] == "Alice"
+        backend.disconnect()
+
 
 # ============================================================
 # Async Tests
@@ -537,3 +713,151 @@ class TestAsyncManualLifecycle:
 
         await backend.disconnect()
         assert not await group.is_connected()
+
+    # ============================================================
+    # Async Transaction Tests
+    # ============================================================
+
+    @pytest.mark.asyncio
+    async def test_async_manual_transaction_commit(self, async_manual_group):
+        """Test async manual transaction: begin → CRUD → commit."""
+        group = async_manual_group
+        backend = group.get_backend()
+
+        await backend.connect()
+        await backend.introspect_and_adapt()
+
+        await backend.begin_transaction()
+        assert backend.in_transaction
+        await backend.execute(
+            "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+            ["Alice", "alice@example.com"],
+            options=DML_OPTIONS,
+        )
+        await backend.commit_transaction()
+        assert not backend.in_transaction
+
+        result = await backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 1
+
+        await backend.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_async_manual_transaction_rollback(self, async_manual_group):
+        """Test async manual transaction: begin → CRUD → rollback."""
+        group = async_manual_group
+        backend = group.get_backend()
+
+        await backend.connect()
+        await backend.introspect_and_adapt()
+
+        await backend.begin_transaction()
+        assert backend.in_transaction
+        await backend.execute(
+            "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+            ["Alice", "alice@example.com"],
+            options=DML_OPTIONS,
+        )
+        await backend.rollback_transaction()
+        assert not backend.in_transaction
+
+        result = await backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 0
+
+        await backend.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_async_transaction_context_manager(self, async_manual_group):
+        """Test async transaction as context manager with auto-commit."""
+        group = async_manual_group
+        backend = group.get_backend()
+
+        await backend.connect()
+        await backend.introspect_and_adapt()
+
+        async with backend.transaction():
+            assert backend.in_transaction
+            await backend.execute(
+                "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+
+        assert not backend.in_transaction
+        result = await backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 1
+
+        await backend.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_async_transaction_context_rollback_on_exception(self, async_manual_group):
+        """Test async transaction auto-rollback on exception."""
+        group = async_manual_group
+        backend = group.get_backend()
+
+        await backend.connect()
+        await backend.introspect_and_adapt()
+
+        with pytest.raises(ValueError):
+            async with backend.transaction():
+                await backend.execute(
+                    "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+                raise ValueError("Async test exception")
+
+        assert not backend.in_transaction
+        result = await backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 0
+
+        await backend.disconnect()
+
+    @pytest.mark.asyncio
+    async def test_async_nested_transaction_savepoint(self, async_manual_group):
+        """Test async nested transaction with savepoint."""
+        group = async_manual_group
+        backend = group.get_backend()
+
+        await backend.connect()
+        await backend.introspect_and_adapt()
+
+        async with backend.transaction():
+            await backend.execute(
+                "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+
+            async with backend.transaction():
+                await backend.execute(
+                    "INSERT INTO manual_users (name, email) VALUES (?, ?)",
+                    ["Bob", "bob@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+            result = await backend.execute(
+                "SELECT * FROM manual_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 2
+
+        result = await backend.execute(
+            "SELECT * FROM manual_users",
+            options=DQL_OPTIONS,
+        )
+        assert len(result.data) == 2
+
+        await backend.disconnect()

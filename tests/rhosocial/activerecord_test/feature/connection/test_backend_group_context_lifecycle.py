@@ -344,6 +344,152 @@ class TestContextLifecycle:
             assert result.data[0]["title"] == "First Post"
             assert result.data[0]["name"] == "Alice"
 
+    # ============================================================
+    # Transaction Tests (within context)
+    # ============================================================
+
+    def test_transaction_in_context(self, context_group):
+        """Test transaction within backend context."""
+        group = context_group
+        backend = group.get_backend()
+
+        with backend.context() as ctx:
+            with ctx.transaction():
+                assert ctx.in_transaction
+                ctx.execute(
+                    "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+            assert not ctx.in_transaction
+            result = ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 1
+
+    def test_transaction_rollback_in_context(self, context_group):
+        """Test transaction rollback within backend context."""
+        group = context_group
+        backend = group.get_backend()
+
+        with backend.context() as ctx:
+            ctx.begin_transaction()
+            assert ctx.in_transaction
+            ctx.execute(
+                "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+            ctx.rollback_transaction()
+            assert not ctx.in_transaction
+
+            # Data rolled back, not visible
+            result = ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 0
+
+    def test_transaction_auto_rollback_on_exception_in_context(self, context_group):
+        """Test transaction auto-rollback on exception within context."""
+        group = context_group
+        backend = group.get_backend()
+
+        with backend.context() as ctx:
+            with pytest.raises(ValueError):
+                with ctx.transaction():
+                    ctx.execute(
+                        "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                        ["Alice", "alice@example.com"],
+                        options=DML_OPTIONS,
+                    )
+                    raise ValueError("Test exception")
+
+            # Transaction rolled back
+            assert not ctx.in_transaction
+            result = ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 0
+
+    def test_transaction_state_inside_outside_context(self, context_group):
+        """Test in_transaction state within and outside context."""
+        group = context_group
+        backend = group.get_backend()
+
+        # Outside context: not in transaction
+        assert not backend.in_transaction
+
+        with backend.context() as ctx:
+            # Inside context but no transaction
+            assert not ctx.in_transaction
+
+            with ctx.transaction():
+                assert ctx.in_transaction
+
+            # After transaction
+            assert not ctx.in_transaction
+
+    def test_nested_transaction_in_context(self, context_group):
+        """Test nested transaction with savepoint within context."""
+        group = context_group
+        backend = group.get_backend()
+
+        with backend.context() as ctx:
+            with ctx.transaction():
+                ctx.execute(
+                    "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+                # Nested transaction (savepoint)
+                with ctx.transaction():
+                    ctx.execute(
+                        "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                        ["Bob", "bob@example.com"],
+                        options=DML_OPTIONS,
+                    )
+
+                result = ctx.execute(
+                    "SELECT * FROM context_users",
+                    options=DQL_OPTIONS,
+                )
+                assert len(result.data) == 2
+
+            # Outer transaction committed
+            result = ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 2
+
+    def test_transaction_persistence_across_contexts(self, context_group):
+        """Test that committed transactions persist across contexts."""
+        group = context_group
+        backend = group.get_backend()
+
+        # First context: insert in transaction
+        with backend.context() as ctx:
+            with ctx.transaction():
+                ctx.execute(
+                    "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+        # Second context: verify data persists
+        with backend.context() as ctx:
+            result = ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Alice"
+
 
 # ============================================================
 # Async Tests
@@ -543,3 +689,132 @@ class TestAsyncContextLifecycle:
             )
             assert len(result.data) == 1
             assert result.data[0]["title"] == "First Post"
+
+    # ============================================================
+    # Async Transaction Tests (within context)
+    # ============================================================
+
+    @pytest.mark.asyncio
+    async def test_async_transaction_in_context(self, async_context_group):
+        """Test async transaction within backend context."""
+        group = async_context_group
+        backend = group.get_backend()
+
+        async with backend.context() as ctx:
+            async with ctx.transaction():
+                assert ctx.in_transaction
+                await ctx.execute(
+                    "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+            assert not ctx.in_transaction
+            result = await ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 1
+
+    @pytest.mark.asyncio
+    async def test_async_transaction_rollback_in_context(self, async_context_group):
+        """Test async transaction rollback within backend context."""
+        group = async_context_group
+        backend = group.get_backend()
+
+        async with backend.context() as ctx:
+            await ctx.begin_transaction()
+            assert ctx.in_transaction
+            await ctx.execute(
+                "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                ["Alice", "alice@example.com"],
+                options=DML_OPTIONS,
+            )
+            await ctx.rollback_transaction()
+            assert not ctx.in_transaction
+
+            result = await ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 0
+
+    @pytest.mark.asyncio
+    async def test_async_transaction_auto_rollback_on_exception_in_context(self, async_context_group):
+        """Test async transaction auto-rollback on exception within context."""
+        group = async_context_group
+        backend = group.get_backend()
+
+        async with backend.context() as ctx:
+            with pytest.raises(ValueError):
+                async with ctx.transaction():
+                    await ctx.execute(
+                        "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                        ["Alice", "alice@example.com"],
+                        options=DML_OPTIONS,
+                    )
+                    raise ValueError("Async test exception")
+
+            assert not ctx.in_transaction
+            result = await ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 0
+
+    @pytest.mark.asyncio
+    async def test_async_nested_transaction_in_context(self, async_context_group):
+        """Test async nested transaction with savepoint within context."""
+        group = async_context_group
+        backend = group.get_backend()
+
+        async with backend.context() as ctx:
+            async with ctx.transaction():
+                await ctx.execute(
+                    "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+                async with ctx.transaction():
+                    await ctx.execute(
+                        "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                        ["Bob", "bob@example.com"],
+                        options=DML_OPTIONS,
+                    )
+
+                result = await ctx.execute(
+                    "SELECT * FROM context_users",
+                    options=DQL_OPTIONS,
+                )
+                assert len(result.data) == 2
+
+            result = await ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 2
+
+    @pytest.mark.asyncio
+    async def test_async_transaction_persistence_across_contexts(self, async_context_group):
+        """Test that committed async transactions persist across contexts."""
+        group = async_context_group
+        backend = group.get_backend()
+
+        # First context: insert in transaction
+        async with backend.context() as ctx:
+            async with ctx.transaction():
+                await ctx.execute(
+                    "INSERT INTO context_users (name, email) VALUES (?, ?)",
+                    ["Alice", "alice@example.com"],
+                    options=DML_OPTIONS,
+                )
+
+        # Second context: verify data persists
+        async with backend.context() as ctx:
+            result = await ctx.execute(
+                "SELECT * FROM context_users",
+                options=DQL_OPTIONS,
+            )
+            assert len(result.data) == 1
+            assert result.data[0]["name"] == "Alice"
