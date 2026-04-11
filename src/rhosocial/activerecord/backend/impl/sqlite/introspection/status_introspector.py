@@ -582,3 +582,13 @@ class AsyncSQLiteStatusIntrospector(
             Empty list
         """
         return []
+
+    async def get_session_info(self) -> SessionInfo:
+        """Get current session/connection information.
+
+        SQLite doesn't have sessions, so this returns empty info.
+
+        Returns:
+            Empty SessionInfo
+        """
+        return SessionInfo()

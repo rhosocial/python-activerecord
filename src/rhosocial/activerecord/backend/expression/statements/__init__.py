@@ -11,6 +11,9 @@ to a backend-specific dialect.
 # DQL
 from .dql import SelectModifier, QueryExpression
 
+# Re-export WhereClause and ForUpdateClause from query_parts for backward compatibility
+from ..query_parts import WhereClause, ForUpdateClause
+
 # EXPLAIN
 from .explain import ExplainType, ExplainFormat, ExplainOptions, ExplainExpression
 
@@ -119,6 +122,9 @@ __all__ = [
     # DQL
     "SelectModifier",
     "QueryExpression",
+    # Re-export from query_parts for backward compatibility
+    "WhereClause",
+    "ForUpdateClause",
     # EXPLAIN
     "ExplainType",
     "ExplainFormat",
