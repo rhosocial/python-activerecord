@@ -125,7 +125,7 @@ class CTEQuery(
             cte_query.with_cte('my_cte', active_query)
 
             # Recommended: Using QueryExpression
-            query_expr = statements.SelectExpression(dialect, ...)
+            query_expr = statements.QueryExpression(dialect, ...)
             cte_query.with_cte('my_cte', query_expr)
 
             # Supported but for demonstration: raw SQL with parameters
@@ -427,7 +427,7 @@ class AsyncCTEQuery(
             cte_query.with_cte('my_cte', active_query)
 
             # Recommended: Using QueryExpression
-            query_expr = statements.SelectExpression(dialect, ...)
+            query_expr = statements.QueryExpression(dialect, ...)
             cte_query.with_cte('my_cte', query_expr)
 
             # Supported but for demonstration: raw SQL with parameters

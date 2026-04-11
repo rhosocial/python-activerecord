@@ -5,7 +5,7 @@ SQLite date/time function factories.
 Functions: date_func, time_func, datetime_func, julianday, strftime_func
 """
 
-from typing import Union, Optional, TYPE_CHECKING
+from typing import Union, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.expression import bases, core
 

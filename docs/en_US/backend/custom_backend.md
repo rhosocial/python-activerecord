@@ -139,6 +139,55 @@ The Rhosocial ActiveRecord test suite is designed to be protocol-aware. This mea
 
 Therefore, it is crucial to accurately implement the `supports_*` methods in your dialect. Do not return `True` for features you haven't fully implemented or verified.
 
+## Constraint Capability Detection
+
+rhosocial-activerecord provides the `ConstraintSupport` protocol for detecting database capabilities regarding SQL standard constraint features.
+
+### Supported Constraint Types
+
+| Category | Feature | SQL Standard |
+|----------|---------|--------------|
+| Basic Constraints | PRIMARY KEY, UNIQUE, NOT NULL, CHECK, FOREIGN KEY | SQL-86/SQL-92 |
+| FK Actions | ON DELETE, ON UPDATE | SQL-92 |
+| Match Modes | MATCH {SIMPLE\|PARTIAL\|FULL} | SQL:1999 |
+| Deferred Constraints | DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE | SQL:1999 |
+| Constraint Control | ENFORCED / NOT ENFORCED | SQL:2016 |
+| ALTER TABLE | ADD CONSTRAINT, DROP CONSTRAINT | SQL-92 |
+
+### Implementation Example
+
+```python
+from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
+from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
+
+class MyDialect(ConstraintMixin, ConstraintSupport):
+    def supports_check_constraint(self) -> bool:
+        """Determine CHECK constraint support based on database version"""
+        return self.version >= (8, 0, 0)
+
+    def supports_fk_match(self) -> bool:
+        """SQLite doesn't support MATCH clause"""
+        return False
+```
+
+### Usage Example
+
+```python
+if dialect.supports_check_constraint():
+    # Can use CHECK constraint
+    pass
+
+if dialect.supports_add_constraint():
+    # Can use ALTER TABLE ADD CONSTRAINT
+    pass
+```
+
+### SQLite Specific Notes
+
+SQLite doesn't support `ALTER TABLE ADD/DROP CONSTRAINT`, nor does it support `MATCH` clause, `DEFERRABLE` table constraints, and `ENFORCED/NOT ENFORCED` control. When implementing SQLite dialect, these methods should return `False`.
+
+> 💡 **AI Prompt Example**: "How do I implement constraint capability detection in a custom backend? What are the differences in constraint support across databases?"
+
 ## Backend CLI Support
 
 Backends can also serve as command-line tools by implementing a `__main__.py` module. This is useful for debugging, quick database access, or testing your implementation.

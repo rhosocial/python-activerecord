@@ -496,14 +496,6 @@ class AsyncSQLiteStatusIntrospector(
         """
         return ConnectionInfo()
 
-    async def get_session_info(self) -> SessionInfo:
-        """Get current session/connection information (empty for SQLite).
-
-        Returns:
-            Empty SessionInfo
-        """
-        return SessionInfo()
-
     async def get_storage_info(self) -> StorageInfo:
         """Get storage information.
 
@@ -581,14 +573,6 @@ class AsyncSQLiteStatusIntrospector(
 
         return databases
 
-    async def get_session_info(self) -> SessionInfo:
-        """Get current session/connection information (empty for SQLite).
-
-        Returns:
-            Empty SessionInfo
-        """
-        return SessionInfo()
-
     async def list_users(self) -> List[UserInfo]:
         """List users.
 
@@ -598,3 +582,13 @@ class AsyncSQLiteStatusIntrospector(
             Empty list
         """
         return []
+
+    async def get_session_info(self) -> SessionInfo:
+        """Get current session/connection information.
+
+        SQLite doesn't have sessions, so this returns empty info.
+
+        Returns:
+            Empty SessionInfo
+        """
+        return SessionInfo()
