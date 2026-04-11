@@ -32,6 +32,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ViewSupport,
     # DDL Protocols
     TableSupport,
+    ConstraintSupport,
     TruncateSupport,
     SchemaSupport,
     IndexSupport,
@@ -64,6 +65,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     ViewMixin,
     # DDL Mixins
     TableMixin,
+    ConstraintMixin,
     TruncateMixin,
     SchemaMixin,
     IndexMixin,
@@ -135,6 +137,7 @@ class SQLiteDialect(
     ViewMixin,
     # DDL Mixins
     TableMixin,
+    ConstraintMixin,
     TruncateMixin,
     SchemaMixin,
     IndexMixin,
@@ -168,6 +171,7 @@ class SQLiteDialect(
     ViewSupport,
     # DDL Protocols
     TableSupport,
+    ConstraintSupport,
     TruncateSupport,
     SchemaSupport,
     IndexSupport,
@@ -453,6 +457,28 @@ class SQLiteDialect(
 
     def supports_table_tablespace(self) -> bool:
         """Whether table tablespace is supported."""
+        return False
+
+    # ConstraintSupport protocol implementation
+    # SQLite does not support ALTER TABLE ADD/DROP CONSTRAINT
+    def supports_add_constraint(self) -> bool:
+        """SQLite does not support ALTER TABLE ADD CONSTRAINT."""
+        return False
+
+    def supports_drop_constraint(self) -> bool:
+        """SQLite does not support ALTER TABLE DROP CONSTRAINT."""
+        return False
+
+    def supports_fk_match(self) -> bool:
+        """SQLite does not support MATCH clause in FOREIGN KEY."""
+        return False
+
+    def supports_deferrable_constraint(self) -> bool:
+        """SQLite does not support DEFERRABLE table constraints."""
+        return False
+
+    def supports_constraint_enforced(self) -> bool:
+        """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""
         return False
 
     # IndexSupport protocol implementation

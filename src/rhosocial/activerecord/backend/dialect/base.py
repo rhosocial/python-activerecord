@@ -465,6 +465,10 @@ class SQLDialectBase:
     def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, tuple]:
         """Format ADD CONSTRAINT action per SQL standard."""
         from ..expression.statements import TableConstraintType, ReferentialAction, ForeignKeyConstraint
+        from .exceptions import UnsupportedFeatureError
+
+        if not self.supports_add_constraint():
+            raise UnsupportedFeatureError(self.name, "ALTER TABLE ADD CONSTRAINT")
 
         all_params = []
         parts = []
@@ -542,6 +546,11 @@ class SQLDialectBase:
 
     def format_drop_table_constraint_action(self, action: "DropTableConstraint") -> Tuple[str, tuple]:
         """Format DROP CONSTRAINT action per SQL standard."""
+        from .exceptions import UnsupportedFeatureError
+
+        if not self.supports_drop_constraint():
+            raise UnsupportedFeatureError(self.name, "ALTER TABLE DROP CONSTRAINT")
+
         result = f"DROP CONSTRAINT {self.format_identifier(action.constraint_name)}"
         if hasattr(action, "cascade") and action.cascade:
             result += " CASCADE"
