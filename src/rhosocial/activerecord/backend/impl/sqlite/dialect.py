@@ -959,11 +959,21 @@ class SQLiteDialect(
 
     def _handle_foreign_key_constraint(self, constraint) -> Tuple[str, tuple]:
         """Handle FOREIGN KEY constraint formatting."""
+        from rhosocial.activerecord.backend.expression.statements import ReferentialAction
+
         if constraint.foreign_key_reference is None:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
         referenced_table, referenced_columns = constraint.foreign_key_reference
         ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+        result = f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+
+        # ON DELETE / ON UPDATE (SQLite fully supports all referential actions)
+        if constraint.on_delete is not None and constraint.on_delete != ReferentialAction.NO_ACTION:
+            result += f" ON DELETE {constraint.on_delete.value}"
+        if constraint.on_update is not None and constraint.on_update != ReferentialAction.NO_ACTION:
+            result += f" ON UPDATE {constraint.on_update.value}"
+
+        return result, ()
 
     def _handle_generated_column(self, col_def) -> Tuple[str, tuple]:
         """Handle generated column formatting."""

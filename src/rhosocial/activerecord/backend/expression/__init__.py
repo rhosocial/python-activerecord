@@ -262,11 +262,33 @@ from .functions import (
     grouping_sets,
     rollup,
     cube,
-    # Additional functions
+    # String functions
     lower,
     upper,
     # String concatenation operator
     concat_op,
+    # SQL standard math functions
+    mod,
+    sign,
+    truncate,
+    # SQL standard string functions
+    chr_,
+    ascii,
+    octet_length,
+    bit_length,
+    position,
+    overlay,
+    translate,
+    repeat,
+    space,
+    # SQL standard datetime functions
+    current_timestamp,
+    localtimestamp,
+    extract,
+    # System information function factories
+    current_user,
+    session_user,
+    system_user,
 )
 
 __all__ = [
@@ -498,4 +520,22 @@ __all__ = [
     "rollup",
     "cube",
     "concat_op",
+    "mod",
+    "sign",
+    "truncate",
+    "chr_",
+    "ascii",
+    "octet_length",
+    "bit_length",
+    "position",
+    "overlay",
+    "translate",
+    "repeat",
+    "space",
+    "current_timestamp",
+    "localtimestamp",
+    "extract",
+    "current_user",
+    "session_user",
+    "system_user",
 ]

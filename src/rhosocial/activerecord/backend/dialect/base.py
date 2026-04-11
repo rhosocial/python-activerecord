@@ -464,7 +464,7 @@ class SQLDialectBase:
 
     def format_add_table_constraint_action(self, action: "AddTableConstraint") -> Tuple[str, tuple]:
         """Format ADD CONSTRAINT action per SQL standard."""
-        from ..expression.statements import TableConstraintType
+        from ..expression.statements import TableConstraintType, ReferentialAction, ForeignKeyConstraint
 
         all_params = []
         parts = []
@@ -503,9 +503,29 @@ class SQLDialectBase:
                     parts.append(f"FOREIGN KEY ({cols_str}) REFERENCES {ref_table}")
             else:
                 parts.append("FOREIGN KEY")
+
+            # ON DELETE / ON UPDATE (from ForeignKeyConstraint)
+            if isinstance(action.constraint, ForeignKeyConstraint):
+                if action.constraint.match_type:
+                    parts.append(f"MATCH {action.constraint.match_type}")
+                if action.constraint.on_delete != ReferentialAction.NO_ACTION:
+                    parts.append(f"ON DELETE {action.constraint.on_delete.value}")
+                if action.constraint.on_update != ReferentialAction.NO_ACTION:
+                    parts.append(f"ON UPDATE {action.constraint.on_update.value}")
         else:
             # For unknown constraint types, just add the name
             parts.append("UNKNOWN CONSTRAINT")
+
+        # DEFERRABLE / NOT DEFERRABLE (SQL standard, PostgreSQL)
+        if action.constraint.deferrable is True:
+            if action.constraint.initially_deferred is True:
+                parts.append("DEFERRABLE INITIALLY DEFERRED")
+            elif action.constraint.initially_deferred is False:
+                parts.append("DEFERRABLE INITIALLY IMMEDIATE")
+            else:
+                parts.append("DEFERRABLE")
+        elif action.constraint.deferrable is False:
+            parts.append("NOT DEFERRABLE")
 
         return f"ADD {' '.join(parts)}", tuple(all_params)
 
@@ -1494,11 +1514,32 @@ class SQLDialectBase:
 
     def _format_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format FOREIGN KEY constraint."""
+        from ..expression.statements import ReferentialAction
+
         if constraint.foreign_key_reference is None:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
         referenced_table, referenced_columns = constraint.foreign_key_reference
         ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+        result = f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+
+        # ON DELETE / ON UPDATE
+        if constraint.on_delete is not None and constraint.on_delete != ReferentialAction.NO_ACTION:
+            result += f" ON DELETE {constraint.on_delete.value}"
+        if constraint.on_update is not None and constraint.on_update != ReferentialAction.NO_ACTION:
+            result += f" ON UPDATE {constraint.on_update.value}"
+
+        # DEFERRABLE / NOT DEFERRABLE
+        if constraint.deferrable is True:
+            if constraint.initially_deferred is True:
+                result += " DEFERRABLE INITIALLY DEFERRED"
+            elif constraint.initially_deferred is False:
+                result += " DEFERRABLE INITIALLY IMMEDIATE"
+            else:
+                result += " DEFERRABLE"
+        elif constraint.deferrable is False:
+            result += " NOT DEFERRABLE"
+
+        return result, ()
 
     def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition for use in ADD COLUMN clauses."""

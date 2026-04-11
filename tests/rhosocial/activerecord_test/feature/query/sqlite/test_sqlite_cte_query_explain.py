@@ -196,12 +196,12 @@ class TestSqliteCTEQueryExplain:
         dialect = backend.dialect
 
         # Create a QueryExpression directly (this implements ToSQLProtocol)
-        from rhosocial.activerecord.backend.expression import statements, core
+        from rhosocial.activerecord.backend.expression import statements, core, query_parts
         query_expr = statements.QueryExpression(
             dialect,
             select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
             from_=core.TableExpression(dialect, Order.table_name()),
-            where=statements.WhereClause(dialect, condition=core.Column(dialect, "status") == core.Literal(dialect, 'active'))
+            where=query_parts.WhereClause(dialect, condition=core.Column(dialect, "status") == core.Literal(dialect, 'active'))
         )
 
         # Create a CTE that uses the QueryExpression as its source
@@ -399,12 +399,12 @@ class TestAsyncSqliteCTEQueryExplain:
         dialect = backend.dialect
 
         # Create a QueryExpression directly (this implements ToSQLProtocol)
-        from rhosocial.activerecord.backend.expression import statements, core
+        from rhosocial.activerecord.backend.expression import statements, core, query_parts
         query_expr = statements.QueryExpression(
             dialect,
             select=[core.Column(dialect, "id"), core.Column(dialect, "status"), core.Column(dialect, "total_amount")],
             from_=core.TableExpression(dialect, AsyncOrder.table_name()),
-            where=statements.WhereClause(dialect, condition=core.Column(dialect, "status") == core.Literal(dialect, 'active'))
+            where=query_parts.WhereClause(dialect, condition=core.Column(dialect, "status") == core.Literal(dialect, 'active'))
         )
 
         # Create a CTE that uses the QueryExpression as its source
