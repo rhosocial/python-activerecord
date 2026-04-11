@@ -5,7 +5,7 @@ from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
 from ..aggregates import AggregateFunctionCall
-from ..core import Column, Literal, WildcardExpression
+from ..core import Column, WildcardExpression
 from ..operators import RawSQLExpression
 
 if TYPE_CHECKING:  # pragma: no cover

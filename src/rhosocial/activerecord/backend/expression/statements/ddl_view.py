@@ -1,14 +1,15 @@
 # src/rhosocial/activerecord/backend/expression/statements/ddl_view.py
 """View DDL statement expressions."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from .dql import QueryExpression
 
 
 @dataclass

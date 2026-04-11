@@ -5,11 +5,12 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression, SQLPredicate
+from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
 from ..core import TableExpression
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from .dql import QueryExpression
 
 
 class ColumnConstraintType(Enum):

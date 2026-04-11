@@ -21,7 +21,6 @@ from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import ConnectionError
 from rhosocial.activerecord.backend.explain import SyncExplainBackendMixin
-from rhosocial.activerecord.backend.explain.types import BaseExplainResult
 from rhosocial.activerecord.backend.introspection.backend_mixin import IntrospectorBackendMixin
 from rhosocial.activerecord.backend.options import DeleteOptions, InsertOptions, UpdateOptions
 from rhosocial.activerecord.backend.result import QueryResult

@@ -8,6 +8,7 @@ based on the SQLite version provided at initialization.
 
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
     CTESupport,

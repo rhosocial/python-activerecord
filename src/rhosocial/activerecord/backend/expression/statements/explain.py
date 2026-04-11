@@ -1,9 +1,9 @@
 # src/rhosocial/activerecord/backend/expression/statements/explain.py
 """EXPLAIN statement expressions."""
 
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
-from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
+from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from ..bases import BaseExpression
 

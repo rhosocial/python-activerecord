@@ -3,7 +3,7 @@
 
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase

@@ -4,7 +4,7 @@
 from typing import Union, Optional, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import Column, FunctionCall, Literal
+from ..core import FunctionCall, Literal
 from ..operators import BinaryExpression, RawSQLExpression
 
 if TYPE_CHECKING:  # pragma: no cover

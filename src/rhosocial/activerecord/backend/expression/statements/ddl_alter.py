@@ -2,11 +2,11 @@
 """ALTER TABLE DDL statement expressions."""
 
 import abc
-from dataclasses import dataclass, field
+from dataclasses import dataclass
 from enum import Enum
 from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 
-from ..bases import BaseExpression
+from ..bases import BaseExpression, SQLQueryAndParams
 from .ddl_table import ColumnDefinition, TableConstraint, IndexDefinition
 
 if TYPE_CHECKING:  # pragma: no cover

@@ -19,8 +19,6 @@ from ._types import FromSourceType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
-    from ..query_sources import SetOperationExpression, ValuesExpression, TableFunctionExpression, LateralExpression
-    from ..query_parts import JoinExpression
 
 
 # region Query Statement

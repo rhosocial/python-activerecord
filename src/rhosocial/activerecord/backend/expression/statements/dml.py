@@ -12,6 +12,7 @@ from ..query_parts import WhereClause
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
+    from .dql import QueryExpression
     from ..query_sources import ValuesExpression, TableFunctionExpression, LateralExpression, SetOperationExpression
     from ..query_parts import JoinExpression
 

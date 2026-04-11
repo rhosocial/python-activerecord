@@ -4,7 +4,7 @@
 from typing import Union, Optional, Any, TYPE_CHECKING
 
 from ..bases import BaseExpression
-from ..core import Column, FunctionCall, Literal
+from ..core import Column, Literal
 from ..advanced_functions import WindowFunctionCall
 
 if TYPE_CHECKING:  # pragma: no cover
