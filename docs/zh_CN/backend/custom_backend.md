@@ -139,6 +139,55 @@ Rhosocial ActiveRecord 的测试套件被设计为能够感知协议。这意味
 
 因此，准确实现方言中的 `supports_*` 方法至关重要。切勿对您尚未完全实现或验证的特性返回 `True`。
 
+## 约束能力检测
+
+rhosocial-activerecord 提供了 `ConstraintSupport` 协议，用于检测数据库对 SQL 标准约束功能的支持能力。
+
+### 支持的约束类型
+
+| 类别 | 特性 | SQL 标准 |
+|------|------|----------|
+| 基础约束 | PRIMARY KEY, UNIQUE, NOT NULL, CHECK, FOREIGN KEY | SQL-86/SQL-92 |
+| 外键动作 | ON DELETE, ON UPDATE | SQL-92 |
+| 匹配模式 | MATCH {SIMPLE\|PARTIAL\|FULL} | SQL:1999 |
+| 延迟约束 | DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE | SQL:1999 |
+| 约束控制 | ENFORCED / NOT ENFORCED | SQL:2016 |
+| ALTER TABLE | ADD CONSTRAINT, DROP CONSTRAINT | SQL-92 |
+
+### 实现示例
+
+```python
+from rhosocial.activerecord.backend.dialect.mixins import ConstraintMixin
+from rhosocial.activerecord.backend.dialect.protocols import ConstraintSupport
+
+class MyDialect(ConstraintMixin, ConstraintSupport):
+    def supports_check_constraint(self) -> bool:
+        """根据数据库版本判断是否支持 CHECK 约束"""
+        return self.version >= (8, 0, 0)
+
+    def supports_fk_match(self) -> bool:
+        """SQLite 不支持 MATCH 子句"""
+        return False
+```
+
+### 使用示例
+
+```python
+if dialect.supports_check_constraint():
+    # 可以使用 CHECK 约束
+    pass
+
+if dialect.supports_add_constraint():
+    # 可以使用 ALTER TABLE ADD CONSTRAINT
+    pass
+```
+
+### SQLite 特殊说明
+
+SQLite 不支持 `ALTER TABLE ADD/DROP CONSTRAINT`，也不支持 `MATCH` 子句、`DEFERRABLE` 表约束和 `ENFORCED/NOT ENFORCED` 控制。在实现 SQLite 方言时，这些方法应返回 `False`。
+
+> 💡 **AI提示词示例**: "如何在自定义后端中实现约束能力检测？不同数据库对约束的支持有哪些差异？"
+
 ## 后端命令行 (CLI) 支持
 
 后端还可以通过实现 `__main__.py` 模块作为命令行工具使用。这对于调试、快速访问数据库或测试您的实现非常有用。

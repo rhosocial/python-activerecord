@@ -7,9 +7,9 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.statements import (
     TableConstraint, TableConstraintType,
     ReferentialAction, ForeignKeyConstraint, ColumnConstraint, ColumnConstraintType,
-    QueryExpression, ForUpdateClause, SelectModifier
+    QueryExpression, SelectModifier
 )
-from rhosocial.activerecord.backend.expression.query_parts import WhereClause
+from rhosocial.activerecord.backend.expression.query_parts import ForUpdateClause, WhereClause
 from rhosocial.activerecord.backend.expression.core import TableExpression
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 

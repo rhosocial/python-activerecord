@@ -54,7 +54,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SequenceSupport,
     TemporalTableSupport,
 )
-from rhosocial.activerecord.backend.introspection.status import StatusCategory, StatusItem
+from rhosocial.activerecord.backend.introspection.status import StatusCategory
 
 try:
     from rich.logging import RichHandler
@@ -176,7 +176,7 @@ def parse_args():
     subparsers = parser.add_subparsers(dest="command", help="Available commands")
 
     # info subcommand
-    info_parser = subparsers.add_parser(
+    subparsers.add_parser(
         "info",
         help="Display SQLite environment information",
         parents=[parent_parser],
@@ -623,7 +623,9 @@ def handle_info(args, provider):
     return info
 
 
-def _display_info_rich(info: Dict, verbose: int, sqlite_version: str, is_file_database: bool = True, db_path: str = ":memory:"):
+def _display_info_rich(
+    info: Dict, verbose: int, sqlite_version: str, is_file_database: bool = True, db_path: str = ":memory:"
+):
     """Display info using rich console.
 
     Args:
@@ -991,10 +993,6 @@ def _format_size(size_bytes: int) -> str:
             return f"{size:.1f} {unit}"
         size /= 1024
     return f"{size:.1f} PB"
-
-
-# Import StatusCategory for status display
-from rhosocial.activerecord.backend.introspection.status import StatusCategory
 
 
 def main():

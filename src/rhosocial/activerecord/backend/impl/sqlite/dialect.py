@@ -8,6 +8,7 @@ based on the SQLite version provided at initialization.
 
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
+from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
     CTESupport,
@@ -32,6 +33,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ViewSupport,
     # DDL Protocols
     TableSupport,
+    ConstraintSupport,
     TruncateSupport,
     SchemaSupport,
     IndexSupport,
@@ -64,6 +66,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     ViewMixin,
     # DDL Mixins
     TableMixin,
+    ConstraintMixin,
     TruncateMixin,
     SchemaMixin,
     IndexMixin,
@@ -135,6 +138,7 @@ class SQLiteDialect(
     ViewMixin,
     # DDL Mixins
     TableMixin,
+    ConstraintMixin,
     TruncateMixin,
     SchemaMixin,
     IndexMixin,
@@ -168,6 +172,7 @@ class SQLiteDialect(
     ViewSupport,
     # DDL Protocols
     TableSupport,
+    ConstraintSupport,
     TruncateSupport,
     SchemaSupport,
     IndexSupport,
@@ -453,6 +458,28 @@ class SQLiteDialect(
 
     def supports_table_tablespace(self) -> bool:
         """Whether table tablespace is supported."""
+        return False
+
+    # ConstraintSupport protocol implementation
+    # SQLite does not support ALTER TABLE ADD/DROP CONSTRAINT
+    def supports_add_constraint(self) -> bool:
+        """SQLite does not support ALTER TABLE ADD CONSTRAINT."""
+        return False
+
+    def supports_drop_constraint(self) -> bool:
+        """SQLite does not support ALTER TABLE DROP CONSTRAINT."""
+        return False
+
+    def supports_fk_match(self) -> bool:
+        """SQLite does not support MATCH clause in FOREIGN KEY."""
+        return False
+
+    def supports_deferrable_constraint(self) -> bool:
+        """SQLite does not support DEFERRABLE table constraints."""
+        return False
+
+    def supports_constraint_enforced(self) -> bool:
+        """SQLite does not support ENFORCED/NOT ENFORCED constraint control."""
         return False
 
     # IndexSupport protocol implementation
@@ -959,11 +986,21 @@ class SQLiteDialect(
 
     def _handle_foreign_key_constraint(self, constraint) -> Tuple[str, tuple]:
         """Handle FOREIGN KEY constraint formatting."""
+        from rhosocial.activerecord.backend.expression.statements import ReferentialAction
+
         if constraint.foreign_key_reference is None:
             raise ValueError("Foreign key constraint must have a foreign_key_reference specified.")
         referenced_table, referenced_columns = constraint.foreign_key_reference
         ref_cols_str = ", ".join(self.format_identifier(col) for col in referenced_columns)
-        return f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})", ()
+        result = f" REFERENCES {self.format_identifier(referenced_table)}({ref_cols_str})"
+
+        # ON DELETE / ON UPDATE (SQLite fully supports all referential actions)
+        if constraint.on_delete is not None and constraint.on_delete != ReferentialAction.NO_ACTION:
+            result += f" ON DELETE {constraint.on_delete.value}"
+        if constraint.on_update is not None and constraint.on_update != ReferentialAction.NO_ACTION:
+            result += f" ON UPDATE {constraint.on_update.value}"
+
+        return result, ()
 
     def _handle_generated_column(self, col_def) -> Tuple[str, tuple]:
         """Handle generated column formatting."""

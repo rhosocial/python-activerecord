@@ -1193,14 +1193,6 @@ class TableMixin:
         """Whether RENAME TABLE is supported."""
         return True
 
-    def supports_add_constraint(self) -> bool:
-        """Whether ADD CONSTRAINT is supported."""
-        return True
-
-    def supports_drop_constraint(self) -> bool:
-        """Whether DROP CONSTRAINT is supported."""
-        return True
-
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "CREATE TABLE")
@@ -1212,6 +1204,75 @@ class TableMixin:
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement. Override in dialect."""
         raise UnsupportedFeatureError(self.name, "ALTER TABLE")
+
+
+class ConstraintMixin:
+    """Mixin for DDL constraint capability detection.
+
+    Default values are True for all methods, enabling DummyDialect
+    to validate the full constraint implementation. Actual backends
+    override methods as needed to reflect their real capabilities.
+    """
+
+    # Basic constraint types (SQL-86/SQL-92)
+
+    def supports_primary_key_constraint(self) -> bool:
+        """Whether PRIMARY KEY constraints are supported."""
+        return True
+
+    def supports_unique_constraint(self) -> bool:
+        """Whether UNIQUE constraints are supported."""
+        return True
+
+    def supports_not_null_constraint(self) -> bool:
+        """Whether NOT NULL constraints are supported."""
+        return True
+
+    def supports_check_constraint(self) -> bool:
+        """Whether CHECK constraints are supported and enforced."""
+        return True
+
+    def supports_foreign_key_constraint(self) -> bool:
+        """Whether FOREIGN KEY constraints are supported."""
+        return True
+
+    # FK referential actions (SQL-92)
+
+    def supports_fk_on_delete(self) -> bool:
+        """Whether ON DELETE referential actions are supported."""
+        return True
+
+    def supports_fk_on_update(self) -> bool:
+        """Whether ON UPDATE referential actions are supported."""
+        return True
+
+    # FK match modes (SQL:1999)
+
+    def supports_fk_match(self) -> bool:
+        """Whether MATCH {SIMPLE|PARTIAL|FULL} is supported."""
+        return True
+
+    # Constraint deferral (SQL:1999)
+
+    def supports_deferrable_constraint(self) -> bool:
+        """Whether DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE is supported."""
+        return True
+
+    # Constraint enforcement control (SQL:2016)
+
+    def supports_constraint_enforced(self) -> bool:
+        """Whether ENFORCED / NOT ENFORCED constraint control is supported."""
+        return True
+
+    # ALTER TABLE constraint operations (SQL-92)
+
+    def supports_add_constraint(self) -> bool:
+        """Whether ALTER TABLE ADD CONSTRAINT is supported."""
+        return True
+
+    def supports_drop_constraint(self) -> bool:
+        """Whether ALTER TABLE DROP CONSTRAINT is supported."""
+        return True
 
 
 class ViewMixin:

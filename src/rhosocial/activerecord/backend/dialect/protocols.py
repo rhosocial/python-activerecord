@@ -777,14 +777,6 @@ class TableSupport(Protocol):
         """Whether RENAME TABLE is supported."""
         ...  # pragma: no cover
 
-    def supports_add_constraint(self) -> bool:
-        """Whether ADD CONSTRAINT is supported."""
-        ...  # pragma: no cover
-
-    def supports_drop_constraint(self) -> bool:
-        """Whether DROP CONSTRAINT is supported."""
-        ...  # pragma: no cover
-
     def format_create_table_statement(self, expr: "CreateTableExpression") -> Tuple[str, tuple]:
         """Format CREATE TABLE statement."""
         ...  # pragma: no cover
@@ -795,6 +787,85 @@ class TableSupport(Protocol):
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class ConstraintSupport(Protocol):
+    """
+    Protocol for DDL constraint capability detection.
+
+    Based on SQL standard constraint features. All methods represent
+    capabilities defined in SQL standards (SQL-86 through SQL:2016).
+    Backend-proprietary features (e.g., PostgreSQL NOT VALID, EXCLUDE)
+    are defined in their own backend-specific protocols.
+
+    SQL Standard Reference:
+    - SQL-86: PRIMARY KEY, UNIQUE, NOT NULL, FOREIGN KEY
+    - SQL-89: FOREIGN KEY (enhanced)
+    - SQL-92: CHECK, ON DELETE/UPDATE, ADD/DROP CONSTRAINT
+    - SQL:1999: MATCH (SIMPLE/PARTIAL/FULL), DEFERRABLE/INITIALLY
+    - SQL:2016: ENFORCED/NOT ENFORCED
+    """
+
+    # Basic constraint types (SQL-86/SQL-92)
+
+    def supports_primary_key_constraint(self) -> bool:
+        """Whether PRIMARY KEY constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_unique_constraint(self) -> bool:
+        """Whether UNIQUE constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_not_null_constraint(self) -> bool:
+        """Whether NOT NULL constraints are supported."""
+        ...  # pragma: no cover
+
+    def supports_check_constraint(self) -> bool:
+        """Whether CHECK constraints are supported and enforced."""
+        ...  # pragma: no cover
+
+    def supports_foreign_key_constraint(self) -> bool:
+        """Whether FOREIGN KEY constraints are supported."""
+        ...  # pragma: no cover
+
+    # FK referential actions (SQL-92)
+
+    def supports_fk_on_delete(self) -> bool:
+        """Whether ON DELETE referential actions are supported."""
+        ...  # pragma: no cover
+
+    def supports_fk_on_update(self) -> bool:
+        """Whether ON UPDATE referential actions are supported."""
+        ...  # pragma: no cover
+
+    # FK match modes (SQL:1999)
+
+    def supports_fk_match(self) -> bool:
+        """Whether MATCH {SIMPLE|PARTIAL|FULL} is supported."""
+        ...  # pragma: no cover
+
+    # Constraint deferral (SQL:1999)
+
+    def supports_deferrable_constraint(self) -> bool:
+        """Whether DEFERRABLE / INITIALLY DEFERRED/IMMEDIATE is supported."""
+        ...  # pragma: no cover
+
+    # Constraint enforcement control (SQL:2016)
+
+    def supports_constraint_enforced(self) -> bool:
+        """Whether ENFORCED / NOT ENFORCED constraint control is supported."""
+        ...  # pragma: no cover
+
+    # ALTER TABLE constraint operations (SQL-92)
+
+    def supports_add_constraint(self) -> bool:
+        """Whether ALTER TABLE ADD CONSTRAINT is supported."""
+        ...  # pragma: no cover
+
+    def supports_drop_constraint(self) -> bool:
+        """Whether ALTER TABLE DROP CONSTRAINT is supported."""
         ...  # pragma: no cover
 
 

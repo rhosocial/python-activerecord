@@ -63,6 +63,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     ILIKESupport,
     # DDL Protocols
     TableSupport,
+    ConstraintSupport,
     ViewSupport,
     TruncateSupport,
     SchemaSupport,
@@ -98,6 +99,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     ILIKEMixin,
     # DDL Mixins
     TableMixin,
+    ConstraintMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -137,6 +139,7 @@ class DummyDialect(
     ILIKEMixin,
     # DDL Mixins
     TableMixin,
+    ConstraintMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -169,6 +172,7 @@ class DummyDialect(
     ILIKESupport,
     # DDL Protocols
     TableSupport,
+    ConstraintSupport,
     ViewSupport,
     TruncateSupport,
     SchemaSupport,
@@ -358,10 +362,18 @@ class DummyDialect(
     def supports_rename_table(self) -> bool:
         return True
 
-    def supports_add_constraint(self) -> bool:
+    # ConstraintSupport methods inherited from ConstraintMixin (all default to True)
+
+    # PostgreSQL-proprietary constraint features (for full SQL generation testing)
+    # These are defined directly since DummyDialect cannot import from postgres package.
+    # PostgresConstraintSupport/PostgresConstraintMixin in postgres package
+    # define the same methods with identical signatures.
+    def supports_constraint_novalidate(self) -> bool:
+        """Whether NOT VALID constraint option is supported (PG-proprietary)."""
         return True
 
-    def supports_drop_constraint(self) -> bool:
+    def supports_exclude_constraint(self) -> bool:
+        """Whether EXCLUDE constraints are supported (PG-proprietary)."""
         return True
 
     # endregion

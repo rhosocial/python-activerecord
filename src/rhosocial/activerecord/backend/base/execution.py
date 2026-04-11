@@ -35,7 +35,9 @@ class ExecutionMixin:
     behavior across all database operations.
     """
 
-    def execute(self, sql: str, params: Optional[Tuple] = None, *, options: Optional[ExecutionOptions] = None) -> QueryResult:
+    def execute(
+        self, sql: str, params: Optional[Tuple] = None, *, options: Optional[ExecutionOptions] = None
+    ) -> QueryResult:
         """
         Execute a SQL statement synchronously with comprehensive parameter and result processing.
 
@@ -177,7 +179,9 @@ class AsyncExecutionMixin:
     in a single location to ensure consistent behavior across all async database operations.
     """
 
-    async def execute(self, sql: str, params: Optional[Tuple] = None, *, options: Optional[ExecutionOptions] = None) -> QueryResult:
+    async def execute(
+        self, sql: str, params: Optional[Tuple] = None, *, options: Optional[ExecutionOptions] = None
+    ) -> QueryResult:
         """
         Execute a SQL statement asynchronously with comprehensive parameter and result processing.
 
