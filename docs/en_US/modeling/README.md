@@ -16,6 +16,14 @@ This chapter details how to define powerful data models.
   - How to define model fields
   - Using `FieldProxy` for type-safe queries
   - Mapping legacy database columns (`UseColumn`)
+- **[DDL Statements](ddl.md)**
+  - Type-safe CREATE TABLE, DROP TABLE, ALTER TABLE
+  - Index creation and management
+  - Foreign key relationships
+- **[DDL Views](ddl_views.md)**
+  - CREATE VIEW, DROP VIEW
+  - View with column aliases and OR REPLACE
+  - Introspection for views
 - **[Mixins](mixins.md)**
   - Using built-in Mixins (`UUIDMixin`, `TimestampMixin`)
   - Creating custom Mixins for reusable logic
@@ -50,3 +58,9 @@ This chapter details how to define powerful data models.
 
 Full example code for this chapter can be found at:
 [docs/examples/chapter_03_modeling/basic_models.py](../../../examples/chapter_03_modeling/basic_models.py)
+
+Additional DDL examples:
+- [docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py) — Basic DDL operations
+- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — Tables with foreign keys
+- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — Index management
+- [docs/examples/chapter_03_modeling/ddl_views.py](../../../examples/chapter_03_modeling/ddl_views.py) — View creation and management

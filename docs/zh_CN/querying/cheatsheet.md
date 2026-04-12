@@ -135,15 +135,19 @@ users = User.query().where(User.c.name.ilike('%john%')).all()
 ## NULL 检查
 
 ```python
-# IS NULL - 查找 NULL 值
+# IS NULL - 查找 NULL 值（不推荐，但能工作）
 users = User.query().where(User.c.phone == None).all()
 
-# IS NOT NULL - 查找非 NULL 值
+# IS NOT NULL - 查找非 NULL 值（不推荐，但能工作）
 users = User.query().where(User.c.phone != None).all()
 
-# 使用 FieldProxy 方法的替代写法
-users = User.query().where(User.c.phone.is_(None)).all()
-users = User.query().where(User.c.phone.is_not(None)).all()
+# ✅ 推荐：使用 is_null() / is_not_null() 方法
+users = User.query().where(User.c.phone.is_null()).all()
+users = User.query().where(User.c.phone.is_not_null()).all()
+
+# 或者通过查询对象的便捷方法
+users = User.query().is_null(User.c.phone).all()
+users = User.query().is_not_null(User.c.phone).all()
 ```
 
 ---
