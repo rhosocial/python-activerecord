@@ -16,6 +16,14 @@
   - 如何定义模型字段
   - 使用 `FieldProxy` 进行类型安全查询
   - 映射遗留数据库列 (`UseColumn`)
+- **[DDL 语句 (DDL Statements)](ddl.md)**
+  - 类型安全的 CREATE TABLE、DROP TABLE、ALTER TABLE
+  - 索引创建与管理
+  - 外键关系
+- **[DDL 视图 (DDL Views)](ddl_views.md)**
+  - CREATE VIEW、DROP VIEW
+  - 带列别名的视图和 OR REPLACE
+  - 视图内省
 - **[Mixin 与复用 (Mixins)](mixins.md)**
   - 使用内置 Mixin (`UUIDMixin`, `TimestampMixin`)
   - 创建自定义 Mixin 复用逻辑
@@ -50,3 +58,9 @@
 
 本章的完整示例代码可以在以下位置找到：
 [docs/examples/chapter_03_modeling/basic_models.py](../../../examples/chapter_03_modeling/basic_models.py)
+
+其他 DDL 示例：
+- [docs/examples/chapter_03_modeling/ddl_basic.py](../../../examples/chapter_03_modeling/ddl_basic.py) — 基础 DDL 操作
+- [docs/examples/chapter_03_modeling/ddl_relationships.py](../../../examples/chapter_03_modeling/ddl_relationships.py) — 带外键的表
+- [docs/examples/chapter_03_modeling/ddl_indexes.py](../../../examples/chapter_03_modeling/ddl_indexes.py) — 索引管理
+- [docs/examples/chapter_03_modeling/ddl_views.py](../../../examples/chapter_03_modeling/ddl_views.py) — 视图创建和管理
