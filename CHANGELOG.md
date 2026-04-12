@@ -1,3 +1,27 @@
+## [v1.0.0.dev23] - 2026-04-12
+
+### Removed
+
+- **BREAKING**: Removed BEFORE_SAVE and AFTER_SAVE events. Use BEFORE_INSERT/BEFORE_UPDATE or AFTER_INSERT/AFTER_UPDATE instead. ([#68](https://github.com/rhosocial/python-activerecord/issues/68))
+- Removed ConnectionGroup/ConnectionManager class names. Use BackendGroup/BackendManager instead. ([#71](https://github.com/rhosocial/python-activerecord/issues/71))
+
+
+
+### Added
+
+- Added BEFORE_INSERT/AFTER_INSERT and BEFORE_UPDATE/AFTER_UPDATE lifecycle events for more granular control over insert and update operations. ([#68](https://github.com/rhosocial/python-activerecord/issues/68))
+- Added SQLite JSON function factories and enhanced math function factories. ([#70](https://github.com/rhosocial/python-activerecord/issues/70))
+- Added context() method for explicit connection lifecycle control, ensuring thread-safe connection handling for all backends. ([#71](https://github.com/rhosocial/python-activerecord/issues/71))
+- Add DDL constraint expressions support with ConstraintSupport protocol ([#72](https://github.com/rhosocial/python-activerecord/issues/72))
+- Added SQLite 3.53 compatibility and new feature support ([#73](https://github.com/rhosocial/python-activerecord/issues/73))
+
+
+
+### Fixed
+
+- Fixed module attribution for SQLQueryAndParams type alias and improved import patterns in expression module. ([#69](https://github.com/rhosocial/python-activerecord/issues/69))
+
+
 ## [v1.0.0.dev22] - 2026-04-08
 
 ### Added
