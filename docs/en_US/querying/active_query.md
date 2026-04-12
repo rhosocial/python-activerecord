@@ -44,34 +44,36 @@ users = User.query().select(User.c.name.as_("username"), User.c.email).all()
 
 Add filtering conditions (AND logic). Supports multiple calls, each call combines conditions with AND logic.
 
-*   **Usage Examples**:
+* **Usage Examples**:
 
 ```python
 # Simple condition
 User.query().where(User.c.id == 1)
 
 # Multiple calls (AND logic)
+# Note: This is equivalent to a single .where(&) call below
 User.query().where(User.c.age >= 18).where(User.c.is_active == True)
-
-# Combined conditions (AND) - Note: Must use & operator
+# Equivalent to:
 User.query().where((User.c.age >= 18) & (User.c.is_active == True))
 
 # Combined conditions (OR) - Note: Must use | operator
 User.query().where((User.c.role == 'admin') | (User.c.role == 'moderator'))
 
 # Using raw SQL string (Note: Beware of SQL injection)
+# Note: Placeholder must use '?' symbol, other placeholder formats are not supported
 User.query().where('status = ?', ('active',))
 ```
 
-*   **Notes**:
-    *   **Parameter Type**: `.where()` only accepts `SQLPredicate` expressions or SQL strings, **does NOT support dictionary arguments**.
-    *   **Precedence Issue**: When using `&` (AND) and `|` (OR), **always use parentheses** around each sub-condition, as bitwise operators have higher precedence in Python.
+* **Notes**:
+* **Parameter Type**: `.where()` only accepts `SQLPredicate` expressions or SQL strings, **does NOT support dictionary arguments**.
+* **Precedence Issue**: When using `&` (AND) and `|` (OR), **always use parentheses** around each sub-condition, as bitwise operators have higher precedence in Python.
+* **Placeholder Format**: When using raw SQL strings, the placeholder **must** use `?` symbol. Other formats (e.g., `%s`, `:1`, etc.) are not supported.
 
 ### `order_by(*columns)`
 
 Specify sort order.
 
-*   **Usage Examples**:
+* **Usage Examples**:
 
 ```python
 # Single column ascending
@@ -80,6 +82,9 @@ User.query().order_by(User.c.created_at)
 # Multiple columns (First by role ascending, then by age descending)
 User.query().order_by(User.c.role, (User.c.age, "DESC"))
 ```
+
+* **Notes**:
+* **Sort Direction**: The sort direction string must be either `"ASC"` (ascending) or `"DESC"` (descending). If omitted, defaults to ascending. **Other string values are not supported** and will be passed directly to the database, potentially causing errors.
 
 ### `limit(limit, offset=None)` / `offset(offset)`
 
@@ -95,6 +100,18 @@ User.query().limit(10)
 User.query().limit(10, offset=20)
 # Or (recommended)
 User.query().limit(10).offset(20)
+```
+
+* **Notes**:
+* **Parameter Constraints**: `limit` **must be a positive integer** (greater than 0), and `offset` **must be a non-negative integer** (greater than or equal to 0). Passing other values (such as negative numbers, floats, strings, etc.) may result in unpredictable behavior or database errors.
+* **SQLite Backend Limitation**: In SQLite backend, `OFFSET` must be used together with `LIMIT`.
+```python
+# Wrong: SQLite does not support OFFSET-only queries
+User.query().offset(20) # Will raise ValueError
+
+# Correct usage
+User.query().limit(10).offset(20) # Recommended
+User.query().limit(10, offset=20) # Or use parameter form
 ```
 
 * **Notes**:
@@ -212,14 +229,28 @@ plan = User.query()\
 The `select` method supports Window Functions.
 
 ```python
-from rhosocial.activerecord.backend.expression.window import Window, Rank
+from rhosocial.activerecord.backend.expression import rank, WindowSpecification, OrderByClause
 
 # Rank posts by views within each category
-window = Window.partition_by(Post.c.category_id).order_by((Post.c.views, "DESC"))
-rank_col = Rank().over(window).as_('rank')
+# Create window specification
+window_spec = WindowSpecification(
+    Post.backend().dialect,
+    partition_by=[Post.c.category_id],
+    order_by=OrderByClause(Post.backend().dialect, [(Post.c.views, "DESC")])
+)
+
+# Create window function call
+rank_col = rank(Post.backend().dialect).as_('rank')
+rank_col.window_spec = window_spec
 
 results = Post.query().select(Post.c.title, rank_col).aggregate()
 ```
+
+* **Notes**:
+* Window functions should be imported from `rhosocial.activerecord.backend.expression`, not from the old `window` submodule.
+* Functions like `rank`, `row_number`, `dense_rank`, etc. return `WindowFunctionCall` objects.
+* Window specifications are created using the `WindowSpecification` class, requiring `dialect`, `partition_by`, and `order_by` parameters.
+* To set the window specification, assign it directly: `rank_col.window_spec = window_spec`.
 
 ## JoinQueryMixin (Join Query)
 
@@ -257,16 +288,16 @@ Provides data statistics and aggregation capabilities.
 ### Simple Aggregation
 Returns scalar values directly.
 
-*   `count(column=None)`: Count rows.
-*   `sum_(column)`: Calculate sum (note the underscore to avoid conflict with Python's built-in `sum`).
-*   `avg(column)`: Calculate average.
-*   `min(column)`: Find minimum value.
-*   `max(column)`: Find maximum value.
+* `count(column=None)`: Count rows.
+* `sum_(column)`: Calculate sum (note the underscore to avoid conflict with Python's built-in `sum`).
+* `avg(column)`: Calculate average.
+* `min(column)`: Find minimum value.
+* `max(column)`: Find maximum value.
 
 ### Complex Aggregation
-*   `aggregate(**kwargs)`: Execute complex aggregation queries, returning a dictionary.
+* `aggregate()`: Execute complex aggregation queries, returning a list of dictionaries. **Note: `aggregate()` method does not accept any parameters**.
 
-*   **Usage Examples**:
+* **Usage Examples**:
 
 ```python
 from rhosocial.activerecord.backend.expression import sum_, avg
@@ -276,26 +307,36 @@ total_users = User.query().count()
 max_age = User.query().max_(User.c.age)
 
 # Complex aggregation: Calculate total score and average score simultaneously
-stats = User.query().aggregate(
-    total_score=sum_(User.c.score),
-    avg_score=avg(User.c.score)
-)
-# Returns: {'total_score': 1000, 'avg_score': 85.5}
+# Correct usage: Use select() to choose aggregation expressions, then call aggregate()
+stats = User.query() \
+    .select(
+        sum_(User.c.score).as_("total_score"),
+        avg(User.c.score).as_("avg_score")
+    ) \
+    .aggregate()
+# Returns: [{'total_score': 1000, 'avg_score': 85.5}]
+
+# Wrong usage (not supported):
+# stats = User.query().aggregate(total_score=sum_(...), avg_score=avg(...))  # ❌ aggregate() accepts no parameters
 ```
+
+* **Notes**:
+* The `aggregate()` method does not accept `**kwargs` parameters. To specify multiple aggregation expressions, use the `.select()` method to select aggregation expressions, then call `.aggregate()`.
+* The return value is a list of dictionaries, even for single-row results.
 
 ## RangeQueryMixin (Range & Convenience Filtering)
 
 Provides common convenience filtering methods, which are internally converted to `where` conditions.
 
-*   `in_list(column, values)`: `IN` query.
-*   `not_in(column, values)`: `NOT IN` query.
-*   `between(column, start, end)`: `BETWEEN` query.
-*   `not_between(column, start, end)`: `NOT BETWEEN` query.
-*   `like(column, pattern)` / `not_like(...)`: Case-sensitive pattern matching.
-*   `ilike(column, pattern)` / `not_ilike(...)`: Case-insensitive pattern matching.
-*   `is_null(column)` / `is_not_null(column)`: NULL check.
+* `in_list(column, values)`: `IN` query.
+* `not_in(column, values)`: `NOT IN` query.
+* `between(column, start, end)`: `BETWEEN` query.
+* `not_between(column, start, end)`: `NOT BETWEEN` query.
+* `like(column, pattern)` / `not_like(...)`: Case-sensitive pattern matching.
+* `ilike(column, pattern)` / `not_ilike(...)`: Case-insensitive pattern matching.
+* `is_null(column)` / `is_not_null(column)`: NULL check.
 
-*   **Usage Examples**:
+* **Usage Examples**:
 
 ```python
 # ID in list
@@ -306,11 +347,42 @@ User.query().like(User.c.name, "A%")
 
 # Age between 20 and 30
 User.query().between(User.c.age, 20, 30)
+
+# Check if field is NULL
+User.query().is_null(User.c.deleted_at)      # WHERE deleted_at IS NULL
+User.query().is_not_null(User.c.email)       # WHERE email IS NOT NULL
 ```
 
-*   **Notes**:
-    *   `like` and `ilike` require manually including wildcards `%` or `_` in the pattern.
-    *   `in_list` with an empty list may generate a `FALSE` condition (depending on dialect).
+* **Notes**:
+* `like` and `ilike` require manually including wildcards `%` or `_` in the pattern.
+* `in_list` with an empty list may generate a `FALSE` condition (depending on dialect).
+
+### Correct Way to Compare with NULL Values
+
+When checking if a field is NULL in SQL, you **must use `IS NULL` or `IS NOT NULL`**, not the `=` or `!=` operators. In Python, use the following approaches:
+
+```python
+# ✅ Correct: Use is_null() / is_not_null() methods
+User.query().is_null(User.c.deleted_at)
+User.query().is_not_null(User.c.email)
+
+# ✅ Correct: Use is_() / is_not() methods (equivalent to above)
+User.query().where(User.c.deleted_at.is_(None))
+User.query().where(User.c.email.is_not(None))
+
+# ❌ Wrong: Cannot use == None or != None
+# User.query().where(User.c.deleted_at == None)  # This violates Python's PEP 8 style guide
+# User.query().where(User.c.email != None)       # Similarly not recommended
+
+# ❌ Wrong: Cannot use is None or is not None
+# User.query().where(User.c.deleted_at is None)  # 'is' operator cannot be overloaded, this compares object identity
+# User.query().where(User.c.email is not None)   # Similarly ineffective
+```
+
+**Explanation**:
+1. `== None` and `!= None` violate Python's PEP 8 style guide, which recommends using `is None` or `is not None` to compare with `None`.
+2. The `is` and `is not` operators cannot be overloaded in Python, so they cannot be used to build SQL expressions. They only compare Python object identity.
+3. The `is_()` and `is_not()` methods are provided by the ORM framework specifically for generating `IS NULL` and `IS NOT NULL` SQL clauses.
 
 ## RelationalQueryMixin (Eager Loading)
 

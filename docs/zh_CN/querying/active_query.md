@@ -44,34 +44,36 @@ users = User.query().select(User.c.name.as_("username"), User.c.email).all()
 
 添加过滤条件（AND 逻辑）。支持多次调用，每次调用会将条件以 AND 逻辑组合。
 
-*   **用法示例**：
+* **用法示例**：
 
 ```python
 # 简单条件
 User.query().where(User.c.id == 1)
 
 # 多次调用 (AND 逻辑)
+# 注意：这与下方的单次 .where(&) 调用是等价的
 User.query().where(User.c.age >= 18).where(User.c.is_active == True)
-
-# 组合条件 (AND) - 注意：需要使用 & 运算符
+# 等价于：
 User.query().where((User.c.age >= 18) & (User.c.is_active == True))
 
 # 组合条件 (OR) - 注意：需要使用 | 运算符
 User.query().where((User.c.role == 'admin') | (User.c.role == 'moderator'))
 
 # 使用原始 SQL 字符串 (注意：需防范 SQL 注入)
+# 注意：占位符必须使用 '?' 符号，不支持其他占位符格式
 User.query().where('status = ?', ('active',))
 ```
 
-*   **注意事项**：
-    *   **参数类型**：`.where()` 只接受 `SQLPredicate` 表达式或 SQL 字符串，**不支持字典参数**。
-    *   **优先级问题**：在使用 `&` (AND) 和 `|` (OR) 时，**务必使用括号**包裹每个子条件，因为 Python 中位运算符的优先级较高。
+* **注意事项**：
+* **参数类型**：`.where()` 只接受 `SQLPredicate` 表达式或 SQL 字符串，**不支持字典参数**。
+* **优先级问题**：在使用 `&` (AND) 和 `|` (OR) 时，**务必使用括号**包裹每个子条件，因为 Python 中位运算符的优先级较高。
+* **占位符格式**：使用原始 SQL 字符串时，占位符**必须**使用 `?` 符号。其他格式（如 `%s`、`:1` 等）不被支持。
 
 ### `order_by(*columns)`
 
 指定排序规则。
 
-*   **用法示例**：
+* **用法示例**：
 
 ```python
 # 单列升序
@@ -80,6 +82,9 @@ User.query().order_by(User.c.created_at)
 # 多列排序 (先按 role 升序，再按 age 降序)
 User.query().order_by(User.c.role, (User.c.age, "DESC"))
 ```
+
+* **注意事项**：
+* **排序方向**：排序方向字符串只能是 `"ASC"`（升序）或 `"DESC"`（降序）。如果省略方向，默认为升序。**不支持其他字符串值**，传入其他值将直接传递给数据库，可能导致错误。
 
 ### `limit(limit, offset=None)` / `offset(offset)`
 
@@ -95,6 +100,18 @@ User.query().limit(10)
 User.query().limit(10, offset=20)
 # 或者（推荐写法）
 User.query().limit(10).offset(20)
+```
+
+* **注意事项**：
+* **参数约束**：`limit` **必须是正整数**（大于 0），`offset` **必须是非负整数**（大于等于 0）。传入其他值（如负数、浮点数、字符串等）可能导致不可预测的行为或数据库错误。
+* **SQLite 后端限制**：在 SQLite 后端中，`OFFSET` 必须与 `LIMIT` 一起使用。
+```python
+# 错误：SQLite 不支持仅有 OFFSET 的查询
+User.query().offset(20) # 会抛出 ValueError
+
+# 正确写法
+User.query().limit(10).offset(20) # 推荐
+User.query().limit(10, offset=20) # 或使用参数形式
 ```
 
 * **注意事项**：
@@ -212,14 +229,28 @@ plan = User.query()\
 `select` 方法支持窗口函数（Window Functions）。
 
 ```python
-from rhosocial.activerecord.backend.expression.window import Window, Rank
+from rhosocial.activerecord.backend.expression import rank, WindowSpecification, OrderByClause
 
 # 对每个类别的文章按浏览量排名
-window = Window.partition_by(Post.c.category_id).order_by((Post.c.views, "DESC"))
-rank_col = Rank().over(window).as_('rank')
+# 创建窗口规范
+window_spec = WindowSpecification(
+    Post.backend().dialect,
+    partition_by=[Post.c.category_id],
+    order_by=OrderByClause(Post.backend().dialect, [(Post.c.views, "DESC")])
+)
+
+# 创建窗口函数调用
+rank_col = rank(Post.backend().dialect).as_('rank')
+rank_col.window_spec = window_spec
 
 results = Post.query().select(Post.c.title, rank_col).aggregate()
 ```
+
+* **注意事项**：
+* 窗口函数需要从 `rhosocial.activerecord.backend.expression` 导入，而不是旧的 `window` 子模块。
+* `rank`、`row_number`、`dense_rank` 等函数返回 `WindowFunctionCall` 对象。
+* 窗口规范通过 `WindowSpecification` 类创建，需要传入 `dialect`、`partition_by` 和 `order_by` 参数。
+* 设置窗口规范的方法是直接赋值：`rank_col.window_spec = window_spec`。
 
 ## JoinQueryMixin (连接查询)
 
@@ -257,16 +288,16 @@ User.query().join(User, on=(User.c.manager_id == Manager.id), alias="manager")
 ### 简单聚合
 直接返回标量值。
 
-*   `count(column=None)`: 统计行数。
-*   `sum_(column)`: 计算总和（注意下划线，避免与 Python 内置 `sum` 冲突）。
-*   `avg(column)`: 计算平均值。
-*   `min_(column)`: 查找最小值（注意下划线，避免与 Python 内置 `min` 冲突）。
-*   `max_(column)`: 查找最大值（注意下划线，避免与 Python 内置 `max` 冲突）。
+* `count(column=None)`: 统计行数。
+* `sum_(column)`: 计算总和（注意下划线，避免与 Python 内置 `sum` 冲突）。
+* `avg(column)`: 计算平均值。
+* `min_(column)`: 查找最小值（注意下划线，避免与 Python 内置 `min` 冲突）。
+* `max_(column)`: 查找最大值（注意下划线，避免与 Python 内置 `max` 冲突）。
 
 ### 复杂聚合
-*   `aggregate(**kwargs)`: 执行复杂的聚合查询，返回字典。
+* `aggregate()`: 执行复杂的聚合查询，返回字典列表。**注意：`aggregate()` 方法不接受任何参数**。
 
-*   **用法示例**：
+* **用法示例**：
 
 ```python
 from rhosocial.activerecord.backend.expression import sum_, avg
@@ -276,26 +307,36 @@ total_users = User.query().count()
 max_age = User.query().max_(User.c.age)
 
 # 复杂聚合：同时计算总分和平均分
-stats = User.query().aggregate(
-    total_score=sum_(User.c.score),
-    avg_score=avg(User.c.score)
-)
-# 返回: {'total_score': 1000, 'avg_score': 85.5}
+# 正确用法：通过 select() 选择聚合表达式，然后调用 aggregate()
+stats = User.query() \
+    .select(
+        sum_(User.c.score).as_("total_score"),
+        avg(User.c.score).as_("avg_score")
+    ) \
+    .aggregate()
+# 返回: [{'total_score': 1000, 'avg_score': 85.5}]
+
+# 错误用法（不支持）：
+# stats = User.query().aggregate(total_score=sum_(...), avg_score=avg(...))  # ❌ aggregate() 不接受参数
 ```
+
+* **注意事项**：
+* `aggregate()` 方法不接受 `**kwargs` 参数。如需指定多个聚合表达式，请使用 `.select()` 方法选择聚合表达式，然后调用 `.aggregate()`。
+* 返回值为字典列表，即使只有一行结果也是列表形式。
 
 ## RangeQueryMixin (范围与便捷过滤)
 
 提供了常用的便捷过滤方法，这些方法在内部会被转换为 `where` 条件。
 
-*   `in_list(column, values)`: `IN` 查询。
-*   `not_in(column, values)`: `NOT IN` 查询。
-*   `between(column, start, end)`: `BETWEEN` 查询。
-*   `not_between(column, start, end)`: `NOT BETWEEN` 查询。
-*   `like(column, pattern)` / `not_like(...)`: 大小写敏感的模式匹配。
-*   `ilike(column, pattern)` / `not_ilike(...)`: 大小写不敏感的模式匹配。
-*   `is_null(column)` / `is_not_null(column)`: NULL check。
+* `in_list(column, values)`: `IN` 查询。
+* `not_in(column, values)`: `NOT IN` 查询。
+* `between(column, start, end)`: `BETWEEN` 查询。
+* `not_between(column, start, end)`: `NOT BETWEEN` 查询。
+* `like(column, pattern)` / `not_like(...)`: 大小写敏感的模式匹配。
+* `ilike(column, pattern)` / `not_ilike(...)`: 大小写不敏感的模式匹配。
+* `is_null(column)` / `is_not_null(column)`: NULL 检查。
 
-*   **用法示例**：
+* **用法示例**：
 
 ```python
 # ID 在列表中
@@ -306,11 +347,42 @@ User.query().like(User.c.name, "A%")
 
 # 年龄在 20 到 30 之间
 User.query().between(User.c.age, 20, 30)
+
+# 检查字段是否为 NULL
+User.query().is_null(User.c.deleted_at)      # WHERE deleted_at IS NULL
+User.query().is_not_null(User.c.email)       # WHERE email IS NOT NULL
 ```
 
-*   **注意事项**：
-    *   `like` 和 `ilike` 需要自行在 pattern 中包含通配符 `%` 或 `_`。
-    *   `in_list` 如果传入空列表，可能会生成 `FALSE` 条件（取决于数据库方言）。
+* **注意事项**：
+* `like` 和 `ilike` 需要自行在 pattern 中包含通配符 `%` 或 `_`。
+* `in_list` 如果传入空列表，可能会生成 `FALSE` 条件（取决于数据库方言）。
+
+### NULL 值比较的正确方式
+
+在 SQL 中检查字段是否为 NULL 时，**必须使用 `IS NULL` 或 `IS NOT NULL`**，而不能使用 `=` 或 `!=` 运算符。在 Python 中，正确的做法如下：
+
+```python
+# ✅ 正确：使用 is_null() / is_not_null() 方法
+User.query().is_null(User.c.deleted_at)
+User.query().is_not_null(User.c.email)
+
+# ✅ 正确：使用 is_() / is_not() 方法（与上面等价）
+User.query().where(User.c.deleted_at.is_(None))
+User.query().where(User.c.email.is_not(None))
+
+# ❌ 错误：不能使用 == None 或 != None
+# User.query().where(User.c.deleted_at == None)  # 这不符合 Python 语法规范（PEP 8）
+# User.query().where(User.c.email != None)       # 同样不推荐
+
+# ❌ 错误：不能使用 is None 或 is not None
+# User.query().where(User.c.deleted_at is None)  # 'is' 运算符不能被重载，这会直接比较对象身份
+# User.query().where(User.c.email is not None)   # 同样无效
+```
+
+**原因说明**：
+1. `== None` 和 `!= None` 违反了 Python 的 PEP 8 规范，该规范建议使用 `is None` 或 `is not None` 来比较 `None`。
+2. `is` 和 `is not` 运算符在 Python 中不能被重载，因此无法用于构建 SQL 表达式。它们只能比较 Python 对象的身份（identity）。
+3. `is_()` 和 `is_not()` 方法是 ORM 框架提供的专门用于生成 `IS NULL` 和 `IS NOT NULL` SQL 子句的方法。
 
 ## RelationalQueryMixin (关联加载)
 
