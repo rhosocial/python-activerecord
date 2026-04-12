@@ -82,8 +82,10 @@ pip install rhosocial-activerecord
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint, ColumnConstraintType
+)
 from rhosocial.activerecord.base import FieldProxy
 from typing import ClassVar, Optional
 from pydantic import Field
@@ -91,7 +93,7 @@ from pydantic import Field
 
 class User(ActiveRecord):
     __table_name__ = "users"
-    id: Optional[int] = None  # Primary key
+    id: Optional[int] = None # Primary key
     name: str = Field(max_length=100)
     email: str
     age: int = 0
@@ -102,11 +104,20 @@ class User(ActiveRecord):
 config = SQLiteConnectionConfig(database=":memory:")
 User.configure(config, SQLiteBackend)
 
-# Create table
-User.__backend__.execute(
-    "CREATE TABLE users (id INTEGER PRIMARY KEY, name TEXT, email TEXT, age INTEGER)",
-    options=ExecutionOptions(stmt_type=StatementType.DDL)
+# Create table using DDL expression (type-safe, no raw SQL)
+create_table = CreateTableExpression(
+    dialect=User.__backend__.dialect,
+    table_name="users",
+    columns=[
+        ColumnDefinition("id", "INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("name", "VARCHAR(100)",
+            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
+        ColumnDefinition("email", "VARCHAR(255)"),
+        ColumnDefinition("age", "INTEGER"),
+    ]
 )
+User.__backend__.execute(create_table)
 
 # Insert
 alice = User(name="Alice", email="alice@example.com", age=30)
@@ -127,8 +138,12 @@ sql, params = User.query().where(User.c.age >= 18).to_sql()
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.expression import ColumnDefinition, CreateTableExpression
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnConstraint, ColumnConstraintType,
+    TableConstraint, TableConstraintType,
+    ForeignKeyConstraint, ReferentialAction
+)
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.relation import HasMany, BelongsTo
 from typing import ClassVar, Optional
@@ -139,7 +154,6 @@ class Author(ActiveRecord):
     id: Optional[int] = None
     name: str
     c: ClassVar[FieldProxy] = FieldProxy()
-    # Use ClassVar to prevent Pydantic from tracking these as model fields
     posts: ClassVar[HasMany["Post"]] = HasMany(foreign_key="author_id")
 
 
@@ -149,28 +163,45 @@ class Post(ActiveRecord):
     title: str
     author_id: int
     c: ClassVar[FieldProxy] = FieldProxy()
-    # Use ClassVar to prevent Pydantic from tracking these as model fields
     author: ClassVar[BelongsTo["Author"]] = BelongsTo(foreign_key="author_id")
 
 
 # Configure backend
 config = SQLiteConnectionConfig(database=":memory:")
 Author.configure(config, SQLiteBackend)
-Post.__backend__ = Author.__backend__  # Share the same backend
+Post.__backend__ = Author.__backend__
 
-# Create tables
-Author.__backend__.execute("""
-    CREATE TABLE authors (id INTEGER PRIMARY KEY, name TEXT)
-""", options=ExecutionOptions(stmt_type=StatementType.DDL))
+# Create tables using DDL expressions
+dialect = Author.__backend__.dialect
 
-Author.__backend__.execute("""
-    CREATE TABLE posts (
-        id INTEGER PRIMARY KEY,
-        title TEXT,
-        author_id INTEGER,
-        FOREIGN KEY (author_id) REFERENCES authors(id)
-    )
-""", options=ExecutionOptions(stmt_type=StatementType.DDL))
+Author.__backend__.execute(CreateTableExpression(
+    dialect=dialect,
+    table_name="authors",
+    columns=[
+        ColumnDefinition("id", "INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("name", "TEXT"),
+    ]
+))
+
+Author.__backend__.execute(CreateTableExpression(
+    dialect=dialect,
+    table_name="posts",
+    columns=[
+        ColumnDefinition("id", "INTEGER",
+            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("title", "TEXT"),
+        ColumnDefinition("author_id", "INTEGER"),
+    ],
+    constraints=[
+        ForeignKeyConstraint(
+            columns=["author_id"],
+            reference_table="authors",
+            reference_columns=["id"],
+            on_delete=ReferentialAction.CASCADE
+        )
+    ]
+))
 
 # Eager loading — one query, no N+1
 authors = Author.query().with_("posts").all()
@@ -185,6 +216,16 @@ for author in authors:
 ## Features
 
 All features support both **sync** and **async** APIs with identical method names—just add `await`.
+
+### DDL Expressions
+
+Type-safe schema definition without raw SQL:
+
+- **[CreateTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Create tables with columns and constraints
+- **[DropTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Drop tables with IF EXISTS support
+- **[AlterTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py)** — Add/drop columns, rename tables
+- **[CreateIndexExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_index.py)** — Create indexes with IF NOT EXISTS
+- **[CreateViewExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_view.py)** — Create views from query expressions
 
 ### Query Builders
 
