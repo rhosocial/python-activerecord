@@ -256,7 +256,7 @@ Reusable mixins for common model behaviors:
 
 Lifecycle hooks for custom business logic:
 
-- **[Model Events](src/rhosocial/activerecord/interface/model.py)** — `before_save`, `after_save`, `before_delete`, `after_delete`
+- **[Model Events](src/rhosocial/activerecord/interface/base.py)** — `before_insert`, `after_insert`, `before_update`, `after_update`, `before_delete`, `after_delete`
 
 For details, see the [documentation](docs/en_US/).
 
