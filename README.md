@@ -268,7 +268,7 @@ For details, see the [documentation](docs/en_US/).
 | **MySQL/MariaDB** | `rhosocial-activerecord-mysql` | 🔄 In progress | 🔄 In progress |
 | **PostgreSQL** | `rhosocial-activerecord-postgres` | 🔄 In progress | 🔄 In progress |
 | **Oracle** | `rhosocial-activerecord-oracle` | 📋 Planned | 📋 Planned |
-| **SQL Server** | `rhosocial-activerecord-mssql` | 📋 Planned | 📋 Planned |
+| **SQL Server** | `rhosocial-activerecord-sqlserver` | 📋 Planned | 📋 Planned |
 
 ## Requirements
 
