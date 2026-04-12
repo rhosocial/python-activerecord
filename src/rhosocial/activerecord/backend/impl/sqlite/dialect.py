@@ -461,14 +461,26 @@ class SQLiteDialect(
         return False
 
     # ConstraintSupport protocol implementation
-    # SQLite does not support ALTER TABLE ADD/DROP CONSTRAINT
+    # SQLite 3.53.0+ supports ALTER TABLE ADD/DROP CONSTRAINT for NOT NULL and CHECK
     def supports_add_constraint(self) -> bool:
-        """SQLite does not support ALTER TABLE ADD CONSTRAINT."""
-        return False
+        """Whether ALTER TABLE ADD CONSTRAINT is supported.
+
+        SQLite 3.53.0+ supports adding NOT NULL and CHECK constraints via ALTER TABLE.
+
+        Returns:
+            True if SQLite version >= 3.53.0, False otherwise.
+        """
+        return self.version >= (3, 53, 0)
 
     def supports_drop_constraint(self) -> bool:
-        """SQLite does not support ALTER TABLE DROP CONSTRAINT."""
-        return False
+        """Whether ALTER TABLE DROP CONSTRAINT is supported.
+
+        SQLite 3.53.0+ supports dropping NOT NULL and CHECK constraints via ALTER TABLE.
+
+        Returns:
+            True if SQLite version >= 3.53.0, False otherwise.
+        """
+        return self.version >= (3, 53, 0)
 
     def supports_fk_match(self) -> bool:
         """SQLite does not support MATCH clause in FOREIGN KEY."""
@@ -1138,6 +1150,54 @@ class SQLiteDialect(
         else:
             # Default to IMMEDIATE for better concurrency
             return "BEGIN IMMEDIATE TRANSACTION", ()
+
+    # endregion
+
+    # region SQLite-specific statements
+
+    def supports_reindex(self) -> bool:
+        """SQLite supports REINDEX statement."""
+        return True
+
+    def supports_reindex_expressions(self) -> bool:
+        """SQLite 3.53.0+ supports REINDEX EXPRESSIONS."""
+        return self.version >= (3, 53, 0)
+
+    def format_reindex_statement(self, expr) -> Tuple[str, tuple]:
+        """Format REINDEX statement for SQLite.
+
+        SQLite REINDEX syntax:
+        - REINDEX                          -- Rebuild all indexes
+        - REINDEX table_name               -- Rebuild all indexes on table
+        - REINDEX index_name               -- Rebuild specific index
+        - REINDEX EXPRESSIONS              -- Rebuild all expression indexes (3.53.0+)
+
+        Args:
+            expr: SQLiteReindexExpression object
+
+        Returns:
+            Tuple of (SQL string, empty parameters tuple)
+
+        Raises:
+            UnsupportedFeatureError: If REINDEX EXPRESSIONS is requested on
+                SQLite versions below 3.53.0.
+        """
+        if expr.expressions:
+            if not self.supports_reindex_expressions():
+                raise UnsupportedFeatureError(
+                    self.name,
+                    "REINDEX EXPRESSIONS",
+                    "REINDEX EXPRESSIONS requires SQLite 3.53.0 or later."
+                )
+            return "REINDEX EXPRESSIONS", ()
+
+        if expr.index_name:
+            return f"REINDEX {self.format_identifier(expr.index_name)}", ()
+
+        if expr.table_name:
+            return f"REINDEX {self.format_identifier(expr.table_name)}", ()
+
+        return "REINDEX", ()
 
     # endregion
 

@@ -642,15 +642,14 @@ def json_each(
     json_val: Union[str, "bases.BaseExpression"],
     path: Optional[str] = None,
 ) -> "core.FunctionCall":
-    """
-    Creates a JSON_EACH function call.
+    """Creates a JSON_EACH function call.
 
     Returns a virtual table with one row for each element in a JSON array or object.
     Unlike JSON_TREE, JSON_EACH only iterates over the top-level array or object.
 
     Usage:
-        - json_each(dialect, Column(dialect, "data"))
-        - json_each(dialect, Column(dialect, "data"), "$.items")
+    - json_each(dialect, Column(dialect, "data"))
+    - json_each(dialect, Column(dialect, "data"), "$.items")
 
     Args:
         dialect: The SQLite dialect instance
@@ -667,6 +666,82 @@ def json_each(
         path_expr = core.Literal(dialect, path)
         return core.FunctionCall(dialect, "JSON_EACH", val_expr, path_expr)
     return core.FunctionCall(dialect, "JSON_EACH", val_expr)
+
+
+def json_array_insert(
+    dialect: "SQLiteDialect",
+    json_array: Union[str, "bases.BaseExpression"],
+    value: Any,
+    position: Optional[int] = None,
+) -> "core.FunctionCall":
+    """Creates a json_array_insert() function call (SQLite 3.53.0+).
+
+    The json_array_insert() function inserts a value into a JSON array at a
+    specified position. If position is not specified, the value is appended
+    to the end of the array.
+
+    Usage:
+    - json_array_insert(dialect, Column(dialect, "data"), "new_value")
+    - json_array_insert(dialect, Column(dialect, "data"), "new_value", position=0)
+
+    Args:
+        dialect: The SQLite dialect instance
+        json_array: The JSON array to modify. Can be a column name (string)
+            or a BaseExpression.
+        value: The value to insert. Can be any value or BaseExpression.
+        position: Optional zero-based position at which to insert the value.
+            If None, appends to the end of the array.
+
+    Returns:
+        A FunctionCall instance representing the json_array_insert function.
+
+    Version: SQLite 3.53.0+
+    """
+    arr_expr = _convert_to_expression(dialect, json_array)
+    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+
+    if position is not None:
+        pos_expr = core.Literal(dialect, position)
+        return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, val_expr, pos_expr)
+    return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, val_expr)
+
+
+def jsonb_array_insert(
+    dialect: "SQLiteDialect",
+    jsonb_array: Union[str, "bases.BaseExpression"],
+    value: Any,
+    position: Optional[int] = None,
+) -> "core.FunctionCall":
+    """Creates a jsonb_array_insert() function call (SQLite 3.53.0+).
+
+    The jsonb_array_insert() function is the jsonb variant of json_array_insert().
+    It inserts a value into a JSONB array at a specified position, returning
+    a JSONB result.
+
+    Usage:
+    - jsonb_array_insert(dialect, Column(dialect, "data"), "new_value")
+    - jsonb_array_insert(dialect, Column(dialect, "data"), "new_value", position=0)
+
+    Args:
+        dialect: The SQLite dialect instance
+        jsonb_array: The JSONB array to modify. Can be a column name (string)
+            or a BaseExpression.
+        value: The value to insert. Can be any value or BaseExpression.
+        position: Optional zero-based position at which to insert the value.
+            If None, appends to the end of the array.
+
+    Returns:
+        A FunctionCall instance representing the jsonb_array_insert function.
+
+    Version: SQLite 3.53.0+
+    """
+    arr_expr = _convert_to_expression(dialect, jsonb_array)
+    val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
+
+    if position is not None:
+        pos_expr = core.Literal(dialect, position)
+        return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, val_expr, pos_expr)
+    return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, val_expr)
 
 
 __all__ = [
@@ -690,4 +765,6 @@ __all__ = [
     "json_object_keys",
     "json_tree",
     "json_each",
+    "json_array_insert",
+    "jsonb_array_insert",
 ]
