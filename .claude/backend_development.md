@@ -37,11 +37,36 @@ rhosocial-activerecord-{backend}/
 │                       ├── config.py        # Connection configuration
 │                       ├── dialect.py       # SQL dialect handling
 │                       ├── transaction.py   # Transaction management
-│                       ├── features.py      # Optional: Feature detection
-│                       └── cli.py           # Optional: CLI tool
-├── tests/
-│   └── ...
-└── pyproject.toml
+│                       ├── expression/      # Backend-specific expressions (directory)
+│                       │   └── __init__.py
+│                       ├── functions/       # Backend-specific SQL functions (directory)
+│                       │   └── __init__.py
+│                       └── features.py      # Optional: Feature detection
+```
+
+#### Expression Directory
+
+All backend-specific expressions **must** be placed in the `expression/` directory (not `expressions.py`). This ensures consistent structure across all backends.
+
+```python
+# expression/__init__.py
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+
+class MyBackendReindexExpression(BaseExpression):
+    """MyBackend-specific REINDEX expression."""
+    pass
+```
+
+**Important**: Use absolute imports for expressions from core or other backends to avoid deep relative import chains:
+
+```python
+# Correct - absolute imports
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.dialect import SQLDialectBase
+
+# Avoid - deep relative imports
+from .....expression.bases import BaseExpression  # Not recommended
 ```
 
 ## Key Backend Concepts

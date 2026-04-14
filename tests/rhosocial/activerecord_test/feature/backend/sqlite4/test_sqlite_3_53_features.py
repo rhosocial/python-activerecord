@@ -11,7 +11,7 @@ This module tests features added in SQLite 3.53.0:
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.impl.sqlite.expressions import SQLiteReindexExpression
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression
 from rhosocial.activerecord.backend.impl.sqlite.functions.json import (
     json_array_insert,
     jsonb_array_insert,
