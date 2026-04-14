@@ -1,0 +1,93 @@
+"""
+Alter table: add column, rename column, drop column.
+
+Note: SQLite does not support multiple actions in a single ALTER TABLE statement.
+Each action must be executed separately.
+"""
+
+# ============================================================
+# SECTION: Setup (necessary for execution, reference only)
+# ============================================================
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
+config = SQLiteConnectionConfig(database=':memory:')
+backend = SQLiteBackend(config)
+dialect = backend.dialect
+
+backend.execute("""
+CREATE TABLE IF NOT EXISTS users (
+    id INTEGER PRIMARY KEY AUTOINCREMENT,
+    name TEXT NOT NULL
+)
+""")
+backend.execute("INSERT INTO users (name) VALUES ('Alice')")
+
+# ============================================================
+# SECTION: Business Logic (the pattern to learn)
+# ============================================================
+from rhosocial.activerecord.backend.expression import (
+    AlterTableExpression,
+    ColumnDefinition,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
+    AddColumn,
+    RenameColumn,
+)
+
+# Add a new column (separate statement for SQLite)
+add_col_action = AddColumn(
+    column=ColumnDefinition(
+        name='email',
+        data_type='TEXT',
+    ),
+)
+
+add_col_expr = AlterTableExpression(
+    dialect=dialect,
+    table_name='users',
+    actions=[add_col_action],
+)
+
+sql, params = add_col_expr.to_sql()
+print(f"SQL (Add Column): {sql}")
+print(f"Params: {params}")
+backend.execute(sql, params)
+print("Column added successfully")
+
+# Rename a column (separate statement for SQLite)
+rename_action = RenameColumn(
+    old_name='name',
+    new_name='full_name',
+)
+
+rename_expr = AlterTableExpression(
+    dialect=dialect,
+    table_name='users',
+    actions=[rename_action],
+)
+
+sql, params = rename_expr.to_sql()
+print(f"SQL (Rename Column): {sql}")
+print(f"Params: {params}")
+
+# ============================================================
+# SECTION: Execution (run the expression)
+# ============================================================
+backend.execute(sql, params)
+print("Column renamed successfully")
+
+# Verify
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
+
+options = ExecutionOptions(stmt_type=StatementType.DQL)
+result = backend.execute("PRAGMA table_info(users)", options=options)
+print(f"Table structure:")
+for row in result.data or []:
+    print(f"  {row}")
+
+# ============================================================
+# SECTION: Teardown (necessary for execution, reference only)
+# ============================================================
+backend.disconnect()

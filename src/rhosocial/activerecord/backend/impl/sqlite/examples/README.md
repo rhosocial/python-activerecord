@@ -6,19 +6,37 @@ This directory contains example code demonstrating how to use the rhosocial-acti
 
 ```
 examples/
-├── README.md          # This file
-├── ddl/               # Data Definition Language examples
-│   └── create_table.py
-├── insert/            # INSERT operation examples
-│   └── with_returning.py
-├── update/            # UPDATE operation examples
-│   └── basic.py
-├── delete/            # DELETE operation examples
-│   └── basic.py
-├── transaction/       # Transaction control examples
-│   └── basic.py
-└── types/             # Type-related examples (placeholder)
-    └── __init__.py
+├── README.md               # This file
+├── conftest.py             # Example metadata configuration
+├── ddl/                    # Data Definition Language examples
+│   ├── __init__.py
+│   ├── create_table.py     # Create table with columns and constraints
+│   ├── create_index.py     # Create index on existing table
+│   └── alter_table.py      # Alter table structure
+├── insert/                 # INSERT operation examples
+│   ├── __init__.py
+│   ├── with_returning.py   # Insert with RETURNING clause
+│   └── batch.py            # Batch insert multiple rows
+├── update/                 # UPDATE operation examples
+│   ├── __init__.py
+│   └── basic.py            # Update with WHERE clause
+├── delete/                 # DELETE operation examples
+│   ├── __init__.py
+│   └── basic.py            # Delete with WHERE clause
+├── query/                  # Query (SELECT) examples
+│   ├── __init__.py
+│   ├── basic.py            # Basic SELECT with WHERE, ORDER BY, LIMIT
+│   ├── join.py             # JOIN multiple tables
+│   ├── aggregate.py        # GROUP BY and HAVING
+│   ├── subquery.py         # Subquery in WHERE clause
+│   ├── window.py           # Window functions (ROW_NUMBER, etc.)
+│   └── predicate.py        # Complex predicates (LIKE, IN, BETWEEN)
+├── transaction/            # Transaction control examples
+│   ├── __init__.py
+│   └── basic.py            # Basic transaction with context manager
+└── types/                  # Type-related examples
+    ├── __init__.py
+    └── json_basic.py       # JSON operations
 ```
 
 ## Example File Format
