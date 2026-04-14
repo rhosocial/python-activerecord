@@ -2,14 +2,6 @@
 name: Python Package Publish
 
 on:
-  # 当测试工作流成功完成时自动触发发布审批流程
-  workflow_run:
-    workflows: ["Python Test and Coverage"]
-    types:
-      - completed
-    branches:
-      - main
-
   # 手动触发发布工作流
   workflow_dispatch:
     inputs:
