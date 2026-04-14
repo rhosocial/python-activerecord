@@ -1,12 +1,10 @@
 """
 Create a table with primary key, auto-increment, and index.
 """
-META = {
-    'title': 'Create Table',
-    'dialect_protocols': [],
-    'priority': 10,
-}
 
+# ============================================================
+# SECTION: Setup (necessary for execution, reference only)
+# ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
@@ -14,20 +12,78 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-# Execute DDL directly using raw SQL
-backend.execute("""
-    CREATE TABLE IF NOT EXISTS users (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        email TEXT UNIQUE,
-        created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
-    )
-""")
+# ============================================================
+# SECTION: Business Logic (the pattern to learn)
+# ============================================================
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+)
+from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+    IndexDefinition,
+)
+from rhosocial.activerecord.backend.expression.core import TableExpression
 
-backend.execute("CREATE INDEX IF NOT EXISTS idx_users_email ON users(email)")
+columns = [
+    ColumnDefinition(
+        name='id',
+        data_type='INTEGER',
+        constraints=[
+            ColumnConstraint(
+                constraint_type=ColumnConstraintType.PRIMARY_KEY,
+                is_auto_increment=True,
+            ),
+        ],
+    ),
+    ColumnDefinition(
+        name='name',
+        data_type='TEXT',
+        constraints=[
+            ColumnConstraint(constraint_type=ColumnConstraintType.NOT_NULL),
+        ],
+    ),
+    ColumnDefinition(
+        name='email',
+        data_type='TEXT',
+        constraints=[
+            ColumnConstraint(constraint_type=ColumnConstraintType.UNIQUE),
+        ],
+    ),
+    ColumnDefinition(
+        name='created_at',
+        data_type='TIMESTAMP',
+    ),
+]
 
-# Insert after table creation
-backend.execute("INSERT INTO users (name, email) VALUES ('Alice', 'alice@example.com')")
-print(f"Table created: users table ready")
+indexes = [
+    IndexDefinition(
+        name='idx_users_email',
+        columns=['email'],
+    ),
+]
 
+create_expr = CreateTableExpression(
+    dialect=dialect,
+    table_name='users',
+    columns=columns,
+    indexes=indexes,
+    if_not_exists=True,
+    dialect_options={},
+)
+
+sql, params = create_expr.to_sql()
+print(f"SQL: {sql}")
+print(f"Params: {params}")
+
+# ============================================================
+# SECTION: Execution (run the expression)
+# ============================================================
+result = backend.execute(sql, params)
+print(f"Table created: users")
+
+# ============================================================
+# SECTION: Teardown (necessary for execution, reference only)
+# ============================================================
 backend.disconnect()

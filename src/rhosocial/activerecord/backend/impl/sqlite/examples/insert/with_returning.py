@@ -1,14 +1,28 @@
 """
 Insert a record and return the auto-generated ID using RETURNING clause.
 """
-META = {
-    'title': 'Insert with RETURNING',
-    'dialect_protocols': ['ReturningSupport'],
-    'priority': 10,
-}
 
+# ============================================================
+# SECTION: Setup (necessary for execution, reference only)
+# ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
+config = SQLiteConnectionConfig(database=':memory:')
+backend = SQLiteBackend(config)
+dialect = backend.dialect
+
+# Create table for testing
+backend.execute("""
+    CREATE TABLE IF NOT EXISTS users (
+        id INTEGER PRIMARY KEY AUTOINCREMENT,
+        name TEXT NOT NULL
+    )
+""")
+
+# ============================================================
+# SECTION: Business Logic (the pattern to learn)
+# ============================================================
 from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     ValuesSource,
@@ -18,15 +32,6 @@ from rhosocial.activerecord.backend.expression import (
 )
 from rhosocial.activerecord.backend.expression.core import Literal
 
-# Get dialect
-config = SQLiteConnectionConfig(database=':memory:')
-backend = SQLiteBackend(config)
-dialect = backend.dialect
-
-# Check if RETURNING is supported
-print(f"RETURNING supported: {dialect.supports_returning_clause()}")
-
-# Build INSERT expression
 insert_expr = InsertExpression(
     dialect=dialect,
     into=TableExpression(dialect, 'users'),
@@ -36,9 +41,17 @@ insert_expr = InsertExpression(
     dialect_options={},
 )
 
-# Get SQL
 sql, params = insert_expr.to_sql()
 print(f"SQL: {sql}")
 print(f"Params: {params}")
 
+# ============================================================
+# SECTION: Execution (run the expression)
+# ============================================================
+result = backend.execute(sql, params)
+print(f"Affected rows: {result.affected_rows}")
+
+# ============================================================
+# SECTION: Teardown (necessary for execution, reference only)
+# ============================================================
 backend.disconnect()
