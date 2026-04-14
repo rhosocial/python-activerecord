@@ -44,6 +44,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
+    # Function Support Protocol
+    SQLFunctionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -186,6 +188,8 @@ class SQLiteDialect(
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
+    # Function Support Protocol
+    SQLFunctionSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -1154,6 +1158,133 @@ class SQLiteDialect(
     # endregion
 
     # region SQLite-specific statements
+
+# SQLite function version support: function_name -> (min_version, max_version)
+# min_version: minimum supported version (inclusive), None = all versions
+# max_version: maximum supported version (inclusive), None = no upper limit
+# Reference: https://www.sqlite.org/changes.html
+_SQLITE_FUNCTION_VERSIONS = {
+    # JSON functions - SQLite 3.38.0+ (JSON1 built-in), but functions available via extension earlier
+    "json": (None, None),  # Available since early versions with JSON1 extension
+    "json_array": (None, None),
+    "json_object": (None, None),
+    "json_extract": (None, None),
+    "json_type": (None, None),
+    "json_valid": (None, None),
+    "json_quote": (None, None),
+    "json_remove": (None, None),
+    "json_set": (None, None),
+    "json_insert": (None, None),
+    "json_replace": (None, None),
+    "json_patch": (None, None),  # RFC 7396 MergePatch
+    "json_array_length": (None, None),
+    "json_array_unpack": (None, None),  # Custom wrapper
+    "json_object_pack": (None, None),  # Custom wrapper
+    "json_object_retrieve": (None, None),  # Custom wrapper
+    "json_object_length": (None, None),
+    "json_object_keys": (None, None),
+    "json_tree": (None, None),  # Table-valued function
+    "json_each": (None, None),  # Table-valued function
+    "json_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
+    "jsonb_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
+    # String functions - available since early versions
+    "substr": (None, None),
+    "instr": (None, None),  # Added in 3.7.6
+    "printf": (None, None),
+    "unicode": (None, None),
+    "hex": (None, None),
+    "unhex": ((3, 45, 0), None),  # Added in 3.45.0
+    "soundex": (None, None),  # Requires SQLITE_SOUNDEX compile option
+    "group_concat": (None, None),
+    "trim_sqlite": (None, None),
+    "ltrim": (None, None),
+    "rtrim": (None, None),
+    # Date/Time functions - available since early versions
+    "date_func": (None, None),
+    "time_func": (None, None),
+    "datetime_func": (None, None),
+    "julianday": (None, None),
+    "strftime_func": (None, None),
+    # Math functions - available since early versions
+    "random_func": (None, None),
+    "abs_sql": (None, None),
+    "sign": ((3, 21, 0), None),  # Added in 3.21.0
+    "total": (None, None),
+    # Math enhanced functions
+    "round_": (None, None),
+    "pow": ((3, 35, 0), None),  # Added in 3.35.0
+    "power": ((3, 35, 0), None),  # Alias for pow
+    "sqrt": ((3, 35, 0), None),  # Added in 3.35.0
+    "mod": ((3, 35, 0), None),  # Added in 3.35.0
+    "ceil": ((3, 35, 0), None),  # Added in 3.35.0
+    "floor": ((3, 35, 0), None),  # Added in 3.35.0
+    "trunc": ((3, 35, 0), None),  # Added in 3.35.0
+    "max_": (None, None),
+    "min_": (None, None),
+    "avg": (None, None),
+    # BLOB functions
+    "zeroblob": (None, None),
+    "randomblob": (None, None),
+    # System functions
+    "typeof": (None, None),
+    "quote": (None, None),
+    "last_insert_rowid": (None, None),
+    "changes": (None, None),
+    # Conditional functions
+    "iif": ((3, 32, 0), None),  # Added in 3.32.0
+}
+
+    def supports_functions(self) -> Dict[str, bool]:
+        """Return supported SQL functions as function_name -> bool mapping.
+
+        This method combines:
+        1. Core functions from rhosocial.activerecord.backend.expression.functions
+        2. SQLite-specific functions from rhosocial.activerecord.backend.impl.sqlite.functions
+
+        SQLite version-specific functions:
+        - json_array_insert, jsonb_array_insert: SQLite 3.53.0+
+
+        Returns:
+            Dict mapping function names to True (supported) or False.
+        """
+        from rhosocial.activerecord.backend.expression.functions import (
+            __all__ as core_functions,
+        )
+        from rhosocial.activerecord.backend.impl.sqlite import functions as sqlite_functions
+
+        result = {}
+        for func_name in core_functions:
+            result[func_name] = True
+
+        sqlite_funcs = getattr(sqlite_functions, "__all__", [])
+        for func_name in sqlite_funcs:
+            if func_name not in result:
+                result[func_name] = self._is_sqlite_function_supported(func_name)
+
+        return result
+
+    def _is_sqlite_function_supported(self, func_name: str) -> bool:
+        """Check if a SQLite-specific function is supported based on version.
+
+        Args:
+            func_name: Name of the SQLite function
+
+        Returns:
+            True if supported, False otherwise
+        """
+        version_range = self._SQLITE_FUNCTION_VERSIONS.get(func_name)
+        if version_range is None:
+            return True
+
+        min_version, max_version = version_range
+
+        if min_version is not None and self.version < min_version:
+            return False
+
+        if max_version is not None and self.version > max_version:
+            return False
+
+        return True
 
     def supports_reindex(self) -> bool:
         """SQLite supports REINDEX statement."""
