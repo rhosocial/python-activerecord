@@ -82,6 +82,8 @@ from .json import (
     json_object_keys,
     json_tree,
     json_each,
+    json_array_insert,
+    jsonb_array_insert,
 )
 
 from .math_enhanced import (
@@ -165,4 +167,6 @@ __all__ = [
     "json_object_keys",
     "json_tree",
     "json_each",
+    "json_array_insert",
+    "jsonb_array_insert",
 ]

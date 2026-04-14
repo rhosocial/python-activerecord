@@ -1159,80 +1159,80 @@ class SQLiteDialect(
 
     # region SQLite-specific statements
 
-# SQLite function version support: function_name -> (min_version, max_version)
-# min_version: minimum supported version (inclusive), None = all versions
-# max_version: maximum supported version (inclusive), None = no upper limit
-# Reference: https://www.sqlite.org/changes.html
-_SQLITE_FUNCTION_VERSIONS = {
-    # JSON functions - SQLite 3.38.0+ (JSON1 built-in), but functions available via extension earlier
-    "json": (None, None),  # Available since early versions with JSON1 extension
-    "json_array": (None, None),
-    "json_object": (None, None),
-    "json_extract": (None, None),
-    "json_type": (None, None),
-    "json_valid": (None, None),
-    "json_quote": (None, None),
-    "json_remove": (None, None),
-    "json_set": (None, None),
-    "json_insert": (None, None),
-    "json_replace": (None, None),
-    "json_patch": (None, None),  # RFC 7396 MergePatch
-    "json_array_length": (None, None),
-    "json_array_unpack": (None, None),  # Custom wrapper
-    "json_object_pack": (None, None),  # Custom wrapper
-    "json_object_retrieve": (None, None),  # Custom wrapper
-    "json_object_length": (None, None),
-    "json_object_keys": (None, None),
-    "json_tree": (None, None),  # Table-valued function
-    "json_each": (None, None),  # Table-valued function
-    "json_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
-    "jsonb_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
-    # String functions - available since early versions
-    "substr": (None, None),
-    "instr": (None, None),  # Added in 3.7.6
-    "printf": (None, None),
-    "unicode": (None, None),
-    "hex": (None, None),
-    "unhex": ((3, 45, 0), None),  # Added in 3.45.0
-    "soundex": (None, None),  # Requires SQLITE_SOUNDEX compile option
-    "group_concat": (None, None),
-    "trim_sqlite": (None, None),
-    "ltrim": (None, None),
-    "rtrim": (None, None),
-    # Date/Time functions - available since early versions
-    "date_func": (None, None),
-    "time_func": (None, None),
-    "datetime_func": (None, None),
-    "julianday": (None, None),
-    "strftime_func": (None, None),
-    # Math functions - available since early versions
-    "random_func": (None, None),
-    "abs_sql": (None, None),
-    "sign": ((3, 21, 0), None),  # Added in 3.21.0
-    "total": (None, None),
-    # Math enhanced functions
-    "round_": (None, None),
-    "pow": ((3, 35, 0), None),  # Added in 3.35.0
-    "power": ((3, 35, 0), None),  # Alias for pow
-    "sqrt": ((3, 35, 0), None),  # Added in 3.35.0
-    "mod": ((3, 35, 0), None),  # Added in 3.35.0
-    "ceil": ((3, 35, 0), None),  # Added in 3.35.0
-    "floor": ((3, 35, 0), None),  # Added in 3.35.0
-    "trunc": ((3, 35, 0), None),  # Added in 3.35.0
-    "max_": (None, None),
-    "min_": (None, None),
-    "avg": (None, None),
-    # BLOB functions
-    "zeroblob": (None, None),
-    "randomblob": (None, None),
-    # System functions
-    "typeof": (None, None),
-    "quote": (None, None),
-    "last_insert_rowid": (None, None),
-    "changes": (None, None),
-    # Conditional functions
-    "iif": ((3, 32, 0), None),  # Added in 3.32.0
-}
+    # SQLite function version support: function_name -> (min_version, max_version)
+    # min_version: minimum supported version (inclusive), None = all versions
+    # max_version: maximum supported version (inclusive), None = no upper limit
+    # Reference: https://www.sqlite.org/changes.html
+    _SQLITE_FUNCTION_VERSIONS = {
+        # JSON functions - SQLite 3.38.0+ (JSON1 built-in), but functions available via extension earlier
+        "json": (None, None),  # Available since early versions with JSON1 extension
+        "json_array": (None, None),
+        "json_object": (None, None),
+        "json_extract": (None, None),
+        "json_type": (None, None),
+        "json_valid": (None, None),
+        "json_quote": (None, None),
+        "json_remove": (None, None),
+        "json_set": (None, None),
+        "json_insert": (None, None),
+        "json_replace": (None, None),
+        "json_patch": (None, None),  # RFC 7396 MergePatch
+        "json_array_length": (None, None),
+        "json_array_unpack": (None, None),  # Custom wrapper
+        "json_object_pack": (None, None),  # Custom wrapper
+        "json_object_retrieve": (None, None),  # Custom wrapper
+        "json_object_length": (None, None),
+        "json_object_keys": (None, None),
+        "json_tree": (None, None),  # Table-valued function
+        "json_each": (None, None),  # Table-valued function
+        "json_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
+        "jsonb_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
+        # String functions - available since early versions
+        "substr": (None, None),
+        "instr": (None, None),  # Added in 3.7.6
+        "printf": (None, None),
+        "unicode": (None, None),
+        "hex": (None, None),
+        "unhex": ((3, 45, 0), None),  # Added in 3.45.0
+        "soundex": (None, None),  # Requires SQLITE_SOUNDEX compile option
+        "group_concat": (None, None),
+        "trim_sqlite": (None, None),
+        "ltrim": (None, None),
+        "rtrim": (None, None),
+        # Date/Time functions - available since early versions
+        "date_func": (None, None),
+        "time_func": (None, None),
+        "datetime_func": (None, None),
+        "julianday": (None, None),
+        "strftime_func": (None, None),
+        # Math functions - available since early versions
+        "random_func": (None, None),
+        "abs_sql": (None, None),
+        "sign": ((3, 21, 0), None),  # Added in 3.21.0
+        "total": (None, None),
+        # Math enhanced functions
+        "round_": (None, None),
+        "pow": ((3, 35, 0), None),  # Added in 3.35.0
+        "power": ((3, 35, 0), None),  # Alias for pow
+        "sqrt": ((3, 35, 0), None),  # Added in 3.35.0
+        "mod": ((3, 35, 0), None),  # Added in 3.35.0
+        "ceil": ((3, 35, 0), None),  # Added in 3.35.0
+        "floor": ((3, 35, 0), None),  # Added in 3.35.0
+        "trunc": ((3, 35, 0), None),  # Added in 3.35.0
+        "max_": (None, None),
+        "min_": (None, None),
+        "avg": (None, None),
+        # BLOB functions
+        "zeroblob": (None, None),
+        "randomblob": (None, None),
+        # System functions
+        "typeof": (None, None),
+        "quote": (None, None),
+        "last_insert_rowid": (None, None),
+        "changes": (None, None),
+        # Conditional functions
+        "iif": ((3, 32, 0), None),  # Added in 3.32.0
+    }
 
     def supports_functions(self) -> Dict[str, bool]:
         """Return supported SQL functions as function_name -> bool mapping.
@@ -1243,9 +1243,13 @@ _SQLITE_FUNCTION_VERSIONS = {
 
         SQLite version-specific functions:
         - json_array_insert, jsonb_array_insert: SQLite 3.53.0+
+        - sign: SQLite 3.21.0+
+        - pow, power, sqrt, mod, ceil, floor, trunc: SQLite 3.35.0+
+        - unhex: SQLite 3.45.0+
+        - iif: SQLite 3.32.0+
 
         Returns:
-            Dict mapping function names to True (supported) or False.
+        Dict mapping function names to True (supported) or False.
         """
         from rhosocial.activerecord.backend.expression.functions import (
             __all__ as core_functions,
@@ -1258,8 +1262,7 @@ _SQLITE_FUNCTION_VERSIONS = {
 
         sqlite_funcs = getattr(sqlite_functions, "__all__", [])
         for func_name in sqlite_funcs:
-            if func_name not in result:
-                result[func_name] = self._is_sqlite_function_supported(func_name)
+            result[func_name] = self._is_sqlite_function_supported(func_name)
 
         return result
 

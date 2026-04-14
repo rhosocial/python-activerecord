@@ -38,7 +38,7 @@ For concrete database dialects (PostgreSQL, MySQL, etc.), they would:
 3. Override format_* methods where the database deviates from SQL standard
 """
 
-from typing import List, Tuple, TYPE_CHECKING
+from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
@@ -76,6 +76,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
+    # Function Support Protocol
+    SQLFunctionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     WindowFunctionMixin,
@@ -185,6 +187,8 @@ class DummyDialect(
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
+    # Function Support Protocol
+    SQLFunctionSupport,
 ):
     """
     Dummy dialect supporting all features for SQL generation testing.
@@ -633,6 +637,29 @@ class DummyDialect(
     # endregion
 
     # region Transaction Control Support
+
+    def supports_functions(self) -> Dict[str, bool]:
+        """Return supported SQL functions as function_name -> bool mapping.
+
+        Dummy dialect includes all core functions from:
+        rhosocial.activerecord.backend.expression.functions
+
+        It does NOT include any backend-specific functions (like sqlite or mysql)
+        since it represents an abstract/standard SQL dialect.
+
+        Returns:
+            Dict mapping function names to True (supported) or False.
+        """
+        from rhosocial.activerecord.backend.expression.functions import (
+            __all__ as core_functions,
+        )
+
+        result = {}
+        for func_name in core_functions:
+            result[func_name] = True
+
+        return result
+
     def supports_transaction_mode(self) -> bool:
         """Dummy backend supports all transaction modes."""
         return True
