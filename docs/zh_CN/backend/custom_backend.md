@@ -54,7 +54,9 @@ except OperationalError as e:
 
 ### Dummy 方言：一个完整的范例
 
-`DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) 是一个极好的学习资源，因为它支持 **所有特性**。
+`DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) 是一个极好的学习资源，因为它支持 **除内省协议以外的所有协议**（内省协议需要真实数据库连接，而 Dummy 不对应真实数据库）。
+
+> **注意**："Dummy" 是指用于测试的逻辑数据库，而非 MySQL 或 PostgreSQL 这样的具体数据库产品。因此，内省协议（用于查询实际数据库元数据）不适用于 Dummy。
 
 注意它是如何简单地混入标准实现的：
 
@@ -201,5 +203,183 @@ python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db "SELECT * F
 # 执行 SQL 脚本文件
 python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db -f schema.sql --executescript
 ```
+
+## 后端特定表达式与协议
+
+在实现数据库后端时，您可能需要添加对非 SQL 标准特性的支持。本节介绍添加新表达式及其对应协议的流程。
+
+### 表达式与协议的关系
+
+rhosocial-activerecord 中的表达式分为两类：
+
+1. **通用表达式 (Generic Expressions)**：定义在 `src/rhosocial/activerecord/backend/expression/`，可在所有数据库中使用，基于标准 SQL 或方言抽象。
+
+2. **后端特定表达式 (Backend-Specific Expressions)**：定义在后端特定的 `expression/` 子目录（如 `mysql/expression/`），实现特定数据库的功能。
+
+### 协议-表达式-格式化模式
+
+每个后端特定特性通常遵循以下模式：
+
+```
+协议 (supports_* + format_*) 
+    ↓
+表达式 (收集参数，调用 dialect.format_*)
+    ↓
+Dialect 格式化实现
+```
+
+#### 示例：MySQL MATCH...AGAINST
+
+**步骤 1: 定义协议** (`mysql/protocols.py`，Protocol: 协议)
+
+```python
+@runtime_checkable
+class FullTextSearchSupport(Protocol):
+    def supports_fulltext_index(self) -> bool:  # supports_* 方法
+        """是否支持 FULLTEXT 索引"""
+        ...
+
+    def format_match_against(  # format_* 方法
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        """格式化 MATCH...AGAINST 表达式"""
+        ...
+```
+
+**步骤 2: 定义表达式** (`mysql/expression/match_against.py`，Expression: 表达式)
+
+```python
+class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression):
+    def __init__(
+        self,
+        dialect: MySQLDialect,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.columns = columns
+        self.search_string = search_string
+        self.mode = mode
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        # 委托给方言的格式化方法
+        return self.dialect.format_match_against(
+            self.columns,
+            self.search_string,
+            self.mode,
+        )
+
+    def as_(self, alias: str) -> AliasColumn:
+        return AliasColumn(self, alias)
+```
+
+**步骤 3: 在方言中实现协议** (`mysql/dialect.py`，Dialect: 方言)
+
+```python
+class MySQLDialect(
+    MySQLBaseMixin,
+    FullTextSearchSupport,  # 添加协议
+    ...
+):
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        cols_sql = ", ".join(self.format_identifier(c) for c in columns)
+        placeholder = self.get_parameter_placeholder()
+        
+        # 模式映射 (mode mapping)
+        mode_map = {
+            "NATURAL_LANGUAGE": "IN NATURAL LANGUAGE MODE",
+            "BOOLEAN": "IN BOOLEAN MODE",
+            "QUERY_EXPANSION": "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
+        }
+        mode_str = mode_map.get(mode, "IN NATURAL LANGUAGE MODE")
+        
+        sql = f"MATCH({cols_sql}) AGAINST({placeholder} {mode_str})"
+        return sql, (search_string,)
+```
+
+**步骤 4: 添加测试**
+
+```python
+def test_match_against_expression(self):
+    dialect = MySQLDialect(version=(8, 0, 0))
+    expr = MatchAgainstExpression(
+        dialect,
+        columns=['title', 'content'],
+        search_string='database',
+    )
+    sql, params = expr.to_sql()
+    assert 'MATCH' in sql
+    assert 'AGAINST' in sql
+    assert params == ('database',)
+```
+
+### 使用此模式的场景
+
+在以下情况下使用此模式：
+
+1. 特性是后端特定的（非 SQL 标准）
+2. 特性需要版本检测
+3. 需要多种格式化方法（如创建索引 + 查询）
+4. 表达式需要与查询构建器集成
+
+### 将协议实现分离到 Mixin
+
+为了更好的组织，协议实现可以分离到单独的 mixin 类中，避免方言类过于臃肿。这正是 MySQL 使用的模式：
+
+**`mysql/mixins.py`** (协议实现)
+
+```python
+class MySQLFullTextMixin:
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+    def supports_fulltext_parser(self) -> bool:
+        return self.version >= (5, 1, 0)
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        # 实现...
+```
+
+**`mysql/dialect.py`** (组合 Mixin)
+
+```python
+class MySQLDialect(
+    MySQLBaseMixin,
+    MySQLFullTextMixin,  # 分离的 mixin 用于组织
+    FullTextSearchSupport,
+    ...
+):
+    pass
+```
+
+优势：
+- **代码组织**：相关方法分组在一起
+- **可维护性**：更容易定位和修改特定特性
+- **可重用性**：可以根据需要混合到不同的方言中
+
+### 协议方法说明
+
+| 方法类型 | 用途 |
+|----------|------|
+| `supports_*` | 检查特性是否支持（基于版本） |
+| `format_*` | 生成特性的 SQL |
+| `format_create_*` | 生成 CREATE 语句（如适用） |
 
 这是通过标准 Python 模块执行实现的。在构建您自己的后端时，考虑添加 CLI 接口可以极大地提升开发体验。
