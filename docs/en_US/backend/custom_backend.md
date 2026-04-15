@@ -54,7 +54,9 @@ The dialect system relies heavily on **Protocols** defined in `src/rhosocial/act
 
 ### The Dummy Dialect: A Complete Example
 
-The `DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) is a great learning resource because it supports **everything**.
+The `DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) is a great learning resource because it supports **all protocols except introspection** (introspection requires a real database connection, which Dummy doesn't provide).
+
+> **Note**: "Dummy" refers to a logical database for testing, not a specific database product like MySQL or PostgreSQL. Therefore, introspection protocols (which query actual database metadata) are not applicable to Dummy.
 
 Notice how it simply mixes in standard implementations:
 
@@ -201,5 +203,183 @@ python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db "SELECT * F
 # Execute a SQL script file
 python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db -f schema.sql --executescript
 ```
+
+## Backend-Specific Expressions and Protocols
+
+When implementing a database backend, you may need to add support for database-specific SQL expressions that are not part of the SQL standard. This section describes the process of adding new expressions and their corresponding protocols.
+
+### Expression-Protocol Relationship
+
+There are two types of expressions in rhosocial-activerecord:
+
+1. **通用表达式 (Generic Expressions)**: Defined in `src/rhosocial/activerecord/backend/expression/`, these work across all databases using standard SQL or dialect abstraction.
+
+2. **后端特定表达式 (Backend-Specific Expressions)**: Defined in backend-specific `expression/` subdirectories (e.g., `mysql/expression/`), these implement database-specific functionality.
+
+### The Protocol-Expression-Format Pattern
+
+Each backend-specific feature typically follows this pattern:
+
+```
+Protocol (supports_* + format_*) 
+    ↓
+Expression (collects parameters, calls dialect.format_*)
+    ↓
+Dialect format implementation
+```
+
+#### Example: MySQL MATCH...AGAINST
+
+**Step 1: Define the Protocol** (`mysql/protocols.py`)
+
+```python
+@runtime_checkable
+class FullTextSearchSupport(Protocol):
+    def supports_fulltext_index(self) -> bool:
+        """Whether FULLTEXT indexes are supported."""
+        ...
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        """Format MATCH...AGAINST expression."""
+        ...
+```
+
+**Step 2: Define the Expression** (`mysql/expression/match_against.py`)
+
+```python
+class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression):
+    def __init__(
+        self,
+        dialect: MySQLDialect,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.columns = columns
+        self.search_string = search_string
+        self.mode = mode
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        # Delegate to dialect's format method
+        return self.dialect.format_match_against(
+            self.columns,
+            self.search_string,
+            self.mode,
+        )
+
+    def as_(self, alias: str) -> AliasColumn:
+        return AliasColumn(self, alias)
+```
+
+**Step 3: Implement the Protocol in Dialect** (`mysql/dialect.py`)
+
+```python
+class MySQLDialect(
+    MySQLBaseMixin,
+    FullTextSearchSupport,  # Add protocol
+    ...
+):
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        cols_sql = ", ".join(self.format_identifier(c) for c in columns)
+        placeholder = self.get_parameter_placeholder()
+        
+        # Mode handling
+        mode_map = {
+            "NATURAL_LANGUAGE": "IN NATURAL LANGUAGE MODE",
+            "BOOLEAN": "IN BOOLEAN MODE",
+            "QUERY_EXPANSION": "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
+        }
+        mode_str = mode_map.get(mode, "IN NATURAL LANGUAGE MODE")
+        
+        sql = f"MATCH({cols_sql}) AGAINST({placeholder} {mode_str})"
+        return sql, (search_string,)
+```
+
+**Step 4: Add Tests**
+
+```python
+def test_match_against_expression(self):
+    dialect = MySQLDialect(version=(8, 0, 0))
+    expr = MatchAgainstExpression(
+        dialect,
+        columns=['title', 'content'],
+        search_string='database',
+    )
+    sql, params = expr.to_sql()
+    assert 'MATCH' in sql
+    assert 'AGAINST' in sql
+    assert params == ('database',)
+```
+
+### When to Use This Pattern
+
+Use this pattern when:
+
+1. The feature is database-specific (not part of SQL standard)
+2. The feature requires version-specific detection
+3. Multipleformatting methods are needed (e.g., creating index + querying)
+4. The expression needs to integrate with the query builder
+
+### Separating Protocol Implementation into Mixins
+
+For better organization, protocol implementations can be separated into individual mixin classes to avoid bloated dialect classes. This is the pattern used by MySQL:
+
+**`mysql/mixins.py`** (Protocol Implementation)
+
+```python
+class MySQLFullTextMixin:
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+    def supports_fulltext_parser(self) -> bool:
+        return self.version >= (5, 1, 0)
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        # Implementation...
+```
+
+**`mysql/dialect.py`** (Compose the Mixin)
+
+```python
+class MySQLDialect(
+    MySQLBaseMixin,
+    MySQLFullTextMixin,  # Separate mixin for organization
+    FullTextSearchSupport,
+    ...
+):
+    pass
+```
+
+Benefits:
+- **Code Organization**: Related methods grouped together
+- **Maintainability**: Easier to locate and modify specific features
+- **Reusability**: Can be mixed into different dialects if needed
+
+### Protocol Methods to Implement
+
+| Method Type | Purpose |
+|------------|---------|
+| `supports_*` | Check if feature is supported (version-based) |
+| `format_*` | Generate SQL for the feature |
+| `format_create_*` | Generate CREATE statement (if applicable) |
 
 This is achieved by standard Python module execution. When building your own backend, considering adding a CLI interface can greatly enhance the developer experience.
