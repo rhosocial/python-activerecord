@@ -88,7 +88,16 @@ class FunctionCall(
     TypeCastingMixin,
     SQLValueExpression,
 ):
-    """Represents a scalar SQL function call, such as LOWER, CONCAT, etc."""
+    """Represents a scalar SQL function call, such as LOWER, CONCAT, etc.
+
+    When niladic=True and no arguments are provided, the function call
+    generates SQL without parentheses (e.g., CURRENT_TIMESTAMP instead of
+    CURRENT_TIMESTAMP()). Per SQL:2003, certain value functions are niladic
+    and must not use parentheses when invoked without arguments.
+
+    When a niladic function has arguments (e.g., CURRENT_TIMESTAMP(6)),
+    parentheses are included as normal.
+    """
 
     def __init__(
         self,
@@ -97,12 +106,14 @@ class FunctionCall(
         *args: "BaseExpression",
         is_distinct: bool = False,
         alias: Optional[str] = None,
+        niladic: bool = False,
     ):
         super().__init__(dialect)
         self.func_name = func_name
         self.args = list(args)
         self.is_distinct = is_distinct
         self.alias = alias
+        self.niladic = niladic
 
     def to_sql(self) -> "SQLQueryAndParams":
         return self.dialect.format_function_call(self)

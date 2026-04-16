@@ -26,28 +26,34 @@ def now(dialect: "SQLDialectBase") -> "FunctionCall":
 
 def current_date(dialect: "SQLDialectBase") -> "FunctionCall":
     """
-    Creates a CURRENT_DATE scalar function call.
+    Creates a CURRENT_DATE niladic value function.
+
+    SQL:2003 standard niladic function — generates CURRENT_TIMESTAMP
+    without parentheses, as required by the standard.
 
     Args:
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the CURRENT_DATE function
+        A FunctionCall instance representing the CURRENT_DATE value function
     """
-    return FunctionCall(dialect, "CURRENT_DATE")
+    return FunctionCall(dialect, "CURRENT_DATE", niladic=True)
 
 
 def current_time(dialect: "SQLDialectBase") -> "FunctionCall":
     """
-    Creates a CURRENT_TIME scalar function call.
+    Creates a CURRENT_TIME niladic value function.
+
+    SQL:2003 standard niladic function — generates CURRENT_TIME
+    without parentheses, as required by the standard.
 
     Args:
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the CURRENT_TIME function
+        A FunctionCall instance representing the CURRENT_TIME value function
     """
-    return FunctionCall(dialect, "CURRENT_TIME")
+    return FunctionCall(dialect, "CURRENT_TIME", niladic=True)
 
 
 def year(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "FunctionCall":
@@ -220,9 +226,11 @@ def date_trunc(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpr
 
 def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "FunctionCall":
     """
-    Creates a CURRENT_TIMESTAMP function call.
+    Creates a CURRENT_TIMESTAMP niladic value function.
 
-    SQL:2003 standard current timestamp function.
+    SQL:2003 standard niladic function — generates CURRENT_TIMESTAMP
+    without parentheses when no precision is specified. When precision
+    is specified, generates CURRENT_TIMESTAMP(precision) with parentheses.
 
     Usage rules:
     - To generate CURRENT_TIMESTAMP: current_timestamp(dialect)
@@ -233,18 +241,20 @@ def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None
         precision: Optional fractional seconds precision
 
     Returns:
-        A FunctionCall instance representing the CURRENT_TIMESTAMP function
+        A FunctionCall instance representing the CURRENT_TIMESTAMP value function
     """
     if precision is not None:
         return FunctionCall(dialect, "CURRENT_TIMESTAMP", Literal(dialect, precision))
-    return FunctionCall(dialect, "CURRENT_TIMESTAMP")
+    return FunctionCall(dialect, "CURRENT_TIMESTAMP", niladic=True)
 
 
 def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "FunctionCall":
     """
-    Creates a LOCALTIMESTAMP function call.
+    Creates a LOCALTIMESTAMP niladic value function.
 
-    SQL:2003 standard local timestamp function.
+    SQL:2003 standard niladic function — generates LOCALTIMESTAMP
+    without parentheses when no precision is specified. When precision
+    is specified, generates LOCALTIMESTAMP(precision) with parentheses.
 
     Usage rules:
     - To generate LOCALTIMESTAMP: localtimestamp(dialect)
@@ -255,11 +265,11 @@ def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -
         precision: Optional fractional seconds precision
 
     Returns:
-        A FunctionCall instance representing the LOCALTIMESTAMP function
+        A FunctionCall instance representing the LOCALTIMESTAMP value function
     """
     if precision is not None:
         return FunctionCall(dialect, "LOCALTIMESTAMP", Literal(dialect, precision))
-    return FunctionCall(dialect, "LOCALTIMESTAMP")
+    return FunctionCall(dialect, "LOCALTIMESTAMP", niladic=True)
 
 
 def extract(dialect: "SQLDialectBase", field: str, expr: Union[str, "BaseExpression"]) -> "FunctionCall":

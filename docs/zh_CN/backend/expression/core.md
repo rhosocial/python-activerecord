@@ -131,9 +131,27 @@ class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
 
 表示通用的标量函数调用。
 
+当 `niladic=True` 且没有参数时，函数调用生成不含括号的 SQL（如 `CURRENT_TIMESTAMP` 而非 `CURRENT_TIMESTAMP()`）。根据 SQL:2003 标准，某些值函数是零元的（niladic），在无参数调用时不得使用括号。当零元函数有参数时（如 `CURRENT_TIMESTAMP(6)`），括号照常生成。
+
 ```python
 class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None): ...
+    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None, niladic: bool = False): ...
+```
+
+**零元函数用法：**
+
+```python
+# SQL:2003 零元函数 — 生成 CURRENT_TIMESTAMP（无括号）
+FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True)
+# -> ('CURRENT_TIMESTAMP', ())
+
+# 零元函数带参数 — 生成 CURRENT_TIMESTAMP(?)
+FunctionCall(dialect, 'CURRENT_TIMESTAMP', Literal(dialect, 6), niladic=True)
+# -> ('CURRENT_TIMESTAMP(?)', (6,))
+
+# 普通函数 — 始终带括号
+FunctionCall(dialect, 'NOW')
+# -> ('NOW()', ())
 ```
 
 ### WildcardExpression

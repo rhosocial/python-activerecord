@@ -557,13 +557,14 @@ sql, params = n.to_sql()
 
 ### current_date
 
-创建 `CURRENT_DATE` 标量函数调用。
+创建 `CURRENT_DATE` 零元值函数。根据 SQL:2003 标准，生成不含括号的 `CURRENT_DATE`。
 
 ```python
 def current_date(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
 ```
 
 **示例:**
+
 ```python
 d = current_date(dialect)
 sql, params = d.to_sql()
@@ -573,13 +574,14 @@ sql, params = d.to_sql()
 
 ### current_time
 
-创建 `CURRENT_TIME` 标量函数调用。
+创建 `CURRENT_TIME` 零元值函数。根据 SQL:2003 标准，生成不含括号的 `CURRENT_TIME`。
 
 ```python
 def current_time(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
 ```
 
 **示例:**
+
 ```python
 t = current_time(dialect)
 sql, params = t.to_sql()
@@ -1120,14 +1122,22 @@ sql, params = s.to_sql()
 
 ### current_timestamp
 
-创建 `CURRENT_TIMESTAMP` 函数调用。
+创建 `CURRENT_TIMESTAMP` 零元值函数。根据 SQL:2003 标准，无精度参数时生成不含括号的 `CURRENT_TIMESTAMP`；指定精度时生成 `CURRENT_TIMESTAMP(precision)`（带括号）。
 
 ```python
 def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
+
 ```python
+# 无精度参数 — 零元形式（无括号）
+c = current_timestamp(dialect)
+sql, params = c.to_sql()
+# sql: 'CURRENT_TIMESTAMP'
+# params: ()
+
+# 有精度参数 — 带括号
 c = current_timestamp(dialect, 6)
 sql, params = c.to_sql()
 # sql: 'CURRENT_TIMESTAMP(?)'
@@ -1136,14 +1146,16 @@ sql, params = c.to_sql()
 
 ### localtimestamp
 
-创建 `LOCALTIMESTAMP` 函数调用。
+创建 `LOCALTIMESTAMP` 零元值函数。根据 SQL:2003 标准，无精度参数时生成不含括号的 `LOCALTIMESTAMP`；指定精度时生成 `LOCALTIMESTAMP(precision)`（带括号）。
 
 ```python
 def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
 ```
 
 **示例:**
+
 ```python
+# 无精度参数 — 零元形式（无括号）
 l = localtimestamp(dialect)
 sql, params = l.to_sql()
 # sql: 'LOCALTIMESTAMP'
@@ -1168,7 +1180,7 @@ sql, params = e.to_sql()
 
 ### current_user, session_user, system_user
 
-创建用户信息函数调用。
+创建 SQL:2003 零元值函数。生成不含括号的 `CURRENT_USER`、`SESSION_USER`、`SYSTEM_USER`。
 
 ```python
 def current_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...

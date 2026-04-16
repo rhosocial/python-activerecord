@@ -275,7 +275,12 @@ class SQLDialectBase:
         # Build function call SQL
         distinct = "DISTINCT " if expr.is_distinct else ""
         args_sql_str = ", ".join(args_sql)
-        func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
+
+        # Niladic functions: omit parentheses when no arguments (SQL:2003)
+        if getattr(expr, 'niladic', False) and not args_sql and not distinct:
+            func_call_sql = expr.func_name.upper()
+        else:
+            func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
 
         # Collect all parameters
         all_params: List[Any] = []

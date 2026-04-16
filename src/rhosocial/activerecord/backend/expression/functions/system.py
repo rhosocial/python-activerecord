@@ -11,53 +11,47 @@ if TYPE_CHECKING:  # pragma: no cover
 
 def current_user(dialect: "SQLDialectBase") -> "FunctionCall":
     """
-    Creates a CURRENT_USER function call.
+    Creates a CURRENT_USER niladic value function.
 
-    SQL:2003 standard function returning the current user name.
-
-    Usage rules:
-    - To generate CURRENT_USER: current_user(dialect)
+    SQL:2003 standard niladic function — generates CURRENT_USER
+    without parentheses, as required by the standard.
 
     Args:
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the CURRENT_USER function
+        A FunctionCall instance representing the CURRENT_USER value function
     """
-    return FunctionCall(dialect, "CURRENT_USER")
+    return FunctionCall(dialect, "CURRENT_USER", niladic=True)
 
 
 def session_user(dialect: "SQLDialectBase") -> "FunctionCall":
     """
-    Creates a SESSION_USER function call.
+    Creates a SESSION_USER niladic value function.
 
-    SQL:2003 standard function returning the session user name.
-
-    Usage rules:
-    - To generate SESSION_USER: session_user(dialect)
+    SQL:2003 standard niladic function — generates SESSION_USER
+    without parentheses, as required by the standard.
 
     Args:
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the SESSION_USER function
+        A FunctionCall instance representing the SESSION_USER value function
     """
-    return FunctionCall(dialect, "SESSION_USER")
+    return FunctionCall(dialect, "SESSION_USER", niladic=True)
 
 
 def system_user(dialect: "SQLDialectBase") -> "FunctionCall":
     """
-    Creates a SYSTEM_USER function call.
+    Creates a SYSTEM_USER niladic value function.
 
-    SQL:2003 standard function returning the system user name.
-
-    Usage rules:
-    - To generate SYSTEM_USER: system_user(dialect)
+    SQL:2003 standard niladic function — generates SYSTEM_USER
+    without parentheses, as required by the standard.
 
     Args:
         dialect: The SQL dialect instance
 
     Returns:
-        A FunctionCall instance representing the SYSTEM_USER function
+        A FunctionCall instance representing the SYSTEM_USER value function
     """
-    return FunctionCall(dialect, "SYSTEM_USER")
+    return FunctionCall(dialect, "SYSTEM_USER", niladic=True)
