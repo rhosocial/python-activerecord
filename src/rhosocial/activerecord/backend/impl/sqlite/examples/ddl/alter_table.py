@@ -108,7 +108,7 @@ backend.execute(sql, params)
 print("Column renamed successfully")
 
 # Verify using introspector
-columns = backend.introspector.get_columns('users')
+columns = backend.introspector.list_columns('users')
 print("Table structure:")
 for col in columns:
     print(f"  {col.name} {col.data_type}")

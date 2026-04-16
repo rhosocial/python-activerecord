@@ -65,13 +65,13 @@ from rhosocial.activerecord.backend.expression import (
     TableExpression,
     Column,
 )
-from rhosocial.activerecord.backend.expression.functions.json import json_extract
+from rhosocial.activerecord.backend.expression.core import FunctionCall, Literal
 
 query = QueryExpression(
     dialect=dialect,
     select=[
         Column(dialect, 'id'),
-        json_extract(dialect, Column(dialect, 'data'), '$.name'),
+        FunctionCall(dialect, 'json_extract', Column(dialect, 'data'), Literal(dialect, '$.name')),
     ],
     from_=TableExpression(dialect, 'documents'),
 )
