@@ -87,19 +87,27 @@ options = ExecutionOptions(stmt_type=StatementType.DDL)
 backend.execute(sql, params, options=options)
 
 # Query the view
-result = backend.execute("SELECT * FROM user_names", options=options)
+view_query = QueryExpression(
+    dialect=dialect,
+    select=[Column(dialect, 'name')],
+    from_=TableExpression(dialect, 'user_names'),
+)
+sql, params = view_query.to_sql()
+result = backend.execute(
+    sql,
+    params,
+    options=ExecutionOptions(stmt_type=StatementType.DQL),
+)
 print(f"View result: {result.data}")
 
 # ============================================================
 # SECTION: CREATE OR REPLACE VIEW
 # ============================================================
-from rhosocial.activerecord.backend.expression import ViewOptions
-
 view_expr_replace = CreateViewExpression(
     dialect=dialect,
     view_name='user_names',
     query=query,
-    or_replace=True,
+    replace=True,
 )
 sql, params = view_expr_replace.to_sql()
 print(f"CREATE OR REPLACE VIEW SQL: {sql}")
@@ -129,5 +137,5 @@ backend.disconnect()
 # ============================================================
 # Key points:
 # 1. Use CreateViewExpression to create views
-# 2. Use or_replace=True to replace existing view
+# 2. Use replace=True to replace existing view
 # 3. Use DropViewExpression to drop views

@@ -163,7 +163,7 @@ print(f"After nested transaction: {fetch_balances()}")
 # ============================================================
 # SECTION: WAL Mode
 # ============================================================
-backend.introspector.pragma.set("journal_mode", "'WAL'")
+backend.introspector.pragma.set("journal_mode", "WAL")
 journal_mode = backend.introspector.pragma.get("journal_mode")
 print(f"Journal mode: {journal_mode}")
 

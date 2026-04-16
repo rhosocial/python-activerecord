@@ -17,13 +17,20 @@ from rhosocial.activerecord.backend.expression import (
     InsertExpression,
     ValuesSource,
     DropTableExpression,
+    UpdateExpression,
+    QueryExpression,
+    TableExpression,
+    WhereClause,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Literal, Column
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
 )
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 
 create_table = CreateTableExpression(
     dialect=dialect,
@@ -55,6 +62,8 @@ sql, params = insert.to_sql()
 print(f"Insert SQL: {sql}")
 backend.execute(sql, params)
 
+dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
+
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
@@ -64,11 +73,36 @@ backend.execute(sql, params)
 # SECTION: Execution (run the expression)
 # ============================================================
 with backend.transaction():
-    backend.execute("UPDATE accounts SET balance = balance - 50 WHERE name = 'Alice'")
+    update_expr = UpdateExpression(
+        dialect=dialect,
+        table='accounts',
+        assignments={'balance': Literal(dialect, 50)},
+        where=WhereClause(
+            dialect,
+            condition=ComparisonPredicate(
+                dialect, '=', Column(dialect, 'name'), Literal(dialect, 'Alice'),
+            ),
+        ),
+    )
+    sql, params = update_expr.to_sql()
+    backend.execute(sql, params)
 
 # Verify
-result = backend.execute("SELECT balance FROM accounts WHERE name = 'Alice'")
-print(f"Balance after transaction: {result.affected_rows}")
+query = QueryExpression(
+    dialect=dialect,
+    select=[Column(dialect, 'balance')],
+    from_=TableExpression(dialect, 'accounts'),
+    where=WhereClause(
+        dialect,
+        condition=ComparisonPredicate(
+            dialect, '=', Column(dialect, 'name'), Literal(dialect, 'Alice'),
+        ),
+    ),
+)
+sql, params = query.to_sql()
+result = backend.execute(sql, params, options=dql_options)
+if result.data:
+    print(f"Balance after transaction: {result.data[0]['balance']}")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
