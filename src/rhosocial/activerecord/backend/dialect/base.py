@@ -1539,13 +1539,25 @@ class SQLDialectBase:
         return f" CHECK ({check_sql})", tuple(check_params)
 
     def _format_default_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format DEFAULT constraint."""
+        """Format DEFAULT constraint.
+
+        DEFAULT values in DDL are embedded directly in SQL rather than
+        parameterized, because PostgreSQL cannot determine parameter types
+        in DDL context (e.g., CREATE TABLE).
+        """
         if constraint.default_value is None:
             raise ValueError("DEFAULT constraint must have a default value specified.")
         if isinstance(constraint.default_value, bases.BaseExpression):
             default_sql, default_params = constraint.default_value.to_sql()
             return f" DEFAULT {default_sql}", tuple(default_params)
-        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+        # Embed DEFAULT value directly in SQL to avoid parameter type
+        # inference issues in DDL statements (especially PostgreSQL).
+        # String values are single-quoted; numeric/other values are literal.
+        if isinstance(constraint.default_value, str):
+            # Escape single quotes in string values
+            escaped = constraint.default_value.replace("'", "''")
+            return f" DEFAULT '{escaped}'", ()
+        return f" DEFAULT {constraint.default_value}", ()
 
     def _format_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format FOREIGN KEY constraint."""
