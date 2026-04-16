@@ -8,6 +8,9 @@ This directory contains example code demonstrating how to use the rhosocial-acti
 examples/
 ├── README.md               # This file
 ├── conftest.py             # Example metadata configuration
+├── connection/             # Connection examples
+│   ├── __init__.py
+│   └── quickstart.py       # Quick start guide - connect, query, result handling
 ├── ddl/                    # Data Definition Language examples
 │   ├── __init__.py
 │   ├── create_table.py     # Create table with columns and constraints
@@ -28,7 +31,7 @@ examples/
 │   ├── basic.py            # Basic SELECT with WHERE, ORDER BY, LIMIT
 │   ├── join.py             # JOIN multiple tables
 │   ├── aggregate.py        # GROUP BY and HAVING
-│   ├── subquery.py         # Subquery in WHERE clause
+│   ├── subquery.py        # Subquery in WHERE clause
 │   ├── window.py           # Window functions (ROW_NUMBER, etc.)
 │   └── predicate.py        # Complex predicates (LIKE, IN, BETWEEN)
 ├── transaction/            # Transaction control examples
