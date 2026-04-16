@@ -10,16 +10,50 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 
 config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
+dialect = backend.dialect
 
-# Create table for testing
-backend.execute("""
-    CREATE TABLE IF NOT EXISTS accounts (
-        id INTEGER PRIMARY KEY AUTOINCREMENT,
-        name TEXT NOT NULL,
-        balance REAL DEFAULT 0
-    )
-""")
-backend.execute("INSERT INTO accounts (name, balance) VALUES ('Alice', 100)")
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
+)
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+)
+
+create_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='accounts',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+        ]),
+        ColumnDefinition('name', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition('balance', 'REAL'),
+    ],
+    if_not_exists=True,
+)
+sql, params = create_table.to_sql()
+print(f"Create table SQL: {sql}")
+backend.execute(sql, params)
+
+insert = InsertExpression(
+    dialect=dialect,
+    into='accounts',
+    columns=['name', 'balance'],
+    source=ValuesSource(dialect, [
+        [Literal(dialect, 'Alice'), Literal(dialect, 100)],
+    ]),
+)
+sql, params = insert.to_sql()
+print(f"Insert SQL: {sql}")
+backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
