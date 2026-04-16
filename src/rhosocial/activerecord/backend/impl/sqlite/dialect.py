@@ -1143,6 +1143,18 @@ class SQLiteDialect(
                 message="Consider using a separate read-only database connection."
             )
 
+        # Check for explicit begin_type (SQLite-specific)
+        # This allows direct control over DEFERRED/IMMEDIATE/EXCLUSIVE modes
+        begin_type = params.get("begin_type")
+        if begin_type is not None:
+            valid_types = ("DEFERRED", "IMMEDIATE", "EXCLUSIVE")
+            bt_upper = begin_type.upper()
+            if bt_upper not in valid_types:
+                raise ValueError(
+                    f"Invalid SQLite begin type: {begin_type}. Must be one of {valid_types}"
+                )
+            return f"BEGIN {bt_upper} TRANSACTION", ()
+
         # Map isolation level to BEGIN type
         # SQLite's default is SERIALIZABLE, DEFERRED gives READ_UNCOMMITTED via PRAGMA
         isolation = params.get("isolation_level")

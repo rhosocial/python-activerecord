@@ -795,7 +795,9 @@ class SQLDialectBase:
                         part_sql, part_params = source.to_sql()
                         # For ValuesExpression used as FROM source in list, wrap in parentheses
                         # This is required by SQL standard for VALUES in FROM clause
-                        if hasattr(source, "__class__") and source.__class__.__name__ == "ValuesExpression":
+                        # Only add parentheses when ValuesExpression has no alias,
+                        # since format_values_expression already wraps aliased output
+                        if source.__class__.__name__ == "ValuesExpression" and source.alias is None:
                             part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
@@ -804,7 +806,9 @@ class SQLDialectBase:
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 # For ValuesExpression used as FROM source, wrap in parentheses
                 # This is required by SQL standard for VALUES in FROM clause
-                if hasattr(expr.from_, "__class__") and expr.from_.__class__.__name__ == "ValuesExpression":
+                # Only add parentheses when ValuesExpression has no alias,
+                # since format_values_expression already wraps aliased output
+                if expr.from_.__class__.__name__ == "ValuesExpression" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)

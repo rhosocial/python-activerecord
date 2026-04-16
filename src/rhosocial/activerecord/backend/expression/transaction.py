@@ -64,6 +64,8 @@ class BeginTransactionExpression(TransactionExpression):
         self._mode: Optional[TransactionMode] = None
         # PostgreSQL-specific: deferrable mode for SERIALIZABLE
         self._deferrable: Optional[bool] = None
+        # SQLite-specific: BEGIN transaction type (DEFERRED|IMMEDIATE|EXCLUSIVE)
+        self._begin_type: Optional[str] = None
 
     def isolation_level(self, level: IsolationLevel) -> "BeginTransactionExpression":
         """Set the transaction isolation level.
@@ -116,11 +118,28 @@ class BeginTransactionExpression(TransactionExpression):
         self._deferrable = value
         return self
 
+    def begin_type(self, begin_type: str) -> "BeginTransactionExpression":
+        """Set the BEGIN transaction type (SQLite-specific).
+
+        SQLite supports three transaction types:
+        - DEFERRED: Does not acquire locks until first read/write
+        - IMMEDIATE: Acquires RESERVED lock on BEGIN
+        - EXCLUSIVE: Acquires EXCLUSIVE lock on BEGIN
+
+        Args:
+            begin_type: The transaction type string ("DEFERRED", "IMMEDIATE", or "EXCLUSIVE").
+
+        Returns:
+            Self for method chaining.
+        """
+        self._begin_type = begin_type
+        return self
+
     def get_params(self) -> Dict[str, Any]:
         """Get all parameters.
 
         Returns:
-            Dictionary containing isolation_level, mode, and deferrable.
+            Dictionary containing isolation_level, mode, deferrable, and begin_type.
         """
         params: Dict[str, Any] = {}
         if self._isolation_level is not None:
@@ -129,6 +148,8 @@ class BeginTransactionExpression(TransactionExpression):
             params["mode"] = self._mode
         if self._deferrable is not None:
             params["deferrable"] = self._deferrable
+        if self._begin_type is not None:
+            params["begin_type"] = self._begin_type
         return params
 
     def to_sql(self) -> SQLQueryAndParams:
