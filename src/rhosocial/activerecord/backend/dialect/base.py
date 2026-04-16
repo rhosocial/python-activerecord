@@ -567,6 +567,28 @@ class SQLDialectBase:
         """Format RENAME TABLE action per SQL standard."""
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]:
+        """Format MODIFY COLUMN action within ALTER TABLE.
+
+        MySQL/MariaDB specific: redefines a column with complete specification.
+        Default implementation raises UnsupportedFeatureError.
+        Override in MySQL/MariaDB dialect.
+        """
+        from .exceptions import UnsupportedFeatureError
+
+        raise UnsupportedFeatureError(self.name, "MODIFY COLUMN")
+
+    def format_change_column_action(self, action) -> Tuple[str, tuple]:
+        """Format CHANGE COLUMN action within ALTER TABLE.
+
+        MySQL/MariaDB specific: renames and redefines a column.
+        Default implementation raises UnsupportedFeatureError.
+        Override in MySQL/MariaDB dialect.
+        """
+        from .exceptions import UnsupportedFeatureError
+
+        raise UnsupportedFeatureError(self.name, "CHANGE COLUMN")
+
     def format_any_expression(
         self, expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:

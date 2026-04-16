@@ -19,8 +19,10 @@ dialect = backend.dialect
 from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     DropTableExpression,
+    QueryExpression,
+    TableExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
@@ -61,7 +63,13 @@ print(f"Insert SQL: {sql}")
 print(f"Params: {params}")
 backend.execute(sql, params)
 
-result = backend.execute("SELECT * FROM users")
+verify_query = QueryExpression(
+    dialect=dialect,
+    select=[WildcardExpression(dialect)],
+    from_=TableExpression(dialect, 'users'),
+)
+sql, params = verify_query.to_sql()
+result = backend.execute(sql, params)
 print(f"Result: {result.data}")
 
 # ============================================================

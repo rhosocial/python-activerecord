@@ -489,4 +489,51 @@ Benefits:
 | `format_*` | Generate SQL for the feature |
 | `format_create_*` | Generate CREATE statement (if applicable) |
 
-This is achieved by standard Python module execution. When building your own backend, considering adding a CLI interface can greatly enhance the developer experience.
+### Mandatory Process: New Dialect Methods Must Follow Protocol → Mixin → Dialect
+
+**Never add `format_*` or `supports_*` methods directly to a dialect class.** Every new dialect method must follow this three-step process:
+
+1. **Protocol**: Declare the interface signature (`supports_*` + `format_*`) in the corresponding Protocol class
+2. **Mixin**: Provide a default implementation in the corresponding Mixin class (raise `UnsupportedFeatureError` for unsupported features, `supports_*` defaults to `False`)
+3. **Dialect**: Mix in the Protocol + Mixin into the specific dialect class, overriding methods as needed
+
+**Reason**: The inspect tool (`devtools/inspect`) relies on Protocols and Mixins to discover capability declarations and method signatures. Skipping any step causes the inspect tool to miss that method, making backend capabilities undetectable.
+
+**Generic vs Backend-Specific**:
+
+- **Generic features** (SQL standard or widely supported): Protocol and Mixin are defined in the core package `dialect/protocols.py` and `dialect/mixins.py`
+- **Backend-specific features** (only supported by one database): Protocol and Mixin are defined in the backend package's own `protocols.py` and `mixins.py`, with naming that includes the backend prefix (e.g., `MySQLModifyColumnSupport`, `MySQLModifyColumnMixin`)
+
+**Example**: Adding `MODIFY COLUMN` support for MySQL
+
+```python
+# Step 1: MySQL-specific Protocol (mysql/protocols.py)
+@runtime_checkable
+class MySQLModifyColumnSupport(Protocol):
+    def supports_modify_column(self) -> bool: ...
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]: ...
+
+# Step 2: MySQL-specific Mixin (mysql/mixins.py)
+class MySQLModifyColumnMixin:
+    def supports_modify_column(self) -> bool:
+        return self.version >= (5, 0, 0)  # All MySQL 5.x+ support this
+
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]:
+        col_sql, col_params = self.format_column_definition(action.column)
+        sql = f"MODIFY COLUMN {col_sql}"
+        if action.after_column:
+            sql += f" AFTER {self.format_identifier(action.after_column)}"
+        elif action.first:
+            sql += " FIRST"
+        return sql, col_params
+
+# Step 3: MySQL dialect mixes in Protocol + Mixin (mysql/dialect.py)
+class MySQLDialect(
+    MySQLModifyColumnMixin,
+    MySQLModifyColumnSupport,
+    ...
+):
+    pass  # Mixin already provides implementation, no override needed
+```
+
+> **Note**: The core package's `SQLDialectBase` (`base.py`) can provide a default implementation that raises `UnsupportedFeatureError`, ensuring that call paths like `AlterTableAction.to_sql()` don't crash due to a missing method. However, this **does not replace** the Protocol/Mixin steps — the default implementation is only a safety fallback. The actual interface declaration and capability detection must still go through Protocol/Mixin.
