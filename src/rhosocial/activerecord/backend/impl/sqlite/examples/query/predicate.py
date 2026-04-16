@@ -14,20 +14,55 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-backend.execute("""
-CREATE TABLE IF NOT EXISTS products (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    price REAL,
-    category TEXT,
-    description TEXT
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
 )
-""")
-backend.execute("INSERT INTO products (name, price, category, description) VALUES ('Apple', 1.5, 'Fruit', 'Fresh red apple')")
-backend.execute("INSERT INTO products (name, price, category, description) VALUES ('Banana', 0.8, 'Fruit', NULL)")
-backend.execute("INSERT INTO products (name, price, category, description) VALUES ('Carrot', 0.5, 'Vegetable', 'Organic carrot')")
-backend.execute("INSERT INTO products (name, price, category, description) VALUES ('Orange', 2.0, 'Fruit', 'Sweet orange')")
-backend.execute("INSERT INTO products (name, price, category, description) VALUES ('Broccoli', 1.2, 'Vegetable', NULL)")
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+)
+
+create_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='products',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('name', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition('price', 'REAL'),
+        ColumnDefinition('category', 'TEXT'),
+        ColumnDefinition('description', 'TEXT'),
+    ],
+    if_not_exists=True,
+)
+sql, params = create_table.to_sql()
+backend.execute(sql, params)
+
+products_data = [
+    ('Apple', 1.5, 'Fruit', 'Fresh red apple'),
+    ('Banana', 0.8, 'Fruit', None),
+    ('Carrot', 0.5, 'Vegetable', 'Organic carrot'),
+    ('Orange', 2.0, 'Fruit', 'Sweet orange'),
+    ('Broccoli', 1.2, 'Vegetable', None),
+]
+for row in products_data:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='products',
+        columns=['name', 'price', 'category', 'description'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)

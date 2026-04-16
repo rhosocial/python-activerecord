@@ -14,17 +14,52 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-backend.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    age INTEGER,
-    status TEXT DEFAULT 'active'
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
 )
-""")
-backend.execute("INSERT INTO users (name, age, status) VALUES ('Alice', 30, 'active')")
-backend.execute("INSERT INTO users (name, age, status) VALUES ('Bob', 25, 'active')")
-backend.execute("INSERT INTO users (name, age, status) VALUES ('Charlie', 35, 'inactive')")
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+)
+
+create_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='users',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('name', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition('age', 'INTEGER'),
+        ColumnDefinition('status', 'TEXT'),
+    ],
+    if_not_exists=True,
+)
+sql, params = create_table.to_sql()
+backend.execute(sql, params)
+
+users = [
+    ('Alice', 30, 'active'),
+    ('Bob', 25, 'active'),
+    ('Charlie', 35, 'inactive'),
+]
+for row in users:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='users',
+        columns=['name', 'age', 'status'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)

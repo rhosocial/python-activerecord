@@ -14,20 +14,55 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-backend.execute("""
-CREATE TABLE IF NOT EXISTS sales (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    salesperson TEXT NOT NULL,
-    region TEXT,
-    amount REAL,
-    sale_date TEXT
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
 )
-""")
-backend.execute("INSERT INTO sales (salesperson, region, amount, sale_date) VALUES ('Alice', 'North', 1000, '2024-01-01')")
-backend.execute("INSERT INTO sales (salesperson, region, amount, sale_date) VALUES ('Alice', 'North', 1500, '2024-01-02')")
-backend.execute("INSERT INTO sales (salesperson, region, amount, sale_date) VALUES ('Bob', 'South', 1200, '2024-01-01')")
-backend.execute("INSERT INTO sales (salesperson, region, amount, sale_date) VALUES ('Bob', 'South', 1800, '2024-01-02')")
-backend.execute("INSERT INTO sales (salesperson, region, amount, sale_date) VALUES ('Charlie', 'North', 2000, '2024-01-01')")
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+)
+
+create_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='sales',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('salesperson', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition('region', 'TEXT'),
+        ColumnDefinition('amount', 'REAL'),
+        ColumnDefinition('sale_date', 'TEXT'),
+    ],
+    if_not_exists=True,
+)
+sql, params = create_table.to_sql()
+backend.execute(sql, params)
+
+sales_data = [
+    ('Alice', 'North', 1000, '2024-01-01'),
+    ('Alice', 'North', 1500, '2024-01-02'),
+    ('Bob', 'South', 1200, '2024-01-01'),
+    ('Bob', 'South', 1800, '2024-01-02'),
+    ('Charlie', 'North', 2000, '2024-01-01'),
+]
+for row in sales_data:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='sales',
+        columns=['salesperson', 'region', 'amount', 'sale_date'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)

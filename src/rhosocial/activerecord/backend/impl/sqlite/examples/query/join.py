@@ -14,25 +14,87 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-backend.execute("""
-CREATE TABLE IF NOT EXISTS users (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
 )
-""")
-backend.execute("""
-CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    amount REAL,
-    FOREIGN KEY (user_id) REFERENCES users(id)
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+    TableConstraint,
+    TableConstraintType,
 )
-""")
-backend.execute("INSERT INTO users (name) VALUES ('Alice')")
-backend.execute("INSERT INTO users (name) VALUES ('Bob')")
-backend.execute("INSERT INTO orders (user_id, amount) VALUES (1, 100.0)")
-backend.execute("INSERT INTO orders (user_id, amount) VALUES (1, 200.0)")
-backend.execute("INSERT INTO orders (user_id, amount) VALUES (2, 150.0)")
+
+users_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='users',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('name', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+    ],
+    if_not_exists=True,
+)
+sql, params = users_table.to_sql()
+backend.execute(sql, params)
+
+orders_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='orders',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('user_id', 'INTEGER'),
+        ColumnDefinition('amount', 'REAL'),
+    ],
+    table_constraints=[
+        TableConstraint(
+            constraint_type=TableConstraintType.FOREIGN_KEY,
+            columns=['user_id'],
+            foreign_key_table='users',
+            foreign_key_columns=['id'],
+        ),
+    ],
+    if_not_exists=True,
+)
+sql, params = orders_table.to_sql()
+backend.execute(sql, params)
+
+users = [('Alice',), ('Bob',)]
+for user in users:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='users',
+        columns=['name'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in user]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
+
+orders = [
+    (1, 100.0),
+    (1, 200.0),
+    (2, 150.0),
+]
+for row in orders:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='orders',
+        columns=['user_id', 'amount'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
