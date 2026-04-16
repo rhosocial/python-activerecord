@@ -65,7 +65,6 @@ from rhosocial.activerecord.backend.expression import (
     TableExpression,
     SetOperationExpression,
 )
-from rhosocial.activerecord.backend.expression.query_sources import ValuesExpression
 
 # First query
 query1 = QueryExpression(
@@ -74,22 +73,16 @@ query1 = QueryExpression(
     from_=TableExpression(dialect, 'users'),
 )
 
-# Second query (using VALUES)
-values_expr = ValuesExpression(dialect, [
-    [Literal(dialect, 'Charlie')],
-])
-
 query2 = QueryExpression(
     dialect=dialect,
-    select=[Column(dialect, 'name')],
-    from_=values_expr,
+    select=[Literal(dialect, 'Charlie')],
 )
 
 # Union
 union_expr = SetOperationExpression(
     dialect=dialect,
     left=query1,
-    operator='UNION',
+    operation='UNION',
     right=query2,
 )
 sql, params = union_expr.to_sql()
@@ -106,7 +99,8 @@ print(f"Result: {result.data}")
 union_all = SetOperationExpression(
     dialect=dialect,
     left=query1,
-    operator='UNION ALL',
+    operation='UNION',
+    all_=True,
     right=query2,
 )
 sql, params = union_all.to_sql()
@@ -126,5 +120,6 @@ backend.disconnect()
 # SECTION: Summary
 # ============================================================
 # Key points:
-# 1. Use SetOperationExpression with operator='UNION'
-# 2. UNION removes duplicates, UNION ALL keeps all
+# 1. Use SetOperationExpression with operation='UNION'
+# 2. Use operation='UNION', all_=True for UNION ALL
+# 3. UNION removes duplicates, UNION ALL keeps all
