@@ -87,6 +87,16 @@ EXAMPLES_META = {
         'dialect_protocols': [],
         'priority': 10,
     },
+    'query/distinct.py': {
+        'title': 'SELECT DISTINCT',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
+    'query/union.py': {
+        'title': 'UNION using SetOperationExpression',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
     'types/json_basic.py': {
         'title': 'JSON Operations',
         'dialect_protocols': ['JSONSupport'],
