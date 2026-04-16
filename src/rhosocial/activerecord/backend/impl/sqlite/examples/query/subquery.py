@@ -14,26 +14,90 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-backend.execute("""
-CREATE TABLE IF NOT EXISTS departments (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
 )
-""")
-backend.execute("""
-CREATE TABLE IF NOT EXISTS employees (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    name TEXT NOT NULL,
-    department_id INTEGER,
-    salary REAL,
-    FOREIGN KEY (department_id) REFERENCES departments(id)
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+    TableConstraint,
+    TableConstraintType,
 )
-""")
-backend.execute("INSERT INTO departments (name) VALUES ('Engineering')")
-backend.execute("INSERT INTO departments (name) VALUES ('Sales')")
-backend.execute("INSERT INTO employees (name, department_id, salary) VALUES ('Alice', 1, 100000)")
-backend.execute("INSERT INTO employees (name, department_id, salary) VALUES ('Bob', 1, 80000)")
-backend.execute("INSERT INTO employees (name, department_id, salary) VALUES ('Charlie', 2, 90000)")
+
+departments_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='departments',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('name', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+    ],
+    if_not_exists=True,
+)
+sql, params = departments_table.to_sql()
+backend.execute(sql, params)
+
+employees_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='employees',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('name', 'TEXT', constraints=[
+            ColumnConstraint(ColumnConstraintType.NOT_NULL),
+        ]),
+        ColumnDefinition('department_id', 'INTEGER'),
+        ColumnDefinition('salary', 'REAL'),
+    ],
+    table_constraints=[
+        TableConstraint(
+            constraint_type=TableConstraintType.FOREIGN_KEY,
+            columns=['department_id'],
+            foreign_key_table='departments',
+            foreign_key_columns=['id'],
+        ),
+    ],
+    if_not_exists=True,
+)
+sql, params = employees_table.to_sql()
+backend.execute(sql, params)
+
+departments = [('Engineering',), ('Sales',)]
+for dept in departments:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='departments',
+        columns=['name'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in dept]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
+
+employees = [
+    ('Alice', 1, 100000),
+    ('Bob', 1, 80000),
+    ('Charlie', 2, 90000),
+]
+for emp in employees:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='employees',
+        columns=['name', 'department_id', 'salary'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in emp]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)

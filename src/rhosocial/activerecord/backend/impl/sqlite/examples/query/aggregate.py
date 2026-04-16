@@ -14,19 +14,52 @@ config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-backend.execute("""
-CREATE TABLE IF NOT EXISTS orders (
-    id INTEGER PRIMARY KEY AUTOINCREMENT,
-    user_id INTEGER,
-    amount REAL,
-    status TEXT
+from rhosocial.activerecord.backend.expression import (
+    CreateTableExpression,
+    InsertExpression,
+    ValuesSource,
+    DropTableExpression,
 )
-""")
-backend.execute("INSERT INTO orders (user_id, amount, status) VALUES (1, 100.0, 'completed')")
-backend.execute("INSERT INTO orders (user_id, amount, status) VALUES (1, 200.0, 'completed')")
-backend.execute("INSERT INTO orders (user_id, amount, status) VALUES (2, 150.0, 'completed')")
-backend.execute("INSERT INTO orders (user_id, amount, status) VALUES (2, 50.0, 'pending')")
-backend.execute("INSERT INTO orders (user_id, amount, status) VALUES (3, 300.0, 'completed')")
+from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.expression.statements import (
+    ColumnDefinition,
+    ColumnConstraint,
+    ColumnConstraintType,
+)
+
+create_table = CreateTableExpression(
+    dialect=dialect,
+    table_name='orders',
+    columns=[
+        ColumnDefinition('id', 'INTEGER', constraints=[
+            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+        ]),
+        ColumnDefinition('user_id', 'INTEGER'),
+        ColumnDefinition('amount', 'REAL'),
+        ColumnDefinition('status', 'TEXT'),
+    ],
+    if_not_exists=True,
+)
+sql, params = create_table.to_sql()
+backend.execute(sql, params)
+
+orders_data = [
+    (1, 100.0, 'completed'),
+    (1, 200.0, 'completed'),
+    (2, 150.0, 'completed'),
+    (2, 50.0, 'pending'),
+    (3, 300.0, 'completed'),
+]
+for row in orders_data:
+    insert_expr = InsertExpression(
+        dialect=dialect,
+        into='orders',
+        columns=['user_id', 'amount', 'status'],
+        source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
+    )
+    sql, params = insert_expr.to_sql()
+    backend.execute(sql, params)
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
