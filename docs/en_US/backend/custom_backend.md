@@ -82,6 +82,63 @@ When implementing a custom dialect (e.g., for MySQL or PostgreSQL), follow this 
 3.  **Mixin if Compatible**: If the standard SQL behavior works for your database, just inherit the corresponding `Mixin` (e.g., `WindowFunctionMixin`) and set the feature flag to `True`.
 4.  **Custom Implementation Only When Necessary**: If your database uses non-standard syntax, ONLY THEN should you implement the protocol methods manually.
 
+### Protocol Naming Principles
+
+When implementing protocols for your custom backend, follow these principles:
+
+#### 1. Generic Protocols Use No Backend Prefix
+
+Generic protocols (e.g., `WindowFunctionSupport`, `TableSupport`, `IndexSupport`) are defined in `rhosocial.activerecord.backend.dialect.protocols` and **should not include any backend-specific prefix**.
+
+```python
+# ✅ Correct: Generic protocol
+class WindowFunctionSupport(Protocol):
+    def supports_window_functions(self) -> bool: ...
+
+# ❌ Wrong: Has backend prefix
+class MySQLWindowFunctionSupport(Protocol): ...
+```
+
+#### 2. Backend-Specific Protocols Must Have Prefix
+
+Backend-specific protocols must include the backend name as a prefix (e.g., `PostgresPartitionSupport`, `MySQLFullTextSearchSupport`).
+
+```python
+# ✅ Correct: Backend-specific protocol has prefix
+class PostgresPartitionSupport(Protocol): ...
+
+# ❌ Wrong: Missing prefix
+class PartitionSupport(Protocol): ...
+```
+
+#### 3. Priority: Generic First, Then Backend-Specific
+
+**If a generic protocol already defines an interface that meets your needs, use the generic protocol.** Only define backend-specific interfaces when the generic protocol doesn't cover your database's specific syntax.
+
+```python
+# Example: MySQL Full-text Search
+# The generic IndexSupport protocol already defines supports_fulltext_index
+# ✅ Use generic protocol and just set the version check
+class MySQLDialect(
+    IndexSupport,  # Already has supports_fulltext_index
+    ...
+):
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+# Only create MySQLFullTextSearchSupport for MySQL-specific interfaces:
+# - format_match_against() - MySQL MATCH...AGAINST syntax
+# - format_fulltext_index_options() - WITH PARSER, etc.
+class MySQLFullTextSearchSupport(Protocol):
+    def format_match_against(...): ...  # MySQL-specific
+    def format_fulltext_index_options(...): ...  # MySQL-specific
+```
+
+This principle ensures:
+- **No Interface Duplication**: Each interface is defined only once
+- **Clear Responsibilities**: Generic protocols cover standard SQL, backend-specific ones cover deviations
+- **Maintainability**: Changes to standard SQL only need to happen in one place
+
 ### Pay Attention to Formatting Functions
 
 After mixing in a protocol, verify the corresponding formatting methods. For example, if you mix in `WindowFunctionMixin`, check `format_window_function_call` in the mixin/base class.
