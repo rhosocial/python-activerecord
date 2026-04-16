@@ -7,6 +7,11 @@ The inspector reads this file to get title, dialect_protocols, and priority.
 """
 
 EXAMPLES_META = {
+    'connection/quickstart.py': {
+        'title': 'Connect to SQLite and Execute Queries',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
     'ddl/create_table.py': {
         'title': 'Create Table',
         'dialect_protocols': [],
