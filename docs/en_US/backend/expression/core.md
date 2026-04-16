@@ -130,9 +130,27 @@ class TableExpression(mixins.AliasableMixin, bases.BaseExpression):
 
 Represents a generic scalar function call.
 
+When `niladic=True` and no arguments are provided, the function call generates SQL without parentheses (e.g., `CURRENT_TIMESTAMP` instead of `CURRENT_TIMESTAMP()`). Per SQL:2003, certain value functions are niladic and must not use parentheses when invoked without arguments. When a niladic function has arguments (e.g., `CURRENT_TIMESTAMP(6)`), parentheses are included as normal.
+
 ```python
 class FunctionCall(mixins.AliasableMixin, mixins.ArithmeticMixin, mixins.ComparisonMixin, mixins.StringMixin, bases.SQLValueExpression):
-    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None): ...
+    def __init__(self, dialect: "SQLDialectBase", func_name: str, *args: "bases.BaseExpression", is_distinct: bool = False, alias: Optional[str] = None, niladic: bool = False): ...
+```
+
+**Niladic usage:**
+
+```python
+# SQL:2003 niladic function — generates CURRENT_TIMESTAMP (no parentheses)
+FunctionCall(dialect, 'CURRENT_TIMESTAMP', niladic=True)
+# -> ('CURRENT_TIMESTAMP', ())
+
+# Niladic with argument — generates CURRENT_TIMESTAMP(?)
+FunctionCall(dialect, 'CURRENT_TIMESTAMP', Literal(dialect, 6), niladic=True)
+# -> ('CURRENT_TIMESTAMP(?)', (6,))
+
+# Regular function — always has parentheses
+FunctionCall(dialect, 'NOW')
+# -> ('NOW()', ())
 ```
 
 ### WildcardExpression

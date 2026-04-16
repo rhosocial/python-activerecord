@@ -557,13 +557,14 @@ sql, params = n.to_sql()
 
 ### current_date
 
-Creates a `CURRENT_DATE` scalar function call.
+Creates a `CURRENT_DATE` niladic value function. Per SQL:2003, generates `CURRENT_DATE` without parentheses.
 
 ```python
 def current_date(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
 ```
 
 **Example:**
+
 ```python
 d = current_date(dialect)
 sql, params = d.to_sql()
@@ -573,13 +574,14 @@ sql, params = d.to_sql()
 
 ### current_time
 
-Creates a `CURRENT_TIME` scalar function call.
+Creates a `CURRENT_TIME` niladic value function. Per SQL:2003, generates `CURRENT_TIME` without parentheses.
 
 ```python
 def current_time(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
 ```
 
 **Example:**
+
 ```python
 t = current_time(dialect)
 sql, params = t.to_sql()
@@ -1120,14 +1122,22 @@ sql, params = s.to_sql()
 
 ### current_timestamp
 
-Creates a `CURRENT_TIMESTAMP` function call.
+Creates a `CURRENT_TIMESTAMP` niladic value function. Per SQL:2003, generates `CURRENT_TIMESTAMP` without parentheses when no precision is specified. When precision is specified, generates `CURRENT_TIMESTAMP(precision)` with parentheses.
 
 ```python
 def current_timestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
 ```
 
 **Example:**
+
 ```python
+# Without precision — niladic form (no parentheses)
+c = current_timestamp(dialect)
+sql, params = c.to_sql()
+# sql: 'CURRENT_TIMESTAMP'
+# params: ()
+
+# With precision — has parentheses
 c = current_timestamp(dialect, 6)
 sql, params = c.to_sql()
 # sql: 'CURRENT_TIMESTAMP(?)'
@@ -1136,14 +1146,16 @@ sql, params = c.to_sql()
 
 ### localtimestamp
 
-Creates a `LOCALTIMESTAMP` function call.
+Creates a `LOCALTIMESTAMP` niladic value function. Per SQL:2003, generates `LOCALTIMESTAMP` without parentheses when no precision is specified. When precision is specified, generates `LOCALTIMESTAMP(precision)` with parentheses.
 
 ```python
 def localtimestamp(dialect: "SQLDialectBase", precision: Optional[int] = None) -> "core.FunctionCall": ...
 ```
 
 **Example:**
+
 ```python
+# Without precision — niladic form (no parentheses)
 l = localtimestamp(dialect)
 sql, params = l.to_sql()
 # sql: 'LOCALTIMESTAMP'
@@ -1168,7 +1180,7 @@ sql, params = e.to_sql()
 
 ### current_user, session_user, system_user
 
-Creates user information function calls.
+Creates SQL:2003 niladic value functions. These generate `CURRENT_USER`, `SESSION_USER`, `SYSTEM_USER` without parentheses.
 
 ```python
 def current_user(dialect: "SQLDialectBase") -> "core.FunctionCall": ...
