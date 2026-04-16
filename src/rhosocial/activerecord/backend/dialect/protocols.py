@@ -421,8 +421,13 @@ class JSONSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def supports_json_table(self) -> bool:
-        """Whether JSON_TABLE function is supported."""
+    def supports_json_table(self, dialect_options: Optional[Dict[str, Any]] = None) -> bool:
+        """Whether JSON_TABLE function is supported.
+
+        Args:
+            dialect_options: Optional backend-specific options (e.g., MySQL: {'on_error': 'IGNORE'})
+                See backend-specific documentation for available options.
+        """
         ...  # pragma: no cover
 
     def format_json_expression(self, column: Any, path: str, operation: str) -> Tuple[str, Tuple]:
@@ -440,7 +445,13 @@ class JSONSupport(Protocol):
         ...  # pragma: no cover
 
     def format_json_table_expression(
-        self, json_col_sql: str, path: str, columns: List[Dict[str, Any]], alias: Optional[str], params: tuple
+        self,
+        json_col_sql: str,
+        path: str,
+        columns: List[Dict[str, Any]],
+        alias: Optional[str],
+        params: tuple,
+        dialect_options: Optional[Dict[str, Any]] = None,
     ) -> Tuple[str, Tuple]:
         """
         Formats a JSON_TABLE expression.
@@ -451,6 +462,8 @@ class JSONSupport(Protocol):
             columns: A list of dictionaries, each defining a column.
             alias: The alias for the resulting table.
             params: Parameters for the JSON column expression.
+            dialect_options: Optional backend-specific options (e.g., MySQL: {'on_error': 'IGNORE', 'on_empty': 'DEFAULT'})
+                See backend-specific documentation for available options.
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
