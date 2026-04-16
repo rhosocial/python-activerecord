@@ -139,7 +139,57 @@ This principle ensures:
 - **Clear Responsibilities**: Generic protocols cover standard SQL, backend-specific ones cover deviations
 - **Maintainability**: Changes to standard SQL only need to happen in one place
 
-### Pay Attention to Formatting Functions
+#### 4. Backend-Specific Options via dialect_options
+
+When a generic protocol's formatting interface has backend-specific parameters, use the `dialect_options` parameter:
+
+```python
+# Generic protocol defines the interface with dialect_options
+class JSONSupport(Protocol):
+    def supports_json_table(
+        self, dialect_options: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Check if JSON_TABLE is supported.
+
+        Args:
+            dialect_options: Backend-specific options
+        """
+        ...
+
+    def format_json_table_expression(
+        self,
+        expr,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[str, tuple]:
+        """Format JSON_TABLE expression.
+
+        Args:
+            expr: JSONTableExpression instance
+            dialect_options: Backend-specific options, e.g.:
+                - MySQL: {'on_error': 'IGNORE'}
+                - PostgreSQL: {...}
+        """
+        ...
+```
+
+**Usage in expression:**
+
+```python
+# Pass dialect_options when creating expressions
+JSONTableExpression(
+    dialect,
+    json_column=User.json_data,
+    path='$.addresses[*]',
+    columns=[...],
+    dialect_options={'on_error': 'IGNORE'}  # MySQL-specific
+)
+```
+
+**Benefits:**
+- **Consistent Interface**: Generic protocol defines the signature
+- **Extensible**: Each backend documents its own options
+- **Type Safety**: Type checkers can verify the interface signature
+- **Backward Compatible**: Adding options doesn't break existing implementations
 
 After mixing in a protocol, verify the corresponding formatting methods. For example, if you mix in `WindowFunctionMixin`, check `format_window_function_call` in the mixin/base class.
 
