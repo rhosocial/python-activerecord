@@ -52,6 +52,11 @@ EXAMPLES_META = {
         'dialect_protocols': [],
         'priority': 10,
     },
+    'transaction/exclusive.py': {
+        'title': 'SQLite Transaction Modes',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
     'query/basic.py': {
         'title': 'Basic SELECT Query',
         'dialect_protocols': [],
