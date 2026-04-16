@@ -27,6 +27,11 @@ EXAMPLES_META = {
         'dialect_protocols': [],
         'priority': 10,
     },
+    'ddl/view.py': {
+        'title': 'CREATE VIEW',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
     'update/basic.py': {
         'title': 'Update with RETURNING',
         'dialect_protocols': ['ReturningSupport'],
