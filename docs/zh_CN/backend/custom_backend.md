@@ -82,6 +82,115 @@ class DummyDialect(
 3.  **如果兼容则混入**: 如果标准 SQL 行为适用于您的数据库，只需继承相应的 `Mixin`（例如 `WindowFunctionMixin`）并将特性标志设置为 `True`。
 4.  **仅在必要时自定义实现**: 如果您的数据库使用非标准语法，**只有在那时** 您才应该手动实现协议方法。
 
+### 协议命名原则
+
+在为您自己的自定义后端实现协议时，请遵循以下原则：
+
+#### 1. 通用协议不使用后端前缀
+
+通用协议（如 `WindowFunctionSupport`、`TableSupport`、`IndexSupport`）定义在 `rhosocial.activerecord.backend.dialect.protocols` 中，**不应包含任何后端特定前缀**。
+
+```python
+# ✅ 正确：通用协议
+class WindowFunctionSupport(Protocol):
+    def supports_window_functions(self) -> bool: ...
+
+# ❌ 错误：包含后端前缀
+class MySQLWindowFunctionSupport(Protocol): ...
+```
+
+#### 2. 后端特定协议必须有前缀
+
+后端特定协议必须包含后端名称作为前缀（例如 `PostgresPartitionSupport`、`MySQLFullTextSearchSupport`）。
+
+```python
+# ✅ 正确：后端特定协议有前缀
+class PostgresPartitionSupport(Protocol): ...
+
+# ❌ 错误：缺少前缀
+class PartitionSupport(Protocol): ...
+```
+
+#### 3. 优先使用通用协议，其次后端特定协议
+
+**如果通用协议已经定义了满足您需要的接口，请使用通用协议。** 仅在通用协议无法覆盖您数据库的特定语法时，才定义后端特定的接口。
+
+```python
+# 示例：MySQL 全文搜索
+# 通用 IndexSupport 协议已经定义了 supports_fulltext_index
+# ✅ 使用通用协议并设置版本检查
+class MySQLDialect(
+    IndexSupport,  # 已经包含 supports_fulltext_index
+    ...
+):
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+# 仅在需要 MySQL 特定接口时创建 MySQLFullTextSearchSupport：
+# - format_match_against() - MySQL MATCH...AGAINST 语法
+# - format_fulltext_index_options() - WITH PARSER 等
+class MySQLFullTextSearchSupport(Protocol):
+    def format_match_against(...): ...  # MySQL 特定
+    def format_fulltext_index_options(...): ...  # MySQL 特定
+```
+
+这一原则确保：
+- **无接口重复**：每个接口只定义一次
+- **职责清晰**：通用协议覆盖标准 SQL，后端特定协议覆盖差异
+- **可维护性**：标准 SQL 的变更只需在一处进行
+
+#### 4. 通过 dialect_options 传递后端特定选项
+
+当通用协议的格式化接口有后端特定参数时，使用 `dialect_options` 参数：
+
+```python
+# 通用协议定义带 dialect_options 的接口
+class JSONSupport(Protocol):
+    def supports_json_table(
+        self, dialect_options: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """检查是否支持 JSON_TABLE。
+
+        Args:
+            dialect_options: 后端特定选项
+        """
+        ...
+
+    def format_json_table_expression(
+        self,
+        expr,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[str, tuple]:
+        """格式化 JSON_TABLE 表达式。
+
+        Args:
+            expr: JSONTableExpression 实例
+            dialect_options: 后端特定选项，例如：
+                - MySQL: {'on_error': 'IGNORE'}
+                - PostgreSQL: {...}
+        """
+        ...
+```
+
+**在表达式中的用法：**
+
+```python
+# 创建表达式时传入 dialect_options
+JSONTableExpression(
+    dialect,
+    json_column=User.json_data,
+    path='$.addresses[*]',
+    columns=[...],
+    dialect_options={'on_error': 'IGNORE'}  # MySQL 特定
+)
+```
+
+**优势：**
+- **一致的接口**：通用协议定义签名
+- **可扩展**：每个后端可以文档化自己的选项
+- **类型安全**：类型检查器可以验证接口签名
+- **向后兼容**：添加选项不会破坏现有实现
+
 ### 关注格式化函数
 
 混入协议后，请验证相应的格式化方法。例如，如果您混入了 `WindowFunctionMixin`，请检查 Mixin/基类中的 `format_window_function_call`。
