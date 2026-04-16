@@ -27,6 +27,11 @@ EXAMPLES_META = {
         'dialect_protocols': [],
         'priority': 10,
     },
+    'ddl/drop_table.py': {
+        'title': 'DROP TABLE',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
     'ddl/view.py': {
         'title': 'CREATE VIEW',
         'dialect_protocols': [],
@@ -44,6 +49,11 @@ EXAMPLES_META = {
     },
     'insert/batch.py': {
         'title': 'Batch Insert',
+        'dialect_protocols': [],
+        'priority': 10,
+    },
+    'insert/single.py': {
+        'title': 'Single Row Insert',
         'dialect_protocols': [],
         'priority': 10,
     },
