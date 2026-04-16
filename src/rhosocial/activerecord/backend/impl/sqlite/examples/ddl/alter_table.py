@@ -107,15 +107,11 @@ print(f"Params: {params}")
 backend.execute(sql, params)
 print("Column renamed successfully")
 
-# Verify
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
-
-options = ExecutionOptions(stmt_type=StatementType.DQL)
-result = backend.execute("PRAGMA table_info(users)", options=options)
-print(f"Table structure:")
-for row in result.data or []:
-    print(f"  {row}")
+# Verify using introspector
+columns = backend.introspector.get_columns('users')
+print("Table structure:")
+for col in columns:
+    print(f"  {col.name} {col.data_type}")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)

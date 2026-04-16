@@ -25,6 +25,8 @@ class AlterTableActionType(Enum):
     RENAME_TABLE = "RENAME TABLE"
     ADD_INDEX = "ADD INDEX"
     DROP_INDEX = "DROP INDEX"
+    MODIFY_COLUMN = "MODIFY COLUMN"  # MySQL/MariaDB specific
+    CHANGE_COLUMN = "CHANGE COLUMN"  # MySQL/MariaDB specific
 
 
 class AlterTableAction(abc.ABC):
@@ -55,6 +57,10 @@ class AlterTableAction(abc.ABC):
                 return dialect.format_add_index_action(self)
             elif self.action_type == AlterTableActionType.DROP_INDEX:
                 return dialect.format_drop_index_action(self)
+            elif self.action_type == AlterTableActionType.MODIFY_COLUMN:
+                return dialect.format_modify_column_action(self)
+            elif self.action_type == AlterTableActionType.CHANGE_COLUMN:
+                return dialect.format_change_column_action(self)
             else:
                 # Handle unknown action types
                 return f"PROCESS {type(self).__name__}", ()
@@ -188,6 +194,38 @@ class DropIndex(AlterTableAction):
     action_type: AlterTableActionType = AlterTableActionType.DROP_INDEX
 
 
+@dataclass
+class ModifyColumn(AlterTableAction):
+    """Represents a 'MODIFY COLUMN' action.
+
+    Redefines a column with a complete new specification.
+    This is MySQL/MariaDB specific syntax; the SQL standard
+    uses ALTER COLUMN for individual property changes.
+    """
+
+    column: ColumnDefinition
+    action_type: AlterTableActionType = AlterTableActionType.MODIFY_COLUMN
+    first: bool = False  # Place column first (MySQL/MariaDB)
+    after_column: Optional[str] = None  # Place after specified column
+    dialect_options: Optional[Dict[str, Any]] = None
+
+
+@dataclass
+class ChangeColumn(AlterTableAction):
+    """Represents a 'CHANGE COLUMN' action.
+
+    Renames a column and redefines it with a complete new specification.
+    This is MySQL/MariaDB specific syntax.
+    """
+
+    old_name: str
+    column: ColumnDefinition
+    action_type: AlterTableActionType = AlterTableActionType.CHANGE_COLUMN
+    first: bool = False  # Place column first (MySQL/MariaDB)
+    after_column: Optional[str] = None  # Place after specified column
+    dialect_options: Optional[Dict[str, Any]] = None
+
+
 class AlterTableExpression(BaseExpression):
     """
     Represents a comprehensive ALTER TABLE statement supporting SQL standard functionality.
@@ -265,6 +303,8 @@ class AlterTableExpression(BaseExpression):
                 "RenameColumn",
                 "RenameTable",
                 "AlterColumn",
+                "ModifyColumn",
+                "ChangeColumn",
             ]
         ],
         *,  # Force keyword arguments

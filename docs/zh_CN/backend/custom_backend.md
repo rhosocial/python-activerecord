@@ -491,4 +491,50 @@ class MySQLDialect(
 | `format_*` | 生成特性的 SQL |
 | `format_create_*` | 生成 CREATE 语句（如适用） |
 
-这是通过标准 Python 模块执行实现的。在构建您自己的后端时，考虑添加 CLI 接口可以极大地提升开发体验。
+### 强制流程：新增方言方法必须经过 Protocol → Mixin → Dialect
+
+**严禁直接在方言类中添加 `format_*` 或 `supports_*` 方法。** 每个新的方言方法必须按以下三步流程完成：
+
+1. **Protocol**：在对应的 Protocol 类中声明接口签名（`supports_*` + `format_*`）
+2. **Mixin**：在对应的 Mixin 类中提供默认实现（不支持的抛 `UnsupportedFeatureError`，`supports_*` 默认返回 `False`）
+3. **Dialect**：在具体方言类中混入 Protocol + Mixin，覆写需要的方法
+
+**原因**：探查工具（`devtools/inspect`）依赖 Protocol 和 Mixin 来发现能力声明和方法签名。跳过任何一步会导致探查工具遗漏该方法，使得后端能力无法被正确检测。
+
+**通用 vs 后端特定**：
+- **通用特性**（SQL 标准或多数数据库支持）：Protocol 和 Mixin 定义在核心包 `dialect/protocols.py` 和 `dialect/mixins.py` 中
+- **后端特定特性**（仅某个数据库支持）：Protocol 和 Mixin 定义在后端包自己的 `protocols.py` 和 `mixins.py` 中，但命名必须带后端前缀（如 `MySQLModifyColumnSupport`、`MySQLModifyColumnMixin`）
+
+**示例**：为 MySQL 添加 `MODIFY COLUMN` 支持
+
+```python
+# 步骤 1: MySQL 专属 Protocol (mysql/protocols.py)
+@runtime_checkable
+class MySQLModifyColumnSupport(Protocol):
+    def supports_modify_column(self) -> bool: ...
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]: ...
+
+# 步骤 2: MySQL 专属 Mixin (mysql/mixins.py)
+class MySQLModifyColumnMixin:
+    def supports_modify_column(self) -> bool:
+        return self.version >= (5, 0, 0)  # 所有 MySQL 5.x+ 支持
+
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]:
+        col_sql, col_params = self.format_column_definition(action.column)
+        sql = f"MODIFY COLUMN {col_sql}"
+        if action.after_column:
+            sql += f" AFTER {self.format_identifier(action.after_column)}"
+        elif action.first:
+            sql += " FIRST"
+        return sql, col_params
+
+# 步骤 3: MySQL 方言混入 Protocol + Mixin (mysql/dialect.py)
+class MySQLDialect(
+    MySQLModifyColumnMixin,
+    MySQLModifyColumnSupport,
+    ...
+):
+    pass  # Mixin 中已有实现，无需额外覆写
+```
+
+> **注意**：核心包的 `SQLDialectBase`（`base.py`）中可以提供抛 `UnsupportedFeatureError` 的默认实现，确保 `AlterTableAction.to_sql()` 等调用路径不会因方法缺失而崩溃。但这**不替代** Protocol/Mixin 步骤——默认实现只是安全兜底，真正的接口声明和能力检测仍需通过 Protocol/Mixin 完成。
