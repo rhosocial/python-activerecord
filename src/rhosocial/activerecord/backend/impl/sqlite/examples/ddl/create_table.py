@@ -24,7 +24,6 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.statements.ddl_table import (
     IndexDefinition,
 )
-from rhosocial.activerecord.backend.expression.core import TableExpression
 
 columns = [
     ColumnDefinition(
@@ -81,7 +80,7 @@ print(f"Params: {params}")
 # SECTION: Execution (run the expression)
 # ============================================================
 result = backend.execute(sql, params)
-print(f"Table created: users")
+print("Table created: users")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)

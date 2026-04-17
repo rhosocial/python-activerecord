@@ -27,8 +27,6 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.core import Literal, Column
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
 )
 
 create_table = CreateTableExpression(

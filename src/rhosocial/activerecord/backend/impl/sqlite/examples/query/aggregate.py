@@ -18,7 +18,6 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
-    DropTableExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.expression.statements import (

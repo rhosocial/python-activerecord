@@ -19,8 +19,6 @@ dialect = backend.dialect
 from rhosocial.activerecord.backend.expression import CreateTableExpression
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
 )
 
 create_table = CreateTableExpression(
