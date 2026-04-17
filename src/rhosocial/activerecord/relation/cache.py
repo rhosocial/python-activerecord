@@ -58,6 +58,7 @@ class CacheEntry:
     def __init__(self, value: Any, ttl: Optional[int] = None):
         self.value = value
         self.created_at = datetime.now()
+        self.last_access = self.created_at
         self.ttl = ttl
 
     def is_expired(self) -> bool:
@@ -65,6 +66,10 @@ class CacheEntry:
         if self.ttl is None:
             return False
         return datetime.now() > self.created_at + timedelta(seconds=self.ttl)
+
+    def touch(self) -> None:
+        """Update last access time."""
+        self.last_access = datetime.now()
 
 
 class RelationCache:
@@ -94,6 +99,7 @@ class RelationCache:
                     del self._cache[key]
                 return None
 
+            entry.touch()
             return entry.value
 
     def set(self, instance: Any, value: Any) -> None:
@@ -102,10 +108,16 @@ class RelationCache:
             return
 
         with self._lock:
-            if self.config.max_size and len(self._cache) >= self.config.max_size:
-                self._cache.clear()
-
             key = (id(instance), self.relation_name)
+
+            if self.config.max_size and len(self._cache) >= self.config.max_size:
+                if key not in self._cache:
+                    oldest_key = min(
+                        self._cache.keys(),
+                        key=lambda k: self._cache[k].last_access
+                    )
+                    del self._cache[oldest_key]
+
             self._cache[key] = CacheEntry(value, self.config.ttl)
 
     def delete(self, instance: Any) -> None:
@@ -185,7 +197,6 @@ class InstanceCache(Generic[T]):
 
         entry = cache["entry"]
         if entry.is_expired():
-            # Remove expired entry
             del cache["entry"]
             return None
 
@@ -208,7 +219,7 @@ class InstanceCache(Generic[T]):
         cache["entry"] = CacheEntry(value, config.ttl)
 
     @staticmethod
-    def delete(instance: Any, relation_name: str, config: Optional[CacheConfig] = None) -> None:
+    def delete(instance: Any, relation_name: str, config: Optional[CacheConfig] = None):
         """Remove cached relation value from the instance.
 
         Args:
