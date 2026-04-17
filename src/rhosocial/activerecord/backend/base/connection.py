@@ -71,6 +71,11 @@ class ConnectionMixin:
         After connecting, introspect_and_adapt() is called to ensure the dialect
         is properly configured based on the actual database server capabilities.
 
+        The connection backend is also set in a context variable, enabling
+        request-level isolation in concurrent environments (e.g., web frameworks).
+        ``model.backend()`` will resolve to this instance via the context variable
+        rather than the class-level ``__backend__`` fallback.
+
         Usage:
             with backend.context() as ctx:
                 result = ctx.execute("SELECT 1")
@@ -78,13 +83,22 @@ class ConnectionMixin:
         Yields:
             The backend instance for use within the context block.
         """
-        self.connect()
+        from ...connection.pool.context import (
+            _set_connection_backend,
+            _reset_connection_backend,
+        )
+
+        token = _set_connection_backend(self)
         try:
-            # Ensure dialect is properly configured based on actual server capabilities
-            self.introspect_and_adapt()
-            yield self
+            self.connect()
+            try:
+                # Ensure dialect is properly configured based on actual server capabilities
+                self.introspect_and_adapt()
+                yield self
+            finally:
+                self.disconnect()
         finally:
-            self.disconnect()
+            _reset_connection_backend(token)
 
     def __del__(self):
         """
@@ -177,6 +191,12 @@ class AsyncConnectionMixin:
         After connecting, introspect_and_adapt() is called to ensure the dialect
         is properly configured based on the actual database server capabilities.
 
+        The connection backend is also set in a context variable, enabling
+        request-level isolation in concurrent async environments (e.g., FastAPI).
+        ``model.backend()`` will resolve to this instance via the context variable
+        rather than the class-level ``__backend__`` fallback, which is critical
+        when multiple async requests share the same event loop.
+
         Usage:
             async with backend.context() as ctx:
                 result = await ctx.execute("SELECT 1")
@@ -184,10 +204,19 @@ class AsyncConnectionMixin:
         Yields:
             The backend instance for use within the context block.
         """
-        await self.connect()
+        from ...connection.pool.context import (
+            _set_async_connection_backend,
+            _reset_async_connection_backend,
+        )
+
+        token = _set_async_connection_backend(self)
         try:
-            # Ensure dialect is properly configured based on actual server capabilities
-            await self.introspect_and_adapt()
-            yield self
+            await self.connect()
+            try:
+                # Ensure dialect is properly configured based on actual server capabilities
+                await self.introspect_and_adapt()
+                yield self
+            finally:
+                await self.disconnect()
         finally:
-            await self.disconnect()
+            _reset_async_connection_backend(token)
