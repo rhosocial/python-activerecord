@@ -44,6 +44,8 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
+    # Function Support Protocol
+    SQLFunctionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     CTEMixin,
@@ -96,6 +98,7 @@ if TYPE_CHECKING:
         DropMaterializedViewExpression,
         RefreshMaterializedViewExpression,
         ReturningClause,
+        InsertExpression,
     )
 
 # Module-level constants for error suggestions (SonarCloud S1192)
@@ -186,6 +189,8 @@ class SQLiteDialect(
     IntrospectionSupport,
     # Transaction Control Protocol
     TransactionControlSupport,
+    # Function Support Protocol
+    SQLFunctionSupport,
 ):
     """
     SQLite dialect implementation that adapts to the SQLite version.
@@ -390,6 +395,97 @@ class SQLiteDialect(
             'ON CONFLICT' (PostgreSQL/SQLite) or 'ON DUPLICATE KEY' (MySQL)
         """
         return "ON CONFLICT"
+
+    def format_insert_statement(self, expr: "InsertExpression") -> Tuple[str, tuple]:
+        """Format INSERT statement with SQLite-specific OR REPLACE / OR IGNORE support.
+
+        SQLite supports two alternative INSERT syntaxes in addition to the standard
+        ON CONFLICT clause:
+
+        - INSERT OR REPLACE INTO ...: Deletes the existing row and inserts the new one.
+        - INSERT OR IGNORE INTO ...: Silently skips rows that would cause constraint violations.
+
+        These are controlled via the ``dialect_options`` dict on InsertExpression:
+
+        - ``{'or_replace': True}``  ->  INSERT OR REPLACE INTO ...
+        - ``{'or_ignore': True}``   ->  INSERT OR IGNORE INTO ...
+
+        When neither option is set, the standard INSERT INTO ... syntax is used
+        (with ON CONFLICT / RETURNING appended as appropriate).
+        """
+        or_replace = expr.dialect_options.get('or_replace', False)
+        or_ignore = expr.dialect_options.get('or_ignore', False)
+
+        if or_replace and or_ignore:
+            raise ValueError(
+                "Cannot specify both 'or_replace' and 'or_ignore' in dialect_options."
+            )
+        if (or_replace or or_ignore) and expr.on_conflict is not None:
+            raise ValueError(
+                "Cannot use 'or_replace'/'or_ignore' together with 'on_conflict'. "
+                "Use either the SQLite-specific OR REPLACE/IGNORE syntax or the "
+                "standard ON CONFLICT clause, but not both."
+            )
+
+        # Perform strict parameter validation
+        if self.strict_validation:
+            expr.validate(strict=True)
+
+        all_params: List[Any] = []
+        table_sql, table_params = expr.into.to_sql()
+        all_params.extend(table_params)
+
+        columns_sql = ""
+        if expr.columns:
+            columns_sql = "(" + ", ".join([self.format_identifier(c) for c in expr.columns]) + ")"
+
+        source_sql = ""
+        # Import here to avoid circular imports
+        from rhosocial.activerecord.backend.expression.statements import (
+            DefaultValuesSource,
+            ValuesSource,
+            SelectSource,
+        )
+
+        if isinstance(expr.source, DefaultValuesSource):
+            source_sql = "DEFAULT VALUES"
+        elif isinstance(expr.source, ValuesSource):
+            all_rows_sql = []
+            for row in expr.source.values_list:
+                row_sql, row_params = [], []
+                for val in row:
+                    s, p = val.to_sql()
+                    row_sql.append(s)
+                    row_params.extend(p)
+                all_rows_sql.append(f"({', '.join(row_sql)})")
+                all_params.extend(row_params)
+            source_sql = "VALUES " + ", ".join(all_rows_sql)
+        elif isinstance(expr.source, SelectSource):
+            s_sql, s_params = expr.source.select_query.to_sql()
+            source_sql = s_sql
+            all_params.extend(s_params)
+
+        # Build the INSERT keyword with optional OR qualifier
+        if or_replace:
+            sql = f"INSERT OR REPLACE INTO {table_sql} {columns_sql} {source_sql}".strip()
+        elif or_ignore:
+            sql = f"INSERT OR IGNORE INTO {table_sql} {columns_sql} {source_sql}".strip()
+        else:
+            sql = f"INSERT INTO {table_sql} {columns_sql} {source_sql}".strip()
+
+        # ON CONFLICT clause (only when not using OR REPLACE/IGNORE)
+        if expr.on_conflict:
+            conflict_sql, conflict_params = expr.on_conflict.to_sql()
+            sql += f" {conflict_sql}"
+            all_params.extend(conflict_params)
+
+        # RETURNING clause
+        if expr.returning:
+            returning_sql, returning_params = self.format_returning_clause(expr.returning)
+            sql += f" {returning_sql}"
+            all_params.extend(returning_params)
+
+        return sql, tuple(all_params)
 
     def supports_lateral_join(self) -> bool:
         """Whether LATERAL joins are supported."""
@@ -1139,6 +1235,18 @@ class SQLiteDialect(
                 message="Consider using a separate read-only database connection."
             )
 
+        # Check for explicit begin_type (SQLite-specific)
+        # This allows direct control over DEFERRED/IMMEDIATE/EXCLUSIVE modes
+        begin_type = params.get("begin_type")
+        if begin_type is not None:
+            valid_types = ("DEFERRED", "IMMEDIATE", "EXCLUSIVE")
+            bt_upper = begin_type.upper()
+            if bt_upper not in valid_types:
+                raise ValueError(
+                    f"Invalid SQLite begin type: {begin_type}. Must be one of {valid_types}"
+                )
+            return f"BEGIN {bt_upper} TRANSACTION", ()
+
         # Map isolation level to BEGIN type
         # SQLite's default is SERIALIZABLE, DEFERRED gives READ_UNCOMMITTED via PRAGMA
         isolation = params.get("isolation_level")
@@ -1154,6 +1262,136 @@ class SQLiteDialect(
     # endregion
 
     # region SQLite-specific statements
+
+    # SQLite function version support: function_name -> (min_version, max_version)
+    # min_version: minimum supported version (inclusive), None = all versions
+    # max_version: maximum supported version (inclusive), None = no upper limit
+    # Reference: https://www.sqlite.org/changes.html
+    _SQLITE_FUNCTION_VERSIONS = {
+        # JSON functions - SQLite 3.38.0+ (JSON1 built-in), but functions available via extension earlier
+        "json": (None, None),  # Available since early versions with JSON1 extension
+        "json_array": (None, None),
+        "json_object": (None, None),
+        "json_extract": (None, None),
+        "json_type": (None, None),
+        "json_valid": (None, None),
+        "json_quote": (None, None),
+        "json_remove": (None, None),
+        "json_set": (None, None),
+        "json_insert": (None, None),
+        "json_replace": (None, None),
+        "json_patch": (None, None),  # RFC 7396 MergePatch
+        "json_array_length": (None, None),
+        "json_array_unpack": (None, None),  # Custom wrapper
+        "json_object_pack": (None, None),  # Custom wrapper
+        "json_object_retrieve": (None, None),  # Custom wrapper
+        "json_object_length": (None, None),
+        "json_object_keys": (None, None),
+        "json_tree": (None, None),  # Table-valued function
+        "json_each": (None, None),  # Table-valued function
+        "json_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
+        "jsonb_array_insert": ((3, 53, 0), None),  # Added in 3.53.0
+        # String functions - available since early versions
+        "substr": (None, None),
+        "instr": (None, None),  # Added in 3.7.6
+        "printf": (None, None),
+        "unicode": (None, None),
+        "hex": (None, None),
+        "unhex": ((3, 45, 0), None),  # Added in 3.45.0
+        "soundex": (None, None),  # Requires SQLITE_SOUNDEX compile option
+        "group_concat": (None, None),
+        "trim_sqlite": (None, None),
+        "ltrim": (None, None),
+        "rtrim": (None, None),
+        # Date/Time functions - available since early versions
+        "date_func": (None, None),
+        "time_func": (None, None),
+        "datetime_func": (None, None),
+        "julianday": (None, None),
+        "strftime_func": (None, None),
+        # Math functions - available since early versions
+        "random_func": (None, None),
+        "abs_sql": (None, None),
+        "sign": ((3, 21, 0), None),  # Added in 3.21.0
+        "total": (None, None),
+        # Math enhanced functions
+        "round_": (None, None),
+        "pow": ((3, 35, 0), None),  # Added in 3.35.0
+        "power": ((3, 35, 0), None),  # Alias for pow
+        "sqrt": ((3, 35, 0), None),  # Added in 3.35.0
+        "mod": ((3, 35, 0), None),  # Added in 3.35.0
+        "ceil": ((3, 35, 0), None),  # Added in 3.35.0
+        "floor": ((3, 35, 0), None),  # Added in 3.35.0
+        "trunc": ((3, 35, 0), None),  # Added in 3.35.0
+        "max_": (None, None),
+        "min_": (None, None),
+        "avg": (None, None),
+        # BLOB functions
+        "zeroblob": (None, None),
+        "randomblob": (None, None),
+        # System functions
+        "typeof": (None, None),
+        "quote": (None, None),
+        "last_insert_rowid": (None, None),
+        "changes": (None, None),
+        # Conditional functions
+        "iif": ((3, 32, 0), None),  # Added in 3.32.0
+    }
+
+    def supports_functions(self) -> Dict[str, bool]:
+        """Return supported SQL functions as function_name -> bool mapping.
+
+        This method combines:
+        1. Core functions from rhosocial.activerecord.backend.expression.functions
+        2. SQLite-specific functions from rhosocial.activerecord.backend.impl.sqlite.functions
+
+        SQLite version-specific functions:
+        - json_array_insert, jsonb_array_insert: SQLite 3.53.0+
+        - sign: SQLite 3.21.0+
+        - pow, power, sqrt, mod, ceil, floor, trunc: SQLite 3.35.0+
+        - unhex: SQLite 3.45.0+
+        - iif: SQLite 3.32.0+
+
+        Returns:
+        Dict mapping function names to True (supported) or False.
+        """
+        from rhosocial.activerecord.backend.expression.functions import (
+            __all__ as core_functions,
+        )
+        from rhosocial.activerecord.backend.impl.sqlite import functions as sqlite_functions
+
+        result = {}
+        for func_name in core_functions:
+            result[func_name] = True
+
+        sqlite_funcs = getattr(sqlite_functions, "__all__", [])
+        for func_name in sqlite_funcs:
+            result[func_name] = self._is_sqlite_function_supported(func_name)
+
+        return result
+
+    def _is_sqlite_function_supported(self, func_name: str) -> bool:
+        """Check if a SQLite-specific function is supported based on version.
+
+        Args:
+            func_name: Name of the SQLite function
+
+        Returns:
+            True if supported, False otherwise
+        """
+        version_range = self._SQLITE_FUNCTION_VERSIONS.get(func_name)
+        if version_range is None:
+            return True
+
+        min_version, max_version = version_range
+
+        if min_version is not None and self.version < min_version:
+            return False
+
+        if max_version is not None and self.version > max_version:
+            return False
+
+        return True
 
     def supports_reindex(self) -> bool:
         """SQLite supports REINDEX statement."""

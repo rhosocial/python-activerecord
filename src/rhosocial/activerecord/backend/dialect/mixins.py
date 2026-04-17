@@ -1884,6 +1884,17 @@ class FunctionMixin:
     def supports_function_parameters(self) -> bool:
         return False
 
+    def supports_functions(self) -> Dict[str, bool]:
+        """Return supported SQL functions as function_name -> bool mapping.
+
+        Default implementation returns empty dict. Subclasses should override
+        to provide actual function list from both core and backend-specific sources.
+
+        Returns:
+            Dict mapping function names to True/False. Default: empty dict.
+        """
+        return {}
+
     def format_create_function_statement(self, expr: "CreateFunctionExpression") -> Tuple[str, tuple]:
         """Format CREATE FUNCTION statement per SQL/PSM."""
         from .exceptions import UnsupportedFeatureError

@@ -6,6 +6,7 @@ Provides AsyncBackendPool class for managing connection pools of asynchronous Ba
 """
 
 import asyncio
+import inspect
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -143,7 +144,7 @@ class AsyncBackendPool:
 
             # Async connection
             if hasattr(backend, 'connect'):
-                if asyncio.iscoroutinefunction(backend.connect):
+                if inspect.iscoroutinefunction(backend.connect):
                     await backend.connect()
                 else:
                     backend.connect()
@@ -190,7 +191,7 @@ class AsyncBackendPool:
         """
         try:
             if hasattr(pooled.backend, 'disconnect'):
-                if asyncio.iscoroutinefunction(pooled.backend.disconnect):
+                if inspect.iscoroutinefunction(pooled.backend.disconnect):
                     await pooled.backend.disconnect()
                 else:
                     pooled.backend.disconnect()
@@ -225,7 +226,7 @@ class AsyncBackendPool:
             from rhosocial.activerecord.backend.schema import StatementType
             options = ExecutionOptions(stmt_type=StatementType.DQL)
 
-            if asyncio.iscoroutinefunction(pooled.backend.execute):
+            if inspect.iscoroutinefunction(pooled.backend.execute):
                 result = await pooled.backend.execute(self.config.validation_query, [], options=options)
             else:
                 result = pooled.backend.execute(self.config.validation_query, [], options=options)

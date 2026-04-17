@@ -275,7 +275,12 @@ class SQLDialectBase:
         # Build function call SQL
         distinct = "DISTINCT " if expr.is_distinct else ""
         args_sql_str = ", ".join(args_sql)
-        func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
+
+        # Niladic functions: omit parentheses when no arguments (SQL:2003)
+        if getattr(expr, 'niladic', False) and not args_sql and not distinct:
+            func_call_sql = expr.func_name.upper()
+        else:
+            func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
 
         # Collect all parameters
         all_params: List[Any] = []
@@ -567,6 +572,28 @@ class SQLDialectBase:
         """Format RENAME TABLE action per SQL standard."""
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]:
+        """Format MODIFY COLUMN action within ALTER TABLE.
+
+        MySQL/MariaDB specific: redefines a column with complete specification.
+        Default implementation raises UnsupportedFeatureError.
+        Override in MySQL/MariaDB dialect.
+        """
+        from .exceptions import UnsupportedFeatureError
+
+        raise UnsupportedFeatureError(self.name, "MODIFY COLUMN")
+
+    def format_change_column_action(self, action) -> Tuple[str, tuple]:
+        """Format CHANGE COLUMN action within ALTER TABLE.
+
+        MySQL/MariaDB specific: renames and redefines a column.
+        Default implementation raises UnsupportedFeatureError.
+        Override in MySQL/MariaDB dialect.
+        """
+        from .exceptions import UnsupportedFeatureError
+
+        raise UnsupportedFeatureError(self.name, "CHANGE COLUMN")
+
     def format_any_expression(
         self, expr: "bases.BaseExpression", op: str, array_expr: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:
@@ -795,7 +822,9 @@ class SQLDialectBase:
                         part_sql, part_params = source.to_sql()
                         # For ValuesExpression used as FROM source in list, wrap in parentheses
                         # This is required by SQL standard for VALUES in FROM clause
-                        if hasattr(source, "__class__") and source.__class__.__name__ == "ValuesExpression":
+                        # Only add parentheses when ValuesExpression has no alias,
+                        # since format_values_expression already wraps aliased output
+                        if source.__class__.__name__ == "ValuesExpression" and source.alias is None:
                             part_sql = f"({part_sql})"
                     from_parts.append(part_sql)
                     from_expr_params.extend(part_params)
@@ -804,7 +833,9 @@ class SQLDialectBase:
                 from_expr_sql, from_expr_params = expr.from_.to_sql()
                 # For ValuesExpression used as FROM source, wrap in parentheses
                 # This is required by SQL standard for VALUES in FROM clause
-                if hasattr(expr.from_, "__class__") and expr.from_.__class__.__name__ == "ValuesExpression":
+                # Only add parentheses when ValuesExpression has no alias,
+                # since format_values_expression already wraps aliased output
+                if expr.from_.__class__.__name__ == "ValuesExpression" and expr.from_.alias is None:
                     from_expr_sql = f"({from_expr_sql})"
             from_sql = f" FROM {from_expr_sql}"
             all_params.extend(from_expr_params)
@@ -1513,13 +1544,25 @@ class SQLDialectBase:
         return f" CHECK ({check_sql})", tuple(check_params)
 
     def _format_default_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
-        """Format DEFAULT constraint."""
+        """Format DEFAULT constraint.
+
+        DEFAULT values in DDL are embedded directly in SQL rather than
+        parameterized, because PostgreSQL cannot determine parameter types
+        in DDL context (e.g., CREATE TABLE).
+        """
         if constraint.default_value is None:
             raise ValueError("DEFAULT constraint must have a default value specified.")
         if isinstance(constraint.default_value, bases.BaseExpression):
             default_sql, default_params = constraint.default_value.to_sql()
             return f" DEFAULT {default_sql}", tuple(default_params)
-        return f" DEFAULT {self.get_parameter_placeholder()}", (constraint.default_value,)
+        # Embed DEFAULT value directly in SQL to avoid parameter type
+        # inference issues in DDL statements (especially PostgreSQL).
+        # String values are single-quoted; numeric/other values are literal.
+        if isinstance(constraint.default_value, str):
+            # Escape single quotes in string values
+            escaped = constraint.default_value.replace("'", "''")
+            return f" DEFAULT '{escaped}'", ()
+        return f" DEFAULT {constraint.default_value}", ()
 
     def _format_fk_constraint(self, constraint: "ColumnConstraint") -> Tuple[str, tuple]:
         """Format FOREIGN KEY constraint."""

@@ -40,9 +40,9 @@ Simple, consistent, and easy to reason about. **This is what Python's been missi
 | **Dependencies** | Pydantic only | Self-contained | Django framework |
 | **Async** | Native parity | 2.0 via greenlet | Django 4.1+ only |
 
-*   **SQLAlchemy** is excellent but follows the Data Mapper pattern—not ActiveRecord
-*   **Django ORM** is ActiveRecord but **tightly coupled** to Django; can't use it in FastAPI, Flask, or scripts without the entire Django stack
-*   **We fill the gap**: A **standalone, modern, feature-complete ActiveRecord** for all Python applications
+* **SQLAlchemy** is excellent but follows the Data Mapper pattern—not ActiveRecord
+* **Django ORM** is ActiveRecord but **tightly coupled** to Django; can't use it in FastAPI, Flask, or scripts without the entire Django stack
+* **We fill the gap**: A **standalone, modern, feature-complete ActiveRecord** for all Python applications
 
 ### 3. Built From Scratch, Not a Wrapper
 
@@ -221,60 +221,61 @@ All features support both **sync** and **async** APIs with identical method name
 
 Type-safe schema definition without raw SQL:
 
-- **[CreateTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Create tables with columns and constraints
-- **[DropTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Drop tables with IF EXISTS support
-- **[AlterTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py)** — Add/drop columns, rename tables
-- **[CreateIndexExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_index.py)** — Create indexes with IF NOT EXISTS
-- **[CreateViewExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_view.py)** — Create views from query expressions
+* **[CreateTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Create tables with columns and constraints
+* **[DropTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_table.py)** — Drop tables with IF EXISTS support
+* **[AlterTableExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_alter.py)** — Add/drop columns, rename tables
+* **[CreateIndexExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_index.py)** — Create indexes with IF NOT EXISTS
+* **[CreateViewExpression](src/rhosocial/activerecord/backend/expression/statements/ddl_view.py)** — Create views from query expressions
 
 ### Query Builders
 
 Three core query types, each with full sync/async parity:
 
-- **[ActiveQuery](src/rhosocial/activerecord/query/active_query.py)** / **[AsyncActiveQuery](src/rhosocial/activerecord/query/active_query.py)** — Model-based queries with WHERE, JOIN, ORDER BY, LIMIT, aggregations, and [eager loading](src/rhosocial/activerecord/query/relational.py) via `.with_()`
-- **[CTEQuery](src/rhosocial/activerecord/query/cte_query.py)** / **[AsyncCTEQuery](src/rhosocial/activerecord/query/cte_query.py)** — Common Table Expressions (WITH clauses) for recursive queries and complex multi-step operations
-- **[SetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** / **[AsyncSetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** — UNION, INTERSECT, EXCEPT operations
+* **[ActiveQuery](src/rhosocial/activerecord/query/active_query.py)** / **[AsyncActiveQuery](src/rhosocial/activerecord/query/active_query.py)** — Model-based queries with WHERE, JOIN, ORDER BY, LIMIT, aggregations, and [eager loading](src/rhosocial/activerecord/query/relational.py) via `.with_()`
+* **[CTEQuery](src/rhosocial/activerecord/query/cte_query.py)** / **[AsyncCTEQuery](src/rhosocial/activerecord/query/cte_query.py)** — Common Table Expressions (WITH clauses) for recursive queries and complex multi-step operations
+* **[SetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** / **[AsyncSetOperationQuery](src/rhosocial/activerecord/query/set_operation.py)** — UNION, INTERSECT, EXCEPT operations
 
 ### Relationships
 
 Type-safe relationship descriptors with eager loading support:
 
-- **[BelongsTo](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncBelongsTo](src/rhosocial/activerecord/relation/__init__.py)** — Child-to-parent associations
-- **[HasOne](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasOne](src/rhosocial/activerecord/relation/__init__.py)** — One-to-one parent-to-child
-- **[HasMany](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasMany](src/rhosocial/activerecord/relation/__init__.py)** — One-to-many parent-to-children
+* **[BelongsTo](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncBelongsTo](src/rhosocial/activerecord/relation/__init__.py)** — Child-to-parent associations
+* **[HasOne](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasOne](src/rhosocial/activerecord/relation/__init__.py)** — One-to-one parent-to-child
+* **[HasMany](src/rhosocial/activerecord/relation/__init__.py)** / **[AsyncHasMany](src/rhosocial/activerecord/relation/__init__.py)** — One-to-many parent-to-children
 
 ### Field Mixins
 
 Reusable mixins for common model behaviors:
 
-- **[OptimisticLockMixin](src/rhosocial/activerecord/field/version.py)** — Version-based concurrency control
-- **[SoftDeleteMixin](src/rhosocial/activerecord/field/soft_delete.py)** — Logical deletion with `deleted_at` timestamp
-- **[TimestampMixin](src/rhosocial/activerecord/field/timestamp.py)** — Auto-managed `created_at` and `updated_at`
-- **[UUIDMixin](src/rhosocial/activerecord/field/uuid.py)** — UUID primary keys
+* **[OptimisticLockMixin](src/rhosocial/activerecord/field/version.py)** — Version-based concurrency control
+* **[SoftDeleteMixin](src/rhosocial/activerecord/field/soft_delete.py)** — Logical deletion with `deleted_at` timestamp
+* **[TimestampMixin](src/rhosocial/activerecord/field/timestamp.py)** — Auto-managed `created_at` and `updated_at`
+* **[UUIDMixin](src/rhosocial/activerecord/field/uuid.py)** — UUID primary keys
 
 ### Model Events
 
 Lifecycle hooks for custom business logic:
 
-- **[Model Events](src/rhosocial/activerecord/interface/base.py)** — `before_insert`, `after_insert`, `before_update`, `after_update`, `before_delete`, `after_delete`
+* **[Model Events](src/rhosocial/activerecord/interface/base.py)** — `before_insert`, `after_insert`, `before_update`, `after_update`, `before_delete`, `after_delete`
 
 For details, see the [documentation](docs/en_US/).
 
 ## Backend Support
 
-| Backend | Package | Sync | Async |
-|---|---|---|---|
-| **SQLite** | Built-in | ✅ Stable | ⚠️ Testing only |
-| **MySQL/MariaDB** | `rhosocial-activerecord-mysql` | 🔄 In progress | 🔄 In progress |
-| **PostgreSQL** | `rhosocial-activerecord-postgres` | 🔄 In progress | 🔄 In progress |
-| **Oracle** | `rhosocial-activerecord-oracle` | 📋 Planned | 📋 Planned |
-| **SQL Server** | `rhosocial-activerecord-sqlserver` | 📋 Planned | 📋 Planned |
+| Backend | Package | Link | Sync | Async |
+|---|---|---|---|---|
+| **SQLite** | Built-in | — | ✅ Stable | ✅ Stable |
+| **MySQL** | `rhosocial-activerecord-mysql` | [PyPI](https://pypi.org/project/rhosocial-activerecord-mysql/) \| [GitHub](https://github.com/rhosocial/python-activerecord-mysql) | 🔄 In progress | 🔄 In progress |
+| **MariaDB** | `rhosocial-activerecord-mariadb` | [PyPI](https://pypi.org/project/rhosocial-activerecord-mariadb/) \| [GitHub](https://github.com/rhosocial/python-activerecord-mariadb) | 🔄 In progress | 🔄 In progress |
+| **PostgreSQL** | `rhosocial-activerecord-postgres` | [PyPI](https://pypi.org/project/rhosocial-activerecord-postgres/) \| [GitHub](https://github.com/rhosocial/python-activerecord-postgres) | 🔄 In progress | 🔄 In progress |
+| **Oracle** | `rhosocial-activerecord-oracle` | [PyPI](https://pypi.org/project/rhosocial-activerecord-oracle/) \| [GitHub](https://github.com/rhosocial/python-activerecord-oracle) | 🔄 In progress | 🔄 In progress |
+| **SQL Server** | `rhosocial-activerecord-sqlserver` | [PyPI](https://pypi.org/project/rhosocial-activerecord-sqlserver/) \| [GitHub](https://github.com/rhosocial/python-activerecord-sqlserver) | 🔄 In progress | 🔄 In progress |
 
 ## Requirements
 
-- **Python**: 3.8+ (including 3.13t/3.14t free-threaded builds)
-- **Core Dependency**: Pydantic 2.10+ (Python 3.8) or 2.12+ (Python 3.9+)
-- **SQLite**: 3.25+ (for the built-in backend)
+* **Python**: 3.8+ (including 3.13t/3.14t free-threaded builds)
+* **Core Dependency**: Pydantic 2.10+ (Python 3.8) or 2.12+ (Python 3.9+)
+* **SQLite**: 3.25+ (for the built-in backend)
 
 See [Python Version Support](docs/en_US/introduction/python_version_support.md) for detailed compatibility.
 
@@ -309,14 +310,14 @@ See the **[AI-Assisted Development Guide](docs/en_US/introduction/ai_assistance.
 
 ## Documentation
 
-- **[Getting Started Guide](docs/en_US/getting_started/)** — Installation and basic usage
-- **[AI-Assisted Development](docs/en_US/introduction/ai_assistance.md)** — Using AI code agents with this project
-- **[Modeling Guide](docs/en_US/modeling/)** — Defining models, fields, and relationships
-- **[Querying Guide](docs/en_US/querying/)** — Complete query builder documentation
-- **[Backend Development](docs/en_US/backend/)** — Creating custom database backends
-- **[Architecture Overview](docs/ARCHITECTURE.md)** — Module structure and design decisions
-- **[LLM Context](docs/LLM_CONTEXT.md)** — Structured context for AI assistants
-- **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — Full API documentation
+* **[Getting Started Guide](docs/en_US/getting_started/)** — Installation and basic usage
+* **[AI-Assisted Development](docs/en_US/introduction/ai_assistance.md)** — Using AI code agents with this project
+* **[Modeling Guide](docs/en_US/modeling/)** — Defining models, fields, and relationships
+* **[Querying Guide](docs/en_US/querying/)** — Complete query builder documentation
+* **[Backend Development](docs/en_US/backend/)** — Creating custom database backends
+* **[Architecture Overview](docs/ARCHITECTURE.md)** — Module structure and design decisions
+* **[LLM Context](docs/LLM_CONTEXT.md)** — Structured context for AI assistants
+* **[API Reference](https://docs.python-activerecord.dev.rho.social/api/)** — Full API documentation
 
 ## Contributing
 

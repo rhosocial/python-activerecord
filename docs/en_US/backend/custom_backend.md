@@ -54,7 +54,9 @@ The dialect system relies heavily on **Protocols** defined in `src/rhosocial/act
 
 ### The Dummy Dialect: A Complete Example
 
-The `DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) is a great learning resource because it supports **everything**.
+The `DummyDialect` (`src/rhosocial/activerecord/backend/impl/dummy/dialect.py`) is a great learning resource because it supports **all protocols except introspection** (introspection requires a real database connection, which Dummy doesn't provide).
+
+> **Note**: "Dummy" refers to a logical database for testing, not a specific database product like MySQL or PostgreSQL. Therefore, introspection protocols (which query actual database metadata) are not applicable to Dummy.
 
 Notice how it simply mixes in standard implementations:
 
@@ -80,7 +82,114 @@ When implementing a custom dialect (e.g., for MySQL or PostgreSQL), follow this 
 3.  **Mixin if Compatible**: If the standard SQL behavior works for your database, just inherit the corresponding `Mixin` (e.g., `WindowFunctionMixin`) and set the feature flag to `True`.
 4.  **Custom Implementation Only When Necessary**: If your database uses non-standard syntax, ONLY THEN should you implement the protocol methods manually.
 
-### Pay Attention to Formatting Functions
+### Protocol Naming Principles
+
+When implementing protocols for your custom backend, follow these principles:
+
+#### 1. Generic Protocols Use No Backend Prefix
+
+Generic protocols (e.g., `WindowFunctionSupport`, `TableSupport`, `IndexSupport`) are defined in `rhosocial.activerecord.backend.dialect.protocols` and **should not include any backend-specific prefix**.
+
+```python
+# ✅ Correct: Generic protocol
+class WindowFunctionSupport(Protocol):
+    def supports_window_functions(self) -> bool: ...
+
+# ❌ Wrong: Has backend prefix
+class MySQLWindowFunctionSupport(Protocol): ...
+```
+
+#### 2. Backend-Specific Protocols Must Have Prefix
+
+Backend-specific protocols must include the backend name as a prefix (e.g., `PostgresPartitionSupport`, `MySQLFullTextSearchSupport`).
+
+```python
+# ✅ Correct: Backend-specific protocol has prefix
+class PostgresPartitionSupport(Protocol): ...
+
+# ❌ Wrong: Missing prefix
+class PartitionSupport(Protocol): ...
+```
+
+#### 3. Priority: Generic First, Then Backend-Specific
+
+**If a generic protocol already defines an interface that meets your needs, use the generic protocol.** Only define backend-specific interfaces when the generic protocol doesn't cover your database's specific syntax.
+
+```python
+# Example: MySQL Full-text Search
+# The generic IndexSupport protocol already defines supports_fulltext_index
+# ✅ Use generic protocol and just set the version check
+class MySQLDialect(
+    IndexSupport,  # Already has supports_fulltext_index
+    ...
+):
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+# Only create MySQLFullTextSearchSupport for MySQL-specific interfaces:
+# - format_match_against() - MySQL MATCH...AGAINST syntax
+# - format_fulltext_index_options() - WITH PARSER, etc.
+class MySQLFullTextSearchSupport(Protocol):
+    def format_match_against(...): ...  # MySQL-specific
+    def format_fulltext_index_options(...): ...  # MySQL-specific
+```
+
+This principle ensures:
+- **No Interface Duplication**: Each interface is defined only once
+- **Clear Responsibilities**: Generic protocols cover standard SQL, backend-specific ones cover deviations
+- **Maintainability**: Changes to standard SQL only need to happen in one place
+
+#### 4. Backend-Specific Options via dialect_options
+
+When a generic protocol's formatting interface has backend-specific parameters, use the `dialect_options` parameter:
+
+```python
+# Generic protocol defines the interface with dialect_options
+class JSONSupport(Protocol):
+    def supports_json_table(
+        self, dialect_options: Optional[Dict[str, Any]] = None
+    ) -> bool:
+        """Check if JSON_TABLE is supported.
+
+        Args:
+            dialect_options: Backend-specific options
+        """
+        ...
+
+    def format_json_table_expression(
+        self,
+        expr,
+        dialect_options: Optional[Dict[str, Any]] = None
+    ) -> Tuple[str, tuple]:
+        """Format JSON_TABLE expression.
+
+        Args:
+            expr: JSONTableExpression instance
+            dialect_options: Backend-specific options, e.g.:
+                - MySQL: {'on_error': 'IGNORE'}
+                - PostgreSQL: {...}
+        """
+        ...
+```
+
+**Usage in expression:**
+
+```python
+# Pass dialect_options when creating expressions
+JSONTableExpression(
+    dialect,
+    json_column=User.json_data,
+    path='$.addresses[*]',
+    columns=[...],
+    dialect_options={'on_error': 'IGNORE'}  # MySQL-specific
+)
+```
+
+**Benefits:**
+- **Consistent Interface**: Generic protocol defines the signature
+- **Extensible**: Each backend documents its own options
+- **Type Safety**: Type checkers can verify the interface signature
+- **Backward Compatible**: Adding options doesn't break existing implementations
 
 After mixing in a protocol, verify the corresponding formatting methods. For example, if you mix in `WindowFunctionMixin`, check `format_window_function_call` in the mixin/base class.
 
@@ -202,4 +311,229 @@ python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db "SELECT * F
 python -m rhosocial.activerecord.backend.impl.sqlite --db-file my.db -f schema.sql --executescript
 ```
 
-This is achieved by standard Python module execution. When building your own backend, considering adding a CLI interface can greatly enhance the developer experience.
+## Backend-Specific Expressions and Protocols
+
+When implementing a database backend, you may need to add support for database-specific SQL expressions that are not part of the SQL standard. This section describes the process of adding new expressions and their corresponding protocols.
+
+### Expression-Protocol Relationship
+
+There are two types of expressions in rhosocial-activerecord:
+
+1. **通用表达式 (Generic Expressions)**: Defined in `src/rhosocial/activerecord/backend/expression/`, these work across all databases using standard SQL or dialect abstraction.
+
+2. **后端特定表达式 (Backend-Specific Expressions)**: Defined in backend-specific `expression/` subdirectories (e.g., `mysql/expression/`), these implement database-specific functionality.
+
+### The Protocol-Expression-Format Pattern
+
+Each backend-specific feature typically follows this pattern:
+
+```
+Protocol (supports_* + format_*) 
+    ↓
+Expression (collects parameters, calls dialect.format_*)
+    ↓
+Dialect format implementation
+```
+
+#### Example: MySQL MATCH...AGAINST
+
+**Step 1: Define the Protocol** (`mysql/protocols.py`)
+
+```python
+@runtime_checkable
+class FullTextSearchSupport(Protocol):
+    def supports_fulltext_index(self) -> bool:
+        """Whether FULLTEXT indexes are supported."""
+        ...
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        """Format MATCH...AGAINST expression."""
+        ...
+```
+
+**Step 2: Define the Expression** (`mysql/expression/match_against.py`)
+
+```python
+class MatchAgainstExpression(AliasableMixin, ComparisonMixin, SQLValueExpression):
+    def __init__(
+        self,
+        dialect: MySQLDialect,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None,
+    ):
+        super().__init__(dialect)
+        self.columns = columns
+        self.search_string = search_string
+        self.mode = mode
+
+    def to_sql(self) -> Tuple[str, tuple]:
+        # Delegate to dialect's format method
+        return self.dialect.format_match_against(
+            self.columns,
+            self.search_string,
+            self.mode,
+        )
+
+    def as_(self, alias: str) -> AliasColumn:
+        return AliasColumn(self, alias)
+```
+
+**Step 3: Implement the Protocol in Dialect** (`mysql/dialect.py`)
+
+```python
+class MySQLDialect(
+    MySQLBaseMixin,
+    FullTextSearchSupport,  # Add protocol
+    ...
+):
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        cols_sql = ", ".join(self.format_identifier(c) for c in columns)
+        placeholder = self.get_parameter_placeholder()
+        
+        # Mode handling
+        mode_map = {
+            "NATURAL_LANGUAGE": "IN NATURAL LANGUAGE MODE",
+            "BOOLEAN": "IN BOOLEAN MODE",
+            "QUERY_EXPANSION": "IN NATURAL LANGUAGE MODE WITH QUERY EXPANSION",
+        }
+        mode_str = mode_map.get(mode, "IN NATURAL LANGUAGE MODE")
+        
+        sql = f"MATCH({cols_sql}) AGAINST({placeholder} {mode_str})"
+        return sql, (search_string,)
+```
+
+**Step 4: Add Tests**
+
+```python
+def test_match_against_expression(self):
+    dialect = MySQLDialect(version=(8, 0, 0))
+    expr = MatchAgainstExpression(
+        dialect,
+        columns=['title', 'content'],
+        search_string='database',
+    )
+    sql, params = expr.to_sql()
+    assert 'MATCH' in sql
+    assert 'AGAINST' in sql
+    assert params == ('database',)
+```
+
+### When to Use This Pattern
+
+Use this pattern when:
+
+1. The feature is database-specific (not part of SQL standard)
+2. The feature requires version-specific detection
+3. Multipleformatting methods are needed (e.g., creating index + querying)
+4. The expression needs to integrate with the query builder
+
+### Separating Protocol Implementation into Mixins
+
+For better organization, protocol implementations can be separated into individual mixin classes to avoid bloated dialect classes. This is the pattern used by MySQL:
+
+**`mysql/mixins.py`** (Protocol Implementation)
+
+```python
+class MySQLFullTextMixin:
+    def supports_fulltext_index(self) -> bool:
+        return self.version >= (5, 6, 0)
+
+    def supports_fulltext_parser(self) -> bool:
+        return self.version >= (5, 1, 0)
+
+    def format_match_against(
+        self,
+        columns: List[str],
+        search_string: str,
+        mode: Optional[str] = None
+    ) -> Tuple[str, tuple]:
+        # Implementation...
+```
+
+**`mysql/dialect.py`** (Compose the Mixin)
+
+```python
+class MySQLDialect(
+    MySQLBaseMixin,
+    MySQLFullTextMixin,  # Separate mixin for organization
+    FullTextSearchSupport,
+    ...
+):
+    pass
+```
+
+Benefits:
+- **Code Organization**: Related methods grouped together
+- **Maintainability**: Easier to locate and modify specific features
+- **Reusability**: Can be mixed into different dialects if needed
+
+### Protocol Methods to Implement
+
+| Method Type | Purpose |
+|------------|---------|
+| `supports_*` | Check if feature is supported (version-based) |
+| `format_*` | Generate SQL for the feature |
+| `format_create_*` | Generate CREATE statement (if applicable) |
+
+### Mandatory Process: New Dialect Methods Must Follow Protocol → Mixin → Dialect
+
+**Never add `format_*` or `supports_*` methods directly to a dialect class.** Every new dialect method must follow this three-step process:
+
+1. **Protocol**: Declare the interface signature (`supports_*` + `format_*`) in the corresponding Protocol class
+2. **Mixin**: Provide a default implementation in the corresponding Mixin class (raise `UnsupportedFeatureError` for unsupported features, `supports_*` defaults to `False`)
+3. **Dialect**: Mix in the Protocol + Mixin into the specific dialect class, overriding methods as needed
+
+**Reason**: The inspect tool (`devtools/inspect`) relies on Protocols and Mixins to discover capability declarations and method signatures. Skipping any step causes the inspect tool to miss that method, making backend capabilities undetectable.
+
+**Generic vs Backend-Specific**:
+
+- **Generic features** (SQL standard or widely supported): Protocol and Mixin are defined in the core package `dialect/protocols.py` and `dialect/mixins.py`
+- **Backend-specific features** (only supported by one database): Protocol and Mixin are defined in the backend package's own `protocols.py` and `mixins.py`, with naming that includes the backend prefix (e.g., `MySQLModifyColumnSupport`, `MySQLModifyColumnMixin`)
+
+**Example**: Adding `MODIFY COLUMN` support for MySQL
+
+```python
+# Step 1: MySQL-specific Protocol (mysql/protocols.py)
+@runtime_checkable
+class MySQLModifyColumnSupport(Protocol):
+    def supports_modify_column(self) -> bool: ...
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]: ...
+
+# Step 2: MySQL-specific Mixin (mysql/mixins.py)
+class MySQLModifyColumnMixin:
+    def supports_modify_column(self) -> bool:
+        return self.version >= (5, 0, 0)  # All MySQL 5.x+ support this
+
+    def format_modify_column_action(self, action) -> Tuple[str, tuple]:
+        col_sql, col_params = self.format_column_definition(action.column)
+        sql = f"MODIFY COLUMN {col_sql}"
+        if action.after_column:
+            sql += f" AFTER {self.format_identifier(action.after_column)}"
+        elif action.first:
+            sql += " FIRST"
+        return sql, col_params
+
+# Step 3: MySQL dialect mixes in Protocol + Mixin (mysql/dialect.py)
+class MySQLDialect(
+    MySQLModifyColumnMixin,
+    MySQLModifyColumnSupport,
+    ...
+):
+    pass  # Mixin already provides implementation, no override needed
+```
+
+> **Note**: The core package's `SQLDialectBase` (`base.py`) can provide a default implementation that raises `UnsupportedFeatureError`, ensuring that call paths like `AlterTableAction.to_sql()` don't crash due to a missing method. However, this **does not replace** the Protocol/Mixin steps — the default implementation is only a safety fallback. The actual interface declaration and capability detection must still go through Protocol/Mixin.

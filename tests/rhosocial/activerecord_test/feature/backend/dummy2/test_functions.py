@@ -390,13 +390,19 @@ class TestDateTimeFunctionFactories:
         """Test CURRENT_DATE function."""
         func = current_date(dummy_dialect)
         sql, params = func.to_sql()
-        assert "CURRENT_DATE" in sql
-    
+        assert sql == "CURRENT_DATE"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
+
     def test_current_time_function(self, dummy_dialect: DummyDialect):
         """Test CURRENT_TIME function."""
         func = current_time(dummy_dialect)
         sql, params = func.to_sql()
-        assert "CURRENT_TIME" in sql
+        assert sql == "CURRENT_TIME"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
     
     def test_date_part_functions(self, dummy_dialect: DummyDialect):
         """Test YEAR, MONTH, DAY, HOUR, MINUTE, SECOND functions."""

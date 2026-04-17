@@ -1,60 +1,16 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/expressions.py
+# src/rhosocial/activerecord/backend/impl/sqlite/expression/reindex.py
 """
-SQLite-specific expressions.
+SQLite-specific REINDEX expression.
 
-This module defines SQLite-specific expression classes that extend the
-base expressions with SQLite-specific parameters and features.
+This module provides SQLiteReindexExpression for rebuilding indexes.
 """
 
-from dataclasses import dataclass
 from typing import Any, Dict, Optional, TYPE_CHECKING
 
-from ...expression.bases import BaseExpression, SQLQueryAndParams
-from ...expression.introspection import (
-    ColumnInfoExpression,
-    TableListExpression,
-)
+from ....expression.bases import BaseExpression, SQLQueryAndParams
 
 if TYPE_CHECKING:
-    from ...dialect import SQLDialectBase
-
-
-@dataclass
-class SQLiteColumnInfoExpression(ColumnInfoExpression):
-    """SQLite column information expression.
-
-    Extends ColumnInfoExpression with SQLite-specific parameters.
-
-    Attributes:
-        use_xinfo_pragma: Whether to use PRAGMA table_xinfo instead of table_info.
-        PRAGMA table_xinfo includes hidden columns and is available in SQLite 3.26.0+.
-    """
-
-    use_xinfo_pragma: bool = False
-
-    def __post_init__(self):
-        """Populate params dictionary after initialization."""
-        super().__post_init__()
-        self._params["use_xinfo_pragma"] = self.use_xinfo_pragma
-
-
-@dataclass
-class SQLiteTableListExpression(TableListExpression):
-    """SQLite table list expression.
-
-    Extends TableListExpression with SQLite-specific parameters.
-
-    Attributes:
-        use_table_list_pragma: Whether to use PRAGMA table_list instead of
-        querying sqlite_master. PRAGMA table_list is available in SQLite 3.37.0+.
-    """
-
-    use_table_list_pragma: bool = False
-
-    def __post_init__(self):
-        """Populate params dictionary after initialization."""
-        super().__post_init__()
-        self._params["use_table_list_pragma"] = self.use_table_list_pragma
+    from ....dialect import SQLDialectBase
 
 
 class SQLiteReindexExpression(BaseExpression):

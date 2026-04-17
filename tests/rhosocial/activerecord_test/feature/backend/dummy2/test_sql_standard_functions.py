@@ -8,7 +8,6 @@ This test file covers:
 - DateTime functions: current_timestamp, localtimestamp, extract
 - User functions: current_user, session_user, system_user
 """
-import pytest
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.functions import (
     mod, sign, truncate, chr_, ascii, octet_length, bit_length,
@@ -235,26 +234,32 @@ class TestSQLStandardDateTimeFunctions:
         """Test CURRENT_TIMESTAMP function without precision."""
         func = current_timestamp(dummy_dialect)
         sql, params = func.to_sql()
-        assert "CURRENT_TIMESTAMP" in sql
+        assert sql == "CURRENT_TIMESTAMP"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_current_timestamp_function_with_precision(self, dummy_dialect: DummyDialect):
         """Test CURRENT_TIMESTAMP function with precision."""
         func = current_timestamp(dummy_dialect, 6)
         sql, params = func.to_sql()
-        assert "CURRENT_TIMESTAMP" in sql
+        assert "CURRENT_TIMESTAMP(" in sql
         assert params == (6,)
 
     def test_localtimestamp_function_basic(self, dummy_dialect: DummyDialect):
         """Test LOCALTIMESTAMP function without precision."""
         func = localtimestamp(dummy_dialect)
         sql, params = func.to_sql()
-        assert "LOCALTIMESTAMP" in sql
+        assert sql == "LOCALTIMESTAMP"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_localtimestamp_function_with_precision(self, dummy_dialect: DummyDialect):
         """Test LOCALTIMESTAMP function with precision."""
         func = localtimestamp(dummy_dialect, 6)
         sql, params = func.to_sql()
-        assert "LOCALTIMESTAMP" in sql
+        assert "LOCALTIMESTAMP(" in sql
         assert params == (6,)
 
     def test_extract_function_basic(self, dummy_dialect: DummyDialect):
@@ -280,16 +285,25 @@ class TestSQLStandardUserFunctions:
         """Test CURRENT_USER function."""
         func = current_user(dummy_dialect)
         sql, params = func.to_sql()
-        assert "CURRENT_USER" in sql
+        assert sql == "CURRENT_USER"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_session_user_function(self, dummy_dialect: DummyDialect):
         """Test SESSION_USER function."""
         func = session_user(dummy_dialect)
         sql, params = func.to_sql()
-        assert "SESSION_USER" in sql
+        assert sql == "SESSION_USER"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_system_user_function(self, dummy_dialect: DummyDialect):
         """Test SYSTEM_USER function."""
         func = system_user(dummy_dialect)
         sql, params = func.to_sql()
-        assert "SYSTEM_USER" in sql
+        assert sql == "SYSTEM_USER"
+        assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
