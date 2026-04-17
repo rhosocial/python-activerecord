@@ -59,7 +59,7 @@ print(f"Params: {params}")
 # SECTION: Execution (run the expression)
 # ============================================================
 result = backend.execute(sql, params)
-print(f"Index created: idx_users_email")
+print("Index created: idx_users_email")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)

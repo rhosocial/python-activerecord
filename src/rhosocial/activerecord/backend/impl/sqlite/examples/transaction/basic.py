@@ -16,7 +16,6 @@ from rhosocial.activerecord.backend.expression import (
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
-    DropTableExpression,
     UpdateExpression,
     QueryExpression,
     TableExpression,
