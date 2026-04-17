@@ -236,6 +236,8 @@ class TestSQLStandardDateTimeFunctions:
         sql, params = func.to_sql()
         assert sql == "CURRENT_TIMESTAMP"
         assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_current_timestamp_function_with_precision(self, dummy_dialect: DummyDialect):
         """Test CURRENT_TIMESTAMP function with precision."""
@@ -250,6 +252,8 @@ class TestSQLStandardDateTimeFunctions:
         sql, params = func.to_sql()
         assert sql == "LOCALTIMESTAMP"
         assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_localtimestamp_function_with_precision(self, dummy_dialect: DummyDialect):
         """Test LOCALTIMESTAMP function with precision."""
@@ -283,6 +287,8 @@ class TestSQLStandardUserFunctions:
         sql, params = func.to_sql()
         assert sql == "CURRENT_USER"
         assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_session_user_function(self, dummy_dialect: DummyDialect):
         """Test SESSION_USER function."""
@@ -290,6 +296,8 @@ class TestSQLStandardUserFunctions:
         sql, params = func.to_sql()
         assert sql == "SESSION_USER"
         assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
 
     def test_system_user_function(self, dummy_dialect: DummyDialect):
         """Test SYSTEM_USER function."""
@@ -297,3 +305,5 @@ class TestSQLStandardUserFunctions:
         sql, params = func.to_sql()
         assert sql == "SYSTEM_USER"
         assert params == ()
+        # SQL:2003 niladic — no parentheses, not even (?)
+        assert "(" not in sql
