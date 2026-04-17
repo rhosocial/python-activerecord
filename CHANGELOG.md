@@ -1,3 +1,11 @@
+## [v1.0.0.dev24] - 2026-04-17
+
+
+### Added
+
+- Added 15+ SQLite backend examples demonstrating Expression API usage, including niladic function support, ModifyColumn/ChangeColumn DDL actions, and transaction mode improvements. ([#76](https://github.com/rhosocial/python-activerecord/issues/76))
+
+
 ## [v1.0.0.dev23] - 2026-04-12
 
 ### Removed
