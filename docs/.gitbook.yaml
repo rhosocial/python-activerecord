@@ -1,0 +1,6 @@
+root: ./docs
+structure:
+  readme: LANGS.md
+  summary: LANGS.md
+redirects:
+  previous-path: new-path
