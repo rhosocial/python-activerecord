@@ -142,6 +142,11 @@ EXAMPLES_META = {
         "dialect_protocols": [],
         "priority": 10,
     },
+    "query/explain.py": {
+        "title": "EXPLAIN Query Plan",
+        "dialect_protocols": [],
+        "priority": 10,
+    },
     "types/json_basic.py": {
         "title": "JSON Operations",
         "dialect_protocols": ["JSONSupport"],
