@@ -21,6 +21,12 @@ from .resolver import (
     list_named_queries_in_module,
     guess_statement_type,
 )
+from .cli import (
+    create_named_query_parser,
+    handle_named_query,
+    parse_params,
+    guess_statement_type as cli_guess_statement_type,
+)
 
 __all__ = [
     "NamedQueryError",
@@ -35,4 +41,7 @@ __all__ = [
     "resolve_named_query",
     "list_named_queries_in_module",
     "guess_statement_type",
+    "create_named_query_parser",
+    "handle_named_query",
+    "parse_params",
 ]
