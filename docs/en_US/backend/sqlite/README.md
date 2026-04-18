@@ -658,3 +658,161 @@ PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
     named-query examples.named_queries.order_queries.orders_by_status \
     --param status=pending
 ```
+
+### Named Query Writing Standards
+
+When defining named queries, follow these standards to ensure consistency and usability.
+
+#### Basic Function Structure
+
+```python
+def query_name(dialect, param1: str, param2: int = 100):
+    """Brief description of what this query does.
+
+    Args:
+        dialect: The SQL dialect instance (injected by CLI).
+        param1: Description of param1. Can be passed as string from CLI.
+                Will be converted to expected type internally.
+        param2: Description of param2 with default value.
+
+    Returns:
+        QueryExpression: A DQL expression representing the query.
+
+    Raises:
+        ValueError: If parameters cannot be converted to expected types.
+
+    CLI Examples:
+        # Use defaults
+        %(prog)s module.path.query_name
+
+        # With custom parameters
+        %(prog)s module.path.query_name --param param1=value1 --param param2=200
+    """
+    # Parameter validation and conversion
+    param1_value = str(param1)  # CLI passes strings, convert as needed
+    param2_value = int(param2)
+
+    # Validation logic
+    if param2_value <= 0:
+        raise ValueError(f"param2 must be positive, got {param2_value}")
+
+    # Build and return expression
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "*")],
+        from_=TableExpression(dialect, "table_name"),
+        where=WhereClause(dialect, ...),
+    )
+```
+
+#### Key Standards
+
+| Standard | Description |
+|----------|-------------|
+| **First parameter** | Must be `dialect` (injected by CLI) |
+| **Return type** | Must be `BaseExpression` (or subclass like `QueryExpression`) |
+| **Type annotations** | Keep for documentation; CLI always passes strings |
+| **Docstring format** | Include Args, Returns, Raises, and CLI Examples sections |
+| **Parameter conversion** | Functions must convert and validate CLI string parameters |
+| **%(prog)s placeholder** | Use `%(prog)s` in CLI Examples for the program name |
+
+#### Parameter Handling (Critical)
+
+CLI parameters are **always passed as strings**. The function is responsible for converting and validating:
+
+```python
+# Simple conversion
+limit_value = int(limit)
+
+# Complex conversion (e.g., comma-separated list)
+id_list = [int(x.strip()) for x in ids.split(",")]
+
+# JSON parsing
+import json
+filters_dict = json.loads(filters)
+```
+
+**Important**: The type annotations in the function signature (e.g., `param: int`) represent the **desired type** after conversion, not the CLI input type. CLI always passes strings.
+
+#### Shared Parameter Conversion Helpers
+
+If multiple query functions share the same parameter types, define reusable conversion helpers:
+
+```python
+# myapp/queries/helpers.py
+def parse_int(value: str, default: int = 0) -> int:
+    """Convert string to int with default."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def parse_bool(value: str) -> bool:
+    """Convert string to boolean."""
+    return value.lower() in ("true", "1", "yes")
+
+def parse_list_int(value: str) -> list[int]:
+    """Convert comma-separated string to list of ints."""
+    return [int(x.strip()) for x in value.split(",") if x.strip()]
+```
+
+Then use in your query functions:
+
+```python
+from myapp.queries.helpers import parse_int, parse_bool, parse_list_int
+
+def get_orders(dialect, status: str, limit: int = 100, active_only: bool = True):
+    """Query orders with parsed parameters."""
+    limit_value = parse_int(limit, 100)
+    active = parse_bool(active_only)
+    return QueryExpression(...)
+```
+
+#### Handling Unknown Parameters
+
+If you pass a parameter that the function doesn't expect, the resolver will detect it before calling the function:
+
+```bash
+# This will fail if 'filter' is not a valid parameter
+python -m ... named-query myapp.queries.orders --param filter=pending
+```
+
+Error output:
+```
+Error: Invalid parameter: filter. Unknown parameter(s): filter. Available parameters: ['status', 'limit']
+```
+
+If multiple unknown parameters are passed, all will be listed:
+
+```
+Error: Invalid parameter: filter. Unknown parameter(s): filter, offset, page. Available parameters: ['status', 'limit']
+```
+
+The resolver checks parameters against the function signature before execution, providing clear feedback about which parameters are valid.
+
+#### Listing and Describing Queries
+
+```bash
+# List all queries in a module
+python -m ... named-query myapp.queries --list
+
+# Show details for a specific query (two ways)
+python -m ... named-query myapp.queries.query_name --list
+python -m ... named-query myapp.queries --example query_name
+```
+
+Output from `--list`:
+```
+Module: myapp.queries
+Name                           Parameters                               Brief
+------------------------------------------------------------------------------------
+query_name                    (param1: str, param2: int = 100)        Brief description here
+```
+
+#### Best Practices
+
+1. **Use descriptive names**: `high_value_orders` > `query1`
+2. **Include one-line brief**: First line of docstring appears in `--list` output
+3. **Document parameters**: Explain what each parameter does and its valid range
+4. **Validate early**: Check parameter validity before building expressions
+5. **Use executable expressions**: Return `QueryExpression`, `InsertExpression`, etc. - not raw SQL strings
