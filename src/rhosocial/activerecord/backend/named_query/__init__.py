@@ -19,13 +19,12 @@ from .resolver import (
     NamedQueryResolver,
     resolve_named_query,
     list_named_queries_in_module,
-    guess_statement_type,
+    validate_expression,
 )
 from .cli import (
     create_named_query_parser,
     handle_named_query,
     parse_params,
-    guess_statement_type as cli_guess_statement_type,
 )
 
 __all__ = [
@@ -40,7 +39,7 @@ __all__ = [
     "NamedQueryResolver",
     "resolve_named_query",
     "list_named_queries_in_module",
-    "guess_statement_type",
+    "validate_expression",
     "create_named_query_parser",
     "handle_named_query",
     "parse_params",

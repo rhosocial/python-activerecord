@@ -6,6 +6,7 @@ from enum import Enum
 from typing import Any, Dict, Optional, Tuple, TYPE_CHECKING
 
 from ..bases import BaseExpression
+from ...schema import StatementType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -120,6 +121,11 @@ class ExplainExpression(BaseExpression):
     def to_sql(self) -> Tuple[str, tuple]:
         """Delegate to dialect for EXPLAIN statement SQL generation."""
         return self.dialect.format_explain_statement(self)
+
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this explain expression."""
+        return StatementType.EXPLAIN
 
 
 # endregion Explain Statement

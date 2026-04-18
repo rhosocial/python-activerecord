@@ -787,3 +787,161 @@ PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
     named-query examples.named_queries.order_queries.orders_by_status \
     --param status=pending
 ```
+
+### 命名查询编写标准
+
+定义命名查询时，请遵循以下标准以确保一致性和可用性。
+
+#### 基本函数结构
+
+```python
+def query_name(dialect, param1: str, param2: int = 100):
+    """Brief description of what this query does.
+
+    Args:
+        dialect: The SQL dialect instance (injected by CLI).
+        param1: Description of param1. Can be passed as string from CLI.
+                Will be converted to expected type internally.
+        param2: Description of param2 with default value.
+
+    Returns:
+        QueryExpression: A DQL expression representing the query.
+
+    Raises:
+        ValueError: If parameters cannot be converted to expected types.
+
+    CLI Examples:
+        # Use defaults
+        %(prog)s module.path.query_name
+
+        # With custom parameters
+        %(prog)s module.path.query_name --param param1=value1 --param param2=200
+    """
+    # Parameter validation and conversion
+    param1_value = str(param1)  # CLI passes strings, convert as needed
+    param2_value = int(param2)
+
+    # Validation logic
+    if param2_value <= 0:
+        raise ValueError(f"param2 must be positive, got {param2_value}")
+
+    # Build and return expression
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "*")],
+        from_=TableExpression(dialect, "table_name"),
+        where=WhereClause(dialect, ...),
+    )
+```
+
+#### 关键标准
+
+| 标准 | 说明 |
+|------|------|
+| **第一个参数** | 必须是 `dialect`（由 CLI 注入） |
+| **返回类型** | 必须是 `BaseExpression`（或子类如 `QueryExpression`） |
+| **类型注解** | 保留用于文档说明；CLI 始终传递字符串 |
+| **文档格式** | 包含 Args、Returns、Raises 和 CLI Examples 部分 |
+| **参数转换** | 函数必须转换和验证 CLI 字符串参数 |
+| **%(prog)s 占位符** | 在 CLI Examples 中使用 `%(prog)s` 表示程序名 |
+
+#### 参数处理（重要）
+
+CLI 参数**始终以字符串形式传递**。函数负责转换和验证：
+
+```python
+# 简单转换
+limit_value = int(limit)
+
+# 复杂转换（如逗号分隔的列表）
+id_list = [int(x.strip()) for x in ids.split(",")]
+
+# JSON 解析
+import json
+filters_dict = json.loads(filters)
+```
+
+**重要**：函数签名中的类型注解（例如 `param: int`）表示转换后的**期望类型**，而非 CLI 输入类型。CLI 始终传递字符串。
+
+#### 共享参数转换辅助函数
+
+如果多个查询函数使用相同的参数类型，可以定义可重用的转换辅助函数：
+
+```python
+# myapp/queries/helpers.py
+def parse_int(value: str, default: int = 0) -> int:
+    """将字符串转换为整数，提供默认值。"""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def parse_bool(value: str) -> bool:
+    """将字符串转换为布尔值。"""
+    return value.lower() in ("true", "1", "yes")
+
+def parse_list_int(value: str) -> list[int]:
+    """将逗号分隔的字符串转换为整数列表。"""
+    return [int(x.strip()) for x in value.split(",") if x.strip()]
+```
+
+然后在查询函数中使用：
+
+```python
+from myapp.queries.helpers import parse_int, parse_bool, parse_list_int
+
+def get_orders(dialect, status: str, limit: int = 100, active_only: bool = True):
+    """使用解析后的参数查询订单。"""
+    limit_value = parse_int(limit, 100)
+    active = parse_bool(active_only)
+    return QueryExpression(...)
+```
+
+#### 处理未知参数
+
+如果传入函数不期望的参数，resolver 会在调用函数之前检测到它：
+
+```bash
+# 如果 'filter' 不是有效参数，将失败
+python -m ... named-query myapp.queries.orders --param filter=pending
+```
+
+错误输出：
+```
+Error: Invalid parameter: filter. Unknown parameter(s): filter. Available parameters: ['status', 'limit']
+```
+
+如果传入多个未知参数，都会列出：
+
+```
+Error: Invalid parameter: filter. Unknown parameter(s): filter, offset, page. Available parameters: ['status', 'limit']
+```
+
+resolver 在执行前会检查参数与函数签名，提供关于哪些参数有效的清晰反馈。
+
+#### 列出和描述查询
+
+```bash
+# 列出模块中所有查询
+python -m ... named-query myapp.queries --list
+
+# 显示具体查询的详细信息（两种方式）
+python -m ... named-query myapp.queries.query_name --list
+python -m ... named-query myapp.queries --example query_name
+```
+
+`--list` 输出示例：
+```
+Module: myapp.queries
+Name                           Parameters                               Brief
+------------------------------------------------------------------------------------
+query_name                    (param1: str, param2: int = 100)        Brief description here
+```
+
+#### 最佳实践
+
+1. **使用描述性名称**：`high_value_orders` > `query1`
+2. **包含一句话简介**：docstring 的第一行会出现在 `--list` 输出中
+3. **记录参数**：说明每个参数的用途和有效范围
+4. **尽早验证**：在构建表达式之前检查参数有效性
+5. **使用可执行表达式**：返回 `QueryExpression`、`InsertExpression` 等，而非原始 SQL 字符串

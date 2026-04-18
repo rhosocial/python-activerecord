@@ -16,6 +16,7 @@ from ..query_parts import (
     ForUpdateClause,
 )
 from ._types import FromSourceType
+from ...schema import StatementType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -295,6 +296,11 @@ class QueryExpression(ArithmeticMixin, ComparisonMixin, SQLValueExpression):
         # Validate select_modifier parameter
         if self.select_modifier is not None and not isinstance(self.select_modifier, SelectModifier):
             raise TypeError(f"select_modifier must be SelectModifier, got {type(self.select_modifier)}")
+
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this query expression."""
+        return StatementType.DQL
 
     def to_sql(self) -> "SQLQueryAndParams":
         """

@@ -11,6 +11,7 @@ import sys
 from typing import Any, Dict, List, Optional, Tuple, Callable
 
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.executable import Executable
 from rhosocial.activerecord.backend.schema import StatementType
 
 from .exceptions import (
@@ -23,67 +24,26 @@ from .exceptions import (
 )
 
 
-def guess_statement_type(sql: str) -> StatementType:
-    """Guess the statement type from SQL string."""
-    sql_stripped = sql.strip().upper()
-    if sql_stripped.startswith(("SELECT", "WITH", "EXPLAIN", "PRAGMA")):
-        return StatementType.DQL
-    elif sql_stripped.startswith(("INSERT", "UPDATE", "DELETE")):
-        return StatementType.DML
-    elif sql_stripped.startswith(("CREATE", "ALTER", "DROP")):
-        return StatementType.DDL
-    else:
-        return StatementType.OTHER
-
-
-def _is_explain_statement(sql: str) -> bool:
-    """Check if SQL is an EXPLAIN statement."""
-    return sql.strip().upper().startswith("EXPLAIN")
-
-
-def _coerce_param_value(value: str, annotation: Any) -> Any:
-    """Coerce string value to the expected type based on annotation.
+def validate_expression(expression: BaseExpression, qualified_name: str) -> StatementType:
+    """Validate that an expression is executable and return its statement type.
 
     Args:
-        value: The string value from CLI
-        annotation: The type annotation from function signature
+        expression: The expression to validate
+        qualified_name: The qualified name of the named query (for error messages)
 
     Returns:
-        The coerced value
+        StatementType: The statement type of the expression
 
     Raises:
-        NamedQueryInvalidParameterError: If coercion fails
+        NamedQueryInvalidReturnTypeError: If expression doesn't implement Executable
     """
-    annotation_name = getattr(annotation, "__name__", str(annotation))
-
-    if annotation is inspect.Parameter.empty:
-        return value
-
-    try:
-        if annotation == int or annotation_name == "int":
-            return int(value)
-        elif annotation == float or annotation_name == "float":
-            return float(value)
-        elif annotation == bool or annotation_name == "bool":
-            lower_val = value.lower()
-            if lower_val in ("1", "true", "yes"):
-                return True
-            elif lower_val in ("0", "false", "no"):
-                return False
-            else:
-                raise NamedQueryInvalidParameterError(
-                    "bool",
-                    f"Invalid boolean value: {value}. Use 'true', 'false', '1', '0', 'yes', or 'no'",
-                )
-        elif annotation == str or annotation_name == "str":
-            return value
-        else:
-            return value
-    except (ValueError, TypeError) as e:
-        raise NamedQueryInvalidParameterError(
-            annotation_name,
-            f"Cannot coerce '{value}' to {annotation_name}: {e}",
+    if not isinstance(expression, Executable):
+        raise NamedQueryInvalidReturnTypeError(
+            qualified_name,
+            type(expression).__name__,
+            "Expression must implement Executable protocol for named-query execution",
         )
+    return expression.statement_type
 
 
 class NamedQueryResolver:
@@ -254,11 +214,13 @@ class NamedQueryResolver:
 
         resolved_params: Dict[str, Any] = {"dialect": dialect}
 
+        param_names = set()
         for name, param in sig.parameters.items():
             if name == "dialect":
                 continue
             if name == "self":
                 continue
+            param_names.add(name)
 
             if name in user_params:
                 resolved_params[name] = user_params[name]
@@ -274,12 +236,52 @@ class NamedQueryResolver:
                     f"Required parameter '{name}' not provided",
                 )
 
+        extra_params = set(user_params.keys()) - param_names
+        if extra_params:
+            raise NamedQueryInvalidParameterError(
+                list(extra_params)[0],
+                f"Unknown parameter(s): {', '.join(extra_params)}. "
+                f"Available parameters: {list(param_names)}",
+            )
+
         try:
             result = self._target_callable(**resolved_params)
         except TypeError as e:
+            error_msg = str(e)
+            if "unexpected keyword argument" in error_msg:
+                import re
+                match = re.search(r"unexpected keyword argument '(\w+)'", error_msg)
+                if match:
+                    unknown_param = match.group(1)
+                    raise NamedQueryInvalidParameterError(
+                        unknown_param,
+                        f"Unknown parameter '{unknown_param}'. "
+                        f"Available parameters: {list(resolved_params.keys())}",
+                    )
             raise NamedQueryInvalidParameterError(
                 "call",
-                f"Failed to call named query: {e}",
+                f"Failed to call named query: {e}. "
+                f"Check that all parameters are valid.",
+            )
+        except ValueError as e:
+            param_with_issue = None
+            for name, value in resolved_params.items():
+                if name in ("dialect", "self"):
+                    continue
+                try:
+                    if isinstance(value, str):
+                        int(value) if name in param_names and sig.parameters[name].annotation in (int,) else str(value)
+                except ValueError:
+                    param_with_issue = name
+                    break
+            if param_with_issue:
+                raise NamedQueryInvalidParameterError(
+                    param_with_issue,
+                    str(e),
+                )
+            raise NamedQueryInvalidParameterError(
+                "parameter",
+                f"Parameter conversion error: {e}",
             )
 
         if not isinstance(result, BaseExpression):
@@ -289,36 +291,14 @@ class NamedQueryResolver:
                 actual_type,
             )
 
+        if not isinstance(result, Executable):
+            raise NamedQueryInvalidReturnTypeError(
+                self._qualified_name,
+                type(result).__name__,
+                "Expression must implement Executable protocol",
+            )
+
         return result
-
-    def validate_for_execution(
-        self,
-        sql: str,
-        force: bool = False,
-        dry_run: bool = False,
-    ) -> Tuple[StatementType, bool]:
-        """Validate the SQL for execution.
-
-        Args:
-            sql: The generated SQL string
-            force: Whether to force execution of non-DQL statements
-            dry_run: Whether this is a dry run
-
-        Returns:
-            Tuple of (statement_type, is_allowed)
-
-        Raises:
-            NamedQueryExplainNotAllowedError: If EXPLAIN not allowed
-        """
-        stmt_type = guess_statement_type(sql)
-
-        if _is_explain_statement(sql) and not dry_run:
-            return stmt_type, False
-
-        if stmt_type != StatementType.DQL and not force:
-            return stmt_type, False
-
-        return stmt_type, True
 
 
 def resolve_named_query(
@@ -360,7 +340,8 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
             - name: The attribute name
             - is_class: Whether it's a class
             - signature: The signature string
-            - docstring: The docstring
+            - docstring: The full docstring
+            - brief: First line of docstring (one-line summary)
 
     Raises:
         NamedQueryModuleNotFoundError: If module cannot be imported
@@ -382,12 +363,19 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
         if obj is None:
             continue
 
+        full_doc = inspect.getdoc(obj) or ""
+        brief = full_doc.split("\n")[0].strip() if full_doc else ""
+
         if inspect.isclass(obj):
             try:
                 instance = obj()
                 if not callable(instance):
                     continue
                 target = instance.__call__
+                method_doc = inspect.getdoc(target)
+                if method_doc and not full_doc:
+                    full_doc = method_doc
+                    brief = method_doc.split("\n")[0].strip()
             except Exception:
                 continue
 
@@ -402,7 +390,8 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
                     "name": name,
                     "is_class": True,
                     "signature": str(sig),
-                    "docstring": inspect.getdoc(obj) or "",
+                    "docstring": full_doc,
+                    "brief": brief,
                 })
 
         elif inspect.isfunction(obj):
@@ -417,7 +406,8 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
                     "name": name,
                     "is_class": False,
                     "signature": str(sig),
-                    "docstring": inspect.getdoc(obj) or "",
+                    "docstring": full_doc,
+                    "brief": brief,
                 })
 
     return results

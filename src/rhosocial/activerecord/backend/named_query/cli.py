@@ -5,16 +5,24 @@ CLI utilities for named query functionality.
 Provides reusable functions to add named-query subcommand to various backends.
 """
 import argparse
+import importlib
 import sys
 from typing import Any, Callable, Optional
 
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+from rhosocial.activerecord.backend.expression.executable import Executable
 from rhosocial.activerecord.backend.named_query import (
     NamedQueryResolver,
     list_named_queries_in_module,
     NamedQueryError,
 )
 from rhosocial.activerecord.backend.schema import StatementType
+
+
+def _replace_prog_placeholder(docstring: str, prog: str = None) -> str:
+    """Replace %%(prog)s and %(prog)s with actual program name."""
+    if prog is None:
+        prog = "python -m rhosocial.activerecord.backend.impl.sqlite"
+    return docstring.replace("%(prog)s", prog).replace("%%(prog)s", prog)
 
 
 def create_named_query_parser(
@@ -51,12 +59,21 @@ def create_named_query_parser(
 
   # List all named queries in a module
   %(prog)s myapp.queries.orders --list
+
+  # Show detailed info for a specific query (using --example)
+  %(prog)s myapp.queries.orders --example high_value_pending
 """,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     nq_parser.add_argument(
         "qualified_name",
-        help="Fully qualified Python name: 'module.path.function_or_class[.method]'",
+        help="Fully qualified Python module path or name",
+    )
+    nq_parser.add_argument(
+        "-e", "--example",
+        dest="example",
+        default=None,
+        help="Show detailed info for a specific query in the module",
     )
     nq_parser.add_argument(
         "--param",
@@ -80,7 +97,8 @@ def create_named_query_parser(
         "--list",
         action="store_true",
         dest="list_queries",
-        help="List all discoverable named queries in the given module.",
+        help="List all discoverable named queries in the given module. "
+             "If a specific query name is given, show detailed info.",
     )
     nq_parser.add_argument(
         "--force",
@@ -107,24 +125,6 @@ def parse_params(params: list) -> dict:
     return result
 
 
-def guess_statement_type(sql: str) -> StatementType:
-    """Guess the statement type from SQL string."""
-    sql_stripped = sql.strip().upper()
-    if sql_stripped.startswith(("SELECT", "WITH", "EXPLAIN", "PRAGMA")):
-        return StatementType.DQL
-    elif sql_stripped.startswith(("INSERT", "UPDATE", "DELETE")):
-        return StatementType.DML
-    elif sql_stripped.startswith(("CREATE", "ALTER", "DROP")):
-        return StatementType.DDL
-    else:
-        return StatementType.OTHER
-
-
-def _is_explain_statement(sql: str) -> bool:
-    """Check if SQL is an EXPLAIN statement."""
-    return sql.strip().upper().startswith("EXPLAIN")
-
-
 def handle_named_query(
     args: Any,
     provider: Any,
@@ -145,17 +145,61 @@ def handle_named_query(
     """
     qualified_name = args.qualified_name
 
-    if args.list_queries:
+    if args.list_queries or args.example:
         try:
-            queries = list_named_queries_in_module(qualified_name)
-            if not queries:
-                print(f"No named queries found in module: {qualified_name}")
+            importlib.invalidate_caches()
+
+            # Support two ways to specify a specific query:
+            # 1. --example high_value_pending
+            # 2. module.query_name (e.g., examples.named_queries.order_queries.high_value_pending)
+            module_name = qualified_name
+            example_name = args.example
+
+            if not example_name and "." in qualified_name:
+                parts = qualified_name.rsplit(".", 1)
+                potential_module = parts[0]
+                potential_example = parts[1]
+                try:
+                    test_module = importlib.import_module(potential_module)
+                    if hasattr(test_module, potential_example):
+                        module_name = potential_module
+                        example_name = potential_example
+                except (ModuleNotFoundError, ImportError):
+                    pass
+
+            queries = list_named_queries_in_module(module_name)
+
+            if example_name:
+                matched = None
+                for q in queries:
+                    if q["name"] == example_name:
+                        matched = q
+                        break
+
+                if matched:
+                    print(f"Query: {module_name}.{example_name}")
+                    print(f"Signature: {matched['signature']}")
+                    print(f"Brief: {matched['brief']}")
+                    print()
+                    print("Full Docstring:")
+                    print(_replace_prog_placeholder(matched['docstring']))
+                else:
+                    print(f"Query '{example_name}' not found in module '{module_name}'", file=sys.stderr)
+                    sys.exit(1)
                 return
-            print(f"Module: {qualified_name}")
+
+            if not queries:
+                print(f"No named queries found in module: {module_name}")
+                return
+
+            print(f"Module: {module_name}")
+            print(f"{'Name':<30} {'Parameters':<40} {'Brief':<30}")
+            print("-" * 100)
             for q in queries:
-                print(f"  {q['name']}{q['signature']}")
-                if q['docstring']:
-                    print(f"      {q['docstring']}")
+                params = q['signature'].replace("dialect, ", "").replace("(dialect)", "")
+                brief = q['brief'][:27] + "..." if len(q['brief']) > 30 else q['brief']
+                print(f"{q['name']:<30} {params:<40} {brief:<30}")
+
         except NamedQueryError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
@@ -186,17 +230,17 @@ def handle_named_query(
         resolver = NamedQueryResolver(qualified_name).load()
         expression = resolver.execute(dialect, user_params)
 
-        if not isinstance(expression, BaseExpression):
-            actual_type = type(expression).__name__
+        if not isinstance(expression, Executable):
             print(
-                f"Error: Named query returned {actual_type}, not BaseExpression. "
-                "Direct SQL strings are not allowed.",
+                f"Error: Named query returned {type(expression).__name__}, "
+                "which does not implement Executable protocol. "
+                "Direct SQL strings are not allowed. Use 'query' subcommand for raw SQL.",
                 file=sys.stderr,
             )
             sys.exit(1)
 
+        stmt_type = expression.statement_type
         sql, params = expression.to_sql()
-        stmt_type = guess_statement_type(sql)
 
         if args.dry_run:
             print("[DRY RUN] SQL:")
@@ -204,17 +248,16 @@ def handle_named_query(
             print(f"Params: {params}")
             return
 
-        if _is_explain_statement(sql) and not args.explain:
+        if stmt_type == StatementType.EXPLAIN and not args.explain:
             print(
-                "Error: EXPLAIN queries not allowed for actual execution. "
-                "Use --dry-run or --explain.",
+                "Error: EXPLAIN queries require --dry-run or --explain for execution.",
                 file=sys.stderr,
             )
             sys.exit(1)
 
-        if stmt_type != StatementType.DQL and not args.force:
+        if stmt_type not in (StatementType.DQL, StatementType.SELECT) and not args.force:
             print(
-                f"[WARN] Query resolves to {stmt_type.name} statement, not a SELECT query.",
+                f"[WARN] {type(expression).__name__} is a {stmt_type.name} statement, not a SELECT query.",
                 file=sys.stderr,
             )
             print("This may modify data. Use --force to proceed.", file=sys.stderr)
