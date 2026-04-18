@@ -637,3 +637,153 @@ python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file
 # 不指定 --db-file 时使用内存数据库
 python -m rhosocial.activerecord.backend.impl.sqlite introspect database
 ```
+
+## 命名查询
+
+命名查询提供了一种将可复用的 SQL 查询定义为 Python 可调用对象（函数或类）的方式，可以通过 CLI 执行。
+
+### 概述
+
+命名查询是返回 `BaseExpression` 对象的 Python 函数或类。它们使用后端表达式系统构建 SQL 查询，避免使用原始 SQL 字符串，提供类型安全。
+
+### 定义命名查询
+
+创建包含查询定义的 Python 模块：
+
+```python
+# myapp/queries.py
+from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+from rhosocial.activerecord.backend.expression.core import TableExpression, Column, Literal
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause, LimitOffsetClause
+
+def orders_by_status(dialect, status: str, limit: int = 100):
+    """按状态查询订单"""
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "*")],
+        from_=TableExpression(dialect, "orders"),
+        where=WhereClause(dialect, Column(dialect, "status") == Literal(dialect, status)),
+        limit_offset=LimitOffsetClause(dialect, limit=limit),
+    )
+```
+
+关键点：
+- 第一个参数必须是 `dialect`（由 CLI 注入）
+- 返回类型必须是 `BaseExpression`（或其子类）
+- 使用类型注解进行参数文档化
+- 添加 docstring 用于描述
+
+### 通过 CLI 使用命名查询
+
+#### 执行命名查询
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=pending
+```
+
+#### 覆盖参数
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=completed \
+    --param limit=50
+```
+
+#### 描述查询（显示签名）
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --describe
+```
+
+输出：
+```
+Query: myapp.queries.orders_by_status
+Docstring: 按状态查询订单
+Signature: (dialect, status: str, limit: int = 100)
+Parameters (excluding 'dialect'):
+  status <class 'str'>
+  limit <class 'int'> default=100
+```
+
+#### 预览 SQL（Dry Run）
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=pending \
+    --dry-run
+```
+
+输出：
+```
+[DRY RUN] SQL:
+  SELECT * FROM "orders" WHERE "status" = ? LIMIT ?
+Params: ('pending', 100)
+```
+
+#### 列出模块中的所有查询
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries \
+    --list
+```
+
+输出：
+```
+Module: myapp.queries
+  orders_by_status(dialect, status: str, limit: int = 100)
+      按状态查询订单
+  high_value_orders(dialect, threshold: float = 1000.0)
+      高于阈值的订单
+```
+
+### 类形式查询
+
+对于复杂的查询和元数据，可以使用类：
+
+```python
+class MonthlyRevenue:
+    """月度营收报表"""
+    def __call__(self, dialect, month: int, year: int):
+        return QueryExpression(
+            dialect,
+            select=[Column(dialect, "SUM(amount) as total")],
+            from_=TableExpression(dialect, "orders"),
+            where=WhereClause(dialect, ...),
+        )
+```
+
+执行：
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.MonthlyRevenue \
+    --param month=3 \
+    --param year=2026
+```
+
+### 安全性
+
+命名查询系统强制执行安全检查：
+
+1. **返回类型验证**：仅允许 `BaseExpression`。拒绝原始 SQL 字符串以防止 SQL 注入。
+2. **EXPLAIN 保护**：EXPLAIN 查询在实际执行时被阻止；使用 `--dry-run` 进行预览。
+3. **非 SELECT 警告**：DML/DDL 语句会触发警告；使用 `--force` 强制执行。
+
+### 配置
+
+设置 PYTHONPATH 以包含查询模块：
+
+```bash
+PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
+    named-query examples.named_queries.order_queries.orders_by_status \
+    --param status=pending
+```

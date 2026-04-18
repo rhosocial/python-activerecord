@@ -107,6 +107,7 @@
     * [数据库内省](backend/introspection.md)
     * [查询解释接口](backend/explain.md)
     * [自定义后端](backend/custom_backend.md)
+    * [命名查询](backend/named_queries.md)
     * [表达式系统](backend/expression/README.md)
         * [核心](backend/expression/core.md)
         * [子句](backend/expression/clauses.md)

@@ -107,6 +107,7 @@
     * [Introspection](backend/introspection.md)
     * [Query Explain](backend/explain.md)
     * [Custom Backend](backend/custom_backend.md)
+    * [Named Queries](backend/named_queries.md)
     * [Expression System](backend/expression/README.md)
         * [Core](backend/expression/core.md)
         * [Clauses](backend/expression/clauses.md)
