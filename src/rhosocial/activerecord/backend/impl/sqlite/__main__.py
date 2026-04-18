@@ -20,6 +20,12 @@ from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.named_query import (
+    NamedQueryResolver,
+    list_named_queries_in_module,
+    NamedQueryError,
+    NamedQueryExplainNotAllowedError,
+)
 from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry
 from rhosocial.activerecord.backend.impl.sqlite.pragma import get_all_pragma_infos, PragmaCategory
 from rhosocial.activerecord.backend.impl.sqlite.protocols import SQLiteExtensionSupport, SQLitePragmaSupport
@@ -294,6 +300,70 @@ def parse_args():
         default="all",
         choices=STATUS_TYPES,
         help="Status type: all (default), config, performance, storage, databases",
+    )
+
+    # named-query subcommand
+    nq_parser = subparsers.add_parser(
+        "named-query",
+        help="Execute a named query defined as a Python callable",
+        parents=[parent_parser],
+        epilog="""Examples:
+  # Execute named query with default params
+  %(prog)s myapp.queries.orders.high_value_pending --db-file mydb.sqlite
+
+  # Override parameters
+  %(prog)s myapp.queries.orders.high_value_pending --db-file mydb.sqlite \\
+      --param threshold=5000 --param days=7
+
+  # Show signature without executing
+  %(prog)s myapp.queries.orders.high_value_pending --describe
+
+  # Preview SQL without executing
+  %(prog)s myapp.queries.orders.orders_by_status \\
+      --db-file mydb.sqlite --param status=pending --dry-run
+
+  # List all named queries in a module
+  %(prog)s myapp.queries.orders --list
+""",
+        formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+    nq_parser.add_argument(
+        "qualified_name",
+        help="Fully qualified Python name: 'module.path.function_or_class[.method]'",
+    )
+    nq_parser.add_argument(
+        "--param",
+        action="append",
+        metavar="KEY=VALUE",
+        default=[],
+        dest="params",
+        help="Query parameter. Can be specified multiple times.",
+    )
+    nq_parser.add_argument(
+        "--describe",
+        action="store_true",
+        help="Show signature and docstring without executing.",
+    )
+    nq_parser.add_argument(
+        "--dry-run",
+        action="store_true",
+        help="Print the rendered SQL and params without executing.",
+    )
+    nq_parser.add_argument(
+        "--list",
+        action="store_true",
+        dest="list_queries",
+        help="List all discoverable named queries in the given module.",
+    )
+    nq_parser.add_argument(
+        "--force",
+        action="store_true",
+        help="Force execution even for non-SELECT statements (DML/DDL).",
+    )
+    nq_parser.add_argument(
+        "--explain",
+        action="store_true",
+        help="Execute EXPLAIN and interpret execution plan.",
     )
 
     return parser.parse_args()
@@ -995,6 +1065,113 @@ def _format_size(size_bytes: int) -> str:
     return f"{size:.1f} PB"
 
 
+def _parse_params(params: list) -> dict:
+    """Parse --param KEY=VALUE into a dictionary."""
+    result = {}
+    for param in params:
+        if "=" in param:
+            key, value = param.split("=", 1)
+            result[key] = value
+        else:
+            print(f"Warning: Invalid parameter format: {param}. Use KEY=VALUE", file=sys.stderr)
+    return result
+
+
+def handle_named_query(args, provider):
+    """Handle named-query subcommand."""
+    qualified_name = args.qualified_name
+
+    if args.list_queries:
+        try:
+            queries = list_named_queries_in_module(qualified_name)
+            if not queries:
+                print(f"No named queries found in module: {qualified_name}")
+                return
+            print(f"Module: {qualified_name}")
+            for q in queries:
+                print(f"  {q['name']}{q['signature']}")
+                if q['docstring']:
+                    print(f"      {q['docstring']}")
+        except NamedQueryError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    if args.describe:
+        try:
+            resolver = NamedQueryResolver(qualified_name).load()
+            info = resolver.describe()
+            print(f"Query: {info['qualified_name']}")
+            print(f"Docstring: {info['docstring']}")
+            print(f"Signature: {info['signature']}")
+            print("Parameters (excluding 'dialect'):")
+            for name, param in info['parameters'].items():
+                default_str = f" default={param['default']}" if param['has_default'] else ""
+                print(f"  {name} {param['type']}{default_str}")
+        except NamedQueryError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        return
+
+    user_params = _parse_params(args.params)
+    db_path = args.db_file if args.db_file else ":memory:"
+    config = SQLiteConnectionConfig(database=db_path)
+    backend = SQLiteBackend(connection_config=config)
+
+    try:
+        backend.connect()
+        backend.introspect_and_adapt()
+        dialect = backend.dialect
+        resolver = NamedQueryResolver(qualified_name).load()
+        expression = resolver.execute(dialect, user_params)
+        sql, params = expression.to_sql()
+
+        stmt_type = guess_statement_type(sql)
+
+        if args.dry_run:
+            print("[DRY RUN] SQL:")
+            print(f"  {sql}")
+            print(f"Params: {params}")
+            return
+
+        if sql.strip().upper().startswith("EXPLAIN") and not args.explain:
+            print("Error: EXPLAIN queries not allowed for actual execution. Use --dry-run or --explain.", file=sys.stderr)
+            sys.exit(1)
+
+        if stmt_type != StatementType.DQL and not args.force:
+            print(f"[WARN] Query resolves to {stmt_type.name} statement, not a SELECT query.", file=sys.stderr)
+            print("This may modify data. Use --force to proceed.", file=sys.stderr)
+            sys.exit(1)
+
+        exec_options = ExecutionOptions(stmt_type=stmt_type)
+        result = backend.execute(sql, params, options=exec_options)
+
+        if not result:
+            provider.display_no_result_object()
+        else:
+            provider.display_success(result.affected_rows, result.duration)
+            if result.data:
+                provider.display_results(result.data, use_ascii=args.rich_ascii)
+            else:
+                provider.display_no_data()
+
+    except NamedQueryError as e:
+        print(f"Error: {e}", file=sys.stderr)
+        sys.exit(1)
+    except ConnectionError as e:
+        provider.display_connection_error(e)
+        sys.exit(1)
+    except QueryError as e:
+        provider.display_query_error(e)
+        sys.exit(1)
+    except Exception as e:
+        provider.display_unexpected_error(e, is_async=False)
+        sys.exit(1)
+    finally:
+        if backend._connection:
+            backend.disconnect()
+
+
 def main():
     args = parse_args()
 
@@ -1019,6 +1196,11 @@ def main():
     # Handle status subcommand
     if args.command == "status":
         handle_status(args, provider)
+        return
+
+    # Handle named-query subcommand
+    if args.command == "named-query":
+        handle_named_query(args, provider)
         return
 
     # Handle query subcommand

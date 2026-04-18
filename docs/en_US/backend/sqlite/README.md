@@ -508,3 +508,153 @@ python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file
 # Uses in-memory database when --db-file is not specified
 python -m rhosocial.activerecord.backend.impl.sqlite introspect database
 ```
+
+## Named Queries
+
+Named Queries provide a way to define reusable SQL queries as Python callables (functions or classes) that can be executed through the CLI.
+
+### Overview
+
+Named queries are defined as Python functions or classes that return `BaseExpression` objects. They use the backend expression system to construct SQL queries, avoiding raw SQL strings and providing type safety.
+
+### Defining Named Queries
+
+Create a Python module with query definitions:
+
+```python
+# myapp/queries.py
+from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+from rhosocial.activerecord.backend.expression.core import TableExpression, Column, Literal
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause, LimitOffsetClause
+
+def orders_by_status(dialect, status: str, limit: int = 100):
+    """Query orders by status."""
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "*")],
+        from_=TableExpression(dialect, "orders"),
+        where=WhereClause(dialect, Column(dialect, "status") == Literal(dialect, status)),
+        limit_offset=LimitOffsetClause(dialect, limit=limit),
+    )
+```
+
+Key points:
+- The first parameter must be `dialect` (injected by the CLI)
+- Return type must be `BaseExpression` (or subclass)
+- Use type annotations for parameter documentation
+- Add docstrings for description
+
+### Using Named Queries via CLI
+
+#### Execute a Named Query
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=pending
+```
+
+#### Override Parameters
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=completed \
+    --param limit=50
+```
+
+#### Describe Query (Show Signature)
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --describe
+```
+
+Output:
+```
+Query: myapp.queries.orders_by_status
+Docstring: Query orders by status.
+Signature: (dialect, status: str, limit: int = 100)
+Parameters (excluding 'dialect'):
+  status <class 'str'>
+  limit <class 'int'> default=100
+```
+
+#### Preview SQL (Dry Run)
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=pending \
+    --dry-run
+```
+
+Output:
+```
+[DRY RUN] SQL:
+  SELECT * FROM "orders" WHERE "status" = ? LIMIT ?
+Params: ('pending', 100)
+```
+
+#### List All Queries in a Module
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries \
+    --list
+```
+
+Output:
+```
+Module: myapp.queries
+  orders_by_status(dialect, status: str, limit: int = 100)
+      Query orders by status.
+  high_value_orders(dialect, threshold: float = 1000.0)
+      High-value orders above threshold.
+```
+
+### Class-Based Queries
+
+For complex queries with metadata, use classes:
+
+```python
+class MonthlyRevenue:
+    """Monthly revenue report."""
+    def __call__(self, dialect, month: int, year: int):
+        return QueryExpression(
+            dialect,
+            select=[Column(dialect, "SUM(amount) as total")],
+            from_=TableExpression(dialect, "orders"),
+            where=WhereClause(dialect, ...),
+        )
+```
+
+Execute:
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.MonthlyRevenue \
+    --param month=3 \
+    --param year=2026
+```
+
+### Security
+
+The named query system enforces security:
+
+1. **Return Type Validation**: Only `BaseExpression` is allowed. Raw SQL strings are rejected to prevent SQL injection.
+2. **EXPLAIN Protection**: EXPLAIN queries are blocked for actual execution; use `--dry-run` to preview.
+3. **Non-SELECT Warning**: DML/DDL statements trigger a warning; use `--force` to execute.
+
+### Configuration
+
+Set PYTHONPATH to include your query modules:
+
+```bash
+PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
+    named-query examples.named_queries.order_queries.orders_by_status \
+    --param status=pending
+```
