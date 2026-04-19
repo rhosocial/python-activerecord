@@ -692,6 +692,12 @@ class AsyncProcedureRunner:
 
     def load(self) -> "AsyncProcedureRunner":
         self._runner.load()
+        proc_class = self._runner._procedure_class
+        if not issubclass(proc_class, AsyncProcedure):
+            raise NamedQueryError(
+                f"'{self._runner._class_name}' must inherit from AsyncProcedure "
+                "for AsyncProcedureRunner. Use ProcedureRunner for sync procedures."
+            )
         return self
 
     def describe(self) -> Dict[str, Any]:
