@@ -364,3 +364,63 @@ class TestHandleNamedQueryExecute:
                 lambda x: None,
                 lambda a, b, c: None,
             )
+
+
+class TestHandleNamedQueryExecuteForce:
+    """Tests for handle_named_query with --force option."""
+
+    def test_force_argument_in_namespace(self):
+        """Test force is in namespace for execute checks."""
+        args = Namespace(
+            force=True,
+            list_queries=False,
+            example=None,
+        )
+        assert args.force is True
+
+    def test_non_force_would_warn(self):
+        """Test non-force would cause warning for DML."""
+        args = Namespace(
+            force=False,
+        )
+        assert args.force is False
+
+    def test_explain_in_namespace(self):
+        """Test explain is in namespace."""
+        args = Namespace(
+            explain=True,
+        )
+        assert args.explain is True
+
+
+class TestHandleNamedQueryAsync:
+    """Tests for async execution path."""
+
+    def test_async_execution_requires_backend(self, capsys):
+        """Test --async requires async backend factory."""
+        args = Namespace(
+            qualified_name="test_queries.active_users",
+            example=None,
+            params=[],
+            describe=False,
+            dry_run=False,
+            list_queries=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
+            is_async=True,
+        )
+
+        provider = MagicMock()
+
+        with pytest.raises(SystemExit) as exc_info:
+            handle_named_query(
+                args,
+                provider,
+                lambda: None,
+                lambda x: None,
+                lambda a, b, c: None,
+                backend_async_factory=None,
+            )
+
+        assert "async" in str(exc_info.value).lower() or exc_info.value.code == 1

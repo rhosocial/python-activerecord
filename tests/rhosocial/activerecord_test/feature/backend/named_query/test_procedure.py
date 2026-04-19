@@ -394,3 +394,64 @@ class TestAsyncProcedureRunnerInit:
         """Test qualified_name property is available."""
         runner = AsyncProcedureRunner("test.proc")
         assert runner.qualified_name == "test.proc"
+
+
+class TestAsyncProcedureRunnerRun:
+    """Tests for AsyncProcedureRunner - structural parity with sync version."""
+
+    def test_async_runner_load_method_exists(self):
+        """Test AsyncProcedureRunner has load() method."""
+        runner = AsyncProcedureRunner("test.proc")
+        assert hasattr(runner, "load")
+
+    def test_async_runner_describe_method_exists(self):
+        """Test AsyncProcedureRunner has describe() method."""
+        runner = AsyncProcedureRunner("test.proc")
+        assert hasattr(runner, "describe")
+
+    def test_async_runner_qualified_name_property(self):
+        """Test AsyncProcedureRunner has qualified_name property."""
+        runner = AsyncProcedureRunner("test.proc.monthly")
+        assert runner.qualified_name == "test.proc.monthly"
+
+
+class TestAsyncProcedureContextExecute:
+    """Tests for AsyncProcedureContext - structural tests."""
+
+    @pytest.fixture
+    def mock_dialect(self):
+        mock = MagicMock()
+        mock.__class__.__name__ = "MockDialect"
+        return mock
+
+    def test_async_context_init_with_callback(self, mock_dialect):
+        """Test AsyncProcedureContext supports async callback."""
+        async def async_callback(fqn, dial, params):
+            return {}
+
+        ctx = AsyncProcedureContext(mock_dialect, async_callback)
+        assert ctx.dialect is mock_dialect
+
+    def test_async_context_bindings_attribute_exists(self, mock_dialect):
+        """Test AsyncProcedureContext has bindings attribute."""
+        async def async_callback(fqn, dial, params):
+            return {}
+
+        ctx = AsyncProcedureContext(mock_dialect, async_callback)
+        assert hasattr(ctx, "bindings")
+
+    def test_async_context_log_method_exists(self, mock_dialect):
+        """Test AsyncProcedureContext has log() method."""
+        async def async_callback(fqn, dial, params):
+            return {}
+
+        ctx = AsyncProcedureContext(mock_dialect, async_callback)
+        assert hasattr(ctx, "log")
+
+    def test_async_context_abort_method_exists(self, mock_dialect):
+        """Test AsyncProcedureContext has abort() method."""
+        async def async_callback(fqn, dial, params):
+            return {}
+
+        ctx = AsyncProcedureContext(mock_dialect, async_callback)
+        assert hasattr(ctx, "abort")
