@@ -20,12 +20,6 @@ from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
-from rhosocial.activerecord.backend.named_query import (
-    NamedQueryResolver,
-    list_named_queries_in_module,
-    NamedQueryError,
-    NamedQueryExplainNotAllowedError,
-)
 from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry
 from rhosocial.activerecord.backend.impl.sqlite.pragma import get_all_pragma_infos, PragmaCategory
 from rhosocial.activerecord.backend.impl.sqlite.protocols import SQLiteExtensionSupport, SQLitePragmaSupport
@@ -1022,8 +1016,9 @@ def handle_named_query(args, provider):
     from rhosocial.activerecord.backend.named_query.cli import handle_named_query as handle_nq
     from rhosocial.activerecord.backend.options import ExecutionOptions
 
-    qualified_name = args.qualified_name
     backend = None
+    async_backend = None
+    is_async = getattr(args, "is_async", False)
 
     def backend_factory():
         nonlocal backend
@@ -1043,6 +1038,41 @@ def handle_named_query(args, provider):
     def disconnect():
         if backend and backend._connection:
             backend.disconnect()
+
+    if is_async:
+        def backend_async_factory():
+            nonlocal async_backend
+            from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+            db_path = args.db_file if args.db_file else ":memory:"
+            config = SQLiteConnectionConfig(database=db_path)
+            async_backend = AsyncSQLiteBackend(connection_config=config)
+            return async_backend
+
+        async def get_dialect_async(b):
+            return b.dialect
+
+        async def execute_query_async(sql, params, stmt_type):
+            return await async_backend.execute(
+                sql, params, options=ExecutionOptions(stmt_type=stmt_type)
+            )
+
+        async def disconnect_async():
+            if async_backend._connection:
+                await async_backend.disconnect()
+
+        handle_nq(
+            args,
+            provider,
+            backend_factory=backend_factory,
+            get_dialect=get_dialect,
+            execute_query=execute_query,
+            disconnect=disconnect,
+            backend_async_factory=backend_async_factory,
+            get_dialect_async=get_dialect_async,
+            execute_query_async=execute_query_async,
+            disconnect_async=disconnect_async,
+        )
+        return
 
     handle_nq(
         args,

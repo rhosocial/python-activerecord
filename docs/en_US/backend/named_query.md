@@ -31,6 +31,12 @@ It is specifically designed for:
 
 Named query is included in the core `rhosocial-activerecord` package. No additional installation required.
 
+For async support, install `aiosqlite`:
+
+```bash
+pip install aiosqlite
+```
+
 ## Quick Start
 
 ### Define a Named Query
@@ -90,21 +96,27 @@ class UserQueries:
 ### Execute from CLI
 
 ```bash
-# Execute named query
-python -m rhosocial.activerecord.backend.impl.sqlite run \
+# Execute named query (synchronous)
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
     myapp.queries.active_users \
     --db-file mydb.sqlite
 
+# Execute named query (asynchronous)
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.active_users \
+    --db-file mydb.sqlite \
+    --async
+
 # List all queries in a module
-python -m rhosocial.activerecord.backend.impl.sqlite run \
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
     myapp.queries --list
 
 # Show query details
-python -m rhosocial.activerecord.backend.impl.sqlite run \
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
     myapp.queries --example active_users
 
 # Dry run to preview SQL
-python -m rhosocial.activerecord.backend.impl.sqlite run \
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
     myapp.queries.active_users \
     --db-file mydb.sqlite \
     --param limit=50 \
@@ -135,6 +147,7 @@ print(f"SQL: {sql}, Params: {params}")
 | `--list` | List all queries in the module |
 | `--force` | Force non-SELECT execution (DML/DDL) |
 | `--explain` | Execute EXPLAIN and show plan |
+| `--async` | Use asynchronous execution (requires aiosqlite) |
 
 ## Discovery Rules
 
@@ -181,3 +194,12 @@ Named queries are type-safe:
 - Cannot be used with ActiveRecord models
 - Cannot be used with ActiveQuery
 - Designed for CLI and script use cases only
+
+## Async Support
+
+Named query supports both synchronous and asynchronous execution:
+
+- Use `--async` flag to enable async execution
+- Requires `aiosqlite` package
+- Expression building is always synchronous (dialect operations)
+- Only database connection and query execution are async
