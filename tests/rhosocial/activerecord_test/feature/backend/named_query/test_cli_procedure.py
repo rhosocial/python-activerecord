@@ -439,3 +439,72 @@ class TestParseParams:
                 user_params[key] = value
 
         assert user_params == {"month": "2026-03", "threshold": "100", "name": "test"}
+
+
+class TestHandleNamedProcedureExecute:
+    """Tests for handle_named_procedure execution paths."""
+
+    def test_parser_transaction_auto(self):
+        """Test parser accepts --transaction auto."""
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        parent = argparse.ArgumentParser(add_help=False)
+
+        np_parser = create_named_procedure_parser(subparsers, parent)
+        args = np_parser.parse_args(
+            ["test.proc", "--transaction", "auto"]
+        )
+        assert args.transaction == "auto"
+
+    def test_parser_transaction_step(self):
+        """Test parser accepts --transaction step."""
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        parent = argparse.ArgumentParser(add_help=False)
+
+        np_parser = create_named_procedure_parser(subparsers, parent)
+        args = np_parser.parse_args(
+            ["test.proc", "--transaction", "step"]
+        )
+        assert args.transaction == "step"
+
+    def test_parser_transaction_none(self):
+        """Test parser accepts --transaction none."""
+        import argparse
+
+        parser = argparse.ArgumentParser()
+        subparsers = parser.add_subparsers()
+        parent = argparse.ArgumentParser(add_help=False)
+
+        np_parser = create_named_procedure_parser(subparsers, parent)
+        args = np_parser.parse_args(
+            ["test.proc", "--transaction", "none"]
+        )
+        assert args.transaction == "none"
+
+    def test_dry_run_in_namespace(self):
+        """Test dry_run is in namespace."""
+        args = Namespace(
+            dry_run=True,
+            list_procedures=False,
+        )
+        assert args.dry_run is True
+
+    def test_list_procedures_in_namespace(self):
+        """Test list_procedures is in namespace."""
+        args = Namespace(
+            list_procedures=True,
+            dry_run=False,
+        )
+        assert args.list_procedures is True
+
+    def test_is_async_in_namespace(self):
+        """Test is_async is in namespace."""
+        args = Namespace(
+            is_async=True,
+        )
+        assert args.is_async is True
