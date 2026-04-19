@@ -112,6 +112,7 @@ class ProcedureContext:
         self._transaction_mode = transaction_mode
         self._bindings: Dict[str, Dict[str, Any]] = {}
         self._logs: List[LogEntry] = []
+        self._in_transaction: bool = False
 
     @property
     def dialect(self) -> Any:
@@ -163,8 +164,9 @@ class ProcedureContext:
         result = self._execute_callback(qualified_name, self._dialect, params)
 
         if self._transaction_mode == TransactionMode.STEP:
-            if hasattr(self, "_commit_transaction") and callable(getattr(self, "_commit_transaction", None)):
-                self._commit_transaction()
+            if hasattr(self, "_in_transaction") and self._in_transaction:
+                if hasattr(self, "_commit_transaction") and callable(getattr(self, "_commit_transaction", None)):
+                    self._commit_transaction()
 
         result_data = {
             "qualified_name": qualified_name,
@@ -481,12 +483,16 @@ class ProcedureRunner:
         result = ProcedureResult()
         ctx._backend = backend
 
-        in_transaction = False and transaction_mode != TransactionMode.NONE
+        in_transaction = False
+        uses_transaction = transaction_mode != TransactionMode.NONE
 
         def begin_transaction():
             nonlocal in_transaction
-            if backend and transaction_mode == TransactionMode.AUTO and not in_transaction:
-                backend.execute("BEGIN TRANSACTION", (), None)
+            if backend and not in_transaction:
+                if transaction_mode == TransactionMode.AUTO:
+                    backend.execute("BEGIN TRANSACTION", (), None)
+                elif transaction_mode == TransactionMode.STEP:
+                    backend.execute("BEGIN TRANSACTION", (), None)
                 in_transaction = True
 
         def commit_transaction():
@@ -504,24 +510,25 @@ class ProcedureRunner:
         ctx._begin_transaction = begin_transaction
         ctx._commit_transaction = commit_transaction
         ctx._rollback_transaction = rollback_transaction
+        ctx._transaction_mode = transaction_mode
 
         try:
-            if transaction_mode != TransactionMode.NONE:
+            if uses_transaction:
                 begin_transaction()
 
             procedure.run(ctx)
 
-            if transaction_mode == TransactionMode.AUTO:
+            if in_transaction and transaction_mode == TransactionMode.AUTO:
                 commit_transaction()
 
         except ProcedureAbortedError as e:
-            if transaction_mode == TransactionMode.AUTO:
+            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                 rollback_transaction()
             result.aborted = True
             result.abort_reason = e.reason
 
         except Exception as e:
-            if transaction_mode == TransactionMode.AUTO:
+            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                 rollback_transaction()
             result.aborted = True
             result.abort_reason = str(e)
