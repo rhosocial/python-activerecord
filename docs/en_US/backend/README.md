@@ -43,6 +43,7 @@ pip install rhosocial-activerecord[all]
 * **[Query Explain Interface](explain.md)**: Execute EXPLAIN statements and analyse query plans and index usage.
 * **[Expression System](expression/README.md)**: How Python objects are transformed into SQL strings.
 * **[Custom Backend](custom_backend.md)**: Implementing a new database driver.
+* **[Named Query](named_query.md)**: CLI-based query execution (backend feature, not ActiveRecord).
 * **[SQLite Backend](sqlite/README.md)**: SQLite-specific features and capabilities.
   * **[Pragma System](sqlite/pragma.md)**: SQLite PRAGMA configuration and inspection.
   * **[Extension Framework](sqlite/extension.md)**: Extension detection and management.

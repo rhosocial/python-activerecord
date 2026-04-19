@@ -2,7 +2,49 @@
 """
 CLI utilities for named query functionality.
 
-Provides reusable functions to add named-query subcommand to various backends.
+This module provides reusable functions to add named-query subcommand
+to various CLI tools (like sqlite backend CLI). It handles the complete
+lifecycle of named query execution from the command line.
+
+Features:
+    - Execute named queries by qualified name
+    - List all queries in a module
+    - Show query description and parameters
+    - Dry-run mode to preview SQL
+    - EXPLAIN query plan execution
+
+Named Query CLI Subcommand:
+    The CLI provides a 'named-query' subcommand with the following options:
+
+    positional arguments:
+        qualified_name: Fully qualified Python name (module.path.callable)
+
+    optional arguments:
+        -e, --example: Show detailed info for specific query
+        --param KEY=VALUE: Query parameter (repeatable)
+        --describe: Show signature without executing
+        --dry-run: Print SQL without executing
+        --list: List all queries in module
+        --force: Force non-SELECT execution
+        --explain: Execute EXPLAIN plan
+
+Usage Example:
+    >>> # Execute a named query
+    >>> prog run myapp.queries.active_users --db-file mydb.sqlite
+
+    >>> # List available queries
+    >>> prog run myapp.queries --list
+
+    >>> # Show query details
+    >>> prog run myapp.queries.user_by_status --example user_by_status
+
+Note:
+    This is a backend CLI feature. It is independent of ActiveRecord
+    or ActiveQuery and is designed for CLI-based query execution.
+
+Warning:
+    This module is for backend CLI tools. For programmatic access
+    to named queries, use NamedQueryResolver directly.
 """
 import argparse
 import importlib
@@ -11,15 +53,32 @@ from typing import Any, Callable, Optional
 
 from rhosocial.activerecord.backend.expression.executable import Executable
 from rhosocial.activerecord.backend.named_query import (
+    NamedQueryError,
     NamedQueryResolver,
     list_named_queries_in_module,
-    NamedQueryError,
 )
 from rhosocial.activerecord.backend.schema import StatementType
 
 
 def _replace_prog_placeholder(docstring: str, prog: str = None) -> str:
-    """Replace %%(prog)s and %(prog)s with actual program name."""
+    """Replace %(prog)s and %%%(prog)s placeholders with actual program name.
+
+    This helper function replaces common argparse placeholder patterns
+    with the actual program name for better help text display.
+
+    Args:
+        docstring: The docstring containing placeholders.
+        prog: The program name to substitute. Defaults to the
+            standard sqlite backend CLI path.
+
+    Returns:
+        str: The docstring with placeholders replaced.
+
+    Example:
+        >>> doc = "Usage: %(prog)s query <sql>"
+        >>> replaced = _replace_prog_placeholder(doc, "myprog")
+        >>> print(replaced)  # "Usage: myprog query <sql>"
+    """
     if prog is None:
         prog = "python -m rhosocial.activerecord.backend.impl.sqlite"
     return docstring.replace("%(prog)s", prog).replace("%%(prog)s", prog)
@@ -31,12 +90,30 @@ def create_named_query_parser(
 ) -> argparse.ArgumentParser:
     """Create the named-query subcommand parser.
 
+    This function adds a 'named-query' subcommand to an argparse-based
+    CLI tool. It provides a complete interface for executing named
+    queries from the command line.
+
     Args:
-        subparsers: The subparsers action from the main parser
-        parent_parser: Parent parser with common arguments
+        subparsers: The subparsers action from the main parser.
+            Created via argparse.ArgumentParser().add_subparsers().
+        parent_parser: Parent parser with common arguments (like --db-file,
+            --rich-ascii, etc.). This allows sharing common options.
 
     Returns:
-        The created parser for named-query subcommand
+        argparse.ArgumentParser: The created parser for named-query
+            subcommand. Can be used to add additional arguments.
+
+    Raises:
+        TypeError: If subparsers is not a valid _SubParsersAction.
+
+    Example:
+        >>> import argparse
+        >>> parser = argparse.ArgumentParser()
+        >>> subparsers = parser.add_subparsers()
+        >>> parent = argparse.ArgumentParser(add_help=False)
+        >>> parent.add_argument('--db-file', required=True)
+        >>> nq_parser = create_named_query_parser(subparsers, parent)
     """
     nq_parser = subparsers.add_parser(
         "named-query",
@@ -70,7 +147,8 @@ def create_named_query_parser(
         help="Fully qualified Python module path or name",
     )
     nq_parser.add_argument(
-        "-e", "--example",
+        "-e",
+        "--example",
         dest="example",
         default=None,
         help="Show detailed info for a specific query in the module",
@@ -114,14 +192,40 @@ def create_named_query_parser(
 
 
 def parse_params(params: list) -> dict:
-    """Parse --param KEY=VALUE into a dictionary."""
+    """Parse --param KEY=VALUE into a dictionary.
+
+    This function converts CLI arguments (list of 'KEY=VALUE' strings)
+    into a dictionary for passing to named query resolvers.
+
+    Args:
+        params: List of parameter strings in 'KEY=VALUE' format.
+            Each string must contain exactly one '=' sign.
+
+    Returns:
+        Dict[str, str]: Dictionary mapping parameter names to values.
+
+    Raises:
+        No exceptions. Invalid format strings are printed to stderr as warnings.
+
+    Warning:
+        Values are parsed as strings. The resolver handles type conversion
+        based on the callable's signature annotations.
+
+    Example:
+        >>> params = ["limit=100", "status=active"]
+        >>> result = parse_params(params)
+        >>> print(result)  # {'limit': '100', 'status': 'active'}
+    """
     result = {}
     for param in params:
         if "=" in param:
             key, value = param.split("=", 1)
             result[key] = value
         else:
-            print(f"Warning: Invalid parameter format: {param}. Use KEY=VALUE", file=sys.stderr)
+            print(
+                f"Warning: Invalid parameter format: {param}. Use KEY=VALUE",
+                file=sys.stderr,
+            )
     return result
 
 
@@ -133,15 +237,64 @@ def handle_named_query(
     execute_query: Callable[[str, tuple, StatementType], Any],
     disconnect: Optional[Callable[[], None]] = None,
 ) -> None:
-    """Handle named-query subcommand.
+    """Handle named-query subcommand execution.
+
+    This is the main handler function for the named-query subcommand.
+    It processes arguments and executes the query, handling all
+    the different operation modes (list, describe, execute, dry-run, etc.).
 
     Args:
-        args: Parsed command-line arguments
-        provider: Output provider for displaying results
-        backend_factory: Callable that returns a backend instance (connected)
-        get_dialect: Callable that receives backend and returns dialect
-        execute_query: Callable that executes (sql, params, stmt_type) -> result
-        disconnect: Optional callable to disconnect backend
+        args: Parsed command-line arguments namespace. Must contain:
+            - qualified_name: The query to execute
+            - example: Query name to show (for --example)
+            - params: List of KEY=VALUE strings
+            - describe: True to show description only
+            - dry_run: True to preview SQL only
+            - list_queries: True to list queries
+            - force: True to force non-SELECT execution
+            - explain: True to run EXPLAIN
+        provider: Output provider for displaying results.
+            Must have methods like display_success(),
+            display_results(), display_no_result_object(), etc.
+        backend_factory: Callable that returns a connected backend
+            instance. This is called to get a database connection.
+        get_dialect: Callable that receives backend and returns
+            the dialect instance. The dialect is the first parameter
+            to named queries.
+        execute_query: Callable that executes (sql, params, stmt_type)
+            and returns a result object with affected_rows, duration, data.
+        disconnect: Optional callable to disconnect backend after
+            execution. Called in finally block.
+
+    Returns:
+        None. This function handles all output and exit codes.
+
+    Raises:
+        SystemExit: With code 1 on error (query not found, invalid
+            params, execution failure, etc.). Errors are printed
+            to stderr before exit.
+
+    Operation Modes:
+        1. --list: Lists all queries in a module
+        2. --example NAME: Shows detailed info for a query
+        3. --describe: Shows query signature
+        4. --dry-run: Previews SQL without execution
+        5. Normal: Executes the query
+
+    Example:
+        >>> # Basic usage in a CLI tool
+        >>> def main():
+        ...     parser = argparse.ArgumentParser()
+        ...     subparsers = parser.add_subparsers()
+        ...     nq_parser = create_named_query_parser(subparsers, parent_parser)
+        ...     args = parser.parse_args()
+        ...     handle_named_query(
+        ...         args,
+        ...         provider,
+        ...         lambda: SQLiteBackend.connect(db_file),
+        ...         lambda b: b.get_dialect(),
+        ...         lambda sql, params, t: backend.execute(...),
+        ...     )
     """
     qualified_name = args.qualified_name
 
@@ -149,9 +302,6 @@ def handle_named_query(
         try:
             importlib.invalidate_caches()
 
-            # Support two ways to specify a specific query:
-            # 1. --example high_value_pending
-            # 2. module.query_name (e.g., examples.named_queries.order_queries.high_value_pending)
             module_name = qualified_name
             example_name = args.example
 
@@ -184,7 +334,10 @@ def handle_named_query(
                     print("Full Docstring:")
                     print(_replace_prog_placeholder(matched['docstring']))
                 else:
-                    print(f"Query '{example_name}' not found in module '{module_name}'", file=sys.stderr)
+                    print(
+                        f"Query '{example_name}' not found in module '{module_name}'",
+                        file=sys.stderr,
+                    )
                     sys.exit(1)
                 return
 
@@ -196,8 +349,8 @@ def handle_named_query(
             print(f"{'Name':<30} {'Parameters':<40} {'Brief':<30}")
             print("-" * 100)
             for q in queries:
-                params = q['signature'].replace("dialect, ", "").replace("(dialect)", "")
-                brief = q['brief'][:27] + "..." if len(q['brief']) > 30 else q['brief']
+                params = q["signature"].replace("dialect, ", "").replace("(dialect)", "")
+                brief = q["brief"][:27] + "..." if len(q["brief"]) > 30 else q["brief"]
                 print(f"{q['name']:<30} {params:<40} {brief:<30}")
 
         except NamedQueryError as e:
@@ -213,8 +366,8 @@ def handle_named_query(
             print(f"Docstring: {info['docstring']}")
             print(f"Signature: {info['signature']}")
             print("Parameters (excluding 'dialect'):")
-            for name, param in info['parameters'].items():
-                default_str = f" default={param['default']}" if param['has_default'] else ""
+            for name, param in info["parameters"].items():
+                default_str = f" default={param['default']}" if param["has_default"] else ""
                 print(f"  {name} {param['type']}{default_str}")
         except NamedQueryError as e:
             print(f"Error: {e}", file=sys.stderr)
