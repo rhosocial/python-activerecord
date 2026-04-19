@@ -85,6 +85,9 @@ from .procedure import (
     ProcedureResult,
     TransactionMode,
     LogEntry,
+    AsyncProcedure,
+    AsyncProcedureContext,
+    AsyncProcedureRunner,
 )
 
 __all__ = [
@@ -112,6 +115,9 @@ __all__ = [
     "ProcedureResult",
     "TransactionMode",
     "LogEntry",
+    "AsyncProcedure",
+    "AsyncProcedureContext",
+    "AsyncProcedureRunner",
     "ProcedureError",
     "ProcedureAbortedError",
     "ProcedureStepError",
