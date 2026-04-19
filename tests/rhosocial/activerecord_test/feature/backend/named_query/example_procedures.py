@@ -72,7 +72,7 @@ class AbortProcedure(Procedure):
         ctx.log("Starting abort test procedure")
 
         if self.should_abort:
-            ctx.abort("Test abort triggered")
+            ctx.abort("example_procedures.AbortProcedure", "Test abort triggered")
 
         ctx.log("This should not be reached")
 

@@ -311,6 +311,19 @@ class ProcedureAbortedError(ProcedureError):
         super().__init__(error_msg)
 
 
+class _ProcedureAbortSignal(ProcedureError):
+    """Internal signal for procedure abort.
+
+    This exception is used internally to signal that a procedure
+    wants to abort. It carries the abort reason but is not
+    meant to be caught by user code.
+    """
+
+    def __init__(self, reason: str):
+        self.reason = reason
+        super().__init__(reason)
+
+
 class ProcedureStepError(ProcedureError):
     """Raised when a procedure step fails.
 

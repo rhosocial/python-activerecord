@@ -132,6 +132,9 @@ class ProcedureContext:
     ) -> Dict[str, Any]:
         """Execute a named query and optionally bind the result.
 
+        For TransactionMode.STEP, each execute call runs in its own transaction
+        and commits after execution.
+
         Args:
             qualified_name: Fully qualified name of the named query.
             params: Parameters to pass to the named query.
@@ -152,8 +155,16 @@ class ProcedureContext:
             ...     bind="users",
             ... )
         """
+        if self._transaction_mode == TransactionMode.STEP:
+            if hasattr(self, "_begin_transaction") and callable(getattr(self, "_begin_transaction", None)):
+                self._begin_transaction()
+
         params = params or {}
         result = self._execute_callback(qualified_name, self._dialect, params)
+
+        if self._transaction_mode == TransactionMode.STEP:
+            if hasattr(self, "_commit_transaction") and callable(getattr(self, "_commit_transaction", None)):
+                self._commit_transaction()
 
         result_data = {
             "qualified_name": qualified_name,
@@ -245,21 +256,22 @@ class ProcedureContext:
         """
         self._logs.append(LogEntry(level=level, message=message))
 
-    def abort(self, reason: str) -> None:
+    def abort(self, procedure_name: str, reason: str) -> None:
         """Abort the procedure execution.
 
         This triggers a transaction rollback and stops further execution.
 
         Args:
+            procedure_name: The qualified name of the procedure.
             reason: The reason for aborting.
 
         Example:
         >>> if total < threshold:
-        ...     ctx.abort(f"Total {total} below threshold {threshold}")
+        ...     ctx.abort("myapp.procedures.monthly", f"Total {total} below threshold")
         """
-        from .exceptions import NamedQueryError
+        from .exceptions import ProcedureAbortedError
 
-        raise NamedQueryError(f"Procedure aborted: {reason}")
+        raise ProcedureAbortedError(procedure_name, reason)
 
 
 class Procedure:
@@ -416,6 +428,8 @@ class ProcedureRunner:
         dialect: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
+        backend: Any = None,
+        execute_query: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure.
 
@@ -423,12 +437,17 @@ class ProcedureRunner:
             dialect: The dialect instance.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
+            backend: The database backend for transaction control.
+            execute_query: Callback for executing queries. Signature:
+                (sql: str, params: tuple, stmt_type) -> result.
 
         Returns:
             ProcedureResult with outputs and logs.
         """
         if not self._procedure_class:
             raise NamedQueryError("Procedure not loaded. Call load() first.")
+
+        from .exceptions import ProcedureAbortedError, ProcedureStepError
 
         user_params = user_params or {}
         procedure = self._procedure_class()
@@ -439,20 +458,71 @@ class ProcedureRunner:
 
         def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
             _, sql, params_sql = resolve_named_query(fqn, dial, params)
+
+            data = []
+            affected_rows = 0
+
+            if execute_query and sql:
+                result = execute_query(sql, params_sql, None)
+                if result and result.data:
+                    data = result.data
+                if result:
+                    affected_rows = result.affected_rows or 0
+
             return {
                 "sql": sql,
                 "params_sql": params_sql,
-                "data": [],
-                "affected_rows": 0,
+                "data": data,
+                "affected_rows": affected_rows,
             }
 
         ctx = ProcedureContext(dialect, execute_callback, transaction_mode)
 
         result = ProcedureResult()
+        ctx._backend = backend
+
+        in_transaction = False and transaction_mode != TransactionMode.NONE
+
+        def begin_transaction():
+            nonlocal in_transaction
+            if backend and transaction_mode == TransactionMode.AUTO and not in_transaction:
+                backend.execute("BEGIN TRANSACTION", (), None)
+                in_transaction = True
+
+        def commit_transaction():
+            nonlocal in_transaction
+            if backend and in_transaction:
+                backend.execute("COMMIT", (), None)
+                in_transaction = False
+
+        def rollback_transaction():
+            nonlocal in_transaction
+            if backend and in_transaction:
+                backend.execute("ROLLBACK", (), None)
+                in_transaction = False
+
+        ctx._begin_transaction = begin_transaction
+        ctx._commit_transaction = commit_transaction
+        ctx._rollback_transaction = rollback_transaction
 
         try:
+            if transaction_mode != TransactionMode.NONE:
+                begin_transaction()
+
             procedure.run(ctx)
+
+            if transaction_mode == TransactionMode.AUTO:
+                commit_transaction()
+
+        except ProcedureAbortedError as e:
+            if transaction_mode == TransactionMode.AUTO:
+                rollback_transaction()
+            result.aborted = True
+            result.abort_reason = e.reason
+
         except Exception as e:
+            if transaction_mode == TransactionMode.AUTO:
+                rollback_transaction()
             result.aborted = True
             result.abort_reason = str(e)
 
