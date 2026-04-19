@@ -171,7 +171,7 @@ class TestProcedureContextAbort:
         ctx = ProcedureContext(mock_dialect, lambda *a: None)
 
         with pytest.raises(NamedQueryError) as exc:
-            ctx.abort("Test abort reason")
+            ctx.abort("test_procedures.TestProc", "Test abort reason")
         assert "aborted" in str(exc.value).lower()
 
 
@@ -280,7 +280,7 @@ class TestProcedureRunnerRun:
 
             def run(self, ctx: ProcedureContext) -> None:
                 if self.should_abort:
-                    ctx.abort("Test abort")
+                    ctx.abort("test_procedures.AbortProc", "Test abort")
                 ctx.log("After abort")
 
         module.AbortProc = AbortProc
