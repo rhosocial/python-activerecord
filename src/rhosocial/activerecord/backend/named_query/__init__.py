@@ -58,6 +58,9 @@ from .exceptions import (
     NamedQueryMissingParameterError,
     NamedQueryNotCallableError,
     NamedQueryExplainNotAllowedError,
+    ProcedureError,
+    ProcedureAbortedError,
+    ProcedureStepError,
 )
 from .resolver import (
     NamedQueryResolver,
@@ -69,6 +72,19 @@ from .cli import (
     create_named_query_parser,
     handle_named_query,
     parse_params,
+)
+from .cli_procedure import (
+    create_named_procedure_parser,
+    handle_named_procedure,
+    list_named_procedures_in_module,
+)
+from .procedure import (
+    Procedure,
+    ProcedureContext,
+    ProcedureRunner,
+    ProcedureResult,
+    TransactionMode,
+    LogEntry,
 )
 
 __all__ = [
@@ -87,4 +103,16 @@ __all__ = [
     "create_named_query_parser",
     "handle_named_query",
     "parse_params",
+    "create_named_procedure_parser",
+    "handle_named_procedure",
+    "list_named_procedures_in_module",
+    "Procedure",
+    "ProcedureContext",
+    "ProcedureRunner",
+    "ProcedureResult",
+    "TransactionMode",
+    "LogEntry",
+    "ProcedureError",
+    "ProcedureAbortedError",
+    "ProcedureStepError",
 ]

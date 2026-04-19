@@ -272,3 +272,75 @@ class NamedQueryExplainNotAllowedError(NamedQueryError):
         self, message: str = "EXPLAIN queries are not allowed for actual execution"
     ):
         super().__init__(message)
+
+
+class ProcedureError(NamedQueryError):
+    """Base exception for named procedure errors."""
+
+    pass
+
+
+class ProcedureAbortedError(ProcedureError):
+    """Raised when a procedure is aborted via ctx.abort().
+
+    This exception indicates that the procedure was intentionally
+    aborted by the procedure logic, usually due to a business
+    rule condition. This is NOT an error in the traditional
+    sense - it indicates the procedure stopped early
+    by design, and any changes should be rolled back.
+
+    Args:
+        procedure_name: The qualified name of the procedure.
+        reason: The reason for aborting.
+
+    Attributes:
+        procedure_name: The procedure that was aborted.
+        reason: The abort reason.
+
+    Example:
+        >>> raise ProcedureAbortedError(
+        ...     "myapp.procedures.monthly_report",
+        ...     "Total count below threshold"
+        ... )
+    """
+
+    def __init__(self, procedure_name: str, reason: str):
+        self.procedure_name = procedure_name
+        self.reason = reason
+        error_msg = f"Procedure '{procedure_name}' aborted: {reason}"
+        super().__init__(error_msg)
+
+
+class ProcedureStepError(ProcedureError):
+    """Raised when a procedure step fails.
+
+    This exception indicates that a step within the
+    procedure failed to execute. The procedure should
+    be rolled back.
+
+    Args:
+        step: The step number or identifier.
+        procedure_name: The qualified name of the procedure.
+        cause: The underlying error.
+
+    Attributes:
+        step: The step that failed.
+        procedure_name: The procedure that contained the step.
+        cause: The underlying exception.
+
+    Example:
+        >>> raise ProcedureStepError(
+        ...     3,
+        ...     "myapp.procedures.monthly_report",
+        ...     "SQL execution failed"
+        ... )
+    """
+
+    def __init__(self, step: int, procedure_name: str, cause: str):
+        self.step = step
+        self.procedure_name = procedure_name
+        self.cause = cause
+        error_msg = (
+            f"Procedure '{procedure_name}' failed at step {step}: {cause}"
+        )
+        super().__init__(error_msg)
