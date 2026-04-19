@@ -303,16 +303,11 @@ def handle_named_procedure(
         async def async_execute_query(sql: str, params: tuple, stmt_type: Any):
             return await execute_query_async(sql, params, stmt_type)
 
-        def run_sync():
-            return runner.run(
-                dialect, user_params, transaction_mode,
-                backend=backend, execute_query=async_execute_query
-            )
-
         try:
             backend = backend_async_factory()
             dialect = get_dialect_async(backend)
-            runner = ProcedureRunner(qualified_name).load()
+            from .procedure import AsyncProcedureRunner
+            runner = AsyncProcedureRunner(qualified_name).load()
 
             if args.dry_run:
                 info = runner.describe()
@@ -326,7 +321,10 @@ def handle_named_procedure(
 
             from .procedure import ProcedureResult
 
-            result: ProcedureResult = await asyncio.to_thread(run_sync)
+            result: ProcedureResult = await runner.run(
+                dialect, user_params, transaction_mode,
+                backend=backend, execute_query=async_execute_query
+            )
 
             if result.logs:
                 print("Logs:")

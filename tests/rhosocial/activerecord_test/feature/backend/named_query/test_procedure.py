@@ -19,6 +19,9 @@ from rhosocial.activerecord.backend.named_query.procedure import (
     ProcedureResult,
     TransactionMode,
     LogEntry,
+    AsyncProcedure,
+    AsyncProcedureContext,
+    AsyncProcedureRunner,
 )
 from rhosocial.activerecord.backend.named_query.exceptions import (
     NamedQueryError,
@@ -345,3 +348,49 @@ class TestProcedureResult:
         assert result.logs == logs
         assert result.aborted is True
         assert result.abort_reason == "error"
+
+
+class TestAsyncProcedureClass:
+    """Tests for AsyncProcedure base class - structural tests."""
+
+    def test_get_parameters(self):
+        """Test getting parameter info from async class attributes."""
+
+        class TestAsyncProcedure(AsyncProcedure):
+            required_param: str
+            optional_param: int = 10
+
+        params = TestAsyncProcedure.get_parameters()
+        assert "required_param" in params
+        assert "optional_param" in params
+        assert params["required_param"]["has_default"] is False
+        assert params["optional_param"]["has_default"] is True
+
+    def test_is_procedure_class(self):
+        """Test that AsyncProcedure is a proper class."""
+        assert isinstance(AsyncProcedure, type)
+
+
+class TestAsyncProcedureContextInit:
+    """Tests for AsyncProcedureContext initialization."""
+
+    def test_init_with_defaults(self, mock_dialect):
+        """Test initialization with default values."""
+        ctx = AsyncProcedureContext(mock_dialect, lambda *a: None)
+
+        assert ctx.dialect is mock_dialect
+        assert ctx.bindings == {}
+
+
+class TestAsyncProcedureRunnerInit:
+    """Tests for AsyncProcedureRunner initialization."""
+
+    def test_init_with_qualified_name(self):
+        """Test initialization with valid qualified name."""
+        runner = AsyncProcedureRunner("myapp.procedures.monthly_report")
+        assert runner.qualified_name == "myapp.procedures.monthly_report"
+
+    def test_qualified_name_inherited(self):
+        """Test qualified_name property is available."""
+        runner = AsyncProcedureRunner("test.proc")
+        assert runner.qualified_name == "test.proc"

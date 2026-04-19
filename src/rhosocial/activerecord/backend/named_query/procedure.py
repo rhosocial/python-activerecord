@@ -51,7 +51,7 @@ Usage:
 import inspect
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, Dict, Iterator, List, Optional, Type
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Type
 
 from .resolver import resolve_named_query
 
@@ -274,6 +274,147 @@ class ProcedureContext:
         from .exceptions import ProcedureAbortedError
 
         raise ProcedureAbortedError(procedure_name, reason)
+
+
+class AsyncProcedureContext:
+    """Asynchronous runtime context for procedure execution.
+
+    This class provides the async interface for procedures to interact with
+    the execution environment, including executing named queries,
+    binding results, and logging.
+
+    Example:
+        >>> class MyAsyncProcedure(AsyncProcedure):
+        ...     async def run(self, ctx: AsyncProcedureContext) -> None:
+        ...         await ctx.execute("myapp.queries.get_users", bind="users")
+        ...         async for user in ctx.rows("users"):
+        ...             print(user["name"])
+    """
+
+    def __init__(
+        self,
+        dialect: Any,
+        execute_callback: Any,
+        transaction_mode: TransactionMode = TransactionMode.AUTO,
+    ):
+        self._dialect = dialect
+        self._execute_callback = execute_callback
+        self._transaction_mode = transaction_mode
+        self._bindings: Dict[str, Dict[str, Any]] = {}
+        self._logs: List[LogEntry] = []
+        self._in_transaction: bool = False
+
+    @property
+    def dialect(self) -> Any:
+        return self._dialect
+
+    @property
+    def bindings(self) -> Dict[str, Dict[str, Any]]:
+        return self._bindings
+
+    async def execute(
+        self,
+        qualified_name: str,
+        params: Optional[Dict[str, Any]] = None,
+        bind: Optional[str] = None,
+        output: bool = False,
+    ) -> Dict[str, Any]:
+        """Execute a named query asynchronously."""
+        if self._transaction_mode == TransactionMode.STEP:
+            if hasattr(self, "_begin_transaction") and callable(getattr(self, "_begin_transaction", None)):
+                await self._begin_transaction()
+
+        params = params or {}
+        result = await self._execute_callback(qualified_name, self._dialect, params)
+
+        if self._transaction_mode == TransactionMode.STEP:
+            in_transaction = getattr(self, "_in_transaction", False)
+            if in_transaction:
+                if hasattr(self, "_commit_transaction") and callable(getattr(self, "_commit_transaction", None)):
+                    await self._commit_transaction()
+
+        result_data = {
+            "qualified_name": qualified_name,
+            "params": params,
+            "bind": bind,
+            "output": output,
+            "sql": result.get("sql", ""),
+            "params_sql": result.get("params_sql", ()),
+            "data": result.get("data", []),
+            "affected_rows": result.get("affected_rows", 0),
+        }
+
+        if bind:
+            self._bindings[bind] = result_data
+
+        return result_data
+
+    async def scalar(self, var_name: str, column: str) -> Any:
+        if var_name not in self._bindings:
+            raise ValueError(f"Variable '{var_name}' not found in bindings")
+        data = self._bindings[var_name].get("data", [])
+        if not data:
+            return None
+        first_row = data[0]
+        return first_row.get(column)
+
+    async def rows(self, var_name: str) -> AsyncIterator[Dict[str, Any]]:
+        if var_name not in self._bindings:
+            raise ValueError(f"Variable '{var_name}' not found in bindings")
+        data = self._bindings[var_name].get("data", [])
+        for row in data:
+            yield row
+
+    async def bind(self, name: str, data: Any) -> None:
+        if data is None:
+            self._bindings[name] = {"data": []}
+        elif isinstance(data, list):
+            self._bindings[name] = {"data": data}
+        elif isinstance(data, dict):
+            self._bindings[name] = {"data": [data]}
+        else:
+            self._bindings[name] = {"data": [data]}
+
+    async def log(self, message: str, level: str = "INFO") -> None:
+        self._logs.append(LogEntry(level=level, message=message))
+
+    async def abort(self, procedure_name: str, reason: str) -> None:
+        from .exceptions import ProcedureAbortedError
+        raise ProcedureAbortedError(procedure_name, reason)
+
+
+class AsyncProcedure:
+    """Base class for asynchronous named procedures.
+
+    Subclasses must:
+    - Define parameters as class attributes with type annotations
+    - Implement an async run(ctx: AsyncProcedureContext) method
+
+    Example:
+        >>> class MyAsyncProcedure(AsyncProcedure):
+        ...     month: str
+        ...     threshold: int = 100
+        ...
+        ...     async def run(self, ctx: AsyncProcedureContext) -> None:
+        ...         await ctx.execute("myapp.queries.get_data", bind="data")
+    """
+
+    async def run(self, ctx: AsyncProcedureContext) -> None:
+        raise NotImplementedError("Subclasses must implement async run()")
+
+    @classmethod
+    def get_parameters(cls) -> Dict[str, Any]:
+        params = {}
+        for name, annotation in cls.__annotations__.items():
+            if name == "run":
+                continue
+            default = getattr(cls, name, inspect.Parameter.empty)
+            params[name] = {
+                "annotation": annotation,
+                "default": default,
+                "has_default": default is not inspect.Parameter.empty,
+            }
+        return params
 
 
 class Procedure:
@@ -574,14 +715,15 @@ class AsyncProcedureRunner:
 
         from .exceptions import ProcedureAbortedError
 
-        procedure = self._runner._procedure_class()
+        proc_class = self._runner._procedure_class()
         user_params = user_params or {}
 
         for param_name, param_value in user_params.items():
             if param_name in self._runner._params_info:
-                setattr(procedure, param_name, param_value)
+                setattr(proc_class, param_name, param_value)
 
-        _execute_callback = self._runner._procedure_class
+        is_async = issubclass(proc_class, AsyncProcedure)
+        proc_instance = proc_class()
 
         async def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
             _, sql, params_sql = resolve_named_query(fqn, dial, params)
@@ -603,13 +745,13 @@ class AsyncProcedureRunner:
                 "affected_rows": affected_rows,
             }
 
-        ctx = ProcedureContext(dialect, execute_callback, transaction_mode)
-        ctx._execute_async = execute_callback
-        ctx._is_async = True
+        if is_async:
+            ctx = AsyncProcedureContext(dialect, execute_callback, transaction_mode)
+        else:
+            ctx = ProcedureContext(dialect, execute_callback, transaction_mode)
 
         result = ProcedureResult()
         ctx._backend = backend
-        ctx._in_transaction = False
 
         in_transaction = False
 
@@ -636,13 +778,12 @@ class AsyncProcedureRunner:
         ctx._commit_transaction = commit_transaction
         ctx._rollback_transaction = rollback_transaction
         ctx._transaction_mode = transaction_mode
-        ctx._in_transaction_ref = in_transaction
 
         try:
             if transaction_mode == TransactionMode.AUTO:
                 await begin_transaction()
 
-            await procedure.run(ctx)
+            await proc_instance.run(ctx)
 
             if in_transaction and transaction_mode == TransactionMode.AUTO:
                 await commit_transaction()
