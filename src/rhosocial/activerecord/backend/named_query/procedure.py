@@ -489,9 +489,7 @@ class ProcedureRunner:
         def begin_transaction():
             nonlocal in_transaction
             if backend and not in_transaction:
-                if transaction_mode == TransactionMode.AUTO:
-                    backend.execute("BEGIN TRANSACTION", (), None)
-                elif transaction_mode == TransactionMode.STEP:
+                if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                     backend.execute("BEGIN TRANSACTION", (), None)
                 in_transaction = True
 
@@ -513,7 +511,7 @@ class ProcedureRunner:
         ctx._transaction_mode = transaction_mode
 
         try:
-            if uses_transaction:
+            if transaction_mode == TransactionMode.AUTO:
                 begin_transaction()
 
             procedure.run(ctx)
@@ -530,6 +528,134 @@ class ProcedureRunner:
         except Exception as e:
             if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                 rollback_transaction()
+            result.aborted = True
+            result.abort_reason = str(e)
+
+        result.logs = ctx._logs
+
+        for name, bound_data in ctx.bindings.items():
+            if bound_data.get("output"):
+                result.outputs.append(bound_data)
+
+        return result
+
+
+class AsyncProcedureRunner:
+    """Asynchronous runner for executing named procedures.
+
+    This class provides async execution by properly awaiting callbacks.
+    """
+
+    def __init__(self, qualified_name: str):
+        self._runner = ProcedureRunner(qualified_name)
+
+    def load(self) -> "AsyncProcedureRunner":
+        self._runner.load()
+        return self
+
+    def describe(self) -> Dict[str, Any]:
+        return self._runner.describe()
+
+    @property
+    def qualified_name(self) -> str:
+        return self._runner.qualified_name
+
+    async def run(
+        self,
+        dialect: Any,
+        user_params: Optional[Dict[str, Any]] = None,
+        transaction_mode: TransactionMode = TransactionMode.AUTO,
+        backend: Any = None,
+        execute_query: Any = None,
+    ) -> ProcedureResult:
+        """Execute the procedure asynchronously."""
+        if not self._runner._procedure_class:
+            raise NamedQueryError("Procedure not loaded. Call load() first.")
+
+        from .exceptions import ProcedureAbortedError
+
+        procedure = self._runner._procedure_class()
+        user_params = user_params or {}
+
+        for param_name, param_value in user_params.items():
+            if param_name in self._runner._params_info:
+                setattr(procedure, param_name, param_value)
+
+        _execute_callback = self._runner._procedure_class
+
+        async def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
+            _, sql, params_sql = resolve_named_query(fqn, dial, params)
+
+            data = []
+            affected_rows = 0
+
+            if execute_query and sql:
+                result = await execute_query(sql, params_sql, None)
+                if result and result.data:
+                    data = result.data
+                if result:
+                    affected_rows = result.affected_rows or 0
+
+            return {
+                "sql": sql,
+                "params_sql": params_sql,
+                "data": data,
+                "affected_rows": affected_rows,
+            }
+
+        ctx = ProcedureContext(dialect, execute_callback, transaction_mode)
+        ctx._execute_async = execute_callback
+        ctx._is_async = True
+
+        result = ProcedureResult()
+        ctx._backend = backend
+        ctx._in_transaction = False
+
+        in_transaction = False
+
+        async def begin_transaction():
+            nonlocal in_transaction
+            if backend and not in_transaction:
+                if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+                    backend.execute("BEGIN TRANSACTION", (), None)
+                in_transaction = True
+
+        async def commit_transaction():
+            nonlocal in_transaction
+            if backend and in_transaction:
+                backend.execute("COMMIT", (), None)
+                in_transaction = False
+
+        async def rollback_transaction():
+            nonlocal in_transaction
+            if backend and in_transaction:
+                backend.execute("ROLLBACK", (), None)
+                in_transaction = False
+
+        ctx._begin_transaction = begin_transaction
+        ctx._commit_transaction = commit_transaction
+        ctx._rollback_transaction = rollback_transaction
+        ctx._transaction_mode = transaction_mode
+        ctx._in_transaction_ref = in_transaction
+
+        try:
+            if transaction_mode == TransactionMode.AUTO:
+                await begin_transaction()
+
+            await procedure.run(ctx)
+
+            if in_transaction and transaction_mode == TransactionMode.AUTO:
+                await commit_transaction()
+
+        except ProcedureAbortedError as e:
+            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+                await rollback_transaction()
+            result.aborted = True
+            result.abort_reason = e.reason
+
+        except Exception as e:
+            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+                await rollback_transaction()
             result.aborted = True
             result.abort_reason = str(e)
 
