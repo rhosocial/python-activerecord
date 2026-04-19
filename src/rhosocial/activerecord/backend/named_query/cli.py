@@ -188,6 +188,12 @@ def create_named_query_parser(
         action="store_true",
         help="Execute EXPLAIN and interpret execution plan.",
     )
+    nq_parser.add_argument(
+        "--async",
+        dest="is_async",
+        action="store_true",
+        help="Use asynchronous execution (requires aiosqlite package).",
+    )
     return nq_parser
 
 
@@ -236,6 +242,10 @@ def handle_named_query(
     get_dialect: Callable[[Any], Any],
     execute_query: Callable[[str, tuple, StatementType], Any],
     disconnect: Optional[Callable[[], None]] = None,
+    backend_async_factory: Optional[Callable[[], Any]] = None,
+    get_dialect_async: Optional[Callable[[Any], Any]] = None,
+    execute_query_async: Optional[Callable[[str, tuple, StatementType], Any]] = None,
+    disconnect_async: Optional[Callable[[], None]] = None,
 ) -> None:
     """Handle named-query subcommand execution.
 
@@ -253,6 +263,7 @@ def handle_named_query(
             - list_queries: True to list queries
             - force: True to force non-SELECT execution
             - explain: True to run EXPLAIN
+            - is_async: True for async execution (optional)
         provider: Output provider for displaying results.
             Must have methods like display_success(),
             display_results(), display_no_result_object(), etc.
@@ -265,6 +276,14 @@ def handle_named_query(
             and returns a result object with affected_rows, duration, data.
         disconnect: Optional callable to disconnect backend after
             execution. Called in finally block.
+        backend_async_factory: Optional callable that returns a connected
+            async backend instance. Required if --async is used.
+        get_dialect_async: Optional callable that receives async backend
+            and returns the async dialect.
+        execute_query_async: Optional async callable that executes
+            (sql, params, stmt_type) and returns a result.
+        disconnect_async: Optional async callable to disconnect
+            async backend after execution.
 
     Returns:
         None. This function handles all output and exit codes.
@@ -375,6 +394,91 @@ def handle_named_query(
         return
 
     user_params = parse_params(args.params)
+    backend = None
+    is_async = getattr(args, "is_async", False)
+
+    if is_async and not backend_async_factory:
+        print(
+            "Error: --async requires asynchronous backend support. "
+            "Please provide async backend factory.",
+            file=sys.stderr,
+        )
+        sys.exit(1)
+
+    async def run_async():
+        backend = None
+        try:
+            backend = backend_async_factory()
+            dialect = get_dialect_async(backend)
+            resolver = NamedQueryResolver(qualified_name).load()
+            expression = resolver.execute(dialect, user_params)
+
+            if not isinstance(expression, Executable):
+                print(
+                    f"Error: Named query returned {type(expression).__name__}, "
+                    "which does not implement Executable protocol. "
+                    "Direct SQL strings are not allowed. Use 'query' subcommand for raw SQL.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            stmt_type = expression.statement_type
+            sql, params = expression.to_sql()
+
+            if args.dry_run:
+                print("[DRY RUN] SQL:")
+                print(f"  {sql}")
+                print(f"Params: {params}")
+                return
+
+            if stmt_type == StatementType.EXPLAIN and not args.explain:
+                print(
+                    "Error: EXPLAIN queries require --dry-run or --explain for execution.",
+                    file=sys.stderr,
+                )
+                sys.exit(1)
+
+            if stmt_type not in (StatementType.DQL, StatementType.SELECT) and not args.force:
+                print(
+                    f"[WARN] {type(expression).__name__} is a {stmt_type.name} statement, not a SELECT query.",
+                    file=sys.stderr,
+                )
+                print("This may modify data. Use --force to proceed.", file=sys.stderr)
+                sys.exit(1)
+
+            result = await execute_query_async(sql, params, stmt_type)
+
+            if not result:
+                provider.display_no_result_object()
+            else:
+                provider.display_success(result.affected_rows, result.duration)
+                if result.data:
+                    provider.display_results(result.data, use_ascii=args.rich_ascii)
+                else:
+                    provider.display_no_data()
+
+        except NamedQueryError as e:
+            print(f"Error: {e}", file=sys.stderr)
+            sys.exit(1)
+        except Exception as e:
+            from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
+
+            if isinstance(e, ConnectionError):
+                provider.display_connection_error(e)
+            elif isinstance(e, QueryError):
+                provider.display_query_error(e)
+            else:
+                provider.display_unexpected_error(e, is_async=True)
+            sys.exit(1)
+        finally:
+            if disconnect_async and backend:
+                await disconnect_async()
+
+    if is_async:
+        import asyncio
+        asyncio.run(run_async())
+        return
+
     backend = None
 
     try:
