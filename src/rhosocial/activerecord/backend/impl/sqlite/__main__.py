@@ -300,6 +300,10 @@ def parse_args():
     from rhosocial.activerecord.backend.named_query.cli import create_named_query_parser
     create_named_query_parser(subparsers, parent_parser)
 
+    # named-procedure subcommand (using shared CLI helper)
+    from rhosocial.activerecord.backend.named_query.cli_procedure import create_named_procedure_parser
+    create_named_procedure_parser(subparsers, parent_parser)
+
     return parser.parse_args()
 
 
@@ -1014,11 +1018,12 @@ def _parse_params(params: list) -> dict:
 def handle_named_query(args, provider):
     """Handle named-query subcommand using shared CLI helper."""
     from rhosocial.activerecord.backend.named_query.cli import handle_named_query as handle_nq
-    from rhosocial.activerecord.backend.options import ExecutionOptions
 
     backend = None
     async_backend = None
     is_async = getattr(args, "is_async", False)
+
+    backend = None
 
     def backend_factory():
         nonlocal backend
@@ -1033,6 +1038,7 @@ def handle_named_query(args, provider):
         return b.dialect
 
     def execute_query(sql, params, stmt_type):
+        from rhosocial.activerecord.backend.options import ExecutionOptions
         return backend.execute(sql, params, options=ExecutionOptions(stmt_type=stmt_type))
 
     def disconnect():
@@ -1040,6 +1046,8 @@ def handle_named_query(args, provider):
             backend.disconnect()
 
     if is_async:
+        async_backend = None
+
         def backend_async_factory():
             nonlocal async_backend
             from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
@@ -1052,12 +1060,11 @@ def handle_named_query(args, provider):
             return b.dialect
 
         async def execute_query_async(sql, params, stmt_type):
-            return await async_backend.execute(
-                sql, params, options=ExecutionOptions(stmt_type=stmt_type)
-            )
+            from rhosocial.activerecord.backend.options import ExecutionOptions
+            return await async_backend.execute(sql, params, options=ExecutionOptions(stmt_type=stmt_type))
 
         async def disconnect_async():
-            if async_backend._connection:
+            if async_backend and async_backend._connection:
                 await async_backend.disconnect()
 
         handle_nq(
@@ -1087,6 +1094,44 @@ def handle_named_query(args, provider):
 def main():
     args = parse_args()
 
+    # Backend factory functions for named-query/named-procedure subcommands
+    def backend_factory():
+        db_path = args.db_file if args.db_file else ":memory:"
+        config = SQLiteConnectionConfig(database=db_path)
+        backend = SQLiteBackend(connection_config=config)
+        backend.connect()
+        backend.introspect_and_adapt()
+        return backend
+
+    def get_dialect(b):
+        return b.dialect
+
+    def execute_query(sql, params, stmt_type):
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        return backend.execute(sql, params, options=ExecutionOptions(stmt_type=stmt_type))
+
+    def disconnect():
+        if backend and backend._connection:
+            backend.disconnect()
+
+    async def backend_async_factory():
+        from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+        db_path = args.db_file if args.db_file else ":memory:"
+        config = SQLiteConnectionConfig(database=db_path)
+        async_backend = AsyncSQLiteBackend(connection_config=config)
+        return async_backend
+
+    async def get_dialect_async(b):
+        return b.dialect
+
+    async def execute_query_async(sql, params, stmt_type):
+        from rhosocial.activerecord.backend.options import ExecutionOptions
+        return await async_backend.execute(sql, params, options=ExecutionOptions(stmt_type=stmt_type))
+
+    async def disconnect_async():
+        if async_backend and async_backend._connection:
+            await async_backend.disconnect()
+
     # Require a subcommand
     if args.command is None:
         print("Error: Please specify a command: 'info', 'query', 'introspect', or 'status'", file=sys.stderr)
@@ -1113,6 +1158,23 @@ def main():
     # Handle named-query subcommand
     if args.command == "named-query":
         handle_named_query(args, provider)
+        return
+
+    # Handle named-procedure subcommand
+    if args.command == "named-procedure":
+        from rhosocial.activerecord.backend.named_query.cli_procedure import handle_named_procedure as handle_np
+        handle_np(
+            args,
+            provider,
+            backend_factory=backend_factory,
+            get_dialect=get_dialect,
+            execute_query=execute_query,
+            disconnect=disconnect,
+            backend_async_factory=backend_async_factory,
+            get_dialect_async=get_dialect_async,
+            execute_query_async=execute_query_async,
+            disconnect_async=disconnect_async,
+        )
         return
 
     # Handle query subcommand
