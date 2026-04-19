@@ -1,168 +1,499 @@
-# 命名查询
+# 命名查询与命名过程
 
-> **重要**: 这是**后端功能**，与 ActiveRecord 模式和 ActiveQuery 无关。
+> **本文档定位**: 面向应用开发者的实践指南,侧重「为什么用」和「怎么用」。
 
-## 概述
+---
 
-命名查询是一种将可重用的查询定义为 Python 可调用对象的机制。它提供了 CLI 接口来执行查询，而无需直接编写 SQL 字符串。
+## 目录
 
-## 关键概念
+1. [为什么需要命名查询?](#1-为什么需要命名查询)
+2. [快速上手: 你的第一个命名查询](#2-快速上手你的第一个命名查询)
+3. [三种调用方式](#3-三种调用方式)
+   - [3.1 命令行 (CLI)](#31-命令行cli)
+   - [3.2 Jupyter Notebook / Programmatic API](#32-jupyter-notebook--programmatic-api)
+   - [3.3 CI/CD 静态验证](#33-cicd-静态验证)
+4. [为什么需要命名过程?](#4-为什么需要命名过程)
+5. [编写命名过程](#5-编写命名过程)
+6. [命名过程的调用方式](#6-命名过程的调用方式)
+   - [6.1 命令行调用](#61-命令行调用)
+   - [6.2 Notebook / API 调用](#62-notebook--api-调用)
+   - [6.3 异步环境 (FastAPI)](#63-异步环境fastapi-aiohttp)
+7. [事务模式选择指南](#7-事务模式选择指南)
+8. [功能对比总结](#8-功能对比总结)
 
-- **后端功能**: 此模块属于后端系统，不是 ActiveRecord ORM 的一部分
-- **基于可调用对象**: 查询定义为函数或类，`dialect` 作为第一个参数
-- **类型安全**: 返回实现 `Executable` 协议的 `BaseExpression` 对象
-- **CLI 友好**: 提供命令行界面来执行查询
+> **重要**: 这是**后端功能**,与 ActiveRecord 模式和 ActiveQuery 无关。
 
-## 与 ActiveRecord 无关
+---
 
-命名查询**与以下内容无关**:
+## 表达式构造速查
 
-- ActiveRecord 模式
-- ActiveQuery
-- 基于模型的查询
-- 关系查询
+在定义命名查询时,所有表达式类均以 `dialect` 作为第一个构造参数。比较运算使用 Python 运算符(返回 `ComparisonPredicate`),谓词组合使用位运算符:
 
-它专门用于:
-- CLI 工具
-- 基于脚本的查询执行
-- Python 模块中的可重用查询组织
+| SQL 意图 | Python 写法 |
+|---|---|
+| `col = val` | `Column(dialect, "col") == val` |
+| `col >= val` | `Column(dialect, "col") >= val` |
+| `col LIKE 'x%'` | `Column(dialect, "col").like("x%")` |
+| `col IS NULL` | `Column(dialect, "col").is_null()` |
+| `col IN (1,2,3)` | `Column(dialect, "col").in_([1, 2, 3])` |
+| `p1 AND p2` | `p1 & p2` |
+| `p1 OR p2` | `p1 \| p2` |
+| `NOT p` | `~p` |
+| `FROM table` | `TableExpression(dialect, "table")` |
+| `SELECT *` | `WildcardExpression(dialect)` |
 
-## 安装
+---
 
-命名查询包含在核心 `rhosocial-activerecord` 包中。无需额外安装。
+## 1. 为什么需要命名查询?
 
-如需异步支持，安装 `aiosqlite`:
+### 传统做法的痛点
 
-```bash
-pip install aiosqlite
-```
-
-## 快速开始
-
-### 定义命名查询
-
-命名查询是第一个参数为 `dialect` 的函数或类:
+在没有命名查询之前,Python 项目中执行数据库查询最常见的方式是**在业务代码里直接拼接 SQL 字符串**:
 
 ```python
-# myapp/queries.py
-from rhosocial.activerecord.backend.expression import Column, Literal
-from rhosocial.activerecord.backend.expression.statements import Select
+# ❌ 使用前: routes/orders.py
+import sqlite3
 
-
-def active_users(dialect, limit: int = 100):
-    """获取活跃用户，可选限制数量。
-
-    参数:
-        limit: 返回的最大用户数（默认: 100）
-
-    返回:
-        Select 表达式
+def get_high_value_orders(db_path, threshold=1000, days=30):
+    conn = sqlite3.connect(db_path)
+    sql = f"""
+        SELECT id, amount, created_at FROM orders
+        WHERE status = 'pending'
+          AND amount >= {threshold}
+          AND created_at >= DATE('now', '-{days} days')
     """
-    return Select(
-        targets=[Column("id"), Column("name"), Column("email")],
-        from_=Literal("users"),
-        where=Column("status").eq("active"),
-        limit=limit,
+    return conn.cursor().execute(sql).fetchall()
+```
+
+**这种方式存在以下问题:**
+
+| 问题 | 说明 |
+|---|---|
+| **SQL 注入风险** | `f-string` 直接拼接参数,恶意输入可篡改查询 |
+| **难以复用** | SQL 字符串散落各处,同一查询在多处复制粘贴 |
+| **方言绑定** | 写死 SQLite 语法,迁移到 PostgreSQL 需全局替换 |
+| **无法独立测试** | 必须启动完整应用才能执行某条查询 |
+| **无法 dry-run** | 看不到最终 SQL,只能运行后排查问题 |
+
+### 命名查询如何解决这些问题
+
+命名查询将查询逻辑封装为**纯 Python 函数**,以 `dialect` 作为第一个参数(由框架在调用时自动注入),返回类型安全的表达式对象:
+
+```python
+# ✅ 使用后: myapp/queries/orders.py
+from rhosocial.activerecord.backend.expression import (
+    Column, Literal, TableExpression, QueryExpression,
+    LimitOffsetClause,
+)
+
+def high_value_pending(dialect, threshold: int = 1000, days: int = 30):
+    """查询高价值待处理订单。"""
+    return QueryExpression(
+        dialect,
+        select=[
+            Column(dialect, "id"),
+            Column(dialect, "amount"),
+            Column(dialect, "created_at"),
+        ],
+        from_=TableExpression(dialect, "orders"),
+        where=(
+            (Column(dialect, "status") == "pending")
+            & (Column(dialect, "amount") >= threshold)
+            & (Column(dialect, "created_at") >= Literal(dialect, f"DATE('now', '-{days} days')"))
+        ),
     )
 ```
 
-或作为类:
+---
+
+## 2. 快速上手: 你的第一个命名查询
+
+### 第一步: 定义查询
 
 ```python
-# myapp/queries.py
-from rhosocial.activerecord.backend.expression import Column, Literal
-from rhosocial.activerecord.backend.expression.statements import Select
+# myapp/queries/users.py
+from rhosocial.activerecord.backend.expression import (
+    Column, TableExpression, QueryExpression, LimitOffsetClause,
+)
 
+def active_users(dialect, limit: int = 100, status: str = "active"):
+    """获取活跃用户列表。"""
+    return QueryExpression(
+        dialect,
+        select=[
+            Column(dialect, "id"),
+            Column(dialect, "name"),
+            Column(dialect, "email"),
+        ],
+        from_=TableExpression(dialect, "users"),
+        where=Column(dialect, "status") == status,
+        limit_offset=LimitOffsetClause(dialect, limit=limit),
+    )
+```
 
-class UserQueries:
-    """用户查询集合。"""
+### 第二步: 确保模块可导入
 
-    def __call__(self, dialect, status: str = "active"):
-        """按状态获取用户。
+```bash
+export PYTHONPATH=/path/to/your/project:$PYTHONPATH
+python -c "import myapp.queries.users; print('OK')"
+```
 
-        参数:
-            status: 要过滤的用户状态（默认: "active"）
+### 第三步: 通过 CLI 执行
 
-        返回:
-            Select 表达式
-        """
-        return Select(
-            targets=[Column("id"), Column("name")],
-            from_=Literal("users"),
-            where=Column("status").eq(status),
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.users.active_users \
+    --db-file mydb.sqlite \
+    --param limit=10
+```
+
+---
+
+## 3. 三种调用方式
+
+### 3.1 命令行 (CLI)
+
+```bash
+# ① 执行查询
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.users.active_users \
+    --db-file mydb.sqlite \
+    --param limit=10 \
+    --param status=active
+
+# ② 仅渲染 SQL,不执行(dry-run)
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.users.active_users \
+    --db-file mydb.sqlite --dry-run
+
+# 输出示例:
+# [DRY RUN] SELECT "id", "name", "email" FROM "users" WHERE "status" = ? LIMIT ?
+# Params: ('active', 100)
+
+# ③ 查看参数说明(不执行)
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.users.active_users --describe
+
+# ④ 列出模块中所有命名查询
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.users --list
+
+# ⑤ 异步执行(需要 aiosqlite)
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.users.active_users \
+    --db-file mydb.sqlite --async
+```
+
+#### CLI 完整参数
+
+| 参数 | 说明 |
+|---|---|
+| `qualified_name` | 完全限定名(位置参数,如 `myapp.queries.users.active_users`) |
+| `--param KEY=VALUE` | 传递参数(可重复多次) |
+| `--list` | 列出模块中所有命名查询 |
+| `--describe` | 打印参数签名,不执行 |
+| `--dry-run` | 渲染 SQL 和参数,不执行 |
+| `--async` | 异步执行 |
+| `--force` | 允许执行非 SELECT 语句(DML/DDL) |
+| `--explain` | 执行 EXPLAIN 计划 |
+
+---
+
+### 3.2 Jupyter Notebook / Programmatic API
+
+```python
+# ✅ 使用后:通过命名查询 API
+from rhosocial.activerecord.backend.named_query import (
+    NamedQueryResolver, resolve_named_query,
+)
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+import pandas as pd
+
+backend = SQLiteBackend(database="mydb.sqlite")
+dialect = backend.dialect
+
+# 方式一:一步调用(快捷)
+# resolve_named_query 返回 (expression, sql_string, params_tuple)
+expr, sql, params = resolve_named_query(
+    "myapp.queries.users.active_users",
+    dialect,
+    {"limit": 50, "status": "active"},
+)
+print("SQL:", sql)
+
+# 使用 pandas 执行
+df = pd.read_sql(sql, backend.connection, params=list(params))
+
+# 方式二:分步控制(灵活)
+resolver = NamedQueryResolver("myapp.queries.users.active_users").load()
+info = resolver.describe()
+print(info["parameters"])
+
+# 构造表达式并生成 SQL
+expr = resolver.execute(dialect, {"limit": 50})
+sql, params = expr.to_sql()
+```
+
+---
+
+### 3.3 CI/CD 静态验证
+
+```yaml
+# .github/workflows/validate-queries.yml
+name: Validate Named Queries
+on: [push, pull_request]
+
+jobs:
+  validate:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+      - uses: actions/setup-python@v5
+        with: { python-version: "3.12" }
+      - run: pip install -e .
+      - name: 静态验证命名查询
+        run: |
+          python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+            myapp.queries.users.active_users \
+            --db-file :memory: --dry-run \
+            --param limit=100 --param status=active
+```
+
+> **技巧**: 使用 `--db-file :memory:` 配合 `--dry-run`,不依赖持久化数据库文件,CI 环境零配置即可运行。
+
+---
+
+## 4. 为什么需要命名过程?
+
+命名查询解决了**单条查询**的管理和复用问题,但真实的运维场景往往需要**多步骤、有条件分支**的操作序列。例如:
+
+> "统计本月订单数 → 若无数据则跳过 → 归档已完成订单 → 删除已归档记录"
+
+---
+
+## 5. 编写命名过程
+
+继承 `Procedure`(同步)或 `AsyncProcedure`(异步),在 `run()` 中用 `ctx` 编排各步骤:
+
+```python
+# myapp/procedures/monthly_cleanup.py
+from rhosocial.activerecord.backend.named_query import Procedure, ProcedureContext
+
+class MonthlyCleanupProcedure(Procedure):
+    """月度订单归档清理过程。"""
+    month: str = "2026-03"
+
+    def run(self, ctx: ProcedureContext) -> None:
+        # 步骤 1:统计订单数,绑定到上下文变量
+        ctx.execute(
+            "myapp.queries.orders.count_monthly_orders",
+            params={"month": self.month},
+            bind="order_count",
+        )
+
+        # 步骤 2:提取标量值,进行条件判断
+        count = ctx.scalar("order_count", "cnt")
+        if not count:
+            ctx.log(f"月份 {self.month} 无订单,跳过清理。", level="INFO")
+            ctx.abort("MonthlyCleanupProcedure", f"No orders in {self.month}")
+
+        # 步骤 3:归档已完成订单
+        ctx.execute(
+            "myapp.queries.orders.archive_completed_orders",
+            params={"month": self.month},
+            output=True,
+        )
+
+        # 步骤 4:删除已归档的订单
+        ctx.execute(
+            "myapp.queries.orders.delete_archived_orders",
+            params={"month": self.month},
+            output=True,
+        )
+
+        ctx.log("归档清理完成。", level="INFO")
+```
+
+#### ProcedureContext 方法速查
+
+| 方法 | 签名 | 说明 |
+|---|---|---|
+| `execute` | `(qualified_name, params=None, bind=None, output=False)` | 执行命名查询;`bind` 将结果存入上下文变量 |
+| `scalar` | `(var_name, column)` | 从绑定变量的第一行提取单列值 |
+| `rows` | `(var_name)` | 迭代绑定变量的所有行 |
+| `bind` | `(name, data)` | 手动将任意数据绑定到上下文变量 |
+| `log` | `(message, level="INFO")` | 记录执行日志 |
+| `abort` | `(procedure_name, reason)` | 终止过程,触发回滚 |
+
+---
+
+## 6. 命名过程的调用方式
+
+### 6.1 命令行调用
+
+```bash
+# ① 执行过程(AUTO 事务模式)
+python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
+    myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure \
+    --db-file mydb.sqlite \
+    --param month=2026-03 \
+    --transaction auto
+
+# ② 查看过程定义(不执行)
+python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
+    myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure \
+    --db-file mydb.sqlite --describe
+
+# ③ Dry-run:渲染每一步的 SQL,不执行
+python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
+    myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure \
+    --db-file mydb.sqlite --dry-run --param month=2026-03
+
+# ④ STEP 事务模式(每步独立提交)
+python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
+    myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure \
+    --db-file mydb.sqlite --param month=2026-03 --transaction step
+
+# ⑤ 列出模块中所有命名过程
+python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
+    myapp.procedures.monthly_cleanup --list
+```
+
+#### named-procedure CLI 参数
+
+| 参数 | 说明 |
+|---|---|
+| `qualified_name` | 完全限定类名 |
+| `--param KEY=VALUE` | 过程参数(可重复) |
+| `--transaction {auto,step,none}` | 事务模式(默认 `auto`) |
+| `--describe` | 打印过程参数定义,不执行 |
+| `--dry-run` | 渲染每步 SQL,不执行 |
+| `--list` | 列出模块中所有命名过程 |
+| `--async` | 异步执行(需要 `AsyncProcedure` 子类) |
+
+---
+
+### 6.2 Notebook / API 调用
+
+```python
+from rhosocial.activerecord.backend.named_query import (
+    ProcedureRunner, TransactionMode, ProcedureResult,
+)
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+backend = SQLiteBackend(database="mydb.sqlite")
+dialect = backend.dialect
+
+runner = ProcedureRunner(
+    "myapp.procedures.monthly_cleanup.MonthlyCleanupProcedure"
+).load()
+
+result: ProcedureResult = runner.run(
+    dialect,
+    user_params={"month": "2026-03"},
+    transaction_mode=TransactionMode.AUTO,
+    backend=backend,
+    execute_query=backend.execute,
+)
+
+if result.aborted:
+    print(f"⚠️ 已终止: {result.abort_reason}")
+else:
+    print(f"✅ 完成,输出步骤数: {len(result.outputs)}")
+
+for entry in result.logs:
+    print(f"[{entry.level}] {entry.message}")
+```
+
+---
+
+### 6.3 异步环境 (FastAPI/aiohttp)
+
+```python
+# myapp/procedures/monthly_cleanup_async.py
+from rhosocial.activerecord.backend.named_query import AsyncProcedure, AsyncProcedureContext
+
+class MonthlyCleanupAsyncProcedure(AsyncProcedure):
+    """月度清理(异步版)。"""
+    month: str = "2026-03"
+
+    async def run(self, ctx: AsyncProcedureContext) -> None:
+        await ctx.execute(
+            "myapp.queries.orders.count_monthly_orders",
+            params={"month": self.month},
+            bind="order_count",
+        )
+
+        count = await ctx.scalar("order_count", "cnt")
+        if not count:
+            await ctx.log(f"月份 {self.month} 无订单,跳过。")
+            await ctx.abort("MonthlyCleanupAsyncProcedure", f"No orders in {self.month}")
+
+        await ctx.execute(
+            "myapp.queries.orders.archive_completed_orders",
+            params={"month": self.month},
+            output=True,
         )
 ```
 
-### 通过 CLI 执行
-
-```bash
-# 执行命名查询（同步）
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    myapp.queries.active_users \
-    --db-file mydb.sqlite
-
-# 执行命名查询（异步）
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    myapp.queries.active_users \
-    --db-file mydb.sqlite \
-    --async
-
-# 列出模块中的所有查询
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    myapp.queries --list
-
-# 显示查询详情
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    myapp.queries --example active_users
-
-# 预览 SQL（不执行）
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    myapp.queries.active_users \
-    --db-file mydb.sqlite \
-    --param limit=50 \
-    --dry-run
-```
-
-### 通过代码执行
-
 ```python
-from rhosocial.activerecord.backend.named_query import NamedQueryResolver
+# FastAPI endpoint
+from fastapi import FastAPI
+from rhosocial.activerecord.backend.named_query import AsyncProcedureRunner, TransactionMode
+from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
-resolver = NamedQueryResolver("myapp.queries.active_users").load()
-expression = resolver.execute(dialect, {"limit": 50})
-sql, params = expression.to_sql()
-print(f"SQL: {sql}, Params: {params}")
+app = FastAPI()
+async_backend = AsyncSQLiteBackend(database="mydb.sqlite")
+
+@app.post("/admin/cleanup/{month}")
+async def run_cleanup(month: str):
+    runner = AsyncProcedureRunner(
+        "myapp.procedures.monthly_cleanup_async.MonthlyCleanupAsyncProcedure"
+    ).load()
+    result = await runner.run(
+        async_backend.dialect,
+        user_params={"month": month},
+        transaction_mode=TransactionMode.AUTO,
+        backend=async_backend,
+        execute_query=async_backend.execute,
+    )
+    return {
+        "aborted": result.aborted,
+        "abort_reason": result.abort_reason,
+        "outputs": result.outputs,
+    }
 ```
 
-## CLI 选项
+> **注意**:`AsyncProcedure` 子类只能交给 `AsyncProcedureRunner`;`Procedure` 子类只能交给 `ProcedureRunner`。两者不可混用。
 
-| 选项 | 描述 |
-|--------|-------------|
-| `qualified_name` | 完全限定的 Python 名称（module.path.callable） |
-| `-e, --example` | 显示特定查询的详细信息 |
-| `--param KEY=VALUE` | 查询参数（可重复） |
-| `--describe` | 显示签名而不执行 |
-| `--dry-run` | 打印 SQL 而不执行 |
-| `--list` | 列出模块中的所有查询 |
-| `--force` | 强制执行非 SELECT 语句（DML/DDL） |
-| `--explain` | 执行 EXPLAIN 并显示计划 |
-| `--async` | 使用异步执行（需要 aiosqlite） |
+---
 
-## 发现规则
+## 7. 事务模式选择指南
 
-可调用对象被认为是命名查询的条件：
-1. 是函数、方法或类（带 `__call__`）
-2. 第一个参数（在类的 `self` 之后）名为 `dialect`
-3. 返回 `BaseExpression` 对象
+| 模式 | 说明 | 适用场景 | 失败时行为 |
+|---|---|---|---|
+| `AUTO`(默认) | 整个过程包裹在单个事务中 | 批量归档、数据迁移(要求原子性) | 整体回滚 |
+| `STEP` | 每一步独立提交 | 长流程、允许部分完成的操作 | 已完成步骤保留 |
+| `NONE` | 不使用事务 | 只读过程、外部已管理事务 | 无保护 |
 
-没有 `dialect` 作为第一个参数的函数将被忽略。
+---
 
-## 安全性
+## 8. 功能对比总结
 
-命名查询是类型安全的：
-- 只允许实现 `Executable` 的 `BaseExpression` 对象
-- 不允许直接 SQL 字符串
-- 这可以防止 SQL 注入漏洞
+| 维度 | 传统方式 | 命名查询 | 命名过程 |
+|---|---|---|---|
+| **SQL 安全** | ❌ 可能注入 | ✅ 强制 expression | ✅ 强制 expression |
+| **可复用性** | ❌ 散落各处 | ✅ 按完全限定名调用 | ✅ 组合多个查询 |
+| **CLI 可调用** | ❌ 需额外脚本 | ✅ 内置 | ✅ 内置 |
+| **事务管理** | ❌ 手动 | — | ✅ AUTO / STEP / NONE |
+| **Notebook 友好** | △ 可用但繁琐 | ✅ 简洁 API | ✅ 简洁 API |
+| **CI/CD dry-run** | ❌ 需要数据库连接 | ✅ 无 DB dry-run | ✅ 无 DB dry-run |
+| **异步支持** | △ 手动 | ✅ `--async` | ✅ `AsyncProcedure` |
+| **跨方言** | ❌ 绑定 | ✅ `dialect` 参数 | ✅ `ctx.dialect` |
+| **执行日志** | ❌ 无 | — | ✅ `ctx.log()` |
+| **多步骤编排** | ❌ 手写脚本 | ❌ 单步 | ✅ 顺序 + 分支 + 循环 |
+
+---
 
 ## API 参考
 
@@ -177,28 +508,24 @@ print(f"SQL: {sql}, Params: {params}")
 - `NamedQueryNotCallableError` - 不可调用
 - `NamedQueryExplainNotAllowedError` - 不允许 EXPLAIN
 
-### 函数
+### 命名查询 API
 
 - `NamedQueryResolver` - 主解析器类
 - `resolve_named_query()` - 一步解析和执行
 - `list_named_queries_in_module()` - 列出模块中的查询
 - `validate_expression()` - 验证表达式类型
-- `create_named_query_parser()` - 创建 CLI 解析器
-- `handle_named_query()` - 处理 CLI 执行
-- `parse_params()` - 解析 CLI 参数
 
-## 限制
+### 命名过程 API
 
-- 这是**后端功能**，不是 ActiveRecord 的一部分
-- 不能与 ActiveRecord 模型一起使用
-- 不能与 ActiveQuery 一起使用
-- 仅适用于 CLI 和脚本使用场景
+- `Procedure` - 同步过程基类
+- `ProcedureContext` - 同步执行上下文
+- `ProcedureRunner` - 同步执行器
+- `AsyncProcedure` - 异步过程基类
+- `AsyncProcedureContext` - 异步执行上下文
+- `AsyncProcedureRunner` - 异步执行器
+- `TransactionMode` - 事务模式枚举
+- `ProcedureResult` - 执行结果
 
-## 异步支持
+---
 
-命名查询同时支持同步和异步执行：
-
-- 使用 `--async` 标志启用异步执行
-- 需要 `aiosqlite` 包
-- 表达式构建始终是同步的（dialect 操作）
-- 只有数据库连接和查询执行是异步的
+*文档版本: 与 feature/named-query 分支同步*
