@@ -127,7 +127,12 @@ User.query().select([
 ]).join(Post).group_by(User.c.id)
 
 # CTE through dedicated CTEQuery
-User.query().with_cte("adults", lambda: User.query().where(User.c.age >= 18))
+from rhosocial.activerecord.query import CTEQuery
+cte_query = CTEQuery(User.backend()).with_cte(
+    "adults",
+    User.query().where(User.c.age >= 18)
+).from_cte("adults")
+adults = cte_query.aggregate()
 
 # SQL transparency
 sql, params = User.query().where(User.c.age >= 18).to_sql()
@@ -216,12 +221,8 @@ db = MySQLDatabase(...)
 
 ```python
 # Backend explicitly declares capabilities
-@requires_capability(CTECapability.RECURSIVE_CTE)
-def test_recursive_cte():
-    pass
-
-# Runtime query
-if backend.capabilities.has(WindowFunctionCapability.ROW_NUMBER):
+# Check window function support via dialect
+if backend.dialect.supports_window_functions():
     # Use window functions
     pass
 ```

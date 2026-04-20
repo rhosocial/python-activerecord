@@ -527,7 +527,3 @@ async def run_cleanup(month: str):
 - `AsyncProcedureRunner` - Asynchronous executor
 - `TransactionMode` - Transaction mode enum
 - `ProcedureResult` - Execution result
-
----
-
-*Document version: synchronized with the `feature/named-query` branch*

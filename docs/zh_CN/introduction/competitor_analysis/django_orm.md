@@ -71,14 +71,14 @@ def get_user():
 ```python
 # 完全原生的同步/异步对等
 # 同步
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # 异步：相同 API，仅添加 await
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 
 # 在任何异步环境中工作
 async def my_function():
-    user = await User.query().first()  # 直接可用
+    user = await User.query().one()  # 直接可用
 ```
 
 **优势分析**:
@@ -154,18 +154,23 @@ User.objects.select_related('profile')  # 仅支持正向关联
 
 ```python
 # 表达式对象，类型安全
-User.query().where(User.c.age >= 18).order_by(User.c.name.desc())
+User.query().where(User.c.age >= 18).order_by((User.c.name, "DESC"))
 
 # 逻辑组合直观
 User.query().where(
-    (User.c.name.startswith('A')) | (User.c.name.startswith('B'))
+    (User.c.name.like('A%')) | (User.c.name.like('B%'))
 )
 
 # 灵活的 JOIN 支持
 User.query().join(Profile, User.c.id == Profile.c.user_id)
 
 # CTE、窗口函数等高级特性
-User.query().with_cte("adults", lambda: User.query().where(User.c.age >= 18))
+from rhosocial.activerecord.query import CTEQuery
+cte_query = CTEQuery(User.backend()).with_cte(
+    "adults",
+    User.query().where(User.c.age >= 18)
+).from_cte("adults")
+adults = cte_query.aggregate()
 ```
 
 **优势分析**:

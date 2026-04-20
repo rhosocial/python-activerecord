@@ -37,12 +37,12 @@ from tortoise import Tortoise
 # 同步和异步完全对等
 # 同步
 def get_user():
-    user = User.query().where(User.c.id == 1).first()
+    user = User.query().where(User.c.id == 1).one()
     return user
 
-# 异步：完全相同的 API
+# 异步：完全相同的 API，仅需 await
 async def get_user():
-    user = await User.query().where(User.c.id == 1).first()
+    user = await User.query().where(User.c.id == 1).one()
     return user
 ```
 
@@ -132,11 +132,11 @@ users = await User.annotate(post_count=Count("posts")).filter(post_count__gt=0)
 
 ```python
 # 链式调用，SQL 风格
-users = await User.query().where(User.c.age >= 18).order_by(User.c.name.desc())
+users = await User.query().where(User.c.age >= 18).order_by((User.c.name, "DESC"))
 
 # 逻辑组合直观
 users = await User.query().where(
-    (User.c.name.startswith("A")) | (User.c.name.startswith("B"))
+    (User.c.name.like("A%")) | (User.c.name.like("B%"))
 )
 
 # 聚合
@@ -224,11 +224,12 @@ results = await conn.execute_query("SELECT ...")
 ```python
 # 通过 Expression/Dialect 系统表达所有 SQL
 # CTE 通过 CTEQuery
-cte_query = CTEQuery().with_cte(
+# 注意：CTEQuery 需要传入 backend，且使用 aggregate() 而非 all()
+cte_query = CTEQuery(User.backend()).with_cte(
     "adults",
     User.query().where(User.c.age >= 18)
-)
-results = await User.query().from_cte("adults").all()
+).from_cte("adults")
+results = await cte_query.aggregate()
 
 # 窗口函数
 from rhosocial.activerecord.query.window import Window
@@ -238,7 +239,7 @@ users = await User.query().select([
     User.c.name,
     func.row_number().over(
         partition_by=[User.c.department],
-        order_by=[User.c.salary.desc()]
+        order_by=[(User.c.salary, "DESC")]
     ).as_("rank")
 ]).all()
 
@@ -272,12 +273,8 @@ union_query = SetOperationQuery().union(
 
 ```python
 # 后端显式声明能力
-@requires_capability(CTECapability.RECURSIVE_CTE)
-def test_recursive_cte():
-    pass
-
-# 运行时查询
-if backend.capabilities.has(WindowFunctionCapability.ROW_NUMBER):
+# 通过 dialect 检查窗口函数支持
+if backend.dialect.supports_window_functions():
     # 使用窗口函数
     pass
 ```
