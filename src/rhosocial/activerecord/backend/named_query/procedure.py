@@ -49,6 +49,8 @@ Usage:
     >>> result = runner.run(dialect, {"month": "2026-03"})
 """
 import inspect
+import threading
+from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Type
@@ -82,6 +84,63 @@ class ProcedureResult:
     abort_reason: Optional[str] = None
 
 
+@dataclass
+class ParallelStep:
+    """Descriptor for a single step in ctx.parallel().
+
+    Mirrors the execute() signature so the parallel API stays consistent
+    with sequential execution.
+
+    Attributes:
+        qualified_name: Fully qualified name of the named query.
+        params: Parameters to pass to the named query.
+        bind: Optional variable name to bind the result into ctx.bindings.
+        output: Whether to include this result in ProcedureResult.outputs.
+
+    Example:
+        >>> await ctx.parallel(
+        ...     ParallelStep("myapp.inventory.deduct", {"order_id": 1}),
+        ...     ParallelStep("myapp.payments.preauth", {"amount": 99},
+        ...                  bind="pay", output=True),
+        ...     max_concurrency=2,
+        ... )
+    """
+
+    qualified_name: str
+    params: Dict[str, Any] = field(default_factory=dict)
+    bind: Optional[str] = None
+    output: bool = False
+
+
+def _resolve_concurrency(backend: Any, user_max: Optional[int]) -> Optional[int]:
+    """Resolve effective concurrency limit.
+
+    Priority chain:
+        user_max > backend ConcurrencyAware hint > None (unlimited)
+
+    Args:
+        backend: Database backend, optionally implementing ConcurrencyAware.
+        user_max: Caller-specified limit. None means "not specified by caller".
+
+    Returns:
+        Resolved integer limit, or None for unlimited.
+    """
+    if user_max is not None:
+        return user_max
+
+    try:
+        from ..protocols import ConcurrencyAware
+
+        if isinstance(backend, ConcurrencyAware):
+            hint = backend.get_concurrency_hint()
+            if hint is not None:
+                return hint.max_concurrency
+    except ImportError:
+        pass
+
+    return None
+
+
 class ProcedureContext:
     """Runtime context for procedure execution.
 
@@ -106,10 +165,12 @@ class ProcedureContext:
         dialect: Any,
         execute_callback: Any,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
+        backend: Any = None,
     ):
         self._dialect = dialect
         self._execute_callback = execute_callback
         self._transaction_mode = transaction_mode
+        self._backend = backend
         self._bindings: Dict[str, Dict[str, Any]] = {}
         self._logs: List[LogEntry] = []
         self._in_transaction: bool = False
@@ -275,6 +336,105 @@ class ProcedureContext:
 
         raise ProcedureAbortedError(procedure_name, reason)
 
+    def parallel(
+        self,
+        *steps: ParallelStep,
+        max_concurrency: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Execute multiple named query steps concurrently.
+
+        Steps bypass per-step transaction management (the BEGIN/COMMIT that
+        TransactionMode.STEP applies to each execute() call) and invoke the
+        shared execute_callback directly.  In TransactionMode.AUTO the outer
+        transaction therefore covers all parallel steps; in STEP/NONE each
+        step executes independently.
+
+        Args:
+            *steps: ParallelStep descriptors to execute concurrently.
+            max_concurrency: Maximum concurrent steps.
+                None  — resolved from backend ConcurrencyAware hint, or unlimited.
+                1     — force serial execution (debug / safe fallback).
+                N > 1 — at most N steps run simultaneously.
+
+        Returns:
+            List of result dicts in the **same order** as input steps.
+
+        Raises:
+            Exception: First exception raised by any step; the executor waits
+                for all futures before re-raising.
+
+        Example:
+            >>> results = ctx.parallel(
+            ...     ParallelStep("myapp.stock.deduct", {"sku": "A1"}),
+            ...     ParallelStep("myapp.payment.reserve", {"amount": 50}),
+            ...     max_concurrency=2,
+            ... )
+        """
+        if not steps:
+            return []
+
+        limit = _resolve_concurrency(getattr(self, "_backend", None), max_concurrency)
+
+        # max_concurrency=1: skip thread overhead, run serially
+        if limit == 1:
+            return [self._run_parallel_step(step) for step in steps]
+
+        results: List[Optional[Dict[str, Any]]] = [None] * len(steps)
+        bind_lock = threading.Lock()
+        first_exc: List[BaseException] = []
+
+        def _run(idx: int, step: ParallelStep) -> None:
+            try:
+                results[idx] = self._run_parallel_step(step, bind_lock=bind_lock)
+            except Exception as exc:
+                first_exc.append(exc)
+                raise
+
+        with ThreadPoolExecutor(max_workers=limit) as executor:
+            futures = [
+                executor.submit(_run, i, step) for i, step in enumerate(steps)
+            ]
+            for fut in futures:
+                try:
+                    fut.result()
+                except Exception:
+                    pass  # collected in first_exc; executor drains remaining futures
+
+        if first_exc:
+            raise first_exc[0]
+
+        return results
+
+    def _run_parallel_step(
+        self,
+        step: ParallelStep,
+        bind_lock: Optional[threading.Lock] = None,
+    ) -> Dict[str, Any]:
+        """Execute a single ParallelStep directly via execute_callback.
+
+        Bypasses per-step transaction management; called by both parallel()
+        and (when max_concurrency=1) the serial fallback path.
+        """
+        params = step.params or {}
+        raw = self._execute_callback(step.qualified_name, self._dialect, params)
+        result_data: Dict[str, Any] = {
+            "qualified_name": step.qualified_name,
+            "params": params,
+            "bind": step.bind,
+            "output": step.output,
+            "sql": raw.get("sql", ""),
+            "params_sql": raw.get("params_sql", ()),
+            "data": raw.get("data", []),
+            "affected_rows": raw.get("affected_rows", 0),
+        }
+        if step.bind:
+            if bind_lock is not None:
+                with bind_lock:
+                    self._bindings[step.bind] = result_data
+            else:
+                self._bindings[step.bind] = result_data
+        return result_data
+
 
 class AsyncProcedureContext:
     """Asynchronous runtime context for procedure execution.
@@ -296,10 +456,12 @@ class AsyncProcedureContext:
         dialect: Any,
         execute_callback: Any,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
+        backend: Any = None,
     ):
         self._dialect = dialect
         self._execute_callback = execute_callback
         self._transaction_mode = transaction_mode
+        self._backend = backend
         self._bindings: Dict[str, Dict[str, Any]] = {}
         self._logs: List[LogEntry] = []
         self._in_transaction: bool = False
@@ -381,6 +543,65 @@ class AsyncProcedureContext:
     async def abort(self, procedure_name: str, reason: str) -> None:
         from .exceptions import ProcedureAbortedError
         raise ProcedureAbortedError(procedure_name, reason)
+
+    async def parallel(
+        self,
+        *steps: ParallelStep,
+        max_concurrency: Optional[int] = None,
+    ) -> List[Dict[str, Any]]:
+        """Execute multiple named query steps concurrently (async).
+
+        Same semantics as ProcedureContext.parallel() but uses
+        asyncio.Semaphore + asyncio.gather for concurrency control.
+        asyncio is single-threaded; assignments between await points are
+        inherently atomic, so no lock is needed for _bindings writes.
+
+        Args:
+            *steps: ParallelStep descriptors to execute concurrently.
+            max_concurrency: See ProcedureContext.parallel().
+
+        Returns:
+            List of result dicts in the **same order** as input steps.
+        """
+        import asyncio
+
+        if not steps:
+            return []
+
+        limit = _resolve_concurrency(getattr(self, "_backend", None), max_concurrency)
+
+        # max_concurrency=1: skip gather overhead, run serially
+        if limit == 1:
+            return [await self._run_parallel_step(step) for step in steps]
+
+        semaphore = asyncio.Semaphore(limit) if limit is not None else None
+
+        async def _run(step: ParallelStep) -> Dict[str, Any]:
+            if semaphore is not None:
+                async with semaphore:
+                    return await self._run_parallel_step(step)
+            return await self._run_parallel_step(step)
+
+        return list(await asyncio.gather(*[_run(step) for step in steps]))
+
+    async def _run_parallel_step(self, step: ParallelStep) -> Dict[str, Any]:
+        """Execute a single ParallelStep directly via async execute_callback."""
+        params = step.params or {}
+        raw = await self._execute_callback(step.qualified_name, self._dialect, params)
+        result_data: Dict[str, Any] = {
+            "qualified_name": step.qualified_name,
+            "params": params,
+            "bind": step.bind,
+            "output": step.output,
+            "sql": raw.get("sql", ""),
+            "params_sql": raw.get("params_sql", ()),
+            "data": raw.get("data", []),
+            "affected_rows": raw.get("affected_rows", 0),
+        }
+        if step.bind:
+            # asyncio single-threaded: assignment is atomic between await points
+            self._bindings[step.bind] = result_data
+        return result_data
 
 
 class AsyncProcedure:
@@ -752,12 +973,11 @@ class AsyncProcedureRunner:
             }
 
         if is_async:
-            ctx = AsyncProcedureContext(dialect, execute_callback, transaction_mode)
+            ctx = AsyncProcedureContext(dialect, execute_callback, transaction_mode, backend)
         else:
-            ctx = ProcedureContext(dialect, execute_callback, transaction_mode)
+            ctx = ProcedureContext(dialect, execute_callback, transaction_mode, backend)
 
         result = ProcedureResult()
-        ctx._backend = backend
 
         in_transaction = False
 
