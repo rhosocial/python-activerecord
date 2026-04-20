@@ -1639,7 +1639,7 @@ BREAKING CHANGE: find_by_id() removed, use find(id=...) instead.
 
 Migration:
 - Old: User.find_by_id(123)
-- New: User.find(id=123)
+- New: User.find_one(123)
 ```
 
 **Issue References**:

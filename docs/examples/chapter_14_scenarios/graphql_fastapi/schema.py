@@ -108,9 +108,9 @@ class Query(ObjectType):
         return await run_in_threadpool(lambda: Post.find_all())
     
     async def resolve_user(root, info, id):
-        return await run_in_threadpool(lambda: User.find(id))
-        
+        return await run_in_threadpool(lambda: User.find_one(id))
+
     async def resolve_post(root, info, id):
-        return await run_in_threadpool(lambda: Post.find(id))
+        return await run_in_threadpool(lambda: Post.find_one(id))
 
 schema = Schema(query=Query)

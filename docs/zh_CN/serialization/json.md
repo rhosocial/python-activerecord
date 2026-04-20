@@ -9,7 +9,7 @@
 使用 `model_dump()` 方法将模型实例转换为字典。
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 data = user.model_dump()
 # {'id': 1, 'username': 'john', 'created_at': datetime(...)}
 ```
@@ -28,7 +28,7 @@ json_str = user.model_dump_json()
 使用 `exclude_none=True` 排除值为 `None` 的字段：
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 # 排除 None 值
 data = user.model_dump(exclude_none=True)
 # {'id': 1, 'username': 'john', 'created_at': datetime(...)}  # bio 字段被排除
@@ -45,7 +45,7 @@ class User(ActiveRecord):
     user_id: int = Field(alias="userId")
     user_name: str = Field(alias="userName")
 
-user = User.find(1)
+user = User.find_one(1)
 data = user.model_dump(by_alias=True)
 # {'userId': 1, 'userName': 'john'}
 ```
@@ -55,7 +55,7 @@ data = user.model_dump(by_alias=True)
 你可以精确控制序列化输出。
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 
 # 排除敏感字段
 public_data = user.model_dump(exclude={'password', 'secret_key'})
@@ -100,7 +100,7 @@ user = User.model_validate_json(json_str)
 ### 方法 1: 手动构建
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 user_data = user.model_dump()
 user_data['posts'] = [p.model_dump() for p in user.posts()]
 ```

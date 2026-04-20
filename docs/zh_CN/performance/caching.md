@@ -55,7 +55,7 @@ for user in users:
 有时你需要强制重新从数据库加载最新数据（例如，关联数据在其他地方被修改了）。你可以通过以下方式清除缓存：
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 posts = user.posts()  # 触发查询并缓存
 
 # ... 在其他地方更新了 posts ...

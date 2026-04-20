@@ -363,7 +363,7 @@ User.configure(config, MySQLBackend)
 
 def worker_task(user_id: int):
     """线程池中的任务。"""
-    user = User.find(id=user_id)
+    user = User.find_one(user_id)
     # ... 处理逻辑 ...
 
 # 使用线程池

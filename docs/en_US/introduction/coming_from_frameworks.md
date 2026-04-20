@@ -8,7 +8,7 @@ If you're familiar with other ORMs or frameworks, this guide will help you map y
 |--------|------------------------|-------|
 | `models.Model` | `ActiveRecord` | Base class for models |
 | `objects.filter()` | `.query().where()` | Query building |
-| `objects.get()` | `.find()` or `.one()` | Get single record |
+| `objects.get()` | `.find_one()` | Get single record |
 | `ForeignKey` | `BelongsTo` | Many-to-one relationship |
 | `ManyToManyField` | Use through model + `HasMany` | Many-to-many via intermediate table |
 | `auto_now_add`, `auto_now` | `TimestampMixin` | Automatic timestamps |
@@ -52,7 +52,7 @@ If you're familiar with other ORMs or frameworks, this guide will help you map y
 |-------|------------------------|-------|
 | `ActiveRecord::Base` | `ActiveRecord` | Base class |
 | `where()` | `.where()` | Same method name! |
-| `find()` | `.find()` | Get by primary key |
+| `find()` | `.find_one()` | Get by primary key |
 | `has_many` | `HasMany` | One-to-many |
 | `belongs_to` | `BelongsTo` | Many-to-one |
 | `has_one` | `HasOne` | One-to-one |
