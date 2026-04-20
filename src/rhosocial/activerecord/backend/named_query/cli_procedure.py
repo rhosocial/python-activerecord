@@ -116,21 +116,21 @@ def list_named_procedures_in_module(module_name: str) -> List[dict]:
 def create_named_procedure_parser(
     subparsers: argparse._SubParsersAction,
     parent_parser: argparse.ArgumentParser,
+    epilog: str = None,
 ) -> argparse.ArgumentParser:
     """Create the named-procedure subcommand parser.
 
     Args:
         subparsers: The subparsers action from the main parser.
         parent_parser: Parent parser with common arguments.
+        epilog: Custom examples text. If not provided, defaults to SQLite-style
+            examples (--db-file). Pass empty string to omit examples.
 
     Returns:
         The created parser for named-procedure subcommand.
     """
-    np_parser = subparsers.add_parser(
-        "named-procedure",
-        help="Execute a named procedure defined as a Python class",
-        parents=[parent_parser],
-        epilog="""Examples:
+    if epilog is None:
+        epilog = """Examples:
   # Execute named procedure with params
   %(prog)s myapp.procedures.monthly_report --db-file mydb.sqlite --param month=2026-03
 
@@ -148,7 +148,12 @@ def create_named_procedure_parser(
 
   # Async execution
   %(prog)s myapp.procedures.monthly_report --db-file mydb.sqlite --param month=2026-03 --async
-""",
+"""
+    np_parser = subparsers.add_parser(
+        "named-procedure",
+        help="Execute a named procedure defined as a Python class",
+        parents=[parent_parser],
+        epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     np_parser.add_argument(

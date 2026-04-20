@@ -87,6 +87,7 @@ def _replace_prog_placeholder(docstring: str, prog: str = None) -> str:
 def create_named_query_parser(
     subparsers: argparse._SubParsersAction,
     parent_parser: argparse.ArgumentParser,
+    epilog: str = None,
 ) -> argparse.ArgumentParser:
     """Create the named-query subcommand parser.
 
@@ -99,6 +100,8 @@ def create_named_query_parser(
             Created via argparse.ArgumentParser().add_subparsers().
         parent_parser: Parent parser with common arguments (like --db-file,
             --rich-ascii, etc.). This allows sharing common options.
+        epilog: Custom examples text. If not provided, defaults to SQLite-style
+            examples (--db-file). Pass empty string to omit examples.
 
     Returns:
         argparse.ArgumentParser: The created parser for named-query
@@ -115,11 +118,8 @@ def create_named_query_parser(
         >>> parent.add_argument('--db-file', required=True)
         >>> nq_parser = create_named_query_parser(subparsers, parent)
     """
-    nq_parser = subparsers.add_parser(
-        "named-query",
-        help="Execute a named query defined as a Python callable",
-        parents=[parent_parser],
-        epilog="""Examples:
+    if epilog is None:
+        epilog = """Examples:
   # Execute named query with default params
   %(prog)s myapp.queries.orders.high_value_pending --db-file mydb.sqlite
 
@@ -139,7 +139,12 @@ def create_named_query_parser(
 
   # Show detailed info for a specific query (using --example)
   %(prog)s myapp.queries.orders --example high_value_pending
-""",
+"""
+    nq_parser = subparsers.add_parser(
+        "named-query",
+        help="Execute a named query defined as a Python callable",
+        parents=[parent_parser],
+        epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
     )
     nq_parser.add_argument(
