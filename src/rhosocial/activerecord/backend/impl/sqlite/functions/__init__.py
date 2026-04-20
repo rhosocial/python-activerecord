@@ -14,6 +14,7 @@ Submodules:
 - system: System and type functions (typeof, quote, last_insert_rowid, changes)
 - conditional: Conditional expressions (iif)
 - json: JSON functions (json, json_extract, json_object, etc.)
+- geopoly: Geopoly functions (geopoly_contains, geopoly_area, etc.)
 """
 
 from .string import (
@@ -84,6 +85,27 @@ from .json import (
     json_each,
     json_array_insert,
     jsonb_array_insert,
+)
+
+from .geopoly import (
+    geopoly_contains,
+    geopoly_within,
+    geopoly_overlap,
+    geopoly_area,
+    geopoly_x,
+    geopoly_y,
+    geopoly_centerpoint,
+    geopoly_json,
+    geopoly_blob,
+    geopoly_debug,
+    geopoly_svg,
+    geopoly_bbox,
+    geopoly_group_bbox,
+    geopoly_contains_point,
+    geopoly_xform,
+    geopoly_regular,
+    geopoly_ccw,
+    geopoly_cw,
 )
 
 from .math_enhanced import (
@@ -169,4 +191,23 @@ __all__ = [
     "json_each",
     "json_array_insert",
     "jsonb_array_insert",
+    # Geopoly functions
+    "geopoly_contains",
+    "geopoly_within",
+    "geopoly_overlap",
+    "geopoly_area",
+    "geopoly_x",
+    "geopoly_y",
+    "geopoly_centerpoint",
+    "geopoly_json",
+    "geopoly_blob",
+    "geopoly_debug",
+    "geopoly_svg",
+    "geopoly_bbox",
+    "geopoly_group_bbox",
+    "geopoly_contains_point",
+    "geopoly_xform",
+    "geopoly_regular",
+    "geopoly_ccw",
+    "geopoly_cw",
 ]

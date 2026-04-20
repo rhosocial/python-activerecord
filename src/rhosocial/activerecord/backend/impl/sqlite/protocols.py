@@ -6,7 +6,7 @@ This module defines protocol interfaces for SQLite-specific features
 that are not part of the standard SQL dialect protocols.
 """
 
-from typing import Any, Dict, List, Optional, Protocol, runtime_checkable
+from typing import Any, Dict, List, Optional, Protocol, Tuple, runtime_checkable
 
 
 @runtime_checkable
@@ -129,5 +129,68 @@ class SQLitePragmaSupport(Protocol):
 
         Returns:
             Dictionary mapping PRAGMA names to their info
+        """
+        ...
+
+
+@runtime_checkable
+class VirtualTableSupport(Protocol):
+    """Protocol for SQLite virtual table support.
+
+    Defines the interface for virtual table operations including
+    R-Tree, FTS5, Geopoly, and other virtual table modules.
+
+    Reference: https://www.sqlite.org/vtab.html
+    """
+
+    def supports_virtual_table(self) -> bool:
+        """Whether virtual tables are supported (SQLite 3.8.8+)."""
+        ...
+
+    def supports_rtree(self) -> bool:
+        """Whether R-Tree virtual table is supported (SQLite 3.6.0+)."""
+        ...
+
+    def supports_fts5(self) -> bool:
+        """Whether FTS5 virtual table is supported (SQLite 3.9.0+)."""
+        ...
+
+    def supports_geopoly(self) -> bool:
+        """Whether Geopoly virtual table is supported (SQLite 3.26.0+)."""
+        ...
+
+    def format_create_virtual_table(
+        self,
+        module: str,
+        table_name: str,
+        columns: List[str],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE statement.
+
+        Args:
+            module: Virtual table module (rtree, fts5, geopoly, etc.)
+            table_name: Name of the virtual table
+            columns: List of column names
+            options: Optional module-specific options
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        ...
+
+    def format_drop_virtual_table(
+        self,
+        table_name: str,
+        if_exists: bool = False,
+    ) -> Tuple[str, tuple]:
+        """Format DROP TABLE statement for virtual table.
+
+        Args:
+            table_name: Name of the virtual table
+            if_exists: Add IF EXISTS clause
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
         """
         ...

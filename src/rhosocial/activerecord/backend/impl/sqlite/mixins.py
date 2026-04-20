@@ -18,11 +18,9 @@ if TYPE_CHECKING:  # pragma: no cover
         ColumnInfoExpression,
         IndexInfoExpression,
         ForeignKeyExpression,
-        ViewListExpression,
-        ViewInfoExpression,
-        TriggerListExpression,
-        TriggerInfoExpression,
     )
+    from rhosocial.activerecord.backend.dialect import SQLDialectBase
+    from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from .extension import (
     SQLiteExtensionRegistry,
@@ -31,6 +29,8 @@ from .extension import (
 )
 from .extension.extensions import (
     get_fts5_extension,
+    get_rtree_extension,
+    get_geopoly_extension,
 )
 from .pragma import (
     PragmaCategory,
@@ -239,16 +239,6 @@ class FTS5Mixin(SQLiteExtensionMixin):
     - Ranking results using bm25()
     - Highlighting and snippet extraction
     """
-
-    def supports_fts5(self) -> bool:
-        """Whether FTS5 full-text search is supported.
-
-        FTS5 is available since SQLite 3.9.0.
-
-        Returns:
-            True if FTS5 is supported
-        """
-        return self.check_extension_feature("fts5", "full_text_search")
 
     def supports_fts5_bm25(self) -> bool:
         """Whether BM25 ranking function is supported.
@@ -487,6 +477,148 @@ class FTS5Mixin(SQLiteExtensionMixin):
             table_name=table_name,
             if_exists=if_exists,
         )
+
+
+class VirtualTableMixin:
+    """Mixin for SQLite virtual table support.
+
+    Provides methods for creating and managing virtual tables
+    including R-Tree, FTS5, Geopoly, and other virtual table modules.
+
+    Version requirements:
+    - Virtual tables (CREATE VIRTUAL TABLE): SQLite 3.8.8+
+    - R-Tree: SQLite 3.6.0+
+    - FTS5: SQLite 3.9.0+
+    - Geopoly: SQLite 3.26.0+
+    """
+
+    def supports_virtual_table(self) -> bool:
+        """Whether virtual tables are supported."""
+        version = getattr(self, "version", (3, 35, 0))
+        return version >= (3, 8, 8)
+
+    def supports_rtree(self) -> bool:
+        """Whether R-Tree virtual table is supported."""
+        version = getattr(self, "version", (3, 35, 0))
+        return version >= (3, 6, 0)
+
+    def supports_fts5(self) -> bool:
+        """Whether FTS5 virtual table is supported."""
+        version = getattr(self, "version", (3, 35, 0))
+        return version >= (3, 9, 0)
+
+    def supports_geopoly(self) -> bool:
+        """Whether Geopoly virtual table is supported."""
+        version = getattr(self, "version", (3, 35, 0))
+        return version >= (3, 26, 0)
+
+    def format_create_virtual_table(
+        self,
+        module: str,
+        table_name: str,
+        columns: List[str],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE statement.
+
+        Args:
+            module: Virtual table module (rtree, fts5, geopoly, etc.)
+            table_name: Name of the virtual table
+            columns: List of column names
+            options: Optional module-specific options
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        if module.lower() == "rtree":
+            return self._format_rtree_create(table_name, columns, options)
+        elif module.lower() == "fts5":
+            return self._format_fts5_create(table_name, columns, options)
+        elif module.lower() == "geopoly":
+            return self._format_geopoly_create(table_name, columns, options)
+        else:
+            raise ValueError(f"Unknown virtual table module: {module}")
+
+    def _format_rtree_create(
+        self,
+        table_name: str,
+        columns: List[str],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE for R-Tree."""
+        from .extension.extensions.rtree import get_rtree_extension
+
+        version = getattr(self, "version", (3, 35, 0))
+        if version < (3, 6, 0):
+            raise UnsupportedFeatureError(
+                getattr(self, "name", "sqlite"), "R-Tree", "R-Tree requires SQLite 3.6.0 or later."
+            )
+
+        rtree = get_rtree_extension()
+        dimensions = options.get("dimensions", 2) if options else 2
+        return rtree.format_create_virtual_table(
+            table_name=table_name,
+            dimensions=dimensions,
+        )
+
+    def _format_fts5_create(
+        self,
+        table_name: str,
+        columns: List[str],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE for FTS5."""
+        return self.format_fts5_create_virtual_table(
+            table_name=table_name,
+            columns=columns,
+            **(options or {}),
+        )
+
+    def _format_geopoly_create(
+        self,
+        table_name: str,
+        columns: List[str],
+        options: Optional[Dict[str, Any]] = None,
+    ) -> Tuple[str, tuple]:
+        """Format CREATE VIRTUAL TABLE for Geopoly."""
+        from .extension.extensions.geopoly import get_geopoly_extension
+
+        version = getattr(self, "version", (3, 35, 0))
+        if version < (3, 26, 0):
+            raise UnsupportedFeatureError(
+                getattr(self, "name", "sqlite"), "Geopoly", "Geopoly requires SQLite 3.26.0 or later."
+            )
+
+        geopoly = get_geopoly_extension()
+        # Always skip _shape to avoid duplicate - geopoly adds it automatically
+        extra_cols = []
+        for c in columns:
+            if c != '_shape':
+                extra_cols.append(c)
+        extra_columns = extra_cols if extra_cols else None
+        return geopoly.format_create_virtual_table(
+            table_name=table_name,
+            content_table=options.get("content") if options else None,
+            extra_columns=extra_columns,
+        )
+
+    def format_drop_virtual_table(
+        self,
+        table_name: str,
+        if_exists: bool = False,
+    ) -> Tuple[str, tuple]:
+        """Format DROP TABLE statement for virtual table.
+
+        Args:
+            table_name: Name of the virtual table
+            if_exists: Add IF EXISTS clause
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        if if_exists:
+            return f'DROP TABLE IF EXISTS "{table_name}"', ()
+        return f'DROP TABLE "{table_name}"', ()
 
 
 class SQLiteIntrospectionCapabilityMixin:
