@@ -692,46 +692,70 @@ class Procedure:
         return params
 
 
-class ProcedureRunner:
-    """Runner for executing named procedures.
+class _BaseProcedureRunner:
+    """Internal base class sharing qualified-name parsing and describe() logic.
 
-    This class handles the complete lifecycle of executing a named procedure,
-    including transaction management and result collection.
-
-    Example:
-        >>> runner = ProcedureRunner("myapp.procedures.monthly_report")
-        >>> runner.load()
-        >>> result = runner.run(dialect, {"month": "2026-03"})
+    Not part of the public API. Subclasses must implement load() and run().
     """
 
-    def __init__(self, qualified_name: str):
-        """Initialize runner with a qualified name.
-
-        Args:
-            qualified_name: Fully qualified name of the procedure class.
-        """
+    def __init__(self, qualified_name: str) -> None:
         self._qualified_name = qualified_name
-        self._procedure_class: Optional[Type[Procedure]] = None
+        self._procedure_class: Optional[type] = None
         self._params_info: Dict[str, Any] = {}
-        self._parse_qualified_name()
+        self._module_name, self._class_name = self._parse_qualified_name(qualified_name)
 
-    def _parse_qualified_name(self) -> None:
-        """Parse the qualified name."""
-        parts = self._qualified_name.rsplit(".", 1)
+    @staticmethod
+    def _parse_qualified_name(qualified_name: str):
+        parts = qualified_name.rsplit(".", 1)
         if len(parts) != 2:
             from .exceptions import NamedQueryError
-
             raise NamedQueryError(
-                f"Invalid qualified name '{self._qualified_name}'. "
+                f"Invalid qualified name '{qualified_name}'. "
                 "Must be in format 'module.path.ClassName'"
             )
-        self._module_name = parts[0]
-        self._class_name = parts[1]
+        return parts[0], parts[1]
 
     @property
     def qualified_name(self) -> str:
-        """Get the qualified name."""
         return self._qualified_name
+
+    def _import_class(self) -> type:
+        """Import the class from the module. No type validation performed here."""
+        import importlib
+        from .exceptions import NamedQueryError, NamedQueryModuleNotFoundError
+
+        try:
+            module = importlib.import_module(self._module_name)
+        except ModuleNotFoundError as e:
+            raise NamedQueryModuleNotFoundError(
+                self._module_name, f"Module not found: {e}"
+            ) from None
+
+        if not hasattr(module, self._class_name):
+            raise NamedQueryError(
+                f"Procedure '{self._class_name}' not found "
+                f"in module '{self._module_name}'"
+            )
+        return getattr(module, self._class_name)
+
+    def describe(self) -> Dict[str, Any]:
+        if not self._procedure_class:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("Procedure not loaded. Call load() first.")
+        return {
+            "qualified_name": self._qualified_name,
+            "class_name": self._class_name,
+            "docstring": inspect.getdoc(self._procedure_class) or "",
+            "parameters": self._params_info,
+        }
+
+
+class ProcedureRunner(_BaseProcedureRunner):
+    """Runner for synchronous Procedure subclasses.
+
+    Only accepts classes that inherit from Procedure.
+    For async procedures use AsyncProcedureRunner.
+    """
 
     def load(self) -> "ProcedureRunner":
         """Load the procedure class.
@@ -743,49 +767,19 @@ class ProcedureRunner:
             NamedQueryModuleNotFoundError: If module cannot be imported.
             NamedQueryNotFoundError: If class doesn't exist or inherit Procedure.
         """
-        import importlib
-
-        from .exceptions import NamedQueryError, NamedQueryModuleNotFoundError
-
-        try:
-            module = importlib.import_module(self._module_name)
-        except ModuleNotFoundError as e:
-            raise NamedQueryModuleNotFoundError(
-                self._module_name,
-                f"Module not found: {e}",
-            ) from None
-
-        if not hasattr(module, self._class_name):
-            raise NamedQueryError(
-                f"Procedure '{self._class_name}' not found in module '{self._module_name}'"
-            )
-
-        cls = getattr(module, self._class_name)
+        cls = self._import_class()
 
         if not isinstance(cls, type) or not issubclass(cls, Procedure):
+            from .exceptions import NamedQueryError
+
             raise NamedQueryError(
-                f"'{self._class_name}' must inherit from Procedure base class"
+                f"'{self._class_name}' must inherit from Procedure. "
+                "For async procedures use AsyncProcedureRunner."
             )
 
         self._procedure_class = cls
         self._params_info = cls.get_parameters()
         return self
-
-    def describe(self) -> Dict[str, Any]:
-        """Get procedure description.
-
-        Returns:
-            Dict with procedure info.
-        """
-        if not self._procedure_class:
-            raise NamedQueryError("Procedure not loaded. Call load() first.")
-
-        return {
-            "qualified_name": self._qualified_name,
-            "class_name": self._class_name,
-            "docstring": inspect.getdoc(self._procedure_class) or "",
-            "parameters": self._params_info,
-        }
 
     def run(
         self,
@@ -809,30 +803,26 @@ class ProcedureRunner:
             ProcedureResult with outputs and logs.
         """
         if not self._procedure_class:
+            from .exceptions import NamedQueryError
             raise NamedQueryError("Procedure not loaded. Call load() first.")
 
-        from .exceptions import ProcedureAbortedError, ProcedureStepError
+        from .exceptions import ProcedureAbortedError
 
+        proc_instance = self._procedure_class()
         user_params = user_params or {}
-        procedure = self._procedure_class()
-
-        for param_name, param_value in user_params.items():
-            if param_name in self._params_info:
-                setattr(procedure, param_name, param_value)
+        for name, value in user_params.items():
+            if name in self._params_info:
+                setattr(proc_instance, name, value)
 
         def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
             _, sql, params_sql = resolve_named_query(fqn, dial, params)
-
-            data = []
-            affected_rows = 0
-
+            data, affected_rows = [], 0
             if execute_query and sql:
-                result = execute_query(sql, params_sql, None)
-                if result and result.data:
-                    data = result.data
-                if result:
-                    affected_rows = result.affected_rows or 0
-
+                raw = execute_query(sql, params_sql, None)
+                if raw and raw.data:
+                    data = raw.data
+                if raw:
+                    affected_rows = raw.affected_rows or 0
             return {
                 "sql": sql,
                 "params_sql": params_sql,
@@ -840,28 +830,24 @@ class ProcedureRunner:
                 "affected_rows": affected_rows,
             }
 
-        ctx = ProcedureContext(dialect, execute_callback, transaction_mode)
-
+        ctx = ProcedureContext(dialect, execute_callback, transaction_mode, backend)
         result = ProcedureResult()
-        ctx._backend = backend
-
         in_transaction = False
-        uses_transaction = transaction_mode != TransactionMode.NONE
 
-        def begin_transaction():
+        def begin_transaction() -> None:
             nonlocal in_transaction
             if backend and not in_transaction:
                 if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                     backend.execute("BEGIN TRANSACTION", (), None)
                 in_transaction = True
 
-        def commit_transaction():
+        def commit_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 backend.execute("COMMIT", (), None)
                 in_transaction = False
 
-        def rollback_transaction():
+        def rollback_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 backend.execute("ROLLBACK", (), None)
@@ -870,63 +856,59 @@ class ProcedureRunner:
         ctx._begin_transaction = begin_transaction
         ctx._commit_transaction = commit_transaction
         ctx._rollback_transaction = rollback_transaction
-        ctx._transaction_mode = transaction_mode
 
         try:
             if transaction_mode == TransactionMode.AUTO:
                 begin_transaction()
-
-            procedure.run(ctx)
-
+            proc_instance.run(ctx)
             if in_transaction and transaction_mode == TransactionMode.AUTO:
                 commit_transaction()
-
         except ProcedureAbortedError as e:
-            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+            if transaction_mode != TransactionMode.NONE:
                 rollback_transaction()
             result.aborted = True
             result.abort_reason = e.reason
-
         except Exception as e:
-            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+            if transaction_mode != TransactionMode.NONE:
                 rollback_transaction()
             result.aborted = True
             result.abort_reason = str(e)
 
         result.logs = ctx._logs
-
-        for name, bound_data in ctx.bindings.items():
-            if bound_data.get("output"):
-                result.outputs.append(bound_data)
-
+        result.outputs = [v for v in ctx.bindings.values() if v.get("output")]
         return result
 
 
-class AsyncProcedureRunner:
-    """Asynchronous runner for executing named procedures.
+class AsyncProcedureRunner(_BaseProcedureRunner):
+    """Runner for asynchronous AsyncProcedure subclasses.
 
-    This class provides async execution by properly awaiting callbacks.
+    Only accepts classes that inherit from AsyncProcedure.
+    For sync procedures use ProcedureRunner.
     """
 
-    def __init__(self, qualified_name: str):
-        self._runner = ProcedureRunner(qualified_name)
-
     def load(self) -> "AsyncProcedureRunner":
-        self._runner.load()
-        proc_class = self._runner._procedure_class
-        if not issubclass(proc_class, AsyncProcedure):
+        """Load the procedure class.
+
+        Returns:
+            self for chaining.
+
+        Raises:
+            NamedQueryModuleNotFoundError: If module cannot be imported.
+            NamedQueryNotFoundError: If class doesn't exist or inherit AsyncProcedure.
+        """
+        cls = self._import_class()
+
+        if not isinstance(cls, type) or not issubclass(cls, AsyncProcedure):
+            from .exceptions import NamedQueryError
+
             raise NamedQueryError(
-                f"'{self._runner._class_name}' must inherit from AsyncProcedure "
-                "for AsyncProcedureRunner. Use ProcedureRunner for sync procedures."
+                f"'{self._class_name}' must inherit from AsyncProcedure. "
+                "For sync procedures use ProcedureRunner."
             )
+
+        self._procedure_class = cls
+        self._params_info = cls.get_parameters()
         return self
-
-    def describe(self) -> Dict[str, Any]:
-        return self._runner.describe()
-
-    @property
-    def qualified_name(self) -> str:
-        return self._runner.qualified_name
 
     async def run(
         self,
@@ -936,35 +918,42 @@ class AsyncProcedureRunner:
         backend: Any = None,
         execute_query: Any = None,
     ) -> ProcedureResult:
-        """Execute the procedure asynchronously."""
-        if not self._runner._procedure_class:
+        """Execute the procedure asynchronously.
+
+        Args:
+            dialect: The dialect instance.
+            user_params: User-provided parameters.
+            transaction_mode: Transaction mode (auto, step, none).
+            backend: The database backend for transaction control.
+            execute_query: Async callback for executing queries. Signature:
+                async (sql: str, params: tuple, stmt_type) -> result.
+
+        Returns:
+            ProcedureResult with outputs and logs.
+        """
+        if not self._procedure_class:
+            from .exceptions import NamedQueryError
             raise NamedQueryError("Procedure not loaded. Call load() first.")
 
         from .exceptions import ProcedureAbortedError
 
-        proc_class = self._runner._procedure_class()
+        proc_instance = self._procedure_class()
         user_params = user_params or {}
+        for name, value in user_params.items():
+            if name in self._params_info:
+                setattr(proc_instance, name, value)
 
-        for param_name, param_value in user_params.items():
-            if param_name in self._runner._params_info:
-                setattr(proc_class, param_name, param_value)
-
-        is_async = issubclass(proc_class, AsyncProcedure)
-        proc_instance = proc_class()
-
-        async def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
+        async def execute_callback(
+            fqn: str, dial: Any, params: Dict[str, Any]
+        ) -> Dict[str, Any]:
             _, sql, params_sql = resolve_named_query(fqn, dial, params)
-
-            data = []
-            affected_rows = 0
-
+            data, affected_rows = [], 0
             if execute_query and sql:
-                result = await execute_query(sql, params_sql, None)
-                if result and result.data:
-                    data = result.data
-                if result:
-                    affected_rows = result.affected_rows or 0
-
+                raw = await execute_query(sql, params_sql, None)
+                if raw and raw.data:
+                    data = raw.data
+                if raw:
+                    affected_rows = raw.affected_rows or 0
             return {
                 "sql": sql,
                 "params_sql": params_sql,
@@ -972,29 +961,26 @@ class AsyncProcedureRunner:
                 "affected_rows": affected_rows,
             }
 
-        if is_async:
-            ctx = AsyncProcedureContext(dialect, execute_callback, transaction_mode, backend)
-        else:
-            ctx = ProcedureContext(dialect, execute_callback, transaction_mode, backend)
-
+        ctx = AsyncProcedureContext(
+            dialect, execute_callback, transaction_mode, backend
+        )
         result = ProcedureResult()
-
         in_transaction = False
 
-        async def begin_transaction():
+        async def begin_transaction() -> None:
             nonlocal in_transaction
             if backend and not in_transaction:
                 if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                     backend.execute("BEGIN TRANSACTION", (), None)
                 in_transaction = True
 
-        async def commit_transaction():
+        async def commit_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 backend.execute("COMMIT", (), None)
                 in_transaction = False
 
-        async def rollback_transaction():
+        async def rollback_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 backend.execute("ROLLBACK", (), None)
@@ -1003,33 +989,24 @@ class AsyncProcedureRunner:
         ctx._begin_transaction = begin_transaction
         ctx._commit_transaction = commit_transaction
         ctx._rollback_transaction = rollback_transaction
-        ctx._transaction_mode = transaction_mode
 
         try:
             if transaction_mode == TransactionMode.AUTO:
                 await begin_transaction()
-
             await proc_instance.run(ctx)
-
             if in_transaction and transaction_mode == TransactionMode.AUTO:
                 await commit_transaction()
-
         except ProcedureAbortedError as e:
-            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+            if transaction_mode != TransactionMode.NONE:
                 await rollback_transaction()
             result.aborted = True
             result.abort_reason = e.reason
-
         except Exception as e:
-            if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
+            if transaction_mode != TransactionMode.NONE:
                 await rollback_transaction()
             result.aborted = True
             result.abort_reason = str(e)
 
         result.logs = ctx._logs
-
-        for name, bound_data in ctx.bindings.items():
-            if bound_data.get("output"):
-                result.outputs.append(bound_data)
-
+        result.outputs = [v for v in ctx.bindings.values() if v.get("output")]
         return result
