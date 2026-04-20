@@ -83,11 +83,15 @@ def get_high_value_orders(db_path, threshold=1000, days=30):
 # ✅ 使用后: myapp/queries/orders.py
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, TableExpression, QueryExpression,
-    LimitOffsetClause,
 )
+from rhosocial.activerecord.backend.impl.sqlite.functions import date_func
+
 
 def high_value_pending(dialect, threshold: int = 1000, days: int = 30):
     """查询高价值待处理订单。"""
+    import datetime
+
+    past_date = datetime.date.today() - datetime.timedelta(days=days)
     return QueryExpression(
         dialect,
         select=[
@@ -99,7 +103,7 @@ def high_value_pending(dialect, threshold: int = 1000, days: int = 30):
         where=(
             (Column(dialect, "status") == "pending")
             & (Column(dialect, "amount") >= threshold)
-            & (Column(dialect, "created_at") >= Literal(dialect, f"DATE('now', '-{days} days')"))
+            & (Column(dialect, "created_at") >= Literal(dialect, past_date))
         ),
     )
 ```
