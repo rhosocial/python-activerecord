@@ -302,7 +302,7 @@ user.age   # Limited type hints
 **rhosocial-activerecord**:
 
 ```python
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 user.name  # Type: str ✅
 user.age   # Type: int ✅
 

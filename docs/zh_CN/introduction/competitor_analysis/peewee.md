@@ -41,7 +41,7 @@ class User(ActiveRecord):
 
     c: ClassVar[FieldProxy] = FieldProxy()
 
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 user.name  # 类型: str ✅
 user.age   # 类型: int ✅
 
@@ -79,10 +79,10 @@ user = await objects.get(User, User.id == 1)
 
 ```python
 # 同步
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # 异步：完全相同的 API
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **优势分析**:

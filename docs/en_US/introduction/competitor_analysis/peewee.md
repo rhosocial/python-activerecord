@@ -41,7 +41,7 @@ class User(ActiveRecord):
 
     c: ClassVar[FieldProxy] = FieldProxy()
 
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 user.name  # Type: str ✅
 user.age   # Type: int ✅
 
@@ -79,10 +79,10 @@ user = await objects.get(User, User.id == 1)
 
 ```python
 # Sync
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # Async: Completely identical API
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **Advantage Analysis**:
