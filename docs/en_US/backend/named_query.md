@@ -86,8 +86,29 @@ Named Query encapsulates query logic in a **pure Python function**, using `diale
 # ✅ After: myapp/queries/orders.py
 from rhosocial.activerecord.backend.expression import (
     Column, Literal, TableExpression, QueryExpression,
-    LimitOffsetClause,
 )
+from rhosocial.activerecord.backend.impl.sqlite.functions import date_func
+
+
+def high_value_pending(dialect, threshold: int = 1000, days: int = 30):
+    """Query high-value pending orders."""
+    import datetime
+
+    past_date = datetime.date.today() - datetime.timedelta(days=days)
+    return QueryExpression(
+        dialect,
+        select=[
+            Column(dialect, "id"),
+            Column(dialect, "amount"),
+            Column(dialect, "created_at"),
+        ],
+        from_=TableExpression(dialect, "orders"),
+        where=(
+            (Column(dialect, "status") == "pending")
+            & (Column(dialect, "amount") >= threshold)
+            & (Column(dialect, "created_at") >= Literal(dialect, past_date))
+        ),
+    )
 
 def high_value_pending(dialect, threshold: int = 1000, days: int = 30):
     """Fetch high-value pending orders."""
