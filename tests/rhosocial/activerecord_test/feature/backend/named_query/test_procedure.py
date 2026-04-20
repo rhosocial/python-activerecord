@@ -455,3 +455,123 @@ class TestAsyncProcedureContextExecute:
 
         ctx = AsyncProcedureContext(mock_dialect, async_callback)
         assert hasattr(ctx, "abort")
+
+
+class TestParallelStep:
+    """Tests for ParallelStep dataclass."""
+
+    def test_parallel_step_creation(self):
+        """Test ParallelStep can be created."""
+        from rhosocial.activerecord.backend.named_query.procedure import ParallelStep
+
+        step = ParallelStep("test.query", {"id": 1})
+        assert step.qualified_name == "test.query"
+        assert step.params == {"id": 1}
+
+    def test_parallel_step_with_bind(self):
+        """Test ParallelStep with bind parameter."""
+        from rhosocial.activerecord.backend.named_query.procedure import ParallelStep
+
+        step = ParallelStep("test.query", {"id": 1}, bind="result", output=True)
+        assert step.bind == "result"
+        assert step.output is True
+
+    def test_parallel_step_defaults(self):
+        """Test ParallelStep has correct defaults."""
+        from rhosocial.activerecord.backend.named_query.procedure import ParallelStep
+
+        step = ParallelStep("test.query")
+        assert step.params == {}
+        assert step.bind is None
+        assert step.output is False
+
+
+class TestTransactionModeStep:
+    """Tests for TransactionMode.STEP behavior."""
+
+    @pytest.fixture
+    def mock_dialect(self):
+        mock = MagicMock()
+        mock.__class__.__name__ = "MockDialect"
+        return mock
+
+    @pytest.fixture
+    def mock_backend(self):
+        backend = MagicMock()
+        backend.begin_transaction = MagicMock()
+        backend.commit_transaction = MagicMock()
+        backend.rollback_transaction = MagicMock()
+        return backend
+
+    def test_step_mode_executes_commit_after_each_execute(self, mock_dialect, mock_backend):
+        """Test STEP mode calls commit after each execute.
+
+        In STEP mode, ctx.execute() automatically calls begin_transaction before
+        and commit_transaction after execution (if in transaction).
+        """
+        commit_called = []
+
+        def execute_callback(fqn, dial, params):
+            return {"data": [], "affected_rows": 0}
+
+        def begin():
+            pass
+
+        def commit():
+            commit_called.append(1)
+
+        context = ProcedureContext(
+            mock_dialect,
+            execute_callback,
+            TransactionMode.STEP,
+            mock_backend,
+        )
+        context._begin_transaction = begin
+        context._commit_transaction = commit
+        context._in_transaction = True
+
+        context.execute("test.query")
+
+        assert commit_called
+
+
+class TestBaseProcedureRunner:
+    """Tests for _BaseProcedureRunner shared logic."""
+
+    def test_base_runner_parses_qualified_name(self):
+        """Test _BaseProcedureRunner parses qualified name."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            _BaseProcedureRunner,
+        )
+
+        runner = _BaseProcedureRunner("myapp.procedures.monthly_report")
+        assert runner._module_name == "myapp.procedures"
+        assert runner._class_name == "monthly_report"
+
+    def test_base_runner_invalid_qualified_name(self):
+        """Test invalid qualified name raises error."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            _BaseProcedureRunner,
+        )
+        from rhosocial.activerecord.backend.named_query.exceptions import NamedQueryError
+
+        with pytest.raises(NamedQueryError):
+            _BaseProcedureRunner("invalid")
+
+    def test_sync_runner_inherits_from_base(self):
+        """Test ProcedureRunner inherits from _BaseProcedureRunner."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureRunner,
+            _BaseProcedureRunner,
+        )
+
+        assert issubclass(ProcedureRunner, _BaseProcedureRunner)
+
+    def test_async_runner_inherits_from_base(self):
+        """Test AsyncProcedureRunner inherits from _BaseProcedureRunner."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            AsyncProcedureRunner,
+            _BaseProcedureRunner,
+        )
+
+        assert issubclass(AsyncProcedureRunner, _BaseProcedureRunner)
