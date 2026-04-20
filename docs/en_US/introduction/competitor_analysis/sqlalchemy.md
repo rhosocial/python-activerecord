@@ -34,7 +34,7 @@ with Session(engine) as session:
 user = User(name="Alice")
 user.save()  # Save
 
-user = User.query().where(User.c.name == "Alice").first()
+user = User.query().where(User.c.name == "Alice").one()
 user.name = "Bob"
 user.save()  # Update
 ```
@@ -194,10 +194,10 @@ async with AsyncSession(engine) as session:
 
 ```python
 # Sync
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
-# Async: Same API, just add await
-user = await User.query().where(User.c.id == 1).first()
+# Async: identical API, just add await
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **Advantage Analysis**:

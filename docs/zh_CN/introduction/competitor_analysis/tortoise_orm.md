@@ -302,7 +302,7 @@ user.age   # 类型提示有限
 **rhosocial-activerecord**:
 
 ```python
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 user.name  # 类型: str ✅
 user.age   # 类型: int ✅
 

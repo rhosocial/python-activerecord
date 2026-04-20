@@ -35,7 +35,7 @@ user = User(name="Alice")
 user.save()  # Save directly, no Session
 
 # Query starts directly from model
-user = User.query().where(User.c.name == "Alice").first()
+user = User.query().where(User.c.name == "Alice").one()
 ```
 
 **Advantage Analysis**:
@@ -91,10 +91,10 @@ async with AsyncSession(async_engine) as session:
 
 ```python
 # Sync
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # Async: Completely identical API
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **Advantage Analysis**:

@@ -35,7 +35,7 @@ user = User(name="Alice")
 user.save()  # 直接保存，无需 Session
 
 # 查询直接从模型开始
-user = User.query().where(User.c.name == "Alice").first()
+user = User.query().where(User.c.name == "Alice").one()
 ```
 
 **优势分析**:
@@ -91,10 +91,10 @@ async with AsyncSession(async_engine) as session:
 
 ```python
 # 同步
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # 异步：完全相同的 API
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **优势分析**:

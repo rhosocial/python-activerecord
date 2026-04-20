@@ -118,7 +118,7 @@ class User(ActiveRecord):
 
     c: ClassVar[FieldProxy] = FieldProxy()
 
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 user.name  # Type: str ✅
 user.age   # Type: int ✅
 
