@@ -13,7 +13,7 @@ import time
 from datetime import datetime
 from typing import Any, List, Optional, Tuple, Union
 
-from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
+from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect, SQLDialectBase
 from ..transaction import SQLiteTransactionManager
@@ -32,7 +32,13 @@ from ..explain import (
 )
 
 
-class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend):
+class SQLiteBackend(
+    SyncExplainBackendMixin,
+    IntrospectorBackendMixin,
+    SQLiteBackendMixin,
+    SQLiteConcurrencyMixin,
+    StorageBackend,
+):
     """Synchronous SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS

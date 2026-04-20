@@ -13,7 +13,7 @@ from typing import Any, List, Optional, Tuple, Union
 
 import aiosqlite
 
-from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
+from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
 from ..dialect import SQLiteDialect
 from ..async_transaction import AsyncSQLiteTransactionManager
@@ -32,7 +32,13 @@ from ..explain import (
 )
 
 
-class AsyncSQLiteBackend(AsyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBackendMixin, AsyncStorageBackend):
+class AsyncSQLiteBackend(
+    AsyncExplainBackendMixin,
+    IntrospectorBackendMixin,
+    SQLiteBackendMixin,
+    SQLiteConcurrencyMixin,
+    AsyncStorageBackend,
+):
     """Async SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS

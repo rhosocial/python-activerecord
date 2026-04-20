@@ -19,6 +19,7 @@ from rhosocial.activerecord.backend.errors import (
     OperationalError,
     QueryError,
 )
+from rhosocial.activerecord.backend.protocols import ConcurrencyHint
 from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
 
 
@@ -180,3 +181,13 @@ class SQLiteBackendMixin:
             True if connection is established, False otherwise.
         """
         return self._connection is not None
+
+
+class SQLiteConcurrencyMixin:
+    """Mixin providing SQLite-specific concurrency hint."""
+
+    def get_concurrency_hint(self) -> ConcurrencyHint:
+        return ConcurrencyHint(
+            max_concurrency=1,
+            reason="SQLite file-level write lock; concurrent writes serialize",
+        )
