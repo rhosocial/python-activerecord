@@ -380,7 +380,7 @@ User.configure(config, MySQLBackend)
 
 def worker_task(user_id: int):
     """Task running in thread pool."""
-    user = User.find(id=user_id)
+    user = User.find_one(user_id)
     # ... processing logic ...
 
 # Use thread pool

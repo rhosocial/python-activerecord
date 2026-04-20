@@ -9,7 +9,7 @@ Since rhosocial-activerecord models inherit directly from Pydantic V2's `BaseMod
 Use the `model_dump()` method to convert a model instance to a dictionary.
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 data = user.model_dump()
 # {'id': 1, 'username': 'john', 'created_at': datetime(...)}
 ```
@@ -28,7 +28,7 @@ json_str = user.model_dump_json()
 Use `exclude_none=True` to exclude fields with `None` values:
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 # Exclude None values
 data = user.model_dump(exclude_none=True)
 # {'id': 1, 'username': 'john', 'created_at': datetime(...)}  # bio field excluded
@@ -45,7 +45,7 @@ class User(ActiveRecord):
     user_id: int = Field(alias="userId")
     user_name: str = Field(alias="userName")
 
-user = User.find(1)
+user = User.find_one(1)
 data = user.model_dump(by_alias=True)
 # {'userId': 1, 'userName': 'john'}
 ```
@@ -55,7 +55,7 @@ data = user.model_dump(by_alias=True)
 You can precisely control the serialization output.
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 
 # Exclude sensitive fields
 public_data = user.model_dump(exclude={'password', 'secret_key'})
@@ -100,7 +100,7 @@ By default, `model_dump` does not automatically load or include related data (as
 ### Method 1: Manual Construction
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 user_data = user.model_dump()
 user_data['posts'] = [p.model_dump() for p in user.posts()]
 ```

@@ -92,7 +92,7 @@ When using `with_`:
 Sometimes you need to force a reload of the latest data from the database (e.g., if relation data was modified elsewhere). You can clear the cache using the following methods:
 
 ```python
-user = User.find(1)
+user = User.find_one(1)
 posts = user.posts()  # Triggers query and caches result
 
 # ... posts updated elsewhere ...

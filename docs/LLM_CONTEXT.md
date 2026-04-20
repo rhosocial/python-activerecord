@@ -60,8 +60,8 @@ rhosocial/activerecord/
 
 ### ActiveRecord (base/active_record.py)
 The model base class. Inherits from Pydantic `BaseModel`.
-- **Responsibilities**: Define table schema, CRUD operations (`.save()`, `.delete()`, `.find()`), configure backend.
-- **Class methods**: `.configure(backend)`, `.query()`, `.find(pk)`, `.find_all()`, `.backend()`.
+- **Responsibilities**: Define table schema, CRUD operations (`.save()`, `.delete()`, `.find_one()`), configure backend.
+- **Class methods**: `.configure(backend)`, `.query()`, `.find_one(pk)`, `.find_all()`, `.backend()`.
 - **Instance methods**: `.save()`, `.delete()`, `.reload()`, `.to_dict()`.
 - **Class variables**: `__table_name__`, `__primary_key__` (default: `"id"`).
 
