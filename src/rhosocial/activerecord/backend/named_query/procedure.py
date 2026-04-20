@@ -840,18 +840,21 @@ class ProcedureRunner(_BaseProcedureRunner):
                 if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                     backend.begin_transaction()
                 in_transaction = True
+                ctx._in_transaction = True
 
         def commit_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 backend.commit_transaction()
                 in_transaction = False
+                ctx._in_transaction = False
 
         def rollback_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 backend.rollback_transaction()
                 in_transaction = False
+                ctx._in_transaction = False
 
         ctx._begin_transaction = begin_transaction
         ctx._commit_transaction = commit_transaction
@@ -973,18 +976,21 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
                 if transaction_mode in (TransactionMode.AUTO, TransactionMode.STEP):
                     await backend.begin_transaction()
                 in_transaction = True
+                ctx._in_transaction = True
 
         async def commit_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 await backend.commit_transaction()
                 in_transaction = False
+                ctx._in_transaction = False
 
         async def rollback_transaction() -> None:
             nonlocal in_transaction
             if backend and in_transaction:
                 await backend.rollback_transaction()
                 in_transaction = False
+                ctx._in_transaction = False
 
         ctx._begin_transaction = begin_transaction
         ctx._commit_transaction = commit_transaction
