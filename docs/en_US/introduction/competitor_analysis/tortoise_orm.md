@@ -37,12 +37,12 @@ from tortoise import Tortoise
 # Sync and async are fully equal
 # Sync
 def get_user():
-    user = User.query().where(User.c.id == 1).first()
+    user = User.query().where(User.c.id == 1).one()
     return user
 
-# Async: Completely identical API
+# Async: Completely identical API, only needs await
 async def get_user():
-    user = await User.query().where(User.c.id == 1).first()
+    user = await User.query().where(User.c.id == 1).one()
     return user
 ```
 
@@ -132,11 +132,11 @@ users = await User.annotate(post_count=Count("posts")).filter(post_count__gt=0)
 
 ```python
 # Chained calls, SQL style
-users = await User.query().where(User.c.age >= 18).order_by(User.c.name.desc())
+users = await User.query().where(User.c.age >= 18).order_by((User.c.name, "DESC"))
 
 # Intuitive logical composition
 users = await User.query().where(
-    (User.c.name.startswith("A")) | (User.c.name.startswith("B"))
+    (User.c.name.like("A%")) | (User.c.name.like("B%"))
 )
 
 # Aggregation
@@ -224,11 +224,12 @@ results = await conn.execute_query("SELECT ...")
 ```python
 # Express all SQL through Expression/Dialect system
 # CTE through CTEQuery
-cte_query = CTEQuery().with_cte(
+# Note: CTEQuery requires a backend, and uses aggregate() instead of all()
+cte_query = CTEQuery(User.backend()).with_cte(
     "adults",
     User.query().where(User.c.age >= 18)
-)
-results = await User.query().from_cte("adults").all()
+).from_cte("adults")
+results = await cte_query.aggregate()
 
 # Window functions
 from rhosocial.activerecord.query.window import Window
@@ -238,7 +239,7 @@ users = await User.query().select([
     User.c.name,
     func.row_number().over(
         partition_by=[User.c.department],
-        order_by=[User.c.salary.desc()]
+        order_by=[(User.c.salary, "DESC")]
     ).as_("rank")
 ]).all()
 
@@ -272,12 +273,8 @@ union_query = SetOperationQuery().union(
 
 ```python
 # Backend explicitly declares capabilities
-@requires_capability(CTECapability.RECURSIVE_CTE)
-def test_recursive_cte():
-    pass
-
-# Runtime query
-if backend.capabilities.has(WindowFunctionCapability.ROW_NUMBER):
+# Check window function support via dialect
+if backend.dialect.supports_window_functions():
     # Use window functions
     pass
 ```

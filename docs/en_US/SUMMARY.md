@@ -110,7 +110,7 @@
 * [Introspection](backend/introspection.md)
 * [Query Explain](backend/explain.md)
 * [Custom Backend](backend/custom_backend.md)
-* [Named Queries](backend/named_queries.md)
+* [Named Queries](backend/named_query.md)
 
 ### Expression System
 

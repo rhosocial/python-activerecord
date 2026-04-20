@@ -69,16 +69,16 @@ def get_user():
 **rhosocial-activerecord**:
 
 ```python
-# Fully native sync/async parity
-# Sync
-user = User.query().where(User.c.id == 1).first()
+# 完全原生的同步/异步对等
+# 同步
+user = User.query().where(User.c.id == 1).one()
 
-# Async: Same API, just add await
-user = await User.query().where(User.c.id == 1).first()
+# 异步：相同 API，仅添加 await
+user = await User.query().where(User.c.id == 1).one()
 
-# Works in any async environment
+# 在任何异步环境中工作
 async def my_function():
-    user = await User.query().first()  # Directly usable
+    user = await User.query().one()  # 直接可用
 ```
 
 **Advantage Analysis**:
@@ -154,18 +154,23 @@ User.objects.select_related('profile')  # Only supports forward relations
 
 ```python
 # Expression objects, type-safe
-User.query().where(User.c.age >= 18).order_by(User.c.name.desc())
+User.query().where(User.c.age >= 18).order_by((User.c.name, "DESC"))
 
 # Intuitive logical composition
 User.query().where(
-    (User.c.name.startswith('A')) | (User.c.name.startswith('B'))
+    (User.c.name.like('A%')) | (User.c.name.like('B%'))
 )
 
 # Flexible JOIN support
 User.query().join(Profile, User.c.id == Profile.c.user_id)
 
 # Advanced features like CTE, window functions
-User.query().with_cte("adults", lambda: User.query().where(User.c.age >= 18))
+from rhosocial.activerecord.query import CTEQuery
+cte_query = CTEQuery(User.backend()).with_cte(
+    "adults",
+    User.query().where(User.c.age >= 18)
+).from_cte("adults")
+adults = cte_query.aggregate()
 ```
 
 **Advantage Analysis**:

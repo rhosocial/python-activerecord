@@ -525,7 +525,3 @@ async def run_cleanup(month: str):
 - `AsyncProcedureRunner` - 异步执行器
 - `TransactionMode` - 事务模式枚举
 - `ProcedureResult` - 执行结果
-
----
-
-*文档版本: 与 feature/named-query 分支同步*
