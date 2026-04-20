@@ -192,7 +192,7 @@ def create_named_query_parser(
         "--async",
         dest="is_async",
         action="store_true",
-        help="Use asynchronous execution (requires aiosqlite package).",
+        help="Use asynchronous execution (requires async database driver).",
     )
     return nq_parser
 
