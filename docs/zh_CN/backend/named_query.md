@@ -499,6 +499,93 @@ async def run_cleanup(month: str):
 
 ---
 
+## 9. 流程图可视化
+
+命名过程支持生成 **Mermaid** 流程图,帮助开发者直观理解过程结构:
+
+### 9.1 静态图 (无需数据库)
+
+```python
+from rhosocial.activerecord.backend.named_query import Procedure
+
+# Flowchart 格式
+print(MyProcedure.static_diagram("flowchart"))
+
+# Sequence 格式
+print(MyProcedure.static_diagram("sequence"))
+```
+
+### 9.2 实例图 (真实执行后)
+
+```python
+from rhosocial.activerecord.backend.named_query import ProcedureRunner
+
+runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
+result = runner.run(dialect, backend=backend)
+
+# Flowchart 格式(带执行状态和耗时)
+print(result.diagram("flowchart", procedure_name="OrderProcessing"))
+
+# Sequence 格式
+print(result.diagram("sequence", procedure_name="OrderProcessing"))
+```
+
+### 9.3 特性对比
+
+| 特性 | 静态图 | 实例图 |
+|---|---|---|
+| 数据来源 | dry-run | 真实执行 |
+| 需要数据库 | ❌ | ✅ |
+| 显示执行状态 | ❌ | ✅ (绿/红/灰) |
+| 显示执行耗时 | ❌ | ✅ (毫秒) |
+| 未执行节点 | 中性色 | 深灰 + [not executed] |
+| 后端信息 | 仅方言 | Backend 类名 + ConcurrencyHint |
+
+### 9.4 完整示例
+
+参考 `docs/examples/chapter_12_named_procedure/` 目录下的完整示例。
+
+```bash
+cd docs/examples/chapter_12_named_procedure
+PYTHONPATH=../../../src:. python3 diagram_demo.py
+```
+
+输出示例(Flowchart):
+
+```mermaid
+flowchart TD
+    START(["OrderProcessingProcedure"])
+    n0["examples.queries.get_order"]
+    n1["examples.queries.check_inventory"]
+    fork2{ }
+    join2{ }
+    n2_0["examples.queries.reserve_inventory"]
+    n2_1["examples.queries.send_notification"]
+    n3["examples.queries.process_payment"]
+    n4["examples.queries.release_inventory"]
+    n5["examples.queries.create_order_record"]
+    n6["examples.queries.confirm_inventory"]
+    END(["End"])
+
+    START --> n0
+    n0 --> n1
+    n1 --> fork2
+    fork2 --> n2_0 & n2_1
+    n2_0 & n2_1 --> join2
+    join2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 --> END
+```
+
+### 9.5 已知限制
+
+- **条件分支不完整**: dry-run 时 `ctx["key"]` 返回 `None`,只记录假值分支
+- **并行语法**: 需要 Mermaid 版本支持 `&` 语法 (flowchart) 或 `par/and/end` 块 (sequence)
+
+---
+
 ## API 参考
 
 ### 异常

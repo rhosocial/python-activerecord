@@ -89,7 +89,10 @@ from .procedure import (
     AsyncProcedure,
     AsyncProcedureContext,
     AsyncProcedureRunner,
+    StepKind,
+    TraceEntry,
 )
+from .diagram import ProcedureDiagram
 
 __all__ = [
     "NamedQueryError",
@@ -120,6 +123,9 @@ __all__ = [
     "AsyncProcedure",
     "AsyncProcedureContext",
     "AsyncProcedureRunner",
+    "StepKind",
+    "TraceEntry",
+    "ProcedureDiagram",
     "ProcedureError",
     "ProcedureAbortedError",
     "ProcedureStepError",

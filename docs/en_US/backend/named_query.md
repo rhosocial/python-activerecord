@@ -518,6 +518,93 @@ async def run_cleanup(month: str):
 
 ---
 
+## 9. Flowchart Visualization
+
+Named procedures support generating **Mermaid** flowcharts to help developers visualize the procedure structure:
+
+### 9.1 Static Diagram (No Database Required)
+
+```python
+from rhosocial.activerecord.backend.named_query import Procedure
+
+# Flowchart format
+print(MyProcedure.static_diagram("flowchart"))
+
+# Sequence format
+print(MyProcedure.static_diagram("sequence"))
+```
+
+### 9.2 Instance Diagram (After Real Execution)
+
+```python
+from rhosocial.activerecord.backend.named_query import ProcedureRunner
+
+runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
+result = runner.run(dialect, backend=backend)
+
+# Flowchart format (with execution status and timing)
+print(result.diagram("flowchart", procedure_name="OrderProcessing"))
+
+# Sequence format
+print(result.diagram("sequence", procedure_name="OrderProcessing"))
+```
+
+### 9.3 Feature Comparison
+
+| Feature | Static Diagram | Instance Diagram |
+|---|---|---|
+| Data source | dry-run | Real execution |
+| Requires database | ❌ | ✅ |
+| Shows execution status | ❌ | ✅ (green/red/gray) |
+| Shows execution time | ❌ | ✅ (milliseconds) |
+| Unexecuted nodes | Neutral color | Gray + [not executed] |
+| Backend info | Dialect only | Backend class + ConcurrencyHint |
+
+### 9.4 Complete Example
+
+See `docs/examples/chapter_12_named_procedure/` for a full example.
+
+```bash
+cd docs/examples/chapter_12_named_procedure
+PYTHONPATH=../../../src:. python3 diagram_demo.py
+```
+
+Output example (Flowchart):
+
+```mermaid
+flowchart TD
+    START(["OrderProcessingProcedure"])
+    n0["examples.queries.get_order"]
+    n1["examples.queries.check_inventory"]
+    fork2{ }
+    join2{ }
+    n2_0["examples.queries.reserve_inventory"]
+    n2_1["examples.queries.send_notification"]
+    n3["examples.queries.process_payment"]
+    n4["examples.queries.release_inventory"]
+    n5["examples.queries.create_order_record"]
+    n6["examples.queries.confirm_inventory"]
+    END(["End"])
+
+    START --> n0
+    n0 --> n1
+    n1 --> fork2
+    fork2 --> n2_0 & n2_1
+    n2_0 & n2_1 --> join2
+    join2 --> n3
+    n3 --> n4
+    n4 --> n5
+    n5 --> n6
+    n6 --> END
+```
+
+### 9.5 Known Limitations
+
+- **Conditional branches incomplete**: In dry-run, `ctx["key"]` returns `None`, only the false branch is recorded
+- **Parallel syntax**: Requires Mermaid version supporting `&` syntax (flowchart) or `par/and/end` blocks (sequence)
+
+---
+
 ## API Reference
 
 ### Exceptions
