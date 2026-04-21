@@ -465,6 +465,7 @@ class ProcedureContext:
         results: List[Optional[Dict[str, Any]]] = []
 
         if limit == 1:
+            first_exc: List[BaseException] = []
             for i, step in enumerate(steps):
                 t = time_module.monotonic()
                 s, e = "ok", None
@@ -474,6 +475,7 @@ class ProcedureContext:
                 except Exception as exc:
                     s, e = "error", type(exc).__name__
                     results.append(None)
+                    first_exc.append(exc)
                 sub_entries.append(TraceEntry(
                     kind=StepKind.SINGLE,
                     index=i,
@@ -485,11 +487,13 @@ class ProcedureContext:
                     error=e,
                     elapsed_ms=(time_module.monotonic() - t) * 1000,
                 ))
+            if first_exc:
+                raise first_exc[0]
         else:
             results = [None] * len(steps)
             timings = [0.0] * len(steps)
             bind_lock = threading.Lock()
-            first_exc: List[BaseException] = []
+            exc_by_idx: Dict[int, BaseException] = {}
 
             def _run(idx: int, step: ParallelStep) -> None:
                 t = time_module.monotonic()
@@ -498,7 +502,7 @@ class ProcedureContext:
                     results[idx] = self._run_parallel_step(step, bind_lock=bind_lock)
                 except Exception as exc:
                     s, e = "error", type(exc).__name__
-                    first_exc.append(exc)
+                    exc_by_idx[idx] = exc
                     raise
                 finally:
                     timings[idx] = (time_module.monotonic() - t) * 1000
@@ -534,12 +538,12 @@ class ProcedureContext:
                         bind=steps[i].bind,
                         output=steps[i].output,
                         status="error",
-                        error="unknown",
-                        elapsed_ms=0,
+                        error=type(exc_by_idx[i]).__name__ if i in exc_by_idx else "unknown",
+                        elapsed_ms=timings[i],
                     ))
 
-            if first_exc:
-                raise first_exc[0]
+            if exc_by_idx:
+                raise exc_by_idx[min(exc_by_idx.keys())]
 
         overall = "error" if any(e.status == "error" for e in sub_entries) else "ok"
         self._trace.append(TraceEntry(
@@ -734,6 +738,17 @@ class AsyncProcedureContext:
 
         Returns:
             List of result dicts in the **same order** as input steps.
+
+        Raises:
+            Exception: First exception raised by any step; the executor waits
+                for all tasks before re-raising.
+
+        Example:
+            >>> results = await ctx.parallel(
+            ...     ParallelStep("myapp.stock.deduct", {"sku": "A1"}),
+            ...     ParallelStep("myapp.payment.reserve", {"amount": 50}),
+            ...     max_concurrency=2,
+            ... )
         """
         import asyncio
         import time as time_module
@@ -746,6 +761,7 @@ class AsyncProcedureContext:
 
         sub_entries: List[TraceEntry] = []
         results: List[Optional[Dict[str, Any]]] = []
+        first_exc: List[BaseException] = []
 
         if limit == 1:
             for i, step in enumerate(steps):
@@ -757,6 +773,7 @@ class AsyncProcedureContext:
                 except Exception as exc:
                     s, e = "error", type(exc).__name__
                     results.append(None)
+                    first_exc.append(exc)
                 sub_entries.append(TraceEntry(
                     kind=StepKind.SINGLE,
                     index=i,
@@ -768,12 +785,15 @@ class AsyncProcedureContext:
                     error=e,
                     elapsed_ms=(time_module.monotonic() - t) * 1000,
                 ))
+            if first_exc:
+                raise first_exc[0]
         else:
             semaphore = asyncio.Semaphore(limit) if limit is not None else None
 
             async def _run(idx: int, step: ParallelStep) -> tuple:
                 t = time_module.monotonic()
                 s, e = "ok", None
+                exc_to_raise = None
                 try:
                     if semaphore is not None:
                         async with semaphore:
@@ -783,15 +803,20 @@ class AsyncProcedureContext:
                 except Exception as exc:
                     s, e = "error", type(exc).__name__
                     result = None
-                return (idx, result, s, e, (time_module.monotonic() - t) * 1000)
+                    exc_to_raise = exc
+                finally:
+                    elapsed = (time_module.monotonic() - t) * 1000
+                return (idx, result, s, e, elapsed, exc_to_raise)
 
-            task_results = await asyncio.gather(*[
-                _run(i, step) for i, step in enumerate(steps)
-            ])
+            task_results = await asyncio.gather(
+                *[_run(i, step) for i, step in enumerate(steps)],
+                return_exceptions=True,
+            )
 
             task_results_sorted = sorted(task_results, key=lambda x: x[0])
             results = [r[1] for r in task_results_sorted]
-            for idx, result, status, error, elapsed in task_results_sorted:
+            first_async_exc = None
+            for idx, result, status, error, elapsed, exc in task_results_sorted:
                 sub_entries.append(TraceEntry(
                     kind=StepKind.SINGLE,
                     index=idx,
@@ -803,6 +828,11 @@ class AsyncProcedureContext:
                     error=error,
                     elapsed_ms=elapsed,
                 ))
+                if exc is not None and first_async_exc is None:
+                    first_async_exc = exc
+
+            if first_async_exc:
+                raise first_async_exc
 
         overall = "error" if any(e.status == "error" for e in sub_entries) else "ok"
         self._trace.append(TraceEntry(
