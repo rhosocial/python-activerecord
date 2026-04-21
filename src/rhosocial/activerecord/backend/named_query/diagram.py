@@ -149,7 +149,7 @@ class _DryRunContext:
     def rollback_transaction(self) -> None:
         pass
 
-    def log(self, message: str, level: str = "INFO", step: str = None) -> None:
+    def log(self, message: str, level: str = "INFO", step: Optional[str] = None) -> None:
         pass
 
     def abort(self, procedure_name: str = "", reason: str = "") -> None:
@@ -267,7 +267,7 @@ class _AsyncDryRunContext:
     async def rollback_transaction(self) -> None:
         pass
 
-    async def log(self, message: str, level: str = "INFO", step: str = None) -> None:
+    async def log(self, message: str, level: str = "INFO", step: Optional[str] = None) -> None:
         pass
 
     async def abort(self, procedure_name: str = "", reason: str = "") -> None:
