@@ -487,6 +487,7 @@ class ProcedureContext:
                 ))
         else:
             results = [None] * len(steps)
+            timings = [0.0] * len(steps)
             bind_lock = threading.Lock()
             first_exc: List[BaseException] = []
 
@@ -499,6 +500,8 @@ class ProcedureContext:
                     s, e = "error", type(exc).__name__
                     first_exc.append(exc)
                     raise
+                finally:
+                    timings[idx] = (time_module.monotonic() - t) * 1000
 
             with ThreadPoolExecutor(max_workers=limit) as executor:
                 futures = [
@@ -520,7 +523,7 @@ class ProcedureContext:
                         bind=steps[i].bind,
                         output=steps[i].output,
                         status="ok",
-                        elapsed_ms=0,
+                        elapsed_ms=timings[i],
                     ))
                 else:
                     sub_entries.append(TraceEntry(
@@ -772,7 +775,11 @@ class AsyncProcedureContext:
                 t = time_module.monotonic()
                 s, e = "ok", None
                 try:
-                    result = await self._run_parallel_step(step)
+                    if semaphore is not None:
+                        async with semaphore:
+                            result = await self._run_parallel_step(step)
+                    else:
+                        result = await self._run_parallel_step(step)
                 except Exception as exc:
                     s, e = "error", type(exc).__name__
                     result = None
