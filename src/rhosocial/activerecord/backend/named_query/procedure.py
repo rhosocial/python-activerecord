@@ -267,7 +267,7 @@ class ProcedureContext:
 
         Returns:
             Dict containing:
-                - data: List ofrow dictionaries
+                - data: List of row dictionaries
                 - affected_rows: Number of rows affected
                 - sql: The generated SQL
                 - params: The SQL parameters
@@ -461,30 +461,42 @@ class ProcedureContext:
         limit = _resolve_concurrency(getattr(self, "_backend", None), max_concurrency)
         _start = time_module.monotonic()
 
-        def _run_traced(idx: int, step: ParallelStep) -> TraceEntry:
-            t = time_module.monotonic()
-            s, e = "ok", None
-            try:
-                return self._run_parallel_step(step, bind_lock=bind_lock)
-            except Exception as exc:
-                s, e = "error", type(exc).__name__
-                raise
-            finally:
-                pass
-
         sub_entries: List[TraceEntry] = []
+        results: List[Optional[Dict[str, Any]]] = []
 
         if limit == 1:
-            sub_entries = [self._run_parallel_step_traced(i, s) for i, s in enumerate(steps)]
+            for i, step in enumerate(steps):
+                t = time_module.monotonic()
+                s, e = "ok", None
+                try:
+                    result = self._run_parallel_step(step)
+                    results.append(result)
+                except Exception as exc:
+                    s, e = "error", type(exc).__name__
+                    results.append(None)
+                sub_entries.append(TraceEntry(
+                    kind=StepKind.SINGLE,
+                    index=i,
+                    qualified_name=step.qualified_name,
+                    params=dict(step.params),
+                    bind=step.bind,
+                    output=step.output,
+                    status=s,
+                    error=e,
+                    elapsed_ms=(time_module.monotonic() - t) * 1000,
+                ))
         else:
-            results: List[Optional[Dict[str, Any]]] = [None] * len(steps)
+            results = [None] * len(steps)
             bind_lock = threading.Lock()
             first_exc: List[BaseException] = []
 
             def _run(idx: int, step: ParallelStep) -> None:
+                t = time_module.monotonic()
+                s, e = "ok", None
                 try:
                     results[idx] = self._run_parallel_step(step, bind_lock=bind_lock)
                 except Exception as exc:
+                    s, e = "error", type(exc).__name__
                     first_exc.append(exc)
                     raise
 
@@ -498,7 +510,6 @@ class ProcedureContext:
                     except Exception:
                         pass
 
-            sub_entries = []
             for i, r in enumerate(results):
                 if r is not None:
                     sub_entries.append(TraceEntry(
@@ -538,31 +549,7 @@ class ProcedureContext:
         ))
         self._trace_index += 1
 
-        return [self._run_parallel_step(step) for step in steps]
-
-    def _run_parallel_step_traced(
-        self,
-        idx: int,
-        step: ParallelStep,
-    ) -> TraceEntry:
-        import time as time_module
-        t = time_module.monotonic()
-        s, e = "ok", None
-        try:
-            self._run_parallel_step(step)
-        except Exception as exc:
-            s, e = "error", type(exc).__name__
-        return TraceEntry(
-            kind=StepKind.SINGLE,
-            index=idx,
-            qualified_name=step.qualified_name,
-            params=dict(step.params),
-            bind=step.bind,
-            output=step.output,
-            status=s,
-            error=e,
-            elapsed_ms=(time_module.monotonic() - t) * 1000,
-        )
+        return [r for r in results if r is not None]
 
     def _run_parallel_step(
         self,
@@ -754,55 +741,61 @@ class AsyncProcedureContext:
         limit = _resolve_concurrency(getattr(self, "_backend", None), max_concurrency)
         _start = time_module.monotonic()
 
-        async def _run_traced(idx: int, step: ParallelStep) -> TraceEntry:
-            t = time_module.monotonic()
-            s, e = "ok", None
-            try:
-                await self._run_parallel_step(step)
-            except Exception as exc:
-                s, e = "error", type(exc).__name__
-            return TraceEntry(
-                kind=StepKind.SINGLE,
-                index=idx,
-                qualified_name=step.qualified_name,
-                params=dict(step.params),
-                bind=step.bind,
-                output=step.output,
-                status=s,
-                error=e,
-                elapsed_ms=(time_module.monotonic() - t) * 1000,
-            )
-
-        sub_entries: List[TraceEntry]
+        sub_entries: List[TraceEntry] = []
+        results: List[Optional[Dict[str, Any]]] = []
 
         if limit == 1:
-            sub_entries = [
-                await _run_traced(i, s) for i, s in enumerate(steps)
-            ]
+            for i, step in enumerate(steps):
+                t = time_module.monotonic()
+                s, e = "ok", None
+                try:
+                    result = await self._run_parallel_step(step)
+                    results.append(result)
+                except Exception as exc:
+                    s, e = "error", type(exc).__name__
+                    results.append(None)
+                sub_entries.append(TraceEntry(
+                    kind=StepKind.SINGLE,
+                    index=i,
+                    qualified_name=step.qualified_name,
+                    params=dict(step.params),
+                    bind=step.bind,
+                    output=step.output,
+                    status=s,
+                    error=e,
+                    elapsed_ms=(time_module.monotonic() - t) * 1000,
+                ))
         else:
             semaphore = asyncio.Semaphore(limit) if limit is not None else None
 
-            async def _run(step: ParallelStep) -> Dict[str, Any]:
-                if semaphore is not None:
-                    async with semaphore:
-                        return await self._run_parallel_step(step)
-                return await self._run_parallel_step(step)
+            async def _run(idx: int, step: ParallelStep) -> tuple:
+                t = time_module.monotonic()
+                s, e = "ok", None
+                try:
+                    result = await self._run_parallel_step(step)
+                except Exception as exc:
+                    s, e = "error", type(exc).__name__
+                    result = None
+                return (idx, result, s, e, (time_module.monotonic() - t) * 1000)
 
-            await asyncio.gather(*[_run(step) for step in steps])
+            task_results = await asyncio.gather(*[
+                _run(i, step) for i, step in enumerate(steps)
+            ])
 
-            sub_entries = [
-                TraceEntry(
+            task_results_sorted = sorted(task_results, key=lambda x: x[0])
+            results = [r[1] for r in task_results_sorted]
+            for idx, result, status, error, elapsed in task_results_sorted:
+                sub_entries.append(TraceEntry(
                     kind=StepKind.SINGLE,
-                    index=i,
-                    qualified_name=s.qualified_name,
-                    params=dict(s.params),
-                    bind=s.bind,
-                    output=s.output,
-                    status="ok",
-                    elapsed_ms=0,
-                )
-                for i, s in enumerate(steps)
-            ]
+                    index=idx,
+                    qualified_name=steps[idx].qualified_name,
+                    params=dict(steps[idx].params),
+                    bind=steps[idx].bind,
+                    output=steps[idx].output,
+                    status=status,
+                    error=error,
+                    elapsed_ms=elapsed,
+                ))
 
         overall = "error" if any(e.status == "error" for e in sub_entries) else "ok"
         self._trace.append(TraceEntry(
@@ -815,7 +808,7 @@ class AsyncProcedureContext:
         ))
         self._trace_index += 1
 
-        return [await self._run_parallel_step(step) for step in steps]
+        return [r for r in results if r is not None]
 
     async def _run_parallel_step(self, step: ParallelStep) -> Dict[str, Any]:
         """Execute a single ParallelStep directly via async execute_callback."""
@@ -835,59 +828,6 @@ class AsyncProcedureContext:
             # asyncio single-threaded: assignment is atomic between await points
             self._bindings[step.bind] = result_data
         return result_data
-
-
-class AsyncProcedure:
-    """Base class for asynchronous named procedures.
-
-    Subclasses must:
-    - Define parameters as class attributes with type annotations
-    - Implement an async run(ctx: AsyncProcedureContext) method
-
-    Example:
-        >>> class MyAsyncProcedure(AsyncProcedure):
-        ...     month: str
-        ...     threshold: int = 100
-        ...
-        ...     async def run(self, ctx: AsyncProcedureContext) -> None:
-        ...         await ctx.execute("myapp.queries.get_data", bind="data")
-    """
-
-    async def run(self, ctx: AsyncProcedureContext) -> None:
-        raise NotImplementedError("Subclasses must implement async run()")
-
-    @classmethod
-    def get_parameters(cls) -> Dict[str, Any]:
-        params = {}
-        for name, annotation in cls.__annotations__.items():
-            if name == "run":
-                continue
-            default = getattr(cls, name, inspect.Parameter.empty)
-            params[name] = {
-                "annotation": annotation,
-                "default": default,
-                "has_default": default is not inspect.Parameter.empty,
-            }
-        return params
-
-    @classmethod
-    async def static_diagram(
-        cls, kind: str = "flowchart", dialect: Any = None
-    ) -> str:
-        """Generate a static diagram without executing the procedure (async).
-
-        Args:
-            kind: Diagram type - "flowchart" or "sequence"
-            dialect: Optional dialect for additional metadata
-
-        Returns:
-            Mermaid diagram string
-        """
-        from .diagram import ProcedureDiagram
-
-        return (
-            await ProcedureDiagram.from_async_procedure(cls, dialect=dialect)
-        ).to_mermaid(kind)
 
 
 class Procedure:
