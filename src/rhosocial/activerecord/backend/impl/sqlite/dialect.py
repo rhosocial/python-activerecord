@@ -78,7 +78,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, VirtualTableSupport
-from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, VirtualTableMixin
+from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, VirtualTableMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -149,7 +149,6 @@ class SQLiteDialect(
     TriggerMixin,
     GeneratedColumnMixin,
     # SQLite-specific mixins
-    FTS5Mixin,
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
     VirtualTableMixin,

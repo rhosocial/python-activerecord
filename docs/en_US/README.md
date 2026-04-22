@@ -13,13 +13,14 @@
     *   **[Glossary](introduction/glossary.md)**: Key terms and concepts explained from scratch.
     *   **[Coming from Other Frameworks](introduction/coming_from_frameworks.md)**: If you know Django, SQLAlchemy, Rails, or others.
     *   **[Philosophy](introduction/philosophy.md)**: The "Gradual ORM" approach — balancing strict Type Safety (OLTP) with Raw Performance (OLAP).
-    *   **[Key Features](introduction/key_features.md)**:
-        *   Pydantic V2 Integration
-        *   Composable Mixins (UUID, Timestamp, Optimistic Locking)
-        *   **[Sync-Async Parity](introduction/key_features.md#sync-async-parity)**: Equivalent functionality across synchronous and asynchronous implementations 💡 *AI Prompt: "Why does this project enforce identical method names for sync and async APIs?"*
-        *   Zero-IO Testing Strategy
-    *   **[Technical Decision Guide](introduction/comparison.md)**: Which ORM to choose? Scenario-based comparison with SQLAlchemy, Django, SQLModel, and others.
-    *   **[Architecture](introduction/architecture.md)**: Understanding the layered design (Interface -> Active Record -> Dialect -> Expression -> Backend). 💡 *AI Prompt: "Explain the layered architecture and why Expression-Dialect separation matters."*
+    * **[Key Features](introduction/key_features.md)**:
+        * Pydantic V2 Integration
+        * Composable Mixins (UUID, Timestamp, Optimistic Locking)
+        * **[Sync-Async Parity](introduction/key_features.md#sync-async-parity)**: Equivalent functionality across synchronous and asynchronous implementations 💡 *AI Prompt: "Why does this project enforce identical method names for sync and async APIs?"*
+        * Zero-IO Testing Strategy
+    * **[Technical Decision Guide](introduction/comparison.md)**: Which ORM to choose? Scenario-based comparison with SQLAlchemy, Django, SQLModel, and others.
+    * **[Competitor Analysis](introduction/competitor_analysis/README.md)**: In-depth comparison with Django ORM, SQLAlchemy, SQLModel, Peewee, Tortoise ORM, and other mainstream ORMs.
+    * **[Architecture](introduction/architecture.md)**: Understanding the layered design (Interface -> Active Record -> Dialect -> Expression -> Backend). 💡 *AI Prompt: "Explain the layered architecture and why Expression-Dialect separation matters."*
 
 2.  **[Getting Started](getting_started/README.md)**
     *   **[Installation](getting_started/installation.md)**: Requirements (Python 3.8+, Pydantic V2) and pip installation.
