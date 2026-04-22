@@ -110,10 +110,7 @@ class TestProtocolNonOverlap:
         for name, members in member_map.items():
             assert len(members) > 0, f"Protocol {name} has no members defined"
 
-        excluded_overlaps = {
-            ('AsyncIntrospectionSupport', 'IntrospectionSupport'),
-            ('IntrospectionSupport', 'AsyncIntrospectionSupport'),
-        }
+        excluded_overlaps = set()
 
         violations = []
         for (name_a, members_a), (name_b, members_b) in combinations(member_map.items(), 2):

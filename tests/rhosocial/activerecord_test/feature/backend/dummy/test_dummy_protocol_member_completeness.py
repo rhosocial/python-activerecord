@@ -88,7 +88,7 @@ class TestDummyProtocolMemberCompleteness:
         """Verify all protocols (except introspection) are implemented by DummyDialect."""
         protocol_classes = self.get_all_protocol_classes()
 
-        excluded = {'IntrospectionSupport', 'AsyncIntrospectionSupport'}
+        excluded = {'IntrospectionSupport'}
         expected_protocols = {
             name for name, cls in protocol_classes
             if name not in excluded
