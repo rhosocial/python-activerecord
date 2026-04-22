@@ -7,7 +7,7 @@ from rhosocial.activerecord.backend.impl.sqlite import (
     SQLiteDialect,
     SQLiteBackend,
     SQLiteExtensionSupport,
-    FTS5Mixin,
+    VirtualTableMixin,
 )
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -22,9 +22,9 @@ class TestFTS5Support:
         assert isinstance(dialect, SQLiteExtensionSupport)
 
     def test_fts5_mixin_included(self):
-        """Test that SQLiteDialect includes FTS5Mixin."""
+        """Test that SQLiteDialect includes VirtualTableMixin."""
         dialect = SQLiteDialect()
-        assert isinstance(dialect, FTS5Mixin)
+        assert isinstance(dialect, VirtualTableMixin)
 
     def test_fts5_supported_since_3_9_0(self):
         """Test FTS5 support detection for various versions."""

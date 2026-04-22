@@ -451,15 +451,26 @@ if dialect.check_extension_feature('fts5', 'trigram_tokenizer'):
 
 ## API Reference
 
-### FTS5Mixin
+### VirtualTableMixin
 
-SQLiteDialect provides FTS5 support through FTS5Mixin.
+SQLiteDialect provides complete virtual table support through VirtualTableMixin, including FTS5.
 
 ```python
-class FTS5Mixin:
+class VirtualTableMixin:
+    # Virtual table capability detection
+    def supports_virtual_table(self) -> bool:
+        """Check if virtual tables are supported"""
+        
     def supports_fts5(self) -> bool:
         """Check if FTS5 is supported"""
         
+    def supports_rtree(self) -> bool:
+        """Check if R-Tree is supported"""
+        
+    def supports_geopoly(self) -> bool:
+        """Check if Geopoly is supported"""
+        
+    # FTS5 capability detection
     def supports_fts5_bm25(self) -> bool:
         """Check if BM25 ranking is supported"""
         
