@@ -67,6 +67,10 @@ class PoolConfig:
     validate_on_return: bool = False  # Validate connection when returning
     validation_query: Optional[str] = "SELECT 1"  # Validation query (SQL string)
 
+    # Connection lifecycle settings
+    auto_connect_on_acquire: bool = True  # Automatically connect when acquiring
+    auto_disconnect_on_release: bool = True  # Automatically disconnect when releasing
+
     # Backend factory
     backend_factory: Optional[Callable[[], Any]] = None  # Factory function to create Backend
     backend_config: Dict[str, Any] = field(default_factory=dict)  # Backend configuration
@@ -120,6 +124,8 @@ class PoolConfig:
             'validate_on_borrow': self.validate_on_borrow,
             'validate_on_return': self.validate_on_return,
             'validation_query': self.validation_query,
+            'auto_connect_on_acquire': self.auto_connect_on_acquire,
+            'auto_disconnect_on_release': self.auto_disconnect_on_release,
             'backend_factory': self.backend_factory,
             'backend_config': self.backend_config.copy(),
         }

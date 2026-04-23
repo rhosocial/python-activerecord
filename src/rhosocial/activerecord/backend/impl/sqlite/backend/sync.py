@@ -81,6 +81,18 @@ class SQLiteBackend(
     def dialect(self) -> SQLDialectBase:
         return self._dialect
 
+    @property
+    def threadsafety(self) -> int:
+        """Return driver threadsafety level.
+
+        SQLite connections cannot be shared across threads.
+        The sqlite3 module reports threadsafety=1 (connections are thread-local).
+
+        Returns:
+            1 (connections cannot be shared across threads)
+        """
+        return sqlite3.threadsafety
+
     def _parse_explain_result(self, raw_rows, sql, duration):
         """Return a SQLite-specific typed EXPLAIN result.
 

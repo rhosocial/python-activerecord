@@ -84,6 +84,11 @@ class BackendPool:
         self._closed = False
         self._initialized = False
 
+        # Thread-local storage for threadsafety < 2 backends
+        self._thread_local = threading.local()
+        # None = not determined yet, True = thread-safe mode, False = thread-local mode
+        self._thread_safe_mode: Optional[bool] = None
+
     @classmethod
     def create(cls, config: PoolConfig) -> 'BackendPool':
         """Create and initialize connection pool with warmup.
@@ -123,6 +128,50 @@ class BackendPool:
 
         self._initialized = True
 
+    def _is_thread_safe_backend(self) -> bool:
+        """Determine if the backend supports cross-thread connection sharing.
+
+        Returns:
+            True if backend threadsafety >= 2 (connections can be shared).
+            False if backend threadsafety < 2 (connections are thread-local).
+        """
+        try:
+            if self.config.backend_factory:
+                test_backend = self.config.backend_factory()
+            elif self.config.backend_config:
+                test_backend = self._create_backend_from_config()
+            else:
+                # Cannot determine, assume thread-local for safety
+                return False
+
+            threadsafety = getattr(test_backend, 'threadsafety', 1)
+            return threadsafety >= 2
+        except Exception:
+            # If we cannot determine, assume thread-local for safety
+            return False
+
+    def _ensure_thread_mode(self) -> None:
+        """Ensure thread mode is determined.
+
+        Determines whether to use thread-safe mode (QueuePool) or
+        thread-local mode based on backend threadsafety.
+        """
+        if self._thread_safe_mode is None:
+            self._thread_safe_mode = self._is_thread_safe_backend()
+            import logging
+
+            logger = logging.getLogger(__name__)
+            if self._thread_safe_mode:
+                logger.debug(
+                    f"BackendPool using thread-safe mode (QueuePool): "
+                    f"connections can be shared across threads"
+                )
+            else:
+                logger.debug(
+                    f"BackendPool using thread-local mode: "
+                    f"each thread manages its own connections"
+                )
+
     def _create_backend(self) -> Optional[PooledBackend]:
         """Create new Backend instance.
 
@@ -146,7 +195,8 @@ class BackendPool:
 
             pooled = PooledBackend(
                 backend=backend,
-                pool_key=str(id(self))
+                pool_key=str(id(self)),
+                created_thread_id=threading.current_thread().ident,
             )
             self._stats.total_created += 1
             return pooled
@@ -184,11 +234,29 @@ class BackendPool:
         Args:
             pooled: PooledBackend instance to destroy
         """
+        import logging
+
+        logger = logging.getLogger(__name__)
+        current_thread_id = threading.current_thread().ident
+
+        # Log warning if cross-thread disconnect is attempted
+        if (
+            pooled.created_thread_id is not None
+            and pooled.created_thread_id != current_thread_id
+        ):
+            logger.warning(
+                f"Cross-thread disconnect attempted: connection created in "
+                f"thread {pooled.created_thread_id}, disconnect called from "
+                f"thread {current_thread_id}. Backend "
+                f"'{type(pooled.backend).__name__}' may not support cross-thread "
+                f"close (threadsafety < 2). Connection may not be properly closed."
+            )
+
         try:
             if hasattr(pooled.backend, 'disconnect'):
                 pooled.backend.disconnect()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Error during disconnect: {e}")
         finally:
             self._stats.total_destroyed += 1
 
@@ -274,6 +342,23 @@ class BackendPool:
                     self._stats.total_acquired += 1
                     self._stats.last_acquired_at = datetime.now()
 
+                    # Auto-connect if configured (ensures connection is in correct thread)
+                    if self.config.auto_connect_on_acquire:
+                        try:
+                            pooled.backend.connect()
+                        except Exception as e:
+                            # Connect failed, destroy and try again
+                            self._in_use.pop(id(pooled.backend), None)
+                            self._stats.current_in_use -= 1
+                            pooled.mark_unhealthy()
+                            self._destroy_backend(pooled)
+                            import logging
+
+                            logging.getLogger(__name__).error(
+                                f"Failed to connect acquired backend: {e}"
+                            )
+                            continue
+
                     return pooled.backend
 
                 # Can create new connection
@@ -286,6 +371,11 @@ class BackendPool:
                             self._stats.current_in_use += 1
                             self._stats.total_acquired += 1
                             self._stats.last_acquired_at = datetime.now()
+
+                            # Auto-connect if configured
+                            if self.config.auto_connect_on_acquire:
+                                pooled.backend.connect()
+
                             return pooled.backend
                     except Exception:
                         # Creation failed, continue waiting
@@ -306,8 +396,6 @@ class BackendPool:
     def release(self, backend: Any) -> None:
         """Release Backend instance.
 
-        Returns Backend instance to the pool for reuse.
-
         Args:
             backend: Backend instance to release
         """
@@ -319,28 +407,38 @@ class BackendPool:
                 # Does not belong to this pool
                 return
 
-            # Validate connection
-            if self.config.validate_on_return:
-                if not self._validate_backend(pooled):
-                    self._destroy_backend(pooled)
-                    self._stats.current_in_use -= 1
-                    self._condition.notify()
-                    return
-
-            # Check if exceeded max lifetime
-            if pooled.is_expired(self.config.max_lifetime):
-                self._destroy_backend(pooled)
-                self._stats.current_in_use -= 1
-                self._condition.notify()
-                return
-
-            # Return to pool
-            pooled.reset()
-            self._available.append(pooled)
-            self._stats.current_available += 1
             self._stats.current_in_use -= 1
             self._stats.total_released += 1
             self._stats.last_released_at = datetime.now()
+
+            # Auto-disconnect if configured (ensures disconnect is in same thread as acquire)
+            if self.config.auto_disconnect_on_release:
+                try:
+                    if hasattr(pooled.backend, 'disconnect'):
+                        pooled.backend.disconnect()
+                except Exception as e:
+                    import logging
+
+                    logging.getLogger(__name__).error(
+                        f"Error during disconnect in release: {e}"
+                    )
+                    pooled.mark_unhealthy()
+
+            # Check if should be destroyed (not returned to pool)
+            if not pooled.is_healthy:
+                self._destroy_backend(pooled)
+                self._condition.notify()
+                return
+
+            if pooled.is_expired(self.config.max_lifetime):
+                self._destroy_backend(pooled)
+                self._condition.notify()
+                return
+
+            # Return to pool for reuse
+            pooled.reset()
+            self._available.append(pooled)
+            self._stats.current_available += 1
 
             self._condition.notify()
 
@@ -513,6 +611,24 @@ class BackendPool:
                     )
                 # Force close: destroy in-use connections
                 for pooled in list(self._in_use.values()):
+                    # For thread-unsafe backends, skip disconnect if called from wrong thread
+                    # This avoids the "check_same_thread" error but leaves connections open
+                    # The connections will be cleaned up when their threads exit
+                    if not self._is_thread_safe_backend():
+                        current_thread_id = threading.current_thread().ident
+                        if (pooled.created_thread_id is not None
+                                and pooled.created_thread_id != current_thread_id):
+                            import logging
+
+                            logging.getLogger(__name__).warning(
+                                f"Skipping disconnect for connection created in thread "
+                                f"{pooled.created_thread_id} from thread {current_thread_id}: "
+                                f"backend does not support cross-thread close. "
+                                f"Connection will be orphaned and cleaned up by thread exit."
+                            )
+                            self._in_use.pop(id(pooled.backend), None)
+                            self._stats.current_in_use -= 1
+                            continue
                     self._destroy_backend(pooled)
                 self._in_use.clear()
                 self._stats.current_in_use = 0

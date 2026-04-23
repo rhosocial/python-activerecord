@@ -22,6 +22,8 @@ from rhosocial.activerecord.connection import (
     AsyncBackendPool,
     PoolConfig,
 )
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 
 
 # Define test model classes
@@ -71,9 +73,23 @@ class AsyncPost(IntegerPKMixin, AsyncActiveRecord):
 
 
 @pytest.fixture
-def sqlite_config() -> SQLiteConnectionConfig:
-    """Create an in-memory SQLite connection config."""
-    return SQLiteConnectionConfig(database=":memory:")
+def sqlite_config() -> Generator[SQLiteConnectionConfig, None, None]:
+    """Create a file-based SQLite connection config for thread-safe testing.
+
+    Note: Using file-based database instead of :memory: because
+    auto_disconnect_on_release=True causes data loss when connections
+    are closed and reopened across multiple operations.
+    """
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+
+    config = SQLiteConnectionConfig(database=db_path)
+
+    yield config
+
+    # Cleanup
+    if os.path.exists(db_path):
+        os.unlink(db_path)
 
 
 @pytest.fixture
@@ -132,6 +148,59 @@ def configured_backend(sqlite_config: SQLiteConnectionConfig,
     yield backend
 
     backend.disconnect()
+
+
+# ============================================================
+# Shared Database Path for Context Awareness Tests
+# ============================================================
+
+@pytest.fixture(scope="session")
+def shared_sqlite_db_path() -> Generator[str, None, None]:
+    """Create a session-scoped shared file-based database path.
+
+    This fixture provides a single database file path shared across all tests
+    in the session. It ensures that:
+    1. The same database file is used by pool and model configurations
+    2. Data persists across connection open/close cycles
+    3. Thread-safe access works correctly with auto_disconnect_on_release=True
+
+    Note: Using file-based database instead of :memory: because
+    auto_disconnect_on_release=True causes data loss when connections
+    are closed and reopened across multiple operations.
+    """
+    fd, db_path = tempfile.mkstemp(suffix=".db")
+    os.close(fd)
+
+    yield db_path
+
+    # Cleanup
+    if os.path.exists(db_path):
+        os.unlink(db_path)
+
+
+@pytest.fixture(scope="session")
+def shared_sqlite_db_config(shared_sqlite_db_path: str) -> SQLiteConnectionConfig:
+    """Create a session-scoped shared SQLite connection config."""
+    return SQLiteConnectionConfig(database=shared_sqlite_db_path)
+
+
+@pytest.fixture(autouse=True)
+def cleanup_shared_db_tables(shared_sqlite_db_path: str):
+    """Clean up test tables before each test to avoid conflicts with session-scoped database."""
+    # Import here to avoid circular imports
+    from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+    backend = SQLiteBackend(database=shared_sqlite_db_path)
+    try:
+        backend.connect()
+        # Clean up any leftover tables from previous tests
+        for table_name in ['ctx_test_users', 'async_ctx_test_users', 'pool_users', 'pool_posts']:
+            try:
+                backend.execute(f"DROP TABLE IF EXISTS {table_name}", options=ExecutionOptions(stmt_type=StatementType.DDL))
+            except Exception:
+                pass
+    finally:
+        backend.disconnect()
 
 
 # ============================================================
