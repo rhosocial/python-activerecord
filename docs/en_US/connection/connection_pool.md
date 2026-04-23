@@ -229,6 +229,10 @@ config = PoolConfig(
     idle_cleanup_enabled=True,   # Enable background idle cleanup (default: True)
     idle_cleanup_interval=60.0,  # Cleanup scan interval in seconds (default: 60.0)
 
+    # Connection lifecycle settings
+    auto_connect_on_acquire=True,     # Automatically connect when acquiring (default: True)
+    auto_disconnect_on_release=True,  # Automatically disconnect when releasing (default: True)
+
     # Backend creation
     backend_factory=None,    # Factory function to create backends
     backend_config=None,     # Or config dict for built-in backends
@@ -859,24 +863,83 @@ if stats.total_validation_failures > 0:
 
 ## Thread Safety
 
-> **Important**: The connection pool uses a **QueuePool** strategy where connections can flow between threads. This is suitable **only** for database backends whose driver reports `threadsafety >= 2` (i.e., connection objects can be safely shared across threads).
+> **Important**: For backends with `threadsafety < 2` (SQLite, MySQL), the pool automatically uses **thread-local storage** mode where each thread maintains its own connection sub-pool. This eliminates cross-thread connection issues entirely.
 
-### When to Use BackendPool
+### Backend Thread Safety Levels
 
-| Database | Driver threadsafety | Suitable for BackendPool? | Recommendation |
-|----------|-------------------|--------------------------|----------------|
-| PostgreSQL (psycopg v3) | 2 | **Yes** | BackendPool recommended for connection reuse |
-| SQLite (sqlite3) | N/A (check_same_thread) | **No** | Use BackendGroup + backend.context() |
-| MySQL (mysql-connector-python) | 1 | **No** | Use BackendGroup + backend.context() |
+| Database | threadsafety | Behavior with BackendPool |
+|----------|-------------|---------------------------|
+| PostgreSQL (psycopg v3) | 2 | Standard QueuePool, connections can be shared across threads |
+| SQLite (sqlite3) | 1 | Thread-local storage mode, each thread has its own connections |
+| MySQL (mysql-connector) | 1 | Thread-local storage mode, each thread has its own connections |
 
-**Why SQLite and MySQL are unsuitable for BackendPool**:
+### How Thread-Local Mode Works
 
-- **SQLite**: The Python `sqlite3` module enforces `check_same_thread=True` by default, which prevents a connection created in one thread from being used in another. When the pool's `close()` method tries to disconnect connections created by worker threads, SQLite raises cross-thread warnings. Setting `check_same_thread=False` only suppresses the check but does not guarantee thread-safe behavior.
-- **MySQL**: The driver reports `threadsafety=1`, meaning connection objects should not be shared across threads. Unlike SQLite, MySQL does not actively enforce this — violations may cause **silent data corruption** without any error or warning.
+When `threadsafety < 2`, the pool automatically creates independent connection sub-pools for each thread. Connections are never shared across threads, eliminating cross-thread close issues:
 
-### When to Use BackendGroup + backend.context()
+```python
+config = PoolConfig(
+    min_size=1,
+    max_size=5,
+    backend_factory=lambda: SQLiteBackend(database="app.db")
+)
+pool = BackendPool(config)
 
-For SQLite and MySQL, use `BackendGroup` with `backend.context()` instead of `BackendPool`. Each thread manages its own connection lifecycle, naturally avoiding cross-thread issues.
+# Each thread gets its own connections from its own sub-pool
+def worker():
+    with pool.connection() as backend:
+        # Connection created AND closed in the SAME thread
+        backend.execute("SELECT 1")
+
+threading.Thread(target=worker).start()  # No cross-thread issues!
+```
+
+### Connection Lifecycle with auto_connect/disconnect
+
+By default, `auto_connect_on_acquire=True` and `auto_disconnect_on_release=True` means:
+
+1. **acquire()** → automatically calls `backend.connect()`
+2. **release()** → automatically calls `backend.disconnect()`
+
+This ensures connections are always used in the thread that created them, preventing cross-thread errors for `threadsafety < 2` backends.
+
+```python
+# Default behavior (recommended for all backends)
+config = PoolConfig(
+    auto_connect_on_acquire=True,    # Connect on acquire
+    auto_disconnect_on_release=True, # Disconnect on release
+)
+
+# For advanced use cases where YOU manage connection lifecycle:
+config = PoolConfig(
+    auto_connect_on_acquire=False,   # You call backend.connect() manually
+    auto_disconnect_on_release=False, # You call backend.disconnect() manually
+)
+pool = BackendPool(config)
+
+backend = pool.acquire()
+backend.connect()  # Your responsibility
+# ... use backend ...
+backend.disconnect() # Your responsibility
+pool.release(backend)
+```
+
+### When to Disable auto_connect/auto_disconnect
+
+Only disable if you need precise control over connection timing and understand the implications:
+
+```python
+# Not recommended unless you have a specific requirement
+config = PoolConfig(
+    auto_connect_on_acquire=False,
+    auto_disconnect_on_release=False,
+)
+pool = BackendPool(config)
+
+# WARNING: You must manage connect/disconnect manually
+# Failure to do so will cause connection leaks
+# Failure to disconnect in the correct thread will cause cross-thread errors
+```
 
 There are two usage patterns:
 
