@@ -75,3 +75,22 @@ class StorageBackendBase(ABC):
     def dialect(self) -> SQLDialectBase:
         """Get SQL dialect."""
         pass
+
+    @property
+    def threadsafety(self) -> int:
+        """Return driver threadsafety level.
+
+        Returns:
+            0 = not thread-safe
+            1 = safe when used only from the same thread (connections cannot be shared)
+            2 = safe when used from multiple threads (connections can be shared)
+
+        Backends should override this property to return the appropriate value
+        based on their database driver's threadsafety.
+
+        Note:
+            This is not the DBAPI threadsafety level but the actual driver level.
+            Some drivers (like psycopg) report threadsafety=1 in DBAPI but are
+            actually thread-safe at the connection level.
+        """
+        return 1  # Conservative default: connections cannot be shared across threads

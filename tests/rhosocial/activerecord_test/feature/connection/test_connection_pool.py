@@ -431,12 +431,15 @@ class TestBackendPool:
         finally:
             pool.close()
 
-    def test_transaction_context_manager(self):
+    def test_transaction_context_manager(self, tmp_path):
         """Test transaction context manager."""
+        # Use a file database instead of :memory: because with auto_disconnect_on_release=True,
+        # connections are disconnected when released, so :memory: database would lose data.
+        db_file = tmp_path / "test_tx.db"
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=str(db_file))
         )
         pool = BackendPool.create(config)
 
