@@ -99,6 +99,19 @@ class SQLiteBackendMixin:
         return suggestions
 
     @property
+    def threadsafety(self) -> int:
+        """Return driver threadsafety level.
+
+        SQLite connections cannot be shared across threads.
+        The sqlite3 module reports threadsafety=1 (connections are thread-local).
+
+        Returns:
+            1 (connections cannot be safely shared across threads)
+        """
+        import sqlite3
+        return sqlite3.threadsafety
+
+    @property
     def pragmas(self) -> Dict[str, str]:
         """Get current pragma settings."""
         return self.config.pragmas.copy()
