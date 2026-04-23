@@ -16,6 +16,8 @@ from typing import Dict, List, Any
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.named_connection import NamedConnectionResolver
+from rhosocial.activerecord.backend.named_connection.cli import parse_params
 from rhosocial.activerecord.backend.errors import ConnectionError, QueryError
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -158,6 +160,20 @@ def parse_args():
         "--rich-ascii",
         action="store_true",
         help="Use ASCII characters for rich table borders.",
+    )
+    parent_parser.add_argument(
+        "--named-connection",
+        dest="named_connection",
+        metavar="QUALIFIED_NAME",
+        help="Named connection from Python module (e.g., myapp.connections.prod_db).",
+    )
+    parent_parser.add_argument(
+        "--conn-param",
+        action="append",
+        metavar="KEY=VALUE",
+        default=[],
+        dest="connection_params",
+        help="Connection parameter override for named connection. Can be specified multiple times.",
     )
 
     # Main parser: global options only
@@ -579,9 +595,16 @@ def handle_info(args, provider):
     Display SQLite environment information based on actual database connection.
     SQLite always connects - either to a file database or in-memory database.
     """
-    db_path = args.db_file if args.db_file else ":memory:"
+    named_conn = getattr(args, "named_connection", None)
+    if named_conn:
+        resolver = NamedConnectionResolver(named_conn).load()
+        params = getattr(args, "connection_params", [])
+        config = resolver.resolve(SQLiteBackend, parse_params(params) if params else {})
+        db_path = ":memory:"  # Named connection doesn't use file path
+    else:
+        db_path = args.db_file if args.db_file else ":memory:"
+        config = SQLiteConnectionConfig(database=db_path)
     is_file_database = db_path != ":memory:"
-    config = SQLiteConnectionConfig(database=db_path)
     backend = SQLiteBackend(connection_config=config)
 
     output_format = args.output if args.output != "table" or RICH_AVAILABLE else "json"
@@ -763,8 +786,15 @@ def _serialize_for_output(obj):
 
 def handle_introspect(args, provider):
     """Handle introspect subcommand."""
-    db_path = args.db_file if args.db_file else ":memory:"
-    config = SQLiteConnectionConfig(database=db_path)
+    named_conn = getattr(args, "named_connection", None)
+    if named_conn:
+        resolver = NamedConnectionResolver(named_conn).load()
+        params = getattr(args, "connection_params", [])
+        config = resolver.resolve(SQLiteBackend, parse_params(params) if params else {})
+        db_path = ":memory:"
+    else:
+        db_path = args.db_file if args.db_file else ":memory:"
+        config = SQLiteConnectionConfig(database=db_path)
     backend = SQLiteBackend(connection_config=config)
 
     try:
@@ -848,8 +878,14 @@ def handle_status(args, provider):
 
     Display SQLite server status overview.
     """
-    db_path = args.db_file if args.db_file else ":memory:"
-    config = SQLiteConnectionConfig(database=db_path)
+    named_conn = getattr(args, "named_connection", None)
+    if named_conn:
+        resolver = NamedConnectionResolver(named_conn).load()
+        params = getattr(args, "connection_params", [])
+        config = resolver.resolve(SQLiteBackend, parse_params(params) if params else {})
+    else:
+        db_path = args.db_file if args.db_file else ":memory:"
+        config = SQLiteConnectionConfig(database=db_path)
     backend = SQLiteBackend(connection_config=config)
 
     try:
@@ -1023,12 +1059,18 @@ def handle_named_query(args, provider):
     async_backend = None
     is_async = getattr(args, "is_async", False)
 
-    backend = None
+    def resolve_config():
+        named_conn = getattr(args, "named_connection", None)
+        if named_conn:
+            resolver = NamedConnectionResolver(named_conn).load()
+            params = getattr(args, "connection_params", [])
+            return resolver.resolve(SQLiteBackend, parse_params(params) if params else {})
+        db_path = args.db_file if args.db_file else ":memory:"
+        return SQLiteConnectionConfig(database=db_path)
 
     def backend_factory():
         nonlocal backend
-        db_path = args.db_file if args.db_file else ":memory:"
-        config = SQLiteConnectionConfig(database=db_path)
+        config = resolve_config()
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
         backend.introspect_and_adapt()
@@ -1051,8 +1093,7 @@ def handle_named_query(args, provider):
         def backend_async_factory():
             nonlocal async_backend
             from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
-            db_path = args.db_file if args.db_file else ":memory:"
-            config = SQLiteConnectionConfig(database=db_path)
+            config = resolve_config()
             async_backend = AsyncSQLiteBackend(connection_config=config)
             return async_backend
 
@@ -1094,10 +1135,37 @@ def handle_named_query(args, provider):
 def main():
     args = parse_args()
 
+    def parse_connection_params(params):
+        """Parse KEY=VALUE list into dict."""
+        result = {}
+        for param in params:
+            if "=" in param:
+                key, value = param.split("=", 1)
+                result[key] = value
+        return result
+
+    def resolve_config(args):
+        """Resolve connection config from named connection or explicit params."""
+        named_conn = getattr(args, "named_connection", None)
+        conn_params = getattr(args, "connection_params", [])
+
+        if conn_params:
+            conn_params = parse_connection_params(conn_params)
+        else:
+            conn_params = {}
+
+        if named_conn:
+            resolver = NamedConnectionResolver(named_conn).load()
+            config = resolver.resolve(SQLiteBackend, conn_params)
+            return config
+
+        # Fallback to explicit --db-file parameter
+        db_path = args.db_file if args.db_file else ":memory:"
+        return SQLiteConnectionConfig(database=db_path)
+
     # Backend factory functions for named-query/named-procedure subcommands
     def backend_factory():
-        db_path = args.db_file if args.db_file else ":memory:"
-        config = SQLiteConnectionConfig(database=db_path)
+        config = resolve_config(args)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
         backend.introspect_and_adapt()
@@ -1116,8 +1184,7 @@ def main():
 
     async def backend_async_factory():
         from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
-        db_path = args.db_file if args.db_file else ":memory:"
-        config = SQLiteConnectionConfig(database=db_path)
+        config = resolve_config(args)
         async_backend = AsyncSQLiteBackend(connection_config=config)
         return async_backend
 
@@ -1210,8 +1277,15 @@ def main():
         print(msg, file=sys.stderr)
         sys.exit(1)
 
-    db_path = args.db_file if args.db_file else ":memory:"
-    config = SQLiteConnectionConfig(database=db_path)
+    # Resolve config from named connection or explicit --db-file
+    named_conn = getattr(args, "named_connection", None)
+    if named_conn:
+        resolver = NamedConnectionResolver(named_conn).load()
+        params = getattr(args, "connection_params", [])
+        config = resolver.resolve(SQLiteBackend, parse_params(params) if params else {})
+    else:
+        db_path = args.db_file if args.db_file else ":memory:"
+        config = SQLiteConnectionConfig(database=db_path)
     backend = SQLiteBackend(connection_config=config)
 
     if args.executescript:
