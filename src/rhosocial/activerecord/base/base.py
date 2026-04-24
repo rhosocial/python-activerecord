@@ -325,7 +325,8 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             query = query.where(sql, params)
         else:
             pk_field_name = cls.primary_key()
-            query = query.where(f"{pk_field_name} = ?", (condition,))
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name) == condition)
         return query.one()
 
     @classmethod
@@ -358,8 +359,8 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
-            placeholders = ",".join(["?" for _ in condition])
-            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name).in_(condition))
         return query.all()
 
     @classmethod
@@ -820,7 +821,8 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             query = query.where(sql, params)
         else:
             pk_field_name = cls.primary_key()
-            query = query.where(f"{pk_field_name} = ?", (condition,))
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name) == condition)
         return await query.one()
 
     @classmethod
@@ -853,8 +855,8 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
-            placeholders = ",".join(["?" for _ in condition])
-            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name).in_(condition))
         return await query.all()
 
     @classmethod
