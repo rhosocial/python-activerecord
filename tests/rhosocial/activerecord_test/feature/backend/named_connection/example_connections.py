@@ -10,19 +10,18 @@ SQLite connections distinguish between file-based and in-memory databases.
 import tempfile
 import os
 
-from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import (
     SQLiteConnectionConfig,
     SQLiteInMemoryConfig,
 )
 
 
-def memory_db(backend_cls):
+def memory_db():
     """In-memory SQLite database connection."""
     return SQLiteInMemoryConfig()
 
 
-def file_db(backend_cls, delete_on_close: bool = True):
+def file_db(delete_on_close: bool = True):
     """File-based SQLite database connection.
 
     Creates a temporary file for the database.
@@ -37,7 +36,7 @@ def file_db(backend_cls, delete_on_close: bool = True):
     )
 
 
-def file_db_with_pragmas(backend_cls, journal_mode: str = "WAL"):
+def file_db_with_pragmas(journal_mode: str = "WAL"):
     """File-based SQLite connection with custom PRAGMA settings."""
     fd, db_path = tempfile.mkstemp(suffix=".sqlite")
     os.close(fd)
@@ -52,7 +51,7 @@ def file_db_with_pragmas(backend_cls, journal_mode: str = "WAL"):
     )
 
 
-def file_db_with_timeout(backend_cls, timeout: float = 5.0):
+def file_db_with_timeout(timeout: float = 5.0):
     """File-based SQLite connection with custom timeout setting."""
     if isinstance(timeout, str):
         timeout = float(timeout)

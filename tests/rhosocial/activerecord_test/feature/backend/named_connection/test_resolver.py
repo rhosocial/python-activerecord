@@ -65,7 +65,7 @@ class TestNamedConnectionResolverLoad:
         """Test loading a function successfully."""
         module = types.ModuleType("test_connections")
 
-        def test_func(backend_cls, pool_size: int = 5):
+        def test_func(pool_size: int = 5):
             return SQLiteInMemoryConfig()
 
         module.test_func = test_func
@@ -79,7 +79,7 @@ class TestNamedConnectionResolverLoad:
         module = types.ModuleType("test_connection_classes")
 
         class ConnectionFactory:
-            def __call__(self, backend_cls):
+            def __call__(self):
                 return SQLiteInMemoryConfig()
 
         module.ConnectionFactory = ConnectionFactory
@@ -119,28 +119,24 @@ class TestNamedConnectionResolverResolve:
         """Test resolving an in-memory SQLite connection."""
         module = types.ModuleType("test_connections")
 
-        def memory_db(backend_cls):
+        def memory_db():
             return SQLiteInMemoryConfig()
 
         module.memory_db = memory_db
         with patch("importlib.import_module", return_value=module):
-            config = NamedConnectionResolver("test_connections.memory_db").load().resolve(
-                SQLiteBackend, {}
-            )
+            config = NamedConnectionResolver("test_connections.memory_db").load().resolve({})
             assert isinstance(config, SQLiteInMemoryConfig)
 
     def test_resolve_file_connection(self):
         """Test resolving a file-based SQLite connection."""
         module = types.ModuleType("test_connections")
 
-        def file_db(backend_cls, path: str = "/tmp/test.sqlite"):
+        def file_db(path: str = "/tmp/test.sqlite"):
             return SQLiteConnectionConfig(database=path)
 
         module.file_db = file_db
         with patch("importlib.import_module", return_value=module):
-            config = NamedConnectionResolver("test_connections.file_db").load().resolve(
-                SQLiteBackend, {}
-            )
+            config = NamedConnectionResolver("test_connections.file_db").load().resolve({})
             assert isinstance(config, SQLiteConnectionConfig)
             assert config.database == "/tmp/test.sqlite"
 
@@ -148,13 +144,13 @@ class TestNamedConnectionResolverResolve:
         """Test resolving with user-provided parameters."""
         module = types.ModuleType("test_connections")
 
-        def file_db(backend_cls, path: str = "/tmp/default.sqlite"):
+        def file_db(path: str = "/tmp/default.sqlite"):
             return SQLiteConnectionConfig(database=path)
 
         module.file_db = file_db
         with patch("importlib.import_module", return_value=module):
             config = NamedConnectionResolver("test_connections.file_db").load().resolve(
-                SQLiteBackend, {"path": "/tmp/custom.sqlite"}
+                {"path": "/tmp/custom.sqlite"}
             )
             assert isinstance(config, SQLiteConnectionConfig)
             assert config.database == "/tmp/custom.sqlite"
@@ -163,46 +159,46 @@ class TestNamedConnectionResolverResolve:
         """Test resolve fails when required parameter is missing."""
         module = types.ModuleType("test_connections")
 
-        def file_db(backend_cls, path: str):
+        def file_db(path: str):
             return SQLiteConnectionConfig(database=path)
 
         module.file_db = file_db
         with patch("importlib.import_module", return_value=module):
             resolver = NamedConnectionResolver("test_connections.file_db").load()
             with pytest.raises(NamedConnectionMissingParameterError):
-                resolver.resolve(SQLiteBackend, {})
+                resolver.resolve({})
 
     def test_resolve_unknown_param(self):
         """Test resolve fails with unknown parameter."""
         module = types.ModuleType("test_connections")
 
-        def memory_db(backend_cls):
+        def memory_db():
             return SQLiteInMemoryConfig()
 
         module.memory_db = memory_db
         with patch("importlib.import_module", return_value=module):
             resolver = NamedConnectionResolver("test_connections.memory_db").load()
             with pytest.raises(NamedConnectionInvalidParameterError):
-                resolver.resolve(SQLiteBackend, {"unknown_param": "value"})
+                resolver.resolve({"unknown_param": "value"})
 
     def test_resolve_invalid_return_type(self):
         """Test resolve fails when callable returns non-BaseConfig."""
         module = types.ModuleType("test_connections")
 
-        def bad_connection(backend_cls):
+        def bad_connection():
             return "not a config"
 
         module.bad_connection = bad_connection
         with patch("importlib.import_module", return_value=module):
             resolver = NamedConnectionResolver("test_connections.bad_connection").load()
             with pytest.raises(NamedConnectionInvalidReturnTypeError):
-                resolver.resolve(SQLiteBackend, {})
+                resolver.resolve({})
 
     def test_resolve_before_load(self):
         """Test resolve before loading fails."""
         resolver = NamedConnectionResolver("myapp.connections.prod_db")
         with pytest.raises(NamedConnectionNotCallableError):
-            resolver.resolve(SQLiteBackend, {})
+            resolver.resolve({})
 
 
 class TestNamedConnectionResolverDescribe:
@@ -212,7 +208,7 @@ class TestNamedConnectionResolverDescribe:
         """Test describing a function."""
         module = types.ModuleType("test_connections")
 
-        def memory_db(backend_cls):
+        def memory_db():
             """In-memory SQLite database connection."""
             return SQLiteInMemoryConfig()
 
@@ -231,7 +227,7 @@ class TestNamedConnectionResolverDescribe:
         module = types.ModuleType("test_connection_classes")
 
         class ConnectionFactory:
-            def __call__(self, backend_cls):
+            def __call__(self):
                 return SQLiteInMemoryConfig()
 
         module.ConnectionFactory = ConnectionFactory
@@ -254,13 +250,13 @@ class TestResolveNamedConnection:
         """Test one-step resolve."""
         module = types.ModuleType("test_connections")
 
-        def memory_db(backend_cls):
+        def memory_db():
             return SQLiteInMemoryConfig()
 
         module.memory_db = memory_db
         with patch("importlib.import_module", return_value=module):
             config = resolve_named_connection(
-                "test_connections.memory_db", SQLiteBackend, {}
+                "test_connections.memory_db", {}
             )
             assert isinstance(config, SQLiteInMemoryConfig)
 
@@ -292,24 +288,24 @@ class TestListNamedConnectionsInModule:
             assert "memory_db" in names
             assert "file_db" in names
 
-    def test_list_excludes_no_backend_cls(self):
-        """Test that functions without backend_cls are excluded."""
+    def test_list_includes_all_callables(self):
+        """Test that all callable functions are included (no backend_cls required)."""
         module = types.ModuleType("test_connections")
 
-        def with_backend_cls(backend_cls, pool_size: int = 5):
+        def with_params(pool_size: int = 5):
             return SQLiteInMemoryConfig()
 
-        def no_backend_cls(pool_size: int = 5):
+        def no_params():
             return SQLiteInMemoryConfig()
 
-        module.with_backend_cls = with_backend_cls
-        module.no_backend_cls = no_backend_cls
+        module.with_params = with_params
+        module.no_params = no_params
 
         with patch("importlib.import_module", return_value=module):
             connections = list_named_connections_in_module("test_connections")
             names = [c["name"] for c in connections]
-            assert "with_backend_cls" in names
-            assert "no_backend_cls" not in names
+            assert "with_params" in names
+            assert "no_params" in names
 
 
 class TestSqliteNamedConnectionsIntegration:
@@ -319,7 +315,6 @@ class TestSqliteNamedConnectionsIntegration:
         """Test resolving the memory_db named connection."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db",
-            SQLiteBackend,
             {},
         )
         assert isinstance(config, SQLiteInMemoryConfig)
@@ -328,7 +323,6 @@ class TestSqliteNamedConnectionsIntegration:
         """Test resolving the file_db named connection."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
-            SQLiteBackend,
             {},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -339,18 +333,15 @@ class TestSqliteNamedConnectionsIntegration:
         """Test resolving file_db with custom delete_on_close parameter."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
-            SQLiteBackend,
             {"delete_on_close": "false"},
         )
         assert isinstance(config, SQLiteConnectionConfig)
-        # Factory function handles str-to-bool conversion
         assert config.delete_on_close is False
 
     def test_file_db_with_pragmas(self):
         """Test resolving file_db_with_pragmas named connection."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_pragmas",
-            SQLiteBackend,
             {},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -360,7 +351,6 @@ class TestSqliteNamedConnectionsIntegration:
         """Test resolving file_db_with_pragmas with custom journal_mode."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_pragmas",
-            SQLiteBackend,
             {"journal_mode": "DELETE"},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -370,7 +360,6 @@ class TestSqliteNamedConnectionsIntegration:
         """Test resolving file_db_with_timeout named connection."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_timeout",
-            SQLiteBackend,
             {},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -380,7 +369,6 @@ class TestSqliteNamedConnectionsIntegration:
         """Test resolving file_db_with_timeout with custom timeout."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_timeout",
-            SQLiteBackend,
             {"timeout": "10.0"},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -390,12 +378,10 @@ class TestSqliteNamedConnectionsIntegration:
         """Test that memory_db connection creates a connectable backend."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db",
-            SQLiteBackend,
             {},
         )
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
-        # Verify backend is functional by checking introspection
         assert backend._connection is not None
         backend.disconnect()
 
@@ -403,7 +389,6 @@ class TestSqliteNamedConnectionsIntegration:
         """Test that file_db connection creates a connectable backend."""
         config = resolve_named_connection(
             "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
-            SQLiteBackend,
             {},
         )
         backend = SQLiteBackend(connection_config=config)

@@ -34,6 +34,43 @@ print(f"Parameters: {params}")
 
 > 💡 **AI Prompt Example**: "I want to know what SQL statement this query would generate, but I don't want to actually execute it, is there a way?"
 
+### SQLite Default Value
+
+If you don't specify the `database` parameter, SQLite will use an in-memory database (`:memory:`):
+
+```python
+config = SQLiteConnectionConfig()  # database defaults to ':memory:'
+```
+
+This is useful for testing and temporary operations.
+
+### Environment Variable Configuration
+
+SQLite supports configuration via environment variables, which is especially useful in Kubernetes-managed containers:
+
+```bash
+export SQLITE_DATABASE=/data/app.db
+export SQLITE_TIMEOUT=30
+export SQLITE_URI=false
+export SQLITE_PRAGMA_FOREIGN_KEYS=ON
+export SQLITE_PRAGMA_JOURNAL_MODE=WAL
+```
+
+```python
+# Create config from environment variables
+config = SQLiteConnectionConfig.from_env()
+```
+
+Supported SQLite environment variables use the `SQLITE_` prefix, including:
+- `SQLITE_DATABASE` - Database file path
+- `SQLITE_TIMEOUT` - Connection timeout
+- `SQLITE_URI` - Use URI
+- `SQLITE_DETECT_TYPES` - Type detection mask
+- `SQLITE_DELETE_ON_CLOSE` - Delete file on close
+- `SQLITE_CACHED_STATEMENTS` - Statement cache size
+- `SQLITE_AUTOCOMMIT` - Auto-commit mode
+- `SQLITE_PRAGMA_*` - PRAGMA settings (e.g., `SQLITE_PRAGMA_JOURNAL_MODE=WAL`)
+
 ## Shared Backend Instance
 
 In a real application, you want all your models to share the same database connection pool. The framework handles this automatically if you configure the base class or the first model.
@@ -77,6 +114,85 @@ print(f"Parameters: {params}")
 ```
 
 > 💡 **AI Prompt Example**: "I want to test my query logic without connecting to a database, what should I do?"
+
+## Named Connection
+
+Named connections provide a way to externalize database connection configuration, allowing you to define configurations in separate Python modules with full IDE support and version control.
+
+### Defining Named Connections
+
+A named connection is a callable (function or class with `__call__` method) that must meet these requirements:
+
+1. Accept any named parameters (optional)
+2. Return value must be a `ConnectionConfig` subclass
+
+```python
+# myapp/connections/__init__.py
+
+# Function form
+def production_db(pool_size: int = 10):
+    """Get production database configuration."""
+    return MySQLConnectionConfig(
+        host="prod.example.com",
+        database="myapp",
+        user="app_user",
+        password="secret",  # Sensitive fields are automatically filtered
+        pool_size=pool_size
+    )
+
+def development_db(database: str = "dev.db"):
+    """Get development database configuration."""
+    return SQLiteConnectionConfig(database=database)
+
+# Class form (if state needs to be maintained)
+class ConnectionFactory:
+    def __call__(self, environment: str = "development"):
+        """Get database configuration based on environment."""
+        if environment == "production":
+            return MySQLConnectionConfig(host="prod.example.com", database="myapp")
+        return SQLiteConnectionConfig(database=f"{environment}.db")
+```
+
+### Using Named Connections
+
+```python
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.named_connection import resolve_named_connection
+
+# Method 1: Using convenience function
+config = resolve_named_connection("myapp.connections.production_db", {"pool_size": 20})
+ActiveRecord.configure(config, SQLiteBackend)
+
+# Method 2: Using resolver (more control)
+from rhosocial.activerecord.backend.named_connection import NamedConnectionResolver
+
+resolver = NamedConnectionResolver("myapp.connections.production_db").load()
+config = resolver.resolve({"pool_size": 20})
+ActiveRecord.configure(config, SQLiteBackend)
+
+# View configuration description (sensitive fields are filtered)
+print(resolver.describe())
+# Output: {'pool_size': 20, 'database': 'my_database.db', ...}
+```
+
+### Listing Available Connections
+
+```python
+from rhosocial.activerecord.backend.named_connection import list_named_connections_in_module
+
+# List all named connections in a module
+connections = list_named_connections_in_module("myapp.connections")
+print(connections)
+# Output: [{'name': 'production_db', 'doc': 'Get production database configuration.'}, ...]
+```
+
+### Important Notes
+
+- Named connections are a backend feature, independent of ActiveRecord models
+- Sensitive fields (passwords, secrets, etc.) are automatically filtered in `describe()` output
+- Configuration can be version-controlled alongside code
+- Supports dynamic parameters for easy environment switching
 
 ## Async Configuration (Preview)
 

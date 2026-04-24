@@ -14,16 +14,18 @@ Features:
     - Show connection description
 
 Usage Example:
-    >>> # Using named connection
-    >>> prog --named-connection myapp.connections.prod_db --db-file mydb.sqlite
+    >>> # Using named connection (SQLite)
+    >>> prog --named-connection myapp.connections.wal_db --param journal_mode=WAL
 
-    >>> # Using explicit parameters
-    >>> prog --host localhost --port 3306 --database myapp \\
-    ...     --username user --password secret --db-type mysql
+    >>> # Using named connection (MySQL)
+    >>> prog --named-connection myapp.connections.prod_db --param database=myapp
 
     >>> # Using named connection with parameter overrides
-    >>> prog --named-connection myapp.connections.prod_db \\
-    ...     --param pool_size=20 --db-file mydb.sqlite
+    >>> prog --named-connection myapp.connections.wal_db \\
+    ...     --param journal_mode=DELETE --param timeout=30
+
+    >>> # Using explicit parameters (SQLite)
+    >>> prog --db-file myapp.db --db-type sqlite
 
 Note:
     This module is for backend CLI tools. For programmatic access
@@ -31,10 +33,9 @@ Note:
 """
 import argparse
 import sys
-from typing import Any, Callable, Dict, Optional, Type, TYPE_CHECKING
+from typing import Any, Callable, Dict, Optional, TYPE_CHECKING
 
 if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.base.base import StorageBackend
     from rhosocial.activerecord.backend.config import BaseConfig
 
 
@@ -68,7 +69,6 @@ def parse_params(params: list) -> Dict[str, str]:
 
 def resolve_connection_config(
     args: Any,
-    backend_cls: Optional[Type["StorageBackend"]],
     named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],
 ) -> Optional["BaseConfig"]:
     """Resolve connection config from CLI arguments.
@@ -83,7 +83,6 @@ def resolve_connection_config(
         args: Parsed command-line arguments namespace. Must contain:
             - named_connection: Optional qualified name for named connection
             - param: List of KEY=VALUE parameter overrides
-        backend_cls: The backend class for resolving named connection.
         named_connection_resolver_factory: Factory to create resolver.
 
     Returns:
@@ -100,7 +99,7 @@ def resolve_connection_config(
     # Case 1: Named connection provided
     if named_conn:
         resolver = named_connection_resolver_factory(named_conn).load()
-        config = resolver.resolve(backend_cls, user_params)
+        config = resolver.resolve(user_params)
         return config
 
     # Case 2: Explicit parameters provided
@@ -183,7 +182,7 @@ def create_named_connection_parser(
   %(prog)s --show-connection myapp.connections.prod_db
 
   # Resolve connection config to JSON (dry-run)
-  %(prog)s --describe-connection myapp.connections.prod_db --param pool_size=20
+  %(prog)s --describe-connection myapp.connections.wal_db --param journal_mode=WAL
 """
     nc_parser = subparsers.add_parser(
         "named-connection",
@@ -218,14 +217,12 @@ def create_named_connection_parser(
 
 def handle_named_connection(
     args: Any,
-    backend_cls: Optional[Type["StorageBackend"]],
     named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],
 ) -> None:
     """Handle named-connection subcommand execution.
 
     Args:
         args: Parsed command-line arguments namespace.
-        backend_cls: The backend class for resolving named connection.
         named_connection_resolver_factory: Factory to create resolver.
     """
     if args.list_connections:
@@ -246,7 +243,7 @@ def handle_named_connection(
             print(f"{'Name':<30} {'Parameters':<40} {'Brief':<30}")
             print("-" * 100)
             for conn in connections:
-                params = conn["signature"].replace("backend_cls, ", "").replace("(backend_cls)", "")
+                params = conn["signature"]
                 brief = conn["brief"][:27] + "..." if len(conn["brief"]) > 30 else conn["brief"]
                 print(f"{conn['name']:<30} {params:<40} {brief:<30}")
 
@@ -264,9 +261,9 @@ def handle_named_connection(
             print(f"Type: {'Class' if info['is_class'] else 'Function'}")
             print(f"Docstring: {info['docstring']}")
             print(f"Signature: {info['signature']}")
-            print("Parameters (excluding 'backend_cls'):")
+            print("Parameters:")
             for name, param in info["parameters"].items():
-                default_str = f" default={param['default']}" if param["has_default"] else ""
+                default_str = f" default={param['default']}" if param['has_default'] else ""
                 print(f"  {name} {param['type']}{default_str}")
 
             if info.get("config_preview"):
@@ -283,7 +280,7 @@ def handle_named_connection(
         try:
             resolver = named_connection_resolver_factory(args.describe_connection).load()
             params = parse_params(getattr(args, "param", []))
-            config = resolver.resolve(backend_cls, params)
+            config = resolver.resolve(params)
 
             print("Resolved Configuration:")
             config_dict = config.to_dict()

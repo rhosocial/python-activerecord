@@ -34,6 +34,43 @@ print(f"参数: {params}")
 
 > 💡 **AI提示词示例**: "我想知道这个查询会生成什么样的SQL语句，但不想真的执行它，有什么办法吗？"
 
+### SQLite 特殊默认值
+
+如果不指定 `database` 参数，SQLite 会使用内存数据库 (`:memory:`)：
+
+```python
+config = SQLiteConnectionConfig()  #database 默认为 ':memory:'
+```
+
+这对于测试和临时操作非常有用。
+
+### 环境变量配置
+
+SQLite 支持从环境变量读取配置，这在 Kubernetes 管理的容器中特别有用：
+
+```bash
+export SQLITE_DATABASE=/data/app.db
+export SQLITE_TIMEOUT=30
+export SQLITE_URI=false
+export SQLITE_PRAGMA_FOREIGN_KEYS=ON
+export SQLITE_PRAGMA_JOURNAL_MODE=WAL
+```
+
+```python
+# 通过环境变量创建配置
+config = SQLiteConnectionConfig.from_env()
+```
+
+支持的 SQLite 环境变量前缀为 `SQLITE_`，特殊变量包括：
+- `SQLITE_DATABASE` - 数据库文件路径
+- `SQLITE_TIMEOUT` - 连接超时时间
+- `SQLITE_URI` - 是否使用 URI
+- `SQLITE_DETECT_TYPES` - 类型检测掩码
+- `SQLITE_DELETE_ON_CLOSE` - 关闭时删除文件
+- `SQLITE_CACHED_STATEMENTS` - 语句缓存数量
+- `SQLITE_AUTOCOMMIT` - 自动提交模式
+- `SQLITE_PRAGMA_*` - PRAGMA 设置（如 `SQLITE_PRAGMA_JOURNAL_MODE=WAL`）
+
 ## 共享后端实例 (Shared Backend Instance)
 
 在实际应用中，你希望所有模型共享同一个数据库连接池。如果你配置了基类或第一个模型，框架会自动处理这一点。
@@ -77,6 +114,85 @@ print(f"参数: {params}")
 ```
 
 > 💡 **AI提示词示例**: "我想在不连接数据库的情况下测试我的查询逻辑是否正确，应该怎么做？"
+
+## 命名连接 (Named Connection)
+
+命名连接是一种将数据库连接配置外部化的方式，允许你将配置定义在独立的 Python 模块中，享受完整的 IDE 支持和版本控制。
+
+### 定义命名连接
+
+命名连接是一个可调用对象(函数或带有 `__call__` 方法的类),必须满足以下条件:
+
+1. 接受任意命名参数(可选)
+2. 返回值必须是 `ConnectionConfig` 子类对象
+
+```python
+# myapp/connections/__init__.py
+
+# 函数形式
+def production_db(pool_size: int = 10):
+    """获取生产环境数据库配置。"""
+    return MySQLConnectionConfig(
+        host="prod.example.com",
+        database="myapp",
+        user="app_user",
+        password="secret",  # 敏感字段会被自动过滤
+        pool_size=pool_size
+    )
+
+def development_db(database: str = "dev.db"):
+    """获取开发环境数据库配置。"""
+    return SQLiteConnectionConfig(database=database)
+
+# 类形式(如果需要维护状态)
+class ConnectionFactory:
+    def __call__(self, environment: str = "development"):
+        """根据环境获取数据库配置。"""
+        if environment == "production":
+            return MySQLConnectionConfig(host="prod.example.com", database="myapp")
+        return SQLiteConnectionConfig(database=f"{environment}.db")
+```
+
+### 使用命名连接
+
+```python
+from rhosocial.activerecord.model import ActiveRecord
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+from rhosocial.activerecord.backend.named_connection import resolve_named_connection
+
+# 方式1: 使用便捷函数
+config = resolve_named_connection("myapp.connections.production_db", {"pool_size": 20})
+ActiveRecord.configure(config, SQLiteBackend)
+
+# 方式2: 使用解析器(更多控制)
+from rhosocial.activerecord.backend.named_connection import NamedConnectionResolver
+
+resolver = NamedConnectionResolver("myapp.connections.production_db").load()
+config = resolver.resolve({"pool_size": 20})
+ActiveRecord.configure(config, SQLiteBackend)
+
+# 查看配置描述(敏感字段会被过滤)
+print(resolver.describe())
+# 输出类似: {'pool_size': 20, 'database': 'my_database.db', ...}
+```
+
+### 列出可用连接
+
+```python
+from rhosocial.activerecord.backend.named_connection import list_named_connections_in_module
+
+# 列出模块中所有命名连接
+connections = list_named_connections_in_module("myapp.connections")
+print(connections)
+# 输出: [{'name': 'production_db', 'doc': '获取生产环境数据库配置。'}, ...]
+```
+
+### 重要说明
+
+- 命名连接是后端特性,独立于 ActiveRecord 模型
+- 敏感字段(密码、密钥等)在 `describe()` 输出中会被自动过滤
+- 配置文件可以与代码一起进行版本控制
+- 支持动态参数,便于在不同环境间切换
 
 ## 异步配置 (预览)
 
