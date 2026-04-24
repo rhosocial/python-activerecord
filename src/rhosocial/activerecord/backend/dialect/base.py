@@ -1179,7 +1179,7 @@ class SQLDialectBase:
             elif isinstance(value, (int, float)):
                 storage_parts.append(f"{key.upper()} = {value}")
             else:
-                storage_parts.append(f"{key.upper()} = ?")
+                storage_parts.append(f"{key.upper()} = {self.get_parameter_placeholder()}")
                 params.append(value)
         if storage_parts:
             return " WITH (" + ", ".join(storage_parts) + ")", tuple(params)

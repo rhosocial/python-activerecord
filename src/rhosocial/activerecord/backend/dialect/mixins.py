@@ -651,7 +651,7 @@ class JSONMixin:
             col_sql, col_params = expr.column.to_sql()
         else:
             col_sql, col_params = self.format_identifier(str(expr.column)), ()
-        sql = f"({col_sql} {expr.operation} ?)"
+        sql = f"({col_sql} {expr.operation} {self.get_parameter_placeholder()})"
         params = col_params + (expr.path,)
 
         # Apply type casts if any (before alias)
@@ -1003,7 +1003,7 @@ class TemporalTableMixin:
         sql_parts, params = ["FOR SYSTEM_TIME"], []
         # Add temporal options to SQL parts based on the options provided
         for key, value in options.items():
-            sql_parts.append(f"{key.upper()} ?")
+            sql_parts.append(f"{key.upper()} {self.get_parameter_placeholder()}")
             params.append(value)
         return " ".join(sql_parts), tuple(params)
 
@@ -1532,15 +1532,16 @@ class IndexMixin:
 
         cols_str = ", ".join(self.format_identifier(c) for c in columns)
 
+        ph = self.get_parameter_placeholder()
         if mode:
             mode_upper = mode.upper()
             if mode_upper == "BOOLEAN":
-                return f"MATCH({cols_str}) AGAINST(? IN BOOLEAN MODE)", (search_term,)
+                return f"MATCH({cols_str}) AGAINST({ph} IN BOOLEAN MODE)", (search_term,)
             elif mode_upper in ("QUERY EXPANSION", "WITH QUERY EXPANSION"):
-                return f"MATCH({cols_str}) AGAINST(? WITH QUERY EXPANSION)", (search_term,)
+                return f"MATCH({cols_str}) AGAINST({ph} WITH QUERY EXPANSION)", (search_term,)
 
         # Default: NATURAL LANGUAGE MODE
-        return f"MATCH({cols_str}) AGAINST(? IN NATURAL LANGUAGE MODE)", (search_term,)
+        return f"MATCH({cols_str}) AGAINST({ph} IN NATURAL LANGUAGE MODE)", (search_term,)
 
     def format_create_fulltext_index_statement(self, expr: "CreateFulltextIndexExpression") -> Tuple[str, tuple]:
         """Format CREATE FULLTEXT INDEX statement from expression object."""
@@ -1768,10 +1769,11 @@ class ILIKEMixin:
             col_sql = str(column)
 
         # Use LOWER() for case-insensitive comparison
+        ph = self.get_parameter_placeholder()
         if negate:
-            sql = f"LOWER({col_sql}) NOT LIKE LOWER(?)"
+            sql = f"LOWER({col_sql}) NOT LIKE LOWER({ph})"
         else:
-            sql = f"LOWER({col_sql}) LIKE LOWER(?)"
+            sql = f"LOWER({col_sql}) LIKE LOWER({ph})"
 
         return sql, (pattern.lower(),)
 
