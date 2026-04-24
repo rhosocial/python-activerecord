@@ -5,6 +5,39 @@
 
 ---
 
+## System Overview
+
+Named backend includes three core features to help manage and execute database operations:
+
+```mermaid
+flowchart TB
+    subgraph Named Backend
+        A[Named Query] --> B[Named Procedure]
+        B --> C[Named Connection]
+    end
+    
+    D[CLI Tools] -->|invoke| A
+    D -->|invoke| B
+    D -->|invoke| C
+    E[Python API] -->|invoke| A
+    E -->|invoke| B
+    E -->|invoke| C
+    F[CI/CD] -->|dry-run| A
+    F -->|dry-run| C
+```
+
+### Feature Comparison
+
+| Feature | Use Case | Typical Scenario |
+|---------|---------|---------------|
+| **Named Query** | Encapsulate SQL queries as functions | Single SELECT/UPDATE/DELETE |
+| **Named Procedure** | Multi-step business process orchestration | Batch archiving, cross-table operations |
+| **Named Connection** | Externalize database configuration | Environment switching, multi-tenancy |
+
+> **Important**: This is a **backend feature**, independent of ActiveRecord pattern and ActiveQuery.
+
+---
+
 ## Table of Contents
 
 1. [Why Named Query?](#1-why-named-query)

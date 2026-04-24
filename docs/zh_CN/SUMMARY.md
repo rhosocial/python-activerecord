@@ -110,7 +110,11 @@
 * [数据库内省](backend/introspection.md)
 * [查询解释接口](backend/explain.md)
 * [自定义后端](backend/custom_backend.md)
+
+### 命名后端 (Named Backend)
+
 * [命名查询](backend/named_query.md)
+* [命名连接](backend/named_connection.md)
 
 ### 表达式系统
 
