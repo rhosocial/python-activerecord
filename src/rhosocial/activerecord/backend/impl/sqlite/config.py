@@ -113,7 +113,8 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
     """
 
     def __post_init__(self):
-        """Ensure database has a valid default."""
+        """Initialize with default pragmas and ensure valid database."""
+        SQLitePragmaMixin.__post_init__(self)
         if self.database is None:
             self.database = SQLITE_MEMORY_DB
 

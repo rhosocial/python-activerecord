@@ -4,6 +4,39 @@
 
 ---
 
+## 系统概览
+
+命名后端功能包含三个核心特性,帮助您更好地管理和执行数据库操作:
+
+```mermaid
+flowchart TB
+    subgraph 命名后端
+        A[命名查询<br/>Named Query] --> B[命名过程<br/>Named Procedure]
+        B --> C[命名连接<br/>Named Connection]
+    end
+    
+    D[CLI 工具] -->|调用| A
+    D -->|调用| B
+    D -->|调用| C
+    E[Python API] -->|调用| A
+    E -->|调用| B
+    E -->|调用| C
+    F[CI/CD] -->|dry-run| A
+    F -->|dry-run| C
+```
+
+### 功能对比
+
+| 特性 | 用途 | 典型场景 |
+|------|------|---------|
+| **命名查询** | 将 SQL 查询封装为函数 | 单条 SELECT/UPDATE/DELETE |
+| **命名过程** | 多步骤业务流程编排 | 批量归档、跨表操作 |
+| **命名连接** | 数据库配置外部化 | 环境切换、多租户 |
+
+> **重要**: 这些都是**后端功能**,与 ActiveRecord 模型和 ActiveQuery 无关。
+
+---
+
 ## 目录
 
 1. [为什么需要命名查询?](#1-为什么需要命名查询)
