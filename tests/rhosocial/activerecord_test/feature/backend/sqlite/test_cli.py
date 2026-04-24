@@ -31,27 +31,27 @@ class TestConnectionConfigPriority:
     def test_default_is_memory(self):
         """Test that default database is :memory:."""
         args = MockArgs()
-        from rhosocial.activerecord.backend.impl.sqlite.__main__ import _resolve_connection_config
+        from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
-        with patch("rhosocial.activerecord.backend.impl.sqlite.__main__.NamedConnectionResolver") as mock_resolver:
-            config = _resolve_connection_config(args)
+        with patch("rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver") as mock_resolver:
+            config = resolve_connection_config_from_args(args)
 
         assert config.database == ":memory:"
 
     def test_db_file_only(self):
         """Test --db-file without named connection."""
         args = MockArgs(db_file="/tmp/test.db")
-        from rhosocial.activerecord.backend.impl.sqlite.__main__ import _resolve_connection_config
+        from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
-        with patch("rhosocial.activerecord.backend.impl.sqlite.__main__.NamedConnectionResolver"):
-            config = _resolve_connection_config(args)
+        with patch("rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver"):
+            config = resolve_connection_config_from_args(args)
 
         assert config.database == "/tmp/test.db"
 
     def test_named_connection_only(self):
         """Test --named-connection without --db-file."""
         args = MockArgs(named_connection="myapp.connections.prod_db")
-        from rhosocial.activerecord.backend.impl.sqlite.__main__ import _resolve_connection_config
+        from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
         mock_resolver = MagicMock()
         mock_config = SQLiteConnectionConfig(database="/prod/path.db")
@@ -59,10 +59,10 @@ class TestConnectionConfigPriority:
         mock_resolver.resolve.return_value = mock_config
 
         with patch(
-            "rhosocial.activerecord.backend.impl.sqlite.__main__.NamedConnectionResolver",
+            "rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver",
             return_value=mock_resolver,
         ):
-            config = _resolve_connection_config(args)
+            config = resolve_connection_config_from_args(args)
 
         mock_resolver.load.assert_called_once()
         mock_resolver.resolve.assert_called_once_with({})
@@ -74,7 +74,7 @@ class TestConnectionConfigPriority:
             named_connection="myapp.connections.prod_db",
             connection_params=["database=/custom/path.db", "timeout=30"],
         )
-        from rhosocial.activerecord.backend.impl.sqlite.__main__ import _resolve_connection_config
+        from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
         mock_resolver = MagicMock()
         mock_config = SQLiteConnectionConfig(database="/prod/path.db", timeout=10.0)
@@ -82,10 +82,10 @@ class TestConnectionConfigPriority:
         mock_resolver.resolve.return_value = mock_config
 
         with patch(
-            "rhosocial.activerecord.backend.impl.sqlite.__main__.NamedConnectionResolver",
+            "rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver",
             return_value=mock_resolver,
         ):
-            config = _resolve_connection_config(args)
+            config = resolve_connection_config_from_args(args)
 
         mock_resolver.resolve.assert_called_once_with(
             {"database": "/custom/path.db", "timeout": "30"}
@@ -97,7 +97,7 @@ class TestConnectionConfigPriority:
             named_connection="myapp.connections.prod_db",
             db_file="/overridden/path.db",
         )
-        from rhosocial.activerecord.backend.impl.sqlite.__main__ import _resolve_connection_config
+        from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
         mock_resolver = MagicMock()
         mock_config = SQLiteConnectionConfig(database="/prod/path.db")
@@ -105,10 +105,10 @@ class TestConnectionConfigPriority:
         mock_resolver.resolve.return_value = mock_config
 
         with patch(
-            "rhosocial.activerecord.backend.impl.sqlite.__main__.NamedConnectionResolver",
+            "rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver",
             return_value=mock_resolver,
         ):
-            config = _resolve_connection_config(args)
+            config = resolve_connection_config_from_args(args)
 
         mock_resolver.resolve.assert_called_once_with({})
         assert config.database == "/overridden/path.db"
@@ -119,10 +119,10 @@ class TestConnectionConfigPriority:
             db_file="/explicit/path.db",
             connection_params=["timeout=60"],
         )
-        from rhosocial.activerecord.backend.impl.sqlite.__main__ import _resolve_connection_config
+        from rhosocial.activerecord.backend.impl.sqlite.cli.connection import resolve_connection_config_from_args
 
-        with patch("rhosocial.activerecord.backend.impl.sqlite.__main__.NamedConnectionResolver"):
-            config = _resolve_connection_config(args)
+        with patch("rhosocial.activerecord.backend.impl.sqlite.cli.connection.NamedConnectionResolver"):
+            config = resolve_connection_config_from_args(args)
 
         assert config.database == "/explicit/path.db"
 
