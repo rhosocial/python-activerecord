@@ -7,21 +7,21 @@ Python callables (functions or classes) with fully qualified names.
 
 A named connection is a callable (function, class instance with __call__, or method) that:
 - Resides in a Python module
-- Has 'backend_cls' as its first parameter (after 'self' for classes)
 - Returns a ConnectionConfig (BaseConfig subclass) object
 
 Named Connection Discovery:
-    Named connections are discovered by scanning modules for callables with 'backend_cls'
-    as the first parameter. Both functions and class instances are supported.
+    Named connections are discovered by scanning modules for callables
+    that return a ConnectionConfig subclass. Both functions and class
+    instances are supported.
 
     Example function:
-        >>> def production_db(backend_cls, pool_size: int = 10):
+        >>> def production_db(pool_size: int = 10):
         ...     '''Get production database configuration.'''
         ...     return MySQLConnectionConfig(host="prod.example.com", pool_size=pool_size)
 
     Example class:
         >>> class ConnectionFactory:
-        ...     def __call__(self, backend_cls, pool_size: int = 10):
+        ...     def __call__(self, pool_size: int = 10):
         ...         '''Get production database configuration.'''
         ...         return MySQLConnectionConfig(host="prod.example.com", pool_size=pool_size)
 
@@ -30,7 +30,7 @@ Usage:
         >>> from rhosocial.activerecord.backend.named_connection import NamedConnectionResolver
         >>> resolver = NamedConnectionResolver("myapp.connections.prod_db").load()
         >>> info = resolver.describe()
-        >>> config = resolver.resolve(SQLiteBackend)
+        >>> config = resolver.resolve({"pool_size": 20})
 
     Listing all connections in a module:
         >>> from rhosocial.activerecord.backend.named_connection import list_named_connections_in_module
@@ -39,7 +39,7 @@ Usage:
 import inspect
 import importlib
 import re
-from typing import Any, Callable, Dict, List, Optional, Tuple, Type, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.config import BaseConfig
 
@@ -52,9 +52,6 @@ from .exceptions import (
     NamedConnectionNotFoundError,
 )
 from .validators import validate_connection_config, filter_sensitive_fields
-
-if TYPE_CHECKING:
-    from rhosocial.activerecord.backend.base.base import StorageBackend
 
 
 class NamedConnectionResolver:
@@ -82,7 +79,7 @@ class NamedConnectionResolver:
         >>> resolver.load()
         >>> info = resolver.describe()
         >>> print(f"Parameters: {info['parameters']}")
-        >>> config = resolver.resolve(SQLiteBackend, {"pool_size": 20})
+        >>> config = resolver.resolve({"pool_size": 20})
     """
 
     def __init__(self, qualified_name: str):
@@ -192,7 +189,7 @@ class NamedConnectionResolver:
         return inspect.signature(self._target_callable)
 
     def get_user_params(self) -> List[str]:
-        """Get parameter names excluding 'backend_cls' and 'self'.
+        """Get parameter names excluding 'self'.
 
         Returns:
             List[str]: List of user-facing parameter names.
@@ -200,7 +197,7 @@ class NamedConnectionResolver:
         sig = self.get_signature()
         params = []
         for name, _param in sig.parameters.items():
-            if name in ("backend_cls", "self"):
+            if name == "self":
                 continue
             params.append(name)
         return params
@@ -229,7 +226,7 @@ class NamedConnectionResolver:
 
         params_info = {}
         for name, param in sig.parameters.items():
-            if name in ("backend_cls", "self"):
+            if name == "self":
                 continue
             param_info = {
                 "name": name,
@@ -247,9 +244,7 @@ class NamedConnectionResolver:
         # Execute to get config preview (without sensitive fields)
         config_preview = {}
         try:
-            config = self._target_callable(
-                backend_cls=None,  # type: ignore
-            )
+            config = self._target_callable()
             if isinstance(config, BaseConfig):
                 raw_dict = config.to_dict()
                 config_preview = filter_sensitive_fields(raw_dict)
@@ -267,15 +262,12 @@ class NamedConnectionResolver:
 
     def resolve(
         self,
-        backend_cls: Optional[Type["StorageBackend"]],
         user_params: Optional[Dict[str, Any]] = None,
     ) -> BaseConfig:
         """Resolve and return the ConnectionConfig from the named connection.
 
         Args:
-            backend_cls: The backend class to pass as first parameter.
-                Can be None if the callable doesn't use it.
-            user_params: User-provided parameters (excluding backend_cls and self).
+            user_params: User-provided parameters (excluding self).
 
         Returns:
             BaseConfig: The ConnectionConfig instance returned by the callable.
@@ -296,12 +288,10 @@ class NamedConnectionResolver:
         user_params = user_params or {}
         sig = self.get_signature()
 
-        resolved_params: Dict[str, Any] = {"backend_cls": backend_cls}
+        resolved_params: Dict[str, Any] = {}
 
         param_names = set()
         for name, param in sig.parameters.items():
-            if name == "backend_cls":
-                continue
             if name == "self":
                 continue
             param_names.add(name)
@@ -347,7 +337,6 @@ class NamedConnectionResolver:
                 f"Check that all parameters are valid.",
             ) from None
 
-        # Validate return type
         validate_connection_config(result, self._qualified_name)
 
         return result
@@ -355,7 +344,6 @@ class NamedConnectionResolver:
 
 def resolve_named_connection(
     qualified_name: str,
-    backend_cls: Optional[Type["StorageBackend"]],
     user_params: Optional[Dict[str, Any]] = None,
 ) -> BaseConfig:
     """Resolve and execute a named connection in one step.
@@ -365,8 +353,7 @@ def resolve_named_connection(
 
     Args:
         qualified_name: Fully qualified Python name (module.path.callable).
-        backend_cls: The backend class (automatically injected as first param).
-        user_params: User-provided parameters (excluding backend_cls).
+        user_params: User-provided parameters.
 
     Returns:
         BaseConfig: The ConnectionConfig instance.
@@ -375,12 +362,11 @@ def resolve_named_connection(
         >>> from rhosocial.activerecord.backend.named_connection import resolve_named_connection
         >>> config = resolve_named_connection(
         ...     "myapp.connections.prod_db",
-        ...     SQLiteBackend,
         ...     {"pool_size": 20}
         ... )
     """
     resolver = NamedConnectionResolver(qualified_name).load()
-    return resolver.resolve(backend_cls, user_params)
+    return resolver.resolve(user_params)
 
 
 def list_named_connections_in_module(module_name: str) -> List[Dict[str, Any]]:
@@ -433,17 +419,15 @@ def list_named_connections_in_module(module_name: str) -> List[Dict[str, Any]]:
             except (ValueError, TypeError):
                 continue
 
-            first_param = next(iter(sig.parameters), None)
-            if first_param and first_param == "backend_cls":
-                results.append(
-                    {
-                        "name": name,
-                        "is_class": True,
-                        "signature": str(sig),
-                        "docstring": full_doc,
-                        "brief": brief,
-                    }
-                )
+            results.append(
+                {
+                    "name": name,
+                    "is_class": True,
+                    "signature": str(sig),
+                    "docstring": full_doc,
+                    "brief": brief,
+                }
+            )
 
         elif inspect.isfunction(obj):
             try:
@@ -451,16 +435,14 @@ def list_named_connections_in_module(module_name: str) -> List[Dict[str, Any]]:
             except (ValueError, TypeError):
                 continue
 
-            first_param = next(iter(sig.parameters), None)
-            if first_param and first_param == "backend_cls":
-                results.append(
-                    {
-                        "name": name,
-                        "is_class": False,
-                        "signature": str(sig),
-                        "docstring": full_doc,
-                        "brief": brief,
-                    }
-                )
+            results.append(
+                {
+                    "name": name,
+                    "is_class": False,
+                    "signature": str(sig),
+                    "docstring": full_doc,
+                    "brief": brief,
+                }
+            )
 
     return results

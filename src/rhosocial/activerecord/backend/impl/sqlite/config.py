@@ -34,6 +34,9 @@ class SQLiteDriverProtocol(Protocol):
     timeout: float
     isolation_level: Optional[str]
     detect_types: int
+    check_same_thread: bool
+    cached_statements: int
+    autocommit: bool
 
 
 @runtime_checkable
@@ -81,6 +84,8 @@ class SQLiteDriverMixin:
     isolation_level: Optional[str] = None
     detect_types: int = sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES
     check_same_thread: bool = True
+    cached_statements: int = 128
+    autocommit: bool = False
 
 
 @dataclass
@@ -107,21 +112,27 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
     parameters and functionality.
     """
 
+    def __post_init__(self):
+        """Ensure database has a valid default."""
+        if self.database is None:
+            self.database = SQLITE_MEMORY_DB
+
     def to_dict(self) -> dict:
         """Convert config to dictionary, including SQLite specific parameters."""
-        # Get base dictionary from parent class
         result = super().to_dict()
 
-        # Add pragmas to the options dictionary
         if "options" not in result:
             result["options"] = {}
 
         if self.pragmas:
             result["options"]["pragmas"] = self.pragmas
 
-        # Add other SQLite-specific parameters that aren't in the base class
         if self.uri:
             result["options"]["uri"] = self.uri
+        if self.cached_statements != 128:
+            result["options"]["cached_statements"] = self.cached_statements
+        if self.autocommit:
+            result["options"]["autocommit"] = self.autocommit
 
         return result
 
@@ -155,6 +166,15 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
             if value is not None:
                 try:
                     return float(value)
+                except ValueError:
+                    pass
+            return None
+
+        def get_env_int(key: str) -> Optional[int]:
+            value = get_env(key)
+            if value is not None:
+                try:
+                    return int(value)
                 except ValueError:
                     pass
             return None
@@ -195,6 +215,8 @@ class SQLiteConnectionConfig(ConnectionConfig, SQLitePragmaMixin, SQLiteDriverMi
             isolation_level=get_env("ISOLATION_LEVEL"),
             detect_types=int(get_env("DETECT_TYPES") or (sqlite3.PARSE_DECLTYPES | sqlite3.PARSE_COLNAMES)),
             delete_on_close=get_env_bool("DELETE_ON_CLOSE") or False,
+            cached_statements=get_env_int("CACHED_STATEMENTS") or 128,
+            autocommit=get_env_bool("AUTOCOMMIT") or False,
         )
 
 
