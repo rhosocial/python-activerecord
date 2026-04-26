@@ -413,3 +413,37 @@ class SQLiteVirtualTableSupport(Protocol):
             ('NOT "docs" MATCH ?', ('python',))
         """
         ...
+
+
+@runtime_checkable
+class SQLiteReindexSupport(Protocol):
+    """Protocol for SQLite REINDEX statement support.
+
+    SQLite supports the REINDEX statement for rebuilding indexes.
+
+    Official Documentation:
+    - REINDEX: https://www.sqlite.org/lang_reindex.html
+
+    Version Requirements:
+    - REINDEX: All SQLite versions
+    - REINDEX EXPRESSIONS: SQLite 3.53.0+
+    """
+
+    def supports_reindex(self) -> bool:
+        """Whether REINDEX statement is supported."""
+        ...
+
+    def supports_reindex_expressions(self) -> bool:
+        """Whether REINDEX EXPRESSIONS is supported (SQLite 3.53.0+)."""
+        ...
+
+    def format_reindex_statement(self, expr: Any) -> Tuple[str, tuple]:
+        """Format REINDEX statement.
+
+        Args:
+            expr: SQLiteReindexExpression instance
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        ...
