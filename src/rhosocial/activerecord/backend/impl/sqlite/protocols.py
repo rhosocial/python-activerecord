@@ -161,6 +161,14 @@ class SQLiteVirtualTableSupport(Protocol):
         """Whether Geopoly virtual table is supported (SQLite 3.26.0+)."""
         ...
 
+    def supports_math_functions(self) -> bool:
+        """Whether built-in math functions are supported (SQLite 3.35.0+)."""
+        ...
+
+    def supports_json1_extension(self) -> bool:
+        """Whether json1 extension is available (SQLite 3.38.0+ or runtime detection)."""
+        ...
+
     # ========== FTS5 Capability Detection ==========
 
     def supports_fts5_bm25(self) -> bool:

@@ -18,6 +18,7 @@ def sqlite_backend_with_data():
     """Provides a SQLiteBackend connected to an in-memory database with test data."""
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
+    backend.introspect_and_adapt()
     dialect = backend.dialect
 
     # Create a test table
@@ -48,6 +49,36 @@ def sqlite_backend_with_data():
     backend.disconnect()
 
 
+def _check_math_functions():
+    """Check if math functions are supported via actual connection."""
+    try:
+        backend = SQLiteBackend(database=":memory:")
+        backend.connect()
+        backend.introspect_and_adapt()
+        dialect = backend.dialect
+        backend.disconnect()
+        return dialect.supports_math_functions()
+    except Exception:
+        return False
+
+
+def _check_json1_extension():
+    """Check if json1 extension is supported via actual connection."""
+    try:
+        backend = SQLiteBackend(database=":memory:")
+        backend.connect()
+        backend.introspect_and_adapt()
+        dialect = backend.dialect
+        backend.disconnect()
+        return dialect.supports_json1_extension()
+    except Exception:
+        return False
+
+
+@pytest.mark.skipif(
+    not _check_math_functions(),
+    reason="Math functions require SQLite 3.35.0+"
+)
 class TestMathFunctionsIntegration:
     """Integration tests for SQLite math functions with actual execution."""
 
@@ -219,6 +250,10 @@ class TestMathFunctionsIntegration:
         assert query_result.data[0]["avg_value"] == 47.0
 
 
+@pytest.mark.skipif(
+    not _check_json1_extension(),
+    reason="JSON functions require json1 extension (runtime detection)"
+)
 class TestJSONFunctionsIntegration:
     """Integration tests for SQLite JSON functions with actual execution."""
 
