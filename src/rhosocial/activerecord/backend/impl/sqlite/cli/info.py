@@ -169,7 +169,7 @@ def handle(args):
     info = {
         "database": _build_database_info(version_tuple),
         "features": {
-            "extensions": _build_extension_info(version_tuple),
+            "extensions": _build_extension_info(version_tuple, dialect),
             "pragmas": _build_pragma_info(),
         },
         "protocols": _build_protocol_info(dialect, args.verbose),
@@ -252,23 +252,39 @@ def _build_database_info(version_tuple: tuple) -> Dict[str, Any]:
     }
 
 
-def _build_extension_info(version_tuple: tuple) -> Dict[str, Any]:
-    """Build extension information structure."""
+def _build_extension_info(version_tuple: tuple, dialect: Any = None) -> Dict[str, Any]:
+    """Build extension information structure with runtime capability detection."""
     registry = get_registry()
     extensions = registry.detect_extensions(version_tuple)
     ext_info = {}
 
     for name, ext in extensions.items():
+        available = ext.installed
+
+        if not available and dialect is not None:
+            if name == "fts5":
+                available = dialect.supports_fts5()
+            elif name == "fts4":
+                available = dialect.get_runtime_param("fts4_available", False)
+            elif name == "fts3":
+                available = dialect.get_runtime_param("fts3_available", False)
+            elif name == "json1":
+                available = dialect.supports_json1_extension()
+            elif name == "rtree":
+                available = dialect.supports_rtree()
+            elif name == "geopoly":
+                available = dialect.supports_geopoly()
+
         ext_info[name] = {
             "type": ext.extension_type.name,
-            "available": ext.installed,
+            "available": available,
             "min_version": ".".join(map(str, ext.min_version)),
             "deprecated": ext.deprecated,
             "description": ext.description,
         }
         if ext.successor:
             ext_info[name]["successor"] = ext.successor
-        if ext.installed:
+        if available:
             features = registry.get_supported_features(name, version_tuple)
             if features:
                 ext_info[name]["features"] = features
