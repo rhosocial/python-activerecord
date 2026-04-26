@@ -5,6 +5,7 @@ from typing import Union, Type, Optional
 
 from ..interface import IQuery, IActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
+from .utils import convert_qmark_placeholder
 
 
 class JoinQueryMixin:
@@ -47,7 +48,8 @@ class JoinQueryMixin:
             return None
         dialect = self.backend().dialect
         if isinstance(on, str):
-            return RawSQLPredicate(dialect, on)
+            converted = convert_qmark_placeholder(dialect, on)
+            return RawSQLPredicate(dialect, converted)
         if isinstance(on, SQLPredicate):
             return on
         raise TypeError(f"Unsupported type for 'on' condition: {type(on)}")
