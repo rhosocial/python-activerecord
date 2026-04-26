@@ -16,8 +16,8 @@ from .config import SQLiteConnectionConfig
 from .dialect import SQLiteDialect
 from .adapters import SQLiteBlobAdapter, SQLiteJSONAdapter, SQLiteUUIDAdapter
 from .transaction import SQLiteTransactionManager
-from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, VirtualTableSupport
-from .mixins import SQLitePragmaMixin, SQLiteExtensionMixin, VirtualTableMixin
+from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteVirtualTableSupport
+from .mixins import SQLitePragmaMixin, SQLiteExtensionMixin, SQLiteVirtualTableMixin
 
 # EXPLAIN result types
 from .explain import (
@@ -151,10 +151,10 @@ __all__ = [
     # SQLite-specific protocols and mixins
     "SQLiteExtensionSupport",
     "SQLitePragmaSupport",
-    "VirtualTableSupport",
+    "SQLiteVirtualTableSupport",
     "SQLitePragmaMixin",
     "SQLiteExtensionMixin",
-    "VirtualTableMixin",
+    "SQLiteVirtualTableMixin",
     # EXPLAIN result types
     "SQLiteExplainRow",
     "SQLiteExplainQueryPlanRow",

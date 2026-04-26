@@ -3,12 +3,12 @@
 Concrete implementations of SQL predicate expressions (e.g., WHERE clause conditions).
 """
 
-from typing import TYPE_CHECKING
+from typing import TYPE_CHECKING, List, Optional
 
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams
 from .core import Literal
 
-if TYPE_CHECKING:  # pragma: no cover
+if TYPE_CHECKING: # pragma: no cover
     from .bases import SQLValueExpression
     from ..dialect import SQLDialectBase
 
