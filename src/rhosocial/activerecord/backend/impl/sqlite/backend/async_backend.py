@@ -9,7 +9,7 @@ Uses aiosqlite library for async SQLite operations.
 import logging
 import sqlite3
 import time
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiosqlite
 
