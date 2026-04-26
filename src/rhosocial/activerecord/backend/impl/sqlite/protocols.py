@@ -134,7 +134,7 @@ class SQLitePragmaSupport(Protocol):
 
 
 @runtime_checkable
-class VirtualTableSupport(Protocol):
+class SQLiteVirtualTableSupport(Protocol):
     """Protocol for SQLite virtual table support.
 
     Defines the interface for virtual table operations including
@@ -337,6 +337,25 @@ class VirtualTableSupport(Protocol):
         """
         ...
 
+    def format_fts5_offset_expression(
+        self,
+        table_name: str,
+        column: str,
+    ) -> Tuple[str, tuple]:
+        """Format offset() function expression.
+
+        The offset() function returns the byte offset of the current
+        match within the column content.
+
+        Args:
+            table_name: Name of the FTS5 virtual table
+            column: Column name to get offsets for
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        ...
+
     def format_fts5_drop_virtual_table(
         self,
         table_name: str,
@@ -350,5 +369,39 @@ class VirtualTableSupport(Protocol):
 
         Returns:
             Tuple of (SQL string, parameters tuple)
+        """
+        ...
+
+    # ========== FTS MATCH Predicate ==========
+
+    def format_match_predicate(
+        self,
+        table: str,
+        query: str,
+        columns: Optional[List[str]] = None,
+        negate: bool = False,
+    ) -> Tuple[str, tuple]:
+        """Format full-text search MATCH predicate.
+
+        This method formats a MATCH predicate for FTS virtual tables.
+        Unlike standard SQL predicates, this is SQLite-specific.
+
+        Args:
+            table: Name of the FTS table to match against
+            query: Full-text search query string
+            columns: Specific columns to search (None for all columns)
+            negate: If True, negate the match (NOT MATCH)
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+
+        Example:
+            >>> dialect.format_match_predicate('docs', 'python')
+            ('"docs" MATCH ?', ('python',))
+
+            >>> dialect.format_match_predicate(
+            ...     'docs', 'python', columns=['title'], negate=True
+            ... )
+            ('NOT "docs" MATCH ?', ('python',))
         """
         ...

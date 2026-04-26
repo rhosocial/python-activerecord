@@ -278,6 +278,27 @@ class FTS5Extension(SQLiteExtensionBase):
         sql = f'snippet("{table_name}", "{column}", ?, ?, ?, ?)'
         return sql, (prefix_marker, suffix_marker, ellipsis, context_tokens)
 
+    def format_offset_expression(
+        self,
+        table_name: str,
+        column: str,
+    ) -> Tuple[str, tuple]:
+        """Format offset() function expression.
+
+        The offset() function returns the byte offset of the current
+        match within the column content, useful for locating match
+        positions within documents.
+
+        Args:
+            table_name: Name of the FTS5 virtual table
+            column: Column name to get offsets for
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        sql = f'offset("{table_name}", "{column}")'
+        return sql, ()
+
     def format_drop_virtual_table(
         self,
         table_name: str,

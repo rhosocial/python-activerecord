@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/examples/extensions/fts3_4_basic.py
 """
 FTS3/FTS4 full-text search operations.
 
@@ -27,7 +28,6 @@ dialect = backend.dialect
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.extension.extensions.fts3_4 import FTS4Extension
 from rhosocial.activerecord.backend.expression import (
     Column,
     InsertExpression,
@@ -35,22 +35,22 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     TableExpression,
     FunctionCall,
+    WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
 
-# Get FTS4 extension (more features than FTS3)
-fts4 = FTS4Extension()
-
-# Create FTS4 virtual table using tokenizer=porter for stemming
-create_sql = '''
-CREATE VIRTUAL TABLE documents USING fts4(
-    title,
-    content,
-    tokenize=porter
+# Create FTS4 virtual table using the dialect's generic virtual table
+# formatting method. For FTS4, module='fts4' and tokenizer options
+# are passed via the options dict.
+create_sql, create_params = dialect.format_create_virtual_table(
+    module='fts4',
+    table_name='documents',
+    columns=['title', 'content'],
+    options={'tokenize': 'porter'},
 )
-'''
 
-backend.execute(create_sql, ())
+backend.execute(create_sql, create_params)
 print(f"Created FTS4 table")
 
 # Insert document data
@@ -73,47 +73,36 @@ for title, content in documents:
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
 
-# Full-text search using MATCH with QueryExpression
-# Note: MATCH requires raw SQL since it's not a standard SQL operator
-search_sql = 'SELECT * FROM documents WHERE documents MATCH ?'
-search_params = ('programming',)
+# Full-text search using SQLiteMatchPredicate with QueryExpression
+# SQLiteMatchPredicate delegates to the dialect's format_match_predicate,
+# which in turn calls the FTS extension's formatting logic.
+search_pred = SQLiteMatchPredicate(dialect, table='documents', query='programming')
 
-result = backend.execute(search_sql, search_params)
-print(f"\nSearch for 'programming': {len(result.data) if result.data else 0} rows")
-for row in result.data or []:
-    print(f"  {row}")
+# ... snippet query example ...
+# predicate is expressed via SQLiteMatchPredicate.
+snippet_pred = SQLiteMatchPredicate(dialect, table='documents', query='language')
 
-# Search with snippet() to highlight matches
-snippet_query = QueryExpression(
+# ... offsets query example ...
+offsets_pred = SQLiteMatchPredicate(dialect, table='documents', query='database')
+
+offsets_query = QueryExpression(
     dialect=dialect,
     select=[
         Column(dialect, 'title', table='documents'),
-        FunctionCall(dialect, 'snippet', Column(dialect, 'documents')).as_('snippet'),
+        FunctionCall(dialect, 'offsets', [Column(dialect, 'documents')]).as_('offsets'),
     ],
     from_=TableExpression(dialect, 'documents'),
-    where=Literal(dialect, 'language'),  # This would need MATCH, using literal as workaround
+    where=offsets_pred,
 )
+sql, params = offsets_query.to_sql()
 
-# For FTS, MATCH must be used with raw SQL
-snippet_sql = 'SELECT title, snippet(documents) AS snippet FROM documents WHERE documents MATCH ?'
-snippet_params = ('language',)
-
-result = backend.execute(snippet_sql, snippet_params)
-print(f"\nSearch with snippet for 'language': {len(result.data) if result.data else 0} rows")
-for row in result.data or []:
-    print(f"  {row}")
-
-# Search with offsets() to get match positions
-offsets_sql = 'SELECT title, offsets(documents) AS offsets FROM documents WHERE documents MATCH ?'
-offsets_params = ('database',)
-
-result = backend.execute(offsets_sql, offsets_params)
-print(f"\nSearch with offsets for 'database': {len(result.data) if result.data else 0} rows")
+result = backend.execute(sql, params, options=options)
+print(f"Search with offsets for 'database': {len(result.data) if result.data else 0} rows")
 for row in result.data or []:
     print(f"  {row}")
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-print("\nNOTE: FTS3/FTS4 are deprecated. Use FTS5 for new projects.")
+print("NOTE: FTS3/FTS4 are deprecated. Use FTS5 for new projects.")
 backend.disconnect()

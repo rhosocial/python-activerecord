@@ -225,7 +225,7 @@ class SQLitePragmaMixin:
         return {name: info for name, info in get_all_pragma_infos().items() if version >= info.min_version}
 
 
-class VirtualTableMixin(SQLiteExtensionMixin):
+class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     """Mixin for SQLite virtual table support.
 
     Provides methods for creating and managing virtual tables
@@ -502,6 +502,34 @@ class VirtualTableMixin(SQLiteExtensionMixin):
             negate=negate,
         )
 
+    def format_match_predicate(
+        self,
+        table: str,
+        query: str,
+        columns: Optional[List[str]] = None,
+        negate: bool = False,
+    ) -> Tuple[str, tuple]:
+        """Format full-text search MATCH predicate for FTS.
+
+        This method delegates to format_fts5_match_expression for
+        the actual formatting logic.
+
+        Args:
+            table: Name of the FTS table
+            query: Full-text search query string
+            columns: Specific columns to search (None for all columns)
+            negate: If True, negate the match (NOT MATCH)
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        return self.format_fts5_match_expression(
+            table_name=table,
+            query=query,
+            columns=columns,
+            negate=negate,
+        )
+
     def format_fts5_rank_expression(
         self,
         table_name: str,
@@ -587,6 +615,29 @@ class VirtualTableMixin(SQLiteExtensionMixin):
             suffix_marker=suffix_marker,
             context_tokens=context_tokens,
             ellipsis=ellipsis,
+        )
+
+    def format_fts5_offset_expression(
+        self,
+        table_name: str,
+        column: str,
+    ) -> Tuple[str, tuple]:
+        """Format offset() function expression.
+
+        The offset() function returns the byte offset of the current
+        match within the column content.
+
+        Args:
+            table_name: Name of the FTS5 virtual table
+            column: Column name to get offsets for
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        fts5 = get_fts5_extension()
+        return fts5.format_offset_expression(
+            table_name=table_name,
+            column=column,
         )
 
     def format_fts5_drop_virtual_table(

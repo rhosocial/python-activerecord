@@ -43,7 +43,7 @@ def get_all_protocol_methods(proto: type) -> set:
 
 
 SQLITE_PROTOCOLS = [
-    sqlite_protocols.VirtualTableSupport,
+    sqlite_protocols.SQLiteVirtualTableSupport,
     sqlite_protocols.SQLitePragmaSupport,
     sqlite_protocols.SQLiteExtensionSupport,
     dialect_protocols.CTESupport,

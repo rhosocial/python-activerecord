@@ -77,8 +77,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, VirtualTableSupport
-from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, VirtualTableMixin
+from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteVirtualTableSupport
+from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, SQLiteVirtualTableMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -151,7 +151,7 @@ class SQLiteDialect(
     # SQLite-specific mixins
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
-    VirtualTableMixin,
+    SQLiteVirtualTableMixin,
     # Protocols for type checking
     CTESupport,
     FilterClauseSupport,
@@ -185,7 +185,7 @@ class SQLiteDialect(
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
-    VirtualTableSupport,
+    SQLiteVirtualTableSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -747,6 +747,35 @@ class SQLiteDialect(
         """
         # SQLite does not support graph MATCH clause
         raise UnsupportedFeatureError(self.name, "graph MATCH clause", _SUGGESTION_GRAPH_MATCH)
+
+    def format_match_predicate(
+        self,
+        table: str,
+        query: str,
+        columns: Optional[List[str]] = None,
+        negate: bool = False,
+    ) -> Tuple[str, tuple]:
+        """Format full-text search MATCH predicate for FTS5.
+
+        SQLite supports the MATCH operator for full-text search via FTS5
+        virtual tables. This method generates the parameterized MATCH
+        expression by delegating to the FTS5 extension.
+
+        Args:
+            table: Name of the FTS5 virtual table
+            query: Full-text search query string
+            columns: Specific columns to search (None for all columns)
+            negate: If True, negate the match (NOT MATCH)
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        return self.format_fts5_match_expression(
+            table_name=table,
+            query=query,
+            columns=columns,
+            negate=negate,
+        )
 
     def format_ordered_set_aggregation(self, _aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """

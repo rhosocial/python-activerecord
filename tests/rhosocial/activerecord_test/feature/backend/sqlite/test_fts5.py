@@ -6,9 +6,10 @@ import sqlite3
 from rhosocial.activerecord.backend.impl.sqlite import (
     SQLiteDialect,
     SQLiteBackend,
-    SQLiteExtensionSupport,
-    VirtualTableMixin,
+    SQLiteVirtualTableSupport,
+    SQLiteVirtualTableMixin,
 )
+
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
@@ -17,14 +18,14 @@ class TestFTS5Support:
     """Test FTS5 support detection and protocol."""
 
     def test_fts5_support_protocol(self):
-        """Test that SQLiteDialect implements SQLiteExtensionSupport protocol."""
+        """Test that SQLiteDialect implements SQLiteVirtualTableSupport protocol."""
         dialect = SQLiteDialect()
-        assert isinstance(dialect, SQLiteExtensionSupport)
+        assert isinstance(dialect, SQLiteVirtualTableSupport)
 
     def test_fts5_mixin_included(self):
-        """Test that SQLiteDialect includes VirtualTableMixin."""
+        """Test that SQLiteDialect includes SQLiteVirtualTableMixin."""
         dialect = SQLiteDialect()
-        assert isinstance(dialect, VirtualTableMixin)
+        assert isinstance(dialect, SQLiteVirtualTableMixin)
 
     def test_fts5_supported_since_3_9_0(self):
         """Test FTS5 support detection for various versions."""
@@ -469,3 +470,85 @@ class TestFTS5Integration:
             ('cafe',)
         )
         assert len(results) == 1
+
+
+class TestMatchPredicate:
+    """Test SQLiteMatchPredicate expression class."""
+
+    def test_match_predicate_basic(self):
+        """Test basic SQLiteMatchPredicate expression."""
+        from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
+
+        dialect = SQLiteDialect(version=(3, 9, 0))
+        match_pred = SQLiteMatchPredicate(dialect, table='docs', query='python')
+
+        sql, params = match_pred.to_sql()
+        assert '"docs" MATCH ?' in sql
+        assert params == ('python',)
+
+    def test_match_predicate_with_columns(self):
+        """Test SQLiteMatchPredicate with specific columns."""
+        from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
+
+        dialect = SQLiteDialect(version=(3, 9, 0))
+        match_pred = SQLiteMatchPredicate(
+            dialect,
+            table='docs',
+            query='python',
+            columns=['title', 'content']
+        )
+
+        sql, params = match_pred.to_sql()
+        assert '"docs" MATCH ?' in sql
+        assert 'title:' in sql or 'title:' in str(params)
+
+    def test_match_predicate_negate(self):
+        """Test SQLiteMatchPredicate with negation."""
+        from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
+
+        dialect = SQLiteDialect(version=(3, 9, 0))
+        match_pred = SQLiteMatchPredicate(
+            dialect,
+            table='docs',
+            query='python',
+            negate=True
+        )
+
+        sql, params = match_pred.to_sql()
+        assert 'NOT' in sql
+        assert params == ('python',)
+
+
+class TestFormatMatchPredicate:
+    """Test dialect.format_match_predicate method."""
+
+    def test_format_match_predicate_basic(self):
+        """Test basic format_match_predicate."""
+        dialect = SQLiteDialect(version=(3, 9, 0))
+        sql, params = dialect.format_match_predicate(
+            table='docs',
+            query='python'
+        )
+        assert '"docs" MATCH ?' in sql
+        assert params == ('python',)
+
+    def test_format_match_predicate_with_columns(self):
+        """Test format_match_predicate with columns."""
+        dialect = SQLiteDialect(version=(3, 9, 0))
+        sql, params = dialect.format_match_predicate(
+            table='docs',
+            query='python',
+            columns=['title']
+        )
+        assert '"docs" MATCH ?' in sql
+
+    def test_format_match_predicate_negate(self):
+        """Test format_match_predicate with negation."""
+        dialect = SQLiteDialect(version=(3, 9, 0))
+        sql, params = dialect.format_match_predicate(
+            table='docs',
+            query='python',
+            negate=True
+        )
+        assert 'NOT' in sql
+        assert params == ('python',)
