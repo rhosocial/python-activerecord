@@ -41,7 +41,7 @@ jobs:
 
     - name: Run tests with coverage
       run: |
-        export PYTHONPATH=src
+        export PYTHONPATH=src:tests
         coverage run -m pytest tests/
         coverage xml
         coverage report
@@ -87,7 +87,7 @@ jobs:
 
     - name: Run tests
       run: |
-        export PYTHONPATH=src
+        export PYTHONPATH=src:tests
         python -m pytest tests/
 
   test-free-threaded:
@@ -122,6 +122,6 @@ jobs:
 
     - name: Run tests
       run: |
-        export PYTHONPATH=src
+        export PYTHONPATH=src:tests
         python -m pytest tests/
 
