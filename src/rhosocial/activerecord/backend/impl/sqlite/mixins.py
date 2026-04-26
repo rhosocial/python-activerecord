@@ -47,6 +47,7 @@ class SQLiteExtensionMixin:
     """
 
     _extension_registry: SQLiteExtensionRegistry = None
+    _runtime_params: Dict[str, Any] = {}
 
     def _ensure_extension_registry(self) -> SQLiteExtensionRegistry:
         """Ensure extension registry is initialized."""
@@ -54,6 +55,14 @@ class SQLiteExtensionMixin:
             self._extension_registry = get_registry()
             self._extension_registry.register(get_fts5_extension())
         return self._extension_registry
+
+    def set_runtime_param(self, key: str, value: Any) -> None:
+        """Set a runtime parameter (detected after connection)."""
+        self._runtime_params[key] = value
+
+    def get_runtime_param(self, key: str, default: Any = None) -> Any:
+        """Get a runtime parameter."""
+        return self._runtime_params.get(key, default)
 
     def detect_extensions(self) -> Dict[str, SQLiteExtensionInfo]:
         """Detect all available extensions.
@@ -246,19 +255,70 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         return version >= (3, 8, 8)
 
     def supports_rtree(self) -> bool:
-        """Whether R-Tree virtual table is supported."""
+        """Whether R-Tree virtual table is supported.
+
+        Requires SQLITE_ENABLE_RTREE compile option.
+        Falls back to version-based check if compile options not available.
+        """
+        compile_options = self.get_runtime_param("compile_options", {})
+        if compile_options:
+            return "ENABLE_RTREE" in compile_options
         version = getattr(self, "version", (3, 35, 0))
         return version >= (3, 6, 0)
 
     def supports_fts5(self) -> bool:
-        """Whether FTS5 virtual table is supported."""
+        """Whether FTS5 virtual table is supported.
+
+        Requires SQLITE_ENABLE_FTS5 compile option.
+        Falls back to version-based check if compile options not available.
+        """
+        compile_options = self.get_runtime_param("compile_options", {})
+        if compile_options:
+            return "ENABLE_FTS5" in compile_options
         version = getattr(self, "version", (3, 35, 0))
         return version >= (3, 9, 0)
 
     def supports_geopoly(self) -> bool:
-        """Whether Geopoly virtual table is supported."""
+        """Whether Geopoly virtual table is supported.
+
+        Requires SQLITE_ENABLE_GEOPOLY compile option.
+        Falls back to version-based check if compile options not available.
+        """
+        compile_options = self.get_runtime_param("compile_options", {})
+        if compile_options:
+            return "ENABLE_GEOPOLY" in compile_options
         version = getattr(self, "version", (3, 35, 0))
         return version >= (3, 26, 0)
+
+    def supports_math_functions(self) -> bool:
+        """Whether built-in math functions are supported.
+
+        SQLite 3.35.0+ includes built-in math functions, but they must be
+        enabled at compile time. Runtime detection is needed for older versions.
+
+        Returns:
+            True if math functions are supported
+        """
+        version = getattr(self, "version", (3, 35, 0))
+        if version >= (3, 35, 0):
+            return self.get_runtime_param("math_functions_available", True)
+        return False
+
+    def supports_json1_extension(self) -> bool:
+        """Whether json1 extension is available.
+
+        The json1 extension provides JSON functions. It was an optional
+        extension in older SQLite versions. Starting from 3.38.0,
+        it's built-in by default. Runtime detection is needed for
+        older versions.
+
+        Returns:
+            True if json1 extension is available
+        """
+        version = getattr(self, "version", (3, 35, 0))
+        if version >= (3, 38, 0):
+            return True
+        return self.get_runtime_param("json1_available", False)
 
     # ========== FTS5 Capability Detection ==========
 

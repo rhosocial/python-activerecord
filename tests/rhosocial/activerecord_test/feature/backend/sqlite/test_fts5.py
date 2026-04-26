@@ -341,6 +341,7 @@ class TestFTS5Integration:
         """Create in-memory SQLite backend."""
         backend = SQLiteBackend(database=":memory:")
         backend.connect()
+        backend.introspect_and_adapt()
         yield backend
         backend.disconnect()
 

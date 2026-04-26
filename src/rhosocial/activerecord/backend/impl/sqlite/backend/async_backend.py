@@ -429,12 +429,88 @@ class AsyncSQLiteBackend(
         self._dialect.version = version
         self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")
 
-        # For SQLite < 3.38.0, detect json1 extension availability at runtime
-        if version < (3, 38, 0):
-            json1_available = await self._detect_json1_extension()
-            self._dialect.set_runtime_param("json1_available", json1_available)
-            status = "available" if json1_available else "unavailable"
-            self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
+        # Detect math functions availability at runtime
+        math_available = await self._detect_math_functions()
+        self._dialect.set_runtime_param("math_functions_available", math_available)
+        status = "available" if math_available else "unavailable"
+        self.log(logging.INFO, f"Math functions runtime detection: {status}")
+
+        # Detect json1 extension availability at runtime
+        json1_available = await self._detect_json1_extension()
+        self._dialect.set_runtime_param("json1_available", json1_available)
+        status = "available" if json1_available else "unavailable"
+        self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
+
+        # Detect virtual table extensions availability via compile options
+        compile_options = await self.get_compile_options()
+        self._dialect.set_runtime_param("compile_options", compile_options)
+
+    async def _detect_math_functions(self) -> bool:
+        """Detect if math functions are available at runtime.
+
+        Returns False if no connection is established.
+        """
+        if self._connection is None:
+            return False
+        try:
+            cursor = await self._connection.cursor()
+            await cursor.execute("SELECT SQRT(4)")
+            await cursor.close()
+            return True
+        except Exception:
+            return False
+
+    async def _detect_json1_extension(self) -> bool:
+        """Detect if json1 extension is available at runtime.
+
+        Returns False if no connection is established.
+        """
+        if self._connection is None:
+            return False
+        try:
+            cursor = await self._connection.cursor()
+            await cursor.execute("SELECT json('{}')")
+            await cursor.close()
+            return True
+        except Exception:
+            return False
+
+    async def get_compile_options(self) -> Dict[str, str]:
+        """Get SQLite compile options from PRAGMA compile_options.
+
+        Returns:
+            Dictionary mapping option names to their values (empty string if no value)
+        """
+        if self._connection is None:
+            return {}
+        options: Dict[str, str] = {}
+        try:
+            cursor = await self._connection.cursor()
+            await cursor.execute("PRAGMA compile_options")
+            rows = await cursor.fetchall()
+            for row in rows:
+                opt_name = row[0]
+                if "=" in opt_name:
+                    key, value = opt_name.split("=", 1)
+                    options[key] = value
+                else:
+                    options[opt_name] = ""
+            await cursor.close()
+        except Exception:
+            pass
+        return options
+
+    async def has_compile_option(self, option_name: str) -> bool:
+        """Check if a compile option is enabled.
+
+        Args:
+            option_name: Name of the compile option (e.g., "ENABLE_MATH_FUNCTIONS")
+
+        Returns:
+            True if the option is enabled
+        """
+        options = await self.get_compile_options()
+        return option_name in options
 
     async def _detect_json1_extension(self) -> bool:
         """Detect if json1 extension is available at runtime.
