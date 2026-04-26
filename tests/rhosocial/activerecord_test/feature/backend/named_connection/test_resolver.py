@@ -314,7 +314,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_memory_db_connection(self):
         """Test resolving the memory_db named connection."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db",
             {},
         )
         assert isinstance(config, SQLiteInMemoryConfig)
@@ -322,7 +322,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_connection(self):
         """Test resolving the file_db named connection."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
             {},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -332,7 +332,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_with_custom_delete(self):
         """Test resolving file_db with custom delete_on_close parameter."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
             {"delete_on_close": "false"},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -341,7 +341,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_with_pragmas(self):
         """Test resolving file_db_with_pragmas named connection."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_pragmas",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_pragmas",
             {},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -350,7 +350,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_with_custom_journal_mode(self):
         """Test resolving file_db_with_pragmas with custom journal_mode."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_pragmas",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_pragmas",
             {"journal_mode": "DELETE"},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -359,7 +359,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_with_timeout(self):
         """Test resolving file_db_with_timeout named connection."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_timeout",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_timeout",
             {},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -368,7 +368,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_with_custom_timeout(self):
         """Test resolving file_db_with_timeout with custom timeout."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_timeout",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db_with_timeout",
             {"timeout": "10.0"},
         )
         assert isinstance(config, SQLiteConnectionConfig)
@@ -377,7 +377,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_memory_db_creates_working_backend(self):
         """Test that memory_db connection creates a connectable backend."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db",
             {},
         )
         backend = SQLiteBackend(connection_config=config)
@@ -388,7 +388,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_file_db_creates_working_backend(self):
         """Test that file_db connection creates a connectable backend."""
         config = resolve_named_connection(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db",
             {},
         )
         backend = SQLiteBackend(connection_config=config)
@@ -399,7 +399,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_list_example_connections(self):
         """Test listing connections in example_connections module."""
         connections = list_named_connections_in_module(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections"
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections"
         )
         names = [c["name"] for c in connections]
         assert "memory_db" in names
@@ -410,7 +410,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_describe_memory_db(self):
         """Test describing the memory_db connection."""
         resolver = NamedConnectionResolver(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db"
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.memory_db"
         ).load()
         info = resolver.describe()
         assert info["is_class"] is False
@@ -419,7 +419,7 @@ class TestSqliteNamedConnectionsIntegration:
     def test_describe_file_db(self):
         """Test describing the file_db connection."""
         resolver = NamedConnectionResolver(
-            "tests.rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db"
+            "rhosocial.activerecord_test.feature.backend.named_connection.example_connections.file_db"
         ).load()
         info = resolver.describe()
         assert info["is_class"] is False
