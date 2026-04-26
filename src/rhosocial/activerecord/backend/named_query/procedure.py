@@ -909,7 +909,7 @@ class Procedure:
             Dict mapping parameter names to type annotations and defaults.
         """
         params = {}
-        for name, annotation in cls.__annotations__.items():
+        for name, annotation in getattr(cls, '__annotations__', {}).items():
             if name == "run":
                 continue
             default = getattr(cls, name, inspect.Parameter.empty)
@@ -1017,7 +1017,7 @@ class AsyncProcedure:
     @classmethod
     def get_parameters(cls) -> Dict[str, Any]:
         params = {}
-        for name, annotation in cls.__annotations__.items():
+        for name, annotation in getattr(cls, '__annotations__', {}).items():
             if name == "run":
                 continue
             default = getattr(cls, name, inspect.Parameter.empty)
