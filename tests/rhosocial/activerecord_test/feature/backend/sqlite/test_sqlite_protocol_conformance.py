@@ -46,6 +46,7 @@ SQLITE_PROTOCOLS = [
     sqlite_protocols.SQLiteVirtualTableSupport,
     sqlite_protocols.SQLitePragmaSupport,
     sqlite_protocols.SQLiteExtensionSupport,
+    sqlite_protocols.SQLiteReindexSupport,
     dialect_protocols.CTESupport,
     dialect_protocols.FilterClauseSupport,
     dialect_protocols.WindowFunctionSupport,
@@ -93,7 +94,7 @@ class TestSQLiteDialectProtocolConformance:
         """SQLiteDialect should implement each protocol in SQLITE_PROTOCOLS."""
         assert isinstance(dialect, protocol), (
             f"SQLiteDialect does not implement protocol {protocol.__name__}, "
-            f"missing methods: {get_all_protocol_members(protocol) - set(dir(dialect))}"
+            f"missing methods: {get_all_protocol_methods(protocol) - set(dir(dialect))}"
         )
 
 
@@ -123,4 +124,42 @@ class TestProtocolNonOverlap:
         assert not violations, (
             "The following protocols have overlapping interfaces, need to merge or rename:\n"
             + "\n".join(f"  • {v}" for v in violations)
+        )
+
+
+class TestSQLiteExpressionDialectSeparation:
+    """Verify SQLite-specific expression classes delegate to dialect for SQL generation.
+
+    Expression-Dialect separation means expression classes collect parameters
+    and delegate to_sql() to dialect.format_*() methods, never directly
+    constructing SQL strings.
+    """
+
+    EXPRESSION_DIALECT_PAIRS = [
+        ("SQLiteReindexExpression", "format_reindex_statement"),
+    ]
+
+    @pytest.mark.parametrize("expr_name,format_method", EXPRESSION_DIALECT_PAIRS)
+    def test_expression_delegates_to_dialect(self, expr_name, format_method):
+        """Expression.to_sql() should delegate to dialect.format_*() method."""
+        from rhosocial.activerecord.backend.impl.sqlite import expression as sqlite_expr
+
+        # Find the expression class
+        expr_class = None
+        for module_name in dir(sqlite_expr):
+            module = getattr(sqlite_expr, module_name)
+            if hasattr(module, expr_name):
+                expr_class = getattr(module, expr_name)
+                break
+
+        if expr_class is None:
+            expr_class = getattr(sqlite_expr, expr_name, None)
+
+        assert expr_class is not None, f"Expression class {expr_name} not found"
+
+        # Verify the dialect has the corresponding format method
+        dialect = sqlite_dialect.SQLiteDialect()
+        assert hasattr(dialect, format_method), (
+            f"SQLiteDialect missing format method {format_method} "
+            f"for expression {expr_name}"
         )

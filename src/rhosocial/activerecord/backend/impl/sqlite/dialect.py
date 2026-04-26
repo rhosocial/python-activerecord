@@ -77,7 +77,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteVirtualTableSupport
+from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteReindexSupport, SQLiteVirtualTableSupport
 from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, SQLiteVirtualTableMixin
 
 if TYPE_CHECKING:
@@ -186,6 +186,7 @@ class SQLiteDialect(
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
     SQLiteVirtualTableSupport,
+    SQLiteReindexSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
