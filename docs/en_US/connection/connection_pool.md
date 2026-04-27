@@ -233,7 +233,9 @@ config = PoolConfig(
     auto_connect_on_acquire=True,     # Automatically connect when acquiring (default: True)
     auto_disconnect_on_release=True,  # Automatically disconnect when releasing (default: True)
 
-    # Backend creation
+    # Connection mode (NEW - see below)
+    connection_mode="auto",        # "auto" | "persistent" | "transient"
+)
     backend_factory=None,    # Factory function to create backends
     backend_config=None,     # Or config dict for built-in backends
 )
@@ -271,6 +273,81 @@ config = PoolConfig(
     }
 )
 ```
+
+### Connection Mode (connection_mode)
+
+The `connection_mode` parameter controls how connections are managed throughout their lifecycle. This is especially important for different backend thread-safety levels.
+
+```mermaid
+flowchart LR
+    subgraph AutoSelection["Auto Mode (default)"]
+        AS1["Check backend.threadsafety"]
+        AS2{"threadsafety >= 2?"}
+        AS3["persistent"]:::persistent
+        AS4["transient"]:::transient
+        AS1 --> AS2
+        AS2 -->|Yes| AS3
+        AS2 -->|No| AS4
+    end
+    
+    classDef persistent fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef transient fill:#ffebee,stroke:#c62828,stroke-width:2px
+```
+
+#### Mode Comparison
+
+| Mode | Connect Timing | Disconnect Timing | Suitable Backends |
+|------|---------------|-------------------|-------------------|
+| `persistent` | Creation/warmup | `close()` | PostgreSQL (threadsafety=2) |
+| `transient` | `acquire()` | `release()` | SQLite, MySQL (threadsafety<2) |
+| `auto` (default) | Auto-detect based on threadsafety | Auto-detect | All backends |
+
+#### Mode Details
+
+**Persistent Mode** (`connection_mode="persistent"`):
+
+- Connections established at creation/warmup time
+- Stay connected across acquire/release cycles
+- Only `close()` disconnects them
+- Suitable for thread-safe backends like PostgreSQL (psycopg)
+
+```python
+# PostgreSQL — persistent mode (auto-detected from threadsafety=2)
+config = PoolConfig(
+    connection_mode="persistent",  # or "auto" (default)
+    min_size=2,
+    max_size=10,
+    backend_factory=lambda: PostgresBackend(host="localhost")
+)
+pool = BackendPool.create(config)
+# Connections stay connected between acquire/release
+```
+
+**Transient Mode** (`connection_mode="transient"`):
+
+- Connections established on acquire (if `auto_connect_on_acquire=True`)
+- Disconnected on release (if `auto_disconnect_on_release=True`)
+- Suitable for non-thread-safe backends like SQLite, MySQL
+
+```python
+# SQLite — transient mode (auto-detected from threadsafety=1)
+config = PoolConfig(
+    connection_mode="transient",  # or "auto" (default)
+    min_size=1,
+    max_size=5,
+    backend_factory=lambda: SQLiteBackend(database="app.db")
+)
+pool = BackendPool.create(config)
+# Each acquire() → connect, each release() → disconnect
+```
+
+#### Backend Thread Safety
+
+| Database | threadsafety | Auto Mode Result |
+|----------|--------------|------------------|
+| PostgreSQL (psycopg v3) | 2 | `persistent` |
+| SQLite | 1 | `transient` |
+| MySQL (mysql-connector) | 1 | `transient` |
 
 ## Context Awareness
 
@@ -1072,3 +1149,44 @@ async def main():
 
 asyncio.run(main())
 ```
+
+## Bug Fixes and Known Issues
+
+### aiosqlite Thread Leak Fix
+
+In previous versions, there were two bugs that caused async pool tests to hang on process exit:
+
+#### Bug 1: Not joining aiosqlite background thread
+
+The `AsyncSQLiteBackend.disconnect()` method called `close()` on the aiosqlite connection, but did not call `join()` on the background thread. The aiosqlite `Connection` class inherits from `threading.Thread` with `daemon=False`. Without `join()`, the non-daemon thread blocks process exit.
+
+**Fix**: Added `join(timeout=5.0)` after `close()`:
+
+```python
+async def disconnect(self) -> None:
+    if self._connection is not None:
+        conn = self._connection
+        await conn.close()
+        if hasattr(conn, 'join'):
+            conn.join(timeout=5.0)  # Wait for background thread
+        self._connection = None
+```
+
+#### Bug 2: No guard against re-connection
+
+In transient mode with `validate_on_borrow=True`, `acquire()` would auto-connect via `execute()` during validation, then call `connect()` again via `auto_connect_on_acquire` — silently overwriting `_connection` and leaking the old thread permanently.
+
+**Fix**: Both async and sync `SQLiteBackend.connect()` now disconnect any existing connection before creating a new one:
+
+```python
+def connect(self) -> None:
+    # Guard: disconnect existing connection before creating a new one
+    if self._connection is not None:
+        self.disconnect()
+    # ... create new connection ...
+```
+
+These fixes ensure:
+1. Process exits normally after pool.close()
+2. No thread leaks in transient mode with validation enabled
+3. Both sync and async SQLiteBackend work correctly with connection pool

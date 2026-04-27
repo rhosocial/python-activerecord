@@ -1,38 +1,38 @@
-# Connection Pool
+# 连接池
 
-The connection pool module provides efficient management of database connections, enabling connection reuse, lifecycle management, and context-aware access patterns.
+连接池模块提供高效的数据库连接管理，支持连接复用、生命周期管理和上下文感知访问模式。
 
-## Overview
+## 概述
 
-Connection pooling improves application performance by:
+连接池通过以下方式提升应用性能：
 
-- **Reusing connections**: Avoids the overhead of creating new connections for each operation
-- **Managing lifecycle**: Automatic cleanup of idle or expired connections
-- **Limiting resources**: Prevents database overload with connection limits
-- **Context awareness**: Enables classes to sense current connection/transaction context
+- **连接复用**：避免每次操作都创建新连接的开销
+- **生命周期管理**：自动清理空闲或过期的连接
+- **资源限制**：通过连接限制防止数据库过载
+- **上下文感知**：使类能够感知当前连接/事务上下文
 
-## Connection Pool Workflow
+## 连接池工作流
 
-### Connection Lifecycle
+### 连接生命周期
 
 ```mermaid
 flowchart TB
-    subgraph PoolCreation["Create Pool"]
+    subgraph PoolCreation["创建连接池"]
         A1["BackendPool(config)"]
-        A2["Warmup min_size connections"]
+        A2["预热 min_size 个连接"]
         A1 --> A2
     end
 
-    subgraph AcquireRelease["Acquire & Release"]
+    subgraph AcquireRelease["获取与释放"]
         B1["acquire()"]
-        B2{"Available?"}
-        B3["Take from pool"]
-        B4{"Under limit?"}
-        B5["Create new connection"]
-        B6["Wait for timeout"]
-        B7["Use connection"]
+        B2{"有可用?"}
+        B3["从池中获取"]
+        B4{"未达上限?"}
+        B5["创建新连接"]
+        B6["等待超时"]
+        B7["使用连接"]
         B8["release()"]
-        B9["Return to pool"]
+        B9["归还池中"]
 
         B1 --> B2
         B2 -->|Yes| B3
@@ -45,15 +45,15 @@ flowchart TB
         B8 --> B9
     end
 
-    subgraph Close["Close Pool"]
+    subgraph Close["关闭连接池"]
         C1["close()"]
-        C2{"Active connections?"}
-        C3["Wait for return<br/>(max close_timeout sec)"]
-        C4{"Timeout?"}
-        C5["Raise RuntimeError"]
-        C6["Destroy all connections"]
+        C2{"有活跃连接?"}
+        C3["等待归还<br/>(最长 close_timeout 秒)"]
+        C4{"超时?"}
+        C5["抛出 RuntimeError"]
+        C6["销毁所有连接"]
         C7["force=True?"]
-        C8["Force destroy active"]
+        C8["强制销毁活跃连接"]
 
         C1 --> C2
         C2 -->|Yes| C3
@@ -75,18 +75,18 @@ flowchart TB
     style Close fill:#fff3e0,stroke:#f57c00,stroke-width:2px
 ```
 
-### Recommended Usage: Context Managers
+### 推荐用法：上下文管理器
 
 ```mermaid
 flowchart LR
-    subgraph Recommended["Recommended"]
+    subgraph Recommended["推荐"]
         D1["with pool.connection() as backend:"]
-        D2["Execute database operations"]
-        D3["Auto return connection"]
+        D2["执行数据库操作"]
+        D3["自动归还连接"]
         D1 --> D2 --> D3
     end
 
-    subgraph NotRecommended["Not Recommended"]
+subgraph NotRecommended["Not Recommended"]
         E1["backend = pool.acquire()"]
         E2["Execute database operations"]
         E3["pool.release(backend)"]
@@ -99,27 +99,27 @@ flowchart LR
     style NotRecommended fill:#ffebee,stroke:#c62828,stroke-width:2px
 ```
 
-## Quick Start
+## 快速开始
 
-### Sync and Async Parity
+### 同步与异步 API 一致性
 
-**IMPORTANT**: The connection pool module provides complete API parity between synchronous and asynchronous implementations. Both use identical method names, parameters, and behavior - the only difference is the `async`/`await` keywords.
+**重要**：连接池模块在同步和异步实现之间提供完整的 API 一致性。两者使用相同的方法名、参数和行为 — 唯一的区别是 `async`/`await` 关键字。
 
-| Operation | Synchronous | Asynchronous |
-|-----------|-------------|--------------|
-| Create pool (recommended) | `BackendPool.create(config)` | `await AsyncBackendPool.create(config)` |
-| Create pool (lazy init) | `BackendPool(config)` | `AsyncBackendPool(config)` |
-| Acquire connection | `pool.acquire()` | `await pool.acquire()` |
-| Release connection | `pool.release(backend)` | `await pool.release(backend)` |
-| Connection context | `with pool.connection() as backend:` | `async with pool.connection() as backend:` |
-| Transaction context | `with pool.transaction() as backend:` | `async with pool.transaction() as backend:` |
-| Pool context | `with pool.context() as ctx:` | `async with pool.context() as ctx:` |
-| Close pool | `pool.close()` | `await pool.close()` |
-| Health check | `pool.health_check()` | `await pool.health_check()` |
-| Manual idle cleanup | `pool.cleanup_idle_connections()` | `await pool.cleanup_idle_connections()` |
-| Enable/disable idle cleanup | `pool.idle_cleanup_enabled = True/False` | `await pool.set_idle_cleanup_enabled(True/False)` |
+| 操作 | 同步 | 异步 |
+|------|------|------|
+| 创建连接池 (推荐) | `BackendPool.create(config)` | `await AsyncBackendPool.create(config)` |
+| 创建连接池 (延迟初始化) | `BackendPool(config)` | `AsyncBackendPool(config)` |
+| 获取连接 | `pool.acquire()` | `await pool.acquire()` |
+| 释放连接 | `pool.release(backend)` | `await pool.release(backend)` |
+| 连接上下文 | `with pool.connection() as backend:` | `async with pool.connection() as backend:` |
+| 事务上下文 | `with pool.transaction() as backend:` | `async with pool.transaction() as backend:` |
+| 连接池上下文 | `with pool.context() as ctx:` | `async with pool.context() as ctx:` |
+| 关闭连接池 | `pool.close()` | `await pool.close()` |
+| 健康检查 | `pool.health_check()` | `await pool.health_check()` |
+| 手动空闲清理 | `pool.cleanup_idle_connections()` | `await pool.cleanup_idle_connections()` |
+| 启用/禁用空闲清理 | `pool.idle_cleanup_enabled = True/False` | `await pool.set_idle_cleanup_enabled(True/False)` |
 
-### Synchronous Usage
+### 同步用法
 
 ```python
 from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
@@ -156,53 +156,53 @@ with pool.transaction() as backend:
     backend.execute("INSERT INTO orders (user_id) VALUES (?)", (1,))
     # Auto commit on success, rollback on exception
 
-# Close pool when done
+# 使用完毕后关闭连接池
 pool.close()
 ```
 
-### Asynchronous Usage
+### 异步用法
 
 ```python
 from rhosocial.activerecord.connection.pool import PoolConfig, AsyncBackendPool
 from rhosocial.activerecord.backend.impl.sqlite.backend.async_backend import AsyncSQLiteBackend
 
-# Create connection pool (same config structure)
+# 创建连接池 (配置结构相同)
 config = PoolConfig(
-    min_size=2,      # Minimum connections to maintain
-    max_size=10,     # Maximum connections allowed
+    min_size=2,      # 最小连接数
+    max_size=10,     # 最大连接数
     backend_factory=lambda: AsyncSQLiteBackend(database="app.db")
 )
 
-# Recommended: Create with warmup (mirrors sync BackendPool behavior)
+# 推荐：创建并预热 (与同步 BackendPool 行为一致)
 pool = await AsyncBackendPool.create(config)
 
-# Alternative: Create without warmup (lazy initialization)
+# 替代：创建但不预热 (延迟初始化)
 # pool = AsyncBackendPool(config)
-# Connections are created on first acquire
+# 连接在首次 acquire 时创建
 
-# Method 1: Manual acquire/release (just add await)
+# 方法 1：手动 acquire/release (只需添加 await)
 backend = await pool.acquire()
 try:
     result = await backend.execute("SELECT * FROM users WHERE id = ?", [1])
 finally:
     await pool.release(backend)
 
-# Method 2: Connection context manager (just add async/await)
+# 方法 2：连接上下文管理器 (只需添加 async/await)
 async with pool.connection() as backend:
     result = await backend.execute("SELECT * FROM users WHERE id = ?", [1])
-    # Connection automatically released
+    # 连接自动释放
 
-# Method 3: Transaction context manager (just add async/await)
+# 方法 3：事务上下文管理器 (只需添加 async/await)
 async with pool.transaction() as backend:
     await backend.execute("INSERT INTO users (name) VALUES (?)", ("Alice",))
     await backend.execute("INSERT INTO orders (user_id) VALUES (?)", (1,))
-    # Auto commit on success, rollback on exception
+    # 成功则自动提交，异常则回滚
 
-# Close pool (just add await)
+# 关闭连接池 (添加 await)
 await pool.close()
 ```
 
-## Configuration
+## 配置
 
 ### PoolConfig Options
 
@@ -232,6 +232,9 @@ config = PoolConfig(
     # Connection lifecycle settings
     auto_connect_on_acquire=True,     # Automatically connect when acquiring (default: True)
     auto_disconnect_on_release=True,  # Automatically disconnect when releasing (default: True)
+
+    # Connection mode (新增 - 见下文)
+    connection_mode="auto",        # "auto" | "persistent" | "transient"
 
     # Backend creation
     backend_factory=None,    # Factory function to create backends
@@ -272,23 +275,98 @@ config = PoolConfig(
 )
 ```
 
-## Context Awareness
+### 连接模式 (connection_mode)
 
-Context awareness is a powerful feature that allows classes inside a context to sense the current pool, connection, and transaction.
+`connection_mode` 参数控制连接在整个生命周期中的管理方式。这对于不同的后端线程安全级别尤为重要。
 
-### Understanding Context Layers
+```mermaid
+flowchart LR
+    subgraph AutoSelection["自动模式 (默认)"]
+        AS1["检查 backend.threadsafety"]
+        AS2{"threadsafety >= 2?"}
+        AS3["persistent"]:::persistent
+        AS4["transient"]:::transient
+        AS1 --> AS2
+        AS2 -->|Yes| AS3
+        AS2 -->|No| AS4
+    end
+    
+    classDef persistent fill:#e8f5e9,stroke:#388e3c,stroke-width:2px
+    classDef transient fill:#ffebee,stroke:#c62828,stroke-width:2px
+```
+
+#### 模式对比
+
+| 模式 | 连接时机 | 断开时机 | 适用后端 |
+|------|----------|----------|----------|
+| `persistent` | 创建/预热时 | `close()` | PostgreSQL (threadsafety=2) |
+| `transient` | `acquire()` | `release()` | SQLite, MySQL (threadsafety<2) |
+| `auto` (默认) | 基于 threadsafety 自动检测 | 自动检测 | 所有后端 |
+
+#### 模式详情
+
+**持久模式** (`connection_mode="persistent"`):
+
+- 在创建/预热时建立连接
+- 在 acquire/release 周期内保持连接
+- 只有 `close()` 才断开它们
+- 适用于线程安全的后端，如 PostgreSQL (psycopg)
+
+```python
+# PostgreSQL — 持久模式 (从 threadsafety=2 自动检测)
+config = PoolConfig(
+    connection_mode="persistent",  # 或 "auto" (默认)
+    min_size=2,
+    max_size=10,
+    backend_factory=lambda: PostgresBackend(host="localhost")
+)
+pool = BackendPool.create(config)
+# 连接在 acquire/release 之间保持连接
+```
+
+**临时模式** (`connection_mode="transient"`):
+
+- 在 acquire 时建立连接 (如果 `auto_connect_on_acquire=True`)
+- 在 release 时断开连接 (如果 `auto_disconnect_on_release=True`)
+- 适用于非线程安全的后端，如 SQLite, MySQL
+
+```python
+# SQLite — 临时模式 (从 threadsafety=1 自动检测)
+config = PoolConfig(
+    connection_mode="transient",  # 或 "auto" (默认)
+    min_size=1,
+    max_size=5,
+    backend_factory=lambda: SQLiteBackend(database="app.db")
+)
+pool = BackendPool.create(config)
+# 每次 acquire() → 连接，每次 release() → 断开
+```
+
+#### 后端线程安全
+
+| 数据库 | threadsafety | 自动模式结果 |
+|----------|--------------|------------------|
+| PostgreSQL (psycopg v3) | 2 | `persistent` |
+| SQLite | 1 | `transient` |
+| MySQL (mysql-connector) | 1 | `transient` |
+
+## 上下文感知
+
+上下文感知是一种强大的功能，允许上下文内的类感知当前连接池、连接和事务。
+
+### 理解上下文层级
 
 ```mermaid
 graph TB
-    subgraph PoolContext["Pool Context (pool.context())"]
-        subgraph ConnectionContext["Connection Context (pool.connection())"]
+    subgraph PoolContext["连接池上下文 (pool.context())"]
+        subgraph ConnectionContext["连接上下文 (pool.connection())"]
             POOL1["get_current_pool() → pool"]
             CONN1["get_current_connection_backend() → backend"]
             CURR1["get_current_backend() → backend"]
-            subgraph TransactionContext["Transaction Context (pool.transaction())"]
+            subgraph TransactionContext["事务上下文 (pool.transaction())"]
                 TX["get_current_transaction_backend() → backend"]
                 CONN2["get_current_connection_backend() → backend"]
-                CURR2["get_current_backend() → backend<br/>(transaction priority)"]
+                CURR2["get_current_backend() → backend<br/>(事务优先)"]
             end
         end
     end
@@ -298,9 +376,9 @@ graph TB
     style TransactionContext fill:#fff3e0,stroke:#f57c00,stroke-width:2px
 ```
 
-### Context Functions
+### 上下文函数
 
-**Synchronous Context Functions:**
+**同步上下文函数：**
 
 ```python
 from rhosocial.activerecord.connection.pool import (
@@ -311,14 +389,14 @@ from rhosocial.activerecord.connection.pool import (
 )
 ```
 
-| Function | Description |
+| 函数 | 描述 |
 |----------|-------------|
-| `get_current_pool()` | Get current synchronous pool |
-| `get_current_transaction_backend()` | Get current synchronous transaction backend |
-| `get_current_connection_backend()` | Get current synchronous connection backend |
-| `get_current_backend()` | Get current synchronous backend (transaction first, then connection) |
+| `get_current_pool()` | 获取当前同步连接池 |
+| `get_current_transaction_backend()` | 获取当前同步事务后端 |
+| `get_current_connection_backend()` | 获取当前同步连接后端 |
+| `get_current_backend()` | 获取当前同步后端 (事务优先，然后连接) |
 
-**Asynchronous Context Functions:**
+**异步上下文函数：**
 
 ```python
 from rhosocial.activerecord.connection.pool import (
@@ -329,46 +407,46 @@ from rhosocial.activerecord.connection.pool import (
 )
 ```
 
-| Function | Description |
+| 函数 | 描述 |
 |----------|-------------|
-| `get_current_async_pool()` | Get current asynchronous pool |
-| `get_current_async_transaction_backend()` | Get current async transaction backend |
-| `get_current_async_connection_backend()` | Get current async connection backend |
-| `get_current_async_backend()` | Get current async backend (transaction first, then connection) |
+| `get_current_async_pool()` | 获取当前异步连接池 |
+| `get_current_async_transaction_backend()` | 获取当前异步事务后端 |
+| `get_current_async_connection_backend()` | 获取当前异步连接后端 |
+| `get_current_async_backend()` | 获取当前异步后端 (事务优先，然后连接) |
 
-### Pool Context
+### 连接池上下文
 
-The pool context sets the pool in context, allowing ActiveRecord integration:
+连接池上下文设置连接池上下文，允许 ActiveRecord 集成：
 
 ```python
 with pool.context() as ctx:
-    # Inside context, ActiveRecord can sense the pool
-    # This enables ActiveRecord to use the pool's connections
+    # 在上下文中，ActiveRecord 可以感知连接池
+    # 这使 ActiveRecord 能够使用连接池的连接
     users = User.query().all()
 ```
 
-### Connection Context
+### 连接上下文
 
-The connection context provides a connection that classes can sense:
+连接上下文提供类可以感知的连接：
 
 ```python
 with pool.context():
-    # No connection yet
+    # 尚无连接
     assert get_current_connection_backend() is None
 
     with pool.connection() as backend:
-        # Classes inside can sense the connection
+        # 上下文内的类可以感知连接
         current = get_current_connection_backend()
         assert current is backend
 
-        # Service classes can use the connection
+        # 服务类可以使用连接
         process_user_data(backend)
 
-    # Connection released
+    # 连接已释放
     assert get_current_connection_backend() is None
 ```
 
-### Transaction Context
+### 事务上下文
 
 The transaction context sets both transaction and connection:
 
@@ -384,28 +462,28 @@ with pool.context():
         # Execute operations
         backend.execute("INSERT INTO users (name) VALUES (?)", ("Alice",))
         backend.execute("INSERT INTO orders (user_id) VALUES (?)", (1,))
-        # Auto commit on success
+        # 自动提交
 ```
 
-### Nested Contexts
+### 嵌套上下文
 
-Nested contexts automatically reuse the existing connection/transaction:
+嵌套上下文自动重用现有的连接/事务：
 
 ```python
 with pool.connection() as outer_conn:
-    # outer_conn is active
+    # outer_conn 处于活跃状态
 
     with pool.connection() as inner_conn:
-        # inner_conn is the same as outer_conn (reused)
+        # inner_conn 与 outer_conn 相同 (重用)
         assert inner_conn is outer_conn
 
-    # Still in outer connection context
+    # 仍在外部连接上下文中
     assert get_current_connection_backend() is outer_conn
 ```
 
-This prevents connection leaks and ensures transaction consistency.
+这可以防止连接泄漏并确保事务一致性。
 
-### Real-World Example: Service Layer
+### 实际示例：服务层
 
 ```python
 from rhosocial.activerecord.connection.pool import (
@@ -415,25 +493,24 @@ from rhosocial.activerecord.connection.pool import (
 )
 
 class UserService:
-    """Service that uses context-aware database operations."""
+    """使用上下文感知数据库操作的服务。"""
 
     def create_user_with_profile(self, name: str, bio: str):
-        """Create user and profile in a single transaction."""
-        # Uses existing transaction if in context, otherwise starts new one
+        """在单个事务中创建用户和资料。"""
+        # 如果在上下文中，使用现有事务，否则启动新事务
         backend = get_current_transaction_backend()
         if backend is None:
-            # Not in transaction context - this shouldn't happen
-            # if called correctly
-            raise RuntimeError("Must be called within transaction context")
+            # 不在事务上下文中 - 如果正确调用则不应该发生
+            raise RuntimeError("必须在事务上下文中调用")
 
-        # Create user
+        # 创建用户
         backend.execute(
             "INSERT INTO users (name) VALUES (?)",
             [name]
         )
         user_id = backend.last_insert_rowid()
 
-        # Create profile
+        # 创建资料
         backend.execute(
             "INSERT INTO profiles (user_id, bio) VALUES (?, ?)",
             [user_id, bio]
@@ -441,7 +518,7 @@ class UserService:
 
         return user_id
 
-# Usage
+# 用法
 pool = BackendPool(config)
 
 def setup_user(name: str, bio: str):
@@ -449,15 +526,15 @@ def setup_user(name: str, bio: str):
         with pool.transaction():
             service = UserService()
             user_id = service.create_user_with_profile(name, bio)
-            # Auto commit
+            # 自动提交
     return user_id
 ```
 
-### ActiveRecord Integration
+### ActiveRecord 集成
 
-**Key Feature**: ActiveRecord models automatically sense the connection pool context. When inside a `pool.connection()` or `pool.transaction()` context, the model's `backend()` method returns the context-provided connection instead of the class-level backend.
+**关键特性**：ActiveRecord 模型自动感知连接池上下文。当在 `pool.connection()` 或 `pool.transaction()` 上下文中时，模型的 `backend()` 方法返回上下文提供的连接，而不是类级别的后端。
 
-#### How It Works
+#### 工作原理
 
 ```python
 from rhosocial.activerecord.model import ActiveRecord
@@ -470,19 +547,19 @@ class User(IntegerPKMixin, ActiveRecord):
     email: str
 ```
 
-**Priority Order for `backend()` method:**
+**`backend()` 方法的优先级顺序：**
 
-1. **Context backend** (if in `pool.connection()` or `pool.transaction()`)
-2. **Class-level backend** (`__backend__` configured via `Model.configure()`)
+1. **上下文后端** (如果在 `pool.connection()` 或 `pool.transaction()` 中)
+2. **类级别后端** (通过 `Model.configure()` 配置的 `__backend__`)
 
-#### Sync Example
+#### 同步示例
 
 ```python
-# Configure model with a backend (fallback)
+# 配置模型使用后端 (后备)
 User.configure(SQLiteConnectionConfig(database="app.db"), SQLiteBackend)
 
-# Without context - uses class backend
-backend1 = User.backend()  # Returns __backend__
+# 不在上下文中 - 使用类后端
+backend1 = User.backend()  # 返回 __backend__
 
 # With pool context - uses pool connection
 config = PoolConfig(
@@ -507,10 +584,10 @@ with pool.context():
         # All operations in the same transaction
         User(name="Bob", email="bob@example.com").save()
         User(name="Carol", email="carol@example.com").save()
-        # Auto commit on success, rollback on error
+        # 自动提交，失败则回滚
 ```
 
-#### Async Example
+#### 异步示例
 
 ```python
 from rhosocial.activerecord.model import AsyncActiveRecord
@@ -521,29 +598,29 @@ class AsyncUser(IntegerPKMixin, AsyncActiveRecord):
     name: str
     email: str
 
-# Configure async model
+# 配置异步模型
 await AsyncUser.configure(SQLiteConnectionConfig(database="app.db"), AsyncSQLiteBackend)
 
-# With async pool context
+# 在异步连接池上下文中
 async_pool = AsyncBackendPool(config)
 
 async with async_pool.context():
     async with async_pool.transaction() as tx:
-        backend = AsyncUser.backend()  # Returns tx
+        backend = AsyncUser.backend()  # 返回 tx
         assert backend is tx
 
-        # All operations in the same transaction
+        # 所有操作在同一事务中
         await AsyncUser(name="Dave", email="dave@example.com").save()
-        # Auto commit
+        # 自动提交
 ```
 
-#### Query Classes
+#### 查询类
 
-All query classes also support context awareness:
+所有查询类也支持上下文感知：
 
-- **ActiveQuery**: `Model.query().backend()` returns context backend
-- **CTEQuery**: `CTEQuery(backend).backend()` returns context backend if available
-- **SetOperationQuery**: Union/Intersect/Except queries use context backend
+- **ActiveQuery**: `Model.query().backend()` 返回上下文后端
+- **CTEQuery**: `CTEQuery(backend).backend()` 如果有可用则返回上下文后端
+- **SetOperationQuery**: Union/Intersect/Except 查询使用上下文后端
 
 ```python
 with pool.transaction() as tx:
@@ -553,8 +630,8 @@ with pool.transaction() as tx:
 
     # CTEQuery
     from rhosocial.activerecord.query import CTEQuery
-    cte = CTEQuery(some_backend)  # Constructor backend
-    assert cte.backend() is tx    # But returns context backend
+    cte = CTEQuery(some_backend)  # 构造器后端
+    assert cte.backend() is tx    # 但返回上下文后端
 
     # SetOperationQuery
     q1 = User.query()
@@ -563,47 +640,47 @@ with pool.transaction() as tx:
     assert union_query.backend() is tx
 ```
 
-#### Sync/Async Isolation
+#### 同步/异步隔离
 
-**Important**: Synchronous and asynchronous contexts are strictly isolated:
+**重要**：同步和异步上下文严格隔离：
 
-- Sync classes (`ActiveRecord`, `ActiveQuery`) only check `get_current_backend()`
-- Async classes (`AsyncActiveRecord`, `AsyncActiveQuery`) only check `get_current_async_backend()`
+- 同步类 (`ActiveRecord`, `ActiveQuery`) 只检查 `get_current_backend()`
+- 异步类 (`AsyncActiveRecord`, `AsyncActiveQuery`) 只检查 `get_current_async_backend()`
 
 ```python
-# Sync model in async context - returns class backend
+# 同步模型在异步上下文中 - 返回类后端
 with async_pool.connection() as conn:
-    sync_backend = User.backend()  # Returns __backend__, NOT conn
-    async_backend = AsyncUser.backend()  # Returns conn
+    sync_backend = User.backend()  # 返回 __backend__，不是 conn
+    async_backend = AsyncUser.backend()  # 返回 conn
 
-# Async model in sync context - returns class backend
+# 异步模型在同步上下文中 - 返回类后端
 with sync_pool.connection() as conn:
-    sync_backend = User.backend()  # Returns conn
-    async_backend = AsyncUser.backend()  # Returns __backend__, NOT conn
+    sync_backend = User.backend()  # 返回 conn
+    async_backend = AsyncUser.backend()  # 返回 __backend__，不是 conn
 ```
 
-## Statistics and Monitoring
+## 统计与监控
 
-### Pool Statistics
+### 连接池统计
 
 ```python
 stats = pool.get_stats()
 
-print(f"Total created: {stats.total_created}")
-print(f"Total acquired: {stats.total_acquired}")
-print(f"Total released: {stats.total_released}")
-print(f"Total idle cleaned: {stats.total_idle_cleaned}")  # New
-print(f"Current available: {stats.current_available}")
-print(f"Current in use: {stats.current_in_use}")
-print(f"Utilization rate: {stats.utilization_rate:.2%}")
-print(f"Uptime: {stats.uptime:.1f} seconds")
+print(f"总创建: {stats.total_created}")
+print(f"总获取: {stats.total_acquired}")
+print(f"总释放: {stats.total_released}")
+print(f"总空闲清理: {stats.total_idle_cleaned}")  # 新增
+print(f"当前可用: {stats.current_available}")
+print(f"当前使用中: {stats.current_in_use}")
+print(f"利用率: {stats.utilization_rate:.2%}")
+print(f"运行时间: {stats.uptime:.1f} 秒")
 ```
 
-### Health Check
+### 健康检查
 
 ```python
 health = pool.health_check()
-# Returns:
+# 返回:
 # {
 #     'healthy': True,
 #     'closed': False,
@@ -617,70 +694,70 @@ health = pool.health_check()
 # }
 ```
 
-## Idle Connection Cleanup
+## 空闲连接清理
 
-The connection pool supports automatic cleanup of idle connections that exceed the timeout, optimizing resource usage.
+连接池支持自动清理超过超时的空闲连接，以优化资源使用。
 
-### How It Works
+### 工作原理
 
-When a connection has been idle longer than `idle_timeout` (default 300 seconds), the background cleanup thread automatically destroys it, while always maintaining at least `min_size` connections.
+当连接空闲时间超过 `idle_timeout` (默认 300 秒) 时，后台清理线程会自动销毁它，同时始终保持至少 `min_size` 个连接。
 
 ```text
-Connection count changes:
-min_size --(warmup)--> min_size --(on-demand)--> max_size
-                         ↑                          ↓
-                         │                   (auto cleanup after idle timeout)
-                         │
-                    (maintain min_size connections)
+连接数变化:
+min_size --(预热)--> min_size --(按需)--> max_size
+                          ↑                          ↓
+                          │                   (空闲超时后自动清理)
+                          │
+                     (保持 min_size 连接)
 ```
 
-### Configuration Example
+### 配置示例
 
 ```python
 config = PoolConfig(
     min_size=1,
     max_size=10,
-    idle_timeout=300.0,        # Can be cleaned after 5 minutes idle
-    idle_cleanup_enabled=True, # Enable auto cleanup (default)
-    idle_cleanup_interval=60.0,# Scan every minute (default)
+    idle_timeout=300.0,        # 空闲 5 分钟后可清理
+    idle_cleanup_enabled=True, # 启用自动清理 (默认)
+    idle_cleanup_interval=60.0,# 每分钟扫描一次 (默认)
     backend_factory=lambda: SQLiteBackend(database="app.db")
 )
 pool = BackendPool(config)
 ```
 
-### Runtime Control
+### 运行时控制
 
-You can enable or disable automatic cleanup at runtime:
+可以在运行时启用或禁用自动清理：
 
 ```python
-# Disable automatic cleanup
+# 禁用自动清理
 pool.idle_cleanup_enabled = False
 
-# Re-enable
+# 重新启用
 pool.idle_cleanup_enabled = True
 
-# Async version (recommended for async pools)
+# 异步版本 (推荐用于异步池)
 await pool.set_idle_cleanup_enabled(False)
 ```
 
-### Manual Cleanup Trigger
+### 手动触发清理
 
-You can manually trigger idle connection cleanup:
+可以手动触发空闲连接清理：
 
 ```python
-# Synchronous
+# 同步
 cleaned = pool.cleanup_idle_connections()
-print(f"Cleaned {cleaned} idle connections")
+print(f"清理了 {cleaned} 个空闲连接")
 
-# Asynchronous
+# 异步
 cleaned = await pool.cleanup_idle_connections()
 ```
 
-### Monitoring Cleanup Statistics
+### 监控清理统计
 
 ```python
 stats = pool.get_stats()
-print(f"Total idle connections cleaned: {stats.total_idle_cleaned}")
+print(f"总空闲连接清理: {stats.total_idle_cleaned}")
 
 # Or via dictionary
 stats_dict = stats.to_dict()
@@ -730,103 +807,103 @@ pool = BackendPool(config)
 # Manually cleanup at specific times
 def on_batch_complete():
     cleaned = pool.cleanup_idle_connections()
-    logger.info(f"Batch complete, cleaned {cleaned} idle connections")
+    logger.info(f"批次完成，清理了 {cleaned} 个空闲连接")
 ```
 
-## Best Practices
+## 最佳实践
 
-### 1. Resource Management Responsibility
+### 1. 资源管理职责
 
-**Core Principle: Who creates, who manages.**
+**核心原则：谁创建，谁管理。**
 
 ```python
-# ✓ Good: Close the backend you configured yourself
+# ✓ 好：关闭你自己配置的后端
 User.configure(SQLiteConnectionConfig(database="app.db"), SQLiteBackend)
-# ... use it ...
-User.__backend__.disconnect()  # Close on application shutdown
+# ... 使用它 ...
+User.__backend__.disconnect()  # 应用关闭时关闭
 
-# ✓ Good: Let the pool manage connections from the pool
+# ✓ 好：让连接池管理来自连接池的连接
 with pool.connection() as backend:
-    # Do NOT call backend.disconnect()!
-    # Connection is automatically returned to pool on context exit
+    # 不要调用 backend.disconnect()!
+    # 连接在上下文退出时自动归还连接池
     result = backend.execute("SELECT * FROM users")
 
-# ✗ Bad: Manually closing a connection obtained from the pool
+# ✗ 不好：手动关闭从连接池获取的连接
 with pool.connection() as backend:
     result = backend.execute("SELECT * FROM users")
-    backend.disconnect()  # Wrong! This corrupts pool state
+    backend.disconnect()  # 错误！这会破坏连接池状态
 ```
 
-**Important Notes**:
+**重要说明**：
 
-| Backend Source | Management Responsibility | How to Close |
+| 后端来源 | 管理职责 | 如何关闭 |
 | -------------- | ------------------------- | ------------ |
-| `Model.configure()` | Application | Call `backend.disconnect()` |
-| `pool.connection()` | Pool | Auto-return on context exit |
-| `pool.transaction()` | Pool | Auto-return after commit/rollback |
-| `pool.acquire()` | Application | Must call `pool.release()` |
+| `Model.configure()` | 应用程序 | 调用 `backend.disconnect()` |
+| `pool.connection()` | 连接池 | 上下文退出时自动归还 |
+| `pool.transaction()` | 连接池 | 提交/回滚后自动归还 |
+| `pool.acquire()` | 应用程序 | 必须调用 `pool.release()` |
 
-### 2. Pool Lifecycle
+### 2. 连接池生命周期
 
 ```python
-# Good: Create pool at application startup
+# 好：在应用启动时创建连接池
 pool = BackendPool(config)
 
 try:
-    # Application runs
+    # 应用运行
     run_application(pool)
 finally:
-    # Clean shutdown
+    # 干净关闭
     pool.close()
 ```
 
-### 3. Context Management
+### 3. 上下文管理
 
 ```python
-# Good: Use context managers
+# 好：使用上下文管理器
 with pool.connection() as backend:
     result = backend.execute("SELECT * FROM users")
 
-# Bad: Manual acquire without proper cleanup
+# 不好：手动 acquire 但没有正确清理
 backend = pool.acquire()
 result = backend.execute("SELECT * FROM users")
-# Forgot to release - connection leak!
+# 忘记释放 - 连接泄漏!
 ```
 
-### 4. Transaction Scoping
+### 4. 事务范围
 
 ```python
-# Good: Minimal transaction scope
+# 好：最小事务范围
 with pool.transaction() as backend:
-    # Only database operations
+    # 只执行数据库操作
     backend.execute("INSERT INTO users (name) VALUES (?)", ("Alice",))
 
-# Bad: Long-running operations in transaction
+# 不好：事务中长时间运行的操作
 with pool.transaction() as backend:
     backend.execute("INSERT INTO orders (...) VALUES (...)")
-    # External API call in transaction - bad!
-    external_api.create_invoice()  # Could timeout the transaction
+    # 事务中调用外部 API - 不好!
+    external_api.create_invoice()  # 可能导致事务超时
 ```
 
-### 5. Connection Pool Sizing
+### 5. 连接池大小
 
 ```python
-# For web applications: pool_size ≈ (cpu_cores * 2) + disk_spindles
-# For background workers: smaller pool, longer connections
+# Web 应用：pool_size ≈ (cpu_cores * 2) + disk_spindles
+# 后台 worker：更小的连接池，更长的连接
 
-# Development
+# 开发环境
 config = PoolConfig(min_size=1, max_size=5, ...)
 
-# Production (web)
+# 生产环境 (Web)
 config = PoolConfig(min_size=5, max_size=20, ...)
 
-# Production (background worker)
+# 生产环境 (后台 worker)
 config = PoolConfig(min_size=2, max_size=10, ...)
 ```
 
-## Error Handling
+## 错误处理
 
-### Timeout Errors
+### 超时错误
 
 ```python
 from rhosocial.activerecord.connection.pool import BackendPool, PoolConfig
@@ -858,24 +935,24 @@ pool = BackendPool(config)
 
 stats = pool.get_stats()
 if stats.total_validation_failures > 0:
-    print(f"Warning: {stats.total_validation_failures} validation failures")
+    print(f"警告: {stats.total_validation_failures} 次验证失败")
 ```
 
-## Thread Safety
+## 线程安全
 
-> **Important**: For backends with `threadsafety < 2` (SQLite, MySQL), the pool automatically uses **thread-local storage** mode where each thread maintains its own connection sub-pool. This eliminates cross-thread connection issues entirely.
+> **重要**：对于 `threadsafety < 2` 的后端 (SQLite, MySQL)，连接池自动使用**线程本地存储**模式，每个线程维护自己的连接子池。这完全消除了跨线程连接问题。
 
-### Backend Thread Safety Levels
+### 后端线程安全级别
 
-| Database | threadsafety | Behavior with BackendPool |
+| 数据库 | threadsafety | BackendPool 行为 |
 |----------|-------------|---------------------------|
-| PostgreSQL (psycopg v3) | 2 | Standard QueuePool, connections can be shared across threads |
-| SQLite (sqlite3) | 1 | Thread-local storage mode, each thread has its own connections |
-| MySQL (mysql-connector) | 1 | Thread-local storage mode, each thread has its own connections |
+| PostgreSQL (psycopg v3) | 2 | 标准 QueuePool，连接可以跨线程共享 |
+| SQLite (sqlite3) | 1 | 线程本地存储模式，每个线程有自己的连接 |
+| MySQL (mysql-connector) | 1 | 线程本地存储模式，每个线程有自己的连接 |
 
-### How Thread-Local Mode Works
+### 线程本地模式工作原理
 
-When `threadsafety < 2`, the pool automatically creates independent connection sub-pools for each thread. Connections are never shared across threads, eliminating cross-thread close issues:
+当 `threadsafety < 2` 时，连接池自动为每个线程创建独立的连接子池。连接从不跨线程共享，消除跨线程关闭问题：
 
 ```python
 config = PoolConfig(
@@ -885,21 +962,21 @@ config = PoolConfig(
 )
 pool = BackendPool(config)
 
-# Each thread gets its own connections from its own sub-pool
+# 每个线程从自己的子池获取连接
 def worker():
     with pool.connection() as backend:
-        # Connection created AND closed in the SAME thread
+        # 连接在同一线程中创建和关闭
         backend.execute("SELECT 1")
 
-threading.Thread(target=worker).start()  # No cross-thread issues!
+threading.Thread(target=worker).start()  # 无跨线程问题!
 ```
 
-### Connection Lifecycle with auto_connect/disconnect
+### auto_connect/disconnect 的连接生命周期
 
-By default, `auto_connect_on_acquire=True` and `auto_disconnect_on_release=True` means:
+默认情况下，`auto_connect_on_acquire=True` 和 `auto_disconnect_on_release=True` 意味着：
 
-1. **acquire()** → automatically calls `backend.connect()`
-2. **release()** → automatically calls `backend.disconnect()`
+1. **acquire()** → 自动调用 `backend.connect()`
+2. **release()** → 自动调用 `backend.disconnect()`
 
 This ensures connections are always used in the thread that created them, preventing cross-thread errors for `threadsafety < 2` backends.
 
@@ -920,38 +997,38 @@ pool = BackendPool(config)
 backend = pool.acquire()
 backend.connect()  # Your responsibility
 # ... use backend ...
-backend.disconnect() # Your responsibility
+backend.disconnect() # 你的责任
 pool.release(backend)
 ```
 
-### When to Disable auto_connect/auto_disconnect
+### 何时禁用 auto_connect/auto_disconnect
 
-Only disable if you need precise control over connection timing and understand the implications:
+只有当你需要精确控制连接时间并理解其影响时才禁用：
 
 ```python
-# Not recommended unless you have a specific requirement
+# 不推荐，除非有特定需求
 config = PoolConfig(
     auto_connect_on_acquire=False,
     auto_disconnect_on_release=False,
 )
 pool = BackendPool(config)
 
-# WARNING: You must manage connect/disconnect manually
-# Failure to do so will cause connection leaks
-# Failure to disconnect in the correct thread will cause cross-thread errors
+# 警告：你必须手动管理 connect/disconnect
+# 不这样做会导致连接泄漏
+# 不在正确线程中断开会导致跨线程错误
 ```
 
-There are two usage patterns:
+有两种用法模式：
 
-#### Pattern 1: Manual Connection Management
+#### 模式 1：手动连接管理
 
-Use `backend.connect()` and `backend.disconnect()` directly when you need fine-grained control over connection timing:
+当你需要精细控制连接时间时，直接使用 `backend.connect()` 和 `backend.disconnect()`：
 
 ```python
 from rhosocial.activerecord.connection import BackendGroup
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
-# Create and configure a BackendGroup
+# 创建并配置 BackendGroup
 group = BackendGroup(
     name="app",
     models=[User, Post],
@@ -960,24 +1037,24 @@ group = BackendGroup(
 )
 group.configure()
 
-# Get the shared backend instance
+# 获取共享的后端实例
 backend = group.get_backend()
 
-# Manually connect when needed
+# 手动连接
 backend.connect()
 backend.introspect_and_adapt()
 try:
-    # Execute operations
+    # 执行操作
     User.create(name="Alice", email="alice@example.com")
     users = User.query().all()
 finally:
-    # Disconnect when done
+    # 使用完毕后断开
     backend.disconnect()
 ```
 
-#### Pattern 2: Context-Based Automatic Management (Recommended)
+#### 模式 2：基于上下文的自动管理 (推荐)
 
-Use `backend.context()` for automatic connect/disconnect — enter the context to connect, exit to disconnect:
+使用 `backend.context()` 自动连接/断开 — 进入上下文时连接，退出时断开：
 
 ```python
 from rhosocial.activerecord.connection import BackendGroup
@@ -1021,15 +1098,15 @@ for t in threads:
     t.join()
 ```
 
-### Synchronous Pool (PostgreSQL Only)
+### 同步连接池 (仅 PostgreSQL)
 
-The synchronous `BackendPool` is thread-safe using `threading.RLock` and `threading.Condition`. Multiple threads can safely acquire and release connections concurrently. **This is suitable for PostgreSQL (threadsafety=2) where connections can be shared across threads.**
+同步 `BackendPool` 使用 `threading.RLock` 和 `threading.Condition` 是线程安全的。多个线程可以安全地并发获取和释放连接。 **这适用于 PostgreSQL (threadsafety=2)，其连接可以跨线程共享。**
 
 ```python
 import threading
 from rhosocial.activerecord.connection.pool import PoolConfig, BackendPool
 
-# PostgreSQL — suitable for connection pool (threadsafety=2)
+# PostgreSQL — 适合连接池 (threadsafety=2)
 config = PoolConfig(
     min_size=2,
     max_size=10,
@@ -1051,9 +1128,9 @@ for t in threads:
 pool.close()
 ```
 
-### Async Pool
+### 异步连接池
 
-The `AsyncBackendPool` runs on a single-threaded event loop, so cross-thread issues do not apply. It can be used with any backend in async contexts.
+`AsyncBackendPool` 在单线程事件循环上运行，因此不涉及跨线程问题。它可以在任何异步上下文中与任何后端一起使用。
 
 ```python
 import asyncio
@@ -1072,3 +1149,44 @@ async def main():
 
 asyncio.run(main())
 ```
+
+## Bug 修复与已知问题
+
+### aiosqlite 线程泄漏修复
+
+在之前的版本中，有两个 bug 导致异步池测试在进程退出时挂起：
+
+#### Bug 1: 未 join() aiosqlite 后台线程
+
+`AsyncSQLiteBackend.disconnect()` 方法调用了 `close()`，但没有调用后台线程的 `join()`。aiosqlite 的 `Connection` 类继承自 `threading.Thread`，且 `daemon=False`。没有 `join()`，非守护线程会阻止进程退出。
+
+**修复**: 在 `close()` 后添加了 `join(timeout=5.0)`:
+
+```python
+async def disconnect(self) -> None:
+    if self._connection is not None:
+        conn = self._connection
+        await conn.close()
+        if hasattr(conn, 'join'):
+            conn.join(timeout=5.0)  # 等待后台线程
+        self._connection = None
+```
+
+#### Bug 2: 无防重复连接 guard
+
+在 `transient` 模式下启用 `validate_on_borrow=True` 时，`acquire()` 会在验证期间通过 `execute()` 自动连接，然后又通过 `auto_connect_on_acquire` 再次调用 `connect()` — 静默覆盖 `_connection` 并导致旧线程永久泄漏。
+
+**修复**: async 和 sync 版本的 `SQLiteBackend.connect()` 现在都会在创建新连接前先断开现有连接:
+
+```python
+def connect(self) -> None:
+    # Guard: 在创建新连接前先断开现有连接
+    if self._connection is not None:
+        self.disconnect()
+    # ... 创建新连接 ...
+```
+
+这些修复确保:
+1. pool.close() 后进程正常退出
+2. 启用验证的 transient 模式下无线程泄漏
+3. sync 和 async SQLiteBackend 与连接池配合正常工作
