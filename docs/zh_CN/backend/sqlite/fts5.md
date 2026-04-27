@@ -451,12 +451,12 @@ if dialect.check_extension_feature('fts5', 'trigram_tokenizer'):
 
 ## API 参考
 
-### VirtualTableMixin
+### SQLiteVirtualTableMixin
 
-SQLiteDialect 通过 VirtualTableMixin 提供完整的虚拟表支持，包括 FTS5。
+SQLiteDialect 通过 SQLiteVirtualTableMixin 提供完整的虚拟表支持，包括 FTS5。
 
 ```python
-class VirtualTableMixin:
+class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     # 虚拟表能力检测
     def supports_virtual_table(self) -> bool:
         """检查虚拟表是否支持"""
@@ -538,6 +538,13 @@ class VirtualTableMixin:
     ) -> Tuple[str, tuple]:
         """生成 snippet() 表达式"""
         
+    def format_fts5_offset_expression(
+        self,
+        table_name: str,
+        column: str,
+    ) -> Tuple[str, tuple]:
+        """生成 offset() 表达式"""
+
     def format_fts5_drop_virtual_table(
         self,
         table_name: str,
