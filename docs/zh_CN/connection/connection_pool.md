@@ -947,8 +947,86 @@ if stats.total_validation_failures > 0:
 | 数据库 | threadsafety | BackendPool 行为 |
 |----------|-------------|---------------------------|
 | PostgreSQL (psycopg v3) | 2 | 标准 QueuePool，连接可以跨线程共享 |
-| SQLite (sqlite3) | 1 | 线程本地存储模式，每个线程有自己的连接 |
+| SQLite (aiosqlite) | 1 | 线程本地存储模式，每个线程有自己的连接 |
 | MySQL (mysql-connector) | 1 | 线程本地存储模式，每个线程有自己的连接 |
+| MySQL (mysql.connector.aio) | 1 | 异步持久模式，连接在事件循环内复用 |
+
+### 后端驱动性能对比
+
+不同驱动和连接模式对性能有显著影响。以下是 1000 次查询的压力测试结果（20 线程 × 50 迭代）：
+
+| 驱动 | threadsafety | connection_mode | 耗时 | 备注 |
+|------|--------------|----------------|------|------|
+| MySQL (mysql-connector) | 1 | **transient** | ~175s | 每次 acquire 创建连接 |
+| MySQL (mysql.connector.aio) | 1 | **persistent** | 3.83s | 连接可复用 |
+| PostgreSQL (psycopg) | 2 | persistent | 1.61s | 真正的跨线程共享 |
+| PostgreSQL (psycopg, async) | 2 | persistent | 2.19s | 异步复用 |
+
+#### 关键发现
+
+1. **连接模式影响巨大**：
+   - `transient` 模式：每次 acquire 都要创建连接，释放时断开
+   - `persistent` 模式：连接在整个生命周期内保持复用
+
+2. **线程安全级别决定连接模式**：
+   - `threadsafety=1`：只能使用 `transient` 模式（每个线程独立连接）
+   - `threadsafety=2`：使用 `persistent` 模式（连接可跨线程共享）
+
+3. **psycopg(v3) 效率最高**：
+   - 内置连接池和完整锁机制
+   - 支持 `threadsafety=2`，连接可真正跨线程共享
+   - 避免重复创建/断开连接的开销
+
+#### 选择建议
+
+```mermaid
+flowchart TD
+    A["选择数据库驱动"] --> B{"需要高并发?"}
+    B -->|是| C{"PostgreSQL?"}
+    C -->|是| D["psycopg v3<br/>最高效选择"]:::highlight
+    C -->|否| E["mysql.connector.aio<br/>persistent 模式"]
+    B -->|低并发| F["任何驱动都足够"]
+    
+    classDef highlight fill:#c8e6c9,stroke:#388e3c,stroke-width:3px
+```
+
+| 场景 | 推荐驱动 | connection_mode | 原因 |
+|------|---------|----------------|------|
+| **高并发多线程同步** | PostgreSQL + psycopg | persistent | threadsafety=2，连接共享 |
+| **高并发异步** | PostgreSQL + psycopg | persistent | 最佳性能 |
+| **中等并发** | MySQL + mysql.connector.aio | persistent | async 模式下效率尚可 |
+| **低并发/简单场景** | 任意 | auto | 差异不明显 |
+
+#### 代码示例
+
+**PostgreSQL 高并发场景（推荐）：**
+
+```python
+config = PoolConfig(
+    min_size=10,
+    max_size=50,
+    connection_mode="auto",  # threadsafety=2 → persistent
+    backend_factory=lambda: PostgresBackend(host="localhost")
+)
+pool = BackendPool.create(config)
+# 连接在线程间高效共享
+```
+
+**MySQL 异步场景：**
+
+```python
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+config = PoolConfig(
+    min_size=10,
+    max_size=50,
+    connection_mode="auto",  # async mode → persistent
+    backend_factory=lambda: AsyncMySQLBackend(host="localhost")
+)
+pool = AsyncBackendPool.create(config)
+```
 
 ### 线程本地模式工作原理
 

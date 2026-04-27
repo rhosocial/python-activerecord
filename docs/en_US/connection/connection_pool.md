@@ -947,8 +947,86 @@ if stats.total_validation_failures > 0:
 | Database | threadsafety | Behavior with BackendPool |
 |----------|-------------|---------------------------|
 | PostgreSQL (psycopg v3) | 2 | Standard QueuePool, connections can be shared across threads |
-| SQLite (sqlite3) | 1 | Thread-local storage mode, each thread has its own connections |
+| SQLite (aiosqlite) | 1 | Thread-local storage mode, each thread has its own connections |
 | MySQL (mysql-connector) | 1 | Thread-local storage mode, each thread has its own connections |
+| MySQL (mysql.connector.aio) | 1 | Async persistent mode, connections reused within event loop |
+
+### Backend Driver Performance Comparison
+
+Different drivers and connection modes significantly affect performance. Below are stress test results with 1000 queries (20 threads x 50 iterations):
+
+| Driver | threadsafety | connection_mode | Time | Notes |
+|--------|--------------|----------------|------|-------|
+| MySQL (mysql-connector) | 1 | **transient** | ~175s | Create connection on each acquire |
+| MySQL (mysql.connector.aio) | 1 | **persistent** | 3.83s | Connections reused |
+| PostgreSQL (psycopg) | 2 | persistent | 1.61s | True cross-thread sharing |
+| PostgreSQL (psycopg, async) | 2 | persistent | 2.19s | Async reuse |
+
+#### Key Findings
+
+1. **Connection mode has huge impact**:
+   - `transient` mode: Create connection on each acquire, disconnect on release
+   - `persistent` mode: Connections are kept alive and reused throughout lifecycle
+
+2. **Thread safety level determines connection mode**:
+   - `threadsafety=1`: Can only use `transient` mode (per-thread connections)
+   - `threadsafety=2`: Uses `persistent` mode (connections can be shared across threads)
+
+3. **psycopg(v3) is most efficient**:
+   - Built-in connection pooling and full locking mechanism
+   - Supports `threadsafety=2`, connections can truly be shared across threads
+   - Avoids overhead of repeated connection creation/disconnection
+
+#### Selection Guide
+
+```mermaid
+flowchart TD
+    A["Choose database driver"] --> B{"Need high concurrency?"}
+    B -->|Yes| C{"PostgreSQL?"}
+    C -->|Yes| D["psycopg v3<br/>Best choice"]:::highlight
+    C -->|No| E["mysql.connector.aio<br/>persistent mode"]
+    B -->|Low concurrency| F["Any driver is sufficient"]
+    
+    classDef highlight fill:#c8e6c9,stroke:#388e3c,stroke-width:3px
+```
+
+| Scenario | Recommended Driver | connection_mode | Reason |
+|----------|-------------------|----------------|--------|
+| **High concurrency multi-threaded sync** | PostgreSQL + psycopg | persistent | threadsafety=2, connection sharing |
+| **High concurrency async** | PostgreSQL + psycopg | persistent | Best performance |
+| **Medium concurrency** | MySQL + mysql.connector.aio | persistent | Decent efficiency in async mode |
+| **Low concurrency/simple** | Any | auto | Differences not significant |
+
+#### Code Examples
+
+**PostgreSQL high concurrency scenario (recommended):**
+
+```python
+config = PoolConfig(
+    min_size=10,
+    max_size=50,
+    connection_mode="auto",  # threadsafety=2 → persistent
+    backend_factory=lambda: PostgresBackend(host="localhost")
+)
+pool = BackendPool.create(config)
+# Connections efficiently shared across threads
+```
+
+**MySQL async scenario:**
+
+```python
+import asyncio
+if sys.platform == 'win32':
+    asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
+
+config = PoolConfig(
+    min_size=10,
+    max_size=50,
+    connection_mode="auto",  # async mode → persistent
+    backend_factory=lambda: AsyncMySQLBackend(host="localhost")
+)
+pool = AsyncBackendPool.create(config)
+```
 
 ### How Thread-Local Mode Works
 
