@@ -15,7 +15,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union
 
 from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
-from ..dialect import SQLiteDialect, SQLDialectBase
+from ..dialect import SQLiteDialect
 from ..transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -78,9 +78,8 @@ class SQLiteBackend(
         self._register_sqlite_adapters()
 
     @property
-    def dialect(self) -> SQLDialectBase:
+    def dialect(self) -> SQLiteDialect:
         return self._dialect
-
 
     def _parse_explain_result(self, raw_rows, sql, duration):
         """Return a SQLite-specific typed EXPLAIN result.
@@ -294,7 +293,7 @@ class SQLiteBackend(
             cursor.executescript(sql_script)
             duration = time.perf_counter() - start_time
             self.log(logging.INFO, f"SQL script executed successfully, duration={duration:.3f}s")
-            self._handle_auto_commit_if_needed()
+            self._handle_auto_commit()
         except Exception as e:
             self.log(logging.ERROR, f"Error executing SQL script: {str(e)}")
             self._handle_error(e)

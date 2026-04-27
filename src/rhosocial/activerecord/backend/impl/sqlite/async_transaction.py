@@ -103,7 +103,10 @@ class AsyncSQLiteTransactionManager(AsyncTransactionManager):
         if self.is_active:
             raise IsolationLevelError("Cannot change begin type during active transaction")
         if value is not None and value.upper() not in ("DEFERRED", "IMMEDIATE", "EXCLUSIVE"):
-            raise ValueError(f"Invalid SQLite begin type: {value}. Must be one of ('DEFERRED', 'IMMEDIATE', 'EXCLUSIVE')")
+            raise ValueError(
+                f"Invalid SQLite begin type: {value}. "
+                "Must be one of ('DEFERRED', 'IMMEDIATE', 'EXCLUSIVE')"
+            )
         self._begin_type = value.upper() if value else None
 
     def _build_begin_sql(self) -> tuple:

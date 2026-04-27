@@ -9,6 +9,7 @@ Uses aiosqlite library for async SQLite operations.
 import logging
 import sqlite3
 import time
+from datetime import datetime
 from typing import Any, Dict, List, Optional, Tuple, Union
 
 import aiosqlite
@@ -83,7 +84,6 @@ class AsyncSQLiteBackend(
     def dialect(self) -> SQLiteDialect:
         """Get SQL dialect."""
         return self._dialect
-
 
     def _parse_explain_result(self, raw_rows, sql, duration):
         """Return a SQLite-specific typed EXPLAIN result (shared with sync backend)."""
@@ -160,6 +160,7 @@ class AsyncSQLiteBackend(
     async def connect(self) -> None:
         """Establish a connection to the SQLite database asynchronously."""
         try:
+            sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode("utf-8")))
             self._connection = await aiosqlite.connect(
                 self.config.database,
                 timeout=self.config.timeout,
@@ -240,7 +241,7 @@ class AsyncSQLiteBackend(
             await self.connect()
         return await self._connection.cursor()
 
-    async def _handle_auto_commit_if_needed(self):
+    async def _handle_auto_commit_if_needed(self) -> None:
         """Handle auto-commit if needed."""
         if not self.in_transaction:
             try:
@@ -302,7 +303,7 @@ class AsyncSQLiteBackend(
             await self._handle_error(e)
             return None
 
-    async def _handle_auto_commit(self):
+    async def _handle_auto_commit(self) -> None:
         """Handle auto-commit."""
         if self._transaction_manager is None or not self._transaction_manager.is_active:
             try:
@@ -444,6 +445,11 @@ class AsyncSQLiteBackend(
         # Detect virtual table extensions availability via compile options
         compile_options = await self.get_compile_options()
         self._dialect.set_runtime_param("compile_options", compile_options)
+        self._dialect.set_runtime_param("fts3_available", "ENABLE_FTS3" in compile_options)
+        self._dialect.set_runtime_param("fts4_available", "ENABLE_FTS4" in compile_options)
+        self._dialect.set_runtime_param("fts5_available", "ENABLE_FTS5" in compile_options)
+        self._dialect.set_runtime_param("rtree_available", "ENABLE_RTREE" in compile_options)
+        self._dialect.set_runtime_param("geopoly_available", "ENABLE_GEOPOLY" in compile_options)
 
     async def _detect_math_functions(self) -> bool:
         """Detect if math functions are available at runtime.
@@ -511,18 +517,3 @@ class AsyncSQLiteBackend(
         """
         options = await self.get_compile_options()
         return option_name in options
-
-    async def _detect_json1_extension(self) -> bool:
-        """Detect if json1 extension is available at runtime.
-
-        Returns False if no connection is established.
-        """
-        if self._connection is None:
-            return False
-        try:
-            cursor = await self._connection.cursor()
-            await cursor.execute("SELECT json('{}')")
-            await cursor.close()
-            return True
-        except Exception:
-            return False
