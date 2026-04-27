@@ -13,6 +13,30 @@ Tests PoolConfig, PoolStats, PooledBackend, BackendPool, and AsyncBackendPool.
     ``backend.context()`` instead. See ``TestConcurrentAccess`` for details on
     why using BackendPool with SQLite in multi-threaded scenarios produces
     cross-thread warnings.
+
+.. rubric:: aiosqlite Thread Leak (Fixed)
+
+Prior to the connection-mode refactoring, the async pool tests could hang on
+process exit across **all** Python versions.  The root cause was a two-part bug:
+
+1. **Missing ``join()`` after ``aiosqlite.Connection.close()``**.
+   ``aiosqlite.Connection`` inherits from ``threading.Thread`` with
+   ``daemon=False``.  Calling ``close()`` only signals the background thread
+   to stop; it does **not** ``join()`` it.  If ``join()`` is never called,
+   the non-daemon thread keeps running and prevents the Python process from
+   exiting.  Fix: added ``conn.join(timeout=5.0)`` after ``await conn.close()``
+   in ``AsyncSQLiteBackend.disconnect()``.
+
+2. **Double ``connect()`` leaking the first aiosqlite thread**.
+   In transient mode with ``validate_on_borrow=True`` (the default), the
+   ``acquire()`` flow was: (a) validation calls ``execute()`` which
+   **auto-connects** the backend (creating an aiosqlite thread), then (b)
+   ``auto_connect_on_acquire`` calls ``connect()`` again.  Because
+   ``AsyncSQLiteBackend.connect()`` had no guard against re-connection, the
+   old ``_connection`` was silently overwritten — its background thread was
+   never ``close()``-ed or ``join()``-ed, becoming a permanent non-daemon
+   thread.  Fix: added a guard in ``connect()`` that calls ``disconnect()``
+   first if ``self._connection is not None``.
 """
 
 from datetime import datetime, timedelta
@@ -2383,6 +2407,7 @@ class TestConnectionRecovery:
             max_size=5,
             validate_on_borrow=True,  # Enable validation
             validation_query="SELECT 1",
+            connection_mode="transient",  # Transient mode: destroy and recreate on validation failure
             backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
@@ -2979,6 +3004,7 @@ class TestAsyncConnectionRecovery:
             max_size=5,
             validate_on_borrow=True,  # Enable validation
             validation_query="SELECT 1",
+            connection_mode="transient",  # Transient mode: destroy and recreate on validation failure
             backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
         pool = await AsyncBackendPool.create(config)
@@ -3045,5 +3071,405 @@ class TestAsyncConnectionRecovery:
             assert result is not None
 
             await pool.release(new_backend)
+        finally:
+            await pool.close(timeout=0.1)
+
+
+# ============================================================
+# Connection Mode Tests
+# ============================================================
+
+class TestConnectionModeConfig:
+    """Tests for PoolConfig connection_mode field."""
+
+    def test_default_connection_mode(self):
+        """Test default connection_mode is 'auto'."""
+        config = PoolConfig(backend_factory=lambda: None)
+        assert config.connection_mode == "auto"
+
+    def test_persistent_connection_mode(self):
+        """Test explicit persistent connection mode."""
+        config = PoolConfig(
+            connection_mode="persistent",
+            backend_factory=lambda: None
+        )
+        assert config.connection_mode == "persistent"
+
+    def test_transient_connection_mode(self):
+        """Test explicit transient connection mode."""
+        config = PoolConfig(
+            connection_mode="transient",
+            backend_factory=lambda: None
+        )
+        assert config.connection_mode == "transient"
+
+    def test_invalid_connection_mode(self):
+        """Test invalid connection_mode raises ValueError."""
+        with pytest.raises(ValueError, match="connection_mode must be"):
+            PoolConfig(
+                connection_mode="invalid",
+                backend_factory=lambda: None
+            )
+
+    def test_auto_connect_ignored_warning_in_persistent_mode(self, caplog):
+        """Test that auto_connect_on_acquire is warned in persistent mode."""
+        import logging
+        with caplog.at_level(logging.WARNING):
+            config = PoolConfig(
+                connection_mode="persistent",
+                auto_connect_on_acquire=True,
+                backend_factory=lambda: None
+            )
+        assert "persistent" in caplog.text
+        assert "ignores" in caplog.text
+
+    def test_clone_preserves_connection_mode(self):
+        """Test that clone preserves connection_mode."""
+        config = PoolConfig(
+            connection_mode="persistent",
+            backend_factory=lambda: None
+        )
+        cloned = config.clone()
+        assert cloned.connection_mode == "persistent"
+
+    def test_clone_can_override_connection_mode(self):
+        """Test that clone can override connection_mode."""
+        config = PoolConfig(
+            connection_mode="persistent",
+            backend_factory=lambda: None
+        )
+        cloned = config.clone(connection_mode="transient")
+        assert cloned.connection_mode == "transient"
+
+
+class TestSyncPersistentMode:
+    """Tests for synchronous BackendPool in persistent mode."""
+
+    def test_auto_mode_matches_threadsafety(self):
+        """Test that auto mode selects connection mode based on backend threadsafety."""
+        # SQLite's threadsafety varies by Python version:
+        # - Python 3.8-3.11: sqlite3.threadsafety = 1 → transient
+        # - Python 3.12+: sqlite3.threadsafety = 3 → persistent
+        import sqlite3
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            expected_mode = "persistent" if sqlite3.threadsafety >= 2 else "transient"
+            assert pool.connection_mode == expected_mode
+        finally:
+            pool.close(timeout=0.1)
+
+    def test_explicit_persistent_mode_with_sqlite(self):
+        """Test explicit persistent mode overrides auto-detection."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="persistent",
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            assert pool.connection_mode == "persistent"
+            # In persistent mode, warmup should connect immediately
+            stats = pool.get_stats()
+            assert stats.current_available >= 1
+
+            # Acquire should NOT call connect again
+            backend = pool.acquire()
+            assert backend is not None
+            # Connection should already be established
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = backend.execute("SELECT 1", [], options=options)
+            assert result is not None
+
+            # Release should NOT disconnect in persistent mode
+            pool.release(backend)
+            # Backend should still be connected after release
+            result2 = backend.execute("SELECT 1", [], options=options)
+            assert result2 is not None
+        finally:
+            pool.close(timeout=0.1)
+
+    def test_persistent_mode_warmup_connects(self):
+        """Test that persistent mode connects during warmup."""
+        config = PoolConfig(
+            min_size=2,
+            max_size=5,
+            connection_mode="persistent",
+            validate_on_borrow=False,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            stats = pool.get_stats()
+            assert stats.current_available == 2
+            # All warmed up connections should be usable immediately
+            backend1 = pool.acquire()
+            backend2 = pool.acquire()
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            assert backend1.execute("SELECT 1", [], options=options) is not None
+            assert backend2.execute("SELECT 1", [], options=options) is not None
+            pool.release(backend1)
+            pool.release(backend2)
+        finally:
+            pool.close(timeout=0.1)
+
+    def test_persistent_mode_reconnection_on_validation_failure(self):
+        """Test that persistent mode reconnects when validation fails."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="persistent",
+            validate_on_borrow=True,
+            validation_query="SELECT 1",
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            # Acquire and release
+            backend1 = pool.acquire()
+            pool.release(backend1)
+
+            # Mark as unhealthy
+            with pool._lock:
+                if pool._available:
+                    pooled = pool._available[0]
+                    pooled.mark_unhealthy()
+
+            # Acquire again - persistent mode should reconnect
+            backend2 = pool.acquire()
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = backend2.execute("SELECT 1", [], options=options)
+            assert result is not None
+            pool.release(backend2)
+
+            # In persistent mode, reconnection reuses the same backend
+            # so total_created may not increase
+            stats = pool.get_stats()
+            assert stats.total_validation_failures >= 1
+        finally:
+            pool.close(timeout=0.1)
+
+
+class TestSyncTransientMode:
+    """Tests for synchronous BackendPool in transient mode."""
+
+    def test_explicit_transient_mode(self):
+        """Test explicit transient mode behavior."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="transient",
+            auto_connect_on_acquire=True,
+            auto_disconnect_on_release=True,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            assert pool.connection_mode == "transient"
+
+            backend = pool.acquire()
+            assert backend is not None
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = backend.execute("SELECT 1", [], options=options)
+            assert result is not None
+
+            # Release should disconnect in transient mode
+            pool.release(backend)
+        finally:
+            pool.close(timeout=0.1)
+
+    def test_transient_mode_no_auto_connect(self):
+        """Test transient mode with auto_connect_on_acquire=False."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="transient",
+            auto_connect_on_acquire=False,
+            auto_disconnect_on_release=False,
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            backend = pool.acquire()
+            # Backend should NOT be connected automatically
+            # User must call connect() manually
+            pool.release(backend)
+        finally:
+            pool.close(timeout=0.1)
+
+    def test_transient_mode_destroy_on_validation_failure(self):
+        """Test that transient mode destroys and recreates on validation failure."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="transient",
+            validate_on_borrow=True,
+            validation_query="SELECT 1",
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            backend1 = pool.acquire()
+            pool.release(backend1)
+
+            # Mark as unhealthy
+            with pool._lock:
+                if pool._available:
+                    pooled = pool._available[0]
+                    pooled.mark_unhealthy()
+
+            # Acquire again - transient mode should destroy and create new
+            backend2 = pool.acquire()
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = backend2.execute("SELECT 1", [], options=options)
+            assert result is not None
+            pool.release(backend2)
+
+            stats = pool.get_stats()
+            assert stats.total_validation_failures >= 1
+            assert stats.total_created >= 2  # Original + new after failure
+        finally:
+            pool.close(timeout=0.1)
+
+
+class TestAsyncConnectionMode:
+    """Tests for AsyncBackendPool connection modes."""
+
+    @pytest.mark.asyncio
+    async def test_auto_mode_defaults_to_persistent(self):
+        """Test that auto mode defaults to persistent for async pool."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            assert pool.connection_mode == "persistent"
+        finally:
+            await pool.close(timeout=0.1)
+
+    @pytest.mark.asyncio
+    async def test_persistent_mode_stays_connected(self):
+        """Test persistent mode: connections stay connected across acquire/release."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="persistent",
+            validate_on_borrow=False,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            backend = await pool.acquire()
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = await backend.execute("SELECT 1", [], options=options)
+            assert result is not None
+
+            # Release should NOT disconnect
+            await pool.release(backend)
+
+            # Backend should still be usable
+            result2 = await backend.execute("SELECT 1", [], options=options)
+            assert result2 is not None
+        finally:
+            await pool.close(timeout=0.1)
+
+    @pytest.mark.asyncio
+    async def test_transient_mode_connect_disconnect(self):
+        """Test transient mode: connect on acquire, disconnect on release."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="transient",
+            auto_connect_on_acquire=True,
+            auto_disconnect_on_release=True,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            assert pool.connection_mode == "transient"
+
+            backend = await pool.acquire()
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = await backend.execute("SELECT 1", [], options=options)
+            assert result is not None
+
+            await pool.release(backend)
+        finally:
+            await pool.close(timeout=0.1)
+
+    @pytest.mark.asyncio
+    async def test_persistent_mode_reconnection(self):
+        """Test persistent mode reconnection on validation failure."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="persistent",
+            validate_on_borrow=True,
+            validation_query="SELECT 1",
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            backend1 = await pool.acquire()
+            await pool.release(backend1)
+
+            # Mark as unhealthy
+            async with pool._lock:
+                if pool._available:
+                    pooled = pool._available[0]
+                    pooled.mark_unhealthy()
+
+            # Acquire - persistent mode should reconnect
+            backend2 = await pool.acquire()
+            options = ExecutionOptions(stmt_type=StatementType.DQL)
+            result = await backend2.execute("SELECT 1", [], options=options)
+            assert result is not None
+            await pool.release(backend2)
+
+            stats = pool.get_stats()
+            assert stats.total_validation_failures >= 1
+        finally:
+            await pool.close(timeout=0.1)
+
+
+class TestHealthCheckConnectionMode:
+    """Tests for health_check() including connection_mode in result."""
+
+    def test_health_check_includes_connection_mode(self):
+        """Test that health_check includes connection_mode."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            connection_mode="persistent",
+            backend_factory=lambda: SQLiteBackend(database=":memory:")
+        )
+        pool = BackendPool.create(config)
+        try:
+            health = pool.health_check()
+            assert 'connection_mode' in health
+            assert health['connection_mode'] == 'persistent'
+        finally:
+            pool.close(timeout=0.1)
+
+    @pytest.mark.asyncio
+    async def test_async_health_check_includes_connection_mode(self):
+        """Test that async health_check includes connection_mode."""
+        config = PoolConfig(
+            min_size=1,
+            max_size=5,
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+        )
+        pool = await AsyncBackendPool.create(config)
+        try:
+            health = await pool.health_check()
+            assert 'connection_mode' in health
+            assert health['connection_mode'] == 'persistent'
         finally:
             await pool.close(timeout=0.1)
