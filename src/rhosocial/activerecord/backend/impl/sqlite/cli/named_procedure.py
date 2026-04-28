@@ -4,8 +4,6 @@
 named-procedure requires connection arguments, output arguments, and --rich-ascii.
 """
 
-import argparse
-
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 from .connection import create_connection_parent_parser, resolve_connection_config_from_args

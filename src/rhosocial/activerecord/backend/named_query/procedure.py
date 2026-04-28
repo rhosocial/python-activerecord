@@ -53,7 +53,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Type
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
 from .resolver import resolve_named_query
 
@@ -497,11 +497,9 @@ class ProcedureContext:
 
             def _run(idx: int, step: ParallelStep) -> None:
                 t = time_module.monotonic()
-                s, e = "ok", None
                 try:
                     results[idx] = self._run_parallel_step(step, bind_lock=bind_lock)
                 except Exception as exc:
-                    s, e = "error", type(exc).__name__
                     exc_by_idx[idx] = exc
                     raise
                 finally:
@@ -816,7 +814,7 @@ class AsyncProcedureContext:
             task_results_sorted = sorted(task_results, key=lambda x: x[0])
             results = [r[1] for r in task_results_sorted]
             first_async_exc = None
-            for idx, result, status, error, elapsed, exc in task_results_sorted:
+            for idx, _result, status, error, elapsed, exc in task_results_sorted:
                 sub_entries.append(TraceEntry(
                     kind=StepKind.SINGLE,
                     index=idx,
