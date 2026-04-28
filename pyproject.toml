@@ -85,7 +85,7 @@ mysql = ["rhosocial-activerecord-mysql>=1.0.0,<2.0.0"]
 mariadb = ["rhosocial-activerecord-mariadb>=1.0.0,<2.0.0"]
 postgres = ["rhosocial-activerecord-postgres>=1.0.0,<2.0.0"]
 oracle = ["rhosocial-activerecord-oracle>=1.0.0,<2.0.0"]
-mssql = ["rhosocial-activerecord-mssql>=1.0.0,<2.0.0"]
+sqlserver = ["rhosocial-activerecord-sqlserver>=1.0.0,<2.0.0"]
 
 # Convenience extra for all database backends
 databases = [
@@ -93,7 +93,7 @@ databases = [
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
     "rhosocial-activerecord-postgres>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
-    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-sqlserver>=1.0.0,<2.0.0",
 ]
 
 # Database migration support
@@ -105,7 +105,7 @@ all = [
     "rhosocial-activerecord-mariadb>=1.0.0,<2.0.0",
     "rhosocial-activerecord-postgres>=1.0.0,<2.0.0",
     "rhosocial-activerecord-oracle>=1.0.0,<2.0.0",
-    "rhosocial-activerecord-mssql>=1.0.0,<2.0.0",
+    "rhosocial-activerecord-sqlserver>=1.0.0,<2.0.0",
     "rhosocial-activerecord-migration>=1.0.0,<2.0.0",
     "aiosqlite>=0.19.0",
     "aiofiles>=23.0.0",
@@ -248,7 +248,7 @@ markers = [
     "sqlite: marks tests specific to SQLite backend",
     "mysql: marks tests specific to MySQL backend",
     "postgres: marks tests specific to PostgreSQL backend",
-    "mssql: marks tests specific to SQL Server backend",
+    "sqlserver: marks tests specific to SQL Server backend",
     "oracle: marks tests specific to Oracle backend",
     "mariadb: marks tests specific to MariaDB backend",
 

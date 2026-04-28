@@ -23,7 +23,7 @@ Getting started with `rhosocial-activerecord` is straightforward. This guide pro
 * MySQL/MariaDB: `rhosocial-activerecord-mysql`
 * PostgreSQL: `rhosocial-activerecord-postgres`
 * Oracle: `rhosocial-activerecord-oracle` (planned)
-* SQL Server: `rhosocial-activerecord-mssql` (planned)
+* SQL Server: `rhosocial-activerecord-sqlserver` (planned)
 
 > ⚠️ **Note**: The asynchronous SQLite backend requires the `aiosqlite` package. It is not included in the core dependencies and must be installed manually if you plan to use async SQLite:
 > ```bash
