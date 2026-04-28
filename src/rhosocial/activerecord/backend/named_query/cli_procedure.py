@@ -51,7 +51,7 @@ import sys
 from typing import Any, Callable, List, Optional
 
 from .exceptions import NamedQueryError
-from .procedure import LogEntry, ProcedureRunner, TransactionMode
+from .procedure import ProcedureRunner, TransactionMode
 
 
 def _replace_prog_placeholder(docstring: str, prog: str = None) -> str:
@@ -73,7 +73,7 @@ def list_named_procedures_in_module(module_name: str) -> List[dict]:
     try:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        raise NamedQueryError(f"Module not found: {module_name}. {e}")
+        raise NamedQueryError(f"Module not found: {module_name}. {e}") from e
 
     from .procedure import Procedure
 
@@ -295,11 +295,6 @@ def handle_named_procedure(
         sys.exit(1)
 
     async def run_async():
-        import asyncio
-
-        async def async_execute_query(sql: str, params: tuple, stmt_type: Any):
-            return await execute_query_async(sql, params, stmt_type)
-
         try:
             backend = backend_async_factory()
             from .procedure import AsyncProcedureRunner

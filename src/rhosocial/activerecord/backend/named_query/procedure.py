@@ -1116,7 +1116,7 @@ class ProcedureRunner(_BaseProcedureRunner):
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
             from .exceptions import NamedQueryError
-            raise NamedQueryError(f"backend must have an 'execute' method.")
+            raise NamedQueryError("backend must have an 'execute' method.")
 
         if inspect.iscoroutinefunction(backend_execute):
             from .exceptions import NamedQueryError
@@ -1282,7 +1282,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
             from .exceptions import NamedQueryError
-            raise NamedQueryError(f"backend must have an 'execute' method.")
+            raise NamedQueryError("backend must have an 'execute' method.")
 
         if not inspect.iscoroutinefunction(backend_execute):
             from .exceptions import NamedQueryError
