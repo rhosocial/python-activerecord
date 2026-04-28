@@ -232,26 +232,13 @@ def handle_named_connection(
         args: Parsed command-line arguments namespace.
         named_connection_resolver_factory: Factory to create resolver.
     """
-    # Show help message if no arguments provided
+    # Show help if no arguments provided
     if not args.list_connections and not args.show_connection and not args.describe_connection:
-        print("Named Connection CLI")
-        print("=" * 50)
-        print("Usage:")
-        print("  # List connections in a module")
-        print("  named-connection --list <module_name>")
-        print("")
-        print("  # Show detailed info for a connection")
-        print("  named-connection --show <qualified_name>")
-        print("")
-        print("  # Describe connection config (dry-run)")
-        print("  named-connection --describe <qualified_name> [--param KEY=VALUE]")
-        print("")
-        print("Examples:")
-        print("  named-connection --list myapp.connections")
-        print("  named-connection --show myapp.connections.prod_db")
-        print("  named-connection --describe myapp.connections.wal_db --param timeout=30")
-        print("")
-        print("For full help: named-connection --help")
+        nc_parser = create_named_connection_parser(
+            argparse.ArgumentParser().add_subparsers(),
+            argparse.ArgumentParser(add_help=False),
+        )
+        nc_parser.print_help()
         return
 
     if args.list_connections:
