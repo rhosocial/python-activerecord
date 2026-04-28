@@ -186,11 +186,9 @@ runner = ProcedureRunner(
 ).load()
 
 result = runner.run(
-    dialect,
+    backend,
     user_params={"order_id": 1, "user_id": 100, "amount": 99.99},
     transaction_mode=TransactionMode.AUTO,
-    backend=backend,
-    execute_query=backend.execute,
 )
 
 print(f"Procedure completed. Aborted: {result.aborted}")

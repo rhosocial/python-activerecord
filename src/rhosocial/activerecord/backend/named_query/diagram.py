@@ -11,7 +11,7 @@ Usage:
     print(MyProcedure.static_diagram("flowchart"))
 
     # Instance diagram (after execution)
-    result = runner.run(dialect, backend)
+    result = runner.run(backend)
     print(result.diagram("sequence", procedure_name="MyProcedure"))
 """
 from __future__ import annotations

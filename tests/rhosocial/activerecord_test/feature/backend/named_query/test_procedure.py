@@ -269,7 +269,7 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.HelloProc").load()
-            result = runner.run(mock_dialect, {"name": "Test"}, backend=mock_backend)
+            result = runner.run(mock_backend, {"name": "Test"})
 
             assert len(result.logs) == 1
             assert "Hello, Test!" in result.logs[0].message
@@ -290,7 +290,7 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.AbortProc").load()
-            result = runner.run(mock_dialect, {"should_abort": True}, backend=mock_backend)
+            result = runner.run(mock_backend, {"should_abort": True})
 
             assert result.aborted is True
             assert "Test abort" in str(result.abort_reason)
@@ -310,7 +310,7 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.BindRowsProc").load()
-            result = runner.run(mock_dialect, {}, backend=mock_backend)
+            result = runner.run(mock_backend, {})
 
             assert len(result.logs) == 1
 

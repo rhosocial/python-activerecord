@@ -525,7 +525,7 @@ print(MyProcedure.static_diagram("sequence"))
 from rhosocial.activerecord.backend.named_query import ProcedureRunner
 
 runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
-result = runner.run(dialect, backend=backend)
+result = runner.run(backend)
 
 # 带执行状态的流程图格式
 print(result.diagram("flowchart", procedure_name="OrderProcessing"))

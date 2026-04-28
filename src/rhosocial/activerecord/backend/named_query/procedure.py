@@ -1081,18 +1081,16 @@ class ProcedureRunner(_BaseProcedureRunner):
 
     def run(
         self,
-        dialect: Any,
+        backend: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
-        backend: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure.
 
         Args:
-            dialect: The dialect instance.
+            backend: The database backend (required). Must be a sync backend.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
-            backend: The database backend (required). Must be a sync backend.
 
         Returns:
             ProcedureResult with outputs and logs.
@@ -1109,6 +1107,11 @@ class ProcedureRunner(_BaseProcedureRunner):
         if backend is None:
             from .exceptions import NamedQueryError
             raise NamedQueryError("backend is required.")
+
+        dialect = getattr(backend, "dialect", None)
+        if dialect is None:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend must have a 'dialect' attribute.")
 
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
@@ -1244,18 +1247,16 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
 
     async def run(
         self,
-        dialect: Any,
+        backend: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
-        backend: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure asynchronously.
 
         Args:
-            dialect: The dialect instance.
+            backend: The database backend (required). Must be an async backend.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
-            backend: The database backend (required). Must be an async backend.
 
         Returns:
             ProcedureResult with outputs and logs.
@@ -1272,6 +1273,11 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         if backend is None:
             from .exceptions import NamedQueryError
             raise NamedQueryError("backend is required.")
+
+        dialect = getattr(backend, "dialect", None)
+        if dialect is None:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend must have a 'dialect' attribute.")
 
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
