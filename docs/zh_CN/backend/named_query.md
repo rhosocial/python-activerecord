@@ -478,7 +478,9 @@ async def run_cleanup(month: str):
     }
 ```
 
-> **注意**：`AsyncProcedure` 子类只能交给 `AsyncProcedureRunner`；`Procedure` 子类只能交给 `ProcedureRunner`。两者不可混用。
+> **注意**：
+> - `AsyncProcedure` 子类只能交给 `AsyncProcedureRunner`；`Procedure` 子类只能交给 `ProcedureRunner`。两者不可混用。
+> - `ProcedureRunner` 需要**同步**后端（如 `SQLiteBackend`、`MySQLBackend`）；`AsyncProcedureRunner` 需要**异步**后端（如 `AsyncSQLiteBackend`、`AsyncMySQLBackend`）。传入错误类型的后端将在运行时抛出 `NamedQueryError`。
 
 ---
 

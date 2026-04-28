@@ -480,7 +480,9 @@ async def run_cleanup(month: str):
     }
 ```
 
-> **Important**: `AsyncProcedure` subclasses must be run by `AsyncProcedureRunner`; `Procedure` subclasses must be run by `ProcedureRunner`. Do not mix them.
+> **Important**: 
+> - `AsyncProcedure` subclasses must be run by `AsyncProcedureRunner`; `Procedure` subclasses must be run by `ProcedureRunner`. Do not mix them.
+> - `ProcedureRunner` requires a **sync** backend (e.g., `SQLiteBackend`, `MySQLBackend`); `AsyncProcedureRunner` requires an **async** backend (e.g., `AsyncSQLiteBackend`, `AsyncMySQLBackend`). Passing the wrong backend type will raise `NamedQueryError` at runtime.
 
 ---
 
