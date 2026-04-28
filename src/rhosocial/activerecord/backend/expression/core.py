@@ -55,16 +55,20 @@ class Column(
 ):
     """Represents a column in a SQL query."""
 
-    def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None):
+    def __init__(self, dialect: "SQLDialectBase", name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None):
         super().__init__(dialect)
         self.name = name
         self.table = table
         self.alias = alias
+        self.schema_name = schema_name
 
     def to_sql(self) -> "SQLQueryAndParams":
         # Generate base column SQL
         if self.table:
-            sql = f"{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
+            if self.schema_name:
+                sql = f"{self.dialect.format_identifier(self.schema_name)}.{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
+            else:
+                sql = f"{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
         else:
             sql = self.dialect.format_identifier(self.name)
         params = ()
@@ -254,9 +258,10 @@ class WildcardExpression(SQLValueExpression):
         # Results in: SELECT ? FROM ... with params ('*',)
     """
 
-    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None):
+    def __init__(self, dialect: "SQLDialectBase", table: Optional[str] = None, schema_name: Optional[str] = None):
         super().__init__(dialect)
         self.table = table  # Optional table qualifier for SELECT table.*
+        self.schema_name = schema_name  # Optional schema qualifier for SELECT schema.table.*
 
     def to_sql(self) -> "SQLQueryAndParams":
-        return self.dialect.format_wildcard(self.table)
+        return self.dialect.format_wildcard(self.table, self.schema_name)

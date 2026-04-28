@@ -173,7 +173,8 @@ class ActiveQuery(
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
-        from_clause = TableExpression(dialect, self.model_class.table_name())
+        from_clause = TableExpression(dialect, self.model_class.table_name(),
+                                      schema_name=self.model_class.schema_name() or backend.get_default_schema())
 
         # Create a temporary limit_offset_clause with LIMIT 1
         temp_limit_offset = LimitOffsetClause(dialect, limit=1)
@@ -225,7 +226,8 @@ class ActiveQuery(
         dialect = self.backend().dialect
 
         # Use the model's actual table name
-        from_clause = TableExpression(dialect, self.model_class.table_name())
+        from_clause = TableExpression(dialect, self.model_class.table_name(),
+                                      schema_name=self.model_class.schema_name() or self.backend().get_default_schema())
 
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(
@@ -437,7 +439,8 @@ class AsyncActiveQuery(
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
-        from_clause = TableExpression(dialect, self.model_class.table_name())
+        from_clause = TableExpression(dialect, self.model_class.table_name(),
+                                      schema_name=self.model_class.schema_name() or backend.get_default_schema())
 
         # Create a temporary limit_offset_clause with LIMIT 1
         temp_limit_offset = LimitOffsetClause(dialect, limit=1)
@@ -489,7 +492,8 @@ class AsyncActiveQuery(
         dialect = self.backend().dialect
 
         # Use the model's actual table name
-        from_clause = TableExpression(dialect, self.model_class.table_name())
+        from_clause = TableExpression(dialect, self.model_class.table_name(),
+                                      schema_name=self.model_class.schema_name() or self.backend().get_default_schema())
 
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(

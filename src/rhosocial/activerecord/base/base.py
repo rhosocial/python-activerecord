@@ -130,6 +130,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
 
         insert_options = InsertOptions(
             table=self.table_name(),
+            schema_name=self.schema_name() or self.backend().get_default_schema(),
             data=prepared_data,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
@@ -289,6 +290,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             returning_columns = [self.primary_key()]
         update_options = UpdateOptions(
             table=self.table_name(),
+            schema_name=self.schema_name() or self.backend().get_default_schema(),
             data=mapped_data,
             where=where_predicate,
             column_mapping=column_mapping,
@@ -477,7 +479,9 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            update_opts = UpdateOptions(table=self.table_name(), data=data, where=where_predicate)
+            update_opts = UpdateOptions(table=self.table_name(),
+                                        schema_name=self.schema_name() or self.backend().get_default_schema(),
+                                        data=data, where=where_predicate)
             result = backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
@@ -486,7 +490,9 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             if supports_returning:
                 returning_columns = [self.primary_key()]
             delete_opts = DeleteOptions(
-                table=self.table_name(), where=where_predicate, returning_columns=returning_columns
+                table=self.table_name(),
+                schema_name=self.schema_name() or self.backend().get_default_schema(),
+                where=where_predicate, returning_columns=returning_columns
             )
             result = backend.delete(delete_opts)
         affected_rows = result.affected_rows
@@ -651,6 +657,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
 
         insert_options = InsertOptions(
             table=self.table_name(),
+            schema_name=self.schema_name() or self.backend().get_default_schema(),
             data=prepared_data,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
@@ -810,6 +817,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             returning_columns = [self.primary_key()]
         update_options = UpdateOptions(
             table=self.table_name(),
+            schema_name=self.schema_name() or self.backend().get_default_schema(),
             data=mapped_data,
             where=where_predicate,
             column_mapping=column_mapping,
@@ -998,7 +1006,9 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            update_opts = UpdateOptions(table=self.table_name(), data=data, where=where_predicate)
+            update_opts = UpdateOptions(table=self.table_name(),
+                                        schema_name=self.schema_name() or self.backend().get_default_schema(),
+                                        data=data, where=where_predicate)
             result = await backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
@@ -1007,7 +1017,9 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             if supports_returning:
                 returning_columns = [self.primary_key()]
             delete_opts = DeleteOptions(
-                table=self.table_name(), where=where_predicate, returning_columns=returning_columns
+                table=self.table_name(),
+                schema_name=self.schema_name() or self.backend().get_default_schema(),
+                where=where_predicate, returning_columns=returning_columns
             )
             result = await backend.delete(delete_opts)
         affected_rows = result.affected_rows

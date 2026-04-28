@@ -13,9 +13,10 @@
 4. [CLI Usage](#4-cli-usage)
 5. [Code Usage](#5-code-usage)
 6. [Environment Switching Best Practices](#6-environment-switching-best-practices)
-7. [Complete Examples](#7-complete-examples)
-8. [Mermaid Diagrams](#8-mermaid-diagrams)
-9. [API Reference](#9-api-reference)
+7. [Integrating with AWS Secrets Manager](#7-integrating-with-aws-secrets-manager)
+8. [Complete Examples](#8-complete-examples)
+9. [Mermaid Diagrams](#9-mermaid-diagrams)
+10. [API Reference](#10-api-reference)
 
 ---
 
@@ -479,9 +480,86 @@ MYSQL_PASSWORD=secret_password
 
 ---
 
-## 7. Complete Examples
+## 7. Integrating with AWS Secrets Manager
 
-### 7.1 Multi-environment Switching Example
+Named connections can fetch database credentials from AWS Secrets Manager, enabling **identity-based credential distribution**:
+
+```python
+# myapp/connections.py
+import json
+import os
+from functools import lru_cache
+
+import boto3
+
+from rhosocial.activerecord.backend.impl.postgres.config import PostgresConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
+
+
+@lru_cache()
+def get_secret(secret_name: str) -> dict:
+    """Fetch secret from AWS Secrets Manager"""
+    client = boto3.client("secretsmanager")
+    response = client.get_secret_value(SecretId=secret_name)
+    return json.loads(response["SecretString"])
+
+
+def production_db():
+    """Production database config (fetched from Secrets Manager)"""
+    secret = get_secret(os.getenv("DB_SECRET_NAME", "prod/myapp/database"))
+    return PostgresConnectionConfig(
+        host=secret["host"],
+        port=int(secret.get("port", 5432)),
+        database=secret["dbname"],
+        user=secret["username"],
+        password=secret["password"],
+    )
+
+
+def staging_db():
+    """Staging database config"""
+    secret = get_secret("staging/myapp/database")
+    return MySQLConnectionConfig(
+        host=secret["host"],
+        port=secret["port"],
+        database=secret["dbname"],
+        user=secret["username"],
+        password=secret["password"],
+    )
+```
+
+**Benefits:**
+
+| Feature | Description |
+|---------|-------------|
+| **Identity-based** | Access via IAM role/user, no hardcoded credentials |
+| **Auto-rotation** | Works with Secrets Manager automatic rotation |
+| **Centralized** | All environment credentials in one place |
+| **Audit trail** | CloudTrail logs all access |
+
+**AWS Secret Structure Convention:**
+
+```json
+{
+  "host": "prod.example.com",
+  "port": 5432,
+  "dbname": "myapp_prod",
+  "username": "app_user",
+  "password": "secret_password"
+}
+```
+
+**Notes:**
+
+- Ensure AWS credentials are configured in the runtime (IAM role, env vars, or `~/.aws/credentials`)
+- Add retry logic and timeout control for production
+- Use `functools.lru_cache` to reduce API calls
+
+---
+
+## 8. Complete Examples
+
+### 8.1 Multi-environment Switching Example
 
 ```python
 # main.py
@@ -511,7 +589,7 @@ if __name__ == "__main__":
     main()
 ```
 
-### 7.2 FastAPI Integration Example
+### 8.2 FastAPI Integration Example
 
 ```python
 # app/main.py
@@ -539,9 +617,9 @@ async def list_users():
 
 ---
 
-## 8. Mermaid Diagrams
+## 9. Mermaid Diagrams
 
-### 8.1 Named Connection Lifecycle
+### 9.1 Named Connection Lifecycle
 
 ```mermaid
 flowchart TD
@@ -559,7 +637,7 @@ flowchart TD
     style I fill:#ffcdd2
 ```
 
-### 8.2 Environment Selection Flow
+### 9.2 Environment Selection Flow
 
 ```mermaid
 flowchart LR
@@ -579,7 +657,7 @@ flowchart LR
 
 ---
 
-## 9. API Reference
+## 10. API Reference
 
 ### Exceptions
 

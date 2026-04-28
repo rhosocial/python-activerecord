@@ -34,7 +34,9 @@ class JoinQueryMixin:
         if issubclass(right, IActiveRecord):
             table_name = right.table_name()
             # Use provided alias, or table name as alias
-            return TableExpression(dialect, table_name, alias=alias or table_name)
+            return TableExpression(dialect, table_name,
+                                   schema_name=right.schema_name() or self.backend().get_default_schema(),
+                                   alias=alias or table_name)
         if isinstance(right, (TableExpression, JoinExpression)):
             # If an alias is provided, apply it to the expression
             if alias:
@@ -69,7 +71,9 @@ class JoinQueryMixin:
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.
-            left_table = TableExpression(dialect, self.model_class.table_name(), alias=self.model_class.table_name())
+            left_table = TableExpression(dialect, self.model_class.table_name(),
+                                         schema_name=self.model_class.schema_name() or self.backend().get_default_schema(),
+                                         alias=self.model_class.table_name())
             self.join_clause = JoinExpression(
                 dialect=dialect,
                 left_table=left_table,  # Use the model's table as the left table

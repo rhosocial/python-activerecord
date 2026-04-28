@@ -819,9 +819,11 @@ class SQLiteDialect(
 
         return returning_sql, tuple(all_params)
 
-    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.*)."""
-        if table:
+    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.* or schema.table.*)."""
+        if schema_name and table:
+            wildcard_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.*"
+        elif table:
             wildcard_sql = f"{self.format_identifier(table)}.*"
         else:
             wildcard_sql = "*"

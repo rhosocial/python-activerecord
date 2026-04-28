@@ -222,8 +222,8 @@ class CTESupport(Protocol):
 class WildcardSupport(Protocol):
     """Protocol for wildcard expression support (SELECT *)."""
 
-    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.*)."""
+    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.* or schema.table.*)."""
         ...  # pragma: no cover
 
 
