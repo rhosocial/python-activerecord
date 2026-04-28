@@ -176,13 +176,13 @@ def create_named_connection_parser(
     if epilog is None:
         epilog = """Examples:
   # List all connections in a module
-  %(prog)s --list-connections myapp.connections
+  %(prog)s --list myapp.connections
 
   # Show connection details (without sensitive data)
-  %(prog)s --show-connection myapp.connections.prod_db
+  %(prog)s --show myapp.connections.prod_db
 
   # Resolve connection config to JSON (dry-run)
-  %(prog)s --describe-connection myapp.connections.wal_db --param journal_mode=WAL
+  %(prog)s --describe myapp.connections.wal_db --param journal_mode=WAL
 """
     nc_parser = subparsers.add_parser(
         "named-connection",
@@ -190,6 +190,13 @@ def create_named_connection_parser(
         parents=[parent_parser],
         epilog=epilog,
         formatter_class=argparse.RawDescriptionHelpFormatter,
+    )
+
+    # Positional argument for qualified name or module
+    nc_parser.add_argument(
+        "qualified_name",
+        nargs="?",
+        help="Module or connection qualified name (required for --show and --describe, optional for --list).",
     )
 
     # Primary mode: list connections in a module
@@ -226,8 +233,8 @@ def handle_named_connection(
         named_connection_resolver_factory: Factory to create resolver.
     """
     if args.list_connections:
-        module_name = getattr(args, "named_connection", None) or getattr(args, "list_connections", None)
-        if not module_name or module_name is True:
+        module_name = args.qualified_name
+        if not module_name:
             print("Error: --list requires a module name", file=sys.stderr)
             sys.exit(1)
 
