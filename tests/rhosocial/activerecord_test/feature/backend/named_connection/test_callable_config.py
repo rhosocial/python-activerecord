@@ -44,6 +44,25 @@ class AsyncCallableUser(IntegerPKMixin, AsyncActiveRecord):
 
 
 # ============================================================
+# Fixtures
+# ============================================================
+
+@pytest.fixture(autouse=True)
+async def cleanup_async_backend():
+    """Ensure async backends are disconnected after each test.
+
+    Without this, aiosqlite background threads prevent the process
+    from exiting cleanly after async tests that call configure().
+    """
+    yield
+    if AsyncCallableUser.__backend__ is not None:
+        try:
+            await AsyncCallableUser.__backend__.disconnect()
+        except Exception:
+            pass
+
+
+# ============================================================
 # Callable config fixtures
 # ============================================================
 

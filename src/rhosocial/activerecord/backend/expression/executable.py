@@ -26,7 +26,7 @@ class Executable(Protocol):
     """
 
     @property
-    def statement_type(self) -> StatementType:
+    def statement_type(self) -> StatementType:  # pragma: no cover
         """Return the statement type for this expression.
 
         Returns:
