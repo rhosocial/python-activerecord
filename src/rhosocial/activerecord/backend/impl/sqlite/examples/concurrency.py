@@ -10,7 +10,7 @@ import logging
 
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.protocols import ConcurrencyAware, ConcurrencyHint
+from rhosocial.activerecord.backend.protocols import ConcurrencyAware
 
 logging.basicConfig(level=logging.INFO)
 logger = logging.getLogger(__name__)

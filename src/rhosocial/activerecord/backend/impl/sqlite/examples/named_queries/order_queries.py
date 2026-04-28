@@ -25,8 +25,6 @@ from rhosocial.activerecord.backend.expression import (
 from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
-    ColumnConstraint,
-    ColumnConstraintType,
 )
 
 tables = [

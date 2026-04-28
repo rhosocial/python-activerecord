@@ -9,7 +9,6 @@ module version, independent of any database file, so it does not need
 import argparse
 import inspect
 import json
-import sys
 from typing import Dict, List, Any
 
 from rhosocial.activerecord.backend.impl.sqlite.extension import get_registry

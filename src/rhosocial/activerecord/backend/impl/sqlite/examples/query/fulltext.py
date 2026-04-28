@@ -18,17 +18,11 @@ method, which in turn calls the FTS5 extension's formatting logic.
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.expression import (
-    Column,
-    InsertExpression,
-    ValuesSource,
     QueryExpression,
     TableExpression,
     WildcardExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
 
 config = SQLiteConnectionConfig(database=':memory:')
@@ -66,7 +60,7 @@ def execute_match_query(pred: SQLiteMatchPredicate) -> list:
         where=pred,
     )
     sql, params = query.to_sql()
-    return backend.execute(sql, params, options=options)
+    return backend.execute(sql, params)
 
 
 # Execute basic MATCH search

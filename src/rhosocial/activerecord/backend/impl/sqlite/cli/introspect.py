@@ -5,7 +5,6 @@ import argparse
 import sys
 from dataclasses import asdict, is_dataclass
 from enum import Enum
-from typing import Any
 
 from .connection import add_connection_args, create_backend
 from .output import create_provider

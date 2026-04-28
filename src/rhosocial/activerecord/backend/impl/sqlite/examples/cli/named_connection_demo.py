@@ -19,7 +19,6 @@ Or use CLI directly:
 # ============================================================
 import subprocess
 import sys
-import os
 from pathlib import Path
 
 # Setup: ensure examples modules can be discovered

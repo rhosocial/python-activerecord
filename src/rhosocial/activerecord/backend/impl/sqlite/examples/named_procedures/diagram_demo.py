@@ -120,7 +120,7 @@ def main():
             else:
                 conn.commit()
                 return MockResult([], cursor.rowcount)
-        except Exception as e:
+        except Exception:
             conn.rollback()
             return MockResult([], 0)
 

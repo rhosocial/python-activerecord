@@ -2,7 +2,7 @@
 """Output provider factory and rich display utilities."""
 
 import json
-from typing import Dict, Any, Optional
+from typing import Dict
 
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 

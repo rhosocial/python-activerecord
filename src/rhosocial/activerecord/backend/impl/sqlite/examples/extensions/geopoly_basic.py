@@ -37,7 +37,6 @@ from rhosocial.activerecord.backend.expression import (
     ValuesSource,
     QueryExpression,
     TableExpression,
-    FunctionCall,
 )
 from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.impl.sqlite.functions import geopoly_area

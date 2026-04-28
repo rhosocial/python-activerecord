@@ -18,8 +18,6 @@ Reference: https://www.sqlite.org/fts3.html
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
 
 config = SQLiteConnectionConfig(database=':memory:')
 backend = SQLiteBackend(config)
@@ -35,7 +33,6 @@ from rhosocial.activerecord.backend.expression import (
     QueryExpression,
     TableExpression,
     FunctionCall,
-    WildcardExpression,
 )
 from rhosocial.activerecord.backend.expression.core import Literal
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
@@ -51,7 +48,7 @@ create_sql, create_params = dialect.format_create_virtual_table(
 )
 
 backend.execute(create_sql, create_params)
-print(f"Created FTS4 table")
+print("Created FTS4 table")
 
 # Insert document data
 documents = [
@@ -96,7 +93,7 @@ offsets_query = QueryExpression(
 )
 sql, params = offsets_query.to_sql()
 
-result = backend.execute(sql, params, options=options)
+result = backend.execute(sql, params)
 print(f"Search with offsets for 'database': {len(result.data) if result.data else 0} rows")
 for row in result.data or []:
     print(f"  {row}")
