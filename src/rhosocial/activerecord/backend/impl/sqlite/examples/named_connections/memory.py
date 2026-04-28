@@ -93,3 +93,10 @@ if __name__ == "__main__":
     print("  - memory_db_persistent: shared cache retains data")
     print("  - Use for testing, caching, or temporary data")
     print("=" * 60)
+
+    # Cleanup: remove temp files created by URI-based shared cache
+    import os
+    cache_file = "persistent_db"
+    if os.path.exists(cache_file):
+        os.unlink(cache_file)
+        print(f"\n[Cleanup] Removed temp file: {cache_file}")
