@@ -328,7 +328,7 @@ def handle_named_procedure(
 
             result: ProcedureResult = await runner.run(
                 dialect, user_params, transaction_mode,
-                backend=backend, execute_query=async_execute_query
+                backend=backend
             )
 
             if result.logs:
@@ -387,12 +387,9 @@ def handle_named_procedure(
 
         from .procedure import ProcedureResult
 
-        def sync_execute_query(sql: str, params: tuple, stmt_type: Any):
-            return execute_query(sql, params, stmt_type)
-
         result: ProcedureResult = runner.run(
             dialect, user_params, transaction_mode,
-            backend=backend, execute_query=sync_execute_query
+            backend=backend
         )
 
         if result.logs:

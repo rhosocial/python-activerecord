@@ -255,7 +255,7 @@ class TestProcedureRunnerDescribe:
 class TestProcedureRunnerRun:
     """Tests for ProcedureRunner.run()."""
 
-    def test_run_simple_procedure(self, mock_dialect):
+    def test_run_simple_procedure(self, mock_dialect, mock_backend):
         """Test running a simple procedure."""
         module = types.ModuleType("test_procedures")
 
@@ -269,12 +269,12 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.HelloProc").load()
-            result = runner.run(mock_dialect, {"name": "Test"})
+            result = runner.run(mock_dialect, {"name": "Test"}, backend=mock_backend)
 
             assert len(result.logs) == 1
             assert "Hello, Test!" in result.logs[0].message
 
-    def test_run_with_abort(self, mock_dialect):
+    def test_run_with_abort(self, mock_dialect, mock_backend):
         """Test running a procedure that aborts."""
         module = types.ModuleType("test_procedures")
 
@@ -290,12 +290,12 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.AbortProc").load()
-            result = runner.run(mock_dialect, {"should_abort": True})
+            result = runner.run(mock_dialect, {"should_abort": True}, backend=mock_backend)
 
             assert result.aborted is True
             assert "Test abort" in str(result.abort_reason)
 
-    def test_run_with_bind_and_rows(self, mock_dialect):
+    def test_run_with_bind_and_rows(self, mock_dialect, mock_backend):
         """Test running procedure with bind and rows."""
         module = types.ModuleType("test_procedures")
 
@@ -310,7 +310,7 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.BindRowsProc").load()
-            result = runner.run(mock_dialect, {})
+            result = runner.run(mock_dialect, {}, backend=mock_backend)
 
             assert len(result.logs) == 1
 
