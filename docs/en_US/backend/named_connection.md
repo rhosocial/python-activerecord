@@ -582,3 +582,48 @@ flowchart LR
 | `NamedConnectionResolver` | Named connection resolver |
 | `resolve_named_connection()` | One-step resolve convenience function |
 | `list_named_connections_in_module()` | List connections in module |
+
+### NamedConnectionResolver Methods
+
+| Method | Description |
+|--------|-------------|
+| `load()` | Load and validate callable object |
+| `describe()` | Get function signature and parameter info (no actual call) |
+| `resolve(user_params=None)` | Execute callable and return config |
+| `get_callable()` | Get the loaded callable object |
+
+---
+
+## Complete Examples
+
+### Python Examples
+
+| Example | Description |
+|---------|-------------|
+| `named_connections/memory.py` | In-memory database connection example |
+| `named_connections/file.py` | File-based database connection example |
+
+### CLI Examples
+
+| Example | Description |
+|---------|-------------|
+| `cli/named_connection_demo.py` | Named Connection CLI complete demo |
+
+### Running Examples
+
+```bash
+# Python example: Use named connection
+cd src/rhosocial/activerecord/backend/impl/sqlite/examples
+PYTHONPATH=../../../../..:. python3 -c "
+from rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory import memory_db
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+config = memory_db()
+backend = SQLiteBackend(connection_config=config)
+print(f'Connected to: {config}')
+"
+
+# CLI example
+cd src/rhosocial/activerecord/backend/impl/sqlite/examples
+PYTHONPATH=../../../../..:. python3 cli/named_connection_demo.py
+```
