@@ -314,6 +314,36 @@ class TestProcedureRunnerRun:
 
             assert len(result.logs) == 1
 
+    def test_run_rejects_async_backend(self, mock_dialect):
+        """Test ProcedureRunner.run() rejects async backend."""
+        from unittest.mock import MagicMock
+        from rhosocial.activerecord.backend.named_query import NamedQueryError
+
+        async_backend = MagicMock()
+        async_backend.dialect = mock_dialect
+
+        async def async_execute(sql, params, options):
+            return MagicMock(data=[], affected_rows=0)
+
+        async_backend.execute = async_execute
+
+        module = types.ModuleType("test_procedures")
+
+        class HelloProc(Procedure):
+            name: str = "World"
+
+            def run(self, ctx: ProcedureContext) -> None:
+                ctx.log(f"Hello, {self.name}!")
+
+        module.HelloProc = HelloProc
+
+        with patch("importlib.import_module", return_value=module):
+            runner = ProcedureRunner("test_procedures.HelloProc").load()
+            with pytest.raises(NamedQueryError) as exc_info:
+                runner.run(async_backend, {"name": "Test"})
+            assert "async execute method" in str(exc_info.value)
+            assert "ProcedureRunner requires a sync backend" in str(exc_info.value)
+
 
 class TestTransactionMode:
     """Tests for TransactionMode enum."""
@@ -413,6 +443,35 @@ class TestAsyncProcedureRunnerRun:
         """Test AsyncProcedureRunner has qualified_name property."""
         runner = AsyncProcedureRunner("test.proc.monthly")
         assert runner.qualified_name == "test.proc.monthly"
+
+    @pytest.mark.asyncio
+    async def test_run_rejects_sync_backend(self):
+        """Test AsyncProcedureRunner.run() rejects sync backend."""
+        import asyncio
+        from unittest.mock import MagicMock
+        from rhosocial.activerecord.backend.named_query import NamedQueryError
+
+        sync_backend = MagicMock()
+        sync_backend.dialect = MagicMock()
+
+        sync_backend.execute = MagicMock(return_value=MagicMock(data=[], affected_rows=0))
+
+        module = types.ModuleType("test_procedures")
+
+        class HelloProc(AsyncProcedure):
+            name: str = "World"
+
+            async def run(self, ctx: AsyncProcedureContext) -> None:
+                ctx.log(f"Hello, {self.name}!")
+
+        module.HelloProc = HelloProc
+
+        with patch("importlib.import_module", return_value=module):
+            runner = AsyncProcedureRunner("test_procedures.HelloProc").load()
+            with pytest.raises(NamedQueryError) as exc_info:
+                await runner.run(sync_backend, {"name": "Test"})
+            assert "sync execute method" in str(exc_info.value)
+            assert "AsyncProcedureRunner requires an async backend" in str(exc_info.value)
 
 
 class TestAsyncProcedureContextExecute:
