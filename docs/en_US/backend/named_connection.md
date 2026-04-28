@@ -267,6 +267,18 @@ config = resolve_named_connection(
     "myapp.connections.production_db",
     user_params={"pool_size": 20}
 )
+
+# Option 2: Pass callable directly to configure()
+# Since configure() accepts any callable that returns ConnectionConfig,
+# you can import the named connection function and pass it directly:
+from myapp.connections import production_db
+from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+
+User.configure(production_db, MySQLBackend)
+
+# With parameters, use functools.partial or lambda:
+from functools import partial
+User.configure(partial(production_db, pool_size=20), MySQLBackend)
 ```
 
 ### 5.2 Step-by-step Control
@@ -296,16 +308,20 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
-# Environment detection
+# Method 1: Resolve then configure (string-based, for dynamic selection)
 env = os.getenv("APP_ENV", "development")
-
-# Choose connection based on environment
 connection_name = f"myapp.connections.{env}_db"
 config = resolve_named_connection(connection_name)
-
-# Configure ActiveRecord
 ActiveRecord.configure(config, MySQLBackend)
+
+# Method 2: Pass callable directly (for static imports)
+from myapp.connections import production_db
+ActiveRecord.configure(production_db, MySQLBackend)
 ```
+
+`configure()`, `BackendGroup`, and `BackendManager.create_group()` all accept
+a callable (function, lambda, or `functools.partial`) as the `config` parameter.
+The callable is invoked automatically to obtain the `ConnectionConfig` instance.
 
 ---
 

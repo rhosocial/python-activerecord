@@ -3,7 +3,7 @@
 
 import logging
 from pydantic.fields import FieldInfo
-from typing import Any, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
+from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
@@ -24,7 +24,32 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
     """
 
     @classmethod
-    def configure(cls, config: ConnectionConfig, backend_class: Type[StorageBackend]) -> None:
+    def configure(cls, config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
+                  backend_class: Type[StorageBackend]) -> None:
+        """Configure the model with a database backend.
+
+        Args:
+            config: A ConnectionConfig instance, or a callable that returns one.
+                When a callable is provided (e.g., a named connection function),
+                it is invoked automatically to obtain the ConnectionConfig.
+                Use functools.partial or lambda to pass parameters to the callable.
+            backend_class: The StorageBackend subclass to use.
+
+        Example:
+            # With ConnectionConfig instance
+            User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+
+            # With callable (named connection function)
+            from myapp.connections import prod_db
+            User.configure(prod_db, MySQLBackend)
+
+            # With partial for parameters
+            from functools import partial
+            User.configure(partial(prod_db, pool_size=20), MySQLBackend)
+        """
+        if callable(config) and not isinstance(config, ConnectionConfig):
+            config = config()
+
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -520,7 +545,32 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
     """
 
     @classmethod
-    async def configure(cls, config: ConnectionConfig, backend_class: Type[AsyncStorageBackend]) -> None:
+    async def configure(cls, config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
+                       backend_class: Type[AsyncStorageBackend]) -> None:
+        """Configure the model with an async database backend.
+
+        Args:
+            config: A ConnectionConfig instance, or a callable that returns one.
+                When a callable is provided (e.g., a named connection function),
+                it is invoked automatically to obtain the ConnectionConfig.
+                Use functools.partial or lambda to pass parameters to the callable.
+            backend_class: The AsyncStorageBackend subclass to use.
+
+        Example:
+            # With ConnectionConfig instance
+            await AsyncUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+
+            # With callable (named connection function)
+            from myapp.connections import prod_db
+            await AsyncUser.configure(prod_db, AsyncMySQLBackend)
+
+            # With partial for parameters
+            from functools import partial
+            await AsyncUser.configure(partial(prod_db, pool_size=20), AsyncMySQLBackend)
+        """
+        if callable(config) and not isinstance(config, ConnectionConfig):
+            config = config()
+
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 

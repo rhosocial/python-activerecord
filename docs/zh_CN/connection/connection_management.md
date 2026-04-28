@@ -393,7 +393,7 @@ tenant_manager.setup_tenant("company_b", [User, Post])
 
 | 方法 | 说明 |
 |------|------|
-| `configure()` | 配置连接 |
+| `configure()` | 配置连接（支持 callable config） |
 | `disconnect()` | 断开连接 |
 | `is_configured()` | 检查是否已配置 |
 | `is_connected()` | 检查连接是否正常 |

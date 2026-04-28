@@ -47,7 +47,7 @@ This module is independent of the Worker module and can be used in:
 """
 
 from dataclasses import dataclass, field
-from typing import Type, List, Optional
+from typing import Callable, Type, List, Optional, Union
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
@@ -118,7 +118,7 @@ class BackendGroup:
 
     name: str
     models: List[Type[IActiveRecord]] = field(default_factory=list)
-    config: Optional[ConnectionConfig] = None
+    config: Optional[Union[ConnectionConfig, Callable[..., ConnectionConfig]]] = None
     backend_class: Optional[Type[StorageBackend]] = None
     _backend_instance: Optional[StorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
@@ -153,13 +153,21 @@ class BackendGroup:
         managing the connection lifecycle via ``backend.connect()`` /
         ``backend.disconnect()`` or ``backend.context()``.
 
+        If ``config`` is a callable (e.g., a named connection function),
+        it is invoked automatically to obtain the ConnectionConfig instance.
+
         Raises:
             ValueError: If config or backend_class is not set
         """
         if self._configured:
             return  # Already configured, skip
 
-        if self.config is None:
+        # Resolve callable config
+        config = self.config
+        if callable(config) and not isinstance(config, ConnectionConfig):
+            config = config()
+
+        if config is None:
             raise ValueError(
                 f"ConnectionConfig not set for BackendGroup '{self.name}'"
             )
@@ -169,11 +177,11 @@ class BackendGroup:
             )
 
         # Create a single shared backend instance (not connected)
-        self._backend_instance = self.backend_class(connection_config=self.config)
+        self._backend_instance = self.backend_class(connection_config=config)
 
         # Assign the shared backend to each model
         for model in self.models:
-            model.__connection_config__ = self.config
+            model.__connection_config__ = config
             model.__backend_class__ = self.backend_class
             model.__backend__ = self._backend_instance
 
@@ -314,7 +322,7 @@ class AsyncBackendGroup:
 
     name: str
     models: List[Type[IAsyncActiveRecord]] = field(default_factory=list)
-    config: Optional[ConnectionConfig] = None
+    config: Optional[Union[ConnectionConfig, Callable[..., ConnectionConfig]]] = None
     backend_class: Optional[Type[AsyncStorageBackend]] = None
     _backend_instance: Optional[AsyncStorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
@@ -349,13 +357,21 @@ class AsyncBackendGroup:
         managing the connection lifecycle via ``backend.connect()`` /
         ``backend.disconnect()`` or ``backend.context()``.
 
+        If ``config`` is a callable (e.g., a named connection function),
+        it is invoked automatically to obtain the ConnectionConfig instance.
+
         Raises:
             ValueError: If config or backend_class is not set
         """
         if self._configured:
             return  # Already configured, skip
 
-        if self.config is None:
+        # Resolve callable config
+        config = self.config
+        if callable(config) and not isinstance(config, ConnectionConfig):
+            config = config()
+
+        if config is None:
             raise ValueError(
                 f"ConnectionConfig not set for AsyncBackendGroup '{self.name}'"
             )
@@ -365,11 +381,11 @@ class AsyncBackendGroup:
             )
 
         # Create a single shared backend instance (not connected)
-        self._backend_instance = self.backend_class(connection_config=self.config)
+        self._backend_instance = self.backend_class(connection_config=config)
 
         # Assign the shared backend to each model
         for model in self.models:
-            model.__connection_config__ = self.config
+            model.__connection_config__ = config
             model.__backend_class__ = self.backend_class
             model.__backend__ = self._backend_instance
 

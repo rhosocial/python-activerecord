@@ -171,6 +171,12 @@ resolver = NamedConnectionResolver("myapp.connections.production_db").load()
 config = resolver.resolve({"pool_size": 20})
 ActiveRecord.configure(config, SQLiteBackend)
 
+# Method 3: Pass callable directly to configure()
+from myapp.connections import production_db
+from functools import partial
+ActiveRecord.configure(production_db, SQLiteBackend)
+ActiveRecord.configure(partial(production_db, pool_size=20), SQLiteBackend)
+
 # View configuration description (sensitive fields are filtered)
 print(resolver.describe())
 # Output: {'pool_size': 20, 'database': 'my_database.db', ...}

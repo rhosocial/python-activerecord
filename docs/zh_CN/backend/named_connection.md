@@ -186,6 +186,20 @@ backend = MySQLBackend(connection_config=config)
 ```
 
 ```python
+# 直接传入 callable
+# configure() 接受任何返回 ConnectionConfig 的 callable，
+# 因此可以直接导入命名连接函数并传入：
+from myapp.connections import production_db
+from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+
+User.configure(production_db, MySQLBackend)
+
+# 需要传参时，使用 functools.partial 或 lambda：
+from functools import partial
+User.configure(partial(production_db, pool_size=20), MySQLBackend)
+```
+
+```python
 # 分步控制
 from rhosocial.activerecord.backend.named_connection import NamedConnectionResolver
 
@@ -249,11 +263,22 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
+# 方式 1: 字符串解析(适合动态选择)
 env = os.getenv("APP_ENV", "development")
 connection_name = f"myapp.connections.{env}_db"
 config = resolve_named_connection(connection_name)
 ActiveRecord.configure(config, MySQLBackend)
+
+# 方式 2: 直接传入 callable(适合静态导入)
+from myapp.connections import production_db
+ActiveRecord.configure(production_db, MySQLBackend)
+
+# 需要传参时使用 partial 或 lambda:
+from functools import partial
+ActiveRecord.configure(partial(production_db, pool_size=20), MySQLBackend)
 ```
+
+`configure()`、`BackendGroup` 和 `BackendManager.create_group()` 的 `config` 参数均支持传入 callable(函数、lambda、`functools.partial`)，callable 会被自动调用以获取 `ConnectionConfig` 实例。
 
 ---
 
