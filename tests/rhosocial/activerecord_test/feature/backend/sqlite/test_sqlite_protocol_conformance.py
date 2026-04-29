@@ -204,7 +204,7 @@ SQLITE_PROTOCOL_MIXIN_PAIRS = [
     (sqlite_protocols.SQLiteExtensionSupport, sqlite_mixins.SQLiteExtensionMixin),
     (sqlite_protocols.SQLitePragmaSupport, sqlite_mixins.SQLitePragmaMixin),
     (sqlite_protocols.SQLiteVirtualTableSupport, sqlite_mixins.SQLiteVirtualTableMixin),
-    # SQLiteReindexSupport has no independent Mixin (implemented directly on Dialect)
+    (sqlite_protocols.SQLiteReindexSupport, sqlite_mixins.SQLiteReindexMixin),
 ]
 
 
