@@ -63,21 +63,17 @@ class Column(
         self.schema_name = schema_name
 
     def to_sql(self) -> "SQLQueryAndParams":
-        # Generate base column SQL
-        if self.table:
-            if self.schema_name:
-                sql = f"{self.dialect.format_identifier(self.schema_name)}.{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
-            else:
-                sql = f"{self.dialect.format_identifier(self.table)}.{self.dialect.format_identifier(self.name)}"
-        else:
-            sql = self.dialect.format_identifier(self.name)
-        params = ()
+        # Delegate column reference formatting to the dialect,
+        # which decides how to handle schema_name based on backend rules.
+        # Note: alias (AS alias) is NOT passed to format_column because
+        # it must be applied after type casts in the SQL output order.
+        sql, params = self.dialect.format_column(self.name, self.table, None, self.schema_name)
 
         # Apply type casts if any
         for target_type in self._cast_types:
             sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
 
-        # Apply alias if any (after type casts)
+        # Apply alias if any (after type casts, per SQL standard order)
         if self.alias:
             sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
 

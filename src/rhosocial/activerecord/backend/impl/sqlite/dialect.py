@@ -298,6 +298,25 @@ class SQLiteDialect(
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
+    def format_column(self, name: str, table: Optional[str] = None,
+                      alias: Optional[str] = None,
+                      schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format column reference for SQLite.
+
+        SQLite does not support schema-qualified column references in
+        the three-segment form (schema.table.column), so schema_name
+        is silently ignored.
+        """
+        if table:
+            col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
+        else:
+            col_sql = self.format_identifier(name)
+
+        if alias:
+            col_sql = f"{col_sql} AS {self.format_identifier(alias)}"
+
+        return col_sql, ()
+
     # Additional protocol support methods for features SQLite doesn't support
     def supports_rollup(self) -> bool:
         """SQLite does not support ROLLUP."""

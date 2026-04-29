@@ -174,9 +174,9 @@ class FieldProxy:
                 # Use table alias (if set) as table name
                 table_name = self._table_alias if self._table_alias else self._model_class.table_name()
 
-                # When using a table alias (e.g., in JOIN), don't pass schema_name
-                # because SQL uses alias.column, not schema.alias.column
-                schema_name = None if self._table_alias else (self._model_class.schema_name() or self._model_class.backend().get_default_schema())
+                # Only pass model's explicit schema_name; do not add default schema.
+                # The backend dialect decides how to format schema references.
+                schema_name = None if self._table_alias else self._model_class.schema_name()
 
                 # Create column expression object using the real dialect
                 backend = self._model_class.backend()
