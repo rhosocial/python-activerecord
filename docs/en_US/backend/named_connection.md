@@ -13,9 +13,10 @@
 4. [CLI Usage](#4-cli-usage)
 5. [Code Usage](#5-code-usage)
 6. [Environment Switching Best Practices](#6-environment-switching-best-practices)
-7. [Complete Examples](#7-complete-examples)
-8. [Mermaid Diagrams](#8-mermaid-diagrams)
-9. [API Reference](#9-api-reference)
+7. [Integrating with AWS Secrets Manager](#7-integrating-with-aws-secrets-manager)
+8. [Complete Examples](#8-complete-examples)
+9. [Mermaid Diagrams](#9-mermaid-diagrams)
+10. [API Reference](#10-api-reference)
 
 ---
 
@@ -267,6 +268,18 @@ config = resolve_named_connection(
     "myapp.connections.production_db",
     user_params={"pool_size": 20}
 )
+
+# Option 2: Pass callable directly to configure()
+# Since configure() accepts any callable that returns ConnectionConfig,
+# you can import the named connection function and pass it directly:
+from myapp.connections import production_db
+from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
+
+User.configure(production_db, MySQLBackend)
+
+# With parameters, use functools.partial or lambda:
+from functools import partial
+User.configure(partial(production_db, pool_size=20), MySQLBackend)
 ```
 
 ### 5.2 Step-by-step Control
@@ -296,16 +309,20 @@ from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.backend.impl.mysql import MySQLBackend
 from rhosocial.activerecord.backend.named_connection import resolve_named_connection
 
-# Environment detection
+# Method 1: Resolve then configure (string-based, for dynamic selection)
 env = os.getenv("APP_ENV", "development")
-
-# Choose connection based on environment
 connection_name = f"myapp.connections.{env}_db"
 config = resolve_named_connection(connection_name)
-
-# Configure ActiveRecord
 ActiveRecord.configure(config, MySQLBackend)
+
+# Method 2: Pass callable directly (for static imports)
+from myapp.connections import production_db
+ActiveRecord.configure(production_db, MySQLBackend)
 ```
+
+`configure()`, `BackendGroup`, and `BackendManager.create_group()` all accept
+a callable (function, lambda, or `functools.partial`) as the `config` parameter.
+The callable is invoked automatically to obtain the `ConnectionConfig` instance.
 
 ---
 
@@ -463,9 +480,86 @@ MYSQL_PASSWORD=secret_password
 
 ---
 
-## 7. Complete Examples
+## 7. Integrating with AWS Secrets Manager
 
-### 7.1 Multi-environment Switching Example
+Named connections can fetch database credentials from AWS Secrets Manager, enabling **identity-based credential distribution**:
+
+```python
+# myapp/connections.py
+import json
+import os
+from functools import lru_cache
+
+import boto3
+
+from rhosocial.activerecord.backend.impl.postgres.config import PostgresConnectionConfig
+from rhosocial.activerecord.backend.impl.mysql.config import MySQLConnectionConfig
+
+
+@lru_cache()
+def get_secret(secret_name: str) -> dict:
+    """Fetch secret from AWS Secrets Manager"""
+    client = boto3.client("secretsmanager")
+    response = client.get_secret_value(SecretId=secret_name)
+    return json.loads(response["SecretString"])
+
+
+def production_db():
+    """Production database config (fetched from Secrets Manager)"""
+    secret = get_secret(os.getenv("DB_SECRET_NAME", "prod/myapp/database"))
+    return PostgresConnectionConfig(
+        host=secret["host"],
+        port=int(secret.get("port", 5432)),
+        database=secret["dbname"],
+        user=secret["username"],
+        password=secret["password"],
+    )
+
+
+def staging_db():
+    """Staging database config"""
+    secret = get_secret("staging/myapp/database")
+    return MySQLConnectionConfig(
+        host=secret["host"],
+        port=secret["port"],
+        database=secret["dbname"],
+        user=secret["username"],
+        password=secret["password"],
+    )
+```
+
+**Benefits:**
+
+| Feature | Description |
+|---------|-------------|
+| **Identity-based** | Access via IAM role/user, no hardcoded credentials |
+| **Auto-rotation** | Works with Secrets Manager automatic rotation |
+| **Centralized** | All environment credentials in one place |
+| **Audit trail** | CloudTrail logs all access |
+
+**AWS Secret Structure Convention:**
+
+```json
+{
+  "host": "prod.example.com",
+  "port": 5432,
+  "dbname": "myapp_prod",
+  "username": "app_user",
+  "password": "secret_password"
+}
+```
+
+**Notes:**
+
+- Ensure AWS credentials are configured in the runtime (IAM role, env vars, or `~/.aws/credentials`)
+- Add retry logic and timeout control for production
+- Use `functools.lru_cache` to reduce API calls
+
+---
+
+## 8. Complete Examples
+
+### 8.1 Multi-environment Switching Example
 
 ```python
 # main.py
@@ -495,7 +589,7 @@ if __name__ == "__main__":
     main()
 ```
 
-### 7.2 FastAPI Integration Example
+### 8.2 FastAPI Integration Example
 
 ```python
 # app/main.py
@@ -523,9 +617,9 @@ async def list_users():
 
 ---
 
-## 8. Mermaid Diagrams
+## 9. Mermaid Diagrams
 
-### 8.1 Named Connection Lifecycle
+### 9.1 Named Connection Lifecycle
 
 ```mermaid
 flowchart TD
@@ -543,7 +637,7 @@ flowchart TD
     style I fill:#ffcdd2
 ```
 
-### 8.2 Environment Selection Flow
+### 9.2 Environment Selection Flow
 
 ```mermaid
 flowchart LR
@@ -563,7 +657,7 @@ flowchart LR
 
 ---
 
-## 9. API Reference
+## 10. API Reference
 
 ### Exceptions
 
@@ -582,3 +676,48 @@ flowchart LR
 | `NamedConnectionResolver` | Named connection resolver |
 | `resolve_named_connection()` | One-step resolve convenience function |
 | `list_named_connections_in_module()` | List connections in module |
+
+### NamedConnectionResolver Methods
+
+| Method | Description |
+|--------|-------------|
+| `load()` | Load and validate callable object |
+| `describe()` | Get function signature and parameter info (no actual call) |
+| `resolve(user_params=None)` | Execute callable and return config |
+| `get_callable()` | Get the loaded callable object |
+
+---
+
+## Complete Examples
+
+### Python Examples
+
+| Example | Description |
+|---------|-------------|
+| `named_connections/memory.py` | In-memory database connection example |
+| `named_connections/file.py` | File-based database connection example |
+
+### CLI Examples
+
+| Example | Description |
+|---------|-------------|
+| `cli/named_connection_demo.py` | Named Connection CLI complete demo |
+
+### Running Examples
+
+```bash
+# Python example: Use named connection
+cd src/rhosocial/activerecord/backend/impl/sqlite/examples
+PYTHONPATH=../../../../..:. python3 -c "
+from rhosocial.activerecord.backend.impl.sqlite.examples.named_connections.memory import memory_db
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
+config = memory_db()
+backend = SQLiteBackend(connection_config=config)
+print(f'Connected to: {config}')
+"
+
+# CLI example
+cd src/rhosocial/activerecord/backend/impl/sqlite/examples
+PYTHONPATH=../../../../..:. python3 cli/named_connection_demo.py
+```

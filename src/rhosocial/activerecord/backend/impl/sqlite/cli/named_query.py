@@ -4,7 +4,6 @@
 named-query requires connection arguments, output arguments, and --rich-ascii.
 """
 
-import argparse
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions

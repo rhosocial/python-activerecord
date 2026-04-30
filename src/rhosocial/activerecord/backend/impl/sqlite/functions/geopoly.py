@@ -13,7 +13,7 @@ geopoly_xform, geopoly_regular, geopoly_ccw, geopoly_cw
 Reference: https://www.sqlite.org/geopoly.html
 """
 
-from typing import Union, Optional, Any, TYPE_CHECKING
+from typing import Union, Optional, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.expression import bases, core
 

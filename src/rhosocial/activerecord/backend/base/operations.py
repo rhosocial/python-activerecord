@@ -9,7 +9,7 @@ from typing import Dict, Tuple, Type
 from typing import List, Optional
 
 from ..dialect.base import SQLDialectBase
-from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal
+from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal, TableExpression
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
 from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions
@@ -72,7 +72,8 @@ class SQLOperationsMixin:
 
         insert_expr = InsertExpression(
             dialect=self.dialect,
-            into=options.table,
+            into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
             source=values_source,
             columns=list(options.data.keys()),
             returning=returning_clause,
@@ -129,7 +130,8 @@ class SQLOperationsMixin:
 
         update_expr = UpdateExpression(
             dialect=self.dialect,
-            table=options.table,
+            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
             assignments=assignments,
             where=options.where,
             returning=returning_clause,
@@ -172,7 +174,10 @@ class SQLOperationsMixin:
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
         delete_expr = DeleteExpression(
-            dialect=self.dialect, table=options.table, where=options.where, returning=returning_clause
+            dialect=self.dialect,
+            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
+            where=options.where, returning=returning_clause
         )
 
         sql, params = delete_expr.to_sql()
@@ -278,7 +283,8 @@ class AsyncSQLOperationsMixin:
 
         insert_expr = InsertExpression(
             dialect=self.dialect,
-            into=options.table,
+            into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
             source=values_source,
             columns=list(options.data.keys()),
             returning=returning_clause,
@@ -332,7 +338,8 @@ class AsyncSQLOperationsMixin:
 
         update_expr = UpdateExpression(
             dialect=self.dialect,
-            table=options.table,
+            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
             assignments=assignments,
             where=options.where,
             returning=returning_clause,
@@ -372,7 +379,10 @@ class AsyncSQLOperationsMixin:
             returning_clause = ReturningClause(self.dialect, returning_expressions)
 
         delete_expr = DeleteExpression(
-            dialect=self.dialect, table=options.table, where=options.where, returning=returning_clause
+            dialect=self.dialect,
+            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
+            where=options.where, returning=returning_clause
         )
 
         sql, params = delete_expr.to_sql()

@@ -173,9 +173,11 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_column(self, name: str, table: Optional[str] = None, alias: Optional[str] = None) -> Tuple[str, Tuple]:
+    def format_column(self, name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
         """Format column reference."""
-        if table:
+        if schema_name and table:
+            col_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.{self.format_identifier(name)}"
+        elif table:
             col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
         else:
             col_sql = self.format_identifier(name)
@@ -184,9 +186,11 @@ class SQLDialectBase:
             return f"{col_sql} AS {self.format_identifier(alias)}", ()
         return col_sql, ()
 
-    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.*)."""
-        if table:
+    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.* or schema.table.*)."""
+        if schema_name and table:
+            wildcard_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.*"
+        elif table:
             wildcard_sql = f"{self.format_identifier(table)}.*"
         else:
             wildcard_sql = "*"

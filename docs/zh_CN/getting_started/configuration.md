@@ -171,6 +171,12 @@ resolver = NamedConnectionResolver("myapp.connections.production_db").load()
 config = resolver.resolve({"pool_size": 20})
 ActiveRecord.configure(config, SQLiteBackend)
 
+# 方式3: 直接传入 callable
+from myapp.connections import production_db
+from functools import partial
+ActiveRecord.configure(production_db, SQLiteBackend)
+ActiveRecord.configure(partial(production_db, pool_size=20), SQLiteBackend)
+
 # 查看配置描述(敏感字段会被过滤)
 print(resolver.describe())
 # 输出类似: {'pool_size': 20, 'database': 'my_database.db', ...}

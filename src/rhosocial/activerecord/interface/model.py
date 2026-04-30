@@ -39,6 +39,7 @@ class ActiveRecordBase(BaseModel, ABC):
     """
 
     __table_name__: ClassVar[Optional[str]] = None
+    __schema_name__: ClassVar[Optional[str]] = None
     __primary_key__: ClassVar[str] = "id"
     __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
     __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
@@ -97,6 +98,24 @@ class ActiveRecordBase(BaseModel, ABC):
         if type(cls.__table_name__) is not str:
             raise ValueError(f"table_name must be str, not {cls.__table_name__}")
         return cls.__table_name__
+
+    @classmethod
+    def schema_name(cls) -> Optional[str]:
+        """Get the schema name for this model.
+
+        Returns the class's __schema_name__ attribute by default. Subclasses can override
+        for dynamic schema names.
+
+        Returns:
+            Optional[str]: Schema name, or None if not set
+
+        Example:
+            @classmethod
+            def schema_name(cls):
+                # Dynamic schema based on tenant
+                return f"tenant_{cls.get_tenant_id()}"
+        """
+        return cls.__schema_name__
 
     @classmethod
     def primary_key(cls) -> str:

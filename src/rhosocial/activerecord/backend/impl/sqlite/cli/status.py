@@ -6,7 +6,6 @@ import json
 import sys
 from dataclasses import asdict, is_dataclass
 from enum import Enum
-from typing import Any
 
 from rhosocial.activerecord.backend.introspection.status import StatusCategory
 

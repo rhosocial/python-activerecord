@@ -158,7 +158,15 @@ class AsyncSQLiteBackend(
                 self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
 
     async def connect(self) -> None:
-        """Establish a connection to the SQLite database asynchronously."""
+        """Establish a connection to the SQLite database asynchronously.
+
+        If a connection already exists, it is disconnected first to prevent
+        leaking the old aiosqlite background thread (which is a non-daemon
+        ``threading.Thread`` that would block process exit).
+        """
+        # Guard: disconnect existing connection before creating a new one
+        if self._connection is not None:
+            await self.disconnect()
         try:
             sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode("utf-8")))
             self._connection = await aiosqlite.connect(
@@ -181,7 +189,15 @@ class AsyncSQLiteBackend(
                 if self._transaction_manager is not None and self._transaction_manager.is_active:
                     self.logger.warning("Active transaction detected during disconnect, rolling back")
                     await self._transaction_manager.rollback()
-                await self._connection.close()
+                # Save reference before closing — aiosqlite.Connection inherits
+                # from threading.Thread with daemon=False.  close() only signals
+                # the background thread to stop; it does NOT join() it.  If we
+                # don't join, the non-daemon thread keeps running and prevents
+                # the process from exiting.
+                conn = self._connection
+                await conn.close()
+                if hasattr(conn, 'join'):
+                    conn.join(timeout=5.0)
                 self._connection = None
                 self._cursor = None
                 self._transaction_manager = None

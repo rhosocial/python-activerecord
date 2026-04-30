@@ -58,6 +58,38 @@ class SQLiteExtensionSupport(Protocol):
         """
         ...
 
+    def get_supported_extension_features(self, ext_name: str) -> List[str]:
+        """Get list of supported features for an extension.
+
+        Args:
+            ext_name: Extension name
+
+        Returns:
+            List of supported feature names
+        """
+        ...
+
+    def set_runtime_param(self, key: str, value: Any) -> None:
+        """Set a runtime parameter (detected after connection).
+
+        Args:
+            key: Parameter key
+            value: Parameter value
+        """
+        ...
+
+    def get_runtime_param(self, key: str, default: Any = None) -> Any:
+        """Get a runtime parameter.
+
+        Args:
+            key: Parameter key
+            default: Default value if key not found
+
+        Returns:
+            Parameter value, or default if not found
+        """
+        ...
+
 
 @runtime_checkable
 class SQLitePragmaSupport(Protocol):

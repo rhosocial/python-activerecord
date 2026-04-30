@@ -158,7 +158,14 @@ class SQLiteBackend(
                 self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
 
     def connect(self) -> None:
-        """Establish a connection to the SQLite database."""
+        """Establish a connection to the SQLite database.
+
+        If a connection already exists, it is disconnected first to prevent
+        leaking the old connection resource.
+        """
+        # Guard: disconnect existing connection before creating a new one
+        if self._connection is not None:
+            self.disconnect()
         try:
             sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode("utf-8")))
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")

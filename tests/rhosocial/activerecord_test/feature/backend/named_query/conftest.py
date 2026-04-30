@@ -48,6 +48,17 @@ def mock_non_expression():
 
 
 @pytest.fixture
+def mock_backend(mock_dialect):
+    """Create a mock backend for testing."""
+    from unittest.mock import MagicMock
+
+    backend = MagicMock()
+    backend.dialect = mock_dialect
+    backend.execute = MagicMock(return_value=MagicMock(data=[], affected_rows=0))
+    return backend
+
+
+@pytest.fixture
 def bad_query_module():
     """Create a module with non-expression-returning functions."""
 

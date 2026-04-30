@@ -51,7 +51,7 @@ import sys
 from typing import Any, Callable, List, Optional
 
 from .exceptions import NamedQueryError
-from .procedure import LogEntry, ProcedureRunner, TransactionMode
+from .procedure import ProcedureRunner, TransactionMode
 
 
 def _replace_prog_placeholder(docstring: str, prog: str = None) -> str:
@@ -73,7 +73,7 @@ def list_named_procedures_in_module(module_name: str) -> List[dict]:
     try:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        raise NamedQueryError(f"Module not found: {module_name}. {e}")
+        raise NamedQueryError(f"Module not found: {module_name}. {e}") from e
 
     from .procedure import Procedure
 
@@ -204,12 +204,8 @@ def handle_named_procedure(
     args: Any,
     provider: Any,
     backend_factory: Callable[[], Any],
-    get_dialect: Callable[[Any], Any],
-    execute_query: Callable[[str, tuple, Any], Any],
     disconnect: Optional[Callable[[], None]] = None,
     backend_async_factory: Optional[Callable[[], Any]] = None,
-    get_dialect_async: Optional[Callable[[Any], Any]] = None,
-    execute_query_async: Optional[Callable[[str, tuple, Any], Any]] = None,
     disconnect_async: Optional[Callable[[], None]] = None,
 ) -> None:
     """Handle named-procedure subcommand execution.
@@ -218,12 +214,8 @@ def handle_named_procedure(
         args: Parsed command-line arguments namespace.
         provider: Output provider for displaying results.
         backend_factory: Callable that returns a connected backend.
-        get_dialect: Callable that receives backend and returns dialect.
-        execute_query: Callable that executes (sql, params, stmt_type).
         disconnect: Optional callable to disconnect backend.
         backend_async_factory: Optional async backend factory.
-        get_dialect_async: Optional async dialect getter.
-        execute_query_async: Optional async query executor.
         disconnect_async: Optional async disconnect.
 
     Returns:
@@ -303,14 +295,8 @@ def handle_named_procedure(
         sys.exit(1)
 
     async def run_async():
-        import asyncio
-
-        async def async_execute_query(sql: str, params: tuple, stmt_type: Any):
-            return await execute_query_async(sql, params, stmt_type)
-
         try:
             backend = backend_async_factory()
-            dialect = get_dialect_async(backend)
             from .procedure import AsyncProcedureRunner
             runner = AsyncProcedureRunner(qualified_name).load()
 
@@ -327,8 +313,7 @@ def handle_named_procedure(
             from .procedure import ProcedureResult
 
             result: ProcedureResult = await runner.run(
-                dialect, user_params, transaction_mode,
-                backend=backend, execute_query=async_execute_query
+                backend, user_params, transaction_mode
             )
 
             if result.logs:
@@ -372,7 +357,6 @@ def handle_named_procedure(
     backend = None
     try:
         backend = backend_factory()
-        dialect = get_dialect(backend)
         runner = ProcedureRunner(qualified_name).load()
 
         if args.dry_run:
@@ -387,12 +371,8 @@ def handle_named_procedure(
 
         from .procedure import ProcedureResult
 
-        def sync_execute_query(sql: str, params: tuple, stmt_type: Any):
-            return execute_query(sql, params, stmt_type)
-
         result: ProcedureResult = runner.run(
-            dialect, user_params, transaction_mode,
-            backend=backend, execute_query=sync_execute_query
+            backend, user_params, transaction_mode
         )
 
         if result.logs:

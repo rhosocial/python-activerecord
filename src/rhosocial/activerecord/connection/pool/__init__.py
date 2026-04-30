@@ -78,7 +78,7 @@ Example:
     # Auto-disconnect on context exit — no cross-thread issues
 """
 
-from .config import PoolConfig
+from .config import PoolConfig, ConnectionMode
 from .stats import PoolStats
 from .pooled_backend import PooledBackend
 from .sync_pool import BackendPool, PoolContext
@@ -98,6 +98,7 @@ from .context import (
 
 __all__ = [
     "PoolConfig",
+    "ConnectionMode",
     "PoolStats",
     "PooledBackend",
     "BackendPool",

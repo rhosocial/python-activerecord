@@ -53,7 +53,7 @@ import threading
 from concurrent.futures import ThreadPoolExecutor
 from dataclasses import dataclass, field
 from enum import Enum
-from typing import Any, AsyncIterator, Dict, Iterator, List, Optional, Type
+from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
 from .resolver import resolve_named_query
 
@@ -497,11 +497,9 @@ class ProcedureContext:
 
             def _run(idx: int, step: ParallelStep) -> None:
                 t = time_module.monotonic()
-                s, e = "ok", None
                 try:
                     results[idx] = self._run_parallel_step(step, bind_lock=bind_lock)
                 except Exception as exc:
-                    s, e = "error", type(exc).__name__
                     exc_by_idx[idx] = exc
                     raise
                 finally:
@@ -816,7 +814,7 @@ class AsyncProcedureContext:
             task_results_sorted = sorted(task_results, key=lambda x: x[0])
             results = [r[1] for r in task_results_sorted]
             first_async_exc = None
-            for idx, result, status, error, elapsed, exc in task_results_sorted:
+            for idx, _result, status, error, elapsed, exc in task_results_sorted:
                 sub_entries.append(TraceEntry(
                     kind=StepKind.SINGLE,
                     index=idx,
@@ -1081,28 +1079,50 @@ class ProcedureRunner(_BaseProcedureRunner):
 
     def run(
         self,
-        dialect: Any,
+        backend: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
-        backend: Any = None,
-        execute_query: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure.
 
         Args:
-            dialect: The dialect instance.
+            backend: The database backend (required). Must be a sync backend.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
-            backend: The database backend for transaction control.
-            execute_query: Callback for executing queries. Signature:
-                (sql: str, params: tuple, stmt_type) -> result.
 
         Returns:
             ProcedureResult with outputs and logs.
+
+        Raises:
+            NamedQueryError: If procedure not loaded or backend is async.
         """
+        import inspect
+
         if not self._procedure_class:
             from .exceptions import NamedQueryError
             raise NamedQueryError("Procedure not loaded. Call load() first.")
+
+        if backend is None:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend is required.")
+
+        dialect = getattr(backend, "dialect", None)
+        if dialect is None:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend must have a 'dialect' attribute.")
+
+        backend_execute = getattr(backend, "execute", None)
+        if backend_execute is None or not callable(backend_execute):
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend must have an 'execute' method.")
+
+        if inspect.iscoroutinefunction(backend_execute):
+            from .exceptions import NamedQueryError
+            raise NamedQueryError(
+                f"Backend '{type(backend).__name__}' has async execute method, "
+                f"but ProcedureRunner requires a sync backend. "
+                f"Use AsyncProcedureRunner with async backend instead."
+            )
 
         from .exceptions import ProcedureAbortedError
         from .diagram import _DryRunContext
@@ -1122,8 +1142,8 @@ class ProcedureRunner(_BaseProcedureRunner):
         def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
             _, sql, params_sql = resolve_named_query(fqn, dial, params)
             data, affected_rows = [], 0
-            if execute_query and sql:
-                raw = execute_query(sql, params_sql, None)
+            if backend_execute and sql:
+                raw = backend_execute(sql, params_sql, None)
                 if raw and raw.data:
                     data = raw.data
                 if raw:
@@ -1225,28 +1245,50 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
 
     async def run(
         self,
-        dialect: Any,
+        backend: Any,
         user_params: Optional[Dict[str, Any]] = None,
         transaction_mode: TransactionMode = TransactionMode.AUTO,
-        backend: Any = None,
-        execute_query: Any = None,
     ) -> ProcedureResult:
         """Execute the procedure asynchronously.
 
         Args:
-            dialect: The dialect instance.
+            backend: The database backend (required). Must be an async backend.
             user_params: User-provided parameters.
             transaction_mode: Transaction mode (auto, step, none).
-            backend: The database backend for transaction control.
-            execute_query: Async callback for executing queries. Signature:
-                async (sql: str, params: tuple, stmt_type) -> result.
 
         Returns:
             ProcedureResult with outputs and logs.
+
+        Raises:
+            NamedQueryError: If procedure not loaded or backend is sync.
         """
+        import inspect
+
         if not self._procedure_class:
             from .exceptions import NamedQueryError
             raise NamedQueryError("Procedure not loaded. Call load() first.")
+
+        if backend is None:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend is required.")
+
+        dialect = getattr(backend, "dialect", None)
+        if dialect is None:
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend must have a 'dialect' attribute.")
+
+        backend_execute = getattr(backend, "execute", None)
+        if backend_execute is None or not callable(backend_execute):
+            from .exceptions import NamedQueryError
+            raise NamedQueryError("backend must have an 'execute' method.")
+
+        if not inspect.iscoroutinefunction(backend_execute):
+            from .exceptions import NamedQueryError
+            raise NamedQueryError(
+                f"Backend '{type(backend).__name__}' has sync execute method, "
+                f"but AsyncProcedureRunner requires an async backend. "
+                f"Use ProcedureRunner with sync backend instead."
+            )
 
         from .exceptions import ProcedureAbortedError
         from .diagram import _AsyncDryRunContext
@@ -1268,8 +1310,8 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         ) -> Dict[str, Any]:
             _, sql, params_sql = resolve_named_query(fqn, dial, params)
             data, affected_rows = [], 0
-            if execute_query and sql:
-                raw = await execute_query(sql, params_sql, None)
+            if backend_execute and sql:
+                raw = await backend_execute(sql, params_sql, None)
                 if raw and raw.data:
                     data = raw.data
                 if raw:

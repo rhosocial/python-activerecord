@@ -13,7 +13,7 @@ from typing import Tuple, Protocol, TYPE_CHECKING
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
-    from typing import TypeAlias
+    from typing import TypeAlias  # pragma: no cover
 else:
     from typing_extensions import TypeAlias
 

@@ -7,6 +7,7 @@ Provides AsyncBackendPool class for managing connection pools of asynchronous Ba
 
 import asyncio
 import inspect
+import logging
 import time
 from collections import deque
 from contextlib import asynccontextmanager
@@ -17,18 +18,30 @@ from .config import PoolConfig
 from .stats import PoolStats
 from .pooled_backend import PooledBackend
 
+logger = logging.getLogger(__name__)
+
 
 class AsyncBackendPool:
     """Asynchronous connection pool.
 
     Manages Async Backend instance pooling with support for warmup, validation, timeout, etc.
 
+    Supports two connection management modes:
+
+    - **Persistent mode**: Connections are established at creation/warmup time
+      and stay connected across acquire/release cycles.
+      Suitable for async backends where connection establishment is expensive.
+
+    - **Transient mode**: Connections are established on acquire and
+      disconnected on release (controlled by ``auto_connect_on_acquire`` /
+      ``auto_disconnect_on_release``).
+      Suitable for lightweight async backends or when explicit connection
+      lifecycle control is needed.
+
     .. note::
         The async pool runs on a single-threaded event loop, so cross-thread
-        connection issues do not apply. However, for SQLite and MySQL backends
-        where connection pooling is less beneficial (connections are cheap or
-        cannot be shared across threads), consider using ``BackendGroup`` with
-        ``backend.context()`` for simpler connection management.
+        connection issues do not apply. The connection mode primarily controls
+        whether connections are maintained across operations.
 
     Attributes:
         config: Connection pool configuration.
@@ -80,6 +93,31 @@ class AsyncBackendPool:
         self._closed = False
         self._initialized = False
 
+        # Resolve effective connection mode from config
+        # For async pools, default to persistent since there's no cross-thread concern
+        self._effective_mode: str  # "persistent" or "transient"
+        if config.connection_mode == "auto":
+            # Async pool runs on single-threaded event loop; persistent is safe
+            self._effective_mode = "persistent"
+        else:
+            self._effective_mode = config.connection_mode
+
+        self._is_persistent = (self._effective_mode == "persistent")
+
+        logger.debug(
+            f"AsyncBackendPool initialized with connection_mode={self._effective_mode} "
+            f"(requested={config.connection_mode})"
+        )
+
+    @property
+    def connection_mode(self) -> str:
+        """Effective connection management mode.
+
+        Returns:
+            ``"persistent"`` or ``"transient"``
+        """
+        return self._effective_mode
+
     @classmethod
     async def create(cls, config: PoolConfig) -> 'AsyncBackendPool':
         """Create and initialize connection pool with warmup.
@@ -111,7 +149,7 @@ class AsyncBackendPool:
 
         for _ in range(self.config.min_size):
             try:
-                pooled = await self._create_backend()
+                pooled = await self._create_backend(connect=self._is_persistent)
                 if pooled:
                     self._available.append(pooled)
                     self._stats.current_available += 1
@@ -121,8 +159,13 @@ class AsyncBackendPool:
 
         self._initialized = True
 
-    async def _create_backend(self) -> Optional[PooledBackend]:
+    async def _create_backend(self, connect: bool = True) -> Optional[PooledBackend]:
         """Create new Backend instance.
+
+        Args:
+            connect: Whether to connect the backend immediately.
+                     In persistent mode, defaults to True.
+                     In transient mode, set to False to skip connection.
 
         Returns:
             Newly created PooledBackend instance, None on failure
@@ -142,8 +185,8 @@ class AsyncBackendPool:
                     "to create Backend instances"
                 )
 
-            # Async connection
-            if hasattr(backend, 'connect'):
+            # Connect if requested
+            if connect and hasattr(backend, 'connect'):
                 if inspect.iscoroutinefunction(backend.connect):
                     await backend.connect()
                 else:
@@ -236,12 +279,60 @@ class AsyncBackendPool:
             self._stats.total_validation_failures += 1
             return False
 
+    async def _reconnect_backend(self, pooled: PooledBackend) -> bool:
+        """Attempt to reconnect a backend whose connection has gone stale.
+
+        Used in persistent mode when validation fails — instead of simply
+        destroying the backend, we try to reconnect it so it can be reused.
+
+        Args:
+            pooled: PooledBackend instance to reconnect
+
+        Returns:
+            True if reconnection succeeded
+        """
+        try:
+            if hasattr(pooled.backend, 'disconnect'):
+                if inspect.iscoroutinefunction(pooled.backend.disconnect):
+                    await pooled.backend.disconnect()
+                else:
+                    pooled.backend.disconnect()
+            if hasattr(pooled.backend, 'connect'):
+                if inspect.iscoroutinefunction(pooled.backend.connect):
+                    await pooled.backend.connect()
+                else:
+                    pooled.backend.connect()
+            pooled.is_healthy = True
+            logger.debug("Successfully reconnected stale backend in persistent mode")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to reconnect backend: {e}")
+            return False
+
+    async def _async_connect(self, backend: Any) -> None:
+        """Connect a backend, handling both sync and async connect methods.
+
+        Args:
+            backend: Backend instance to connect
+        """
+        if hasattr(backend, 'connect'):
+            if inspect.iscoroutinefunction(backend.connect):
+                await backend.connect()
+            else:
+                backend.connect()
+
     async def acquire(self, timeout: Optional[float] = None) -> Any:
         """Acquire a Backend instance.
 
         Gets an available Backend instance from the pool. If no connection is
         available and max size not reached, creates a new connection. If max
         size reached, waits until a connection is available or timeout.
+
+        In persistent mode, connections are already established; acquire simply
+        returns a connected backend without calling connect().
+
+        In transient mode, if ``auto_connect_on_acquire=True``, connect() is
+        called on the backend before returning it.
 
         Args:
             timeout: Timeout (seconds), None uses config timeout
@@ -285,9 +376,14 @@ class AsyncBackendPool:
 
                 if self.config.validate_on_borrow:
                     if not await self._validate_backend(pooled):
-                        await self._destroy_backend(pooled)
-                        self._stats.current_available -= 1
-                        continue
+                        # In persistent mode, try to reconnect before giving up
+                        if self._is_persistent and await self._reconnect_backend(pooled):
+                            # Reconnection succeeded, continue with this backend
+                            pass
+                        else:
+                            await self._destroy_backend(pooled)
+                            self._stats.current_available -= 1
+                            continue
 
                 pooled.mark_used()
                 self._in_use[id(pooled.backend)] = pooled
@@ -296,11 +392,27 @@ class AsyncBackendPool:
                 self._stats.total_acquired += 1
                 self._stats.last_acquired_at = datetime.now()
 
+                # In transient mode, auto-connect if configured
+                if not self._is_persistent and self.config.auto_connect_on_acquire:
+                    try:
+                        await self._async_connect(pooled.backend)
+                    except Exception as e:
+                        self._in_use.pop(id(pooled.backend), None)
+                        self._stats.current_in_use -= 1
+                        pooled.mark_unhealthy()
+                        await self._destroy_backend(pooled)
+                        logger.error(f"Failed to connect acquired backend: {e}")
+                        continue
+
                 return pooled.backend
 
             # Create new connection
             try:
-                pooled = await self._create_backend()
+                # In persistent mode, connect immediately; in transient mode, connect if configured
+                should_connect = self._is_persistent or (
+                    not self._is_persistent and self.config.auto_connect_on_acquire
+                )
+                pooled = await self._create_backend(connect=should_connect)
                 if pooled:
                     pooled.mark_used()
                     self._in_use[id(pooled.backend)] = pooled
@@ -319,7 +431,11 @@ class AsyncBackendPool:
     async def release(self, backend: Any) -> None:
         """Release Backend instance.
 
-        Returns Backend instance to the pool for reuse.
+        In persistent mode, the connection stays connected; the backend is
+        simply returned to the available pool.
+
+        In transient mode, if ``auto_disconnect_on_release=True``, disconnect()
+        is called before returning the backend to the pool.
 
         Args:
             backend: Backend instance to release
@@ -331,25 +447,43 @@ class AsyncBackendPool:
             if pooled is None:
                 return
 
+            self._stats.current_in_use -= 1
+            self._stats.total_released += 1
+            self._stats.last_released_at = datetime.now()
+
+            # In transient mode, auto-disconnect if configured
+            if not self._is_persistent and self.config.auto_disconnect_on_release:
+                try:
+                    if hasattr(pooled.backend, 'disconnect'):
+                        if inspect.iscoroutinefunction(pooled.backend.disconnect):
+                            await pooled.backend.disconnect()
+                        else:
+                            pooled.backend.disconnect()
+                except Exception as e:
+                    logger.error(f"Error during disconnect in release: {e}")
+                    pooled.mark_unhealthy()
+
             if self.config.validate_on_return:
                 if not await self._validate_backend(pooled):
                     await self._destroy_backend(pooled)
-                    self._stats.current_in_use -= 1
                     self._semaphore.release()
                     return
 
             if pooled.is_expired(self.config.max_lifetime):
                 await self._destroy_backend(pooled)
-                self._stats.current_in_use -= 1
                 self._semaphore.release()
                 return
 
+            # Check if should be destroyed (not returned to pool)
+            if not pooled.is_healthy:
+                await self._destroy_backend(pooled)
+                self._semaphore.release()
+                return
+
+            # Return to pool for reuse
             pooled.reset()
             self._available.append(pooled)
             self._stats.current_available += 1
-            self._stats.current_in_use -= 1
-            self._stats.total_released += 1
-            self._stats.last_released_at = datetime.now()
 
             self._semaphore.release()
 
@@ -469,6 +603,9 @@ class AsyncBackendPool:
         If timeout is reached and force is False, raises RuntimeError.
         If force is True, forcefully closes all connections after timeout.
 
+        In both persistent and transient modes, all connections are
+        disconnected during close.
+
         Args:
             timeout: Maximum time to wait for active connections (seconds).
                      None uses config.close_timeout. 0 means no wait.
@@ -569,6 +706,7 @@ class AsyncBackendPool:
         return {
             'healthy': not self._closed and stats.total_errors < stats.total_created,
             'closed': self._closed,
+            'connection_mode': self._effective_mode,
             'utilization': stats.utilization_rate,
             'stats': {
                 'available': stats.current_available,
@@ -595,7 +733,8 @@ class AsyncBackendPool:
     def __repr__(self) -> str:
         """Return readable representation."""
         return (
-            f"AsyncBackendPool(size={self._stats.current_total}, "
+            f"AsyncBackendPool(mode={self._effective_mode}, "
+            f"size={self._stats.current_total}, "
             f"available={self._stats.current_available}, "
             f"in_use={self._stats.current_in_use}, "
             f"closed={self._closed})"

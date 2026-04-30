@@ -393,7 +393,7 @@ tenant_manager.setup_tenant("company_b", [User, Post])
 
 | Method | Description |
 |--------|-------------|
-| `configure()` | Configure connection |
+| `configure()` | Configure connection (supports callable config) |
 | `disconnect()` | Disconnect |
 | `is_configured()` | Check if configured |
 | `is_connected()` | Check if connection is healthy |

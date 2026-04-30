@@ -195,8 +195,6 @@ class TestHandleNamedProcedureList:
                     args,
                     provider,
                     lambda: None,
-                    lambda b: None,
-                    lambda *a: None,
                     disconnect=None,
                 )
             except SystemExit:
@@ -231,8 +229,6 @@ class TestHandleNamedProcedureDescribe:
                     args,
                     provider,
                     lambda: None,
-                    lambda b: None,
-                    lambda *a: None,
                 )
             except SystemExit:
                 pass
@@ -263,8 +259,6 @@ class TestHandleNamedProcedureDryRun:
                     args,
                     provider,
                     lambda: mock_dialect,
-                    lambda b: mock_dialect,
-                    lambda *a: None,
                     disconnect=None,
                 )
             except SystemExit:
@@ -309,8 +303,6 @@ class TestHandleNamedProcedureExecute:
                     args,
                     provider,
                     lambda: backend,
-                    get_dialect,
-                    lambda *a: None,
                     disconnect=lambda: None,
                 )
             except SystemExit:
@@ -357,8 +349,6 @@ class TestHandleNamedProcedureAbort:
                     args,
                     provider,
                     lambda: backend,
-                    get_dialect,
-                    lambda *a: None,
                     disconnect=lambda: None,
                 )
             assert exc.value.code == 1

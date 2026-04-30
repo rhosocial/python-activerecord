@@ -61,6 +61,8 @@ class InsertOptions:
     primary_key: Optional[str] = None
     # Columns to include in the RETURNING clause.
     returning_columns: Optional[List[str]] = None
+    # Schema name for schema-qualified table references (e.g., schema_name.table).
+    schema_name: Optional[str] = None
 
 
 @dataclass
@@ -82,6 +84,8 @@ class UpdateOptions:
     auto_commit: bool = True
     # Columns to include in the RETURNING clause.
     returning_columns: Optional[List[str]] = None
+    # Schema name for schema-qualified table references (e.g., schema_name.table).
+    schema_name: Optional[str] = None
 
 
 @dataclass
@@ -101,3 +105,5 @@ class DeleteOptions:
     auto_commit: bool = True
     # Columns to include in the RETURNING clause.
     returning_columns: Optional[List[str]] = None
+    # Schema name for schema-qualified table references (e.g., schema_name.table).
+    schema_name: Optional[str] = None

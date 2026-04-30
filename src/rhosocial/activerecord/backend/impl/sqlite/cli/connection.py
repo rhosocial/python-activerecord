@@ -3,7 +3,7 @@
 
 import argparse
 import sys
-from typing import Optional, Callable
+from typing import Callable
 
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
