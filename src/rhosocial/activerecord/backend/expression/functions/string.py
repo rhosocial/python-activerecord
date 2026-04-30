@@ -126,6 +126,13 @@ def trim(
     Returns:
         A RawSQLExpression instance representing the TRIM function
     """
+    # Validate direction: only allow known trim directions.
+    valid_directions = frozenset({"BOTH", "LEADING", "TRAILING"})
+    if direction not in valid_directions:
+        raise ValueError(
+            f"Invalid trim direction '{direction}': must be one of {valid_directions}"
+        )
+
     target_expr = expr if isinstance(expr, BaseExpression) else Literal(dialect, expr)
     target_sql, target_params = target_expr.to_sql()
 

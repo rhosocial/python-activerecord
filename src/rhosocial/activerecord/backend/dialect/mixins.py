@@ -8,6 +8,7 @@ only the features they support, rather than inheriting all functionality
 from a base class.
 """
 
+import re
 from typing import Any, List, Optional, Tuple, Dict, TYPE_CHECKING
 
 from .exceptions import UnsupportedFeatureError
@@ -684,12 +685,21 @@ class JSONMixin:
         if not self.supports_json_table():
             raise UnsupportedFeatureError(self.name, "JSON_TABLE function")
 
-        cols_defs = [f"{col['name']} {col['type']} PATH '{col['path']}'" for col in columns]
+        # Escape path to prevent SQL injection.
+        escaped_path = self._escape_sql_string(path)
+
+        cols_defs = []
+        for col in columns:
+            col_name = self.format_identifier(col["name"])
+            col_type = col["type"]
+            col_path = self._escape_sql_string(col["path"])
+            cols_defs.append(f"{col_name} {col_type} PATH '{col_path}'")
+
         columns_sql = f"COLUMNS({', '.join(cols_defs)})"
         if alias is not None:
-            sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql}) AS {self.format_identifier(alias)}"
+            sql = f"JSON_TABLE({json_col_sql}, '{escaped_path}' {columns_sql}) AS {self.format_identifier(alias)}"
         else:
-            sql = f"JSON_TABLE({json_col_sql}, '{path}' {columns_sql})"
+            sql = f"JSON_TABLE({json_col_sql}, '{escaped_path}' {columns_sql})"
         return sql, params
 
 
@@ -767,6 +777,13 @@ class GraphMixin:
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
 
+        # Validate variable name: only alphanumeric and underscore allowed.
+        if not re.fullmatch(r"[A-Za-z0-9_]+", variable):
+            raise ValueError(
+                f"Invalid variable name '{variable}': "
+                "must contain only alphanumeric characters and underscores."
+            )
+
         sql = f"({variable} IS {self.format_identifier(table)})"
         return sql, ()
 
@@ -784,6 +801,13 @@ class GraphMixin:
         """
         if not self.supports_graph_match():
             raise UnsupportedFeatureError(self.name, "graph MATCH clause")
+
+        # Validate variable name: only alphanumeric and underscore allowed.
+        if not re.fullmatch(r"[A-Za-z0-9_]+", variable):
+            raise ValueError(
+                f"Invalid variable name '{variable}': "
+                "must contain only alphanumeric characters and underscores."
+            )
 
         from ..expression.graph import GraphEdgeDirection  # Import here to avoid circular import
 
@@ -1917,7 +1941,13 @@ class FunctionMixin:
                 name = p.get("name", "")
                 param_type = p.get("type", "")
                 if name and param_type:
-                    param_strs.append(f"{name} {param_type}")
+                    # Validate parameter name and type.
+                    param_name = self.format_identifier(name)
+                    if not re.fullmatch(r"[A-Za-z0-9\s(),]+", param_type):
+                        raise ValueError(
+                            f"Invalid parameter type '{param_type}'"
+                        )
+                    param_strs.append(f"{param_name} {param_type}")
                 elif param_type:
                     param_strs.append(param_type)
             parts.append(f"({', '.join(param_strs)})")
@@ -1925,6 +1955,9 @@ class FunctionMixin:
             parts.append("()")
 
         if expr.returns:
+            # Validate return type.
+            if not re.fullmatch(r"[A-Za-z0-9\s(),]+", expr.returns):
+                raise ValueError(f"Invalid return type '{expr.returns}'")
             parts.append(f"RETURNS {expr.returns}")
 
         if expr.language:

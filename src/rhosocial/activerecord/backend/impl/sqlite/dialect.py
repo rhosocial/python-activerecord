@@ -1183,6 +1183,13 @@ class SQLiteDialect(
         """
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
 
+        # Validate data_type for safe embedding in SQL.
+        if not self._validate_data_type(col_def.data_type):
+            raise ValueError(
+                f"Invalid data type '{col_def.data_type}': "
+                "must contain only alphanumeric characters, spaces, parentheses, and commas."
+            )
+
         # Constraint handler mapping for dispatch
         constraint_handlers = {
             ColumnConstraintType.PRIMARY_KEY: self._handle_primary_key_constraint,
