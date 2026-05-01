@@ -1,3 +1,23 @@
+## [v1.0.0.dev25] - 2026-05-01
+
+### Added
+
+- Added named query and named procedure support with CLI integration, async execution, and ctx.parallel() for concurrent step execution. Added named connection support for multi-database configuration. Added SQLite VirtualTable support with Geopoly functions. Added convert_qmark_placeholder for ActiveRecord-layer placeholder conversion. ([#79](https://github.com/rhosocial/python-activerecord/issues/79))
+- Added support for configurable connection modes (persistent/transient/auto) in the backend system, enabling flexible connection lifecycle management. Also fixed aiosqlite thread leak issues. ([#80](https://github.com/rhosocial/python-activerecord/issues/80))
+
+
+
+### Changed
+
+- Aligned expression system with three architectural principles. Extracted CLI subcommands into modular cli/ subpackage. Moved threadsafety to common mixin classes. Unified VirtualTableSupport protocol with FTS5 implementation. ([#79](https://github.com/rhosocial/python-activerecord/issues/79))
+
+
+
+### Fixed
+
+- Fixed cross-thread connection close issue for SQLite/MySQL connection pools. Fixed dialect placeholder usage in find_one/find_all and dialect mixins. Fixed transaction and async execution issues in Named Procedure. Fixed missing __annotations__ handling in Procedure.get_parameters(). ([#79](https://github.com/rhosocial/python-activerecord/issues/79))
+
+
 ## [v1.0.0.dev24] - 2026-04-17
 
 
