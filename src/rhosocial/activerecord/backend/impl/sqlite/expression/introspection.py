@@ -26,5 +26,6 @@ class SQLiteColumnInfoExpression(ColumnInfoExpression):
 
     def __post_init__(self):
         """Populate params dictionary after initialization."""
-        super().__post_init__()
+        if not hasattr(self, '_params'):
+            self._params = {}
         self._params["use_xinfo_pragma"] = self.use_xinfo_pragma

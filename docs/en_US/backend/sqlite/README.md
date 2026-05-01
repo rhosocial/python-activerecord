@@ -508,3 +508,311 @@ python -m rhosocial.activerecord.backend.impl.sqlite introspect tables --db-file
 # Uses in-memory database when --db-file is not specified
 python -m rhosocial.activerecord.backend.impl.sqlite introspect database
 ```
+
+## Named Queries
+
+Named Queries provide a way to define reusable SQL queries as Python callables (functions or classes) that can be executed through the CLI.
+
+### Overview
+
+Named queries are defined as Python functions or classes that return `BaseExpression` objects. They use the backend expression system to construct SQL queries, avoiding raw SQL strings and providing type safety.
+
+### Defining Named Queries
+
+Create a Python module with query definitions:
+
+```python
+# myapp/queries.py
+from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+from rhosocial.activerecord.backend.expression.core import TableExpression, Column, Literal
+from rhosocial.activerecord.backend.expression.query_parts import WhereClause, LimitOffsetClause
+
+def orders_by_status(dialect, status: str, limit: int = 100):
+    """Query orders by status."""
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "*")],
+        from_=TableExpression(dialect, "orders"),
+        where=WhereClause(dialect, Column(dialect, "status") == Literal(dialect, status)),
+        limit_offset=LimitOffsetClause(dialect, limit=limit),
+    )
+```
+
+Key points:
+- The first parameter must be `dialect` (injected by the CLI)
+- Return type must be `BaseExpression` (or subclass)
+- Use type annotations for parameter documentation
+- Add docstrings for description
+
+### Using Named Queries via CLI
+
+#### Execute a Named Query
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=pending
+```
+
+#### Override Parameters
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=completed \
+    --param limit=50
+```
+
+#### Describe Query (Show Signature)
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --describe
+```
+
+Output:
+```
+Query: myapp.queries.orders_by_status
+Docstring: Query orders by status.
+Signature: (dialect, status: str, limit: int = 100)
+Parameters (excluding 'dialect'):
+  status <class 'str'>
+  limit <class 'int'> default=100
+```
+
+#### Preview SQL (Dry Run)
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.orders_by_status \
+    --db-file mydb.sqlite \
+    --param status=pending \
+    --dry-run
+```
+
+Output:
+```
+[DRY RUN] SQL:
+  SELECT * FROM "orders" WHERE "status" = ? LIMIT ?
+Params: ('pending', 100)
+```
+
+#### List All Queries in a Module
+
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries \
+    --list
+```
+
+Output:
+```
+Module: myapp.queries
+  orders_by_status(dialect, status: str, limit: int = 100)
+      Query orders by status.
+  high_value_orders(dialect, threshold: float = 1000.0)
+      High-value orders above threshold.
+```
+
+### Class-Based Queries
+
+For complex queries with metadata, use classes:
+
+```python
+class MonthlyRevenue:
+    """Monthly revenue report."""
+    def __call__(self, dialect, month: int, year: int):
+        return QueryExpression(
+            dialect,
+            select=[Column(dialect, "SUM(amount) as total")],
+            from_=TableExpression(dialect, "orders"),
+            where=WhereClause(dialect, ...),
+        )
+```
+
+Execute:
+```bash
+python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    myapp.queries.MonthlyRevenue \
+    --param month=3 \
+    --param year=2026
+```
+
+### Security
+
+The named query system enforces security:
+
+1. **Return Type Validation**: Only `BaseExpression` is allowed. Raw SQL strings are rejected to prevent SQL injection.
+2. **EXPLAIN Protection**: EXPLAIN queries are blocked for actual execution; use `--dry-run` to preview.
+3. **Non-SELECT Warning**: DML/DDL statements trigger a warning; use `--force` to execute.
+
+### Configuration
+
+Set PYTHONPATH to include your query modules:
+
+```bash
+PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
+    named-query examples.named_queries.order_queries.orders_by_status \
+    --param status=pending
+```
+
+### Named Query Writing Standards
+
+When defining named queries, follow these standards to ensure consistency and usability.
+
+#### Basic Function Structure
+
+```python
+def query_name(dialect, param1: str, param2: int = 100):
+    """Brief description of what this query does.
+
+    Args:
+        dialect: The SQL dialect instance (injected by CLI).
+        param1: Description of param1. Can be passed as string from CLI.
+                Will be converted to expected type internally.
+        param2: Description of param2 with default value.
+
+    Returns:
+        QueryExpression: A DQL expression representing the query.
+
+    Raises:
+        ValueError: If parameters cannot be converted to expected types.
+
+    CLI Examples:
+        # Use defaults
+        %(prog)s module.path.query_name
+
+        # With custom parameters
+        %(prog)s module.path.query_name --param param1=value1 --param param2=200
+    """
+    # Parameter validation and conversion
+    param1_value = str(param1)  # CLI passes strings, convert as needed
+    param2_value = int(param2)
+
+    # Validation logic
+    if param2_value <= 0:
+        raise ValueError(f"param2 must be positive, got {param2_value}")
+
+    # Build and return expression
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "*")],
+        from_=TableExpression(dialect, "table_name"),
+        where=WhereClause(dialect, ...),
+    )
+```
+
+#### Key Standards
+
+| Standard | Description |
+|----------|-------------|
+| **First parameter** | Must be `dialect` (injected by CLI) |
+| **Return type** | Must be `BaseExpression` (or subclass like `QueryExpression`) |
+| **Type annotations** | Keep for documentation; CLI always passes strings |
+| **Docstring format** | Include Args, Returns, Raises, and CLI Examples sections |
+| **Parameter conversion** | Functions must convert and validate CLI string parameters |
+| **%(prog)s placeholder** | Use `%(prog)s` in CLI Examples for the program name |
+
+#### Parameter Handling (Critical)
+
+CLI parameters are **always passed as strings**. The function is responsible for converting and validating:
+
+```python
+# Simple conversion
+limit_value = int(limit)
+
+# Complex conversion (e.g., comma-separated list)
+id_list = [int(x.strip()) for x in ids.split(",")]
+
+# JSON parsing
+import json
+filters_dict = json.loads(filters)
+```
+
+**Important**: The type annotations in the function signature (e.g., `param: int`) represent the **desired type** after conversion, not the CLI input type. CLI always passes strings.
+
+#### Shared Parameter Conversion Helpers
+
+If multiple query functions share the same parameter types, define reusable conversion helpers:
+
+```python
+# myapp/queries/helpers.py
+def parse_int(value: str, default: int = 0) -> int:
+    """Convert string to int with default."""
+    try:
+        return int(value)
+    except (ValueError, TypeError):
+        return default
+
+def parse_bool(value: str) -> bool:
+    """Convert string to boolean."""
+    return value.lower() in ("true", "1", "yes")
+
+def parse_list_int(value: str) -> list[int]:
+    """Convert comma-separated string to list of ints."""
+    return [int(x.strip()) for x in value.split(",") if x.strip()]
+```
+
+Then use in your query functions:
+
+```python
+from myapp.queries.helpers import parse_int, parse_bool, parse_list_int
+
+def get_orders(dialect, status: str, limit: int = 100, active_only: bool = True):
+    """Query orders with parsed parameters."""
+    limit_value = parse_int(limit, 100)
+    active = parse_bool(active_only)
+    return QueryExpression(...)
+```
+
+#### Handling Unknown Parameters
+
+If you pass a parameter that the function doesn't expect, the resolver will detect it before calling the function:
+
+```bash
+# This will fail if 'filter' is not a valid parameter
+python -m ... named-query myapp.queries.orders --param filter=pending
+```
+
+Error output:
+```
+Error: Invalid parameter: filter. Unknown parameter(s): filter. Available parameters: ['status', 'limit']
+```
+
+If multiple unknown parameters are passed, all will be listed:
+
+```
+Error: Invalid parameter: filter. Unknown parameter(s): filter, offset, page. Available parameters: ['status', 'limit']
+```
+
+The resolver checks parameters against the function signature before execution, providing clear feedback about which parameters are valid.
+
+#### Listing and Describing Queries
+
+```bash
+# List all queries in a module
+python -m ... named-query myapp.queries --list
+
+# Show details for a specific query (two ways)
+python -m ... named-query myapp.queries.query_name --list
+python -m ... named-query myapp.queries --example query_name
+```
+
+Output from `--list`:
+```
+Module: myapp.queries
+Name                           Parameters                               Brief
+------------------------------------------------------------------------------------
+query_name                    (param1: str, param2: int = 100)        Brief description here
+```
+
+#### Best Practices
+
+1. **Use descriptive names**: `high_value_orders` > `query1`
+2. **Include one-line brief**: First line of docstring appears in `--list` output
+3. **Document parameters**: Explain what each parameter does and its valid range
+4. **Validate early**: Check parameter validity before building expressions
+5. **Use executable expressions**: Return `QueryExpression`, `InsertExpression`, etc. - not raw SQL strings

@@ -35,7 +35,7 @@ user = User(name="Alice")
 user.save()  # Save directly, no Session
 
 # Query starts directly from model
-user = User.query().where(User.c.name == "Alice").first()
+user = User.query().where(User.c.name == "Alice").one()
 ```
 
 **Advantage Analysis**:
@@ -91,10 +91,10 @@ async with AsyncSession(async_engine) as session:
 
 ```python
 # Sync
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # Async: Completely identical API
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **Advantage Analysis**:
@@ -138,7 +138,12 @@ User.query().select([
 ]).join(Post).group_by(User.c.id)
 
 # CTE support
-User.query().with_cte("adults", lambda: User.query().where(User.c.age >= 18))
+from rhosocial.activerecord.query import CTEQuery
+cte_query = CTEQuery(User.backend()).with_cte(
+    "adults",
+    User.query().where(User.c.age >= 18)
+).from_cte("adults")
+adults = cte_query.aggregate()
 ```
 
 **Advantage Analysis**:
@@ -219,14 +224,9 @@ if engine.dialect.name == "mysql":
 **rhosocial-activerecord**:
 
 ```python
-# Explicit capability declaration
-@requires_capability(CTECapability.RECURSIVE_CTE)
-def test_recursive_cte():
-    pass
-
-# Runtime capability query
-if backend.capabilities.has(WindowFunctionCapability.ROW_NUMBER):
-    User.query().select([...], window=Window(...))
+# Check window function support via dialect
+if backend.dialect.supports_window_functions():
+    users = await User.query().select([...]).window(Window(...)).all()
 ```
 
 **Advantage Analysis**:

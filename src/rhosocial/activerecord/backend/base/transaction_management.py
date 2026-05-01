@@ -59,11 +59,5 @@ class AsyncTransactionManagementMixin:
 
     @asynccontextmanager
     async def transaction(self) -> AsyncGenerator[None, None]:
-        await self.begin_transaction()
-        try:
-            yield
-        except Exception:
-            await self.rollback_transaction()
-            raise
-        else:
-            await self.commit_transaction()
+        async with self.transaction_manager.transaction() as t:
+            yield t

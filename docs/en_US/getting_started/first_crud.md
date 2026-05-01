@@ -249,7 +249,7 @@ def list_pending_tasks():
 
 def find_task_by_id(task_id: int) -> Optional[Todo]:
     """Find a task by its ID."""
-    return Todo.find(task_id)
+    return Todo.find_one(task_id)
 
 
 # Update main block
@@ -282,7 +282,7 @@ Todo.query().order_by((Todo.c.created_at, "DESC")).all()
 - `Todo.c.completed` is type-safe (IDE will autocomplete!)
 
 ```python
-Todo.find(task_id)
+Todo.find_one(task_id)
 ```
 - Shortcut for getting by primary key
 - Returns `None` if not found
@@ -298,7 +298,7 @@ Add the update function:
 
 def complete_task(task_id: int) -> bool:
     """Mark a task as completed."""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ Task {task_id} not found")
         return False
@@ -311,7 +311,7 @@ def complete_task(task_id: int) -> bool:
 
 def update_task_title(task_id: int, new_title: str) -> bool:
     """Update a task's title."""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ Task {task_id} not found")
         return False
@@ -349,7 +349,7 @@ Add the delete function:
 
 def delete_task(task_id: int) -> bool:
     """Delete a task."""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ Task {task_id} not found")
         return False
@@ -532,12 +532,12 @@ def list_pending_tasks():
 
 def find_task_by_id(task_id: int) -> Optional[Todo]:
     """Find a task by its ID."""
-    return Todo.find(task_id)
+    return Todo.find_one(task_id)
 
 
 def complete_task(task_id: int) -> bool:
     """Mark a task as completed."""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ Task {task_id} not found")
         return False
@@ -550,7 +550,7 @@ def complete_task(task_id: int) -> bool:
 
 def update_task_title(task_id: int, new_title: str) -> bool:
     """Update a task's title."""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ Task {task_id} not found")
         return False
@@ -563,7 +563,7 @@ def update_task_title(task_id: int, new_title: str) -> bool:
 
 def delete_task(task_id: int) -> bool:
     """Delete a task."""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ Task {task_id} not found")
         return False

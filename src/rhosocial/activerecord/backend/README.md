@@ -29,6 +29,13 @@ backend/
 ├── type_registry.py             # Type adapter registry
 ├── transaction.py               # Transaction management base (sync/async)
 │
+├── named_connection/             # Named connection support
+│   ├── __init__.py           # Public interface exports
+│   ├── resolver.py          # NamedConnectionResolver
+│   ├── exceptions.py        # Exception definitions
+│   ├── validators.py       # Configuration validators
+│   └── cli.py              # CLI integration
+│
 ├── base/                        # Backend base classes and Mixins
 │   ├── __init__.py              # StorageBackend and AsyncStorageBackend
 │   ├── base.py                  # Backend base class

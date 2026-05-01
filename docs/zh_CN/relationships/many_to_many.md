@@ -170,8 +170,8 @@ class Post(ActiveRecord):
         # 检查是否已存在关联
         existing = PostTag.query().where(
             (PostTag.c.post_id == self.id) & (PostTag.c.tag_id == tag.id)
-        ).first()
-        
+        ).one()
+
         if not existing:
             post_tag = PostTag(post_id=self.id, tag_id=tag.id)
             post_tag.save()

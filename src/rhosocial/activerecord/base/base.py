@@ -3,7 +3,7 @@
 
 import logging
 from pydantic.fields import FieldInfo
-from typing import Any, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
+from typing import Any, Callable, Dict, List, Optional, Type, Union, get_origin, get_args, Tuple
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
@@ -24,7 +24,32 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
     """
 
     @classmethod
-    def configure(cls, config: ConnectionConfig, backend_class: Type[StorageBackend]) -> None:
+    def configure(cls, config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
+                  backend_class: Type[StorageBackend]) -> None:
+        """Configure the model with a database backend.
+
+        Args:
+            config: A ConnectionConfig instance, or a callable that returns one.
+                When a callable is provided (e.g., a named connection function),
+                it is invoked automatically to obtain the ConnectionConfig.
+                Use functools.partial or lambda to pass parameters to the callable.
+            backend_class: The StorageBackend subclass to use.
+
+        Example:
+            # With ConnectionConfig instance
+            User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+
+            # With callable (named connection function)
+            from myapp.connections import prod_db
+            User.configure(prod_db, MySQLBackend)
+
+            # With partial for parameters
+            from functools import partial
+            User.configure(partial(prod_db, pool_size=20), MySQLBackend)
+        """
+        if callable(config) and not isinstance(config, ConnectionConfig):
+            config = config()
+
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -105,6 +130,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
 
         insert_options = InsertOptions(
             table=self.table_name(),
+            schema_name=self.schema_name(),
             data=prepared_data,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
@@ -264,6 +290,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             returning_columns = [self.primary_key()]
         update_options = UpdateOptions(
             table=self.table_name(),
+            schema_name=self.schema_name(),
             data=mapped_data,
             where=where_predicate,
             column_mapping=column_mapping,
@@ -325,7 +352,8 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             query = query.where(sql, params)
         else:
             pk_field_name = cls.primary_key()
-            query = query.where(f"{pk_field_name} = ?", (condition,))
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name) == condition)
         return query.one()
 
     @classmethod
@@ -358,8 +386,8 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
-            placeholders = ",".join(["?" for _ in condition])
-            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name).in_(condition))
         return query.all()
 
     @classmethod
@@ -451,7 +479,9 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            update_opts = UpdateOptions(table=self.table_name(), data=data, where=where_predicate)
+            update_opts = UpdateOptions(table=self.table_name(),
+                                        schema_name=self.schema_name(),
+                                        data=data, where=where_predicate)
             result = backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
@@ -460,7 +490,9 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             if supports_returning:
                 returning_columns = [self.primary_key()]
             delete_opts = DeleteOptions(
-                table=self.table_name(), where=where_predicate, returning_columns=returning_columns
+                table=self.table_name(),
+                schema_name=self.schema_name(),
+                where=where_predicate, returning_columns=returning_columns
             )
             result = backend.delete(delete_opts)
         affected_rows = result.affected_rows
@@ -519,7 +551,32 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
     """
 
     @classmethod
-    async def configure(cls, config: ConnectionConfig, backend_class: Type[AsyncStorageBackend]) -> None:
+    async def configure(cls, config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
+                       backend_class: Type[AsyncStorageBackend]) -> None:
+        """Configure the model with an async database backend.
+
+        Args:
+            config: A ConnectionConfig instance, or a callable that returns one.
+                When a callable is provided (e.g., a named connection function),
+                it is invoked automatically to obtain the ConnectionConfig.
+                Use functools.partial or lambda to pass parameters to the callable.
+            backend_class: The AsyncStorageBackend subclass to use.
+
+        Example:
+            # With ConnectionConfig instance
+            await AsyncUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+
+            # With callable (named connection function)
+            from myapp.connections import prod_db
+            await AsyncUser.configure(prod_db, AsyncMySQLBackend)
+
+            # With partial for parameters
+            from functools import partial
+            await AsyncUser.configure(partial(prod_db, pool_size=20), AsyncMySQLBackend)
+        """
+        if callable(config) and not isinstance(config, ConnectionConfig):
+            config = config()
+
         if not isinstance(config, ConnectionConfig):
             raise DatabaseError(f"Invalid connection config for {cls.__name__}")
 
@@ -600,6 +657,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
 
         insert_options = InsertOptions(
             table=self.table_name(),
+            schema_name=self.schema_name(),
             data=prepared_data,
             column_mapping=column_mapping,
             column_adapters=column_adapters,
@@ -759,6 +817,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             returning_columns = [self.primary_key()]
         update_options = UpdateOptions(
             table=self.table_name(),
+            schema_name=self.schema_name(),
             data=mapped_data,
             where=where_predicate,
             column_mapping=column_mapping,
@@ -820,7 +879,8 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             query = query.where(sql, params)
         else:
             pk_field_name = cls.primary_key()
-            query = query.where(f"{pk_field_name} = ?", (condition,))
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name) == condition)
         return await query.one()
 
     @classmethod
@@ -853,8 +913,8 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             pk_field_name = cls.primary_key()
             if not condition:
                 return []
-            placeholders = ",".join(["?" for _ in condition])
-            query = query.where(f"{pk_field_name} IN ({placeholders})", condition)
+            dialect = cls.backend().dialect
+            query = query.where(Column(dialect, pk_field_name).in_(condition))
         return await query.all()
 
     @classmethod
@@ -946,7 +1006,9 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
         if is_soft_delete:
             self.log(logging.INFO, f"Soft deleting {self.__class__.__name__}#{pk_value}")
             data = self.prepare_delete()
-            update_opts = UpdateOptions(table=self.table_name(), data=data, where=where_predicate)
+            update_opts = UpdateOptions(table=self.table_name(),
+                                        schema_name=self.schema_name(),
+                                        data=data, where=where_predicate)
             result = await backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
@@ -955,7 +1017,9 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             if supports_returning:
                 returning_columns = [self.primary_key()]
             delete_opts = DeleteOptions(
-                table=self.table_name(), where=where_predicate, returning_columns=returning_columns
+                table=self.table_name(),
+                schema_name=self.schema_name(),
+                where=where_predicate, returning_columns=returning_columns
             )
             result = await backend.delete(delete_opts)
         affected_rows = result.affected_rows

@@ -28,7 +28,7 @@ Design Intent:
     synchronous groups, AsyncBackendManager with asynchronous groups.
 """
 
-from typing import Dict, List, Optional, Type
+from typing import Callable, Dict, List, Optional, Type, Union
 
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
@@ -97,7 +97,7 @@ class BackendManager:
     def create_group(
         self,
         name: str,
-        config: ConnectionConfig,
+        config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
         backend_class: Type[StorageBackend],
         models: Optional[List[Type[IActiveRecord]]] = None,
     ) -> BackendGroup:
@@ -106,7 +106,8 @@ class BackendManager:
 
         Args:
             name: Unique name for the backend group
-            config: Connection configuration
+            config: Connection configuration, or a callable that returns one
+                (e.g., a named connection function)
             backend_class: Backend class to use
             models: Optional list of ActiveRecord Model classes to include
 
@@ -269,7 +270,7 @@ class AsyncBackendManager:
     def create_group(
         self,
         name: str,
-        config: ConnectionConfig,
+        config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
         backend_class: Type[AsyncStorageBackend],
         models: Optional[List[Type[IAsyncActiveRecord]]] = None,
     ) -> AsyncBackendGroup:
@@ -278,7 +279,8 @@ class AsyncBackendManager:
 
         Args:
             name: Unique name for the backend group
-            config: Connection configuration
+            config: Connection configuration, or a callable that returns one
+                (e.g., a named connection function)
             backend_class: Async backend class to use
             models: Optional list of async ActiveRecord Model classes to include
 

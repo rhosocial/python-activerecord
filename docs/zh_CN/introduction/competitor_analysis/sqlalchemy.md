@@ -34,7 +34,7 @@ with Session(engine) as session:
 user = User(name="Alice")
 user.save()  # 保存
 
-user = User.query().where(User.c.name == "Alice").first()
+user = User.query().where(User.c.name == "Alice").one()
 user.name = "Bob"
 user.save()  # 更新
 ```
@@ -194,10 +194,10 @@ async with AsyncSession(engine) as session:
 
 ```python
 # 同步
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # 异步：相同 API，仅添加 await
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **优势分析**:

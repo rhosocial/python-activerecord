@@ -102,9 +102,9 @@ class AsyncRelationDescriptor(Generic[U]):
             user: ClassVar[AsyncBelongsTo['AsyncUser']] = AsyncBelongsTo(foreign_key='user_id', inverse_of='posts')
 
         # At runtime, the relations can be accessed as follows:
-        user = await AsyncUser.find(1)
+        user = await AsyncUser.find_one(1)
         posts = await user.posts()  # Returns list of related AsyncPost instances
-        post = await AsyncPost.find(1)
+        post = await AsyncPost.find_one(1)
         user = await post.user()    # Returns related AsyncUser instance
 
     Args:
@@ -580,7 +580,7 @@ class AsyncDefaultRelationLoader(IAsyncRelationLoader[U]):
 
         Example:
             # Efficiently load comments for multiple posts in a single query
-            posts = await Post.find([1, 2, 3])
+            posts = await AsyncPost.find_all([1, 2, 3])
             # Instead of executing 3 separate queries (N+1 problem),
             # this method will execute 1 query to fetch all related comments
             comments_by_post = await AsyncDefaultRelationLoader(post_comments_descriptor).batch_load(posts, None)
@@ -722,7 +722,7 @@ class AsyncBelongsTo(AsyncRelationDescriptor[U], Generic[U]):
             comments: ClassVar[AsyncHasMany['AsyncComment']] = AsyncHasMany(foreign_key='post_id', inverse_of='post')
 
         # Access the related model
-        comment = await AsyncComment.find(1)
+        comment = await AsyncComment.find_one(1)
         post = await comment.post()  # Returns the related AsyncPost instance
     """
 
@@ -773,7 +773,7 @@ class AsyncHasOne(AsyncRelationDescriptor[U], Generic[U]):
             user: ClassVar[AsyncBelongsTo['AsyncUser']] = AsyncBelongsTo(foreign_key='user_id', inverse_of='profile')
 
         # Access the related model
-        user = await AsyncUser.find(1)
+        user = await AsyncUser.find_one(1)
         profile = await user.profile()  # Returns the related AsyncProfile instance
     """
 
@@ -823,7 +823,7 @@ class AsyncHasMany(AsyncRelationDescriptor[U], Generic[U]):
             user: ClassVar[AsyncBelongsTo['AsyncUser']] = AsyncBelongsTo(foreign_key='user_id', inverse_of='posts')
 
         # Access the related models
-        user = await AsyncUser.find(1)
+        user = await AsyncUser.find_one(1)
         posts = await user.posts()  # Returns a list of related AsyncPost instances
     """
 

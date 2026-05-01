@@ -35,7 +35,7 @@ user = User(name="Alice")
 user.save()  # 直接保存，无需 Session
 
 # 查询直接从模型开始
-user = User.query().where(User.c.name == "Alice").first()
+user = User.query().where(User.c.name == "Alice").one()
 ```
 
 **优势分析**:
@@ -91,10 +91,10 @@ async with AsyncSession(async_engine) as session:
 
 ```python
 # 同步
-user = User.query().where(User.c.id == 1).first()
+user = User.query().where(User.c.id == 1).one()
 
 # 异步：完全相同的 API
-user = await User.query().where(User.c.id == 1).first()
+user = await User.query().where(User.c.id == 1).one()
 ```
 
 **优势分析**:
@@ -138,7 +138,12 @@ User.query().select([
 ]).join(Post).group_by(User.c.id)
 
 # CTE 支持
-User.query().with_cte("adults", lambda: User.query().where(User.c.age >= 18))
+from rhosocial.activerecord.query import CTEQuery
+cte_query = CTEQuery(User.backend()).with_cte(
+    "adults",
+    User.query().where(User.c.age >= 18)
+).from_cte("adults")
+adults = cte_query.aggregate()
 ```
 
 **优势分析**:
@@ -219,14 +224,9 @@ if engine.dialect.name == "mysql":
 **rhosocial-activerecord**:
 
 ```python
-# 显式的能力声明
-@requires_capability(CTECapability.RECURSIVE_CTE)
-def test_recursive_cte():
-    pass
-
-# 运行时能力查询
-if backend.capabilities.has(WindowFunctionCapability.ROW_NUMBER):
-    User.query().select([...], window=Window(...))
+# 通过 dialect 检查窗口函数支持
+if backend.dialect.supports_window_functions():
+    users = await User.query().select([...]).window(Window(...)).all()
 ```
 
 **优势分析**:

@@ -19,6 +19,7 @@ from .bases import (
     SQLQueryAndParams,
     is_sql_query_and_params,
 )
+from .executable import Executable
 from .mixins import AliasableMixin
 from .literals import (
     Identifier,
@@ -299,6 +300,8 @@ __all__ = [
     "SQLPredicate",
     "SQLQueryAndParams",
     "is_sql_query_and_params",
+    # Executable protocol
+    "Executable",
     # Mixins
     "AliasableMixin",
     # Literals

@@ -11,11 +11,11 @@ import logging
 import sqlite3
 import time
 from datetime import datetime
-from typing import Any, List, Optional, Tuple, Union
+from typing import Any, Dict, List, Optional, Tuple, Union
 
-from .common import SQLiteBackendMixin, DEFAULT_PRAGMAS
+from .common import SQLiteBackendMixin, SQLiteConcurrencyMixin, DEFAULT_PRAGMAS
 from ..config import SQLiteConnectionConfig
-from ..dialect import SQLiteDialect, SQLDialectBase
+from ..dialect import SQLiteDialect
 from ..transaction import SQLiteTransactionManager
 from rhosocial.activerecord.backend.base import StorageBackend
 from rhosocial.activerecord.backend.config import ConnectionConfig
@@ -32,7 +32,13 @@ from ..explain import (
 )
 
 
-class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBackendMixin, StorageBackend):
+class SQLiteBackend(
+    SyncExplainBackendMixin,
+    IntrospectorBackendMixin,
+    SQLiteBackendMixin,
+    SQLiteConcurrencyMixin,
+    StorageBackend,
+):
     """Synchronous SQLite backend implementation."""
 
     DEFAULT_PRAGMAS = DEFAULT_PRAGMAS
@@ -72,7 +78,7 @@ class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBac
         self._register_sqlite_adapters()
 
     @property
-    def dialect(self) -> SQLDialectBase:
+    def dialect(self) -> SQLiteDialect:
         return self._dialect
 
     def _parse_explain_result(self, raw_rows, sql, duration):
@@ -152,7 +158,14 @@ class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBac
                 self.log(logging.WARNING, f"Failed to execute pragma {pragma_statement}: {str(e)}")
 
     def connect(self) -> None:
-        """Establish a connection to the SQLite database."""
+        """Establish a connection to the SQLite database.
+
+        If a connection already exists, it is disconnected first to prevent
+        leaking the old connection resource.
+        """
+        # Guard: disconnect existing connection before creating a new one
+        if self._connection is not None:
+            self.disconnect()
         try:
             sqlite3.register_converter("timestamp", lambda val: datetime.fromisoformat(val.decode("utf-8")))
             self.log(logging.INFO, f"Connecting to SQLite database: {self.config.database}")
@@ -287,7 +300,7 @@ class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBac
             cursor.executescript(sql_script)
             duration = time.perf_counter() - start_time
             self.log(logging.INFO, f"SQL script executed successfully, duration={duration:.3f}s")
-            self._handle_auto_commit_if_needed()
+            self._handle_auto_commit()
         except Exception as e:
             self.log(logging.ERROR, f"Error executing SQL script: {str(e)}")
             self._handle_error(e)
@@ -444,12 +457,41 @@ class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBac
         self._dialect.version = version
         self.log(logging.INFO, f"Adapted dialect version to SQLite {version[0]}.{version[1]}.{version[2]}")
 
-        # For SQLite < 3.38.0, detect json1 extension availability at runtime
-        if version < (3, 38, 0):
-            json1_available = self._detect_json1_extension()
-            self._dialect.set_runtime_param("json1_available", json1_available)
-            status = "available" if json1_available else "unavailable"
-            self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
+        # Detect math functions availability at runtime
+        math_available = self._detect_math_functions()
+        self._dialect.set_runtime_param("math_functions_available", math_available)
+        status = "available" if math_available else "unavailable"
+        self.log(logging.INFO, f"Math functions runtime detection: {status}")
+
+        # Detect json1 extension availability at runtime
+        json1_available = self._detect_json1_extension()
+        self._dialect.set_runtime_param("json1_available", json1_available)
+        status = "available" if json1_available else "unavailable"
+        self.log(logging.INFO, f"JSON1 extension runtime detection: {status}")
+
+        # Detect virtual table extensions availability at runtime
+        compile_options = self.get_compile_options()
+        self._dialect.set_runtime_param("compile_options", compile_options)
+        self._dialect.set_runtime_param("fts3_available", "ENABLE_FTS3" in compile_options)
+        self._dialect.set_runtime_param("fts4_available", "ENABLE_FTS4" in compile_options)
+        self._dialect.set_runtime_param("fts5_available", "ENABLE_FTS5" in compile_options)
+        self._dialect.set_runtime_param("rtree_available", "ENABLE_RTREE" in compile_options)
+        self._dialect.set_runtime_param("geopoly_available", "ENABLE_GEOPOLY" in compile_options)
+
+    def _detect_math_functions(self) -> bool:
+        """Detect if math functions are available at runtime.
+
+        Returns False if no connection is established.
+        """
+        if self._connection is None:
+            return False
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute("SELECT SQRT(4)")
+            cursor.close()
+            return True
+        except sqlite3.Error:
+            return False
 
     def _detect_json1_extension(self) -> bool:
         """Detect if json1 extension is available at runtime.
@@ -465,3 +507,39 @@ class SQLiteBackend(SyncExplainBackendMixin, IntrospectorBackendMixin, SQLiteBac
             return True
         except sqlite3.Error:
             return False
+
+    def get_compile_options(self) -> Dict[str, str]:
+        """Get SQLite compile options from PRAGMA compile_options.
+
+        Returns:
+            Dictionary mapping option names to their values (empty string if no value)
+        """
+        if self._connection is None:
+            return {}
+        options: Dict[str, str] = {}
+        try:
+            cursor = self._connection.cursor()
+            cursor.execute("PRAGMA compile_options")
+            for row in cursor.fetchall():
+                opt_name = row[0]
+                if "=" in opt_name:
+                    key, value = opt_name.split("=", 1)
+                    options[key] = value
+                else:
+                    options[opt_name] = ""
+            cursor.close()
+        except sqlite3.Error:
+            pass
+        return options
+
+    def has_compile_option(self, option_name: str) -> bool:
+        """Check if a compile option is enabled.
+
+        Args:
+            option_name: Name of the compile option (e.g., "ENABLE_MATH_FUNCTIONS")
+
+        Returns:
+            True if the option is enabled
+        """
+        options = self.get_compile_options()
+        return option_name in options

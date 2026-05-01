@@ -8,7 +8,7 @@
 |--------|------------------------|------|
 | `models.Model` | `ActiveRecord` | 模型基类 |
 | `objects.filter()` | `.query().where()` | 查询构建 |
-| `objects.get()` | `.find()` 或 `.one()` | 获取单条记录 |
+| `objects.get()` | `.find_one()` | 获取单条记录 |
 | `ForeignKey` | `BelongsTo` | 多对一关系 |
 | `ManyToManyField` | 使用中间模型 + `HasMany` | 通过中间表实现多对多 |
 | `auto_now_add`, `auto_now` | `TimestampMixin` | 自动时间戳 |
@@ -52,7 +52,7 @@
 |-------|------------------------|------|
 | `ActiveRecord::Base` | `ActiveRecord` | 基类 |
 | `where()` | `.where()` | 相同的方法名！ |
-| `find()` | `.find()` | 通过主键获取 |
+| `find()` | `.find_one()` | 通过主键获取 |
 | `has_many` | `HasMany` | 一对多 |
 | `belongs_to` | `BelongsTo` | 多对一 |
 | `has_one` | `HasOne` | 一对一 |

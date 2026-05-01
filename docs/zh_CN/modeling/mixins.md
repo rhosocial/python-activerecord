@@ -133,7 +133,7 @@ class Post(OptimisticLockMixin, ActiveRecord):
     pass
 
 # 使用示例
-post = Post.find(1)
+post = Post.find_one(1)
 post.title = "New Title"
 post.save()  # 如果期间有其他更新，会抛出 StaleObjectError
 ```

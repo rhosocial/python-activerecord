@@ -18,7 +18,7 @@ from rhosocial.activerecord.worker import (
 )
 
 # Import test hooks from the separate module (required for pickle in spawn mode)
-from tests.rhosocial.activerecord_test.feature.worker.hooks.sample_hooks import (
+from rhosocial.activerecord_test.feature.worker.hooks.sample_hooks import (
     simple_init_hook,
     simple_stop_hook,
     task_start_hook,
@@ -222,8 +222,8 @@ def test_string_path_hooks():
     # Use string path to the sample_hooks module
     with WorkerPool(
         n_workers=2,
-        on_worker_start="tests.rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.simple_init_hook",
-        on_worker_stop="tests.rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.simple_stop_hook",
+        on_worker_start="rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.simple_init_hook",
+        on_worker_stop="rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.simple_stop_hook",
     ) as pool:
         futures = [pool.submit(simple_task, i) for i in range(2)]
         for f in futures:
@@ -598,7 +598,7 @@ def test_hook_list_with_string_paths():
 
     # Use list format with string paths
     hook_list = [
-        "tests.rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.simple_init_hook",
+        "rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.simple_init_hook",
     ]
 
     with WorkerPool(
@@ -624,7 +624,7 @@ def test_hook_tuple_with_string_path():
     # Use tuple with string path and args
     with WorkerPool(
         n_workers=2,
-        on_worker_start=("tests.rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.hook_with_arg", "test_message"),
+        on_worker_start=("rhosocial.activerecord_test.feature.worker.hooks.sample_hooks.hook_with_arg", "test_message"),
     ) as pool:
         futures = [pool.submit(simple_task, i) for i in range(2)]
         for f in futures:

@@ -43,6 +43,7 @@ pip install rhosocial-activerecord[all]
 * **[查询解释接口 (Query Explain)](explain.md)**: 执行 EXPLAIN 语句，分析查询计划和索引使用情况。
 * **[表达式系统 (Expression System)](expression/README.md)**: Python 对象如何变成 SQL 字符串。
 * **[自定义后端 (Custom Backend)](custom_backend.md)**: 实现一个新的数据库驱动。
+* **[命名查询 (Named Query)](named_query.md)**: 基于 CLI 的查询执行（后端功能，非 ActiveRecord）。
 * **[SQLite 后端](sqlite/README.md)**: SQLite 特定功能和特性。
   * **[Pragma 系统](sqlite/pragma.md)**: SQLite PRAGMA 配置和查询。
   * **[扩展框架](sqlite/extension.md)**: 扩展检测和管理。

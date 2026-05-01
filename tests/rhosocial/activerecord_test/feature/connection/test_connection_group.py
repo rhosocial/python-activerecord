@@ -12,7 +12,7 @@ import pytest
 from rhosocial.activerecord.connection import BackendGroup, AsyncBackendGroup
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 # Import models from local conftest using absolute path
-from tests.rhosocial.activerecord_test.feature.connection.conftest import (
+from rhosocial.activerecord_test.feature.connection.conftest import (
     User, Post, Comment, AsyncUser, AsyncPost
 )
 

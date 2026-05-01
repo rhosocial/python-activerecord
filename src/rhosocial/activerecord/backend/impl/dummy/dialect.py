@@ -44,6 +44,7 @@ from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
     WindowFunctionSupport,
     CTESupport,
+    WildcardSupport,
     AdvancedGroupingSupport,
     ReturningSupport,
     UpsertSupport,
@@ -155,6 +156,7 @@ class DummyDialect(
     # Protocols for type checking
     WindowFunctionSupport,
     CTESupport,
+    WildcardSupport,
     AdvancedGroupingSupport,
     ReturningSupport,
     UpsertSupport,

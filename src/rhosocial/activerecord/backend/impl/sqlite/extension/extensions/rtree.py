@@ -73,7 +73,7 @@ class RTreeExtension(SQLiteExtensionBase):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        cols = []
+        cols = ["id"]  # R-Tree requires id as first column
         for i in range(dimensions):
             cols.extend([f"min{i}", f"max{i}"])
 

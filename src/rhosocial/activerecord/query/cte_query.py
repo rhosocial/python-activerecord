@@ -9,6 +9,7 @@ from .base import BaseQueryMixin
 from .join import JoinQueryMixin
 from .range import RangeQueryMixin
 from .set_operation import SetOperationQuery
+from .utils import convert_qmark_placeholder
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import statements, WildcardExpression, TableExpression, query_sources, bases
 from ..backend.expression.query_sources import CTEExpression
@@ -140,7 +141,7 @@ class CTEQuery(
             # For now, we'll create a RawSQLExpression
             from ..backend.expression.operators import RawSQLExpression
 
-            query_expr = RawSQLExpression(dialect, query)
+            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, query))
         elif bases.is_sql_query_and_params(query):
             # If query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
             from ..backend.expression.operators import RawSQLExpression
@@ -148,7 +149,7 @@ class CTEQuery(
             sql_string, params = query
             # If params is None, use an empty tuple
             params = params if params is not None else ()
-            query_expr = RawSQLExpression(dialect, sql_string, params)
+            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
         elif isinstance(query, IQuery):
             # Check that the query is not an async query (sync CTEQuery should not accept async queries)
             from ..interface import IAsyncQuery
@@ -442,7 +443,7 @@ class AsyncCTEQuery(
             # For now, we'll create a RawSQLExpression
             from ..backend.expression.operators import RawSQLExpression
 
-            query_expr = RawSQLExpression(dialect, query)
+            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, query))
         elif bases.is_sql_query_and_params(query):
             # If query is a SQLQueryAndParams (str, tuple), create a RawSQLExpression with parameters
             from ..backend.expression.operators import RawSQLExpression
@@ -450,7 +451,7 @@ class AsyncCTEQuery(
             sql_string, params = query
             # If params is None, use an empty tuple
             params = params if params is not None else ()
-            query_expr = RawSQLExpression(dialect, sql_string, params)
+            query_expr = RawSQLExpression(dialect, convert_qmark_placeholder(dialect, sql_string), params)
         elif isinstance(query, IQuery):
             # Check that the query is a valid async query (async CTEQuery should accept async queries)
             from ..interface import IAsyncQuery

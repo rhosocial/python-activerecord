@@ -197,13 +197,23 @@ class LoggingProtocol(Protocol):
 
 @dataclass
 class BasicConnectionMixin:
-    """Mixin implementing basic connection parameters."""
+    """Mixin implementing basic connection parameters.
+
+    Supports both 'username' and 'user' (alias) for user field.
+    """
 
     host: str = "localhost"
     port: Optional[int] = None
     database: Optional[str] = None
     username: Optional[str] = None
     password: Optional[str] = None
+    user: Optional[str] = None
+
+    def __post_init__(self):
+        if self.username is None and self.user is not None:
+            object.__setattr__(self, 'username', self.user)
+        elif self.username is not None and self.user is None:
+            object.__setattr__(self, 'user', self.username)
 
 
 @dataclass

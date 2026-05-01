@@ -11,7 +11,7 @@ Available since SQLite 3.26.0 (2018-12-01).
 Reference: https://www.sqlite.org/geopoly.html
 """
 
-from typing import Optional, Tuple
+from typing import List, Optional, Tuple
 
 from ..base import ExtensionType, SQLiteExtensionBase
 
@@ -65,20 +65,26 @@ class GeopolyExtension(SQLiteExtensionBase):
         self,
         table_name: str,
         content_table: Optional[str] = None,
+        extra_columns: Optional[List[str]] = None,
     ) -> Tuple[str, tuple]:
         """Format CREATE VIRTUAL TABLE statement for Geopoly.
 
         Args:
             table_name: Name of the Geopoly virtual table
             content_table: Optional content table for data storage
+            extra_columns: Optional list of extra column names
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
+        cols = []
+        if extra_columns:
+            cols.extend(extra_columns)
+
         if content_table:
-            sql = f'CREATE VIRTUAL TABLE "{table_name}" USING geopoly(content="{content_table}")'
+            sql = f'CREATE VIRTUAL TABLE "{table_name}" USING geopoly({", ".join(cols)}, content="{content_table}")'
         else:
-            sql = f'CREATE VIRTUAL TABLE "{table_name}" USING geopoly()'
+            sql = f'CREATE VIRTUAL TABLE "{table_name}" USING geopoly({", ".join(cols)})'
 
         return sql, ()
 

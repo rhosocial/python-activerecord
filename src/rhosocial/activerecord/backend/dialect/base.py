@@ -173,9 +173,31 @@ class SQLDialectBase:
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
 
-    def format_column(self, name: str, table: Optional[str] = None, alias: Optional[str] = None) -> Tuple[str, Tuple]:
+    @staticmethod
+    def _escape_sql_string(value: str) -> str:
+        """Escape a string literal for safe embedding in SQL.
+
+        Doubles single quotes per SQL standard.  Callers must still
+        wrap the result in single quotes.
+        """
+        return value.replace("'", "''")
+
+    @staticmethod
+    def _validate_data_type(data_type: str) -> bool:
+        """Validate data type for safe embedding in SQL.
+
+        Uses allowlist approach - only alphanumeric characters,
+        spaces, parentheses, and commas are permitted.
+        """
+        import re
+
+        return bool(re.fullmatch(r"[A-Za-z0-9\s(),]+", data_type))
+
+    def format_column(self, name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
         """Format column reference."""
-        if table:
+        if schema_name and table:
+            col_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.{self.format_identifier(name)}"
+        elif table:
             col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
         else:
             col_sql = self.format_identifier(name)
@@ -184,9 +206,11 @@ class SQLDialectBase:
             return f"{col_sql} AS {self.format_identifier(alias)}", ()
         return col_sql, ()
 
-    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.*)."""
-        if table:
+    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.* or schema.table.*)."""
+        if schema_name and table:
+            wildcard_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.*"
+        elif table:
             wildcard_sql = f"{self.format_identifier(table)}.*"
         else:
             wildcard_sql = "*"
@@ -656,6 +680,12 @@ class SQLDialectBase:
         self, expr_sql: str, target_type: str, expr_params: tuple, alias: Optional[str] = None
     ) -> Tuple[str, Tuple]:
         """Format CAST expression."""
+        # Validate target_type for safe embedding in SQL.
+        if not self._validate_data_type(target_type):
+            raise ValueError(
+                f"Invalid target type '{target_type}': "
+                "must contain only alphanumeric characters, spaces, parentheses, and commas."
+            )
         sql = f"CAST({expr_sql} AS {target_type})"
         if alias:
             sql = f"{sql} AS {self.format_identifier(alias)}"
@@ -1175,11 +1205,11 @@ class SQLDialectBase:
         params = []
         for key, value in storage_options.items():
             if isinstance(value, str):
-                storage_parts.append(f"{key.upper()} = '{value}'")
+                storage_parts.append(f"{key.upper()} = '{self._escape_sql_string(value)}'")
             elif isinstance(value, (int, float)):
                 storage_parts.append(f"{key.upper()} = {value}")
             else:
-                storage_parts.append(f"{key.upper()} = ?")
+                storage_parts.append(f"{key.upper()} = {self.get_parameter_placeholder()}")
                 params.append(value)
         if storage_parts:
             return " WITH (" + ", ".join(storage_parts) + ")", tuple(params)
@@ -1486,6 +1516,8 @@ class SQLDialectBase:
         condition_sql, condition_params = clause.condition.to_sql()
         return f"WHERE {condition_sql}", condition_params
 
+    _VALID_ORDER_DIRECTIONS = frozenset({"ASC", "DESC"})
+
     def format_order_by_clause(self, clause: "OrderByClause") -> Tuple[str, tuple]:
         """Format ORDER BY clause with expressions and directions."""
         all_params = []
@@ -1496,7 +1528,12 @@ class SQLDialectBase:
                 # (expression, direction) format
                 expr, direction = item
                 expr_sql, expr_params = expr.to_sql()
-                expr_parts.append(f"{expr_sql} {direction.upper()}")
+                direction = direction.upper()
+                if direction not in self._VALID_ORDER_DIRECTIONS:
+                    raise ValueError(
+                        f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'."
+                    )
+                expr_parts.append(f"{expr_sql} {direction}")
                 all_params.extend(expr_params)
             else:
                 # Just expression (defaults to ASC)
@@ -1559,8 +1596,8 @@ class SQLDialectBase:
         # inference issues in DDL statements (especially PostgreSQL).
         # String values are single-quoted; numeric/other values are literal.
         if isinstance(constraint.default_value, str):
-            # Escape single quotes in string values
-            escaped = constraint.default_value.replace("'", "''")
+            # Escape string for safe embedding in SQL using standard escaping.
+            escaped = self._escape_sql_string(constraint.default_value)
             return f" DEFAULT '{escaped}'", ()
         return f" DEFAULT {constraint.default_value}", ()
 
@@ -1597,6 +1634,13 @@ class SQLDialectBase:
         """Format a column definition for use in ADD COLUMN clauses."""
         all_params = []
 
+        # Validate data_type for safe embedding in SQL.
+        if not self._validate_data_type(col_def.data_type):
+            raise ValueError(
+                f"Invalid data type '{col_def.data_type}': "
+                "must contain only alphanumeric characters, spaces, parentheses, and commas."
+            )
+
         # Basic column definition: name data_type
         col_sql = f"{self.format_identifier(col_def.name)} {col_def.data_type}"
 
@@ -1608,7 +1652,8 @@ class SQLDialectBase:
 
         # Add comment if present
         if col_def.comment:
-            col_sql += f" COMMENT '{col_def.comment}'"
+            escaped_comment = self._escape_sql_string(col_def.comment)
+            col_sql += f" COMMENT '{escaped_comment}'"
 
         return col_sql, tuple(all_params)
 
@@ -1664,7 +1709,7 @@ class SQLDialectBase:
         params = expr.get_params()
         savepoint = params.get("savepoint")
         if savepoint:
-            return f"ROLLBACK TO SAVEPOINT {savepoint}", ()
+            return f"ROLLBACK TO SAVEPOINT {self.format_identifier(savepoint)}", ()
         return "ROLLBACK", ()
 
     def format_savepoint(self, expr: "SavepointExpression") -> Tuple[str, tuple]:
@@ -1676,7 +1721,7 @@ class SQLDialectBase:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        return f"SAVEPOINT {expr.name}", ()
+        return f"SAVEPOINT {self.format_identifier(expr.name)}", ()
 
     def format_release_savepoint(
         self, expr: "ReleaseSavepointExpression"
@@ -1689,7 +1734,7 @@ class SQLDialectBase:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        return f"RELEASE SAVEPOINT {expr.name}", ()
+        return f"RELEASE SAVEPOINT {self.format_identifier(expr.name)}", ()
 
     def format_set_transaction(
         self, expr: "SetTransactionExpression"

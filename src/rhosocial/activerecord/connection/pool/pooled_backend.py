@@ -24,6 +24,8 @@ class PooledBackend:
         acquired_at: Time when last acquired (for hold time tracking).
         use_count: Usage count.
         is_healthy: Health status.
+        created_thread_id: Thread ID where the connection was created.
+            Used for thread affinity verification when backend threadsafety < 2.
 
     Example:
         pooled = PooledBackend(backend=my_backend, pool_key="pool-1")
@@ -39,6 +41,7 @@ class PooledBackend:
     acquired_at: Optional[datetime] = None  # Time when last acquired
     use_count: int = 0  # Usage count
     is_healthy: bool = True  # Health status
+    created_thread_id: Optional[int] = None  # Thread ID where connection was created
 
     def __post_init__(self):
         """Initialize timestamps."""
@@ -136,5 +139,6 @@ class PooledBackend:
             f"pool_key={self.pool_key!r}, "
             f"use_count={self.use_count}, "
             f"is_healthy={self.is_healthy}, "
+            f"created_thread_id={self.created_thread_id}, "
             f"age={self.age():.1f}s)"
         )

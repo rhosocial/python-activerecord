@@ -37,9 +37,24 @@ examples/
 ├── transaction/            # Transaction control examples
 │   ├── __init__.py
 │   └── basic.py            # Basic transaction with context manager
-└── types/                  # Type-related examples
+├── types/                  # Type-related examples
+│   ├── __init__.py
+│   └── json_basic.py       # JSON operations
+├── named_connections/      # Named connection examples (backend feature)
+│   ├── __init__.py
+│   ├── memory.py           # In-memory database connection
+│   └── file.py             # File-based database connection
+├── named_queries/          # Named query examples (backend feature)
+│   └── order_queries.py   # Order-related named queries
+├── named_procedures/       # Named procedure examples (backend feature)
+│   ├── __init__.py
+│   ├── order_workflow.py  # Order processing workflow
+│   └── diagram_demo.py   # Flowchart visualization demo
+└── cli/                    # CLI examples (backend feature)
     ├── __init__.py
-    └── json_basic.py       # JSON operations
+    ├── named_query_demo.py       # Named query CLI demo
+    ├── named_procedure_demo.py  # Named procedure CLI demo
+    └── named_connection_demo.py # Named connection CLI demo
 ```
 
 ## Example File Format
@@ -100,3 +115,27 @@ When using these examples as reference:
 - Focus on the **SECTION: Business Logic** portion
 - The Setup and Teardown sections are boilerplate for execution only
 - Copy the business logic pattern to your own project
+
+## Ruff Static Analysis Exclusions
+
+These example files intentionally use a 4-section format that causes certain ruff warnings.
+The following rules are **ignored** for all files in this directory:
+
+- **E402** - Module level import not at top of file
+  - Reason: The 4-section format requires imports to be placed in SECTION: Setup
+    (after backend/dialect initialization) rather than at the top of the file.
+  - This is intentional to make the code more readable in the context of learning.
+
+- **E501** - Line too long (default 120 chars)
+  - Reason: Long lines are allowed for SQL examples and demonstration purposes.
+  - Core library code should still follow line width limits.
+
+To verify this directory passes ruff with these exclusions, run:
+
+```bash
+ruff check src/rhosocial/activerecord/backend/impl/sqlite/examples/ \
+  --ignore E402,E501
+```
+
+Note: These exclusions only apply to example files. Core library code must pass
+all ruff checks including E402 and E501.

@@ -58,25 +58,25 @@ class AsyncContextTestUser(IntegerPKMixin, AsyncActiveRecord):
 class TestSyncActiveRecordContextAwareness:
     """Test synchronous ActiveRecord context awareness."""
 
-    def test_backend_returns_class_backend_without_context(self):
+    def test_backend_returns_class_backend_without_context(self, shared_sqlite_db_config):
         """Test that backend() returns class backend when no context is set."""
-        ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+        ContextTestUser.configure(shared_sqlite_db_config, SQLiteBackend)
 
         # Without any context, should return class backend
         backend = ContextTestUser.backend()
         assert backend is ContextTestUser.__backend__
 
-    def test_backend_returns_context_backend_in_connection(self):
+    def test_backend_returns_context_backend_in_connection(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in connection context."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
         try:
-            ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+            ContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), SQLiteBackend)
 
             with pool.context():
                 with pool.connection() as conn_backend:
@@ -87,17 +87,17 @@ class TestSyncActiveRecordContextAwareness:
         finally:
             pool.close()
 
-    def test_backend_returns_context_backend_in_transaction(self):
+    def test_backend_returns_context_backend_in_transaction(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in transaction context."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
         try:
-            ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+            ContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), SQLiteBackend)
 
             with pool.context():
                 with pool.transaction() as tx_backend:
@@ -111,17 +111,17 @@ class TestSyncActiveRecordContextAwareness:
         finally:
             pool.close()
 
-    def test_crud_in_transaction_context(self):
+    def test_crud_in_transaction_context(self, shared_sqlite_db_path):
         """Test CRUD operations work in transaction context."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
         try:
-            ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+            ContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), SQLiteBackend)
 
             # Create test table
             with pool.connection() as backend:
@@ -145,17 +145,17 @@ class TestSyncActiveRecordContextAwareness:
         finally:
             pool.close()
 
-    def test_transaction_rollback_on_error(self):
+    def test_transaction_rollback_on_error(self, shared_sqlite_db_path):
         """Test that transaction rolls back on error."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
         try:
-            ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+            ContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), SQLiteBackend)
 
             # Create test table
             with pool.connection() as backend:
@@ -186,17 +186,17 @@ class TestSyncActiveRecordContextAwareness:
         finally:
             pool.close()
 
-    def test_nested_connection_contexts_reuse(self):
+    def test_nested_connection_contexts_reuse(self, shared_sqlite_db_path):
         """Test that nested connection contexts reuse the same backend."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
         try:
-            ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+            ContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), SQLiteBackend)
 
             with pool.connection() as outer_conn:
                 outer_backend = ContextTestUser.backend()
@@ -210,17 +210,17 @@ class TestSyncActiveRecordContextAwareness:
         finally:
             pool.close()
 
-    def test_active_query_backend_context_awareness(self):
+    def test_active_query_backend_context_awareness(self, shared_sqlite_db_path):
         """Test that ActiveQuery.backend() is context aware."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = BackendPool(config)
 
         try:
-            ContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend)
+            ContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), SQLiteBackend)
 
             with pool.connection() as conn_backend:
                 query = ContextTestUser.query()
@@ -234,9 +234,9 @@ class TestAsyncActiveRecordContextAwareness:
     """Test asynchronous ActiveRecord context awareness."""
 
     @pytest.mark.asyncio
-    async def test_backend_returns_class_backend_without_context(self):
+    async def test_backend_returns_class_backend_without_context(self, shared_sqlite_db_config):
         """Test that backend() returns class backend when no context is set."""
-        await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+        await AsyncContextTestUser.configure(shared_sqlite_db_config, AsyncSQLiteBackend)
 
         # Without any context, should return class backend
         backend = AsyncContextTestUser.backend()
@@ -247,17 +247,17 @@ class TestAsyncActiveRecordContextAwareness:
         AsyncContextTestUser.__backend__ = None
 
     @pytest.mark.asyncio
-    async def test_backend_returns_context_backend_in_connection(self):
+    async def test_backend_returns_context_backend_in_connection(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in async connection context."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
 
             async with pool.context():
                 async with pool.connection() as conn_backend:
@@ -273,17 +273,17 @@ class TestAsyncActiveRecordContextAwareness:
                 AsyncContextTestUser.__backend__ = None
 
     @pytest.mark.asyncio
-    async def test_backend_returns_context_backend_in_transaction(self):
+    async def test_backend_returns_context_backend_in_transaction(self, shared_sqlite_db_path):
         """Test that backend() returns context backend in async transaction context."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
 
             async with pool.context():
                 async with pool.transaction() as tx_backend:
@@ -302,17 +302,17 @@ class TestAsyncActiveRecordContextAwareness:
                 AsyncContextTestUser.__backend__ = None
 
     @pytest.mark.asyncio
-    async def test_crud_in_transaction_context(self):
+    async def test_crud_in_transaction_context(self, shared_sqlite_db_path):
         """Test CRUD operations work in async transaction context."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
 
             # Create test table
             async with pool.connection() as backend:
@@ -341,17 +341,17 @@ class TestAsyncActiveRecordContextAwareness:
                 AsyncContextTestUser.__backend__ = None
 
     @pytest.mark.asyncio
-    async def test_transaction_rollback_on_error(self):
+    async def test_transaction_rollback_on_error(self, shared_sqlite_db_path):
         """Test that async transaction rolls back on error."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
 
             # Create test table
             async with pool.connection() as backend:
@@ -387,17 +387,17 @@ class TestAsyncActiveRecordContextAwareness:
                 AsyncContextTestUser.__backend__ = None
 
     @pytest.mark.asyncio
-    async def test_nested_connection_contexts_reuse(self):
+    async def test_nested_connection_contexts_reuse(self, shared_sqlite_db_path):
         """Test that nested async connection contexts reuse the same backend."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
 
             async with pool.connection() as outer_conn:
                 outer_backend = AsyncContextTestUser.backend()
@@ -416,17 +416,17 @@ class TestAsyncActiveRecordContextAwareness:
                 AsyncContextTestUser.__backend__ = None
 
     @pytest.mark.asyncio
-    async def test_active_query_backend_context_awareness(self):
+    async def test_active_query_backend_context_awareness(self, shared_sqlite_db_path):
         """Test that AsyncActiveQuery.backend() is context aware."""
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=shared_sqlite_db_path)
         )
         pool = AsyncBackendPool(config)
 
         try:
-            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=":memory:"), AsyncSQLiteBackend)
+            await AsyncContextTestUser.configure(SQLiteConnectionConfig(database=shared_sqlite_db_path), AsyncSQLiteBackend)
 
             async with pool.connection() as conn_backend:
                 query = AsyncContextTestUser.query()

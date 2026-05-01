@@ -684,6 +684,8 @@ def _run_sync_worker(
     task_end_hooks: List[Callable],
 ) -> None:  # pragma: no cover
     """Run worker in pure synchronous mode."""
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     # Execute WORKER_START hooks
     if start_hooks:
         error_info = _execute_hooks(start_hooks, ctx)
@@ -779,6 +781,8 @@ def _run_async_worker(
     task_end_hooks: List[Callable],
 ) -> None:  # pragma: no cover
     """Run worker with single event loop for async context sharing."""
+    if sys.platform == "win32":
+        asyncio.set_event_loop_policy(asyncio.WindowsSelectorEventLoopPolicy())
     loop = asyncio.new_event_loop()
     asyncio.set_event_loop(loop)
     ctx.event_loop = loop

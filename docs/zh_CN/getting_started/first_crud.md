@@ -249,7 +249,7 @@ def list_pending_tasks():
 
 def find_task_by_id(task_id: int) -> Optional[Todo]:
     """通过 ID 查找任务。"""
-    return Todo.find(task_id)
+    return Todo.find_one(task_id)
 
 
 # 更新 main 块
@@ -282,7 +282,7 @@ Todo.query().order_by((Todo.c.created_at, "DESC")).all()
 - `Todo.c.completed` 是类型安全的（IDE 会提示自动补全！）
 
 ```python
-Todo.find(task_id)
+Todo.find_one(task_id)
 ```
 - 通过主键获取的快捷方式
 - 如果未找到返回 `None`
@@ -298,7 +298,7 @@ Todo.find(task_id)
 
 def complete_task(task_id: int) -> bool:
     """标记任务为已完成。"""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ 任务 {task_id} 未找到")
         return False
@@ -311,7 +311,7 @@ def complete_task(task_id: int) -> bool:
 
 def update_task_title(task_id: int, new_title: str) -> bool:
     """更新任务标题。"""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ 任务 {task_id} 未找到")
         return False
@@ -349,7 +349,7 @@ task.save()
 
 def delete_task(task_id: int) -> bool:
     """删除任务。"""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ 任务 {task_id} 未找到")
         return False
@@ -532,12 +532,12 @@ def list_pending_tasks():
 
 def find_task_by_id(task_id: int) -> Optional[Todo]:
     """通过 ID 查找任务。"""
-    return Todo.find(task_id)
+    return Todo.find_one(task_id)
 
 
 def complete_task(task_id: int) -> bool:
     """标记任务为已完成。"""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ 任务 {task_id} 未找到")
         return False
@@ -550,7 +550,7 @@ def complete_task(task_id: int) -> bool:
 
 def update_task_title(task_id: int, new_title: str) -> bool:
     """更新任务标题。"""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ 任务 {task_id} 未找到")
         return False
@@ -563,7 +563,7 @@ def update_task_title(task_id: int, new_title: str) -> bool:
 
 def delete_task(task_id: int) -> bool:
     """删除任务。"""
-    task = Todo.find(task_id)
+    task = Todo.find_one(task_id)
     if not task:
         print(f"❌ 任务 {task_id} 未找到")
         return False

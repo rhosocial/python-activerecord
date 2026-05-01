@@ -102,9 +102,9 @@ class RelationDescriptor(Generic[T]):
             user: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id', inverse_of='posts')
 
         # At runtime, the relations can be accessed as follows:
-        user = User.find(1)
+        user = User.find_one(1)
         posts = user.posts()  # Returns list of related Post instances
-        post = Post.find(1)
+        post = Post.find_one(1)
         user = post.user()    # Returns related User instance
 
     Args:
@@ -543,7 +543,7 @@ class BelongsTo(RelationDescriptor[T], Generic[T]):
             comments: ClassVar[HasMany['Comment']] = HasMany(foreign_key='post_id', inverse_of='post')
 
         # Access the related model
-        comment = Comment.find(1)
+        comment = Comment.find_one(1)
         post = comment.post()  # Returns the related Post instance
     """
 
@@ -594,7 +594,7 @@ class HasOne(RelationDescriptor[T], Generic[T]):
             user: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id', inverse_of='profile')
 
         # Access the related model
-        user = User.find(1)
+        user = User.find_one(1)
         profile = user.profile()  # Returns the related Profile instance
     """
 
@@ -644,7 +644,7 @@ class HasMany(RelationDescriptor[T], Generic[T]):
             post: ClassVar[BelongsTo['Post']] = BelongsTo(foreign_key='post_id', inverse_of='comments')
 
         # Access the related models
-        post = Post.find(1)
+        post = Post.find_one(1)
         comments = post.comments()  # Returns list of related Comment instances
     """
 
@@ -740,7 +740,7 @@ class DefaultIRelationLoader(IRelationLoader[R]):
 
         Example:
             # Efficiently load comments for multiple posts in a single query
-            posts = Post.find([1, 2, 3])
+            posts = Post.find_all([1, 2, 3])
             # Instead of executing 3 separate queries (N+1 problem),
             # this method will execute 1 query to fetch all related comments
             comments_by_post = DefaultRelationLoader(post_comments_descriptor).batch_load(posts, None)

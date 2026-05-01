@@ -77,8 +77,8 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     GeneratedColumnMixin,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport
-from .mixins import FTS5Mixin, SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin
+from .protocols import SQLiteExtensionSupport, SQLitePragmaSupport, SQLiteReindexSupport, SQLiteVirtualTableSupport
+from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, SQLiteVirtualTableMixin, SQLiteReindexMixin
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
@@ -149,9 +149,10 @@ class SQLiteDialect(
     TriggerMixin,
     GeneratedColumnMixin,
     # SQLite-specific mixins
-    FTS5Mixin,
     SQLitePragmaMixin,
     SQLiteIntrospectionCapabilityMixin,
+    SQLiteVirtualTableMixin,
+    SQLiteReindexMixin,
     # Protocols for type checking
     CTESupport,
     FilterClauseSupport,
@@ -185,6 +186,8 @@ class SQLiteDialect(
     # SQLite-specific protocols
     SQLiteExtensionSupport,
     SQLitePragmaSupport,
+    SQLiteVirtualTableSupport,
+    SQLiteReindexSupport,
     # Introspection Protocol
     IntrospectionSupport,
     # Transaction Control Protocol
@@ -294,6 +297,25 @@ class SQLiteDialect(
         """
         escaped = identifier.replace('"', '""')
         return f'"{escaped}"'
+
+    def format_column(self, name: str, table: Optional[str] = None,
+                      alias: Optional[str] = None,
+                      schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format column reference for SQLite.
+
+        SQLite does not support schema-qualified column references in
+        the three-segment form (schema.table.column), so schema_name
+        is silently ignored.
+        """
+        if table:
+            col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
+        else:
+            col_sql = self.format_identifier(name)
+
+        if alias:
+            col_sql = f"{col_sql} AS {self.format_identifier(alias)}"
+
+        return col_sql, ()
 
     # Additional protocol support methods for features SQLite doesn't support
     def supports_rollup(self) -> bool:
@@ -747,6 +769,35 @@ class SQLiteDialect(
         # SQLite does not support graph MATCH clause
         raise UnsupportedFeatureError(self.name, "graph MATCH clause", _SUGGESTION_GRAPH_MATCH)
 
+    def format_match_predicate(
+        self,
+        table: str,
+        query: str,
+        columns: Optional[List[str]] = None,
+        negate: bool = False,
+    ) -> Tuple[str, tuple]:
+        """Format full-text search MATCH predicate for FTS5.
+
+        SQLite supports the MATCH operator for full-text search via FTS5
+        virtual tables. This method generates the parameterized MATCH
+        expression by delegating to the FTS5 extension.
+
+        Args:
+            table: Name of the FTS5 virtual table
+            query: Full-text search query string
+            columns: Specific columns to search (None for all columns)
+            negate: If True, negate the match (NOT MATCH)
+
+        Returns:
+            Tuple of (SQL string, parameters tuple)
+        """
+        return self.format_fts5_match_expression(
+            table_name=table,
+            query=query,
+            columns=columns,
+            negate=negate,
+        )
+
     def format_ordered_set_aggregation(self, _aggregation: "OrderedSetAggregation") -> Tuple[str, Tuple]:
         """
         Format ordered-set aggregation function call.
@@ -788,9 +839,11 @@ class SQLiteDialect(
 
         return returning_sql, tuple(all_params)
 
-    def format_wildcard(self, table: Optional[str] = None) -> Tuple[str, Tuple]:
-        """Format wildcard expression (* or table.*)."""
-        if table:
+    def format_wildcard(self, table: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+        """Format wildcard expression (* or table.* or schema.table.*)."""
+        if schema_name and table:
+            wildcard_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.*"
+        elif table:
             wildcard_sql = f"{self.format_identifier(table)}.*"
         else:
             wildcard_sql = "*"
@@ -1130,6 +1183,13 @@ class SQLiteDialect(
         """
         from rhosocial.activerecord.backend.expression.statements import ColumnConstraintType
 
+        # Validate data_type for safe embedding in SQL.
+        if not self._validate_data_type(col_def.data_type):
+            raise ValueError(
+                f"Invalid data type '{col_def.data_type}': "
+                "must contain only alphanumeric characters, spaces, parentheses, and commas."
+            )
+
         # Constraint handler mapping for dispatch
         constraint_handlers = {
             ColumnConstraintType.PRIMARY_KEY: self._handle_primary_key_constraint,
@@ -1392,50 +1452,6 @@ class SQLiteDialect(
             return False
 
         return True
-
-    def supports_reindex(self) -> bool:
-        """SQLite supports REINDEX statement."""
-        return True
-
-    def supports_reindex_expressions(self) -> bool:
-        """SQLite 3.53.0+ supports REINDEX EXPRESSIONS."""
-        return self.version >= (3, 53, 0)
-
-    def format_reindex_statement(self, expr) -> Tuple[str, tuple]:
-        """Format REINDEX statement for SQLite.
-
-        SQLite REINDEX syntax:
-        - REINDEX                          -- Rebuild all indexes
-        - REINDEX table_name               -- Rebuild all indexes on table
-        - REINDEX index_name               -- Rebuild specific index
-        - REINDEX EXPRESSIONS              -- Rebuild all expression indexes (3.53.0+)
-
-        Args:
-            expr: SQLiteReindexExpression object
-
-        Returns:
-            Tuple of (SQL string, empty parameters tuple)
-
-        Raises:
-            UnsupportedFeatureError: If REINDEX EXPRESSIONS is requested on
-                SQLite versions below 3.53.0.
-        """
-        if expr.expressions:
-            if not self.supports_reindex_expressions():
-                raise UnsupportedFeatureError(
-                    self.name,
-                    "REINDEX EXPRESSIONS",
-                    "REINDEX EXPRESSIONS requires SQLite 3.53.0 or later."
-                )
-            return "REINDEX EXPRESSIONS", ()
-
-        if expr.index_name:
-            return f"REINDEX {self.format_identifier(expr.index_name)}", ()
-
-        if expr.table_name:
-            return f"REINDEX {self.format_identifier(expr.table_name)}", ()
-
-        return "REINDEX", ()
 
     # endregion
 

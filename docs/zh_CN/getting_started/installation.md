@@ -23,7 +23,7 @@
 * MySQL/MariaDB: `rhosocial-activerecord-mysql`
 * PostgreSQL: `rhosocial-activerecord-postgres`
 * Oracle: `rhosocial-activerecord-oracle` (计划中)
-* SQL Server: `rhosocial-activerecord-mssql` (计划中)
+* SQL Server: `rhosocial-activerecord-sqlserver` (计划中)
 
 > ⚠️ **注意**: 异步 SQLite 后端需要 `aiosqlite` 包。它不包含在核心依赖中，如果您计划使用异步 SQLite，需要手动安装：
 > ```bash

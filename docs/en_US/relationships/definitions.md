@@ -169,7 +169,7 @@ class Post(AsyncActiveRecord):
     author: ClassVar[AsyncBelongsTo['User']] = AsyncBelongsTo(foreign_key='user_id', inverse_of='posts')
 
 # Async access
-user = await User.find(1)
+user = await User.find_one(1)
 posts = await user.posts()
 ```
 

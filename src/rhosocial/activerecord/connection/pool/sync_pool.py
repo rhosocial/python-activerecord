@@ -5,6 +5,7 @@ Synchronous connection pool module.
 Provides BackendPool class for managing connection pools of synchronous Backend instances.
 """
 
+import logging
 import threading
 import time
 from collections import deque
@@ -16,30 +17,36 @@ from .config import PoolConfig
 from .stats import PoolStats
 from .pooled_backend import PooledBackend
 
+logger = logging.getLogger(__name__)
+
 
 class BackendPool:
-    """Synchronous connection pool (QueuePool strategy).
+    """Synchronous connection pool.
 
     Manages Backend instance pooling with support for warmup, validation, timeout, etc.
-    Connections can be acquired by one thread and released by another (cross-thread
-    reuse), which requires the underlying database driver to be thread-safe.
 
-    .. warning::
-        This pool uses a **QueuePool** strategy where connections flow between
-        threads. It is suitable **only** for backends whose driver reports
-        ``threadsafety >= 2`` (e.g., PostgreSQL with psycopg).
+    Supports two connection management modes:
 
-        For SQLite and MySQL, whose drivers do not guarantee thread-safe connection
-        sharing (threadsafety < 2), use ``BackendGroup`` with ``backend.context()``
-        instead. Each thread should manage its own connection lifecycle, which
-        naturally avoids cross-thread issues.
+    - **Persistent mode** (``connection_mode="persistent"``): Connections are
+      established at creation/warmup time and stay connected across
+      acquire/release cycles. Only ``close()`` disconnects them.
+      Suitable for backends with ``threadsafety >= 2`` (e.g., PostgreSQL with psycopg).
+
+    - **Transient mode** (``connection_mode="transient"``): Connections are
+      established on acquire (if ``auto_connect_on_acquire=True``) and
+      disconnected on release (if ``auto_disconnect_on_release=True``).
+      Suitable for backends with ``threadsafety < 2`` (e.g., SQLite, MySQL).
+
+    - **Auto mode** (``connection_mode="auto"``, default): Automatically
+      selects persistent mode for ``threadsafety >= 2`` backends and
+      transient mode for ``threadsafety < 2`` backends.
 
     Attributes:
         config: Connection pool configuration.
         stats: Connection pool statistics.
 
     Example:
-        # PostgreSQL — suitable for connection pool (threadsafety=2)
+        # PostgreSQL — persistent mode (auto-detected from threadsafety=2)
         config = PoolConfig(
             min_size=2,
             max_size=10,
@@ -84,6 +91,29 @@ class BackendPool:
         self._closed = False
         self._initialized = False
 
+        # Resolve effective connection mode from config
+        self._effective_mode: str  # "persistent" or "transient"
+        if config.connection_mode == "auto":
+            self._effective_mode = "persistent" if self._is_thread_safe_backend() else "transient"
+        else:
+            self._effective_mode = config.connection_mode
+
+        self._is_persistent = (self._effective_mode == "persistent")
+
+        logger.debug(
+            f"BackendPool initialized with connection_mode={self._effective_mode} "
+            f"(requested={config.connection_mode})"
+        )
+
+    @property
+    def connection_mode(self) -> str:
+        """Effective connection management mode.
+
+        Returns:
+            ``"persistent"`` or ``"transient"``
+        """
+        return self._effective_mode
+
     @classmethod
     def create(cls, config: PoolConfig) -> 'BackendPool':
         """Create and initialize connection pool with warmup.
@@ -115,6 +145,14 @@ class BackendPool:
             try:
                 pooled = self._create_backend()
                 if pooled:
+                    # In persistent mode, connect immediately during warmup
+                    if self._is_persistent:
+                        try:
+                            pooled.backend.connect()
+                        except Exception as e:
+                            logger.error(f"Failed to connect backend during warmup: {e}")
+                            self._stats.total_errors += 1
+                            continue
                     self._available.append(pooled)
                     self._stats.current_available += 1
             except Exception:
@@ -122,6 +160,28 @@ class BackendPool:
                 self._stats.total_errors += 1
 
         self._initialized = True
+
+    def _is_thread_safe_backend(self) -> bool:
+        """Determine if the backend supports cross-thread connection sharing.
+
+        Returns:
+            True if backend threadsafety >= 2 (connections can be shared).
+            False if backend threadsafety < 2 (connections are thread-local).
+        """
+        try:
+            if self.config.backend_factory:
+                test_backend = self.config.backend_factory()
+            elif self.config.backend_config:
+                test_backend = self._create_backend_from_config()
+            else:
+                # Cannot determine, assume thread-local for safety
+                return False
+
+            threadsafety = getattr(test_backend, 'threadsafety', 1)
+            return threadsafety >= 2
+        except Exception:
+            # If we cannot determine, assume thread-local for safety
+            return False
 
     def _create_backend(self) -> Optional[PooledBackend]:
         """Create new Backend instance.
@@ -146,7 +206,8 @@ class BackendPool:
 
             pooled = PooledBackend(
                 backend=backend,
-                pool_key=str(id(self))
+                pool_key=str(id(self)),
+                created_thread_id=threading.current_thread().ident,
             )
             self._stats.total_created += 1
             return pooled
@@ -184,11 +245,27 @@ class BackendPool:
         Args:
             pooled: PooledBackend instance to destroy
         """
+        current_thread_id = threading.current_thread().ident
+
+        # Log warning if cross-thread disconnect is attempted in transient mode
+        if (
+            not self._is_persistent
+            and pooled.created_thread_id is not None
+            and pooled.created_thread_id != current_thread_id
+        ):
+            logger.warning(
+                f"Cross-thread disconnect attempted: connection created in "
+                f"thread {pooled.created_thread_id}, disconnect called from "
+                f"thread {current_thread_id}. Backend "
+                f"'{type(pooled.backend).__name__}' may not support cross-thread "
+                f"close (threadsafety < 2). Connection may not be properly closed."
+            )
+
         try:
             if hasattr(pooled.backend, 'disconnect'):
                 pooled.backend.disconnect()
-        except Exception:
-            pass
+        except Exception as e:
+            logger.error(f"Error during disconnect: {e}")
         finally:
             self._stats.total_destroyed += 1
 
@@ -224,12 +301,41 @@ class BackendPool:
             self._stats.total_validation_failures += 1
             return False
 
+    def _reconnect_backend(self, pooled: PooledBackend) -> bool:
+        """Attempt to reconnect a backend whose connection has gone stale.
+
+        Used in persistent mode when validation fails — instead of simply
+        destroying the backend, we try to reconnect it so it can be reused.
+
+        Args:
+            pooled: PooledBackend instance to reconnect
+
+        Returns:
+            True if reconnection succeeded
+        """
+        try:
+            if hasattr(pooled.backend, 'disconnect'):
+                pooled.backend.disconnect()
+            pooled.backend.connect()
+            pooled.is_healthy = True
+            logger.debug("Successfully reconnected stale backend in persistent mode")
+            return True
+        except Exception as e:
+            logger.error(f"Failed to reconnect backend: {e}")
+            return False
+
     def acquire(self, timeout: Optional[float] = None) -> Any:
         """Acquire a Backend instance.
 
         Gets an available Backend instance from the pool. If no connection is
         available and max size not reached, creates a new connection. If max
         size reached, waits until a connection is available or timeout.
+
+        In persistent mode, connections are already established; acquire simply
+        returns a connected backend without calling connect().
+
+        In transient mode, if ``auto_connect_on_acquire=True``, connect() is
+        called on the backend before returning it.
 
         Args:
             timeout: Timeout (seconds), None uses config timeout
@@ -262,9 +368,14 @@ class BackendPool:
                     # Validate connection
                     if self.config.validate_on_borrow:
                         if not self._validate_backend(pooled):
-                            self._destroy_backend(pooled)
-                            self._stats.current_available -= 1
-                            continue
+                            # In persistent mode, try to reconnect before giving up
+                            if self._is_persistent and self._reconnect_backend(pooled):
+                                # Reconnection succeeded, continue with this backend
+                                pass
+                            else:
+                                self._destroy_backend(pooled)
+                                self._stats.current_available -= 1
+                                continue
 
                     # Mark as in use
                     pooled.mark_used()
@@ -274,6 +385,19 @@ class BackendPool:
                     self._stats.total_acquired += 1
                     self._stats.last_acquired_at = datetime.now()
 
+                    # In transient mode, auto-connect if configured
+                    if not self._is_persistent and self.config.auto_connect_on_acquire:
+                        try:
+                            pooled.backend.connect()
+                        except Exception as e:
+                            # Connect failed, destroy and try again
+                            self._in_use.pop(id(pooled.backend), None)
+                            self._stats.current_in_use -= 1
+                            pooled.mark_unhealthy()
+                            self._destroy_backend(pooled)
+                            logger.error(f"Failed to connect acquired backend: {e}")
+                            continue
+
                     return pooled.backend
 
                 # Can create new connection
@@ -281,14 +405,21 @@ class BackendPool:
                     try:
                         pooled = self._create_backend()
                         if pooled:
+                            # In persistent mode, connect immediately on creation
+                            if self._is_persistent:
+                                pooled.backend.connect()
+                            elif self.config.auto_connect_on_acquire:
+                                pooled.backend.connect()
+
                             pooled.mark_used()
                             self._in_use[id(pooled.backend)] = pooled
                             self._stats.current_in_use += 1
                             self._stats.total_acquired += 1
                             self._stats.last_acquired_at = datetime.now()
+
                             return pooled.backend
                     except Exception:
-                        # Creation failed, continue waiting
+                        # Creation or connection failed, continue waiting
                         pass
 
                 # Wait for available connection
@@ -306,7 +437,11 @@ class BackendPool:
     def release(self, backend: Any) -> None:
         """Release Backend instance.
 
-        Returns Backend instance to the pool for reuse.
+        In persistent mode, the connection stays connected; the backend is
+        simply returned to the available pool.
+
+        In transient mode, if ``auto_disconnect_on_release=True``, disconnect()
+        is called before returning the backend to the pool.
 
         Args:
             backend: Backend instance to release
@@ -319,28 +454,34 @@ class BackendPool:
                 # Does not belong to this pool
                 return
 
-            # Validate connection
-            if self.config.validate_on_return:
-                if not self._validate_backend(pooled):
-                    self._destroy_backend(pooled)
-                    self._stats.current_in_use -= 1
-                    self._condition.notify()
-                    return
-
-            # Check if exceeded max lifetime
-            if pooled.is_expired(self.config.max_lifetime):
-                self._destroy_backend(pooled)
-                self._stats.current_in_use -= 1
-                self._condition.notify()
-                return
-
-            # Return to pool
-            pooled.reset()
-            self._available.append(pooled)
-            self._stats.current_available += 1
             self._stats.current_in_use -= 1
             self._stats.total_released += 1
             self._stats.last_released_at = datetime.now()
+
+            # In transient mode, auto-disconnect if configured
+            if not self._is_persistent and self.config.auto_disconnect_on_release:
+                try:
+                    if hasattr(pooled.backend, 'disconnect'):
+                        pooled.backend.disconnect()
+                except Exception as e:
+                    logger.error(f"Error during disconnect in release: {e}")
+                    pooled.mark_unhealthy()
+
+            # Check if should be destroyed (not returned to pool)
+            if not pooled.is_healthy:
+                self._destroy_backend(pooled)
+                self._condition.notify()
+                return
+
+            if pooled.is_expired(self.config.max_lifetime):
+                self._destroy_backend(pooled)
+                self._condition.notify()
+                return
+
+            # Return to pool for reuse
+            pooled.reset()
+            self._available.append(pooled)
+            self._stats.current_available += 1
 
             self._condition.notify()
 
@@ -460,6 +601,9 @@ class BackendPool:
         If timeout is reached and force is False, raises RuntimeError.
         If force is True, forcefully closes all connections after timeout.
 
+        In both persistent and transient modes, all connections are
+        disconnected during close.
+
         Args:
             timeout: Maximum time to wait for active connections (seconds).
                      None uses config.close_timeout. 0 means no wait.
@@ -513,6 +657,20 @@ class BackendPool:
                     )
                 # Force close: destroy in-use connections
                 for pooled in list(self._in_use.values()):
+                    # For transient mode backends, skip disconnect if called from wrong thread
+                    if not self._is_persistent:
+                        current_thread_id = threading.current_thread().ident
+                        if (pooled.created_thread_id is not None
+                                and pooled.created_thread_id != current_thread_id):
+                            logger.warning(
+                                f"Skipping disconnect for connection created in thread "
+                                f"{pooled.created_thread_id} from thread {current_thread_id}: "
+                                f"backend does not support cross-thread close. "
+                                f"Connection will be orphaned and cleaned up by thread exit."
+                            )
+                            self._in_use.pop(id(pooled.backend), None)
+                            self._stats.current_in_use -= 1
+                            continue
                     self._destroy_backend(pooled)
                 self._in_use.clear()
                 self._stats.current_in_use = 0
@@ -561,6 +719,7 @@ class BackendPool:
         return {
             'healthy': not self._closed and stats.total_errors < stats.total_created,
             'closed': self._closed,
+            'connection_mode': self._effective_mode,
             'utilization': stats.utilization_rate,
             'stats': {
                 'available': stats.current_available,
@@ -588,7 +747,8 @@ class BackendPool:
     def __repr__(self) -> str:
         """Return readable representation."""
         return (
-            f"BackendPool(size={self._stats.current_total}, "
+            f"BackendPool(mode={self._effective_mode}, "
+            f"size={self._stats.current_total}, "
             f"available={self._stats.current_available}, "
             f"in_use={self._stats.current_in_use}, "
             f"closed={self._closed})"

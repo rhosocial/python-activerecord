@@ -37,11 +37,11 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev11
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev12
 
     - name: Run tests with coverage
       run: |
-        export PYTHONPATH=src
+        export PYTHONPATH=src:tests
         coverage run -m pytest tests/
         coverage xml
         coverage report
@@ -83,11 +83,11 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev11
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev12
 
     - name: Run tests
       run: |
-        export PYTHONPATH=src
+        export PYTHONPATH=src:tests
         python -m pytest tests/
 
   test-free-threaded:
@@ -118,10 +118,10 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev11
+        pip install rhosocial-activerecord-testsuite==1.0.0.dev12
 
     - name: Run tests
       run: |
-        export PYTHONPATH=src
+        export PYTHONPATH=src:tests
         python -m pytest tests/
 

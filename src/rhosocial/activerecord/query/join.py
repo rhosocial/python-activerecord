@@ -5,6 +5,7 @@ from typing import Union, Type, Optional
 
 from ..interface import IQuery, IActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
+from .utils import convert_qmark_placeholder
 
 
 class JoinQueryMixin:
@@ -33,7 +34,9 @@ class JoinQueryMixin:
         if issubclass(right, IActiveRecord):
             table_name = right.table_name()
             # Use provided alias, or table name as alias
-            return TableExpression(dialect, table_name, alias=alias or table_name)
+            return TableExpression(dialect, table_name,
+                                   schema_name=right.schema_name(),
+                                   alias=alias or table_name)
         if isinstance(right, (TableExpression, JoinExpression)):
             # If an alias is provided, apply it to the expression
             if alias:
@@ -47,7 +50,8 @@ class JoinQueryMixin:
             return None
         dialect = self.backend().dialect
         if isinstance(on, str):
-            return RawSQLPredicate(dialect, on)
+            converted = convert_qmark_placeholder(dialect, on)
+            return RawSQLPredicate(dialect, converted)
         if isinstance(on, SQLPredicate):
             return on
         raise TypeError(f"Unsupported type for 'on' condition: {type(on)}")
@@ -67,7 +71,9 @@ class JoinQueryMixin:
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.
-            left_table = TableExpression(dialect, self.model_class.table_name(), alias=self.model_class.table_name())
+            left_table = TableExpression(dialect, self.model_class.table_name(),
+                                         schema_name=self.model_class.schema_name(),
+                                         alias=self.model_class.table_name())
             self.join_clause = JoinExpression(
                 dialect=dialect,
                 left_table=left_table,  # Use the model's table as the left table

@@ -174,9 +174,13 @@ class FieldProxy:
                 # Use table alias (if set) as table name
                 table_name = self._table_alias if self._table_alias else self._model_class.table_name()
 
+                # Only pass model's explicit schema_name; do not add default schema.
+                # The backend dialect decides how to format schema references.
+                schema_name = None if self._table_alias else self._model_class.schema_name()
+
                 # Create column expression object using the real dialect
                 backend = self._model_class.backend()
                 dialect: "SQLDialectBase" = backend.dialect
-                return Column(dialect, column_name, table=table_name)
+                return Column(dialect, column_name, table=table_name, schema_name=schema_name)
 
         return _FieldAccessor(owner, self._table_alias)

@@ -207,7 +207,7 @@ class AsyncPost(AsyncActiveRecord):
 
 ```python
 # 获取用户的所有文章
-user = await AsyncUser.find(1)
+user = await AsyncUser.find_one(1)
 posts = await user.posts()  # 注意：需要 await
 
 # 预加载异步关系

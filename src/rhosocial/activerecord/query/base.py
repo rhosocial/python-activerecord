@@ -17,6 +17,7 @@ from ..backend.expression import (
 )
 from ..interface import IQueryBuilding
 from ..logging.manager import get_logging_manager
+from .utils import convert_qmark_placeholder
 
 
 class BaseQueryMixin(IQueryBuilding):
@@ -159,7 +160,9 @@ class BaseQueryMixin(IQueryBuilding):
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
             # Use the new RawSQLPredicate class to handle raw SQL string conditions
-            predicate = RawSQLPredicate(dialect, condition, tuple(params) if params else ())
+            # Convert '?' placeholders to the dialect's native format
+            converted = convert_qmark_placeholder(dialect, condition)
+            predicate = RawSQLPredicate(dialect, converted, tuple(params) if params else ())
         elif isinstance(condition, SQLPredicate):
             # Already a SQLPredicate, use directly
             predicate = condition
@@ -469,7 +472,9 @@ class BaseQueryMixin(IQueryBuilding):
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
             # Use the new RawSQLPredicate class to handle raw SQL string conditions
-            predicate = RawSQLPredicate(dialect, condition, tuple(params) if params else ())
+            # Convert '?' placeholders to the dialect's native format
+            converted = convert_qmark_placeholder(dialect, condition)
+            predicate = RawSQLPredicate(dialect, converted, tuple(params) if params else ())
         elif isinstance(condition, SQLPredicate):
             # Object that inherits from SQLPredicate, use directly
             predicate = condition

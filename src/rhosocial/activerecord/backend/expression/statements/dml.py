@@ -9,6 +9,7 @@ from typing import Any, Dict, List, Optional, Tuple, Union, TYPE_CHECKING
 from ..bases import BaseExpression, SQLPredicate, SQLQueryAndParams
 from ..core import TableExpression, Subquery
 from ..query_parts import WhereClause
+from ...schema import StatementType
 
 if TYPE_CHECKING:  # pragma: no cover
     from ...dialect import SQLDialectBase
@@ -110,6 +111,11 @@ class MergeExpression(BaseExpression):
     def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the MERGE statement to the configured dialect."""
         return self.dialect.format_merge_statement(self)
+
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this merge expression."""
+        return StatementType.MERGE
 
 
 # endregion Merge Statement
@@ -298,6 +304,11 @@ class DeleteExpression(BaseExpression):
         """Delegates SQL generation for the DELETE statement to the configured dialect."""
         return self.dialect.format_delete_statement(self)
 
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this delete expression."""
+        return StatementType.DELETE
+
 
 # endregion Delete Statement
 
@@ -421,6 +432,11 @@ class UpdateExpression(BaseExpression):
     def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the UPDATE statement to the configured dialect."""
         return self.dialect.format_update_statement(self)
+
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this update expression."""
+        return StatementType.UPDATE
 
 
 # endregion Update Statement
@@ -592,6 +608,11 @@ class InsertExpression(BaseExpression):
     def to_sql(self) -> "SQLQueryAndParams":
         """Delegates SQL generation for the INSERT statement to the configured dialect."""
         return self.dialect.format_insert_statement(self)
+
+    @property
+    def statement_type(self) -> StatementType:
+        """Return the statement type for this insert expression."""
+        return StatementType.INSERT
 
 
 # endregion Insert Statement
