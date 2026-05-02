@@ -7,7 +7,7 @@ graphs defined as Python callables with fully qualified names.
 """
 import inspect
 import importlib
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from .exceptions import NamedQueryError, NamedQueryModuleNotFoundError
 from .procedure_graph import ProcedureGraph
@@ -235,7 +235,7 @@ def resolve_named_procedure_graph(
     qualified_name: str,
     dialect: "SQLDialectBase",
     params: Optional[Dict[str, Any]] = None,
-) -> tuple[ProcedureGraph, NamedProcedureGraphResolver]:
+) -> Tuple[ProcedureGraph, NamedProcedureGraphResolver]:
     """Resolve and build a named procedure graph in one step.
 
     This is a convenience function that combines resolver creation,

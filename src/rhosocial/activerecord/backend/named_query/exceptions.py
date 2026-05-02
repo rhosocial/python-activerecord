@@ -24,6 +24,7 @@ Usage:
     ... except NamedQueryNotFoundError as e:
     ...     print(f"Query not found: {e}")
 """
+from typing import List
 
 
 class NamedQueryError(Exception):

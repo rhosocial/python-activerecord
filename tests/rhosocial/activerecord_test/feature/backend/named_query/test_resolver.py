@@ -9,6 +9,7 @@ This test module covers:
 - list_named_queries_in_module function
 """
 import types
+from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 from rhosocial.activerecord.backend.named_query.resolver import (

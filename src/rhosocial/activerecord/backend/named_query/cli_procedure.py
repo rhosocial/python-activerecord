@@ -232,16 +232,18 @@ def handle_named_procedure(
 
             module_name = qualified_name
 
-            if "." in qualified_name:
-                parts = qualified_name.rsplit(".", 1)
-                potential_module = parts[0]
-                potential_class = parts[1]
-                try:
-                    test_module = importlib.import_module(potential_module)
-                    if hasattr(test_module, potential_class):
-                        module_name = potential_module
-                except (ModuleNotFoundError, ImportError):
-                    pass
+            try:
+                importlib.import_module(module_name)
+            except ModuleNotFoundError:
+                if "." in qualified_name:
+                    parts = qualified_name.rsplit(".", 1)
+                    module_name = parts[0]
+                    try:
+                        importlib.import_module(module_name)
+                    except ModuleNotFoundError:
+                        raise NamedQueryError(f"Module not found: {module_name}")
+                else:
+                    raise NamedQueryError(f"Module not found: {module_name}")
 
             procedures = list_named_procedures_in_module(module_name)
 

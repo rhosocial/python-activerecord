@@ -9,6 +9,7 @@ This test module covers:
 """
 import types
 from argparse import Namespace
+from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -498,3 +499,97 @@ class TestHandleNamedProcedureExecute:
             is_async=True,
         )
         assert args.is_async is True
+
+
+class TestListNamedProcedures:
+    """Tests for list_named_procedures_in_module function."""
+
+    def test_list_procedures_function(self):
+        """Test list_named_procedures_in_module function."""
+        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+            list_named_procedures_in_module,
+        )
+        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        import sys
+        from types import ModuleType
+
+        test_module = ModuleType("test_proc_module")
+        test_module.__all__ = ["MyProcedure", "NotAProcedure"]
+
+        class MyProcedure(Procedure):
+            month: str
+            limit: int = 100
+
+            def run(self, ctx):
+                pass
+
+        class NotAProcedure:
+            pass
+
+        test_module.MyProcedure = MyProcedure
+        test_module.NotAProcedure = NotAProcedure
+        sys.modules["test_proc_module"] = test_module
+
+        try:
+            results = list_named_procedures_in_module("test_proc_module")
+            names = [r["name"] for r in results]
+            assert "MyProcedure" in names
+            assert "NotAProcedure" not in names
+        finally:
+            del sys.modules["test_proc_module"]
+
+    def test_list_procedures_no_valid_procedures(self):
+        """Test list_named_procedures_in_module with no valid procedures."""
+        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+            list_named_procedures_in_module,
+        )
+        import sys
+        from types import ModuleType
+
+        test_module = ModuleType("test_empty_proc_module")
+        test_module.__all__ = ["RegularClass"]
+
+        class RegularClass:
+            pass
+
+        test_module.RegularClass = RegularClass
+        sys.modules["test_empty_proc_module"] = test_module
+
+        try:
+            results = list_named_procedures_in_module("test_empty_proc_module")
+            assert len(results) == 0
+        finally:
+            del sys.modules["test_empty_proc_module"]
+
+    def test_list_procedures_missing_module(self):
+        """Test list_named_procedures_in_module raises for missing module."""
+        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+            list_named_procedures_in_module,
+        )
+
+        with pytest.raises(Exception):
+            list_named_procedures_in_module("nonexistent_module_xyz")
+
+
+class TestCliProcedureReplaceProgPlaceholder:
+    """Tests for _replace_prog_placeholder in cli_procedure."""
+
+    def test_replace_prog_placeholder(self):
+        """Test _replace_prog_placeholder function."""
+        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+            _replace_prog_placeholder,
+        )
+
+        docstring = "Usage: %(prog)s do something"
+        result = _replace_prog_placeholder(docstring, "myprogram")
+        assert result == "Usage: myprogram do something"
+
+    def test_replace_prog_placeholder_no_placeholder(self):
+        """Test _replace_prog_placeholder without placeholder."""
+        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+            _replace_prog_placeholder,
+        )
+
+        docstring = "Usage: myprogram do something"
+        result = _replace_prog_placeholder(docstring, "other")
+        assert result == "Usage: myprogram do something"

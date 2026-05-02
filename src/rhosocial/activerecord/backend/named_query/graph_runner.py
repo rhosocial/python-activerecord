@@ -196,7 +196,7 @@ class ProcedureGraphRunner:
 
     def _execute(self, sql: str, params: tuple) -> Any:
         """Execute SQL on the backend."""
-        return self._backend.execute(sql, params, None)
+        return self._backend.execute(sql, params)
 
 
 class AsyncProcedureGraphRunner:
@@ -330,7 +330,7 @@ class AsyncProcedureGraphRunner:
 
     async def _execute(self, sql: str, params: tuple) -> Any:
         """Execute SQL on the async backend."""
-        return await self._backend.execute(sql, params, None)
+        return await self._backend.execute(sql, params)
 
 
 def _interpolate_dict(

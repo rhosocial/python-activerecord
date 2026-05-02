@@ -4,6 +4,7 @@ Tests for named query exceptions.
 
 This test module covers all exception types in the named query system.
 """
+from typing import List
 import pytest
 from rhosocial.activerecord.backend.named_query.exceptions import (
     NamedQueryError,

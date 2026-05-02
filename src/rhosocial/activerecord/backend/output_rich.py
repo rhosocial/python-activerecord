@@ -96,3 +96,24 @@ class RichOutputProvider(OutputProvider):
 
     def display_greeting(self):
         self.console.print("[bold green]Rich library detected. Using beautified table output.[/bold green]")
+
+    def print_table(self, rows: List[Dict[str, Any]], title: str, columns: List[str]) -> None:
+        """Print a table with the given rows and columns.
+
+        Args:
+            rows: List of dictionaries containing row data.
+            title: Title to display above the table.
+            columns: List of column keys to display.
+        """
+        if not rows:
+            self.console.print(f"[yellow]No data for {title}.[/yellow]")
+            return
+
+        table = Table(title=title, show_header=True, header_style="bold magenta", box=self.box_style)
+        for col in columns:
+            table.add_column(col, style="dim", overflow="fold")
+
+        for row in rows:
+            table.add_row(*[str(row.get(col, "")) for col in columns])
+
+        self.console.print(table)
