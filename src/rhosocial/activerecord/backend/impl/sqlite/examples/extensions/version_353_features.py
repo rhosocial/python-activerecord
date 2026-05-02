@@ -1,3 +1,4 @@
+# src/rhosocial/activerecord/backend/impl/sqlite/examples/extensions/version_353_features.py
 """
 SQLite 3.53.0 new features detection example.
 
@@ -18,12 +19,16 @@ On older versions, it will show the features as unsupported.
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+from rhosocial.activerecord.backend.options import ExecutionOptions, StatementType
 import sqlite3
 import sys
 
 config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
+
+ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
+dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 
 print(f"Python version: {sys.version}")
 print(f"SQLite library version: {sqlite3.sqlite_version}")
@@ -39,6 +44,7 @@ backend.introspect_and_adapt()
 dialect = backend._dialect
 print(f"Adapted dialect version: {dialect.version}")
 print()
+
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
@@ -81,7 +87,6 @@ for name, available in ext_available.items():
     print(f"  {name}: {'available' if available else 'not available'}")
 print()
 
-# Compare with version-dependent functions
 print("--- Version Comparison ---")
 if dialect.version >= (3, 53, 0):
     print("SQLite version 3.53.0+ detected - all new features should be supported")
@@ -89,16 +94,14 @@ else:
     print(f"SQLite version {dialect.version[0]}.{dialect.version[1]}.{dialect.version[2]} detected")
     print("Some features require SQLite 3.53.0+")
 
-# ============================================================
-# SECTION: Execution (demonstrate feature usage)
-# ============================================================
 print()
 print("=" * 60)
 print("Feature Usage Demonstration")
 print("=" * 60)
 
-# Demonstrate REINDEX EXPRESSIONS if supported
 from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteReindexExpression
+from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert, jsonb_array_insert
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression
 
 if dialect.supports_reindex_expressions():
     print("\n--- REINDEX EXPRESSIONS Example ---")
@@ -109,14 +112,10 @@ else:
     print("\n--- REINDEX EXPRESSIONS Example ---")
     print("  Not supported in this SQLite version")
 
-# Demonstrate json_array_insert if supported
-from rhosocial.activerecord.backend.impl.sqlite.functions import json_array_insert
-from rhosocial.activerecord.backend.expression import Column, Literal
-
 if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
     print("\n--- json_array_insert Example ---")
-    col_data = Column(dialect, "data")
-    json_expr = json_array_insert(dialect, col_data, Literal(dialect, "new_item"), position=0)
+    col_data = Column(dialect, "data", table="test_json")
+    json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
     sql, params = json_expr.to_sql()
     print(f"  SQL: {sql}")
     print(f"  Params: {params}")
@@ -124,8 +123,17 @@ else:
     print("\n--- json_array_insert Example ---")
     print("  Not supported in this SQLite version")
 
-# Demonstrate ALTER TABLE ADD CONSTRAINT if supported
-# Note: format methods are available via AlterTableMixin
+if dialect.version >= (3, 53, 0) and funcs.get("jsonb_array_insert"):
+    print("\n--- jsonb_array_insert Example ---")
+    col_data = Column(dialect, "data", table="test_jsonb")
+    json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
+    sql, params = json_expr.to_sql()
+    print(f"  SQL: {sql}")
+    print(f"  Params: {params}")
+else:
+    print("\n--- jsonb_array_insert Example ---")
+    print("  Not supported in this SQLite version")
+
 if dialect.supports_add_constraint():
     print("\n--- ALTER TABLE ADD CONSTRAINT Example ---")
     print(f"  Supports: supports_add_constraint() = True")
@@ -133,6 +141,60 @@ if dialect.supports_add_constraint():
 else:
     print("\n--- ALTER TABLE ADD CONSTRAINT Example ---")
     print("  Not supported in this SQLite version (requires 3.53.0+)")
+
+
+# ============================================================
+# SECTION: Execution (run the expression)
+# ============================================================
+if dialect.version >= (3, 53, 0) and funcs.get("json_array_insert"):
+    print("\n" + "=" * 60)
+    print("Feature Execution Results")
+    print("=" * 60)
+
+    print("\n--- json_array_insert Execution ---")
+    backend.execute("CREATE TABLE test_json (id INTEGER PRIMARY KEY, data TEXT)", (), options=ddl_options)
+    backend.execute("INSERT INTO test_json (data) VALUES (?)", ("[1, 2, 3]",), options=ddl_options)
+
+    col_data = Column(dialect, "data", table="test_json")
+    json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
+
+    query = QueryExpression(
+        dialect=dialect,
+        select=[json_expr.as_("modified")],
+        from_=TableExpression(dialect, "test_json"),
+    )
+
+    sql, params = query.to_sql()
+    print(f"  SQL: {sql}")
+    print(f"  Params: {params}")
+
+    result = backend.execute(sql, params, options=dql_options)
+    print(f"  Result: {result.data[0]['modified']}")
+
+    backend.execute("DROP TABLE test_json", (), options=ddl_options)
+
+    print("\n--- jsonb_array_insert Execution ---")
+    backend.execute("CREATE TABLE test_jsonb (id INTEGER PRIMARY KEY, data TEXT)", (), options=ddl_options)
+    backend.execute("INSERT INTO test_jsonb (data) VALUES (?)", ("[1, 2, 3]",), options=ddl_options)
+
+    col_data = Column(dialect, "data", table="test_jsonb")
+    json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
+
+    query = QueryExpression(
+        dialect=dialect,
+        select=[json_expr.as_("modified")],
+        from_=TableExpression(dialect, "test_jsonb"),
+    )
+
+    sql, params = query.to_sql()
+    print(f"  SQL: {sql}")
+    print(f"  Params: {params}")
+
+    result = backend.execute(sql, params, options=dql_options)
+    print(f"  Result: {result.data[0]['modified']}")
+
+    backend.execute("DROP TABLE test_jsonb", (), options=ddl_options)
+
 
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)

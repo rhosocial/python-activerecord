@@ -20,6 +20,8 @@ from rhosocial.activerecord.backend.impl.sqlite.functions import (
     jsonb_array_insert,
 )
 from rhosocial.activerecord.backend.expression.core import Column, Literal
+from rhosocial.activerecord.backend.options import ExecutionOptions
+from rhosocial.activerecord.backend.schema import StatementType
 
 # Import protocol classes for requires_protocol markers
 # These declare the required capabilities for documentation/IDE purposes
@@ -219,6 +221,86 @@ class TestSQLite353JsonFunctionsSQL:
 
         assert "JSONB_ARRAY_INSERT" in sql
         assert len(params) == 2
+
+
+class TestSQLite353JsonFunctionsExecution:
+    """Integration tests for json_array_insert/jsonb_array_insert execution."""
+
+    @pytest.mark.requires_functions('json_array_insert')
+    def test_json_array_insert_executes(self, sqlite_backend: SQLiteBackend):
+        """Test that json_array_insert executes and returns expected result."""
+        sqlite_backend.introspect_and_adapt()
+
+        dialect = sqlite_backend._dialect
+        ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
+        dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
+
+        # Create table with JSON data
+        sqlite_backend.executescript("""
+            CREATE TABLE test_json (
+                id INTEGER PRIMARY KEY,
+                data TEXT
+            );
+            INSERT INTO test_json (data) VALUES ('[1, 2, 3]');
+        """)
+
+        # Use expression system to build the query
+        col_data = Column(dialect, "data", table="test_json")
+        json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
+
+        from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+        query = QueryExpression(
+            dialect=dialect,
+            select=[
+                json_expr.as_("modified"),
+            ],
+            from_=TableExpression(dialect, "test_json"),
+        )
+
+        sql, params = query.to_sql()
+        result = sqlite_backend.execute(sql, params, options=dql_options)
+
+        assert result.data is not None
+        assert len(result.data) == 1
+        modified_json = result.data[0]['modified']
+        assert "0" in modified_json
+
+    @pytest.mark.requires_functions('jsonb_array_insert')
+    def test_jsonb_array_insert_executes(self, sqlite_backend: SQLiteBackend):
+        """Test that jsonb_array_insert executes and returns expected result."""
+        sqlite_backend.introspect_and_adapt()
+
+        dialect = sqlite_backend._dialect
+        ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
+        dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
+
+        # Create table with JSON data
+        sqlite_backend.executescript("""
+            CREATE TABLE test_jsonb (
+                id INTEGER PRIMARY KEY,
+                data TEXT
+            );
+            INSERT INTO test_jsonb (data) VALUES ('[1, 2, 3]');
+        """)
+
+        # Use expression system to build the query
+        col_data = Column(dialect, "data", table="test_jsonb")
+        json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
+
+        from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+        query = QueryExpression(
+            dialect=dialect,
+            select=[
+                json_expr.as_("modified"),
+            ],
+            from_=TableExpression(dialect, "test_jsonb"),
+        )
+
+        sql, params = query.to_sql()
+        result = sqlite_backend.execute(sql, params, options=dql_options)
+
+        assert result.data is not None
+        assert len(result.data) == 1
 
 
 class TestSQLite353AlterTableConstraint:
