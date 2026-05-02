@@ -24,6 +24,7 @@ Usage:
     ... except NamedQueryNotFoundError as e:
     ...     print(f"Query not found: {e}")
 """
+from typing import List
 
 
 class NamedQueryError(Exception):
@@ -357,3 +358,17 @@ class ProcedureStepError(ProcedureError):
             f"Procedure '{procedure_name}' failed at step {step}: {cause}"
         )
         super().__init__(error_msg)
+
+
+class ProcedureGraphError(ProcedureError):
+    """Base exception for ProcedureGraph errors."""
+
+    pass
+
+
+class ProcedureGraphValidationError(ProcedureGraphError):
+    """Raised when ProcedureGraph validation fails."""
+
+    def __init__(self, errors: List[str]):
+        self.errors = errors
+        super().__init__(f"Graph validation failed: {', '.join(errors)}")

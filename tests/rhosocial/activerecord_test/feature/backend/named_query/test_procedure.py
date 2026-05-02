@@ -9,6 +9,7 @@ This test module covers:
 - TransactionMode
 """
 import types
+from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -634,3 +635,287 @@ class TestBaseProcedureRunner:
         )
 
         assert issubclass(AsyncProcedureRunner, _BaseProcedureRunner)
+
+
+class TestProcedureContextParallel:
+    """Tests for ProcedureContext.parallel method."""
+
+    def test_parallel_empty_steps(self):
+        """Test parallel with no steps returns empty list."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureContext,
+            ParallelStep,
+        )
+
+        mock_dialect = MagicMock()
+        mock_dialect.name = "sqlite"
+
+        def callback(fqn, dial, params):
+            return {"result": "ok"}
+
+        ctx = ProcedureContext(mock_dialect, callback)
+        result = ctx.parallel()
+        assert result == []
+
+    def test_parallel_single_step(self):
+        """Test parallel with single step."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureContext,
+            ParallelStep,
+        )
+
+        mock_dialect = MagicMock()
+        mock_dialect.name = "sqlite"
+
+        def callback(fqn, dial, params):
+            return {"done": True}
+
+        ctx = ProcedureContext(mock_dialect, callback)
+        ctx._trace_index = 0
+        ctx._backend = None
+
+        step = ParallelStep("test.q1", {"a": 1})
+        result = ctx.parallel(step, max_concurrency=1)
+
+        assert len(result) == 1
+
+    def test_parallel_multiple_steps_serial(self):
+        """Test parallel with multiple steps (limit=1 forces serial)."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureContext,
+            ParallelStep,
+        )
+
+        mock_dialect = MagicMock()
+        mock_dialect.name = "sqlite"
+
+        results = []
+
+        def callback(fqn, dial, params):
+            results.append(fqn)
+            return {"done": True}
+
+        ctx = ProcedureContext(mock_dialect, callback)
+        ctx._trace_index = 0
+
+        step1 = ParallelStep("test.q1", {"a": 1})
+        step2 = ParallelStep("test.q2", {"b": 2})
+        result = ctx.parallel(step1, step2, max_concurrency=1)
+
+        assert len(result) == 2
+
+    def test_parallel_max_concurrency(self):
+        """Test parallel respects max_concurrency."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureContext,
+            ParallelStep,
+        )
+
+        mock_dialect = MagicMock()
+        mock_dialect.name = "sqlite"
+
+        def callback(fqn, dial, params):
+            return {"result": "ok"}
+
+        ctx = ProcedureContext(mock_dialect, callback)
+        ctx._trace_index = 0
+        ctx._backend = MagicMock()
+
+        ctx._backend.get_concurrency_limit = MagicMock(return_value=None)
+
+        step1 = ParallelStep("test.q1", {"a": 1})
+        step2 = ParallelStep("test.q2", {"b": 2})
+        step3 = ParallelStep("test.q3", {"c": 3})
+        result = ctx.parallel(step1, step2, step3, max_concurrency=2)
+
+        assert len(result) == 3
+
+
+class TestProcedureResultDiagram:
+    """Tests for ProcedureResult.diagram method."""
+
+    def test_procedure_result_diagram_flowchart(self):
+        """Test ProcedureResult.diagram generates flowchart."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureResult,
+            TraceEntry,
+            StepKind,
+        )
+
+        result = ProcedureResult()
+        result.static_trace.append(TraceEntry(
+            kind=StepKind.SINGLE,
+            index=0,
+            qualified_name="test.query",
+            params={"id": 1},
+            status="ok",
+        ))
+
+        diagram = result.diagram("flowchart")
+        assert "flowchart" in diagram.lower() or "graph" in diagram.lower()
+
+    def test_procedure_result_diagram_sequence(self):
+        """Test ProcedureResult.diagram generates sequence diagram."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            ProcedureResult,
+            TraceEntry,
+            StepKind,
+        )
+
+        result = ProcedureResult()
+        result.static_trace.append(TraceEntry(
+            kind=StepKind.SINGLE,
+            index=0,
+            qualified_name="test.query",
+            params={"id": 1},
+            status="ok",
+        ))
+
+        diagram = result.diagram("sequence")
+        assert "sequence" in diagram.lower() or "participant" in diagram.lower()
+
+
+class TestProcedureStaticDiagram:
+    """Tests for Procedure.static_diagram class method."""
+
+    def test_static_diagram_flowchart(self):
+        """Test Procedure.static_diagram generates flowchart."""
+        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+
+        diagram = Procedure.static_diagram("flowchart", dialect=None)
+        assert diagram is not None
+        assert len(diagram) > 0
+
+    def test_static_diagram_sequence(self):
+        """Test Procedure.static_diagram generates sequence diagram."""
+        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+
+        diagram = Procedure.static_diagram("sequence", dialect=None)
+        assert diagram is not None
+        assert len(diagram) > 0
+
+    def test_static_diagram_invalid_kind(self):
+        """Test static_diagram with invalid kind raises."""
+        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+
+        with pytest.raises(ValueError, match="Unknown diagram kind"):
+            Procedure.static_diagram("invalid_kind", dialect=None)
+
+
+class TestAsyncProcedureContextParallel:
+    """Tests for AsyncProcedureContext.parallel method."""
+
+    @pytest.mark.asyncio
+    async def test_async_parallel_empty_steps(self):
+        """Test async parallel with no steps returns empty list."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            AsyncProcedureContext,
+            ParallelStep,
+        )
+
+        mock_dialect = MagicMock()
+        mock_dialect.name = "sqlite"
+
+        async def callback(fqn, dial, params):
+            return {"result": "ok"}
+
+        ctx = AsyncProcedureContext(mock_dialect, callback)
+        result = await ctx.parallel()
+        assert result == []
+
+    @pytest.mark.asyncio
+    async def test_async_parallel_multiple_steps(self):
+        """Test async parallel with multiple steps."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            AsyncProcedureContext,
+            ParallelStep,
+        )
+
+        mock_dialect = MagicMock()
+        mock_dialect.name = "sqlite"
+
+        results = []
+
+        async def callback(fqn, dial, params):
+            results.append(fqn)
+            return {"done": True}
+
+        ctx = AsyncProcedureContext(mock_dialect, callback)
+
+        step1 = ParallelStep("test.q1", {"a": 1})
+        step2 = ParallelStep("test.q2", {"b": 2})
+        result = await ctx.parallel(step1, step2, max_concurrency=1)
+
+        assert len(result) == 2
+
+
+class TestProcedureGetParameters:
+    """Tests for Procedure.get_parameters class method."""
+
+    def test_get_parameters_required_only(self):
+        """Test get_parameters with required parameters only."""
+        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+
+        class MonthlyReport(Procedure):
+            month: str
+            year: int
+
+        params = MonthlyReport.get_parameters()
+        assert "month" in params
+        assert "year" in params
+        assert params["month"]["has_default"] is False
+        assert params["year"]["has_default"] is False
+
+    def test_get_parameters_with_defaults(self):
+        """Test get_parameters with optional parameters."""
+        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+
+        class ConfigProcedure(Procedure):
+            enabled: bool = True
+            limit: int = 100
+
+        params = ConfigProcedure.get_parameters()
+        assert "enabled" in params
+        assert "limit" in params
+        assert params["enabled"]["has_default"] is True
+        assert params["limit"]["has_default"] is True
+
+
+class TestAsyncProcedureGetParameters:
+    """Tests for AsyncProcedure.get_parameters class method."""
+
+    def test_async_procedure_get_parameters(self):
+        """Test AsyncProcedure.get_parameters works."""
+        from rhosocial.activerecord.backend.named_query.procedure import AsyncProcedure
+
+        class AsyncReport(AsyncProcedure):
+            month: str
+            limit: int = 50
+
+        params = AsyncReport.get_parameters()
+        assert "month" in params
+        assert "limit" in params
+        assert params["month"]["has_default"] is False
+        assert params["limit"]["has_default"] is True
+
+
+class TestResolveConcurrency:
+    """Tests for _resolve_concurrency helper."""
+
+    def test_resolve_concurrency_user_override(self):
+        """Test user max_concurrency overrides backend hint."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            _resolve_concurrency,
+        )
+
+        result = _resolve_concurrency(None, 5)
+        assert result == 5
+
+    def test_resolve_concurrency_no_backend(self):
+        """Test returns None when no backend."""
+        from rhosocial.activerecord.backend.named_query.procedure import (
+            _resolve_concurrency,
+        )
+
+        result = _resolve_concurrency(None, None)
+        assert result is None

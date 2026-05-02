@@ -61,6 +61,8 @@ from .exceptions import (
     ProcedureError,
     ProcedureAbortedError,
     ProcedureStepError,
+    ProcedureGraphError,
+    ProcedureGraphValidationError,
 )
 from .resolver import (
     NamedQueryResolver,
@@ -93,6 +95,31 @@ from .procedure import (
     TraceEntry,
 )
 from .diagram import ProcedureDiagram
+from .procedure_graph import (
+    ProcedureGraph,
+    StepNode,
+    StepKind as GraphStepKind,
+    TransactionMode as GraphTransactionMode,
+    GraphContext,
+    CyclicDependencyError,
+)
+from .graph_result import (
+    ProcedureGraphResult,
+    StepTraceEntry,
+    StepStatus,
+)
+from .graph_runner import (
+    ProcedureGraphRunner,
+    AsyncProcedureGraphRunner,
+    ProcedureGraphValidationError as GraphValidationError,
+)
+from .graph_resolver import (
+    NamedProcedureGraphResolver,
+    NamedProcedureGraphError,
+    NamedProcedureGraphInvalidReturnTypeError,
+    resolve_named_procedure_graph,
+    list_procedure_graphs_in_module,
+)
 
 __all__ = [
     "NamedQueryError",
@@ -129,4 +156,21 @@ __all__ = [
     "ProcedureError",
     "ProcedureAbortedError",
     "ProcedureStepError",
+    "ProcedureGraph",
+    "StepNode",
+    "GraphStepKind",
+    "GraphTransactionMode",
+    "GraphContext",
+    "CyclicDependencyError",
+    "ProcedureGraphResult",
+    "StepTraceEntry",
+    "StepStatus",
+    "ProcedureGraphRunner",
+    "AsyncProcedureGraphRunner",
+    "NamedProcedureGraphResolver",
+    "NamedProcedureGraphError",
+    "NamedProcedureGraphInvalidReturnTypeError",
+    "resolve_named_procedure_graph",
+    "list_procedure_graphs_in_module",
+    "ProcedureGraphValidationError",
 ]
