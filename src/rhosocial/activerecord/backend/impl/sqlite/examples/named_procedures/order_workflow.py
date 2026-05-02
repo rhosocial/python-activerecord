@@ -179,23 +179,24 @@ if __name__ == "__main__":
 # ============================================================
 from rhosocial.activerecord.backend.named_query import ProcedureRunner, TransactionMode
 
-runner = ProcedureRunner(
-    "rhosocial.activerecord.backend.impl.sqlite.examples.named_procedures.order_workflow.OrderProcessingProcedure"
-).load()
+if __name__ == "__main__":
+    runner = ProcedureRunner(
+        "rhosocial.activerecord.backend.impl.sqlite.examples.named_procedures.order_workflow.OrderProcessingProcedure"
+    ).load()
 
-result = runner.run(
-    backend,
-    user_params={"order_id": 1, "user_id": 100, "amount": 99.99},
-    transaction_mode=TransactionMode.AUTO,
-)
+    result = runner.run(
+        backend,
+        user_params={"order_id": 1, "user_id": 100, "amount": 99.99},
+        transaction_mode=TransactionMode.AUTO,
+    )
 
-print(f"Procedure completed. Aborted: {result.aborted}")
-if result.aborted:
-    print(f"Abort reason: {result.abort_reason}")
-for log in result.logs:
-    print(f"[{log.level}] {log.message}")
+    print(f"Procedure completed. Aborted: {result.aborted}")
+    if result.aborted:
+        print(f"Abort reason: {result.abort_reason}")
+    for log in result.logs:
+        print(f"[{log.level}] {log.message}")
 
-# ============================================================
-# SECTION: Teardown (necessary for execution, reference only)
-# ============================================================
-backend.disconnect()
+    # ============================================================
+    # SECTION: Teardown (necessary for execution, reference only)
+    # ============================================================
+    backend.disconnect()

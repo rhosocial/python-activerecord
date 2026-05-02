@@ -5,7 +5,8 @@ import importlib
 
 COMMAND_NAMES = [
     'info', 'query', 'introspect', 'status',
-    'named-query', 'named-procedure', 'named-connection',
+    'named-query', 'named-procedure', 'named-procedure-graph',
+    'named-connection',
 ]
 
 
@@ -21,6 +22,7 @@ def register_commands(subparsers):
     from .status import create_parser as status_parser
     from .named_query import create_parser as nq_parser
     from .named_procedure import create_parser as np_parser
+    from .named_procedure_graph import create_parser as npg_parser
     from .named_connection import create_parser as nc_parser
 
     info_parser(subparsers)
@@ -29,6 +31,7 @@ def register_commands(subparsers):
     status_parser(subparsers)
     nq_parser(subparsers)
     np_parser(subparsers)
+    npg_parser(subparsers)
     nc_parser(subparsers)
 
 

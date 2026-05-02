@@ -701,9 +701,10 @@ def json_array_insert(
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
-        pos_expr = core.Literal(dialect, position)
-        return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, val_expr, pos_expr)
-    return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, val_expr)
+        path_str = f"$[{position}]"
+        path_expr = core.Literal(dialect, path_str)
+        return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, path_expr, val_expr)
+    return core.FunctionCall(dialect, "JSON_ARRAY_INSERT", arr_expr, core.Literal(dialect, "$"), val_expr)
 
 
 def jsonb_array_insert(
@@ -739,9 +740,10 @@ def jsonb_array_insert(
     val_expr = core.Literal(dialect, value) if not isinstance(value, bases.BaseExpression) else value
 
     if position is not None:
-        pos_expr = core.Literal(dialect, position)
-        return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, val_expr, pos_expr)
-    return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, val_expr)
+        path_str = f"$[{position}]"
+        path_expr = core.Literal(dialect, path_str)
+        return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, path_expr, val_expr)
+    return core.FunctionCall(dialect, "JSONB_ARRAY_INSERT", arr_expr, core.Literal(dialect, "$"), val_expr)
 
 
 __all__ = [

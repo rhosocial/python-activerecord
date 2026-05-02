@@ -171,13 +171,14 @@ if __name__ == "__main__":
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-query = get_order(dialect, order_id=1)
-sql, params = query.to_sql()
-options = ExecutionOptions(stmt_type=StatementType.DQL)
-result = backend.execute(sql, params, options=options)
-print(f"Execution result: {result.data}\n")
+if __name__ == "__main__":
+    query = get_order(dialect, order_id=1)
+    sql, params = query.to_sql()
+    options = ExecutionOptions(stmt_type=StatementType.DQL)
+    result = backend.execute(sql, params, options=options)
+    print(f"Execution result: {result.data}\n")
 
-# ============================================================
-# SECTION: Teardown (necessary for execution, reference only)
-# ============================================================
-backend.disconnect()
+    # ============================================================
+    # SECTION: Teardown (necessary for execution, reference only)
+    # ============================================================
+    backend.disconnect()

@@ -254,6 +254,7 @@ markers = [
 
     # Protocol requirement markers (from testsuite)
     "requires_protocol: marks tests requiring specific protocol support",
+    "requires_functions: marks tests requiring specific database functions",
     "requires_inner_join: marks tests requiring INNER JOIN support",
     "requires_left_join: marks tests requiring LEFT JOIN support",
     "requires_right_join: marks tests requiring RIGHT JOIN support",
