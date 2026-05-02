@@ -142,7 +142,7 @@ class TestJsonArrayInsertFunction:
         expr = json_array_insert(dialect, "data", "new_value")
         sql, params = expr.to_sql()
         assert "JSON_ARRAY_INSERT" in sql
-        assert len(params) == 2  # json_array and value are parameterized
+        assert len(params) == 3  # json_array, default path '$', and value are parameterized
 
     def test_json_array_insert_with_position(self):
         """Test json_array_insert with position parameter."""
@@ -169,7 +169,7 @@ class TestJsonbArrayInsertFunction:
         expr = jsonb_array_insert(dialect, "data", "new_value")
         sql, params = expr.to_sql()
         assert "JSONB_ARRAY_INSERT" in sql
-        assert len(params) == 2  # jsonb_array and value are parameterized
+        assert len(params) == 3  # jsonb_array, default path '$', and value are parameterized
 
     def test_jsonb_array_insert_with_position(self):
         """Test jsonb_array_insert with position parameter."""
