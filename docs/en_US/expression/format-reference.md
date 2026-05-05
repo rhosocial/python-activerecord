@@ -24,7 +24,7 @@ The target format for expression serialization:
 
 ## Marker Types
 
-### __expr__ Marker
+### __expr__ Marker (Reserved Key)
 
 Nested expressions use `__expr__` wrapping:
 
@@ -45,7 +45,9 @@ Nested expressions use `__expr__` wrapping:
 
 **Semantics**: During deserialization, the value of `__expr__` is recursively deserialized as an expression object.
 
-### __tuple__ Marker
+**Important**: `__expr__` is a framework reserved key. Custom expressions' `get_params()` return values must NOT use this key.
+
+### __tuple__ Marker (Reserved Key)
 
 Tuples use `__tuple__` marker:
 
@@ -61,6 +63,8 @@ Tuples use `__tuple__` marker:
 ```
 
 **Semantics**: During deserialization, the `__tuple__` array is restored as a Python tuple.
+
+**Important**: `__tuple__` is a framework reserved key. Custom expressions' `get_params()` return values must NOT use this key.
 
 ## Scalar Type Rules
 
