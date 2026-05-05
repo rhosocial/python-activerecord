@@ -129,6 +129,31 @@ class TableListExpression(IntrospectionExpression):
 
 All paths through `_reconstruct()`, `TypeError` is wrapped as `ExpressionDeserializationError`. This ensures callers only need to catch one exception type.
 
+## Serialization Format Convention (Reserved Key Names)
+
+When implementing `get_params()` for custom expressions, **do not** use the following reserved key names in the returned dictionary, otherwise deserialization behavior is undefined:
+
+- `__expr__`: Used to mark nested expressions
+- `__tuple__`: Used to mark tuples
+
+```python
+# Incorrect - may cause data corruption
+class RawJsonStorageExpr(BaseExpression):
+    def __init__(self, dialect, data: dict):
+        self._data = data
+
+    def get_params(self):
+        return {"data": self._data}  # If data = {"__expr__": "..."}, round-trip fails
+
+# Correct - avoid using reserved key names
+class SafeJsonStorageExpr(BaseExpression):
+    def __init__(self, dialect, json_data: dict):
+        self._json_data = json_data
+
+    def get_params(self):
+        return {"json_data": self._json_data}  # Does not use __expr__ etc.
+```
+
 ## Related Documents
 
 - [Core Documentation](./serialization.md): Serialization mechanism

@@ -129,6 +129,31 @@ class TableListExpression(IntrospectionExpression):
 
 所有经过 `_reconstruct()` 的路径，`TypeError` 都会被包装为 `ExpressionDeserializationError`。这确保调用方只需捕获一种异常类型。
 
+## 序列化格式约定（键名保留）
+
+自定义表达式的 `get_params()` 返回值中，**不得**使用以下保留键名，否则反序列化行为未定义：
+
+- `__expr__`：用于标记嵌套表达式
+- `__tuple__`：用于标记元组
+
+```python
+# 错误示例 - 可能导致数据损坏
+class RawJsonStorageExpr(BaseExpression):
+    def __init__(self, dialect, data: dict):
+        self._data = data
+
+    def get_params(self):
+        return {"data": self._data}  # 若 data = {"__expr__": "..."}，round-trip 失败
+
+# 正确示例 - 避免使用保留键名
+class SafeJsonStorageExpr(BaseExpression):
+    def __init__(self, dialect, json_data: dict):
+        self._json_data = json_data
+
+    def get_params(self):
+        return {"json_data": self._json_data}  # 不使用 __expr__ 等保留键
+```
+
 ## 相关文档
 
 - [核心文档](./serialization.md)：序列化机制说明
