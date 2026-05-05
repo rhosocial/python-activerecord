@@ -10,6 +10,7 @@ to prevent circular imports.
 import abc
 import inspect
 import sys
+import warnings
 from typing import Dict, Any, Tuple, Protocol, TYPE_CHECKING
 from typing import runtime_checkable
 
@@ -149,6 +150,12 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
             elif hasattr(self, name):
                 value = getattr(self, name)
             else:
+                warnings.warn(
+                    f"{self.__class__.__name__}.get_params(): cannot find attribute "
+                    f"'_{name}' or '{name}' for parameter '{name}'. "
+                    "Override get_params() if the naming convention differs.",
+                    stacklevel=2,
+                )
                 continue
 
             if param.kind == inspect.Parameter.VAR_POSITIONAL:

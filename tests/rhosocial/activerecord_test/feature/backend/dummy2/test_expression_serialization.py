@@ -179,9 +179,21 @@ class TestAggregateRoundtrip:
 class TestQueryExpressionRoundtrip:
     """T6: QueryExpression complete round-trip test."""
 
-    @pytest.mark.skip(reason="QueryExpression.select requires list, deserialization converts to tuple - needs further investigation")
     def test_query_expression_roundtrip(self, dummy_dialect):
-        pass
+        from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
+
+        query = QueryExpression(
+            dummy_dialect,
+            select=[Column(dummy_dialect, "id"), Column(dummy_dialect, "name")],
+            from_=TableExpression(dummy_dialect, "users"),
+            where=WhereClause(
+                dummy_dialect,
+                ComparisonPredicate(dummy_dialect, ">", Column(dummy_dialect, "age"), Literal(dummy_dialect, 18))
+            ),
+            order_by=OrderByClause(dummy_dialect, expressions=[(Column(dummy_dialect, "name"), "ASC")]),
+        )
+        restored = deserialize(serialize(query), dummy_dialect)
+        assert query.to_sql() == restored.to_sql()
 
 
 class TestRawSQLExpressionRoundtrip:

@@ -52,7 +52,7 @@ def _serialize_value(value: Any) -> Any:
     if isinstance(value, BaseExpression):
         return serialize(value)
     if isinstance(value, tuple):
-        return [_serialize_value(item) for item in value]
+        return {"__tuple__": [_serialize_value(item) for item in value]}
     if isinstance(value, list):
         return [_serialize_value(item) for item in value]
     if isinstance(value, dict):
@@ -87,13 +87,16 @@ def deserialize(
             f"Invalid spec: must have 'type' and 'module' fields. Got: {spec}"
         )
 
-    try:
-        module = importlib.import_module(module_name)
-        expr_class = getattr(module, type_name)
-    except (ImportError, AttributeError) as e:
-        raise ExpressionDeserializationError(
-            f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
-        ) from e
+    expr_class = ExpressionRegistry._registry.get(type_name)
+    if expr_class is None:
+        try:
+            mod = importlib.import_module(module_name)
+            expr_class = getattr(mod, type_name)
+            ExpressionRegistry.register(expr_class)
+        except (ImportError, AttributeError) as e:
+            raise ExpressionDeserializationError(
+                f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
+            ) from e
 
     if not issubclass(expr_class, BaseExpression):
         raise ExpressionDeserializationError(
@@ -112,17 +115,13 @@ def deserialize(
 def _deserialize_value(value: Any, dialect: "SQLDialectBase") -> Any:
     """Recursively deserialize a value, reconstructing nested BaseExpression instances."""
     if isinstance(value, dict):
+        if "__tuple__" in value:
+            return tuple(_deserialize_value(item, dialect) for item in value["__tuple__"])
         if "type" in value and "module" in value and "params" in value:
             return deserialize(value, dialect)
         return {key: _deserialize_value(val, dialect) for key, val in value.items()}
     if isinstance(value, list):
-        deserialized_items = [_deserialize_value(item, dialect) for item in value]
-        if len(deserialized_items) == 2:
-            first_is_expr = isinstance(deserialized_items[0], BaseExpression)
-            second_is_str_or_expr = isinstance(deserialized_items[1], (str, BaseExpression))
-            if first_is_expr and second_is_str_or_expr:
-                return tuple(deserialized_items)
-        return deserialized_items
+        return [_deserialize_value(item, dialect) for item in value]
     if isinstance(value, tuple):
         return tuple(_deserialize_value(item, dialect) for item in value)
     return value
@@ -331,16 +330,15 @@ class ExpressionRegistry:
             prefix=statements_pkg.__name__ + ".",
             onerror=lambda x: None,
         ):
-            importlib.import_module(modname)
-
-        for name in dir(statements_pkg):
-            obj = getattr(statements_pkg, name, None)
-            if (
-                isinstance(obj, type)
-                and issubclass(obj, BaseExpression)
-                and obj is not BaseExpression
-            ):
-                cls.register(obj)
+            sub_mod = importlib.import_module(modname)
+            for name in dir(sub_mod):
+                obj = getattr(sub_mod, name, None)
+                if (
+                    isinstance(obj, type)
+                    and issubclass(obj, BaseExpression)
+                    and obj is not BaseExpression
+                ):
+                    cls.register(obj)
 
 
 ExpressionRegistry._auto_register_builtins()
