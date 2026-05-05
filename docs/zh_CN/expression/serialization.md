@@ -145,14 +145,14 @@ sql = restored.to_sql()
 
 通过强制校验，只有继承自 `BaseExpression` 的表达式类才能被反序列化，确保安全边界。
 
-### 为什么移除动态模块导入？
+### 为什么不允许动态模块导入？
 
-在旧版本中，`ExpressionRegistry.lookup()` 支持通过 `module` 参数动态导入模块。这带来了严重的安全风险：
+`ExpressionRegistry.lookup()` 不支持通过 `module` 参数动态导入模块。这是安全设计决策：
 
-1. **任意模块加载**：攻击者可通过 spec 中的 `module` 字段加载任意已安装的 Python 模块
+1. **任意模块加载**：通过 spec 中的 `module` 字段可以加载任意已安装的 Python 模块
 2. **全局注册表污染**：动态导入的类会被写入全局注册表，影响后续请求
 
-当前版本**完全移除了动态模块导入**。所有表达式类必须在使用前通过 `ExpressionRegistry.register()` 或 `_auto_register_builtins()` 预先注册。
+因此，所有表达式类必须在使用前通过 `ExpressionRegistry.register()` 或 `_auto_register_builtins()` 预先注册。
 
 ### 安全使用建议
 

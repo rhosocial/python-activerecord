@@ -145,14 +145,14 @@ During deserialization, the framework verifies that the class pointed to by `spe
 
 By enforcing this check, only expression classes inheriting from `BaseExpression` can be deserialized, ensuring security boundaries.
 
-### Why Was Dynamic Module Import Removed?
+### Why Is Dynamic Module Import Not Allowed?
 
-In previous versions, `ExpressionRegistry.lookup()` supported dynamic module import via the `module` parameter. This introduced severe security risks:
+`ExpressionRegistry.lookup()` does not support dynamic module import via the `module` parameter. This is a security design decision:
 
 1. **Arbitrary Module Loading**: Attackers could load any installed Python module via the `module` field in spec
 2. **Global Registry Pollution**: Dynamically imported classes were written to the global registry, affecting subsequent requests
 
-The current version **completely removes dynamic module import**. All expression classes must be pre-registered via `ExpressionRegistry.register()` or `_auto_register_builtins()` before use.
+Therefore, all expression classes must be pre-registered via `ExpressionRegistry.register()` or `_auto_register_builtins()` before use.
 
 ### Secure Usage Recommendations
 

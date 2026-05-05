@@ -103,13 +103,6 @@ Tuples use `__tuple__` marker:
    - `__tuple__` → tuple(recursively process elements)
    - others → recursively process
 
-## Version History
-
-| Version | Change |
-|---------|--------|
-| dev26 | Introduced `__expr__` marker, replaced three-key heuristic |
-| Early | Used `type/module/params` three-key detection for nested expressions |
-
 ## Related Documents
 
 - [Core Documentation](./serialization.md)

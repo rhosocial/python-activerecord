@@ -129,7 +129,6 @@
 * [序列化](expression/serialization.md)
 * [扩展指南](expression/extending.md)
 * [格式参考](expression/format-reference.md)
-* [迁移说明](expression/migration.md)
 
 ### SQLite 后端
 
