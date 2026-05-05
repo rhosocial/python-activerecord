@@ -113,6 +113,8 @@ def _deserialize_value(value: Any, dialect: "SQLDialectBase") -> Any:
     if isinstance(value, dict):
         if "__tuple__" in value:
             return tuple(_deserialize_value(item, dialect) for item in value["__tuple__"])
+        # Note: dicts with "type", "module", "params" keys are treated as nested ExpressionSpec.
+        # This heuristic may misidentify user params that happen to contain these keys.
         if "type" in value and "module" in value and "params" in value:
             return deserialize(value, dialect)
         return {key: _deserialize_value(val, dialect) for key, val in value.items()}
@@ -196,7 +198,12 @@ class ExpressionFactory:
             if module_name:
                 try:
                     expr_class = ExpressionRegistry.lookup(type_name, module_name)
-                    return _reconstruct(expr_class, self._dialect, params)
+                    try:
+                        return _reconstruct(expr_class, self._dialect, params)
+                    except TypeError as e:
+                        raise ExpressionDeserializationError(
+                            f"Failed to reconstruct expression '{type_name}': {e}"
+                        ) from e
                 except ExpressionDeserializationError:
                     pass
             raise
