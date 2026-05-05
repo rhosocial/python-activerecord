@@ -108,7 +108,7 @@ def deserialize(
         )
 
     try:
-        expr_class = ExpressionRegistry.lookup(type_name, module_name)
+        expr_class = ExpressionRegistry.lookup(type_name)
     except ExpressionDeserializationError as e:
         raise ExpressionDeserializationError(
             f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
@@ -230,7 +230,7 @@ def _reconstruct_by_name(
 ) -> BaseExpression:
     """Reconstruct an expression by class name using registry or import."""
     try:
-        expr_class = ExpressionRegistry.lookup(type_name, None)
+        expr_class = ExpressionRegistry.lookup(type_name)
     except ExpressionDeserializationError as e:
         raise ExpressionDeserializationError(
             f"Expression class '{type_name}' not found in registry. "
@@ -263,19 +263,17 @@ class ExpressionRegistry:
         cls._registry[expr_class.__name__] = expr_class
 
     @classmethod
-    def lookup(cls, type_name: str, module: str = None) -> Type[BaseExpression]:
+    def lookup(cls, type_name: str) -> Type[BaseExpression]:
         """Look up an expression class by name.
 
         Lookup order: Check the in-memory registry only.
 
         Note:
-            The `module` parameter is deprecated and ignored for security reasons.
             All expression classes must be pre-registered via ExpressionRegistry.register()
             or automatically registered via _auto_register_builtins().
 
         Args:
             type_name: The class name.
-            module: Deprecated, ignored for security.
 
         Returns:
             The expression class.

@@ -5,11 +5,11 @@ project:
 
   # Core documentation auto-loaded on startup
   auto_load:
-    - .gemini/architecture.md
-    - .gemini/code_style.md
-    - .gemini/testing.md
-    - .gemini/version_control.md
-    - .gemini/backend_development.md
+    - .claude/architecture.md
+    - .claude/code_style.md
+    - .claude/testing.md
+    - .claude/version_control.md
+    - .claude/backend_development.md
 
   # Key source code paths (for code analysis)
   source_paths:

@@ -14,11 +14,12 @@ Ask the user for the following information:
    - `belongs_to` - Child references parent (contains foreign key)
    - `has_one` - Parent has one child
    - `has_many` - Parent has many children
-   - `has_many_through` - Many-to-many via join table
 3. **Target Model** (e.g., `User` - the related model)
 4. **Foreign Key** (e.g., `user_id`, defaults to `{target}_id`)
 5. **Inverse Of** (optional, e.g., `orders` - the reverse relationship name)
 6. **Sync or Async** (affects both models)
+
+> Note: Many-to-many relationships are typically implemented using two `has_many` relationships via a join table model.
 
 ## Generated Code Examples
 
@@ -87,29 +88,6 @@ class User(ActiveRecord):
     c: ClassVar[FieldProxy] = FieldProxy()
 ```
 
-### has_many_through (User has many Roles through UserRole)
-
-```python
-from typing import ClassVar
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.relation import HasManyThrough
-
-class User(ActiveRecord):
-    __table_name__ = 'users'
-    
-    name: str
-    
-    # Many-to-many relationship
-    roles: ClassVar[HasManyThrough['Role']] = HasManyThrough(
-        through='UserRole',  # Join model
-        foreign_key='user_id',
-        target_foreign_key='role_id',
-        inverse_of='users'
-    )
-    
-    c: ClassVar[FieldProxy] = FieldProxy()
-```
-
 ## Relationship Matrix
 
 | Type | Foreign Key Location | Example |
@@ -117,7 +95,53 @@ class User(ActiveRecord):
 | belongs_to | Source model | Order has `user_id` |
 | has_one | Target model | Profile has `user_id` |
 | has_many | Target model | Order has `user_id` |
-| has_many_through | Join table | UserRole has both IDs |
+
+## Implementing Many-to-Many
+
+Many-to-many relationships are implemented using two `has_many` relationships via a join table:
+
+```python
+# User model
+class User(ActiveRecord):
+    __table_name__ = 'users'
+    id: int
+    name: str
+    
+    user_roles: ClassVar[HasMany['UserRole']] = HasMany(
+        foreign_key='user_id',
+        inverse_of='user'
+    )
+    roles: ClassVar[HasMany['Role']] = HasMany(
+        through='user_roles',  # Through join model
+        foreign_key='role_id',
+        inverse_of='users'
+    )
+
+# UserRole join table model
+class UserRole(ActiveRecord):
+    __table_name__ = 'user_roles'
+    user_id: int
+    role_id: int
+    
+    user: ClassVar[BelongsTo['User']] = BelongsTo(foreign_key='user_id')
+    role: ClassVar[BelongsTo['Role']] = BelongsTo(foreign_key='role_id')
+
+# Role model
+class Role(ActiveRecord):
+    __table_name__ = 'roles'
+    id: int
+    name: str
+    
+    user_roles: ClassVar[HasMany['UserRole']] = HasMany(
+        foreign_key='role_id',
+        inverse_of='role'
+    )
+    users: ClassVar[HasMany['User']] = HasMany(
+        through='user_roles',
+        foreign_key='user_id',
+        inverse_of='roles'
+    )
+```
 
 ## Important Notes
 

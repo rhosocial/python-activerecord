@@ -9,7 +9,7 @@ This document provides comprehensive instructions for understanding and working 
 ## Quick Reference
 
 - **Primary Project**: rhosocial-activerecord (core implementation)
-- **Extension Projects**: rhosocial-activerecord-mysql, rhosocial-activerecord-postgresql, etc.
+- **Extension Projects**: rhosocial-activerecord-mysql, rhosocial-activerecord-postgres, etc.
 - **Test Suite Package**: rhosocial-activerecord-testsuite (planned - standardized testing contracts)
 - **Documentation**: `docs/` directory with en_US and zh_CN versions
 - **Python Version**: 3.8+ required
@@ -64,8 +64,8 @@ rhosocial.activerecord/
 └── backend/            # Database backend abstraction
     └── impl/           # Concrete implementations
         ├── sqlite/     # Built-in SQLite support
-        ├── mysql/      # Separate package
-        └── postgresql/ # Separate package
+        ├── mysql/      # Separate package (python-activerecord-mysql)
+        └── postgres/   # Separate package (python-activerecord-postgres)
 ```
 
 ## Key Principles
@@ -77,11 +77,13 @@ The project is a **pure Python ActiveRecord implementation** with no ORM depende
 - Direct database driver interaction through backend abstraction
 
 ### 2. Namespace Package Architecture
-The project uses Python namespace packages to allow distributed backend implementations:
+The project uses Python namespace packages (implicit namespace packages, PEP 420) to allow distributed backend implementations:
 - Core package: `rhosocial-activerecord`
 - Backend packages: `rhosocial-activerecord-{backend}`
 - Test suite package: `rhosocial-activerecord-testsuite` (planned)
-- Extensions seamlessly integrate via `pkgutil.extend_path`
+- Backend implementations are stored in `rhosocial.activerecord.backend.impl.{backend_name}` directories
+- No `__init__.py` in `backend/impl/` subdirectories (open package structure)
+- Extensions integrate automatically via Python's namespace package mechanism
 
 ### 3. Protocol-Based Design
 Heavy use of Python protocols and abstract base classes:
@@ -164,10 +166,11 @@ Model.configure(config, SQLiteBackend)
 - Original values stored in `_original_values`
 
 ### 3. Event System
-Models support lifecycle events:
-- `before_save`, `after_save`
-- `before_delete`, `after_delete`
-- `before_validation`, `after_validation`
+Models support lifecycle events via ModelEvent enum:
+- `BEFORE_VALIDATE`, `AFTER_VALIDATE` - Validation events
+- `BEFORE_INSERT`, `AFTER_INSERT` - Insert events (for new records)
+- `BEFORE_UPDATE`, `AFTER_UPDATE` - Update events (for existing records)
+- `BEFORE_DELETE`, `AFTER_DELETE` - Delete events
 
 ### 4. Query Building
 Queries use method chaining:
