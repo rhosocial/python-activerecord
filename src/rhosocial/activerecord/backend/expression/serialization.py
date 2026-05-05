@@ -87,16 +87,12 @@ def deserialize(
             f"Invalid spec: must have 'type' and 'module' fields. Got: {spec}"
         )
 
-    expr_class = ExpressionRegistry._registry.get(type_name)
-    if expr_class is None:
-        try:
-            mod = importlib.import_module(module_name)
-            expr_class = getattr(mod, type_name)
-            ExpressionRegistry.register(expr_class)
-        except (ImportError, AttributeError) as e:
-            raise ExpressionDeserializationError(
-                f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
-            ) from e
+    try:
+        expr_class = ExpressionRegistry.lookup(type_name, module_name)
+    except ExpressionDeserializationError as e:
+        raise ExpressionDeserializationError(
+            f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
+        ) from e
 
     if not issubclass(expr_class, BaseExpression):
         raise ExpressionDeserializationError(
@@ -199,7 +195,6 @@ class ExpressionFactory:
         except ExpressionDeserializationError:
             if module_name:
                 try:
-                    importlib.import_module(module_name)
                     expr_class = ExpressionRegistry.lookup(type_name, module_name)
                     return _reconstruct(expr_class, self._dialect, params)
                 except ExpressionDeserializationError:
@@ -218,12 +213,16 @@ class ExpressionFactory:
             )
 
         try:
-            module = importlib.import_module(module_name)
-            expr_class = getattr(module, type_name)
-        except (ImportError, AttributeError) as e:
+            expr_class = ExpressionRegistry.lookup(type_name, module_name)
+        except ExpressionDeserializationError as e:
             raise ExpressionDeserializationError(
                 f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
             ) from e
+
+        if not issubclass(expr_class, BaseExpression):
+            raise ExpressionDeserializationError(
+                f"Class '{type_name}' in module '{module_name}' is not a subclass of BaseExpression"
+            )
 
         deserialized_params = _deserialize_value(params, self._dialect)
         return _reconstruct(expr_class, self._dialect, deserialized_params)

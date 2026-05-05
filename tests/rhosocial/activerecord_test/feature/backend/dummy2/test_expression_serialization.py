@@ -232,6 +232,28 @@ class TestJsonSerializable:
         assert loaded == spec
 
 
+class TestCrossDialectFastFail:
+    """T8: Cross-dialect fast-fail test."""
+
+    def test_sqlite_specific_expression_to_dummy_dialect(self, dummy_dialect):
+        """Test that SQLite-specific expressions fail fast on non-SQLite dialects."""
+        from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+        from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
+
+        sqlite_dialect = SQLiteDialect(version=(3, 53, 0))
+        expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
+        spec = serialize(expr)
+
+        assert "sqlite" in spec["module"]
+
+        try:
+            restored = deserialize(spec, dummy_dialect)
+            restored.to_sql()
+            pytest.fail("Expected an error for cross-dialect usage")
+        except (TypeError, ValueError, NotImplementedError, AttributeError):
+            pass
+
+
 class TestErrorHandling:
     """T10: Error handling tests."""
 

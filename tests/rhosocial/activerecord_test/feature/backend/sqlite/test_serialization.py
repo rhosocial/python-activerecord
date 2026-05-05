@@ -68,10 +68,19 @@ class TestSQLiteIntrospectionExpressionSerialization:
         assert restored.to_sql() == expr.to_sql()
 
     def test_table_list_expression_default_params(self, sqlite_dialect):
-        """Test TableListExpression with default parameters."""
+        """
+        Test TableListExpression with default parameters.
+
+        TableListExpression.get_params() overrides the default to omit None-valued
+        optional parameters (schema=None). This test verifies that contract.
+        If this test fails, check that the get_params() override is still in place.
+        """
         expr = TableListExpression(sqlite_dialect)
         spec = serialize(expr)
-        assert "schema" not in spec["params"]
+        assert "schema" not in spec["params"], (
+            "TableListExpression.get_params() must skip schema when it is None. "
+            "If this fails, check that the get_params() override is still in place."
+        )
         assert spec["params"]["include_views"] is True
         restored = deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
