@@ -349,8 +349,9 @@ class TestExpressionRegistry:
         with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             ExpressionRegistry.lookup("NonExistentClass", "fake.module")
 
-    def test_registry_lookup_fallback_to_module(self):
-        result = ExpressionRegistry.lookup("Column", "rhosocial.activerecord.backend.expression.core")
+    def test_registry_lookup_registered_class(self):
+        # Note: module parameter is ignored for security, but Column is pre-registered
+        result = ExpressionRegistry.lookup("Column", "any.module.path")
         assert result is not None
 
     def test_reconstruct_by_name_not_found(self, dummy_dialect):

@@ -5,6 +5,14 @@ Expression serialization and deserialization utilities.
 This module provides functions to serialize expression objects to JSON-compatible
 dictionaries and reconstruct them from those dictionaries. The `dialect` is
 intentionally NOT serialized - it must be supplied at deserialization time.
+
+Reserved special keys in serialized param dicts:
+    "__tuple__"  →  Python tuple value (since tuple is not JSON native)
+    "__expr__"   →  Nested BaseExpression instance
+
+IMPORTANT: User-defined expression params MUST NOT use these reserved keys
+in their get_params() return values. Using these keys will cause data
+corruption or deserialization errors.
 """
 
 import importlib
