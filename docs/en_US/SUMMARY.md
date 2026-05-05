@@ -126,6 +126,10 @@
 * [Statements](backend/expression/statements.md)
 * [Advanced](backend/expression/advanced.md)
 * [Limitations](backend/expression/limitations.md)
+* [Serialization](expression/serialization.md)
+* [Extending Guide](expression/extending.md)
+* [Format Reference](expression/format-reference.md)
+* [Migration Guide](expression/migration.md)
 
 ### SQLite Backend
 

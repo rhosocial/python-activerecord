@@ -126,6 +126,10 @@
 * [语句](backend/expression/statements.md)
 * [高级用法](backend/expression/advanced.md)
 * [限制](backend/expression/limitations.md)
+* [序列化](expression/serialization.md)
+* [扩展指南](expression/extending.md)
+* [格式参考](expression/format-reference.md)
+* [迁移说明](expression/migration.md)
 
 ### SQLite 后端
 
