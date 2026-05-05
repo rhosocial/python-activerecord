@@ -60,9 +60,13 @@ def _serialize_value(value: Any) -> Any:
     return value
 
 
+_MAX_NESTING_DEPTH = 64
+
+
 def deserialize(
     spec: Dict[str, Any],
     dialect: "SQLDialectBase",
+    _depth: int = 0,
 ) -> BaseExpression:
     """Reconstruct an expression from an ExpressionSpec dict.
 
@@ -71,13 +75,21 @@ def deserialize(
         dialect: The dialect instance to inject into all reconstructed expressions.
                  If an expression class is incompatible with this dialect,
                  the error surfaces naturally at to_sql() time.
+        _depth: Internal parameter for nested expression depth tracking.
 
     Returns:
         A fully reconstructed BaseExpression instance
 
     Raises:
-        ExpressionDeserializationError: On unknown type or missing required params
+        ExpressionDeserializationError: On unknown type, missing required params,
+                                       or excessive nesting depth.
     """
+    if _depth > _MAX_NESTING_DEPTH:
+        raise ExpressionDeserializationError(
+            f"Expression nesting depth exceeds maximum ({_MAX_NESTING_DEPTH}). "
+            f"This may be a malicious payload attempting to cause RecursionError."
+        )
+
     type_name = spec.get("type")
     module_name = spec.get("module")
     params = spec.get("params", {})
@@ -99,7 +111,7 @@ def deserialize(
             f"Class '{type_name}' in module '{module_name}' is not a subclass of BaseExpression"
         )
 
-    deserialized_params = _deserialize_value(params, dialect)
+    deserialized_params = _deserialize_value(params, dialect, _depth + 1)
     try:
         return _reconstruct(expr_class, dialect, deserialized_params)
     except TypeError as e:
@@ -108,18 +120,24 @@ def deserialize(
         ) from e
 
 
-def _deserialize_value(value: Any, dialect: "SQLDialectBase") -> Any:
+def _deserialize_value(value: Any, dialect: "SQLDialectBase", _depth: int = 0) -> Any:
     """Recursively deserialize a value, reconstructing nested BaseExpression instances."""
+    if _depth > _MAX_NESTING_DEPTH:
+        raise ExpressionDeserializationError(
+            f"Expression nesting depth exceeds maximum ({_MAX_NESTING_DEPTH}). "
+            f"This may be a malicious payload attempting to cause RecursionError."
+        )
+
     if isinstance(value, dict):
         if "__tuple__" in value:
-            return tuple(_deserialize_value(item, dialect) for item in value["__tuple__"])
+            return tuple(_deserialize_value(item, dialect, _depth + 1) for item in value["__tuple__"])
         if "__expr__" in value:
-            return deserialize(value["__expr__"], dialect)
-        return {key: _deserialize_value(val, dialect) for key, val in value.items()}
+            return deserialize(value["__expr__"], dialect, _depth + 1)
+        return {key: _deserialize_value(val, dialect, _depth + 1) for key, val in value.items()}
     if isinstance(value, list):
-        return [_deserialize_value(item, dialect) for item in value]
+        return [_deserialize_value(item, dialect, _depth + 1) for item in value]
     if isinstance(value, tuple):
-        return tuple(_deserialize_value(item, dialect) for item in value)
+        return tuple(_deserialize_value(item, dialect, _depth + 1) for item in value)
     return value
 
 
