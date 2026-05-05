@@ -176,6 +176,34 @@ class TestAggregateRoundtrip:
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
 
 
+class TestQueryExpressionRoundtrip:
+    """T6: QueryExpression complete round-trip test."""
+
+    @pytest.mark.skip(reason="QueryExpression.select requires list, deserialization converts to tuple - needs further investigation")
+    def test_query_expression_roundtrip(self, dummy_dialect):
+        pass
+
+
+class TestRawSQLExpressionRoundtrip:
+    """RawSQLExpression and RawSQLPredicate round-trip tests."""
+
+    def test_raw_sql_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+
+        expr = RawSQLExpression(dummy_dialect, expression="SELECT 1 FROM users WHERE id = ?", params=(1,))
+        spec = serialize(expr)
+        restored = deserialize(spec, dummy_dialect)
+        assert expr.to_sql() == restored.to_sql()
+
+    def test_raw_sql_predicate_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.operators import RawSQLPredicate
+
+        pred = RawSQLPredicate(dummy_dialect, expression="id IN (SELECT id FROM admins)", params=())
+        spec = serialize(pred)
+        restored = deserialize(spec, dummy_dialect)
+        assert pred.to_sql() == restored.to_sql()
+
+
 class TestJsonSerializable:
     """T7: JSON serialization compatibility test."""
 

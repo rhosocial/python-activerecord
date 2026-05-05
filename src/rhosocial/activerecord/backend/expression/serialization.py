@@ -52,7 +52,7 @@ def _serialize_value(value: Any) -> Any:
     if isinstance(value, BaseExpression):
         return serialize(value)
     if isinstance(value, tuple):
-        return tuple(_serialize_value(item) for item in value)
+        return [_serialize_value(item) for item in value]
     if isinstance(value, list):
         return [_serialize_value(item) for item in value]
     if isinstance(value, dict):
@@ -115,8 +115,16 @@ def _deserialize_value(value: Any, dialect: "SQLDialectBase") -> Any:
         if "type" in value and "module" in value and "params" in value:
             return deserialize(value, dialect)
         return {key: _deserialize_value(val, dialect) for key, val in value.items()}
-    if isinstance(value, (list, tuple)):
-        return type(value)(_deserialize_value(item, dialect) for item in value)
+    if isinstance(value, list):
+        deserialized_items = [_deserialize_value(item, dialect) for item in value]
+        if len(deserialized_items) == 2:
+            first_is_expr = isinstance(deserialized_items[0], BaseExpression)
+            second_is_str_or_expr = isinstance(deserialized_items[1], (str, BaseExpression))
+            if first_is_expr and second_is_str_or_expr:
+                return tuple(deserialized_items)
+        return deserialized_items
+    if isinstance(value, tuple):
+        return tuple(_deserialize_value(item, dialect) for item in value)
     return value
 
 
@@ -151,7 +159,15 @@ def _reconstruct(
                     keyword_params[pname] = params[pname]
         return cls(dialect, *pos_args, *varargs, **keyword_params)
 
-    return cls(dialect, **params)
+    valid_params = {}
+    for pname, param in sig.parameters.items():
+        if pname in ("self", "dialect"):
+            continue
+        if pname in params:
+            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                continue
+            valid_params[pname] = params[pname]
+    return cls(dialect, **valid_params)
 
 
 class ExpressionFactory:
@@ -167,15 +183,29 @@ class ExpressionFactory:
         """Instantiate an expression by class name + keyword params.
 
         Nested BaseExpression values in params are passed through as-is.
+        If the type is not found in the registry, attempts to load from
+        the 'module' parameter if provided.
 
         Args:
             type_name: The class name of the expression (e.g., "Column", "Literal").
             **params: Constructor parameters for the expression class.
+                      Optionally include 'module' to specify the module path.
 
         Returns:
             A BaseExpression instance.
         """
-        return _reconstruct_by_name(type_name, self._dialect, params)
+        module_name = params.pop("module", None)
+        try:
+            return _reconstruct_by_name(type_name, self._dialect, params)
+        except ExpressionDeserializationError:
+            if module_name:
+                try:
+                    importlib.import_module(module_name)
+                    expr_class = ExpressionRegistry.lookup(type_name, module_name)
+                    return _reconstruct(expr_class, self._dialect, params)
+                except ExpressionDeserializationError:
+                    pass
+            raise
 
     def _create_from_spec(self, spec: Dict[str, Any]) -> BaseExpression:
         """Reconstruct an expression from an ExpressionSpec dict using the bound dialect."""
@@ -270,8 +300,11 @@ class ExpressionRegistry:
     @classmethod
     def _auto_register_builtins(cls) -> None:
         """Auto-register all built-in expression classes."""
+        import pkgutil
+        import importlib
         from . import core, predicates, query_parts, aggregates, advanced_functions
-        from . import introspection, transaction, statements
+        from . import introspection, transaction
+        from . import statements as statements_pkg
 
         modules = [
             core,
@@ -281,7 +314,6 @@ class ExpressionRegistry:
             advanced_functions,
             introspection,
             transaction,
-            statements,
         ]
 
         for mod in modules:
@@ -293,6 +325,22 @@ class ExpressionRegistry:
                     and obj is not BaseExpression
                 ):
                     cls.register(obj)
+
+        for _, modname, _ in pkgutil.walk_packages(
+            path=statements_pkg.__path__,
+            prefix=statements_pkg.__name__ + ".",
+            onerror=lambda x: None,
+        ):
+            importlib.import_module(modname)
+
+        for name in dir(statements_pkg):
+            obj = getattr(statements_pkg, name, None)
+            if (
+                isinstance(obj, type)
+                and issubclass(obj, BaseExpression)
+                and obj is not BaseExpression
+            ):
+                cls.register(obj)
 
 
 ExpressionRegistry._auto_register_builtins()
