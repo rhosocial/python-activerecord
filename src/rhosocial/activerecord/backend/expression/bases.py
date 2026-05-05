@@ -8,8 +8,9 @@ to prevent circular imports.
 """
 
 import abc
+import inspect
 import sys
-from typing import Tuple, Protocol, TYPE_CHECKING
+from typing import Dict, Any, Tuple, Protocol, TYPE_CHECKING
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
@@ -121,6 +122,41 @@ class BaseExpression(abc.ABC, ToSQLProtocol):
             - tuple: The parameter values for prepared statement execution
         """
         raise NotImplementedError
+
+    def get_params(self) -> Dict[str, Any]:
+        """Introspection-based default implementation.
+
+        Iterates the class __init__ signature (excluding `self` and `dialect`),
+        and resolves each parameter to its stored attribute value using the
+        convention:  param `foo`  →  self._foo  (fallback: self.foo)
+
+        VAR_POSITIONAL (*args) parameters are returned as a list.
+        VAR_KEYWORD (**kwargs) parameters are skipped — subclasses that use
+        **kwargs must override this method.
+        """
+        sig = inspect.signature(self.__class__.__init__)
+        params: Dict[str, Any] = {}
+
+        for name, param in sig.parameters.items():
+            if name in ("self", "dialect"):
+                continue
+            if param.kind == inspect.Parameter.VAR_KEYWORD:
+                continue
+
+            private = f"_{name}"
+            if hasattr(self, private):
+                value = getattr(self, private)
+            elif hasattr(self, name):
+                value = getattr(self, name)
+            else:
+                continue
+
+            if param.kind == inspect.Parameter.VAR_POSITIONAL:
+                params[name] = list(value)
+            else:
+                params[name] = value
+
+        return params
 
 
 class SQLPredicate(LogicalMixin, BaseExpression):
