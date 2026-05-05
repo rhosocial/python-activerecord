@@ -23,3 +23,14 @@ __all__ = [
     "SQLiteReindexExpression",
     "SQLiteMatchPredicate",
 ]
+
+# Auto-register all SQLite expression classes when this module is imported
+from rhosocial.activerecord.backend.expression.serialization import ExpressionRegistry
+
+for _expr_cls in (
+    SQLiteColumnInfoExpression,
+    SQLiteTableListExpression,
+    SQLiteReindexExpression,
+    SQLiteMatchPredicate,
+):
+    ExpressionRegistry.register(_expr_cls)

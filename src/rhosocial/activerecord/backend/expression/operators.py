@@ -84,7 +84,7 @@ class RawSQLExpression(ArithmeticMixin, ComparisonMixin, StringMixin, SQLValueEx
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
-        self.params = params
+        self.params = tuple(params) if params else ()
 
     def to_sql(self) -> "SQLQueryAndParams":
         return self.expression, self.params
@@ -108,7 +108,7 @@ class RawSQLPredicate(SQLPredicate):
     def __init__(self, dialect: "SQLDialectBase", expression: str, params: tuple = ()):
         super().__init__(dialect)
         self.expression = expression
-        self.params = params
+        self.params = tuple(params) if params else ()
 
     def to_sql(self) -> "SQLQueryAndParams":
         return self.expression, self.params
