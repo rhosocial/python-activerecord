@@ -236,7 +236,11 @@ class TestCrossDialectFastFail:
     """T8: Cross-dialect fast-fail test."""
 
     def test_sqlite_specific_expression_to_dummy_dialect(self, dummy_dialect):
-        """Test that SQLite-specific expressions fail fast on non-SQLite dialects."""
+        """Test that SQLite-specific expressions fail fast on non-SQLite dialects.
+
+        Step 1: deserialization should succeed (SQLiteReindexExpression is a known class)
+        Step 2: to_sql() should fail fast when dummy_dialect doesn't support the expression
+        """
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
         from rhosocial.activerecord.backend.impl.sqlite.expression.reindex import SQLiteReindexExpression
 
@@ -246,12 +250,9 @@ class TestCrossDialectFastFail:
 
         assert "sqlite" in spec["module"]
 
-        try:
-            restored = deserialize(spec, dummy_dialect)
+        restored = deserialize(spec, dummy_dialect)
+        with pytest.raises((TypeError, ValueError, NotImplementedError, AttributeError)):
             restored.to_sql()
-            pytest.fail("Expected an error for cross-dialect usage")
-        except (TypeError, ValueError, NotImplementedError, AttributeError):
-            pass
 
 
 class TestErrorHandling:

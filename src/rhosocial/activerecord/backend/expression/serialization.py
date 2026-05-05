@@ -203,29 +203,7 @@ class ExpressionFactory:
 
     def _create_from_spec(self, spec: Dict[str, Any]) -> BaseExpression:
         """Reconstruct an expression from an ExpressionSpec dict using the bound dialect."""
-        type_name = spec.get("type")
-        module_name = spec.get("module")
-        params = spec.get("params", {})
-
-        if not type_name or not module_name:
-            raise ExpressionDeserializationError(
-                f"Invalid spec: must have 'type' and 'module' fields. Got: {spec}"
-            )
-
-        try:
-            expr_class = ExpressionRegistry.lookup(type_name, module_name)
-        except ExpressionDeserializationError as e:
-            raise ExpressionDeserializationError(
-                f"Cannot find expression class '{type_name}' in module '{module_name}': {e}"
-            ) from e
-
-        if not issubclass(expr_class, BaseExpression):
-            raise ExpressionDeserializationError(
-                f"Class '{type_name}' in module '{module_name}' is not a subclass of BaseExpression"
-            )
-
-        deserialized_params = _deserialize_value(params, self._dialect)
-        return _reconstruct(expr_class, self._dialect, deserialized_params)
+        return deserialize(spec, self._dialect)
 
 
 def _reconstruct_by_name(
@@ -266,18 +244,20 @@ class ExpressionRegistry:
     def lookup(cls, type_name: str, module: str = None) -> Type[BaseExpression]:
         """Look up an expression class by name.
 
-        If module is provided, first tries to import from module.
-        Otherwise, looks up in the registry.
+        Lookup order:
+        1. Check the in-memory registry (allows custom class overrides).
+        2. If not found and `module` is provided, import the module and register the class.
 
         Args:
             type_name: The class name.
-            module: Optional module path.
+            module: Optional module path used as a fallback when the class is not
+                    already registered.
 
         Returns:
             The expression class.
 
         Raises:
-            ExpressionDeserializationError: If class not found.
+            ExpressionDeserializationError: If class not found in registry or module.
         """
         if type_name in cls._registry:
             return cls._registry[type_name]
