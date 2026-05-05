@@ -32,14 +32,20 @@ class AggregateFunctionCall(
     """
 
     def __init__(
-        self, dialect: "SQLDialectBase", func_name: str, *args, is_distinct: bool = False, alias: Optional[str] = None
+        self,
+        dialect: "SQLDialectBase",
+        func_name: str,
+        *args,
+        is_distinct: bool = False,
+        alias: Optional[str] = None,
+        filter_predicate: Optional["SQLPredicate"] = None,
     ):
         super().__init__(dialect)
         self.func_name = func_name
         self.args = list(args)
         self.is_distinct = is_distinct
         self.alias = alias
-        self._filter_predicate: Optional["SQLPredicate"] = None
+        self._filter_predicate: Optional["SQLPredicate"] = filter_predicate
 
     def filter(self, predicate: "SQLPredicate") -> "AggregateFunctionCall":
         """
@@ -58,3 +64,15 @@ class AggregateFunctionCall(
         including any attached FILTER clause.
         """
         return self.dialect.format_function_call(self, self._filter_predicate)
+
+    def get_params(self) -> dict:
+        """
+        Returns a dict of parameters for serialization, including filter predicate.
+
+        Note: The filter parameter is set via fluent API (filter()) rather than
+        __init__, so it must be explicitly included here for serialization.
+        """
+        params = super().get_params()
+        if self._filter_predicate is not None:
+            params["filter_predicate"] = self._filter_predicate
+        return params
