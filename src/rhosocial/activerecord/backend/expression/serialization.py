@@ -226,7 +226,12 @@ def _reconstruct_by_name(
             f"Expression class '{type_name}' not found in registry. "
             f"Please register it first using ExpressionRegistry.register()."
         ) from e
-    return _reconstruct(expr_class, dialect, params)
+    try:
+        return _reconstruct(expr_class, dialect, params)
+    except TypeError as e:
+        raise ExpressionDeserializationError(
+            f"Failed to reconstruct expression '{type_name}': {e}"
+        ) from e
 
 
 class ExpressionRegistry:
