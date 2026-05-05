@@ -134,6 +134,55 @@ sql = restored.to_sql()
 
 Pass expressions as task parameters; at deserialization, inject the target environment's dialect.
 
+## Security Considerations
+
+### Why Must We Verify BaseExpression Type?
+
+During deserialization, the framework verifies that the class pointed to by `spec["type"]` must be a subclass of `BaseExpression`. This security check prevents:
+
+1. **Arbitrary Class Instantiation**: Attackers could craft malicious specs to deserialize dangerous classes like `subprocess.Popen`
+2. **Code Execution**: Without type checking, `_reconstruct()` might call dangerous class constructors
+
+By enforcing this check, only expression classes inheriting from `BaseExpression` can be deserialized, ensuring security boundaries.
+
+### Why Was Dynamic Module Import Removed?
+
+In previous versions, `ExpressionRegistry.lookup()` supported dynamic module import via the `module` parameter. This introduced severe security risks:
+
+1. **Arbitrary Module Loading**: Attackers could load any installed Python module via the `module` field in spec
+2. **Global Registry Pollution**: Dynamically imported classes were written to the global registry, affecting subsequent requests
+
+The current version **completely removes dynamic module import**. All expression classes must be pre-registered via `ExpressionRegistry.register()` or `_auto_register_builtins()` before use.
+
+### Secure Usage Recommendations
+
+**Recommended: Complete Round-Trip**
+
+```python
+# Correct: Use serialize/deserialize round-trip, do not manually modify spec
+expr = query.where(...)
+spec = serialize(expr)
+
+# Store, transmit, deserialize
+restored = deserialize(spec, dialect)
+```
+
+**Not Recommended: Manually Construct Spec**
+
+```python
+# Incorrect: Manually constructing spec may cause security issues
+spec = {
+    "type": "Column",
+    "module": "some.module",  # Could be abused
+    "params": {...}
+}
+```
+
+Unless you fully understand the following risks, avoid manually modifying specs:
+- Incorrect `type` or `module` will cause deserialization failure
+- Nested expressions must use `__expr__` marker
+- Using reserved key names (`__expr__`, `__tuple__`) will cause data corruption
+
 ## Related Documents
 
 - [Extending Guide](./extending.md): How to implement serialization for custom expressions

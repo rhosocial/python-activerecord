@@ -134,6 +134,55 @@ sql = restored.to_sql()
 
 将表达式作为任务参数传递，反序列化时注入目标环境的 dialect。
 
+## 安全考虑
+
+### 为什么必须校验 BaseExpression 类型？
+
+反序列化时，框架会校验 `spec["type"]` 所指向的类必须是 `BaseExpression` 的子类。这一安全检查防止了以下攻击：
+
+1. **任意类实例化**：攻击者可能构造恶意 spec，尝试反序列化如 `subprocess.Popen` 等危险类
+2. **代码执行**：若不校验类型，可能在 `_reconstruct()` 时调用危险类的构造函数
+
+通过强制校验，只有继承自 `BaseExpression` 的表达式类才能被反序列化，确保安全边界。
+
+### 为什么移除动态模块导入？
+
+在旧版本中，`ExpressionRegistry.lookup()` 支持通过 `module` 参数动态导入模块。这带来了严重的安全风险：
+
+1. **任意模块加载**：攻击者可通过 spec 中的 `module` 字段加载任意已安装的 Python 模块
+2. **全局注册表污染**：动态导入的类会被写入全局注册表，影响后续请求
+
+当前版本**完全移除了动态模块导入**。所有表达式类必须在使用前通过 `ExpressionRegistry.register()` 或 `_auto_register_builtins()` 预先注册。
+
+### 安全使用建议
+
+**推荐方式：完整往返**
+
+```python
+# 正确：使用 serialize/deserialize 完整往返，不手动修改 spec
+expr = query.where(...)
+spec = serialize(expr)
+
+# 存储、传输、反序列化
+restored = deserialize(spec, dialect)
+```
+
+**不推荐：手动构造 spec**
+
+```python
+# 错误：手动构造 spec 可能导致安全问题
+spec = {
+    "type": "Column",
+    "module": "some.module",  # 可能被滥用
+    "params": {...}
+}
+```
+
+除非您完全理解以下风险，否则应避免手动修改 spec：
+- 错误的 `type` 或 `module` 会导致反序列化失败
+- 嵌套表达式必须使用 `__expr__` 标记
+- 使用保留键名（`__expr__`、`__tuple__`）会导致数据损坏
+
 ## 相关文档
 
 - [扩展指南](./extending.md)：如何为自定义表达式实现序列化
