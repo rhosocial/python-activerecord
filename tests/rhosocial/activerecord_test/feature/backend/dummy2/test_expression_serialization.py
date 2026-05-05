@@ -149,8 +149,8 @@ class TestWhereClauseAndSerialization:
         restored = deserialize(spec, dummy_dialect)
 
         assert restored.to_sql() == where.to_sql()
-        assert spec["params"]["condition"]["type"] == "LogicalPredicate"
-        assert spec["params"]["condition"]["params"]["op"] == "AND"
+        assert spec["params"]["condition"]["__expr__"]["type"] == "LogicalPredicate"
+        assert spec["params"]["condition"]["__expr__"]["params"]["op"] == "AND"
 
 
 class TestDeeplyNestedRoundtrip:
@@ -420,3 +420,76 @@ class TestQueryPartsRoundtrip:
     def test_for_update_clause_roundtrip(self, dummy_dialect):
         expr = ForUpdateClause(dummy_dialect, nowait=True, skip_locked=True)
         assert deserialize(serialize(expr), dummy_dialect).to_sql() == expr.to_sql()
+
+
+class TestIntrospectionExpressionRoundtrip:
+    """Introspection expression round-trip tests (generic dialect)."""
+
+    def test_table_list_expression_default_params_schema_omitted(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+        expr = TableListExpression(dummy_dialect)
+        spec = serialize(expr)
+        assert "schema" not in spec["params"]
+        assert spec["params"]["include_views"] is True
+        assert spec["params"]["include_system"] is False
+
+    def test_table_list_expression_with_schema_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import TableListExpression
+        expr = TableListExpression(dummy_dialect, schema="main", include_views=False)
+        spec = serialize(expr)
+        assert spec["params"]["schema"] == "main"
+        restored = deserialize(spec, dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_table_info_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import TableInfoExpression
+        expr = TableInfoExpression(dummy_dialect, "users", schema="public")
+        assert deserialize(serialize(expr), dummy_dialect).get_params() == expr.get_params()
+
+    def test_column_info_expression_schema_omitted(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+        expr = ColumnInfoExpression(dummy_dialect, "users")
+        spec = serialize(expr)
+        assert "schema" not in spec["params"]
+
+    def test_column_info_expression_with_schema_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import ColumnInfoExpression
+        expr = ColumnInfoExpression(dummy_dialect, "users", schema="main")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_index_info_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import IndexInfoExpression
+        expr = IndexInfoExpression(dummy_dialect, "users", "idx_users_name")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_foreign_key_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import ForeignKeyExpression
+        expr = ForeignKeyExpression(dummy_dialect, "users", "profiles")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_view_list_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import ViewListExpression
+        expr = ViewListExpression(dummy_dialect, schema="main")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_view_info_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import ViewInfoExpression
+        expr = ViewInfoExpression(dummy_dialect, "user_stats", schema="public")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_trigger_list_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import TriggerListExpression
+        expr = TriggerListExpression(dummy_dialect, schema="main")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_trigger_info_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
+        expr = TriggerInfoExpression(dummy_dialect, "trg_update_user", schema="main")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()

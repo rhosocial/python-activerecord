@@ -50,7 +50,7 @@ def serialize(expr: BaseExpression) -> Dict[str, Any]:
 def _serialize_value(value: Any) -> Any:
     """Recursively serialize a value, handling BaseExpression instances and containers."""
     if isinstance(value, BaseExpression):
-        return serialize(value)
+        return {"__expr__": serialize(value)}
     if isinstance(value, tuple):
         return {"__tuple__": [_serialize_value(item) for item in value]}
     if isinstance(value, list):
@@ -113,10 +113,8 @@ def _deserialize_value(value: Any, dialect: "SQLDialectBase") -> Any:
     if isinstance(value, dict):
         if "__tuple__" in value:
             return tuple(_deserialize_value(item, dialect) for item in value["__tuple__"])
-        # Note: dicts with "type", "module", "params" keys are treated as nested ExpressionSpec.
-        # This heuristic may misidentify user params that happen to contain these keys.
-        if "type" in value and "module" in value and "params" in value:
-            return deserialize(value, dialect)
+        if "__expr__" in value:
+            return deserialize(value["__expr__"], dialect)
         return {key: _deserialize_value(val, dialect) for key, val in value.items()}
     if isinstance(value, list):
         return [_deserialize_value(item, dialect) for item in value]
