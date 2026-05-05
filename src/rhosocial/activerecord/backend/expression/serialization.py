@@ -177,34 +177,20 @@ class ExpressionFactory:
     def create(self, type_name: str, **params: Any) -> BaseExpression:
         """Instantiate an expression by class name + keyword params.
 
-        Nested BaseExpression values in params are passed through as-is.
-        If the type is not found in the registry, attempts to load from
-        the 'module' parameter if provided.
+        Note:
+            The 'module' parameter is deprecated and ignored for security reasons.
+            All expression classes must be pre-registered.
 
         Args:
             type_name: The class name of the expression (e.g., "Column", "Literal").
             **params: Constructor parameters for the expression class.
-                      Optionally include 'module' to specify the module path.
+                      The 'module' parameter is deprecated and ignored.
 
         Returns:
             A BaseExpression instance.
         """
-        module_name = params.pop("module", None)
-        try:
-            return _reconstruct_by_name(type_name, self._dialect, params)
-        except ExpressionDeserializationError:
-            if module_name:
-                try:
-                    expr_class = ExpressionRegistry.lookup(type_name, module_name)
-                    try:
-                        return _reconstruct(expr_class, self._dialect, params)
-                    except TypeError as e:
-                        raise ExpressionDeserializationError(
-                            f"Failed to reconstruct expression '{type_name}': {e}"
-                        ) from e
-                except ExpressionDeserializationError:
-                    pass
-            raise
+        params.pop("module", None)  # Deprecated, ignored for security
+        return _reconstruct_by_name(type_name, self._dialect, params)
 
     def _create_from_spec(self, spec: Dict[str, Any]) -> BaseExpression:
         """Reconstruct an expression from an ExpressionSpec dict using the bound dialect."""
@@ -254,35 +240,29 @@ class ExpressionRegistry:
     def lookup(cls, type_name: str, module: str = None) -> Type[BaseExpression]:
         """Look up an expression class by name.
 
-        Lookup order:
-        1. Check the in-memory registry (allows custom class overrides).
-        2. If not found and `module` is provided, import the module and register the class.
+        Lookup order: Check the in-memory registry only.
+
+        Note:
+            The `module` parameter is deprecated and ignored for security reasons.
+            All expression classes must be pre-registered via ExpressionRegistry.register()
+            or automatically registered via _auto_register_builtins().
 
         Args:
             type_name: The class name.
-            module: Optional module path used as a fallback when the class is not
-                    already registered.
+            module: Deprecated, ignored for security.
 
         Returns:
             The expression class.
 
         Raises:
-            ExpressionDeserializationError: If class not found in registry or module.
+            ExpressionDeserializationError: If class not found in registry.
         """
         if type_name in cls._registry:
             return cls._registry[type_name]
 
-        if module:
-            try:
-                mod = importlib.import_module(module)
-                expr_class = getattr(mod, type_name)
-                cls.register(expr_class)
-                return expr_class
-            except (ImportError, AttributeError):
-                pass
-
         raise ExpressionDeserializationError(
-            f"Expression class '{type_name}' not found in registry or module '{module}'"
+            f"Expression class '{type_name}' not found in registry. "
+            f"Please register it first using ExpressionRegistry.register()."
         )
 
     @classmethod
@@ -290,13 +270,21 @@ class ExpressionRegistry:
         """Auto-register all built-in expression classes."""
         import pkgutil
         import importlib
-        from . import core, predicates, query_parts, aggregates, advanced_functions
+        from . import (
+            core,
+            predicates,
+            operators,
+            query_parts,
+            aggregates,
+            advanced_functions,
+        )
         from . import introspection, transaction
         from . import statements as statements_pkg
 
         modules = [
             core,
             predicates,
+            operators,
             query_parts,
             aggregates,
             advanced_functions,

@@ -282,7 +282,7 @@ class TestErrorHandling:
             deserialize({"type": "SomeType", "params": {}}, dummy_dialect)
 
     def test_deserialize_invalid_class_not_expression(self, dummy_dialect):
-        with pytest.raises(ExpressionDeserializationError, match="not a subclass"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             deserialize({
                 "type": "dict",
                 "module": "builtins",
@@ -346,7 +346,7 @@ class TestExpressionRegistry:
         assert result is Column
 
     def test_registry_lookup_not_found(self):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry or module"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             ExpressionRegistry.lookup("NonExistentClass", "fake.module")
 
     def test_registry_lookup_fallback_to_module(self):
@@ -359,11 +359,11 @@ class TestExpressionRegistry:
             _reconstruct_by_name("NonExistentExpression", dummy_dialect, {})
 
     def test_registry_lookup_module_not_found(self):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry or module"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             ExpressionRegistry.lookup("SomeClass", "nonexistent.module.path")
 
     def test_registry_lookup_module_exists_class_not_found(self):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry or module"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             ExpressionRegistry.lookup("NonExistentClass", "rhosocial.activerecord.backend.expression")
 
     
