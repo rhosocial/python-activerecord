@@ -80,7 +80,7 @@ class TestCreateTableExpressionTypeValidation:
         # Test with integer
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, 123, columns)
-        assert "table_name must be str or TableExpression, got int" in str(exc_info.value)
+        assert "table must be str or TableExpression, got int" in str(exc_info.value)
 
     def test_create_table_with_none_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for None table_name."""
@@ -94,7 +94,7 @@ class TestCreateTableExpressionTypeValidation:
         
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, None, columns)
-        assert "table_name must be str or TableExpression, got NoneType" in str(exc_info.value)
+        assert "table must be str or TableExpression, got NoneType" in str(exc_info.value)
 
     def test_create_table_with_list_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for list table_name."""
@@ -108,7 +108,7 @@ class TestCreateTableExpressionTypeValidation:
         
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, ["users"], columns)
-        assert "table_name must be str or TableExpression, got list" in str(exc_info.value)
+        assert "table must be str or TableExpression, got list" in str(exc_info.value)
 
     def test_create_table_with_dict_raises_error(self, dummy_dialect: DummyDialect):
         """Tests CreateTableExpression raises TypeError for dict table_name."""
@@ -122,7 +122,7 @@ class TestCreateTableExpressionTypeValidation:
         
         with pytest.raises(TypeError) as exc_info:
             CreateTableExpression(dummy_dialect, {"name": "users"}, columns)
-        assert "table_name must be str or TableExpression, got dict" in str(exc_info.value)
+        assert "table must be str or TableExpression, got dict" in str(exc_info.value)
 
 
 class TestDropTableExpressionTypeValidation:
@@ -163,25 +163,25 @@ class TestDropTableExpressionTypeValidation:
         # Test with integer
         with pytest.raises(TypeError) as exc_info:
             DropTableExpression(dummy_dialect, 123)
-        assert "table_name must be str or TableExpression, got int" in str(exc_info.value)
+        assert "table must be str or TableExpression, got int" in str(exc_info.value)
 
     def test_drop_table_with_none_raises_error(self, dummy_dialect: DummyDialect):
         """Tests DropTableExpression raises TypeError for None table_name."""
         with pytest.raises(TypeError) as exc_info:
             DropTableExpression(dummy_dialect, None)
-        assert "table_name must be str or TableExpression, got NoneType" in str(exc_info.value)
+        assert "table must be str or TableExpression, got NoneType" in str(exc_info.value)
 
     def test_drop_table_with_list_raises_error(self, dummy_dialect: DummyDialect):
         """Tests DropTableExpression raises TypeError for list table_name."""
         with pytest.raises(TypeError) as exc_info:
             DropTableExpression(dummy_dialect, ["users"])
-        assert "table_name must be str or TableExpression, got list" in str(exc_info.value)
+        assert "table must be str or TableExpression, got list" in str(exc_info.value)
 
     def test_drop_table_with_dict_raises_error(self, dummy_dialect: DummyDialect):
         """Tests DropTableExpression raises TypeError for dict table_name."""
         with pytest.raises(TypeError) as exc_info:
             DropTableExpression(dummy_dialect, {"name": "users"})
-        assert "table_name must be str or TableExpression, got dict" in str(exc_info.value)
+        assert "table must be str or TableExpression, got dict" in str(exc_info.value)
 
     def test_drop_table_with_alias_in_table_expression(self, dummy_dialect: DummyDialect):
         """Tests DropTableExpression works with TableExpression having alias."""

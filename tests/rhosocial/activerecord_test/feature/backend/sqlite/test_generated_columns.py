@@ -155,7 +155,7 @@ class TestGeneratedColumnsInCreateTable:
         
         create_table = CreateTableExpression(
             dialect=dialect,
-            table_name="order_items",
+            table="order_items",
             columns=columns
         )
         
@@ -194,7 +194,7 @@ class TestGeneratedColumnsInCreateTable:
         
         create_table = CreateTableExpression(
             dialect=dialect,
-            table_name="users",
+            table="users",
             columns=columns
         )
         

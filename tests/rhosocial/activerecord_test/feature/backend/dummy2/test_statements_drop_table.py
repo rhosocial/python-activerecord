@@ -13,7 +13,7 @@ class TestDropTableStatements:
         """Tests a basic DROP TABLE statement."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name="users"
+            table="users"
         )
         sql, params = drop_expr.to_sql()
         assert sql == 'DROP TABLE "users"'
@@ -23,7 +23,7 @@ class TestDropTableStatements:
         """Tests DROP TABLE with IF EXISTS option."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name="temporary_table",
+            table="temporary_table",
             if_exists=True
         )
         sql, params = drop_expr.to_sql()
@@ -34,7 +34,7 @@ class TestDropTableStatements:
         """Tests DROP TABLE with identifier that contains special characters."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name="users with spaces"
+            table="users with spaces"
         )
         sql, params = drop_expr.to_sql()
         assert sql == 'DROP TABLE "users with spaces"'  # Should be properly quoted
@@ -44,7 +44,7 @@ class TestDropTableStatements:
         """Tests DROP TABLE with table names containing quotes and other special characters."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name='table"with"quotes'
+            table='table"with"quotes'
         )
         sql, params = drop_expr.to_sql()
         # The internal quotes should be doubled for SQL standard compliance
@@ -64,7 +64,7 @@ class TestDropTableStatements:
         """Tests DROP TABLE with various table name formats."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=table_name
+            table=table_name
         )
         sql, params = drop_expr.to_sql()
         assert sql == expected_sql
@@ -78,7 +78,7 @@ class TestDropTableStatements:
         """Tests DROP TABLE with different IF EXISTS options."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             if_exists=if_exists
         )
         sql, params = drop_expr.to_sql()
@@ -95,7 +95,7 @@ class TestDropTableStatements:
         """Tests DROP TABLE with an empty table name."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=""
+            table=""
         )
         sql, params = drop_expr.to_sql()
         # Empty table name should still produce valid SQL with empty identifier
@@ -108,7 +108,7 @@ class TestDropTableStatements:
         # we'll test with an empty string which is the closest valid case
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=""
+            table=""
         )
         sql, params = drop_expr.to_sql()
         # Should produce valid SQL for empty table name
@@ -121,7 +121,7 @@ class TestDropTableStatements:
         table_name = 'table"name'
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=table_name
+            table=table_name
         )
         sql, params = drop_expr.to_sql()
         # The quote should be escaped by doubling it in standard SQL
@@ -133,7 +133,7 @@ class TestDropTableStatements:
         table_name = "用户表"  # Chinese characters for "user table"
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=table_name
+            table=table_name
         )
         sql, params = drop_expr.to_sql()
         # Unicode characters should be preserved in identifiers
@@ -145,7 +145,7 @@ class TestDropTableStatements:
         table_name = "table`name"  # Table name with backtick (uncommon but possible)
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=table_name
+            table=table_name
         )
         sql, params = drop_expr.to_sql()
         # Should be handled with double quotes regardless of original backticks
@@ -159,7 +159,7 @@ class TestDropTableStatements:
         for table_name in table_names:
             drop_expr = DropTableExpression(
                 dummy_dialect,
-                table_name=table_name
+                table=table_name
             )
             sql, params = drop_expr.to_sql()
             assert f'DROP TABLE "{table_name}"' == sql
@@ -179,7 +179,7 @@ class TestDropTableStatements:
         for table_name, expected_identifier in test_cases:
             drop_expr = DropTableExpression(
                 dummy_dialect,
-                table_name=table_name
+                table=table_name
             )
             sql, params = drop_expr.to_sql()
             assert f"DROP TABLE {expected_identifier}" == sql
@@ -189,7 +189,7 @@ class TestDropTableStatements:
         """Tests that DropTableExpression properties are correctly accessible."""
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             if_exists=True
         )
         
@@ -206,12 +206,12 @@ class TestDropTableStatements:
         """Tests that if_exists=False produces same result as basic DROP."""
         basic_drop = DropTableExpression(
             dummy_dialect,
-            table_name="users"
+            table="users"
         )
         
         explicit_false_drop = DropTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             if_exists=False
         )
         
@@ -226,7 +226,7 @@ class TestDropTableStatements:
         long_name = "very_long_table_name_that_exceeds_typical_database_identifier_limits_but_should_still_work"
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=long_name
+            table=long_name
         )
         sql, params = drop_expr.to_sql()
         assert f'DROP TABLE "{long_name}"' == sql
@@ -237,7 +237,7 @@ class TestDropTableStatements:
         table_name = "my_schema.users_backup_2023"
         drop_expr = DropTableExpression(
             dummy_dialect,
-            table_name=table_name,
+            table=table_name,
             if_exists=True
         )
         sql, params = drop_expr.to_sql()

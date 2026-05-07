@@ -7,6 +7,8 @@ serialized to a JSON-compatible dict and restored via deserialization.
 """
 
 import json
+import warnings
+
 import pytest
 
 from rhosocial.activerecord.backend.expression import (
@@ -23,6 +25,7 @@ from rhosocial.activerecord.backend.expression import (
     IsBooleanPredicate,
     BetweenPredicate,
 )
+from rhosocial.activerecord.backend.expression.bases import BaseExpression
 from rhosocial.activerecord.backend.expression.query_parts import (
     WhereClause,
     GroupByHavingClause,
@@ -149,7 +152,7 @@ class TestWhereClauseAndSerialization:
         restored = deserialize(spec, dummy_dialect)
 
         assert restored.to_sql() == where.to_sql()
-        assert spec["params"]["condition"]["__expr__"]["type"] == "LogicalPredicate"
+        assert "LogicalPredicate" in spec["params"]["condition"]["__expr__"]["type"]
         assert spec["params"]["condition"]["__expr__"]["params"]["op"] == "AND"
 
 
@@ -248,7 +251,7 @@ class TestCrossDialectFastFail:
         expr = SQLiteReindexExpression(sqlite_dialect, table_name="users")
         spec = serialize(expr)
 
-        assert "sqlite" in spec["module"]
+        assert "sqlite" in spec["type"]
 
         restored = deserialize(spec, dummy_dialect)
         with pytest.raises((TypeError, ValueError, NotImplementedError, AttributeError)):
@@ -261,33 +264,305 @@ class TestErrorHandling:
     def test_deserialize_unknown_type(self, dummy_dialect):
         with pytest.raises(ExpressionDeserializationError, match="NonExistentExpr"):
             deserialize(
-                {"type": "NonExistentExpr", "module": "fake.module", "params": {}},
+                {"type": "fake.module.NonExistentExpr", "params": {}},
                 dummy_dialect
             )
 
     def test_deserialize_missing_required_param(self, dummy_dialect):
-        with pytest.raises(ExpressionDeserializationError):
+        with pytest.raises(ExpressionDeserializationError, match="Failed to reconstruct"):
             deserialize({
-                "type": "Column",
-                "module": "rhosocial.activerecord.backend.expression.core",
+                "type": "rhosocial.activerecord.backend.expression.core.Column",
                 "params": {}
             }, dummy_dialect)
 
     def test_deserialize_invalid_spec_missing_type(self, dummy_dialect):
-        with pytest.raises(ExpressionDeserializationError, match="Invalid spec"):
-            deserialize({"module": "some.module", "params": {}}, dummy_dialect)
+        with pytest.raises(ExpressionDeserializationError, match="missing 'type' field"):
+            deserialize({"params": {}}, dummy_dialect)
 
     def test_deserialize_invalid_spec_missing_module(self, dummy_dialect):
-        with pytest.raises(ExpressionDeserializationError, match="Invalid spec"):
+        with pytest.raises(ExpressionDeserializationError, match="must be a fully qualified name"):
             deserialize({"type": "SomeType", "params": {}}, dummy_dialect)
 
     def test_deserialize_invalid_class_not_expression(self, dummy_dialect):
-        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
-            deserialize({
-                "type": "dict",
-                "module": "builtins",
-                "params": {}
-            }, dummy_dialect)
+        class NotAnExpression:
+            pass
+
+        ExpressionRegistry._registry["test.module.NotAnExpression"] = NotAnExpression
+        try:
+            with pytest.raises(ExpressionDeserializationError, match="not a BaseExpression subclass"):
+                deserialize({
+                    "type": "test.module.NotAnExpression",
+                    "params": {}
+                }, dummy_dialect)
+        finally:
+            ExpressionRegistry._registry.pop("test.module.NotAnExpression", None)
+
+    def test_reconstruct_by_name_type_error(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import _reconstruct_by_name
+        with pytest.raises(ExpressionDeserializationError, match="Failed to reconstruct"):
+            _reconstruct_by_name("Column", dummy_dialect, {"invalid_param": 123})
+
+    def test_registry_ambiguous_short_name(self):
+        class CustomExpression(BaseExpression):
+            def __init__(self, dialect, name):
+                self._name = name
+
+            def to_sql(self):
+                return "custom"
+
+        try:
+            ExpressionRegistry._registry["module1.CustomExpression"] = CustomExpression
+            ExpressionRegistry._registry["module2.CustomExpression"] = CustomExpression
+
+            with pytest.raises(ExpressionDeserializationError, match="Ambiguous short name"):
+                ExpressionRegistry.lookup("CustomExpression")
+        finally:
+            ExpressionRegistry._registry.pop("module1.CustomExpression", None)
+            ExpressionRegistry._registry.pop("module2.CustomExpression", None)
+
+    def test_serialize_deserialize_tuple_in_params(self, dummy_dialect):
+        col = Column(dummy_dialect, "status")
+        in_pred = col.in_(["active", "pending", "draft"])
+        spec = serialize(in_pred)
+        restored = deserialize(spec, dummy_dialect)
+        assert restored.to_sql() == in_pred.to_sql()
+
+    def test_deserialize_exceeds_max_nesting_depth(self, dummy_dialect):
+        inner_spec = {
+            "type": "rhosocial.activerecord.backend.expression.predicates.ComparisonPredicate",
+            "params": {
+                "op": "=",
+                "left": {"type": "rhosocial.activerecord.backend.expression.core.Column", "params": {"name": "a"}},
+                "right": {"type": "rhosocial.activerecord.backend.expression.core.Literal", "params": {"value": 1}},
+            },
+        }
+
+        current_spec = inner_spec
+        for _ in range(65):
+            current_spec = {
+                "type": "rhosocial.activerecord.backend.expression.predicates.LogicalPredicate",
+                "params": {"left": current_spec, "right": inner_spec, "op": "AND"},
+            }
+
+        with pytest.raises(ExpressionDeserializationError, match="exceeds maximum"):
+            deserialize(current_spec, dummy_dialect)
+
+    def test_reconstruct_varargs_predicates(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
+
+        p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
+        p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
+        p3 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "c"), Literal(dummy_dialect, 3))
+
+        expr = LogicalPredicate(dummy_dialect, "AND", p1, p2, p3)
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_reconstruct_varargs_sql_operation(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.operators import SQLOperation
+
+        col1 = Column(dummy_dialect, "a")
+        col2 = Column(dummy_dialect, "b")
+        expr = SQLOperation(dummy_dialect, "GREATEST", col1, col2)
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_expression_serializer_invalid_max_depth(self):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        with pytest.raises(ValueError, match="max_depth must be a positive integer"):
+            ExpressionSerializer(max_depth=0)
+
+        with pytest.raises(ValueError, match="max_depth must be a positive integer"):
+            ExpressionSerializer(max_depth=-1)
+
+    def test_expression_serializer_invalid_warn_threshold(self):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        with pytest.raises(ValueError, match="warn_threshold must be between 0 and 1"):
+            ExpressionSerializer(warn_threshold=0)
+
+        with pytest.raises(ValueError, match="warn_threshold must be between 0 and 1"):
+            ExpressionSerializer(warn_threshold=1.1)
+
+        with pytest.raises(ValueError, match="warn_threshold must be between 0 and 1"):
+            ExpressionSerializer(warn_threshold=-0.5)
+
+    def test_expression_serializer_warning_threshold(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        serializer = ExpressionSerializer(max_depth=10, warn_threshold=0.5)
+
+        p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
+        p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
+        p3 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "c"), Literal(dummy_dialect, 3))
+        p4 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "d"), Literal(dummy_dialect, 4))
+
+        expr = LogicalPredicate(dummy_dialect, "AND", p1, p2, p3, p4)
+
+        with warnings.catch_warnings(record=True) as w:
+            warnings.simplefilter("always")
+            serializer.serialize(expr)
+            assert any("exceeds warning threshold" in str(warning.message) for warning in w)
+
+    def test_expression_serializer_tuple_in_params(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        serializer = ExpressionSerializer(max_depth=64)
+        col = Column(dummy_dialect, "status")
+        in_pred = col.in_(["active", "pending"])
+
+        spec = serializer.serialize(in_pred)
+        restored = serializer.deserialize(spec, dummy_dialect)
+        assert restored.to_sql() == in_pred.to_sql()
+
+    def test_expression_serializer_deserialize_exceeds_depth(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        serializer = ExpressionSerializer(max_depth=5)
+
+        inner_spec = {
+            "type": "rhosocial.activerecord.backend.expression.core.Column",
+            "params": {"name": "a"},
+        }
+
+        current_spec = inner_spec
+        for _ in range(6):
+            current_spec = {
+                "type": "rhosocial.activerecord.backend.expression.predicates.LogicalPredicate",
+                "params": {"left": current_spec, "right": inner_spec, "op": "AND"},
+            }
+
+        with pytest.raises(ExpressionDeserializationError, match="exceeds maximum"):
+            serializer.deserialize(current_spec, dummy_dialect)
+
+    def test_expression_serializer_raw_sql_with_tuple_params(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+
+        expr = RawSQLExpression(dummy_dialect, "SELECT * FROM t WHERE id IN (?, ?)", (1, 2))
+        spec = serialize(expr)
+        assert "__tuple__" in str(spec["params"])
+
+        restored = deserialize(spec, dummy_dialect)
+        assert restored.params == (1, 2)
+
+    def test_expression_serializer_varargs_with_extra_params(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
+
+        p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
+        p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
+        p3 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "c"), Literal(dummy_dialect, 3))
+
+        expr = LogicalPredicate(dummy_dialect, "AND", p1, p2, p3)
+        spec = serialize(expr)
+
+        import json
+        spec_json = json.dumps(spec)
+        restored = deserialize(json.loads(spec_json), dummy_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_expression_serializer_deserialize_depth_limit(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        serializer = ExpressionSerializer(max_depth=3)
+
+        inner_spec = {
+            "type": "rhosocial.activerecord.backend.expression.core.Column",
+            "params": {"name": "a"},
+        }
+
+        current_spec = inner_spec
+        for _ in range(4):
+            current_spec = {
+                "type": "rhosocial.activerecord.backend.expression.predicates.LogicalPredicate",
+                "params": {"left": current_spec, "right": inner_spec, "op": "AND"},
+            }
+
+        with pytest.raises(ExpressionDeserializationError, match="exceeds maximum"):
+            serializer.deserialize(current_spec, dummy_dialect)
+
+    def test_deserialize_with_tuple_directly(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        serializer = ExpressionSerializer()
+        result = serializer._deserialize_value((1, 2, 3), dummy_dialect, depth=0)
+        assert result == (1, 2, 3)
+
+    def test_deserialize_expression_depth_exceeded(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionSerializer
+
+        serializer = ExpressionSerializer(max_depth=2)
+        spec = {"type": "rhosocial.activerecord.backend.expression.core.Column", "params": {"name": "a"}}
+
+        with pytest.raises(ExpressionDeserializationError, match="exceeds maximum"):
+            serializer._deserialize_expression(spec, dummy_dialect, depth=3)
+
+    def test_reconstruct_varargs_branch(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import _reconstruct
+        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
+
+        params = {"op": "AND", "predicates": [1, 2, 3]}
+        result = _reconstruct(LogicalPredicate, dummy_dialect, params)
+        assert result is not None
+
+    def test_reconstruct_non_varargs_branch(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import _reconstruct
+        from rhosocial.activerecord.backend.expression.core import Column
+
+        params = {"name": "id", "table": "users"}
+        result = _reconstruct(Column, dummy_dialect, params)
+        assert result is not None
+
+    def test_reconstruct_varargs_keyword_only_params(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.operators import SQLOperation
+
+        col1 = Column(dummy_dialect, "a")
+        col2 = Column(dummy_dialect, "b")
+        expr = SQLOperation(dummy_dialect, "GREATEST", col1, col2)
+        spec = serialize(expr)
+
+        import json
+        spec_json = json.dumps(spec)
+        restored = deserialize(json.loads(spec_json), dummy_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    
+
+    def test_expression_factory_serialize(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.serialization import ExpressionFactory
+
+        factory = ExpressionFactory(dummy_dialect)
+        col = Column(dummy_dialect, "id")
+        spec = factory.serialize(col)
+        assert "type" in spec
+        assert "params" in spec
+
+    def test_deserialize_tuple_in_params(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.operators import RawSQLExpression
+
+        expr = RawSQLExpression(dummy_dialect, "SELECT ?", (1, 2, 3))
+        spec = serialize(expr)
+
+        assert "params" in spec and "params" in spec["params"]
+        inner_params = spec["params"]["params"]
+        assert "__tuple__" in inner_params
+
+        restored = deserialize(spec, dummy_dialect)
+        assert restored.params == (1, 2, 3)
+
+    def test_reconstruct_with_varargs_and_regular_params(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.predicates import LogicalPredicate
+        from rhosocial.activerecord.backend.expression import Column, Literal
+
+        p1 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "a"), Literal(dummy_dialect, 1))
+        p2 = ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "b"), Literal(dummy_dialect, 2))
+
+        expr = LogicalPredicate(dummy_dialect, "AND", p1, p2)
+        spec = serialize(expr)
+
+        restored = deserialize(spec, dummy_dialect)
+        assert restored.op == "AND"
+        assert len(restored.predicates) == 2
 
 
 class TestExpressionFactoryAndRegistry:
@@ -319,20 +594,19 @@ class TestExpressionFactoryAndRegistry:
 
     def test_expression_factory_from_spec_missing_type(self, dummy_dialect):
         factory = ExpressionFactory(dummy_dialect)
-        with pytest.raises(ExpressionDeserializationError, match="Invalid spec"):
-            factory._create_from_spec({"module": "some.module", "params": {}})
+        with pytest.raises(ExpressionDeserializationError, match="missing 'type' field"):
+            factory._create_from_spec({"params": {}})
 
     def test_expression_factory_from_spec_missing_module(self, dummy_dialect):
         factory = ExpressionFactory(dummy_dialect)
-        with pytest.raises(ExpressionDeserializationError, match="Invalid spec"):
+        with pytest.raises(ExpressionDeserializationError, match="must be a fully qualified name"):
             factory._create_from_spec({"type": "SomeType", "params": {}})
 
     def test_expression_factory_from_spec_invalid_module(self, dummy_dialect):
         factory = ExpressionFactory(dummy_dialect)
-        with pytest.raises(ExpressionDeserializationError, match="Cannot find expression class"):
+        with pytest.raises(ExpressionDeserializationError, match="not found in registry"):
             factory._create_from_spec({
-                "type": "NonExistent",
-                "module": "fake.module.that.does.not.exist",
+                "type": "fake.module.that.does.not.exist.NonExistent",
                 "params": {}
             })
 
@@ -491,5 +765,81 @@ class TestIntrospectionExpressionRoundtrip:
     def test_trigger_info_expression_roundtrip(self, dummy_dialect):
         from rhosocial.activerecord.backend.expression.introspection import TriggerInfoExpression
         expr = TriggerInfoExpression(dummy_dialect, "trg_update_user", schema="main")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+
+class TestDDLRoundtrip:
+    """Test DDL expression serialization and deserialization."""
+
+    def test_create_table_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+            CreateTableExpression,
+            ColumnDefinition,
+            ColumnConstraint,
+            ColumnConstraintType,
+        )
+
+        col_def = ColumnDefinition(
+            "id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
+        )
+        expr = CreateTableExpression(dummy_dialect, table="users", columns=[col_def])
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.to_sql() == expr.to_sql()
+
+    def test_create_index_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_index import CreateIndexExpression
+
+        expr = CreateIndexExpression(dummy_dialect, "idx_name", "users", ["name", "age"])
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_drop_index_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_index import DropIndexExpression
+
+        expr = DropIndexExpression(dummy_dialect, "idx_name")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_create_schema_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import CreateSchemaExpression
+
+        expr = CreateSchemaExpression(dummy_dialect, "myschema")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_drop_schema_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_schema import DropSchemaExpression
+
+        expr = DropSchemaExpression(dummy_dialect, "myschema", cascade=True)
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_create_view_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import CreateViewExpression
+
+        expr = CreateViewExpression(dummy_dialect, view_name="user_view", query="SELECT * FROM users")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_drop_view_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_view import DropViewExpression
+
+        expr = DropViewExpression(dummy_dialect, "user_view")
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_truncate_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.ddl_truncate import TruncateExpression
+
+        expr = TruncateExpression(dummy_dialect, "users", cascade=True)
+        restored = deserialize(serialize(expr), dummy_dialect)
+        assert restored.get_params() == expr.get_params()
+
+    def test_explain_expression_roundtrip(self, dummy_dialect):
+        from rhosocial.activerecord.backend.expression.statements.explain import ExplainExpression
+        from rhosocial.activerecord.backend.expression import Column
+
+        expr = ExplainExpression(dummy_dialect, statement=Column(dummy_dialect, "users"))
         restored = deserialize(serialize(expr), dummy_dialect)
         assert restored.get_params() == expr.get_params()

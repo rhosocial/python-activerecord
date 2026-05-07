@@ -34,7 +34,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -54,7 +54,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="products",
+            table="products",
             columns=columns,
             if_not_exists=True
         )
@@ -74,7 +74,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="temp_sessions",
+            table="temp_sessions",
             columns=columns,
             temporary=True
         )
@@ -97,7 +97,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -125,7 +125,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -152,7 +152,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="people",
+            table="people",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -175,7 +175,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="orders",
+            table="orders",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -210,7 +210,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="products",
+            table="products",
             columns=columns,
             table_constraints=table_constraints
         )
@@ -237,7 +237,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="documents",
+            table="documents",
             columns=columns,
             storage_options=storage_opts
         )
@@ -259,7 +259,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="large_table",
+            table="large_table",
             columns=columns,
             tablespace="fast_ssd"
         )
@@ -289,7 +289,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="active_users",
+            table="active_users",
             columns=columns,
             as_query=query
         )
@@ -325,7 +325,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             columns=columns,
             indexes=indexes
         )
@@ -351,7 +351,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="profiles",
+            table="profiles",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -373,7 +373,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="users_with_comments",
+            table="users_with_comments",
             columns=columns
         )
         sql, params = create_table_expr.to_sql()
@@ -393,7 +393,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="log_entries",
+            table="log_entries",
             columns=columns,
             partition_by=("RANGE", ["created_date"])
         )
@@ -413,7 +413,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="child_table",
+            table="child_table",
             columns=columns,
             inherits=["parent_table", "audit_table"]
         )
@@ -465,7 +465,7 @@ class TestCreateTableStatements:
         
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="orders",
+            table="orders",
             columns=columns,
             table_constraints=table_constraints,
             if_not_exists=True,
@@ -496,7 +496,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=columns
         )
 
@@ -516,7 +516,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=columns
         )
 
@@ -536,7 +536,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="orders",
+            table="orders",
             columns=columns
         )
 
@@ -556,7 +556,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=[],
             table_constraints=table_constraints
         )
@@ -577,7 +577,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=[],
             table_constraints=table_constraints
         )
@@ -598,7 +598,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=[],
             table_constraints=table_constraints
         )
@@ -621,7 +621,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="orders",
+            table="orders",
             columns=[],
             table_constraints=table_constraints
         )
@@ -644,7 +644,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="orders",
+            table="orders",
             columns=[],
             table_constraints=table_constraints
         )
@@ -667,7 +667,7 @@ class TestCreateTableStatements:
 
         create_table_expr = CreateTableExpression(
             dummy_dialect,
-            table_name="orders",
+            table="orders",
             columns=[],
             table_constraints=table_constraints
         )

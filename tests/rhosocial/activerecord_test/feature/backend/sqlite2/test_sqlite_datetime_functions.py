@@ -111,7 +111,7 @@ class TestSQLiteDateTimeFunctions:
         # Create a table with a timestamp column for audit purposes
         delete_expr = DeleteExpression(
             sqlite_dialect_3_8_0,
-            table="temp_users",
+            tables="temp_users",
             where=Column(sqlite_dialect_3_8_0, "status") == Literal(sqlite_dialect_3_8_0, "inactive")
         )
         

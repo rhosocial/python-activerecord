@@ -62,7 +62,7 @@ def sqlite_backend():
 
     create_users = CreateTableExpression(
         dialect,
-        table_name="users",
+        table="users",
         columns=users_columns
     )
 
@@ -92,7 +92,7 @@ def sqlite_backend():
 
     create_orders = CreateTableExpression(
         dialect,
-        table_name="orders",
+        table="orders",
         columns=orders_columns,
         table_constraints=[orders_fk_constraint]
     )

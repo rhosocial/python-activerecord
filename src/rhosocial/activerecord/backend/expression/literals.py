@@ -26,3 +26,11 @@ class Identifier(ComparisonMixin, SQLValueExpression):
 
     def __repr__(self) -> str:
         return f"Identifier({self.name!r})"
+
+
+# Register Identifier in the expression registry for serialization support.
+# This is done here rather than in serialization._auto_register_builtins
+# to avoid circular import issues during module initialization.
+from .serialization import ExpressionRegistry
+
+ExpressionRegistry.register(Identifier)

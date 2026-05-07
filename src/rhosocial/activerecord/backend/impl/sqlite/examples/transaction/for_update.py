@@ -46,7 +46,7 @@ ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name="accounts",
+    table="accounts",
     columns=[
         ColumnDefinition(
             "id",
@@ -235,7 +235,7 @@ for row in result.data:
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table_name="accounts", if_exists=True)
+drop_table = DropTableExpression(dialect=dialect, table="accounts", if_exists=True)
 sql, params = drop_table.to_sql()
 backend.execute(sql, params, options=ddl_options)
 backend.disconnect()

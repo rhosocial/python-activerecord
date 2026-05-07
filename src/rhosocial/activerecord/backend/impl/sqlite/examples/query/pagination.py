@@ -34,7 +34,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='articles',
+    table='articles',
     columns=[
         ColumnDefinition('id', 'INTEGER', constraints=[
             ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
@@ -149,7 +149,7 @@ for page in range(1, total_pages + 1):
 # ============================================================
 # SECTION: Teardown (necessary for execution, reference only)
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table_name='articles', if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table='articles', if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

@@ -55,7 +55,7 @@ class TestGeneratedColumnBasic:
 
         create_table = CreateTableExpression(
             dummy_dialect,
-            table_name="users",
+            table="users",
             columns=columns
         )
         sql, params = create_table.to_sql()
@@ -82,7 +82,7 @@ class TestGeneratedColumnBasic:
 
         create_table = CreateTableExpression(
             dummy_dialect,
-            table_name="order_items",
+            table="order_items",
             columns=columns
         )
         sql, params = create_table.to_sql()
@@ -104,7 +104,7 @@ class TestGeneratedColumnBasic:
 
         create_table = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=columns
         )
         sql, params = create_table.to_sql()
@@ -130,7 +130,7 @@ class TestGeneratedColumnWithConstraints:
 
         create_table = CreateTableExpression(
             dummy_dialect,
-            table_name="test_table",
+            table="test_table",
             columns=columns
         )
         sql, params = create_table.to_sql()
@@ -154,7 +154,7 @@ class TestGeneratedColumnExpressions:
 
         create_table = CreateTableExpression(
             dummy_dialect,
-            table_name="math_table",
+            table="math_table",
             columns=columns
         )
         sql, params = create_table.to_sql()
@@ -176,7 +176,7 @@ class TestGeneratedColumnExpressions:
 
         create_table = CreateTableExpression(
             dummy_dialect,
-            table_name="names",
+            table="names",
             columns=columns
         )
         sql, params = create_table.to_sql()

@@ -80,7 +80,7 @@ def fetch_balances():
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='accounts',
+    table='accounts',
     columns=[
         ColumnDefinition(
             'id',
@@ -170,7 +170,7 @@ print(f"Journal mode: {journal_mode}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_table = DropTableExpression(dialect=dialect, table_name='accounts', if_exists=True)
+drop_table = DropTableExpression(dialect=dialect, table='accounts', if_exists=True)
 execute_expression(drop_table, ddl_options)
 backend.disconnect()
 

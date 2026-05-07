@@ -196,7 +196,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=dialect_table_param,
+            tables=dialect_table_param,
             using=dialect_using_param,
             where=dialect_where_param,
             returning=dialect_returning_param
@@ -214,7 +214,7 @@ class TestDeleteStatements:
         with pytest.raises(TypeError, match=r"using must be one of: str, TableExpression, Subquery, SetOperationExpression, JoinExpression, list, ValuesExpression, TableFunctionExpression, LateralExpression, QueryExpression, got <class 'int'>"):
             delete_expr = DeleteExpression(
                 dummy_dialect,
-                table="users",
+                tables="users",
                 using=unsupported_source,
                 where=where
             )
@@ -244,7 +244,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=table,
+            tables=table,
             where=where_condition
         )
         sql, params = delete_expr.to_sql()
@@ -274,7 +274,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="temp_records",
+            tables="temp_records",
             where=where_condition
         )
         sql, params = delete_expr.to_sql()
@@ -303,7 +303,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="temp_records",
+            tables="temp_records",
             where=complex_condition
         )
         sql, params = delete_expr.to_sql()
@@ -326,7 +326,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="records",
+            tables="records",
             where=in_condition
         )
         sql, params = delete_expr.to_sql()
@@ -350,7 +350,7 @@ class TestDeleteStatements:
         # Manually set an invalid type after construction to test validation
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid type to trigger validation error
@@ -363,7 +363,7 @@ class TestDeleteStatements:
         """Tests that DeleteExpression raises TypeError for invalid using parameter type."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid type to trigger validation error
@@ -377,7 +377,7 @@ class TestDeleteStatements:
         # This tests the case where an invalid type is passed initially
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid type to trigger validation error
@@ -390,7 +390,7 @@ class TestDeleteStatements:
         """Tests that DeleteExpression raises TypeError for invalid returning parameter type."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid type to trigger validation error
@@ -403,7 +403,7 @@ class TestDeleteStatements:
         """Tests that DeleteExpression raises TypeError for invalid tables parameter type."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid type to trigger validation error
@@ -416,7 +416,7 @@ class TestDeleteStatements:
         """Tests that DeleteExpression raises ValueError for empty tables parameter."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign empty list to trigger validation error
@@ -429,7 +429,7 @@ class TestDeleteStatements:
         """Tests that DeleteExpression raises TypeError for invalid table element type in tables list."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid element type in the list to trigger validation error
@@ -443,14 +443,14 @@ class TestDeleteStatements:
         with pytest.raises(ValueError, match=r"Table list cannot be empty for a DELETE statement."):
             DeleteExpression(
                 dummy_dialect,
-                table=[]
+                tables=[]
             )
 
     def test_delete_expression_single_table_in_list(self, dummy_dialect: DummyDialect):
         """Tests DeleteExpression with single table in list."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=["users"],
+            tables=["users"],
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Check that the table was properly converted to TableExpression
@@ -467,7 +467,7 @@ class TestDeleteStatements:
         """Tests DeleteExpression with multiple tables in list."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=["users", "profiles"],
+            tables=["users", "profiles"],
             where=Column(dummy_dialect, "user_id") == Literal(dummy_dialect, 123)
         )
         # Check that the tables were properly converted to TableExpression
@@ -491,7 +491,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=[table_expr1, table_expr2],  # Pass TableExpression objects directly
+            tables=[table_expr1, table_expr2],  # Pass TableExpression objects directly
             where=Column(dummy_dialect, "user_id") == Literal(dummy_dialect, 123)
         )
 
@@ -510,7 +510,7 @@ class TestDeleteStatements:
         """Tests that DeleteExpression.validate with strict=False skips validation."""
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
         )
         # Manually assign invalid type that would normally cause an error
@@ -522,7 +522,7 @@ class TestDeleteStatements:
         # Also test with valid parameters and strict=False
         delete_expr_valid = DeleteExpression(
             dummy_dialect,
-            table="products",
+            tables="products",
             where=Column(dummy_dialect, "status") == Literal(dummy_dialect, "active")
         )
         delete_expr_valid.validate(strict=False)  # Should not raise any exception
@@ -545,7 +545,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=like_condition
         )
         sql, params = delete_expr.to_sql()
@@ -566,7 +566,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=combined_condition
         )
         sql, params = delete_expr.to_sql()
@@ -587,7 +587,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="old_logs",
+            tables="old_logs",
             where=between_condition
         )
         sql, params = delete_expr.to_sql()
@@ -610,7 +610,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=table_name,
+            tables=table_name,
             where=like_condition
         )
         sql, params = delete_expr.to_sql()
@@ -630,7 +630,7 @@ class TestDeleteStatements:
 
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table="users",
+            tables="users",
             where=final_condition
         )
         sql, params = delete_expr.to_sql()
@@ -646,7 +646,7 @@ class TestDeleteStatements:
         # Create a DeleteExpression without a WHERE clause
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=TableExpression(dummy_dialect, "users")  # No where clause provided
+            tables=TableExpression(dummy_dialect, "users")  # No where clause provided
         )
         sql, params = delete_expr.to_sql()
 
@@ -668,7 +668,7 @@ class TestDeleteStatements:
         # Create a DeleteExpression with the WhereClause object
         delete_expr = DeleteExpression(
             dummy_dialect,
-            table=TableExpression(dummy_dialect, "users"),
+            tables=TableExpression(dummy_dialect, "users"),
             where=where_clause_obj  # Pass WhereClause object directly
         )
         sql, params = delete_expr.to_sql()

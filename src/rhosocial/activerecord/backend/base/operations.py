@@ -175,7 +175,7 @@ class SQLOperationsMixin:
 
         delete_expr = DeleteExpression(
             dialect=self.dialect,
-            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            tables=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
             if options.schema_name else options.table,
             where=options.where, returning=returning_clause
         )
@@ -380,7 +380,7 @@ class AsyncSQLOperationsMixin:
 
         delete_expr = DeleteExpression(
             dialect=self.dialect,
-            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            tables=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
             if options.schema_name else options.table,
             where=options.where, returning=returning_clause
         )
