@@ -1322,7 +1322,7 @@ class TestAsyncReturning:
         # Delete with RETURNING
         delete_expr = DeleteExpression(
             dialect=dialect,
-            table="users",
+            tables="users",
             where=Column(dialect, "id") == Literal(dialect, 1),
             returning=ReturningClause(dialect, expressions=[Column(dialect, "name")])
         )

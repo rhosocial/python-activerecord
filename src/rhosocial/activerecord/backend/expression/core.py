@@ -136,36 +136,36 @@ class Subquery(AliasableMixin, ArithmeticMixin, ComparisonMixin, SQLValueExpress
         # treat query_input as a string and query_params as the parameters
         if query_params is not None and not isinstance(query_input, tuple):
             # Old-style call: Subquery(dialect, query_string, query_params, alias)
-            self.query_sql = query_input
+            self.query_input = query_input
             self.query_params = query_params or ()
         else:
             # New-style call or other cases
             query = query_input
             if isinstance(query, str):
                 # If input is a string, use it directly with empty params
-                self.query_sql = query
+                self.query_input = query
                 self.query_params = ()
             elif is_sql_query_and_params(query):
                 # If input is a SQLQueryAndParams (str, tuple), extract SQL and params
                 sql_str, params = query
                 # If params is None, use an empty tuple
                 self.query_params = params if params is not None else ()
-                self.query_sql = sql_str
+                self.query_input = sql_str
             elif isinstance(query, Subquery):
                 # If input is already a Subquery, copy its attributes
-                self.query_sql = query.query_sql
+                self.query_input = query.query_input
                 self.query_params = query.query_params
                 self.alias = query.alias or alias
             elif isinstance(query, BaseExpression):
                 # If input is a BaseExpression, call its to_sql method
-                self.query_sql, self.query_params = query.to_sql()
+                self.query_input, self.query_params = query.to_sql()
             else:
                 # Default: treat as string
-                self.query_sql = str(query)
+                self.query_input = str(query)
                 self.query_params = ()
 
     def to_sql(self) -> "SQLQueryAndParams":
-        sql = f"({self.query_sql})"
+        sql = f"({self.query_input})"
         params = self.query_params
 
         # Apply type casts if any

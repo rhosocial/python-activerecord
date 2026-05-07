@@ -64,7 +64,7 @@ from rhosocial.activerecord.backend.expression.predicates import ComparisonPredi
 
 delete_expr = DeleteExpression(
     dialect=dialect,
-    table=TableExpression(dialect, 'users'),
+    tables=TableExpression(dialect, 'users'),
     where=ComparisonPredicate(
         dialect,
         '=',

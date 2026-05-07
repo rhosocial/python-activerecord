@@ -148,7 +148,7 @@ class TestExplainStatements:
         elif statement_type == "DELETE":
             stmt = DeleteExpression(
                 dummy_dialect,
-                table=TableExpression(dummy_dialect, "test_table"),
+                tables=TableExpression(dummy_dialect, "test_table"),
                 where=Column(dummy_dialect, "id") == Literal(dummy_dialect, 1)
             )
 

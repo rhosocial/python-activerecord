@@ -480,7 +480,7 @@ def test_delete_with_returning_columns_sql_construction(mapped_table_backend):
     from rhosocial.activerecord.backend.expression import DeleteExpression
     delete_expr = DeleteExpression(
         dialect=backend.dialect,
-        table=delete_options.table,
+        tables=delete_options.table,
         where=delete_options.where,
         returning=returning_clause
     )

@@ -52,7 +52,7 @@ class TestDmlStatementTypes:
     def test_delete_statement_type(self, dummy_dialect):
         expr = DeleteExpression(
             dummy_dialect,
-            table=TableExpression(dummy_dialect, "users"),
+            tables=TableExpression(dummy_dialect, "users"),
         )
         assert expr.statement_type == StatementType.DELETE
 

@@ -44,7 +44,7 @@ def _make_update(dialect, table="users", set_col="name", set_val="Bob", pk_val=1
 def _make_delete(dialect, table="users", pk_val=1):
     """Construct a minimal DeleteExpression without RETURNING."""
     return DeleteExpression(
-        dialect, table=table,
+        dialect, tables=table,
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 
@@ -133,7 +133,7 @@ class TestBatchDMLReturningConflict:
     def test_delete_with_returning_detected(self, dummy_dialect: DummyDialect):
         clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         expr = DeleteExpression(
-            dummy_dialect, table="users",
+            dummy_dialect, tables="users",
             where=ComparisonPredicate(dummy_dialect, "=", Column(dummy_dialect, "id"), Literal(dummy_dialect, 1)),
             returning=clause,
         )

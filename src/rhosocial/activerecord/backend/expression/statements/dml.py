@@ -188,7 +188,7 @@ class DeleteExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table: Union[str, "TableExpression", List[Union[str, "TableExpression"]]],
+        tables: Union[str, "TableExpression", List[Union[str, "TableExpression"]]],
         *,  # Enforce keyword-only arguments for optional parameters
         using: Optional[
             Union[
@@ -216,11 +216,11 @@ class DeleteExpression(BaseExpression):
         super().__init__(dialect)
 
         # Normalize the target table(s) to a list of TableExpression objects
-        if isinstance(table, list):
-            if not table:
+        if isinstance(tables, list):
+            if not tables:
                 raise ValueError("Table list cannot be empty for a DELETE statement.")
             self.tables = []
-            for t in table:
+            for t in tables:
                 if isinstance(t, TableExpression):
                     self.tables.append(t)
                 else:
@@ -228,7 +228,7 @@ class DeleteExpression(BaseExpression):
         else:
             # Single table
             single_table = (
-                table if isinstance(table, TableExpression) else TableExpression(dialect, str(table))
+                tables if isinstance(tables, TableExpression) else TableExpression(dialect, str(tables))
             )
             self.tables = [single_table]
 

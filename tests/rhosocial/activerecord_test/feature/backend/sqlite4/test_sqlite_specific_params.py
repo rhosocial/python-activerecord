@@ -18,26 +18,30 @@ from rhosocial.activerecord.backend.impl.sqlite.expression.table_list import (
     SQLiteTableListExpression,
 )
 
+ALL_VERSION_DIALECT = SQLiteDialect(version=(3, 53, 0))
+
 
 class TestSQLiteColumnInfoExpressionParams:
     """Tests for SQLiteColumnInfoExpression with use_xinfo_pragma parameter."""
 
     def test_default_use_xinfo_pragma(self):
         """Default use_xinfo_pragma should be False."""
-        expr = SQLiteColumnInfoExpression()
+        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table_name="users")
         assert expr.use_xinfo_pragma is False
 
     def test_use_xinfo_pragma_true(self):
         """Setting use_xinfo_pragma=True should be reflected in params."""
-        expr = SQLiteColumnInfoExpression(use_xinfo_pragma=True)
+        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table_name="users", use_xinfo_pragma=True)
         assert expr.use_xinfo_pragma is True
-        assert expr._params.get("use_xinfo_pragma") is True
+        params = expr.get_params()
+        assert params.get("use_xinfo_pragma") is True
 
     def test_use_xinfo_pragma_false_explicit(self):
         """Explicitly setting use_xinfo_pragma=False should be reflected."""
-        expr = SQLiteColumnInfoExpression(use_xinfo_pragma=False)
+        expr = SQLiteColumnInfoExpression(ALL_VERSION_DIALECT, table_name="users", use_xinfo_pragma=False)
         assert expr.use_xinfo_pragma is False
-        assert expr._params.get("use_xinfo_pragma") is False
+        params = expr.get_params()
+        assert params.get("use_xinfo_pragma") is False
 
     def test_include_hidden_triggers_xinfo_pragma(self):
         """include_hidden=True on base ColumnInfoExpression should use table_xinfo."""
@@ -65,20 +69,22 @@ class TestSQLiteTableListExpressionParams:
 
     def test_default_use_table_list_pragma(self):
         """Default use_table_list_pragma should be False."""
-        expr = SQLiteTableListExpression()
+        expr = SQLiteTableListExpression(ALL_VERSION_DIALECT)
         assert expr.use_table_list_pragma is False
 
     def test_use_table_list_pragma_true(self):
         """Setting use_table_list_pragma=True should be reflected in params."""
-        expr = SQLiteTableListExpression(use_table_list_pragma=True)
+        expr = SQLiteTableListExpression(ALL_VERSION_DIALECT, use_table_list_pragma=True)
         assert expr.use_table_list_pragma is True
-        assert expr._params.get("use_table_list_pragma") is True
+        params = expr.get_params()
+        assert params.get("use_table_list_pragma") is True
 
     def test_use_table_list_pragma_false_explicit(self):
         """Explicitly setting use_table_list_pragma=False should be reflected."""
-        expr = SQLiteTableListExpression(use_table_list_pragma=False)
+        expr = SQLiteTableListExpression(ALL_VERSION_DIALECT, use_table_list_pragma=False)
         assert expr.use_table_list_pragma is False
-        assert expr._params.get("use_table_list_pragma") is False
+        params = expr.get_params()
+        assert params.get("use_table_list_pragma") is False
 
     def test_table_list_pragma_vs_sqlite_master(self):
         """PRAGMA table_list and sqlite_master queries produce different SQL."""

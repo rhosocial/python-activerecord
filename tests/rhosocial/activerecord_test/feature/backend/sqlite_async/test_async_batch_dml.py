@@ -104,7 +104,7 @@ def _make_update_expr(dialect, pk_val, new_name):
 def _make_delete_expr(dialect, pk_val):
     """Build a DeleteExpression: DELETE FROM users WHERE id=?"""
     return DeleteExpression(
-        dialect, table="users",
+        dialect, tables="users",
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 

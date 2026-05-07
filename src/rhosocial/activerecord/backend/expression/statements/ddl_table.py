@@ -144,7 +144,7 @@ class CreateTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: Union[str, "TableExpression"],
+        table: Union[str, "TableExpression"],
         columns: List[ColumnDefinition],  # List of column definitions with constraints
         indexes: Optional[List[IndexDefinition]] = None,  # Table indexes
         table_constraints: Optional[List[TableConstraint]] = None,  # Table-level constraints
@@ -163,13 +163,12 @@ class CreateTableExpression(BaseExpression):
         dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
         super().__init__(dialect)
-        # Validate and normalize table_name
-        if isinstance(table_name, str):
-            self.table = TableExpression(dialect, table_name)
-        elif isinstance(table_name, TableExpression):
-            self.table = table_name
+        if isinstance(table, str):
+            self.table = TableExpression(dialect, table)
+        elif isinstance(table, TableExpression):
+            self.table = table
         else:
-            raise TypeError(f"table_name must be str or TableExpression, got {type(table_name).__name__}")
+            raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
         self.columns = columns  # List of column definitions with embedded constraints
         self.indexes = indexes or []  # List of indexes to create
         self.table_constraints = table_constraints or []  # List of table-level constraints
@@ -240,19 +239,18 @@ class DropTableExpression(BaseExpression):
     def __init__(
         self,
         dialect: "SQLDialectBase",
-        table_name: Union[str, "TableExpression"],
+        table: Union[str, "TableExpression"],
         if_exists: bool = False,
         cascade: Optional[bool] = None,
         dialect_options: Optional[Dict[str, Any]] = None,
     ):
         super().__init__(dialect)
-        # Validate and normalize table_name
-        if isinstance(table_name, str):
-            self.table = TableExpression(dialect, table_name)
-        elif isinstance(table_name, TableExpression):
-            self.table = table_name
+        if isinstance(table, str):
+            self.table = TableExpression(dialect, table)
+        elif isinstance(table, TableExpression):
+            self.table = table
         else:
-            raise TypeError(f"table_name must be str or TableExpression, got {type(table_name).__name__}")
+            raise TypeError(f"table must be str or TableExpression, got {type(table).__name__}")
         self.if_exists = if_exists
         self.cascade = cascade
         self.dialect_options = dialect_options or {}
