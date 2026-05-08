@@ -22,6 +22,9 @@ class SQLiteMatchPredicate(SQLPredicate):
     FTS3/FTS4/FTS5 virtual tables. It delegates to the SQLite dialect's
     format_match_predicate method.
 
+    NOTE: negate=True is NOT supported for FTS5 (raises ValueError).
+    Use query-level negation instead: 'python NOT java'.
+
     Example (SQLite FTS5):
         >>> predicate = SQLiteMatchPredicate(dialect, table='docs', query='Python')
         >>> predicate.to_sql()
@@ -31,13 +34,7 @@ class SQLiteMatchPredicate(SQLPredicate):
         ...     dialect, table='docs', query='prog*', columns=['title']
         ... )
         >>> predicate.to_sql()
-        ('"docs" MATCH ?', ('{title:}prog*',))
-
-        >>> predicate = SQLiteMatchPredicate(
-        ...     dialect, table='docs', query='python', negate=True
-        ... )
-        >>> predicate.to_sql()
-        ('NOT "docs" MATCH ?', ('python',))
+        ('"docs" MATCH ?', ('title:prog*',))
     """
 
     def __init__(
@@ -55,7 +52,7 @@ class SQLiteMatchPredicate(SQLPredicate):
             table: Name of the FTS table to match against.
             query: Full-text search query string.
             columns: Specific columns to search (None for all columns).
-            negate: If True, negate the match (NOT MATCH).
+            negate: Raises ValueError for FTS5 (not supported by FTS5).
         """
         super().__init__(dialect)
         self.table = table

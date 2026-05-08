@@ -115,11 +115,11 @@ class TestSQLiteSpecificExpressionTraversal:
         restored = serialization.deserialize(spec, sqlite_dialect)
         assert restored.to_sql() == expr.to_sql()
 
-    def test_match_predicate_negated(self, sqlite_dialect):
+    def test_match_predicate_negated_raises_error(self, sqlite_dialect):
+        """Negated MATCH predicate raises ValueError in FTS5."""
         expr = SQLiteMatchPredicate(sqlite_dialect, table="docs", query="python", negate=True)
-        spec = serialization.serialize(expr)
-        restored = serialization.deserialize(spec, sqlite_dialect)
-        assert restored.to_sql() == expr.to_sql()
+        with pytest.raises(ValueError, match="FTS5 does not support NOT MATCH"):
+            expr.to_sql()
 
     def test_column_info_expression(self, sqlite_dialect):
         expr = SQLiteColumnInfoExpression(sqlite_dialect, table_name="users")

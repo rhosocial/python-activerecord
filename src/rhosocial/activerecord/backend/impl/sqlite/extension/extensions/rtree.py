@@ -94,30 +94,28 @@ class RTreeExtension(SQLiteExtensionBase):
         self,
         table_name: str,
         ranges: List[Tuple[float, float]],
-        column_names: Optional[List[str]] = None,
+        column_names: Optional[List[Tuple[str, str]]] = None,
     ) -> Tuple[str, tuple]:
         """Format range query for R-Tree table.
 
         Args:
             table_name: Name of the R-Tree virtual table
             ranges: List of (min, max) tuples for each dimension
-            column_names: Optional column names (default: min0, max0, min1, max1, ...)
+            column_names: Optional list of (min_col, max_col) tuples per dimension.
+                          Defaults to (min0, max0), (min1, max1), ...
 
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        if column_names is None:
-            conditions = []
-            params = []
-            for i, (min_val, max_val) in enumerate(ranges):
-                conditions.append(f'"{table_name}".min{i} >= ? AND "{table_name}".max{i} <= ?')
-                params.extend([min_val, max_val])
-        else:
-            conditions = []
-            params = []
-            for (min_val, max_val), col in zip(ranges, column_names):
-                conditions.append(f'"{col}" >= ? AND "{col}" <= ?')
-                params.extend([min_val, max_val])
+        conditions = []
+        params = []
+        for i, (min_val, max_val) in enumerate(ranges):
+            if column_names:
+                min_col, max_col = column_names[i]
+            else:
+                min_col, max_col = f'"{table_name}".min{i}', f'"{table_name}".max{i}'
+            conditions.append(f'{min_col} >= ? AND {max_col} <= ?')
+            params.extend([min_val, max_val])
 
         sql = f'SELECT * FROM "{table_name}" WHERE {" AND ".join(conditions)}'
         return sql, tuple(params)
