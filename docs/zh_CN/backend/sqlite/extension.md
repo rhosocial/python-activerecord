@@ -284,7 +284,7 @@ print(dialect_recent.check_extension_feature('fts5', 'trigram_tokenizer'))  # Tr
 | bm25_ranking | 3.9.0 | BM25 排序 |
 | highlight | 3.9.0 | 高亮函数 |
 | snippet | 3.9.0 | 摘要函数 |
-| offset | 3.9.0 | 偏移函数 |
+| (offset 不可用) | — | offset() 是 FTS3/FTS4 函数，FTS5 中不支持 |
 | porter_tokenizer | 3.9.0 | Porter 词干分词器 |
 | unicode61_tokenizer | 3.9.0 | Unicode 分词器 |
 | ascii_tokenizer | 3.9.0 | ASCII 分词器 |

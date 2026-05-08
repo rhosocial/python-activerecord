@@ -284,7 +284,7 @@ print(dialect_recent.check_extension_feature('fts5', 'trigram_tokenizer'))  # Tr
 | bm25_ranking | 3.9.0 | BM25 ranking |
 | highlight | 3.9.0 | highlight() function |
 | snippet | 3.9.0 | snippet() function |
-| offset | 3.9.0 | offset() function |
+| (offset N/A) | — | offset() is FTS3/FTS4 only, not available in FTS5 |
 | porter_tokenizer | 3.9.0 | Porter stemmer tokenizer |
 | unicode61_tokenizer | 3.9.0 | Unicode tokenizer |
 | ascii_tokenizer | 3.9.0 | ASCII tokenizer |
