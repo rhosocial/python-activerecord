@@ -355,16 +355,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         """
         return self.check_extension_feature("fts5", "snippet")
 
-    def supports_fts5_offset(self) -> bool:
-        """Whether offset() function is supported.
-
-        Returns the byte offset of the match within the original text.
-
-        Returns:
-            True if offset() is supported
-        """
-        return self.check_extension_feature("fts5", "offset")
-
     def get_supported_fts5_tokenizers(self) -> List[str]:
         """Get list of supported FTS5 tokenizers.
 
@@ -675,29 +665,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
             suffix_marker=suffix_marker,
             context_tokens=context_tokens,
             ellipsis=ellipsis,
-        )
-
-    def format_fts5_offset_expression(
-        self,
-        table_name: str,
-        column: str,
-    ) -> Tuple[str, tuple]:
-        """Format offset() function expression.
-
-        The offset() function returns the byte offset of the current
-        match within the column content.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            column: Column name to get offsets for
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        fts5 = get_fts5_extension()
-        return fts5.format_offset_expression(
-            table_name=table_name,
-            column=column,
         )
 
     def format_fts5_drop_virtual_table(

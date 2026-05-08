@@ -168,28 +168,32 @@ sql, params = dialect.format_fts5_match_expression(
     query='python',
     columns=['title']
 )
-# params: ('{title:} python',)
+# params: ('title:python',)
 
-# Search multiple columns
+# Search multiple columns (each column-qualified with OR)
 sql, params = dialect.format_fts5_match_expression(
     table_name='articles_fts',
     query='python',
     columns=['title', 'content']
 )
-# params: ('{title: OR content:} python',)
+# params: ('title:python OR content:python',)
 ```
 
 ### Negated Search
 
+FTS5 does NOT support `NOT MATCH` syntax. Use query-level negation instead:
+
 ```python
-# NOT MATCH (exclude matching results)
+# Use 'NOT' operator within the query string
 sql, params = dialect.format_fts5_match_expression(
     table_name='articles_fts',
-    query='python',
-    negate=True
+    query='python NOT javascript'
 )
-# SQL: "articles_fts" NOT MATCH ?
+# SQL: "articles_fts" MATCH ?
+# params: ('python NOT javascript',)
 ```
+
+Note: Passing `negate=True` to `format_fts5_match_expression` will raise `ValueError`.
 
 ### Query Syntax
 
@@ -205,8 +209,8 @@ query = 'python NOT database'     # Contains python but not database
 query = '"sqlite database"'       # Exact phrase
 
 # NEAR query
-query = 'python NEAR database'    # Words are adjacent
-query = 'python NEAR/5 database'  # Words within 5 tokens
+query = 'NEAR(python database)'   # Words within ~10 tokens
+query = 'python NEAR database'    # Alternative syntax
 
 # Prefix query
 query = 'sql*'                    # Starts with sql
@@ -480,9 +484,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     def supports_fts5_snippet(self) -> bool:
         """Check if snippet() is supported"""
         
-    def supports_fts5_offset(self) -> bool:
-        """Check if offset() is supported"""
-        
     def get_supported_fts5_tokenizers(self) -> List[str]:
         """Get list of supported tokenizers"""
         
@@ -538,13 +539,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     ) -> Tuple[str, tuple]:
         """Generate snippet() expression"""
         
-    def format_fts5_offset_expression(
-        self,
-        table_name: str,
-        column: str,
-    ) -> Tuple[str, tuple]:
-        """Generate offset() expression"""
-
     def format_fts5_drop_virtual_table(
         self,
         table_name: str,

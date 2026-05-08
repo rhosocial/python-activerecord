@@ -168,28 +168,32 @@ sql, params = dialect.format_fts5_match_expression(
     query='python',
     columns=['title']
 )
-# params: ('{title:} python',)
+# params: ('title:python',)
 
-# 搜索多个列
+# 搜索多个列（每个列用 OR 连接）
 sql, params = dialect.format_fts5_match_expression(
     table_name='articles_fts',
     query='python',
     columns=['title', 'content']
 )
-# params: ('{title: OR content:} python',)
+# params: ('title:python OR content:python',)
 ```
 
 ### 否定搜索
 
+FTS5 不支持 `NOT MATCH` 语法。请在查询字符串中使用否定操作符：
+
 ```python
-# NOT MATCH（排除匹配结果）
+# 在查询字符串中使用 NOT 操作符
 sql, params = dialect.format_fts5_match_expression(
     table_name='articles_fts',
-    query='python',
-    negate=True
+    query='python NOT javascript'
 )
-# SQL: "articles_fts" NOT MATCH ?
+# SQL: "articles_fts" MATCH ?
+# params: ('python NOT javascript',)
 ```
+
+注意：向 `format_fts5_match_expression` 传递 `negate=True` 将会抛出 `ValueError`。
 
 ### 查询语法
 
@@ -205,8 +209,8 @@ query = 'python NOT database'     # 包含 python 但不包含 database
 query = '"sqlite database"'       # 精确短语
 
 # NEAR 查询
-query = 'python NEAR database'    # 两个词相邻
-query = 'python NEAR/5 database'  # 两个词在 5 个词范围内
+query = 'NEAR(python database)'   # 两个词在大约 10 个词范围内
+query = 'python NEAR database'    # 另一种语法
 
 # 前缀查询
 query = 'sql*'                    # 以 sql 开头
@@ -480,9 +484,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     def supports_fts5_snippet(self) -> bool:
         """检查 snippet() 是否支持"""
         
-    def supports_fts5_offset(self) -> bool:
-        """检查 offset() 是否支持"""
-        
     def get_supported_fts5_tokenizers(self) -> List[str]:
         """获取支持的 tokenizer 列表"""
         
@@ -538,13 +539,6 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
     ) -> Tuple[str, tuple]:
         """生成 snippet() 表达式"""
         
-    def format_fts5_offset_expression(
-        self,
-        table_name: str,
-        column: str,
-    ) -> Tuple[str, tuple]:
-        """生成 offset() 表达式"""
-
     def format_fts5_drop_virtual_table(
         self,
         table_name: str,

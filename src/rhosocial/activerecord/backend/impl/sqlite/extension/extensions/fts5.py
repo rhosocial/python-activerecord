@@ -10,7 +10,7 @@ Key features:
 - BM25 ranking function for relevance scoring
 - Phrase queries, NEAR queries, AND/OR/NOT operators
 - Column filters and prefix queries
-- highlight() and snippet() functions
+- highlight() and snippet() functions (NOTE: offset/offsets are FTS3/FTS4 only)
 
 Reference: https://www.sqlite.org/fts5.html
 """
@@ -63,7 +63,6 @@ class FTS5Extension(SQLiteExtensionBase):
                 "bm25_ranking": {"min_version": (3, 9, 0)},
                 "highlight": {"min_version": (3, 9, 0)},
                 "snippet": {"min_version": (3, 9, 0)},
-                "offset": {"min_version": (3, 9, 0)},
                 "porter_tokenizer": {"min_version": (3, 9, 0)},
                 "unicode61_tokenizer": {"min_version": (3, 9, 0)},
                 "ascii_tokenizer": {"min_version": (3, 9, 0)},
@@ -158,26 +157,38 @@ class FTS5Extension(SQLiteExtensionBase):
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression for use in WHERE clause.
 
+        FTS5 column targeting uses 'col:query' prefix syntax.
+        For multi-column targeting, each column-qualified term must be
+        combined with OR: e.g., 'title:python OR body:python'.
+
+        NOTE: The negate parameter is NOT supported for FTS5. SQLite FTS5
+        does not support 'NOT MATCH' syntax. Use query-level negation
+        instead (e.g., 'python -java' or 'python NOT java').
+
         Args:
             table_name: Name of the FTS5 virtual table
             query: Full-text search query string
             columns: Specific columns to search (None for all columns)
-            negate: If True, negate the match (NOT MATCH)
+            negate: If True, raises ValueError (FTS5 does not support NOT MATCH)
 
         Returns:
             Tuple of (SQL string, parameters tuple)
+
+        Raises:
+            ValueError: If negate=True (FTS5 does not support NOT MATCH)
         """
+        if negate:
+            raise ValueError(
+                "FTS5 does not support NOT MATCH syntax. "
+                "Use query-level negation instead (e.g., 'python NOT java')."
+            )
+
         if columns:
-            col_prefix = " OR ".join(f"{c}:" for c in columns)
-            match_query = f"{{{col_prefix}}} {query}"
+            match_query = " OR ".join(f"{c}:{query}" for c in columns)
         else:
             match_query = query
 
-        if negate:
-            sql = f'"{table_name}" NOT MATCH ?'
-        else:
-            sql = f'"{table_name}" MATCH ?'
-
+        sql = f'"{table_name}" MATCH ?'
         return sql, (match_query,)
 
     def format_rank_expression(
@@ -277,27 +288,6 @@ class FTS5Extension(SQLiteExtensionBase):
         """
         sql = f'snippet("{table_name}", "{column}", ?, ?, ?, ?)'
         return sql, (prefix_marker, suffix_marker, ellipsis, context_tokens)
-
-    def format_offset_expression(
-        self,
-        table_name: str,
-        column: str,
-    ) -> Tuple[str, tuple]:
-        """Format offset() function expression.
-
-        The offset() function returns the byte offset of the current
-        match within the column content, useful for locating match
-        positions within documents.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            column: Column name to get offsets for
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        sql = f'offset("{table_name}", "{column}")'
-        return sql, ()
 
     def format_drop_virtual_table(
         self,
