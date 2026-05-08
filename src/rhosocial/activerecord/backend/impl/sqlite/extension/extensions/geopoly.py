@@ -104,8 +104,8 @@ class GeopolyExtension(SQLiteExtensionBase):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'SELECT * FROM "{table_name}" WHERE geopoly_contains(_shape, ?)'
-        return sql, (f"[{longitude}, {latitude}]",)
+        sql = f'SELECT * FROM "{table_name}" WHERE geopoly_contains_point(_shape, ?, ?)'
+        return sql, (longitude, latitude)
 
     def format_area_query(
         self,

@@ -215,10 +215,6 @@ class SQLiteVirtualTableSupport(Protocol):
         """Whether snippet() function is supported (SQLite 3.9.0+)."""
         ...
 
-    def supports_fts5_offset(self) -> bool:
-        """Whether offset() function is supported (SQLite 3.9.0+)."""
-        ...
-
     def get_supported_fts5_tokenizers(self) -> List[str]:
         """Get list of supported FTS5 tokenizers."""
         ...
@@ -300,14 +296,21 @@ class SQLiteVirtualTableSupport(Protocol):
     ) -> Tuple[str, tuple]:
         """Format FTS5 MATCH expression for use in WHERE clause.
 
+        NOTE: negate parameter is NOT supported for FTS5. SQLite FTS5 does not
+        support 'NOT MATCH'. Use query-level negation ('python NOT java') instead.
+        Passing negate=True will raise ValueError.
+
         Args:
             table_name: Name of the FTS5 virtual table
             query: Full-text search query string
             columns: Specific columns to search (None for all columns)
-            negate: If True, negate the match (NOT MATCH)
+            negate: If True, raises ValueError (unsupported by FTS5)
 
         Returns:
             Tuple of (SQL string, parameters tuple)
+
+        Raises:
+            ValueError: If negate=True
         """
         ...
 
@@ -377,25 +380,6 @@ class SQLiteVirtualTableSupport(Protocol):
         """
         ...
 
-    def format_fts5_offset_expression(
-        self,
-        table_name: str,
-        column: str,
-    ) -> Tuple[str, tuple]:
-        """Format offset() function expression.
-
-        The offset() function returns the byte offset of the current
-        match within the column content.
-
-        Args:
-            table_name: Name of the FTS5 virtual table
-            column: Column name to get offsets for
-
-        Returns:
-            Tuple of (SQL string, parameters tuple)
-        """
-        ...
-
     def format_fts5_drop_virtual_table(
         self,
         table_name: str,
@@ -426,6 +410,9 @@ class SQLiteVirtualTableSupport(Protocol):
         This method formats a MATCH predicate for FTS virtual tables.
         Unlike standard SQL predicates, this is SQLite-specific.
 
+        NOTE: negate parameter is NOT supported for FTS5 (raises ValueError).
+        Use query-level negation instead: 'python NOT java'.
+
         Args:
             table: Name of the FTS table to match against
             query: Full-text search query string
@@ -435,14 +422,12 @@ class SQLiteVirtualTableSupport(Protocol):
         Returns:
             Tuple of (SQL string, parameters tuple)
 
+        Raises:
+            ValueError: If negate=True for FTS5
+
         Example:
             >>> dialect.format_match_predicate('docs', 'python')
             ('"docs" MATCH ?', ('python',))
-
-            >>> dialect.format_match_predicate(
-            ...     'docs', 'python', columns=['title'], negate=True
-            ... )
-            ('NOT "docs" MATCH ?', ('python',))
         """
         ...
 

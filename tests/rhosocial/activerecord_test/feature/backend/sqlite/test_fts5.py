@@ -9,6 +9,7 @@ from rhosocial.activerecord.backend.impl.sqlite import (
     SQLiteVirtualTableSupport,
     SQLiteVirtualTableMixin,
 )
+from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
@@ -58,11 +59,6 @@ class TestFTS5Support:
         """Test snippet() function support."""
         dialect = SQLiteDialect(version=(3, 9, 0))
         assert dialect.supports_fts5_snippet()
-
-    def test_fts5_offset_support(self):
-        """Test offset() function support."""
-        dialect = SQLiteDialect(version=(3, 9, 0))
-        assert dialect.supports_fts5_offset()
 
 
 class TestFTS5Tokenizers:
@@ -161,7 +157,6 @@ class TestFTS5CreateVirtualTable:
     def test_fts5_table_unsupported_version(self):
         """Test FTS5 table creation with unsupported version raises error."""
         dialect = SQLiteDialect(version=(3, 8, 0))
-        from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
         with pytest.raises(UnsupportedFeatureError) as exc_info:
             dialect.format_fts5_create_virtual_table('documents', ['title'])
         assert 'FTS5' in str(exc_info.value)
@@ -189,7 +184,7 @@ class TestFTS5MatchExpression:
             columns=['title']
         )
         assert '"documents" MATCH ?' in sql
-        assert '{title:}' in params[0]
+        assert params[0] == 'title:sqlite'
 
     def test_match_with_multiple_columns(self):
         """Test MATCH expression with multiple columns."""
@@ -199,18 +194,17 @@ class TestFTS5MatchExpression:
             'sqlite',
             columns=['title', 'content']
         )
-        assert '{title: OR content:}' in params[0]
+        assert params[0] == 'title:sqlite OR content:sqlite'
 
-    def test_negated_match(self):
-        """Test negated MATCH expression."""
+    def test_negated_match_raises_error(self):
+        """Test negated MATCH raises ValueError for FTS5."""
         dialect = SQLiteDialect(version=(3, 9, 0))
-        sql, params = dialect.format_fts5_match_expression(
-            'documents',
-            'sqlite',
-            negate=True
-        )
-        assert '"documents" NOT MATCH ?' in sql
-        assert params == ('sqlite',)
+        with pytest.raises(ValueError, match="FTS5 does not support NOT MATCH"):
+            dialect.format_fts5_match_expression(
+                'documents',
+                'sqlite',
+                negate=True
+            )
 
 
 class TestFTS5RankExpression:
@@ -436,10 +430,10 @@ class TestFTS5Integration:
             options=ExecutionOptions(stmt_type=StatementType.INSERT)
         )
 
-        # Search with stemmed query
+        # Search with stemmed query (Porter stemmer stems 'running' -> 'run')
         results = backend.fetch_all(
             "SELECT content FROM posts WHERE posts MATCH ?",
-            ('run jump swim',)
+            ('run',)
         )
         assert len(results) == 1
 
@@ -503,8 +497,8 @@ class TestMatchPredicate:
         assert '"docs" MATCH ?' in sql
         assert 'title:' in sql or 'title:' in str(params)
 
-    def test_match_predicate_negate(self):
-        """Test SQLiteMatchPredicate with negation."""
+    def test_match_predicate_negate_raises_error(self):
+        """Test SQLiteMatchPredicate with negation raises ValueError."""
         from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
 
         dialect = SQLiteDialect(version=(3, 9, 0))
@@ -515,9 +509,8 @@ class TestMatchPredicate:
             negate=True
         )
 
-        sql, params = match_pred.to_sql()
-        assert 'NOT' in sql
-        assert params == ('python',)
+        with pytest.raises(ValueError, match="FTS5 does not support NOT MATCH"):
+            match_pred.to_sql()
 
 
 class TestFormatMatchPredicate:
@@ -543,13 +536,12 @@ class TestFormatMatchPredicate:
         )
         assert '"docs" MATCH ?' in sql
 
-    def test_format_match_predicate_negate(self):
-        """Test format_match_predicate with negation."""
+    def test_format_match_predicate_negate_raises_error(self):
+        """Test format_match_predicate with negation raises ValueError."""
         dialect = SQLiteDialect(version=(3, 9, 0))
-        sql, params = dialect.format_match_predicate(
-            table='docs',
-            query='python',
-            negate=True
-        )
-        assert 'NOT' in sql
-        assert params == ('python',)
+        with pytest.raises(ValueError, match="FTS5 does not support NOT MATCH"):
+            dialect.format_match_predicate(
+                table='docs',
+                query='python',
+                negate=True
+            )
