@@ -1,3 +1,17 @@
+## [v1.0.0.dev26] - 2026-05-15
+
+### Added
+
+- Added support for declarative DAG-based procedures with ProcedureGraph, including topological wave computation, conditional execution, and CLI integration. Also added SQLite 3.53.0 features support (json_array_insert, jsonb_array_insert, introspect_and_adapt). ([#83](https://github.com/rhosocial/python-activerecord/issues/83))
+- Added expression serialization and deserialization support ([#84](https://github.com/rhosocial/python-activerecord/issues/84))
+
+
+
+### Fixed
+
+- Fix FTS5/Geopoly extension bugs, remove legacy _capabilities attribute, and update FTS5 documentation with custom SQLite build guide ([#85](https://github.com/rhosocial/python-activerecord/issues/85))
+
+
 ## [v1.0.0.dev25] - 2026-05-01
 
 ### Added
