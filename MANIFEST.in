@@ -15,6 +15,10 @@ prune src/rhosocial/activerecord/backend/impl/mariadb
 prune src/rhosocial/activerecord/backend/impl/sqlserver
 prune src/rhosocial/activerecord/backend/impl/oracle
 
+# Exclude build artifacts
+prune src/rhosocial_activerecord.egg-info
+global-exclude *.egg-info
+
 # Exclude files such as git, system cache, etc
 prune .git*
 prune **/.DS_Store
