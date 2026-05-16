@@ -221,7 +221,13 @@ class DummyDialect(
     def supports_grouping_sets(self) -> bool:
         return True
 
-    def supports_returning_clause(self) -> bool:
+    def supports_returning_insert(self) -> bool:
+        return True
+
+    def supports_returning_update(self) -> bool:
+        return True
+
+    def supports_returning_delete(self) -> bool:
         return True
 
     def supports_upsert(self) -> bool:
