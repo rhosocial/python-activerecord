@@ -123,7 +123,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
         column_adapters = self.get_column_adapters()
         self.log(logging.DEBUG, f"Column adapters map: {column_adapters}")
-        supports_returning = self.backend().dialect.supports_returning_clause()
+        supports_returning = self.backend().dialect.supports_returning_insert()
         returning_columns = None
         if supports_returning:
             returning_columns = [self.primary_key()]
@@ -284,7 +284,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         self.log(
             logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied"
         )
-        supports_returning = backend.dialect.supports_returning_clause()
+        supports_returning = backend.dialect.supports_returning_update()
         returning_columns = None
         if supports_returning:
             returning_columns = [self.primary_key()]
@@ -485,7 +485,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
             result = backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
-            supports_returning = backend.dialect.supports_returning_clause()
+            supports_returning = backend.dialect.supports_returning_delete()
             returning_columns = None
             if supports_returning:
                 returning_columns = [self.primary_key()]
@@ -650,7 +650,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
         self.log(logging.DEBUG, f"Column mapping for result processing: {column_mapping}")
         column_adapters = self.get_column_adapters()
         self.log(logging.DEBUG, f"Column adapters map: {column_adapters}")
-        supports_returning = self.backend().dialect.supports_returning_clause()
+        supports_returning = self.backend().dialect.supports_returning_insert()
         returning_columns = None
         if supports_returning:
             returning_columns = [self.primary_key()]
@@ -811,7 +811,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
         self.log(
             logging.DEBUG, f"Final WHERE clause conditions: {len(update_conditions)} additional condition(s) applied"
         )
-        supports_returning = backend.dialect.supports_returning_clause()
+        supports_returning = backend.dialect.supports_returning_update()
         returning_columns = None
         if supports_returning:
             returning_columns = [self.primary_key()]
@@ -1012,7 +1012,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
             result = await backend.update(update_opts)
         else:
             self.log(logging.INFO, f"Deleting {self.__class__.__name__}#{pk_value}")
-            supports_returning = backend.dialect.supports_returning_clause()
+            supports_returning = backend.dialect.supports_returning_delete()
             returning_columns = None
             if supports_returning:
                 returning_columns = [self.primary_key()]

@@ -229,17 +229,23 @@ class TestSQLiteDialectFormatting:
         assert expected_error_part in str(exc_info.value)
 
     def test_format_returning_clause_unsupported_error(self):
-        """Test RETURNING clause formatting error (when unsupported)"""
+        """Test DML RETURNING clause version check (when unsupported)"""
         dialect = SQLiteDialect((3, 34, 0))  # Below version 3.35.0
+
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
+        assert not dialect.supports_returning_clause()
+
+        # format_returning_clause is pure formatting, no support check
+        mock_expr = Mock()
+        mock_expr.to_sql.return_value = ("id", ())
         mock_clause = Mock()
-        mock_clause.expressions = []
+        mock_clause.expressions = [mock_expr]
         mock_clause.alias = None
 
-        with pytest.raises(UnsupportedFeatureError) as exc_info:
-            dialect.format_returning_clause(mock_clause)
-
-        assert "RETURNING clause" in str(exc_info.value)
-        assert "Use a separate SELECT statement" in str(exc_info.value)
+        sql, params = dialect.format_returning_clause(mock_clause)
+        assert sql == "RETURNING id"
 
     def test_format_returning_clause_supported(self):
         """Test RETURNING clause formatting (when supported)"""

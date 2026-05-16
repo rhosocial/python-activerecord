@@ -972,6 +972,11 @@ class SQLDialectBase:
             all_params.extend(conflict_params)
 
         if expr.returning:
+            if not self.supports_returning_insert():
+                raise UnsupportedFeatureError(
+                    self.name, "RETURNING clause in INSERT",
+                    "This dialect does not support RETURNING in INSERT statements."
+                )
             returning_sql, returning_params = self.format_returning_clause(expr.returning)
             sql += f" {returning_sql}"
             all_params.extend(returning_params)
@@ -1040,6 +1045,11 @@ class SQLDialectBase:
 
         # RETURNING clause
         if expr.returning:
+            if not self.supports_returning_update():
+                raise UnsupportedFeatureError(
+                    self.name, "RETURNING clause in UPDATE",
+                    "This dialect does not support RETURNING in UPDATE statements."
+                )
             returning_sql, returning_params = self.format_returning_clause(
                 expr.returning
             )  # This returns "RETURNING col1, ..."
@@ -1121,6 +1131,11 @@ class SQLDialectBase:
 
         # RETURNING clause
         if expr.returning:
+            if not self.supports_returning_delete():
+                raise UnsupportedFeatureError(
+                    self.name, "RETURNING clause in DELETE",
+                    "This dialect does not support RETURNING in DELETE statements."
+                )
             returning_sql, returning_params = self.format_returning_clause(expr.returning)
             current_sql += f" {returning_sql}"
             all_params.extend(returning_params)

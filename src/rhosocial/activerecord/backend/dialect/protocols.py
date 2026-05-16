@@ -264,7 +264,23 @@ class ReturningSupport(Protocol):
     """Protocol for RETURNING clause support."""
 
     def supports_returning_clause(self) -> bool:
-        """Whether RETURNING clause is supported."""
+        """Whether RETURNING clause is generally supported.
+        This is the AND of all DML-specific returning support flags
+        (supports_returning_insert, supports_returning_update,
+        supports_returning_delete).
+        """
+        ...  # pragma: no cover
+
+    def supports_returning_insert(self) -> bool:
+        """Whether RETURNING clause is supported for INSERT statements."""
+        ...  # pragma: no cover
+
+    def supports_returning_update(self) -> bool:
+        """Whether RETURNING clause is supported for UPDATE statements."""
+        ...  # pragma: no cover
+
+    def supports_returning_delete(self) -> bool:
+        """Whether RETURNING clause is supported for DELETE statements."""
         ...  # pragma: no cover
 
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:

@@ -337,9 +337,27 @@ class AdvancedGroupingMixin:
 class ReturningMixin:
     """Mixin for RETURNING clause support."""
 
-    def supports_returning_clause(self) -> bool:
-        """Whether RETURNING clause is supported."""
+    def supports_returning_insert(self) -> bool:
+        """Whether RETURNING clause is supported for INSERT statements."""
         return False
+
+    def supports_returning_update(self) -> bool:
+        """Whether RETURNING clause is supported for UPDATE statements."""
+        return False
+
+    def supports_returning_delete(self) -> bool:
+        """Whether RETURNING clause is supported for DELETE statements."""
+        return False
+
+    def supports_returning_clause(self) -> bool:
+        """Whether RETURNING clause is generally supported.
+        Default is AND of all DML-specific returning support flags.
+        """
+        return (
+            self.supports_returning_insert()
+            and self.supports_returning_update()
+            and self.supports_returning_delete()
+        )
 
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, Tuple]:
         """
@@ -351,9 +369,6 @@ class ReturningMixin:
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        if not self.supports_returning_clause():
-            raise UnsupportedFeatureError(self.name, "RETURNING clause")
-
         all_params = []
         expr_parts = []
         for expr in clause.expressions:
