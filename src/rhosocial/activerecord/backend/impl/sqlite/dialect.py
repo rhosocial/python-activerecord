@@ -246,8 +246,16 @@ class SQLiteDialect(
         """MATERIALIZED hint is supported since SQLite 3.35.0."""
         return self.version >= (3, 35, 0)
 
-    def supports_returning_clause(self) -> bool:
-        """RETURNING clause is supported since SQLite 3.35.0."""
+    def supports_returning_insert(self) -> bool:
+        """RETURNING clause is supported for INSERT since SQLite 3.35.0."""
+        return self.version >= (3, 35, 0)
+
+    def supports_returning_update(self) -> bool:
+        """RETURNING clause is supported for UPDATE since SQLite 3.35.0."""
+        return self.version >= (3, 35, 0)
+
+    def supports_returning_delete(self) -> bool:
+        """RETURNING clause is supported for DELETE since SQLite 3.35.0."""
         return self.version >= (3, 35, 0)
 
     def supports_window_functions(self) -> bool:
@@ -503,6 +511,11 @@ class SQLiteDialect(
 
         # RETURNING clause
         if expr.returning:
+            if not self.supports_returning_insert():
+                raise UnsupportedFeatureError(
+                    self.name, "RETURNING clause in INSERT",
+                    "This SQLite version does not support RETURNING in INSERT statements."
+                )
             returning_sql, returning_params = self.format_returning_clause(expr.returning)
             sql += f" {returning_sql}"
             all_params.extend(returning_params)
@@ -818,12 +831,6 @@ class SQLiteDialect(
 
     def format_returning_clause(self, clause: "ReturningClause") -> Tuple[str, tuple]:
         """Format RETURNING clause."""
-        # Check if the dialect supports returning clause
-        if not self.supports_returning_clause():
-            raise UnsupportedFeatureError(
-                self.name, "RETURNING clause", "Use a separate SELECT statement to retrieve the affected data."
-            )
-
         all_params = []
         expr_parts = []
         for expr in clause.expressions:

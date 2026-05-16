@@ -131,22 +131,27 @@ class TestSQLiteDialectComprehensive:
         expected_keyword = join_type.upper().split()[0]
         assert expected_keyword in str(exc_info.value)
 
-    def test_format_returning_clause_version_check_comprehensive(self):
-        """Comprehensive test for RETURNING clause version check"""
-        # Below 3.35.0 version should raise exception
+    def test_dml_returning_clause_version_check_comprehensive(self):
+        """Comprehensive test for DML RETURNING clause version check"""
+        from unittest.mock import MagicMock
+
+        # Below 3.35.0 version should raise exception for INSERT
         dialect = SQLiteDialect((3, 34, 0))
-        mock_clause = Mock()
-        mock_clause.expressions = []
-        mock_clause.alias = None
+        assert not dialect.supports_returning_insert()
+        assert not dialect.supports_returning_update()
+        assert not dialect.supports_returning_delete()
 
-        with pytest.raises(UnsupportedFeatureError):
-            dialect.format_returning_clause(mock_clause)
-
-        # 3.35.0 and above should work normally
+        # 3.35.0 and above should support all DML RETURNING
         dialect = SQLiteDialect((3, 35, 0))
-        mock_expr = Mock()
+        assert dialect.supports_returning_insert()
+        assert dialect.supports_returning_update()
+        assert dialect.supports_returning_delete()
+        assert dialect.supports_returning_clause()
+
+        # format_returning_clause should work for all versions (pure formatting)
+        mock_expr = MagicMock()
         mock_expr.to_sql.return_value = ("id", ())
-        mock_clause = Mock()
+        mock_clause = MagicMock()
         mock_clause.expressions = [mock_expr]
         mock_clause.alias = None
 
