@@ -14,21 +14,21 @@ class TestSQLiteFunctionSupportBasic:
 
     def test_supports_functions_returns_dict(self):
         """Test that supports_functions returns a dictionary."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
         assert isinstance(result, dict)
         assert len(result) > 0
 
     def test_supports_functions_all_values_are_bool(self):
         """Test that all values in the returned dict are booleans."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
         for func_name, supported in result.items():
             assert isinstance(supported, bool), f"Value for {func_name} is not bool"
 
     def test_core_functions_always_supported(self):
         """Test that core functions are marked as supported."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
         core_functions = ["count", "sum_", "avg", "min_", "max_", "coalesce", "nullif"]
         for func in core_functions:
@@ -41,7 +41,7 @@ class TestSQLiteFunctionSupportVersionDependent:
 
     def test_json_functions_available_in_all_versions(self):
         """Test that JSON functions are available (via extension or built-in)."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
 
         json_functions = ["json", "json_array", "json_object", "json_extract",
@@ -107,7 +107,7 @@ class TestSQLiteFunctionSupportVersionDependent:
 
     def test_always_available_functions(self):
         """Test functions that are available in all SQLite versions."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
 
         always_available = [
@@ -126,7 +126,7 @@ class TestSQLiteFunctionSupportPrivateMethod:
 
     def test_unknown_function_returns_true(self):
         """Test that unknown functions return True (no restriction)."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect._is_sqlite_function_supported("unknown_function_xyz")
         assert result is True
 
@@ -154,7 +154,7 @@ class TestSQLiteFunctionSupportIntegration:
 
     def test_function_dict_contains_both_core_and_backend_functions(self):
         """Test that the result contains both core and SQLite-specific functions."""
-        dialect = SQLiteDialect()
+        dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
 
         assert any(func in result for func in ["count", "sum", "avg"])

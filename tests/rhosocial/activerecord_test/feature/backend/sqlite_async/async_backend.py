@@ -525,12 +525,10 @@ class AsyncSQLiteBackend(AsyncStorageBackend):
         """Introspect backend and adapt backend instance to actual server capabilities.
 
         For SQLite, the version is determined by the library itself and does not change,
-        so this method performs no additional adaptation. It exists to satisfy the
-        interface contract.
+        so this method only sets the dialect version to the detected SQLite version.
         """
-        # SQLite version is determined by the library, not the database file
-        # No adaptation needed
-        pass
+        version = self.get_server_version()
+        self._dialect.version = version
 
 
 

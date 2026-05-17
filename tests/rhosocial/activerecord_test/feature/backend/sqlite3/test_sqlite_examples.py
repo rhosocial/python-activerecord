@@ -18,6 +18,7 @@ def sqlite_backend():
     """
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
+    backend.introspect_and_adapt()
     yield backend
     backend.disconnect()
 
