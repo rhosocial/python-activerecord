@@ -33,6 +33,7 @@ async def async_returning_backend():
     config = SQLiteConnectionConfig(database=":memory:")
     backend = AsyncSQLiteBackend(connection_config=config)
     await backend.connect()
+    await backend.introspect_and_adapt()
 
     # Create test table
     from rhosocial.activerecord.backend.options import ExecutionOptions

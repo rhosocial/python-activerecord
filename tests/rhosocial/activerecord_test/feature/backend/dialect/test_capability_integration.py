@@ -84,7 +84,10 @@ def _get_protocol(name):
 @pytest.fixture
 def sqlite_backend():
     from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
-    return SQLiteBackend(database=":memory:")
+    backend = SQLiteBackend(database=":memory:")
+    backend.connect()
+    backend.introspect_and_adapt()
+    return backend
 
 
 @pytest.fixture

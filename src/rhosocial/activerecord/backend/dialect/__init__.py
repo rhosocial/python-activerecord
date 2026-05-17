@@ -34,7 +34,11 @@ except UnsupportedFeatureError as e:
 """
 
 from .base import SQLDialectBase
-from .exceptions import UnsupportedFeatureError, ProtocolNotImplementedError
+from .exceptions import (
+    UnsupportedFeatureError,
+    ProtocolNotImplementedError,
+    DialectNotAdaptedException,
+)
 from .protocols import (
     WindowFunctionSupport,
     CTESupport,
@@ -110,6 +114,7 @@ __all__ = [
     # Exceptions
     "UnsupportedFeatureError",
     "ProtocolNotImplementedError",
+    "DialectNotAdaptedException",
     # Protocols
     "WindowFunctionSupport",
     "CTESupport",

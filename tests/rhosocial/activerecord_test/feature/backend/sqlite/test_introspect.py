@@ -13,10 +13,12 @@ class TestSQLiteIntrospect:
         backend = SQLiteBackend(database=":memory:")
         backend.connect()
 
-        # Get version before introspection
-        version_before = backend.dialect.version
-        print(f"\nVersion before introspect: {version_before}")
-        print(f"sqlite3.sqlite_version: {sqlite3.sqlite_version}")
+        # Before introspection, accessing version should raise exception
+        from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+        with pytest.raises(DialectNotAdaptedException):
+            _ = backend.dialect.version
+
+        print(f"\nsqlite3.sqlite_version: {sqlite3.sqlite_version}")
         print(f"sqlite3.sqlite_version_info: {sqlite3.sqlite_version_info}")
 
         # Introspect and adapt
@@ -35,6 +37,7 @@ class TestSQLiteIntrospect:
         """Test that dialect version matches sqlite3 library version."""
         backend = SQLiteBackend(database=":memory:")
         backend.connect()
+        backend.introspect_and_adapt()
 
         print(f"\nDialect version: {backend.dialect.version}")
         print(f"sqlite3.sqlite_version: {sqlite3.sqlite_version}")
@@ -74,15 +77,17 @@ class TestSQLiteIntrospect:
         """Test automatic version detection from actual SQLite library."""
         backend = SQLiteBackend(database=":memory:")
 
-        # Before connect, version might be default
-        print(f"\nVersion before connect: {backend.dialect.version}")
+        # Before connect/introspection, accessing version should raise exception
+        from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+        with pytest.raises(DialectNotAdaptedException):
+            _ = backend.dialect.version
 
         backend.connect()
 
         # After introspection, version should match actual library
         backend.introspect_and_adapt()
 
-        print(f"Version after introspection: {backend.dialect.version}")
+        print(f"\nVersion after introspection: {backend.dialect.version}")
         print(f"sqlite3.sqlite_version_info: {sqlite3.sqlite_version_info}")
 
         assert backend.dialect.version == sqlite3.sqlite_version_info
@@ -103,11 +108,12 @@ class TestAsyncSQLiteIntrospect:
         print(f"\naiosqlite.sqlite_version: {aiosqlite.sqlite_version}")
         print(f"sqlite3.sqlite_version: {sqlite3.sqlite_version}")
 
-        # Get version before introspection
-        version_before = backend.dialect.version
-        print(f"Version before introspect: {version_before}")
+        # Before introspection, accessing version should raise exception
+        from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+        with pytest.raises(DialectNotAdaptedException):
+            _ = backend.dialect.version
 
-        # Introspect and adapt (currently empty implementation)
+        # Introspect and adapt
         await backend.introspect_and_adapt()
 
         # Get version after introspection
@@ -125,11 +131,16 @@ class TestAsyncSQLiteIntrospect:
         """Compare version detection methods."""
         backend = AsyncSQLiteBackend(database=":memory:")
 
-        print(f"\nDialect version (before connect): {backend.dialect.version}")
+        # Before connect/introspection, accessing version should raise exception
+        from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+        with pytest.raises(DialectNotAdaptedException):
+            _ = backend.dialect.version
 
         await backend.connect()
+        await backend.introspect_and_adapt()
 
         import aiosqlite
+        print(f"\nDialect version (after introspect): {backend.dialect.version}")
         print(f"aiosqlite.sqlite_version: {aiosqlite.sqlite_version}")
         print(f"sqlite3.sqlite_version_info: {sqlite3.sqlite_version_info}")
 

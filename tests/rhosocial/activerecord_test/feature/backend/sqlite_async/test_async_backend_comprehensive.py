@@ -57,6 +57,7 @@ class TestAsyncSQLiteBackendBasic:
         config = SQLiteConnectionConfig(database=temp_db_path)
         backend = AsyncSQLiteBackend(connection_config=config)
         await backend.connect()
+        await backend.introspect_and_adapt()
         yield backend
         await backend.disconnect()
 
@@ -66,6 +67,7 @@ class TestAsyncSQLiteBackendBasic:
         config = SQLiteConnectionConfig(database=":memory:")
         backend = AsyncSQLiteBackend(connection_config=config)
         await backend.connect()
+        await backend.introspect_and_adapt()
         yield backend
         await backend.disconnect()
 
@@ -456,6 +458,7 @@ class TestAsyncExecuteMany:
         config = SQLiteConnectionConfig(database=temp_db_path)
         backend = AsyncSQLiteBackend(connection_config=config)
         await backend.connect()
+        await backend.introspect_and_adapt()
 
         # Create test tables
         options = ExecutionOptions(stmt_type=StatementType.DDL)
@@ -750,6 +753,7 @@ class TestAsyncSQLiteTransaction:
         config = SQLiteConnectionConfig(database=temp_db_path)
         backend = AsyncSQLiteBackend(connection_config=config)
         await backend.connect()
+        await backend.introspect_and_adapt()
 
         # Create test table
         options = ExecutionOptions(stmt_type=StatementType.DDL)
@@ -1198,6 +1202,7 @@ class TestAsyncReturning:
         config = SQLiteConnectionConfig(database=":memory:")
         backend = AsyncSQLiteBackend(connection_config=config)
         await backend.connect()
+        await backend.introspect_and_adapt()
         yield backend
         await backend.disconnect()
 

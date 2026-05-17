@@ -191,6 +191,7 @@ class AsyncBackendPool:
                     await backend.connect()
                 else:
                     backend.connect()
+                await backend.introspect_and_adapt()
 
             pooled = PooledBackend(
                 backend=backend,
@@ -302,6 +303,7 @@ class AsyncBackendPool:
                     await pooled.backend.connect()
                 else:
                     pooled.backend.connect()
+            await pooled.backend.introspect_and_adapt()
             pooled.is_healthy = True
             logger.debug("Successfully reconnected stale backend in persistent mode")
             return True
@@ -320,6 +322,7 @@ class AsyncBackendPool:
                 await backend.connect()
             else:
                 backend.connect()
+        await backend.introspect_and_adapt()
 
     async def acquire(self, timeout: Optional[float] = None) -> Any:
         """Acquire a Backend instance.

@@ -25,7 +25,7 @@ from rhosocial.activerecord.backend.expression.introspection import (
 
 @pytest.fixture
 def sqlite_dialect():
-    return SQLiteDialect()
+    return SQLiteDialect(version=(3, 35, 0))
 
 
 class TestIntrospectionExpressionBase:

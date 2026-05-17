@@ -71,6 +71,8 @@ def article_backend(temp_db, configured_logging):
     """Configure Article model with SQLite backend."""
     # Use SQLiteBackend directly with database path
     backend = SQLiteBackend(database=temp_db)
+    backend.connect()
+    backend.introspect_and_adapt()
     backend.logger = Article.get_logger()
     Article.__backend__ = backend
 

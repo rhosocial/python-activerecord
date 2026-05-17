@@ -63,6 +63,7 @@ async def async_sqlite_backend(temp_db_path):
 
     # Connect to the database
     await backend.connect()
+    await backend.introspect_and_adapt()
 
     try:
         yield backend
@@ -76,6 +77,7 @@ async def async_sqlite_memory_backend():
     """Provides an in-memory AsyncSQLiteBackend instance for testing."""
     backend = AsyncSQLiteBackend(database=":memory:")
     await backend.connect()
+    await backend.introspect_and_adapt()
 
     try:
         yield backend

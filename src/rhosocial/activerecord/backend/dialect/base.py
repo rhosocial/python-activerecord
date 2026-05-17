@@ -70,6 +70,30 @@ class SQLDialectBase:
         """Initialize SQL dialect."""
         # Add strict validation flag with default as True for safety
         self.strict_validation = True
+        # Version is None until introspect_and_adapt() is called
+        self._version: Optional[Tuple[int, int, int]] = None
+
+    @property
+    def version(self) -> Tuple[int, int, int]:
+        """
+        Get dialect version tuple.
+
+        Returns:
+            Version tuple (major, minor, patch).
+
+        Raises:
+            DialectNotAdaptedException: If version hasn't been set via
+                introspect_and_adapt() or explicit assignment.
+        """
+        if self._version is None:
+            from .exceptions import DialectNotAdaptedException
+            raise DialectNotAdaptedException(self.name)
+        return self._version
+
+    @version.setter
+    def version(self, value: Tuple[int, int, int]) -> None:
+        """Set dialect version tuple."""
+        self._version = value
 
     @property
     def name(self) -> str:

@@ -206,16 +206,20 @@ class SQLiteDialect(
     - FILTER clause (since 3.10.0)
     """
 
-    def __init__(self, version: Tuple[int, int, int] = (3, 35, 0)):
+    def __init__(self, version: Optional[Tuple[int, int, int]] = None):
         """
         Initialize SQLite dialect with specific version.
 
         Args:
-            version: SQLite version tuple (major, minor, patch)
+            version: SQLite version tuple (major, minor, patch).
+                If None, the dialect must be adapted via
+                backend.introspect_and_adapt() before version-dependent
+                features can be used.
         """
-        self.version = version
-        self._runtime_params: Dict[str, Any] = {}
         super().__init__()
+        if version is not None:
+            self.version = version
+        self._runtime_params: Dict[str, Any] = {}
 
     def set_runtime_param(self, key: str, value: Any) -> None:
         """Set a runtime parameter (detected after connection)."""
