@@ -28,6 +28,7 @@ def returning_backend():
     log.info("Setting up in-memory SQLite backend for RETURNING tests.")
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
+    backend.introspect_and_adapt()
 
     create_table_sql = """
     CREATE TABLE test_users (

@@ -9,6 +9,31 @@ features or haven't implemented required protocols.
 from typing import Optional
 
 
+class DialectNotAdaptedException(Exception):
+    """
+    Raised when a dialect feature is accessed before introspection/adaptation.
+
+    This exception is raised when version-dependent dialect features are accessed
+    before the backend has called introspect_and_adapt() to detect the actual
+    server version and set the dialect version.
+    """
+
+    def __init__(self, dialect_name: str):
+        """
+        Initialize dialect not adapted error.
+
+        Args:
+            dialect_name: Name of the dialect
+        """
+        self.dialect_name = dialect_name
+        message = (
+            f"'{dialect_name}' dialect has not been adapted. "
+            f"Call backend.introspect_and_adapt() or use backend.context() "
+            f"for automatic adaptation."
+        )
+        super().__init__(message)
+
+
 class UnsupportedFeatureError(Exception):
     """
     Raised when a dialect doesn't support a specific feature.

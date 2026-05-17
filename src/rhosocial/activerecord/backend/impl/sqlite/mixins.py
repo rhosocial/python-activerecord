@@ -71,7 +71,7 @@ class SQLiteExtensionMixin:
             Dictionary mapping extension names to their info
         """
         registry = self._ensure_extension_registry()
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return registry.detect_extensions(version)
 
     def is_extension_available(self, name: str) -> bool:
@@ -84,7 +84,7 @@ class SQLiteExtensionMixin:
             True if extension is available
         """
         registry = self._ensure_extension_registry()
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return registry.is_extension_available(name, version)
 
     def get_extension_info(self, name: str) -> Optional[SQLiteExtensionInfo]:
@@ -97,7 +97,7 @@ class SQLiteExtensionMixin:
             Extension info, or None if not found
         """
         registry = self._ensure_extension_registry()
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return registry.get_extension_info(name, version)
 
     def check_extension_feature(self, ext_name: str, feature_name: str) -> bool:
@@ -111,7 +111,7 @@ class SQLiteExtensionMixin:
             True if feature is available
         """
         registry = self._ensure_extension_registry()
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return registry.check_extension_feature(ext_name, feature_name, version)
 
     def get_supported_extension_features(self, ext_name: str) -> List[str]:
@@ -124,7 +124,7 @@ class SQLiteExtensionMixin:
             List of supported feature names
         """
         registry = self._ensure_extension_registry()
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return registry.get_supported_features(ext_name, version)
 
 
@@ -147,7 +147,7 @@ class SQLitePragmaMixin:
         if info is None:
             return None
 
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         if version < info.min_version:
             return None
 
@@ -209,7 +209,7 @@ class SQLitePragmaMixin:
         if info is None:
             return False
 
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return version >= info.min_version
 
     def get_pragmas_by_category(self, category: PragmaCategory) -> List[PragmaInfo]:
@@ -221,7 +221,7 @@ class SQLitePragmaMixin:
         Returns:
             List of PragmaInfo for pragmas in the category
         """
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return [info for info in get_pragmas_by_category(category) if version >= info.min_version]
 
     def get_all_pragma_infos(self) -> Dict[str, PragmaInfo]:
@@ -230,7 +230,7 @@ class SQLitePragmaMixin:
         Returns:
             Dictionary mapping PRAGMA names to their info
         """
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return {name: info for name, info in get_all_pragma_infos().items() if version >= info.min_version}
 
 
@@ -251,7 +251,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
 
     def supports_virtual_table(self) -> bool:
         """Whether virtual tables are supported."""
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return version >= (3, 8, 8)
 
     def supports_rtree(self) -> bool:
@@ -263,7 +263,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_RTREE" in compile_options
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return version >= (3, 6, 0)
 
     def supports_fts5(self) -> bool:
@@ -275,7 +275,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_FTS5" in compile_options
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return version >= (3, 9, 0)
 
     def supports_geopoly(self) -> bool:
@@ -287,7 +287,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         compile_options = self.get_runtime_param("compile_options", {})
         if compile_options:
             return "ENABLE_GEOPOLY" in compile_options
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return version >= (3, 26, 0)
 
     def supports_math_functions(self) -> bool:
@@ -299,7 +299,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Returns:
             True if math functions are supported
         """
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         if version >= (3, 35, 0):
             return self.get_runtime_param("math_functions_available", True)
         return False
@@ -315,7 +315,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Returns:
             True if json1 extension is available
         """
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         if version >= (3, 38, 0):
             return True
         return self.get_runtime_param("json1_available", False)
@@ -410,7 +410,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         """Format CREATE VIRTUAL TABLE for R-Tree."""
         from .extension.extensions.rtree import get_rtree_extension
 
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         if version < (3, 6, 0):
             raise UnsupportedFeatureError(
                 getattr(self, "name", "sqlite"), "R-Tree", "R-Tree requires SQLite 3.6.0 or later."
@@ -445,7 +445,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         """Format CREATE VIRTUAL TABLE for Geopoly."""
         from .extension.extensions.geopoly import get_geopoly_extension
 
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         if version < (3, 26, 0):
             raise UnsupportedFeatureError(
                 getattr(self, "name", "sqlite"), "Geopoly", "Geopoly requires SQLite 3.26.0 or later."
@@ -792,7 +792,7 @@ class SQLiteIntrospectionCapabilityMixin:
         Note: Foreign key constraints are disabled by default and must be
         enabled via 'PRAGMA foreign_keys = ON'.
         """
-        version = getattr(self, "version", (3, 35, 0))
+        version = self.version
         return version >= (3, 6, 19)
 
     def supports_view_introspection(self) -> bool:
@@ -930,12 +930,15 @@ class SQLiteIntrospectionCapabilityMixin:
         include_system = params.get("include_system", False)
         table_type = params.get("table_type")
 
-        # Use PRAGMA table_list for SQLite 3.37.0+
-        if self.supports_table_list_pragma():
+        # Use PRAGMA table_list only when system tables are requested,
+        # since PRAGMA cannot filter them out at the SQL level.
+        # For user-only queries, sqlite_master provides native filtering.
+        if self.supports_table_list_pragma() and include_system:
             sql = f"PRAGMA {schema}.table_list"
             return (sql, ())
 
-        # Fallback to sqlite_master query for older versions
+        # Fallback to sqlite_master query (also used for include_system=False
+        # because sqlite_master supports NOT LIKE filtering natively)
         sql = "SELECT name, type FROM sqlite_master WHERE type IN ('table'"
         if include_views:
             sql += ", 'view'"

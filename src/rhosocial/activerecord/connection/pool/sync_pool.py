@@ -149,6 +149,7 @@ class BackendPool:
                     if self._is_persistent:
                         try:
                             pooled.backend.connect()
+                            pooled.backend.introspect_and_adapt()
                         except Exception as e:
                             logger.error(f"Failed to connect backend during warmup: {e}")
                             self._stats.total_errors += 1
@@ -317,6 +318,7 @@ class BackendPool:
             if hasattr(pooled.backend, 'disconnect'):
                 pooled.backend.disconnect()
             pooled.backend.connect()
+            pooled.backend.introspect_and_adapt()
             pooled.is_healthy = True
             logger.debug("Successfully reconnected stale backend in persistent mode")
             return True
@@ -389,6 +391,7 @@ class BackendPool:
                     if not self._is_persistent and self.config.auto_connect_on_acquire:
                         try:
                             pooled.backend.connect()
+                            pooled.backend.introspect_and_adapt()
                         except Exception as e:
                             # Connect failed, destroy and try again
                             self._in_use.pop(id(pooled.backend), None)
@@ -408,8 +411,10 @@ class BackendPool:
                             # In persistent mode, connect immediately on creation
                             if self._is_persistent:
                                 pooled.backend.connect()
+                                pooled.backend.introspect_and_adapt()
                             elif self.config.auto_connect_on_acquire:
                                 pooled.backend.connect()
+                                pooled.backend.introspect_and_adapt()
 
                             pooled.mark_used()
                             self._in_use[id(pooled.backend)] = pooled

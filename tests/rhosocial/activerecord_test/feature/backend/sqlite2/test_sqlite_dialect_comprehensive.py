@@ -11,9 +11,13 @@ class TestSQLiteDialectComprehensive:
     """Comprehensive tests for SQLiteDialect"""
 
     def test_init_with_default_version(self):
-        """Test initialization with default version"""
+        """Test initialization without version requires adaptation."""
+        from rhosocial.activerecord.backend.dialect.exceptions import DialectNotAdaptedException
+
         dialect = SQLiteDialect()
-        assert dialect.get_server_version() == (3, 35, 0)  # Default version
+        # Without version set, accessing version should raise exception
+        with pytest.raises(DialectNotAdaptedException):
+            dialect.get_server_version()
 
     def test_init_with_custom_version(self):
         """Test initialization with custom version"""

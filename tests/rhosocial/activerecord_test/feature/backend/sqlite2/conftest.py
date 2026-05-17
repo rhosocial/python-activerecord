@@ -20,6 +20,7 @@ def sqlite_backend():
     """Provides a SQLiteBackend instance connected to an in-memory database."""
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
+    backend.introspect_and_adapt()
     yield backend
     backend.disconnect()
 

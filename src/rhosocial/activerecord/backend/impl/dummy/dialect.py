@@ -196,6 +196,12 @@ class DummyDialect(
     Dummy dialect supporting all features for SQL generation testing.
     """
 
+    def __init__(self) -> None:
+        """Initialize dummy dialect with a placeholder version."""
+        super().__init__()
+        # Set a default version since dummy doesn't represent a real database
+        self._version = (1, 0, 0)
+
     # region Protocol Support Checks - Core Features
     def supports_window_functions(self) -> bool:
         return True

@@ -37,10 +37,11 @@ def sqlite_backend() -> Generator[SQLiteBackend, None, None]:
     """Create an in-memory SQLite backend for testing.
 
     Yields:
-        SQLiteBackend: Connected SQLite backend instance.
+        SQLiteBackend: Connected SQLite backend instance with introspected dialect.
     """
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
+    backend.introspect_and_adapt()
     yield backend
     backend.disconnect()
 
@@ -53,7 +54,7 @@ def sqlite_file_backend() -> Generator[SQLiteBackend, None, None]:
     cleaned up after the test.
 
     Yields:
-        SQLiteBackend: Connected SQLite backend instance.
+        SQLiteBackend: Connected SQLite backend instance with introspected dialect.
     """
     # Create temporary database file
     fd, db_path = tempfile.mkstemp(suffix=".db")
@@ -61,6 +62,7 @@ def sqlite_file_backend() -> Generator[SQLiteBackend, None, None]:
 
     backend = SQLiteBackend(database=db_path)
     backend.connect()
+    backend.introspect_and_adapt()
 
     yield backend
 

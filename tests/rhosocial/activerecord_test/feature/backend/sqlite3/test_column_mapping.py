@@ -24,6 +24,7 @@ def mapped_table_backend():
     log.info("Setting up in-memory SQLite backend for column mapping test.")
     backend = SQLiteBackend(database=":memory:")
     backend.connect()
+    backend.introspect_and_adapt()
 
     create_table_sql = """
     CREATE TABLE mapped_users (
