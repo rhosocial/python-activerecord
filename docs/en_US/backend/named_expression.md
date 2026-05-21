@@ -1,4 +1,4 @@
-# Named Query & Named Procedure
+# Named Expression & Named Procedure
 
 > **Scope of this document**: A practical guide for application developers, focused on *why* and *how*.
 
@@ -11,7 +11,7 @@ Named backend includes three core features to help manage and execute database o
 ```mermaid
 flowchart TB
     subgraph Named Backend
-        A[Named Query] --> B[Named Procedure]
+        A[Named Expression] --> B[Named Procedure]
         B --> C[Named Connection]
     end
 
@@ -29,7 +29,7 @@ flowchart TB
 
 | Feature | Use Case | Typical Scenario |
 |---------|---------|---------------|
-| **Named Query** | Encapsulate SQL queries as functions | Single SELECT/UPDATE/DELETE |
+| **Named Expression** | Encapsulate SQL queries as functions | Single SELECT/UPDATE/DELETE |
 | **Named Procedure** | Multi-step business process orchestration | Batch archiving, cross-table operations |
 | **Named Connection** | Externalize database configuration | Environment switching, multi-tenancy |
 
@@ -41,8 +41,8 @@ flowchart TB
 
 ## 2. Table of Contents
 
-1. [Named Query](#named-query)
-   - [Why Named Query](#why-named-query)
+1. [Named Expression](#named-expression)
+   - [Why Named Expression](#why-named-expression)
    - [Invoking Named Queries](#invoking-named-queries)
 2. [Named Procedure](#named-procedure)
    - [Why Named Procedure](#why-named-procedure)
@@ -56,11 +56,11 @@ flowchart TB
 
 ---
 
-## Named Query
+## Named Expression
 
-### Why Named Query?
+### Why Named Expression?
 
-Before Named Query existed, the most common pattern for running database queries in Python projects was to embed raw SQL strings directly in business logic. This approach has several significant problems:
+Before Named Expression existed, the most common pattern for running database queries in Python projects was to embed raw SQL strings directly in business logic. This approach has several significant problems:
 
 **Pain Points:**
 
@@ -74,9 +74,9 @@ Before Named Query existed, the most common pattern for running database queries
 
 5. **No Dry-run Capability**: The actual SQL being executed is invisible until runtime, making debugging difficult.
 
-**How Named Query Solves This:**
+**How Named Expression Solves This:**
 
-Named Query encapsulates query logic in a **pure Python function**. The key innovation is that the `dialect` parameter is automatically injected by the framework at execution time, allowing the same query code to work across different database backends.
+Named Expression encapsulates query logic in a **pure Python function**. The key innovation is that the `dialect` parameter is automatically injected by the framework at execution time, allowing the same query code to work across different database backends.
 
 ```python
 # Define once, use anywhere with any dialect
@@ -104,7 +104,7 @@ The CLI is ideal for quick testing, debugging, and CI/CD pipelines. It provides 
 
 **Execute a query:**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users \
     --db-file mydb.sqlite \
     --param limit=10 \
@@ -114,7 +114,7 @@ This executes the named query and returns results. The `--param` flag can be rep
 
 **Dry-run mode (preview SQL without execution):**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users \
     --db-file mydb.sqlite --dry-run
 ```
@@ -127,21 +127,21 @@ This is useful for CI/CD validation or inspecting the generated SQL.
 
 **Describe query (view signature without execution):**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users --describe
 ```
 Shows the function signature, parameter types, and docstring without connecting to a database.
 
 **List all queries in a module:**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users --list
 ```
 Useful for discovering available named queries in a module.
 
 **EXPLAIN plan:**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users \
     --db-file mydb.sqlite \
     --explain \
@@ -155,14 +155,14 @@ The programmatic API provides more control and integrates well with applications
 
 **One-shot method (quick):**
 ```python
-from rhosocial.activerecord.backend.named_query import resolve_named_query
+from rhosocial.activerecord.backend.named_expression import resolve_named_expression
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
 backend = SQLiteBackend(database="mydb.sqlite")
 dialect = backend.dialect
 
 # Resolve, generate SQL, and execute in one call
-expr, sql, params = resolve_named_query(
+expr, sql, params = resolve_named_expression(
     "myapp.queries.users.active_users",
     dialect,
     {"limit": 50, "status": "active"},
@@ -173,7 +173,7 @@ print("Generated SQL:", sql)
 
 **Step-by-step method (flexible):**
 ```python
-from rhosocial.activerecord.backend.named_query import NamedQueryResolver
+from rhosocial.activerecord.backend.named_expression import NamedQueryResolver
 
 # Load the named query resolver
 resolver = NamedQueryResolver("myapp.queries.users.active_users").load()
@@ -207,7 +207,7 @@ jobs:
       - run: pip install -e .
       - name: Static validation
         run: |
-          python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+          python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
             myapp.queries.users.active_users \
             --db-file :memory: --dry-run \
             --param limit=100 --param status=active
@@ -221,7 +221,7 @@ The key tip here is using `--db-file :memory:` with `--dry-run` — this allows 
 
 ### Why Named Procedure?
 
-Named Query solves the problem of managing individual SQL queries, but real-world business operations often require a **sequence of steps** with conditional logic. For example:
+Named Expression solves the problem of managing individual SQL queries, but real-world business operations often require a **sequence of steps** with conditional logic. For example:
 
 > "Count this month's orders → if zero, skip → archive completed orders → delete old archived records"
 
@@ -238,7 +238,7 @@ Named Procedure addresses this by providing a Python class-based workflow that o
 A Named Procedure is defined by inheriting from `Procedure` (for synchronous execution) or `AsyncProcedure` (for async). The class defines parameters as class attributes, and implements the `run()` method:
 
 ```python
-from rhosocial.activerecord.backend.named_query import Procedure, ProcedureContext
+from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext
 
 class MonthlyCleanupProcedure(Procedure):
     """Monthly order archival and cleanup procedure."""
@@ -298,7 +298,7 @@ The `ctx` object provides methods to interact with the execution environment:
 For independent sub-tasks that can run concurrently, use `ctx.parallel()`:
 
 ```python
-from rhosocial.activerecord.backend.named_query import Procedure, ProcedureContext, ParallelStep
+from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext, ParallelStep
 
 class OrderProcessingProcedure(Procedure):
     order_id: int
@@ -390,7 +390,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
 #### Programmatic API
 
 ```python
-from rhosocial.activerecord.backend.named_query import (
+from rhosocial.activerecord.backend.named_expression import (
     ProcedureRunner, TransactionMode, ProcedureResult,
 )
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
@@ -428,7 +428,7 @@ for entry in result.logs:
 For async web frameworks, use `AsyncProcedure` and `AsyncProcedureRunner`:
 
 ```python
-from rhosocial.activerecord.backend.named_query import AsyncProcedure, AsyncProcedureContext
+from rhosocial.activerecord.backend.named_expression import AsyncProcedure, AsyncProcedureContext
 
 class MonthlyCleanupAsyncProcedure(AsyncProcedure):
     month: str = "2026-03"
@@ -455,7 +455,7 @@ class MonthlyCleanupAsyncProcedure(AsyncProcedure):
 ```python
 # FastAPI endpoint
 from fastapi import FastAPI
-from rhosocial.activerecord.backend.named_query import AsyncProcedureRunner, TransactionMode
+from rhosocial.activerecord.backend.named_expression import AsyncProcedureRunner, TransactionMode
 from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
 app = FastAPI()
@@ -512,7 +512,7 @@ Named procedures can generate **Mermaid** flowcharts to visualize the procedure 
 Generate a flowchart without executing the procedure — useful for documentation and planning:
 
 ```python
-from rhosocial.activerecord.backend.named_query import Procedure
+from rhosocial.activerecord.backend.named_expression import Procedure
 
 # Flowchart format
 print(MyProcedure.static_diagram("flowchart"))
@@ -526,7 +526,7 @@ print(MyProcedure.static_diagram("sequence"))
 After executing a procedure, generate a flowchart showing actual execution status and timing:
 
 ```python
-from rhosocial.activerecord.backend.named_query import ProcedureRunner
+from rhosocial.activerecord.backend.named_expression import ProcedureRunner
 
 runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
 result = runner.run(backend)
@@ -564,10 +564,10 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 - `NamedQueryNotCallableError` - Named object is not callable
 - `NamedQueryExplainNotAllowedError` - EXPLAIN not allowed for this query type
 
-### Named Query API
+### Named Expression API
 
 - `NamedQueryResolver` - Main resolver class for loading and executing named queries
-- `resolve_named_query()` - Convenience function for one-shot resolve and execute
+- `resolve_named_expression()` - Convenience function for one-shot resolve and execute
 - `list_named_queries_in_module()` - Discover all queries in a module
 
 ### Named Procedure API
@@ -599,7 +599,7 @@ All examples use the **SQLite backend** as the demonstration database:
 
 | Example | Description |
 |---------|-------------|
-| `cli/named_query_demo.py` | Demonstrates all named query CLI operations (list, describe, dry-run, execute) |
+| `cli/named_expression_demo.py` | Demonstrates all named query CLI operations (list, describe, dry-run, execute) |
 | `cli/named_procedure_demo.py` | Demonstrates all named procedure CLI operations (list, describe, dry-run, execute, transaction modes) |
 | `cli/named_connection_demo.py` | Demonstrates named connection CLI operations |
 
@@ -614,9 +614,9 @@ PYTHONPATH=../../../../..:. python3 named_queries/order_queries.py
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples/named_procedures
 PYTHONPATH=../../../../..:. python3 diagram_demo.py
 
-# CLI example: Named Query CLI
+# CLI example: Named Expression CLI
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-PYTHONPATH=../../../../..:. python3 cli/named_query_demo.py
+PYTHONPATH=../../../../..:. python3 cli/named_expression_demo.py
 
 # CLI example: Named Procedure CLI
 PYTHONPATH=../../../../..:. python3 cli/named_procedure_demo.py

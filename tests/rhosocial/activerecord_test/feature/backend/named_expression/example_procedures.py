@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/example_procedures.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/example_procedures.py
 """
 Example procedures for testing.
 
@@ -6,7 +6,7 @@ This module contains sample procedure definitions for testing
 the named procedure functionality.
 """
 import types
-from rhosocial.activerecord.backend.named_query.procedure import (
+from rhosocial.activerecord.backend.named_expression.procedure import (
     Procedure,
     ProcedureContext,
 )

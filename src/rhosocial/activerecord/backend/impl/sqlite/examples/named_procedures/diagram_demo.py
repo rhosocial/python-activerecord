@@ -15,7 +15,7 @@ Or:
 # ============================================================
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
-from rhosocial.activerecord.backend.named_query import (
+from rhosocial.activerecord.backend.named_expression import (
     ProcedureRunner,
     TransactionMode,
 )

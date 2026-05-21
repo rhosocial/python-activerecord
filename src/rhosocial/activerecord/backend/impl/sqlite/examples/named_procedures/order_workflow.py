@@ -67,7 +67,7 @@ for table, cols, rows in sample_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.named_query import (
+from rhosocial.activerecord.backend.named_expression import (
     Procedure,
     ProcedureContext,
     ParallelStep,
@@ -177,7 +177,7 @@ if __name__ == "__main__":
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.named_query import ProcedureRunner, TransactionMode
+from rhosocial.activerecord.backend.named_expression import ProcedureRunner, TransactionMode
 
 if __name__ == "__main__":
     runner = ProcedureRunner(

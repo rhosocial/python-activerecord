@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/test_cli_procedure.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/test_cli_procedure.py
 """
 Tests for named procedure CLI functionality.
 
@@ -13,15 +13,15 @@ from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
-from rhosocial.activerecord.backend.named_query.cli_procedure import (
+from rhosocial.activerecord.backend.named_expression.cli_procedure import (
     create_named_procedure_parser,
     handle_named_procedure,
     list_named_procedures_in_module,
 )
-from rhosocial.activerecord.backend.named_query.exceptions import (
-    NamedQueryError,
+from rhosocial.activerecord.backend.named_expression.exceptions import (
+    NamedExpressionError,
 )
-from rhosocial.activerecord.backend.named_query.procedure import (
+from rhosocial.activerecord.backend.named_expression.procedure import (
     ProcedureRunner,
     TransactionMode,
 )
@@ -114,14 +114,14 @@ class TestListNamedProceduresInModule:
 
     def test_list_module_not_found(self):
         """Test listing from non-existent module."""
-        with pytest.raises(NamedQueryError):
+        with pytest.raises(NamedExpressionError):
             list_named_procedures_in_module("nonexistent.module")
 
     def test_list_with_procedure_classes(self):
         """Test listing with procedure classes."""
         module = types.ModuleType("test_procedures")
 
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         class TestProc1(Procedure):
             """Test procedure 1."""
@@ -146,7 +146,7 @@ class TestListNamedProceduresInModule:
         """Test that non-Procedure classes are excluded."""
         module = types.ModuleType("test_modules")
 
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         class ValidProc(Procedure):
             """Valid procedure."""
@@ -177,7 +177,7 @@ class TestHandleNamedProcedureList:
 
     def test_list_procedures(self):
         """Test listing procedures."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         class TestProc(Procedure):
             """Test procedure."""
@@ -188,7 +188,7 @@ class TestHandleNamedProcedureList:
         args = TestCliProcedureArgs.create("test_procedures", list_procedures=True)
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli_procedure.list_named_procedures_in_module",
+            "rhosocial.activerecord.backend.named_expression.cli_procedure.list_named_procedures_in_module",
             return_value=[{"name": "TestProc", "signature": "(month: str)", "docstring": "Test procedure.", "brief": "Test procedure."}],
         ):
             try:
@@ -207,7 +207,7 @@ class TestHandleNamedProcedureDescribe:
 
     def test_describe_procedure(self):
         """Test describing a procedure."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         provider = ProviderMock()
 
@@ -222,7 +222,7 @@ class TestHandleNamedProcedureDescribe:
         }
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli_procedure.ProcedureRunner",
+            "rhosocial.activerecord.backend.named_expression.cli_procedure.ProcedureRunner",
             return_value=mock_runner,
         ):
             try:
@@ -252,7 +252,7 @@ class TestHandleNamedProcedureDryRun:
         mock_runner.load.return_value = mock_runner
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli_procedure.ProcedureRunner",
+            "rhosocial.activerecord.backend.named_expression.cli_procedure.ProcedureRunner",
             return_value=mock_runner,
         ):
             try:
@@ -279,7 +279,7 @@ class TestHandleNamedProcedureExecute:
             transaction="auto",
         )
 
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureResult,
         )
 
@@ -296,7 +296,7 @@ class TestHandleNamedProcedureExecute:
             return mock_dialect
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli_procedure.ProcedureRunner",
+            "rhosocial.activerecord.backend.named_expression.cli_procedure.ProcedureRunner",
             return_value=mock_runner,
         ):
             try:
@@ -322,7 +322,7 @@ class TestHandleNamedProcedureAbort:
             params=["should_abort=true"],
         )
 
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             LogEntry,
             ProcedureResult,
         )
@@ -342,7 +342,7 @@ class TestHandleNamedProcedureAbort:
             return mock_dialect
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli_procedure.ProcedureRunner",
+            "rhosocial.activerecord.backend.named_expression.cli_procedure.ProcedureRunner",
             return_value=mock_runner,
         ):
             with pytest.raises(SystemExit) as exc:
@@ -506,10 +506,10 @@ class TestListNamedProcedures:
 
     def test_list_procedures_function(self):
         """Test list_named_procedures_in_module function."""
-        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+        from rhosocial.activerecord.backend.named_expression.cli_procedure import (
             list_named_procedures_in_module,
         )
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
         import sys
         from types import ModuleType
 
@@ -540,7 +540,7 @@ class TestListNamedProcedures:
 
     def test_list_procedures_no_valid_procedures(self):
         """Test list_named_procedures_in_module with no valid procedures."""
-        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+        from rhosocial.activerecord.backend.named_expression.cli_procedure import (
             list_named_procedures_in_module,
         )
         import sys
@@ -563,7 +563,7 @@ class TestListNamedProcedures:
 
     def test_list_procedures_missing_module(self):
         """Test list_named_procedures_in_module raises for missing module."""
-        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+        from rhosocial.activerecord.backend.named_expression.cli_procedure import (
             list_named_procedures_in_module,
         )
 
@@ -576,7 +576,7 @@ class TestCliProcedureReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder(self):
         """Test _replace_prog_placeholder function."""
-        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+        from rhosocial.activerecord.backend.named_expression.cli_procedure import (
             _replace_prog_placeholder,
         )
 
@@ -586,7 +586,7 @@ class TestCliProcedureReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_no_placeholder(self):
         """Test _replace_prog_placeholder without placeholder."""
-        from rhosocial.activerecord.backend.named_query.cli_procedure import (
+        from rhosocial.activerecord.backend.named_expression.cli_procedure import (
             _replace_prog_placeholder,
         )
 

@@ -678,7 +678,7 @@ def orders_by_status(dialect, status: str, limit: int = 100):
 #### 执行命名查询
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --db-file mydb.sqlite \
     --param status=pending
@@ -687,7 +687,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 #### 覆盖参数
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --db-file mydb.sqlite \
     --param status=completed \
@@ -697,7 +697,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 #### 描述查询（显示签名）
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --describe
 ```
@@ -715,7 +715,7 @@ Parameters (excluding 'dialect'):
 #### 预览 SQL（Dry Run）
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --db-file mydb.sqlite \
     --param status=pending \
@@ -732,7 +732,7 @@ Params: ('pending', 100)
 #### 列出模块中的所有查询
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries \
     --list
 ```
@@ -764,7 +764,7 @@ class MonthlyRevenue:
 
 执行：
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.MonthlyRevenue \
     --param month=3 \
     --param year=2026
@@ -784,7 +784,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 
 ```bash
 PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
-    named-query examples.named_queries.order_queries.orders_by_status \
+    named-expression examples.named_queries.order_queries.orders_by_status \
     --param status=pending
 ```
 
@@ -903,7 +903,7 @@ def get_orders(dialect, status: str, limit: int = 100, active_only: bool = True)
 
 ```bash
 # 如果 'filter' 不是有效参数，将失败
-python -m ... named-query myapp.queries.orders --param filter=pending
+python -m ... named-expression myapp.queries.orders --param filter=pending
 ```
 
 错误输出：
@@ -923,11 +923,11 @@ resolver 在执行前会检查参数与函数签名，提供关于哪些参数�
 
 ```bash
 # 列出模块中所有查询
-python -m ... named-query myapp.queries --list
+python -m ... named-expression myapp.queries --list
 
 # 显示具体查询的详细信息（两种方式）
-python -m ... named-query myapp.queries.query_name --list
-python -m ... named-query myapp.queries --example query_name
+python -m ... named-expression myapp.queries.query_name --list
+python -m ... named-expression myapp.queries --example query_name
 ```
 
 `--list` 输出示例：

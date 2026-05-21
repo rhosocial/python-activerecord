@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/example_queries.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/example_queries.py
 """
 Example named queries for testing.
 

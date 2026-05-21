@@ -1,39 +1,39 @@
-# src/rhosocial/activerecord/backend/named_query/__init__.py
+# src/rhosocial/activerecord/backend/named_expression/__init__.py
 """
-Named query support for the backend.
+Named expression support for the backend.
 
-This module provides functionality to resolve and execute named queries
+This module provides functionality to resolve and execute named expressions
 defined as Python callables (functions or classes) with fully qualified names.
 
-What is Named Query:
-    Named query is a callable (function, class instance with __call__) that:
+What is Named Expression:
+    Named expression is a callable (function, class instance with __call__) that:
     - Lives in a Python module
     - Has 'dialect' as its first parameter (after 'self' for classes)
-    - Returns a BaseExpression object implementing Executable protocol
+    - Returns a BaseExpression object
 
     Example function:
         >>> def active_users(dialect, limit: int = 100):
         ...     '''Get active users with optional limit.'''
-        ...     return Select(...)
+        ...     return QueryExpression(...)
 
     Example class:
         >>> class UserQueries:
         ...     def __call__(self, dialect, status: str = 'active'):
         ...         '''Get users by status.'''
-        ...         return Select(...)
+        ...         return QueryExpression(...)
 
 Important Notes:
     This is a BACKEND FEATURE, independent of ActiveRecord or ActiveQuery.
 
-    - This module is for CLI and script-based query execution
+    - This module is for CLI and script-based expression execution
     - It is NOT part of the ActiveRecord pattern
-    - It provides a way to organize reusable queries in Python modules
-    - The queries return type-safe expressions, not raw SQL strings
+    - It provides a way to organize reusable expressions in Python modules
+    - The expressions return type-safe expressions, not raw SQL strings
 
     This design ensures:
     - SQL injection prevention through expression-based approach
-    - Type safety through BaseExpression and Executable protocol
-    - Query reusability across different backends via dialect abstraction
+    - Type safety through BaseExpression
+    - Expression reusability across different backends via dialect abstraction
 
 Components:
     - resolver: Main resolver class and functions
@@ -41,23 +41,23 @@ Components:
     - cli: CLI utilities for backend command-line tools
 
 Usage:
-    >>> from rhosocial.activerecord.backend.named_query import NamedQueryResolver
-    >>> resolver = NamedQueryResolver("myapp.queries.active_users").load()
+    >>> from rhosocial.activerecord.backend.named_expression import NamedExpressionResolver
+    >>> resolver = NamedExpressionResolver("myapp.queries.active_users").load()
     >>> expression = resolver.execute(dialect, {"limit": 50})
 
-    >>> # List all queries in a module
-    >>> from rhosocial.activerecord.backend.named_query import list_named_queries_in_module
-    >>> queries = list_named_queries_in_module("myapp.queries")
+    >>> # List all expressions in a module
+    >>> from rhosocial.activerecord.backend.named_expression import list_named_expressions_in_module
+    >>> expressions = list_named_expressions_in_module("myapp.queries")
 """
 from .exceptions import (
-    NamedQueryError,
-    NamedQueryNotFoundError,
-    NamedQueryModuleNotFoundError,
-    NamedQueryInvalidReturnTypeError,
-    NamedQueryInvalidParameterError,
-    NamedQueryMissingParameterError,
-    NamedQueryNotCallableError,
-    NamedQueryExplainNotAllowedError,
+    NamedExpressionError,
+    NamedExpressionNotFoundError,
+    NamedExpressionModuleNotFoundError,
+    NamedExpressionInvalidReturnTypeError,
+    NamedExpressionInvalidParameterError,
+    NamedExpressionMissingParameterError,
+    NamedExpressionNotCallableError,
+    NamedExpressionExplainNotAllowedError,
     ProcedureError,
     ProcedureAbortedError,
     ProcedureStepError,
@@ -65,14 +65,13 @@ from .exceptions import (
     ProcedureGraphValidationError,
 )
 from .resolver import (
-    NamedQueryResolver,
-    resolve_named_query,
-    list_named_queries_in_module,
-    validate_expression,
+    NamedExpressionResolver,
+    resolve_named_expression,
+    list_named_expressions_in_module,
 )
 from .cli import (
-    create_named_query_parser,
-    handle_named_query,
+    create_named_expression_parser,
+    handle_named_expression,
     parse_params,
 )
 from .cli_procedure import (
@@ -122,20 +121,19 @@ from .graph_resolver import (
 )
 
 __all__ = [
-    "NamedQueryError",
-    "NamedQueryNotFoundError",
-    "NamedQueryModuleNotFoundError",
-    "NamedQueryInvalidReturnTypeError",
-    "NamedQueryInvalidParameterError",
-    "NamedQueryMissingParameterError",
-    "NamedQueryNotCallableError",
-    "NamedQueryExplainNotAllowedError",
-    "NamedQueryResolver",
-    "resolve_named_query",
-    "list_named_queries_in_module",
-    "validate_expression",
-    "create_named_query_parser",
-    "handle_named_query",
+    "NamedExpressionError",
+    "NamedExpressionNotFoundError",
+    "NamedExpressionModuleNotFoundError",
+    "NamedExpressionInvalidReturnTypeError",
+    "NamedExpressionInvalidParameterError",
+    "NamedExpressionMissingParameterError",
+    "NamedExpressionNotCallableError",
+    "NamedExpressionExplainNotAllowedError",
+    "NamedExpressionResolver",
+    "resolve_named_expression",
+    "list_named_expressions_in_module",
+    "create_named_expression_parser",
+    "handle_named_expression",
     "parse_params",
     "create_named_procedure_parser",
     "handle_named_procedure",

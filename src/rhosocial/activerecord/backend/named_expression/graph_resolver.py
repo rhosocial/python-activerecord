@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/graph_resolver.py
+# src/rhosocial/activerecord/backend/named_expression/graph_resolver.py
 """
 NamedProcedureGraphResolver for resolving callable ProcedureGraphs.
 
@@ -9,7 +9,7 @@ import inspect
 import importlib
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
 
-from .exceptions import NamedQueryError, NamedQueryModuleNotFoundError
+from .exceptions import NamedExpressionError, NamedExpressionModuleNotFoundError
 from .procedure_graph import ProcedureGraph
 
 
@@ -17,7 +17,7 @@ if TYPE_CHECKING:
     from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 
 
-class NamedProcedureGraphError(NamedQueryError):
+class NamedProcedureGraphError(NamedExpressionError):
     """Base error for NamedProcedureGraph operations."""
 
     pass
@@ -58,7 +58,7 @@ class NamedProcedureGraphResolver:
         ...         return ProcedureGraph() | ...
 
     Usage:
-        >>> from rhosocial.activerecord.backend.named_query import (
+        >>> from rhosocial.activerecord.backend.named_expression import (
         ...     NamedProcedureGraphResolver,
         ... )
         >>> resolver = NamedProcedureGraphResolver("myapp.procedures.monthly")
@@ -111,13 +111,13 @@ class NamedProcedureGraphResolver:
             self for chaining.
 
         Raises:
-            NamedQueryModuleNotFoundError: If module cannot be imported.
+            NamedExpressionModuleNotFoundError: If module cannot be imported.
             NamedProcedureGraphError: If callable not found or not callable.
         """
         try:
             module = importlib.import_module(self._module_name)
         except ModuleNotFoundError as e:
-            raise NamedQueryModuleNotFoundError(
+            raise NamedExpressionModuleNotFoundError(
                 self._module_name,
                 f"Module not found: {e}",
             ) from None
@@ -275,12 +275,12 @@ def list_procedure_graphs_in_module(module_name: str) -> List[Dict[str, Any]]:
         List of dicts with procedure graph info.
 
     Raises:
-        NamedQueryModuleNotFoundError: If module cannot be imported.
+        NamedExpressionModuleNotFoundError: If module cannot be imported.
     """
     try:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        raise NamedQueryModuleNotFoundError(
+        raise NamedExpressionModuleNotFoundError(
             module_name,
             f"Module not found: {e}",
         ) from None

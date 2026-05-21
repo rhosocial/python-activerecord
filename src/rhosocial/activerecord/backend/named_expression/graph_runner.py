@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/graph_runner.py
+# src/rhosocial/activerecord/backend/named_expression/graph_runner.py
 """
 ProcedureGraph runners for sync and async execution.
 
@@ -184,8 +184,8 @@ class ProcedureGraphRunner:
         resolved_params = _interpolate_dict(resolved_params, ctx)
 
         if node.kind == StepKind.NAMED_QUERY:
-            from .resolver import resolve_named_query
-            expr = resolve_named_query(node.named_query, self._dialect, resolved_params)[0]
+            from .resolver import resolve_named_expression
+            expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)[0]
             return expr.to_sql()
 
         elif node.kind == StepKind.EXPRESSION:
@@ -318,8 +318,8 @@ class AsyncProcedureGraphRunner:
         resolved_params = _interpolate_dict(resolved_params, ctx)
 
         if node.kind == StepKind.NAMED_QUERY:
-            from .resolver import resolve_named_query
-            expr = resolve_named_query(node.named_query, self._dialect, resolved_params)[0]
+            from .resolver import resolve_named_expression
+            expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)[0]
             return expr.to_sql()
 
         elif node.kind == StepKind.EXPRESSION:

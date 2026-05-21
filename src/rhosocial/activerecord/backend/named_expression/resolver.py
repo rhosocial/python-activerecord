@@ -1,40 +1,40 @@
-# src/rhosocial/activerecord/backend/named_query/resolver.py
+# src/rhosocial/activerecord/backend/named_expression/resolver.py
 """
-Named query resolver module.
+Named expression resolver module.
 
-This module provides functionality to resolve and execute named queries defined as
-Python callables (functions or classes) with fully qualified names.
+This module provides functionality to resolve and execute named expressions
+defined as Python callables (functions or classes) with fully qualified names.
 
-A named query is a callable (function, class instance with __call__, or method) that:
+A named expression is a callable (function, class instance with __call__, or method) that:
 - Resides in a Python module
 - Has 'dialect' as its first parameter (after 'self' for classes)
-- Returns a BaseExpression object that implements the Executable protocol
+- Returns a BaseExpression object
 
-Named Query Discovery:
-    Named queries are discovered by scanning modules for callables with 'dialect'
+Named Expression Discovery:
+    Named expressions are discovered by scanning modules for callables with 'dialect'
     as the first parameter. Both functions and class instances are supported.
 
     Example function:
         >>> def active_users(dialect, limit: int = 100):
         ...     '''Get active users.'''
-        ...     return Select(...)
+        ...     return QueryExpression(...)
 
     Example class:
         >>> class UserQueries:
         ...     def __call__(self, dialect, status: str = 'active'):
         ...         '''Get users by status.'''
-        ...         return Select(...)
+        ...         return QueryExpression(...)
 
 Usage:
-    Resolving a named query:
-        >>> from rhosocial.activerecord.backend.named_query import NamedQueryResolver
-        >>> resolver = NamedQueryResolver("myapp.queries.active_users").load()
+    Resolving a named expression:
+        >>> from rhosocial.activerecord.backend.named_expression import NamedExpressionResolver
+        >>> resolver = NamedExpressionResolver("myapp.queries.active_users").load()
         >>> info = resolver.describe()
         >>> expression = resolver.execute(dialect, {"limit": 50})
 
-    Listing all queries in a module:
-        >>> from rhosocial.activerecord.backend.named_query import list_named_queries_in_module
-        >>> queries = list_named_queries_in_module("myapp.queries")
+    Listing all expressions in a module:
+        >>> from rhosocial.activerecord.backend.named_expression import list_named_expressions_in_module
+        >>> expressions = list_named_expressions_in_module("myapp.queries")
 
 Note:
     This is a backend feature. It is independent of ActiveRecord or ActiveQuery
@@ -46,63 +46,103 @@ import re
 from typing import Any, Callable, Dict, List, Optional, Tuple
 
 from rhosocial.activerecord.backend.expression.bases import BaseExpression
-from rhosocial.activerecord.backend.expression.executable import Executable
-from rhosocial.activerecord.backend.schema import StatementType
 
 from .exceptions import (
-    NamedQueryInvalidReturnTypeError,
-    NamedQueryInvalidParameterError,
-    NamedQueryMissingParameterError,
-    NamedQueryModuleNotFoundError,
-    NamedQueryNotCallableError,
-    NamedQueryNotFoundError,
+    NamedExpressionInvalidReturnTypeError,
+    NamedExpressionInvalidParameterError,
+    NamedExpressionMissingParameterError,
+    NamedExpressionModuleNotFoundError,
+    NamedExpressionNotCallableError,
+    NamedExpressionNotFoundError,
 )
 
 
-def validate_expression(expression: BaseExpression, qualified_name: str) -> StatementType:
-    """Validate that an expression is executable and return its statement type.
+def _resolve_annotation(ann: Any, ns: dict) -> Any:
+    """Resolve string (forward reference) annotations via eval in module namespace."""
+    if isinstance(ann, str):
+        try:
+            return eval(ann, ns)
+        except Exception:
+            return ann
+    return ann
 
-    This function checks that the returned expression implements the Executable
-    protocol, which is required for all named queries to ensure
-    type-safe SQL generation and prevent SQL injection.
 
-    Args:
-        expression: The expression to validate.
-        qualified_name: The qualified name of the named query (used for error messages).
+def _ann_str(param: inspect.Parameter) -> str:
+    if param.annotation is inspect.Parameter.empty:
+        return "<untyped>"
+    return str(param.annotation)
 
-    Returns:
-        StatementType: The statement type of the expression (SELECT, INSERT, etc.).
 
-    Raises:
-        NamedQueryInvalidReturnTypeError: If expression doesn't implement Executable
-            protocol. This is a security check - only BaseExpression objects
-            that implement Executable are allowed.
+def _classify_param(param: inspect.Parameter, ns: dict) -> tuple:
+    """Returns (kind, annotated).
 
-    Example:
-        >>> from rhosocial.activerecord.backend.named_query import validate_expression
-        >>> from rhosocial.activerecord.backend.schema import StatementType
-        >>> expr = active_users(dialect, limit=50)
-        >>> stmt_type = validate_expression(expr, "myapp.queries.active_users")
-        >>> assert stmt_type == StatementType.SELECT
-
-    Note:
-        This function is primarily used internally by the resolver.
-        It provides an additional validation layer for safety.
+    kind: "scalar" | "expression"
+    annotated: False triggers warning
     """
-    if not isinstance(expression, Executable):
-        raise NamedQueryInvalidReturnTypeError(
-            qualified_name,
-            type(expression).__name__,
-            "Expression must implement Executable protocol for named-query execution",
-        )
-    return expression.statement_type
+    ann = param.annotation
+    if ann is inspect.Parameter.empty:
+        return "scalar", False
+    ann = _resolve_annotation(ann, ns)
+    if isinstance(ann, type) and issubclass(ann, BaseExpression):
+        return "expression", True
+    return "scalar", True
 
 
-class NamedQueryResolver:
-    """Resolver for named queries defined as Python callables.
+def _classify(expr: BaseExpression) -> List[str]:
+    """Classify an expression into tag categories."""
+    from rhosocial.activerecord.backend.expression.executable import Executable
+    from rhosocial.activerecord.backend.schema import StatementType
+
+    if not isinstance(expr, Executable):
+        return ["CLAUSE"]
+    st = expr.statement_type
+    tag_map = [
+        ({StatementType.DQL, StatementType.SELECT}, "DQL"),
+        ({StatementType.DML, StatementType.INSERT, StatementType.UPDATE,
+          StatementType.DELETE, StatementType.MERGE, StatementType.TRUNCATE}, "DML"),
+        ({StatementType.DDL}, "DDL"),
+        ({StatementType.TCL}, "TCL"),
+        ({StatementType.CALL, StatementType.EXECUTE}, "CALL"),
+        ({StatementType.EXPLAIN}, "EXPLAIN"),
+    ]
+    return [next((lbl for types, lbl in tag_map if st in types), "OTHER")]
+
+
+def _probe_tags(
+    target_callable: Callable,
+    dialect: Any = None,
+) -> List[str]:
+    """Probe a callable to determine its expression tags."""
+    try:
+        sig = inspect.signature(target_callable)
+    except (ValueError, TypeError):
+        return ["?"]
+
+    for name, param in sig.parameters.items():
+        if name in ("dialect", "self"):
+            continue
+        if param.default is inspect.Parameter.empty:
+            return ["?"]
+
+    if dialect is None:
+        return ["?"]
+
+    try:
+        result = target_callable(dialect=dialect)
+    except Exception:
+        return ["?"]
+
+    if not isinstance(result, BaseExpression):
+        return ["?"]
+
+    return _classify(result)
+
+
+class NamedExpressionResolver:
+    """Resolver for named expressions defined as Python callables.
 
     This class provides a complete interface for resolving and executing
-    named queries. It handles loading callables from modules,
+    named expressions. It handles loading callables from modules,
     introspecting their signatures, and executing them with
     proper parameter handling.
 
@@ -110,16 +150,16 @@ class NamedQueryResolver:
         1. Create resolver with qualified name
         2. Call load() to import the callable
         3. Optionally call describe() to get signature info
-        4. Call execute() to run the query
+        4. Call execute() to run the expression
 
     Attributes:
-        qualified_name: The fully qualified name of the named query.
+        qualified_name: The fully qualified name of the named expression.
         module_name: The module name (parsed from qualified name).
         attr_name: The attribute name (parsed from qualified name).
 
     Example:
-        >>> from rhosocial.activerecord.backend.named_query import NamedQueryResolver
-        >>> resolver = NamedQueryResolver("myapp.queries.active_users")
+        >>> from rhosocial.activerecord.backend.named_expression import NamedExpressionResolver
+        >>> resolver = NamedExpressionResolver("myapp.queries.active_users")
         >>> resolver.load()
         >>> info = resolver.describe()
         >>> print(f"Parameters: {info['parameters']}")
@@ -134,12 +174,12 @@ class NamedQueryResolver:
                 Must contain exactly one dot separating module from callable name.
 
         Raises:
-            NamedQueryNotFoundError: If qualified_name format is invalid
+            NamedExpressionNotFoundError: If qualified_name format is invalid
                 (must be 'module.path.callable' with exactly one dot).
 
         Example:
-            >>> resolver = NamedQueryResolver("myapp.queries.user_active")
-            >>> resolver = NamedQueryResolver("project.models.queries.orders_pending")  # nested module
+            >>> resolver = NamedExpressionResolver("myapp.queries.user_active")
+            >>> resolver = NamedExpressionResolver("project.models.queries.orders_pending")
         """
         self._qualified_name = qualified_name
         self._module_name: str = ""
@@ -157,12 +197,12 @@ class NamedQueryResolver:
         to separate the module path from the callable name.
 
         Raises:
-            NamedQueryNotFoundError: If format is invalid.
+            NamedExpressionNotFoundError: If format is invalid.
                 Valid format: 'module.path.callable' (exactly one dot).
         """
         parts = self._qualified_name.rsplit(".", 1)
         if len(parts) != 2:
-            raise NamedQueryNotFoundError(
+            raise NamedExpressionNotFoundError(
                 self._qualified_name,
                 "Qualified name must be in the format 'module.path.callable'",
             )
@@ -171,7 +211,7 @@ class NamedQueryResolver:
 
     @property
     def qualified_name(self) -> str:
-        """Get the qualified name of the named query.
+        """Get the qualified name of the named expression.
 
         Returns:
             str: The fully qualified name (module.path.callable).
@@ -204,16 +244,16 @@ class NamedQueryResolver:
             bool: True if the callable is a class with __call__, False otherwise.
 
         Raises:
-            NamedQueryNotCallableError: If callable not loaded yet.
+            NamedExpressionNotCallableError: If callable not loaded yet.
         """
         if self._target_callable is None:
-            raise NamedQueryNotCallableError(
+            raise NamedExpressionNotCallableError(
                 self._qualified_name,
                 "Callable not loaded yet. Call load() first.",
             )
         return self._is_class
 
-    def load(self) -> "NamedQueryResolver":
+    def load(self) -> "NamedExpressionResolver":
         """Load the callable from the module.
 
         This method imports the module and retrieves the callable attribute.
@@ -223,36 +263,36 @@ class NamedQueryResolver:
             self: Returns self for method chaining.
 
         Raises:
-            NamedQueryModuleNotFoundError: If the module cannot be imported.
+            NamedExpressionModuleNotFoundError: If the module cannot be imported.
                 Check that:
                 - Module is installed in the environment
                 - Module path is in PYTHONPATH
                 - Module name is spelled correctly
 
-            NamedQueryNotFoundError: If the attribute doesn't exist in the module.
+            NamedExpressionNotFoundError: If the attribute doesn't exist in the module.
                 Check that:
                 - The function/class is defined in the module
                 - The function/class is exported in __all__ (if used)
 
-            NamedQueryNotCallableError: If the attribute exists but is not callable.
+            NamedExpressionNotCallableError: If the attribute exists but is not callable.
                 Only functions, methods, and classes with __call__ are valid.
 
         Example:
-            >>> resolver = NamedQueryResolver("myapp.queries.user_active")
+            >>> resolver = NamedExpressionResolver("myapp.queries.user_active")
             >>> resolver.load()  # loads and prepares the callable
             >>> # or chain it
-            >>> info = NamedQueryResolver("myapp.queries.user_active").load().describe()
+            >>> info = NamedExpressionResolver("myapp.queries.user_active").load().describe()
         """
         try:
             module = importlib.import_module(self._module_name)
         except ModuleNotFoundError as e:
-            raise NamedQueryModuleNotFoundError(
+            raise NamedExpressionModuleNotFoundError(
                 self._module_name,
                 f"Module not found. Ensure the module is installed or in PYTHONPATH: {e}",
             ) from None
 
         if not hasattr(module, self._attr_name):
-            raise NamedQueryNotFoundError(
+            raise NamedExpressionNotFoundError(
                 self._qualified_name,
                 f"Attribute '{self._attr_name}' not found in module '{self._module_name}'",
             )
@@ -267,9 +307,9 @@ class NamedQueryResolver:
             self._is_class = False
             self._target_callable = self._callable
         else:
-            raise NamedQueryNotCallableError(
+            raise NamedExpressionNotCallableError(
                 self._qualified_name,
-                "Named query must be a function, method, or class with __call__",
+                "Named expression must be a function, method, or class with __call__",
             )
 
         return self
@@ -285,7 +325,7 @@ class NamedQueryResolver:
             inspect.Signature: The signature of the callable.
 
         Raises:
-            NamedQueryNotCallableError: If callable not loaded yet.
+            NamedExpressionNotCallableError: If callable not loaded yet.
                 Call load() before getting signature.
 
         Example:
@@ -295,7 +335,7 @@ class NamedQueryResolver:
             ...     print(f"{name}: {param.annotation} = {param.default}")
         """
         if self._target_callable is None:
-            raise NamedQueryNotCallableError(
+            raise NamedExpressionNotCallableError(
                 self._qualified_name,
                 "Callable not loaded yet. Call load() first.",
             )
@@ -312,7 +352,7 @@ class NamedQueryResolver:
             List[str]: List of user-facing parameter names.
 
         Raises:
-            NamedQueryNotCallableError: If callable not loaded yet.
+            NamedExpressionNotCallableError: If callable not loaded yet.
 
         Example:
             >>> resolver.load()
@@ -327,10 +367,36 @@ class NamedQueryResolver:
             params.append(name)
         return params
 
-    def describe(self) -> Dict[str, Any]:
-        """Get detailed description of the named query.
+    def get_param_specs(self) -> List[Dict[str, Any]]:
+        """Get parameter specifications with type classification.
 
-        This method provides comprehensive information about the named query,
+        Returns:
+            List of dicts with keys: name, kind (scalar|expression),
+            annotated (bool), annotation (str), has_default (bool), default (optional).
+        """
+        sig = self.get_signature()
+        ns = vars(importlib.import_module(self._module_name))
+        result = []
+        for name, param in sig.parameters.items():
+            if name in ("dialect", "self"):
+                continue
+            kind, annotated = _classify_param(param, ns)
+            entry: Dict[str, Any] = {
+                "name": name,
+                "kind": kind,
+                "annotated": annotated,
+                "annotation": _ann_str(param),
+                "has_default": param.default is not inspect.Parameter.empty,
+            }
+            if entry["has_default"]:
+                entry["default"] = repr(param.default)
+            result.append(entry)
+        return result
+
+    def describe(self) -> Dict[str, Any]:
+        """Get detailed description of the named expression.
+
+        This method provides comprehensive information about the named expression,
         including its signature, docstring, and parameter details.
         It is useful for generating help text and documentation.
 
@@ -347,7 +413,7 @@ class NamedQueryResolver:
                     - default (str, optional): Default value repr.
 
         Raises:
-            NamedQueryNotCallableError: If callable not loaded yet.
+            NamedExpressionNotCallableError: If callable not loaded yet.
 
         Example:
             >>> resolver.load()
@@ -364,7 +430,7 @@ class NamedQueryResolver:
         for name, param in sig.parameters.items():
             if name in ("dialect", "self"):
                 continue
-            param_info = {
+            param_info: Dict[str, Any] = {
                 "name": name,
                 "type": (
                     str(param.annotation)
@@ -390,7 +456,7 @@ class NamedQueryResolver:
         dialect: Any,
         user_params: Optional[Dict[str, Any]] = None,
     ) -> BaseExpression:
-        """Execute the named query with the given dialect and parameters.
+        """Execute the named expression with the given dialect and parameters.
 
         This method resolves parameters, calls the callable, and validates
         the return type. It handles all parameter injection including
@@ -404,32 +470,27 @@ class NamedQueryResolver:
 
         Returns:
             BaseExpression: The expression object returned by the callable.
-                This will be a BaseExpression that implements Executable.
 
         Raises:
-            NamedQueryNotCallableError: If callable not loaded yet.
+            NamedExpressionNotCallableError: If callable not loaded yet.
                 Call load() before execute().
 
-            NamedQueryMissingParameterError: If a required parameter
-                (without default) is not provided. Provide the parameter
-                or check the callable signature for required parameters.
+            NamedExpressionMissingParameterError: If a required parameter
+                (without default) is not provided.
 
-            NamedQueryInvalidParameterError: If an unknown parameter is provided
-                or parameter type conversion fails. Check the available
-                parameters using describe().
+            NamedExpressionInvalidParameterError: If an unknown parameter is provided
+                or parameter type conversion fails.
 
-            NamedQueryInvalidReturnTypeError: If the callable doesn't return a
-                BaseExpression or doesn't implement Executable.
-                This is a security check - only type-safe expressions
+            NamedExpressionInvalidReturnTypeError: If the callable doesn't return a
+                BaseExpression. This is a security check - only type-safe expressions
                 are allowed. Use 'query' subcommand for raw SQL.
 
         Example:
             >>> resolver.load()
             >>> expression = resolver.execute(dialect, {"limit": 50, "status": "active"})
-            >>> sql, params = expression.to_sql()
         """
         if self._target_callable is None:
-            raise NamedQueryNotCallableError(
+            raise NamedExpressionNotCallableError(
                 self._qualified_name,
                 "Callable not loaded yet. Call load() first.",
             )
@@ -456,14 +517,14 @@ class NamedQueryResolver:
             elif param.kind == inspect.Parameter.VAR_KEYWORD:
                 continue
             else:
-                raise NamedQueryMissingParameterError(
+                raise NamedExpressionMissingParameterError(
                     name,
                     f"Required parameter '{name}' not provided",
                 )
 
         extra_params = set(user_params.keys()) - param_names
         if extra_params:
-            raise NamedQueryInvalidParameterError(
+            raise NamedExpressionInvalidParameterError(
                 list(extra_params)[0],
                 f"Unknown parameter(s): {', '.join(extra_params)}. "
                 f"Available parameters: {list(param_names)}",
@@ -477,14 +538,14 @@ class NamedQueryResolver:
                 match = re.search(r"unexpected keyword argument '(\w+)'", error_msg)
                 if match:
                     unknown_param = match.group(1)
-                    raise NamedQueryInvalidParameterError(
+                    raise NamedExpressionInvalidParameterError(
                         unknown_param,
                         f"Unknown parameter '{unknown_param}'. "
                         f"Available parameters: {list(resolved_params.keys())}",
                     ) from None
-            raise NamedQueryInvalidParameterError(
+            raise NamedExpressionInvalidParameterError(
                 "call",
-                f"Failed to call named query: {e}. "
+                f"Failed to call named expression: {e}. "
                 f"Check that all parameters are valid.",
             ) from None
         except ValueError as e:
@@ -503,38 +564,31 @@ class NamedQueryResolver:
                     param_with_issue = name
                     break
             if param_with_issue:
-                raise NamedQueryInvalidParameterError(
+                raise NamedExpressionInvalidParameterError(
                     param_with_issue,
                     str(e),
                 ) from None
-            raise NamedQueryInvalidParameterError(
+            raise NamedExpressionInvalidParameterError(
                 "parameter",
                 f"Parameter conversion error: {e}",
             ) from None
 
         if not isinstance(result, BaseExpression):
             actual_type = type(result).__name__
-            raise NamedQueryInvalidReturnTypeError(
+            raise NamedExpressionInvalidReturnTypeError(
                 self._qualified_name,
                 actual_type,
-            )
-
-        if not isinstance(result, Executable):
-            raise NamedQueryInvalidReturnTypeError(
-                self._qualified_name,
-                type(result).__name__,
-                "Expression must implement Executable protocol",
             )
 
         return result
 
 
-def resolve_named_query(
+def resolve_named_expression(
     qualified_name: str,
     dialect: Any,
     user_params: Optional[Dict[str, Any]] = None,
-) -> Tuple[BaseExpression, str, tuple]:
-    """Resolve and execute a named query in one step.
+) -> BaseExpression:
+    """Resolve and execute a named expression in one step.
 
     This is a convenience function that combines resolver creation,
     loading, and execution in a single call. It is useful for
@@ -546,76 +600,74 @@ def resolve_named_query(
         user_params: User-provided parameters (excluding dialect).
 
     Returns:
-        Tuple of (expression, sql, params):
-            - expression (BaseExpression): The expression object.
-            - sql (str): The generated SQL string.
-            - params (tuple): The SQL parameters.
+        BaseExpression: The expression object returned by the callable.
 
     Raises:
-        NamedQueryError: Various named query errors including:
-            - NamedQueryModuleNotFoundError
-            - NamedQueryNotFoundError
-            - NamedQueryNotCallableError
-            - NamedQueryMissingParameterError
-            - NamedQueryInvalidParameterError
-            - NamedQueryInvalidReturnTypeError
+        NamedExpressionError: Various named expression errors including:
+            - NamedExpressionModuleNotFoundError
+            - NamedExpressionNotFoundError
+            - NamedExpressionNotCallableError
+            - NamedExpressionMissingParameterError
+            - NamedExpressionInvalidParameterError
+            - NamedExpressionInvalidReturnTypeError
 
     Example:
-        >>> from rhosocial.activerecord.backend.named_query import resolve_named_query
-        >>> expr, sql, params = resolve_named_query(
+        >>> from rhosocial.activerecord.backend.named_expression import resolve_named_expression
+        >>> expression = resolve_named_expression(
         ...     "myapp.queries.active_users",
         ...     dialect,
         ...     {"limit": 50}
         ... )
-        >>> print(f"SQL: {sql}, Params: {params}")
     """
-    resolver = NamedQueryResolver(qualified_name).load()
-    expression = resolver.execute(dialect, user_params)
-    sql, params = expression.to_sql()
-    return expression, sql, params
+    resolver = NamedExpressionResolver(qualified_name).load()
+    return resolver.execute(dialect, user_params)
 
 
-def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
-    """List all callable objects in a module that could be named queries.
+def list_named_expressions_in_module(
+    module_name: str,
+    dialect: Any = None,
+) -> List[Dict[str, Any]]:
+    """List all callable objects in a module that could be named expressions.
 
     This function scans a module for callable objects that meet the
-    named query criteria. A callable is considered a potential
-    named query if:
+    named expression criteria. A callable is considered a potential
+    named expression if:
     - It is a function or class (with __call__)
     - Its first parameter (after 'self' for classes) is named 'dialect'
 
-    This is useful for discovering available queries and generating
+    This is useful for discovering available expressions and generating
     help/listing output.
 
     Args:
         module_name: The module name to scan. Can be a top-level module
             or a nested module path.
+        dialect: Optional dialect instance for dry-probing expression tags.
+            When provided, the function attempts to call each expression with
+            default parameters to determine its tags (DQL, DML, DDL, CLAUSE, etc.).
 
     Returns:
-        List[Dict[str, Any]]: List of dicts with query info:
+        List[Dict[str, Any]]: List of dicts with expression info:
             - name (str): The attribute name.
             - is_class (bool): Whether it's a class instance.
             - signature (str): The signature string.
             - docstring (str): The full docstring.
             - brief (str): First line of docstring (one-line summary).
+            - tags (List[str]): Classification tags (DQL, DML, DDL, CLAUSE, ?, etc.).
+            - param_specs (List[Dict]): Parameter specifications.
 
     Raises:
-        NamedQueryModuleNotFoundError: If the module cannot be imported.
-            Check that:
-            - Module is installed in the environment
-            - Module path is in PYTHONPATH
-            - Module name is correct
+        NamedExpressionModuleNotFoundError: If the module cannot be imported.
 
     Example:
-        >>> from rhosocial.activerecord.backend.named_query import list_named_queries_in_module
-        >>> queries = list_named_queries_in_module("myapp.queries")
-        >>> for q in queries:
-        ...     print(f"{q['name']}: {q['brief']}")
+        >>> from rhosocial.activerecord.backend.named_expression import list_named_expressions_in_module
+        >>> expressions = list_named_expressions_in_module("myapp.queries")
+        >>> for q in expressions:
+        ...     print(f"{q['name']}: {q['brief']} [{','.join(q['tags'])}]")
     """
     try:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        raise NamedQueryModuleNotFoundError(
+        raise NamedExpressionModuleNotFoundError(
             module_name,
             f"Module not found: {e}",
         ) from None
@@ -631,6 +683,7 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
 
         full_doc = inspect.getdoc(obj) or ""
         brief = full_doc.split("\n")[0].strip() if full_doc else ""
+        ns = vars(module)
 
         if inspect.isclass(obj):
             try:
@@ -652,6 +705,23 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
 
             first_param = next(iter(sig.parameters), None)
             if first_param and first_param == "dialect":
+                # Build param_specs from class __call__ signature
+                param_specs = []
+                for pname, pparam in sig.parameters.items():
+                    if pname in ("dialect", "self"):
+                        continue
+                    kind, annotated = _classify_param(pparam, ns)
+                    entry: Dict[str, Any] = {
+                        "name": pname,
+                        "kind": kind,
+                        "annotated": annotated,
+                        "annotation": _ann_str(pparam),
+                        "has_default": pparam.default is not inspect.Parameter.empty,
+                    }
+                    if entry["has_default"]:
+                        entry["default"] = repr(pparam.default)
+                    param_specs.append(entry)
+
                 results.append(
                     {
                         "name": name,
@@ -659,6 +729,8 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
                         "signature": str(sig),
                         "docstring": full_doc,
                         "brief": brief,
+                        "tags": _probe_tags(target, dialect),
+                        "param_specs": param_specs,
                     }
                 )
 
@@ -670,6 +742,23 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
 
             first_param = next(iter(sig.parameters), None)
             if first_param and first_param == "dialect":
+                # Build param_specs from function signature
+                param_specs = []
+                for pname, pparam in sig.parameters.items():
+                    if pname in ("dialect", "self"):
+                        continue
+                    kind, annotated = _classify_param(pparam, ns)
+                    entry: Dict[str, Any] = {
+                        "name": pname,
+                        "kind": kind,
+                        "annotated": annotated,
+                        "annotation": _ann_str(pparam),
+                        "has_default": pparam.default is not inspect.Parameter.empty,
+                    }
+                    if entry["has_default"]:
+                        entry["default"] = repr(pparam.default)
+                    param_specs.append(entry)
+
                 results.append(
                     {
                         "name": name,
@@ -677,6 +766,8 @@ def list_named_queries_in_module(module_name: str) -> List[Dict[str, Any]]:
                         "signature": str(sig),
                         "docstring": full_doc,
                         "brief": brief,
+                        "tags": _probe_tags(obj, dialect),
+                        "param_specs": param_specs,
                     }
                 )
 

@@ -1,7 +1,7 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/cli/named_query.py
-"""named-query subcommand - Adapter for shared CLI helper.
+# src/rhosocial/activerecord/backend/impl/sqlite/cli/named_expression.py
+"""named-expression subcommand - Adapter for shared CLI helper.
 
-named-query requires connection arguments, output arguments, and --rich-ascii.
+named-expression requires connection arguments, output arguments, and --rich-ascii.
 """
 
 
@@ -13,19 +13,19 @@ from .output import create_provider
 
 
 def create_parser(subparsers):
-    """Create the named-query subcommand parser.
+    """Create the named-expression subcommand parser.
 
-    Reuses the shared create_named_query_parser, passing a parent parser
+    Reuses the shared create_named_expression_parser, passing a parent parser
     containing only connection and output arguments.
     """
-    from rhosocial.activerecord.backend.named_query.cli import create_named_query_parser
+    from rhosocial.activerecord.backend.named_expression.cli import create_named_expression_parser
     local_parent = create_connection_parent_parser()
-    return create_named_query_parser(subparsers, local_parent)
+    return create_named_expression_parser(subparsers, local_parent)
 
 
 def handle(args):
-    """Handle the named-query subcommand."""
-    from rhosocial.activerecord.backend.named_query.cli import handle_named_query as handle_nq
+    """Handle the named-expression subcommand."""
+    from rhosocial.activerecord.backend.named_expression.cli import handle_named_expression as handle_ne
 
     provider = create_provider(args.output, ascii_borders=args.rich_ascii)
 
@@ -70,7 +70,7 @@ def handle(args):
             if async_backend and async_backend._connection:
                 await async_backend.disconnect()
 
-        handle_nq(
+        handle_ne(
             args,
             provider,
             backend_factory=backend_factory,
@@ -84,7 +84,7 @@ def handle(args):
         )
         return
 
-    handle_nq(
+    handle_ne(
         args,
         provider,
         backend_factory=backend_factory,

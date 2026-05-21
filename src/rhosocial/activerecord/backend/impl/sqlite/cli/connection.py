@@ -13,7 +13,7 @@ from rhosocial.activerecord.backend.named_connection import NamedConnectionResol
 def add_connection_args(parser):
     """Add connection-related arguments to a parser.
 
-    Shared by query, introspect, status, named-query, named-procedure.
+    Shared by query, introspect, status, named-expression, named-procedure.
     Not used by info and named-connection.
     """
     parser.add_argument(
@@ -43,7 +43,7 @@ def add_connection_args(parser):
 def create_connection_parent_parser():
     """Create a parent parser with connection and output arguments only.
 
-    Used by named-query/named-procedure shared CLI helpers which
+    Used by named-expression/named-procedure shared CLI helpers which
     require a parent_parser argument.
     """
     parser = argparse.ArgumentParser(add_help=False)
@@ -165,7 +165,7 @@ def create_backend_from_memory() -> SQLiteBackend:
 def create_backend_factory(args) -> Callable[[], SQLiteBackend]:
     """Create a backend factory function.
 
-    For reuse by named-query/named-procedure.
+    For reuse by named-expression/named-procedure.
 
     Args:
         args: Parsed command-line arguments
@@ -185,7 +185,7 @@ def create_backend_factory(args) -> Callable[[], SQLiteBackend]:
 def create_async_backend_factory(args) -> Callable:
     """Create an async backend factory function.
 
-    For reuse by named-query/named-procedure in async mode.
+    For reuse by named-expression/named-procedure in async mode.
 
     Args:
         args: Parsed command-line arguments

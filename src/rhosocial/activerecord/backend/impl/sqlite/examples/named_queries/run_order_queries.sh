@@ -1,7 +1,7 @@
 #!/bin/bash
 # run_order_queries.sh - Execute named queries example
 #
-# This script demonstrates how to use the named-query CLI command
+# This script demonstrates how to use the named-expression CLI command
 # to execute queries defined in the examples/named_queries module.
 #
 # Usage:
@@ -67,13 +67,13 @@ done
 # Build and execute command
 if [[ -n "$LIST" ]]; then
     echo "Listing queries in: $MODULE"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query "$MODULE" --list -o "$OUTPUT"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE" --list -o "$OUTPUT"
 elif [[ -n "$QUERY_NAME" && -n "$DESCRIBE" ]]; then
     echo "Describing query: $MODULE.$QUERY_NAME"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query "$MODULE.$QUERY_NAME" --describe
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE.$QUERY_NAME" --describe
 elif [[ -n "$QUERY_NAME" ]]; then
     echo "Executing query: $MODULE.$QUERY_NAME"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query "$MODULE.$QUERY_NAME" -o "$OUTPUT" $DRY_RUN $PARAMS
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE.$QUERY_NAME" -o "$OUTPUT" $DRY_RUN $PARAMS
 else
     echo "Usage: $0 [OPTIONS] [QUERY_NAME]"
     echo ""

@@ -52,7 +52,7 @@ examples/
 │   └── diagram_demo.py   # Flowchart visualization demo
 └── cli/                    # CLI examples (backend feature)
     ├── __init__.py
-    ├── named_query_demo.py       # Named query CLI demo
+    ├── named_expression_demo.py  # Named expression CLI demo
     ├── named_procedure_demo.py  # Named procedure CLI demo
     └── named_connection_demo.py # Named connection CLI demo
 ```

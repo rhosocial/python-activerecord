@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/test_cli_procedure_graph.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/test_cli_procedure_graph.py
 """
 Tests for CLI procedure graph functionality.
 
@@ -15,7 +15,7 @@ from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
-from rhosocial.activerecord.backend.named_query.cli_procedure_graph import (
+from rhosocial.activerecord.backend.named_expression.cli_procedure_graph import (
     create_named_procedure_graph_parser,
     _add_named_procedure_graph_arguments,
     _parse_json_arg,

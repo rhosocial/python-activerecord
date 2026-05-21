@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/cli_procedure_graph.py
+# src/rhosocial/activerecord/backend/named_expression/cli_procedure_graph.py
 """
 CLI utilities for named procedure-graph functionality.
 
@@ -56,7 +56,7 @@ import json
 import sys
 from typing import Any, Callable, List, Optional
 
-from .exceptions import NamedQueryError
+from .exceptions import NamedExpressionError
 from .graph_resolver import (
     NamedProcedureGraphResolver,
     list_procedure_graphs_in_module,

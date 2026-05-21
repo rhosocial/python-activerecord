@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/procedure.py
+# src/rhosocial/activerecord/backend/named_expression/procedure.py
 """
 Named procedure support for the backend.
 
@@ -12,7 +12,7 @@ What is Named Procedure:
     - Implements a run(ctx) method that orchestrates named queries
 
     Example:
-        >>> from rhosocial.activerecord.backend.named_query import Procedure, ProcedureContext
+        >>> from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext
         >>>
         >>> class MonthlyReportProcedure(Procedure):
         ...     month: str  # Required parameter
@@ -44,7 +44,7 @@ Components:
     - ProcedureResult: Result object returned by procedure execution
 
 Usage:
-    >>> from rhosocial.activerecord.backend.named_query import ProcedureRunner
+    >>> from rhosocial.activerecord.backend.named_expression import ProcedureRunner
     >>> runner = ProcedureRunner("myapp.procedures.monthly_report")
     >>> result = runner.run(dialect, {"month": "2026-03"})
 """
@@ -55,7 +55,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Any, AsyncIterator, Dict, Iterator, List, Optional
 
-from .resolver import resolve_named_query
+from .resolver import resolve_named_expression
 
 
 class TransactionMode(Enum):
@@ -951,8 +951,8 @@ class _BaseProcedureRunner:
     def _parse_qualified_name(qualified_name: str):
         parts = qualified_name.rsplit(".", 1)
         if len(parts) != 2:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError(
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError(
                 f"Invalid qualified name '{qualified_name}'. "
                 "Must be in format 'module.path.ClassName'"
             )
@@ -965,17 +965,17 @@ class _BaseProcedureRunner:
     def _import_class(self) -> type:
         """Import the class from the module. No type validation performed here."""
         import importlib
-        from .exceptions import NamedQueryError, NamedQueryModuleNotFoundError
+        from .exceptions import NamedExpressionError, NamedExpressionModuleNotFoundError
 
         try:
             module = importlib.import_module(self._module_name)
         except ModuleNotFoundError as e:
-            raise NamedQueryModuleNotFoundError(
+            raise NamedExpressionModuleNotFoundError(
                 self._module_name, f"Module not found: {e}"
             ) from None
 
         if not hasattr(module, self._class_name):
-            raise NamedQueryError(
+            raise NamedExpressionError(
                 f"Procedure '{self._class_name}' not found "
                 f"in module '{self._module_name}'"
             )
@@ -983,8 +983,8 @@ class _BaseProcedureRunner:
 
     def describe(self) -> Dict[str, Any]:
         if not self._procedure_class:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("Procedure not loaded. Call load() first.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("Procedure not loaded. Call load() first.")
         return {
             "qualified_name": self._qualified_name,
             "class_name": self._class_name,
@@ -1060,15 +1060,15 @@ class ProcedureRunner(_BaseProcedureRunner):
             self for chaining.
 
         Raises:
-            NamedQueryModuleNotFoundError: If module cannot be imported.
+            NamedExpressionModuleNotFoundError: If module cannot be imported.
             NamedQueryNotFoundError: If class doesn't exist or inherit Procedure.
         """
         cls = self._import_class()
 
         if not isinstance(cls, type) or not issubclass(cls, Procedure):
-            from .exceptions import NamedQueryError
+            from .exceptions import NamedExpressionError
 
-            raise NamedQueryError(
+            raise NamedExpressionError(
                 f"'{self._class_name}' must inherit from Procedure. "
                 "For async procedures use AsyncProcedureRunner."
             )
@@ -1094,31 +1094,31 @@ class ProcedureRunner(_BaseProcedureRunner):
             ProcedureResult with outputs and logs.
 
         Raises:
-            NamedQueryError: If procedure not loaded or backend is async.
+            NamedExpressionError: If procedure not loaded or backend is async.
         """
         import inspect
 
         if not self._procedure_class:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("Procedure not loaded. Call load() first.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("Procedure not loaded. Call load() first.")
 
         if backend is None:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("backend is required.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("backend is required.")
 
         dialect = getattr(backend, "dialect", None)
         if dialect is None:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("backend must have a 'dialect' attribute.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("backend must have a 'dialect' attribute.")
 
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("backend must have an 'execute' method.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("backend must have an 'execute' method.")
 
         if inspect.iscoroutinefunction(backend_execute):
-            from .exceptions import NamedQueryError
-            raise NamedQueryError(
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError(
                 f"Backend '{type(backend).__name__}' has async execute method, "
                 f"but ProcedureRunner requires a sync backend. "
                 f"Use AsyncProcedureRunner with async backend instead."
@@ -1140,7 +1140,7 @@ class ProcedureRunner(_BaseProcedureRunner):
             pass
 
         def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-            _, sql, params_sql = resolve_named_query(fqn, dial, params)
+            _, sql, params_sql = resolve_named_expression(fqn, dial, params)
             data, affected_rows = [], 0
             if backend_execute and sql:
                 raw = backend_execute(sql, params_sql)
@@ -1226,15 +1226,15 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
             self for chaining.
 
         Raises:
-            NamedQueryModuleNotFoundError: If module cannot be imported.
+            NamedExpressionModuleNotFoundError: If module cannot be imported.
             NamedQueryNotFoundError: If class doesn't exist or inherit AsyncProcedure.
         """
         cls = self._import_class()
 
         if not isinstance(cls, type) or not issubclass(cls, AsyncProcedure):
-            from .exceptions import NamedQueryError
+            from .exceptions import NamedExpressionError
 
-            raise NamedQueryError(
+            raise NamedExpressionError(
                 f"'{self._class_name}' must inherit from AsyncProcedure. "
                 "For sync procedures use ProcedureRunner."
             )
@@ -1260,31 +1260,31 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
             ProcedureResult with outputs and logs.
 
         Raises:
-            NamedQueryError: If procedure not loaded or backend is sync.
+            NamedExpressionError: If procedure not loaded or backend is sync.
         """
         import inspect
 
         if not self._procedure_class:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("Procedure not loaded. Call load() first.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("Procedure not loaded. Call load() first.")
 
         if backend is None:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("backend is required.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("backend is required.")
 
         dialect = getattr(backend, "dialect", None)
         if dialect is None:
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("backend must have a 'dialect' attribute.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("backend must have a 'dialect' attribute.")
 
         backend_execute = getattr(backend, "execute", None)
         if backend_execute is None or not callable(backend_execute):
-            from .exceptions import NamedQueryError
-            raise NamedQueryError("backend must have an 'execute' method.")
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError("backend must have an 'execute' method.")
 
         if not inspect.iscoroutinefunction(backend_execute):
-            from .exceptions import NamedQueryError
-            raise NamedQueryError(
+            from .exceptions import NamedExpressionError
+            raise NamedExpressionError(
                 f"Backend '{type(backend).__name__}' has sync execute method, "
                 f"but AsyncProcedureRunner requires an async backend. "
                 f"Use ProcedureRunner with sync backend instead."
@@ -1308,7 +1308,7 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         async def execute_callback(
             fqn: str, dial: Any, params: Dict[str, Any]
         ) -> Dict[str, Any]:
-            _, sql, params_sql = resolve_named_query(fqn, dial, params)
+            _, sql, params_sql = resolve_named_expression(fqn, dial, params)
             data, affected_rows = [], 0
             if backend_execute and sql:
                 raw = await backend_execute(sql, params_sql)

@@ -1,11 +1,11 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/test_cli.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/test_cli.py
 """
 Tests for named query CLI utilities.
 
 This test module covers:
-- create_named_query_parser function
+- create_named_expression_parser function
 - parse_params function
-- handle_named_query function
+- handle_named_expression function
 """
 import argparse
 from argparse import Namespace
@@ -13,10 +13,10 @@ from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
-from rhosocial.activerecord.backend.named_query.cli import (
-    create_named_query_parser,
+from rhosocial.activerecord.backend.named_expression.cli import (
+    create_named_expression_parser,
     parse_params,
-    handle_named_query,
+    handle_named_expression,
 )
 
 
@@ -25,7 +25,7 @@ class TestReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_single(self):
         """Test replacing %(prog)s placeholder."""
-        from rhosocial.activerecord.backend.named_query.cli import (
+        from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
         doc = "Usage: %(prog)s query"
@@ -34,7 +34,7 @@ class TestReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_double(self):
         """Test replacing %%%(prog)s placeholder."""
-        from rhosocial.activerecord.backend.named_query.cli import (
+        from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
         doc = "Example: %%(prog)s"
@@ -43,7 +43,7 @@ class TestReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_default(self):
         """Test default prog value."""
-        from rhosocial.activerecord.backend.named_query.cli import (
+        from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
         doc = "Usage: %(prog)s"
@@ -51,8 +51,8 @@ class TestReplaceProgPlaceholder:
         assert "python -m rhosocial" in result
 
 
-class TestCreateNamedQueryParser:
-    """Tests for create_named_query_parser function."""
+class TestCreateNamedExpressionParser:
+    """Tests for create_named_expression_parser function."""
 
     @pytest.fixture
     def parser_setup(self):
@@ -66,21 +66,21 @@ class TestCreateNamedQueryParser:
     def test_create_parser(self, parser_setup):
         """Test creating the parser."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         assert parser is not None
         assert isinstance(parser, argparse.ArgumentParser)
 
     def test_parser_has_qualified_name(self, parser_setup):
         """Test parser has qualified_name argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db"])
         assert args.qualified_name == "myapp.queries.test"
 
     def test_parser_has_example(self, parser_setup):
         """Test parser has --example/-e argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             ["myapp.queries.test", "--db-file", "test.db", "-e", "test"]
         )
@@ -89,7 +89,7 @@ class TestCreateNamedQueryParser:
     def test_parser_has_describe(self, parser_setup):
         """Test parser has --describe argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             ["myapp.queries.test", "--db-file", "test.db", "--describe"]
         )
@@ -98,7 +98,7 @@ class TestCreateNamedQueryParser:
     def test_parser_has_dry_run(self, parser_setup):
         """Test parser has --dry-run argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             ["myapp.queries.test", "--db-file", "test.db", "--dry-run"]
         )
@@ -107,7 +107,7 @@ class TestCreateNamedQueryParser:
     def test_parser_has_list(self, parser_setup):
         """Test parser has --list argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             ["myapp.queries.test", "--db-file", "test.db", "--list"]
         )
@@ -116,7 +116,7 @@ class TestCreateNamedQueryParser:
     def test_parser_has_param(self, parser_setup):
         """Test parser has --param argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             [
                 "myapp.queries.test",
@@ -131,7 +131,7 @@ class TestCreateNamedQueryParser:
     def test_parser_has_force(self, parser_setup):
         """Test parser has --force argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             ["myapp.queries.test", "--db-file", "test.db", "--force"]
         )
@@ -140,7 +140,7 @@ class TestCreateNamedQueryParser:
     def test_parser_has_explain(self, parser_setup):
         """Test parser has --explain argument."""
         parent, subparsers = parser_setup
-        parser = create_named_query_parser(subparsers, parent)
+        parser = create_named_expression_parser(subparsers, parent)
         args = parser.parse_args(
             ["myapp.queries.test", "--db-file", "test.db", "--explain"]
         )
@@ -178,8 +178,8 @@ class TestParseParams:
         assert result == {}
 
 
-class TestHandleNamedQueryList:
-    """Tests for handle_named_query with --list option."""
+class TestHandleNamedExpressionList:
+    """Tests for handle_named_expression with --list option."""
 
     def test_list_queries(self):
         """Test listing queries in a module."""
@@ -193,11 +193,12 @@ class TestHandleNamedQueryList:
             force=False,
             explain=False,
             rich_ascii=False,
+            no_probe=False,
         )
 
         provider = MagicMock()
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli.list_named_queries_in_module",
+            "rhosocial.activerecord.backend.named_expression.cli.list_named_expressions_in_module",
             return_value=[
                 {
                     "name": "active_users",
@@ -208,7 +209,7 @@ class TestHandleNamedQueryList:
                 }
             ],
         ):
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 lambda: None,
@@ -228,11 +229,12 @@ class TestHandleNamedQueryList:
             force=False,
             explain=False,
             rich_ascii=False,
+            no_probe=False,
         )
 
         provider = MagicMock()
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli.list_named_queries_in_module",
+            "rhosocial.activerecord.backend.named_expression.cli.list_named_expressions_in_module",
             return_value=[
                 {
                     "name": "active_users",
@@ -243,7 +245,7 @@ class TestHandleNamedQueryList:
                 }
             ],
         ):
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 lambda: None,
@@ -263,23 +265,21 @@ class TestHandleNamedQueryList:
             force=False,
             explain=False,
             rich_ascii=False,
+            no_probe=False,
         )
 
         provider = MagicMock()
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli.list_named_queries_in_module",
+            "rhosocial.activerecord.backend.named_expression.cli.list_named_expressions_in_module",
             return_value=[
                 {
                     "name": "active_users",
                     "is_class": False,
-                    "signature": "(dialect, limit: int = 100)",
-                    "docstring": "Get active users.",
-                    "brief": "Get active users.",
                 }
             ],
         ):
             with pytest.raises(SystemExit):
-                handle_named_query(
+                handle_named_expression(
                     args,
                     provider,
                     lambda: None,
@@ -288,8 +288,8 @@ class TestHandleNamedQueryList:
                 )
 
 
-class TestHandleNamedQueryDescribe:
-    """Tests for handle_named_query with --describe option."""
+class TestHandleNamedExpressionDescribe:
+    """Tests for handle_named_expression with --describe option."""
 
     def test_describe_query(self):
         """Test showing query description."""
@@ -323,10 +323,10 @@ class TestHandleNamedQueryDescribe:
         }
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.cli.NamedQueryResolver",
+            "rhosocial.activerecord.backend.named_expression.cli.NamedExpressionResolver",
             return_value=mock_resolver,
         ):
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 lambda: None,
@@ -335,7 +335,7 @@ class TestHandleNamedQueryDescribe:
             )
 
 
-class TestHandleNamedQueryExecute:
+class TestHandleNamedExpressionExecute:
     """Tests for normal query execution."""
 
     def test_execute_error_handling(self, capsys):
@@ -358,7 +358,7 @@ class TestHandleNamedQueryExecute:
             raise RuntimeError("Connection failed")
 
         with pytest.raises(SystemExit):
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 fail_backend_factory,
@@ -367,8 +367,8 @@ class TestHandleNamedQueryExecute:
             )
 
 
-class TestHandleNamedQueryExecuteForce:
-    """Tests for handle_named_query with --force option."""
+class TestHandleNamedExpressionExecuteForce:
+    """Tests for handle_named_expression with --force option."""
 
     def test_force_argument_in_namespace(self):
         """Test force is in namespace for execute checks."""
@@ -394,7 +394,7 @@ class TestHandleNamedQueryExecuteForce:
         assert args.explain is True
 
 
-class TestHandleNamedQueryAsync:
+class TestHandleNamedExpressionAsync:
     """Tests for async execution path."""
 
     def test_async_execution_requires_backend(self, capsys):
@@ -415,7 +415,7 @@ class TestHandleNamedQueryAsync:
         provider = MagicMock()
 
         with pytest.raises(SystemExit) as exc_info:
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 lambda: None,
@@ -428,12 +428,12 @@ class TestHandleNamedQueryAsync:
 
 
 class TestCliListMode:
-    """Tests for --list mode in handle_named_query."""
+    """Tests for --list mode in handle_named_expression."""
 
     def test_handle_list_mode_with_queries(self, capsys):
         """Test --list with queries in module."""
-        from rhosocial.activerecord.backend.named_query.resolver import (
-            list_named_queries_in_module,
+        from rhosocial.activerecord.backend.named_expression.resolver import (
+            list_named_expressions_in_module,
         )
         import sys
         from types import ModuleType
@@ -452,7 +452,7 @@ class TestCliListMode:
         sys.modules["test_module_list"] = test_module
 
         try:
-            queries = list_named_queries_in_module("test_module_list")
+            queries = list_named_expressions_in_module("test_module_list")
             assert len(queries) == 2
             names = [q["name"] for q in queries]
             assert "query1" in names
@@ -461,9 +461,9 @@ class TestCliListMode:
             del sys.modules["test_module_list"]
 
     def test_list_named_queries_empty_module(self):
-        """Test list_named_queries_in_module with no valid queries."""
-        from rhosocial.activerecord.backend.named_query.resolver import (
-            list_named_queries_in_module,
+        """Test list_named_expressions_in_module with no valid queries."""
+        from rhosocial.activerecord.backend.named_expression.resolver import (
+            list_named_expressions_in_module,
         )
         import sys
         from types import ModuleType
@@ -478,18 +478,18 @@ class TestCliListMode:
         sys.modules["test_empty_module"] = test_module
 
         try:
-            queries = list_named_queries_in_module("test_empty_module")
+            queries = list_named_expressions_in_module("test_empty_module")
             assert len(queries) == 0
         finally:
             del sys.modules["test_empty_module"]
 
 
 class TestCliDescribeMode:
-    """Tests for --describe mode in handle_named_query."""
+    """Tests for --describe mode in handle_named_expression."""
 
     def test_handle_describe_mode(self, capsys):
         """Test --describe shows query info."""
-        from rhosocial.activerecord.backend.named_query.resolver import NamedQueryResolver
+        from rhosocial.activerecord.backend.named_expression.resolver import NamedExpressionResolver
         import sys
         from types import ModuleType
 
@@ -504,7 +504,7 @@ class TestCliDescribeMode:
         sys.modules["test_describe_module"] = test_module
 
         try:
-            resolver = NamedQueryResolver("test_describe_module.described_query").load()
+            resolver = NamedExpressionResolver("test_describe_module.described_query").load()
             info = resolver.describe()
             assert info["qualified_name"] == "test_describe_module.described_query"
             assert "described query" in info["docstring"]
@@ -518,28 +518,28 @@ class TestCliDryRunMode:
 
     def test_parse_params_empty(self):
         """Test parse_params with empty list."""
-        from rhosocial.activerecord.backend.named_query.cli import parse_params
+        from rhosocial.activerecord.backend.named_expression.cli import parse_params
 
         result = parse_params([])
         assert result == {}
 
     def test_parse_params_valid(self):
         """Test parse_params with valid params."""
-        from rhosocial.activerecord.backend.named_query.cli import parse_params
+        from rhosocial.activerecord.backend.named_expression.cli import parse_params
 
         result = parse_params(["limit=100", "status=active"])
         assert result == {"limit": "100", "status": "active"}
 
     def test_parse_params_with_equals_in_value(self):
         """Test parse_params with = in value."""
-        from rhosocial.activerecord.backend.named_query.cli import parse_params
+        from rhosocial.activerecord.backend.named_expression.cli import parse_params
 
         result = parse_params(["url=http://example.com?a=1&b=2"])
         assert result == {"url": "http://example.com?a=1&b=2"}
 
     def test_parse_params_invalid_format(self, capsys):
         """Test parse_params with invalid format."""
-        from rhosocial.activerecord.backend.named_query.cli import parse_params
+        from rhosocial.activerecord.backend.named_expression.cli import parse_params
 
         result = parse_params(["invalid"])
         assert result == {}
@@ -548,13 +548,13 @@ class TestCliDryRunMode:
 
 
 class TestCliErrorHandling:
-    """Tests for error handling in handle_named_query."""
+    """Tests for error handling in handle_named_expression."""
 
-    def test_handle_named_query_module_not_found(self, capsys):
+    def test_handle_named_expression_module_not_found(self, capsys):
         """Test handles module not found error."""
-        from rhosocial.activerecord.backend.named_query.resolver import NamedQueryResolver
-        from rhosocial.activerecord.backend.named_query.exceptions import (
-            NamedQueryModuleNotFoundError,
+        from rhosocial.activerecord.backend.named_expression.resolver import NamedExpressionResolver
+        from rhosocial.activerecord.backend.named_expression.exceptions import (
+            NamedExpressionModuleNotFoundError,
         )
 
         args = Namespace(
@@ -573,7 +573,7 @@ class TestCliErrorHandling:
         provider = MagicMock()
 
         with pytest.raises(SystemExit) as exc_info:
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 lambda: None,
@@ -589,7 +589,7 @@ class TestCliForceMode:
 
     def test_force_allows_non_select(self):
         """Test --force allows non-SELECT execution."""
-        from rhosocial.activerecord.backend.named_query.cli import parse_params
+        from rhosocial.activerecord.backend.named_expression.cli import parse_params
         from rhosocial.activerecord.backend.schema import StatementType
         from unittest.mock import MagicMock
 
@@ -663,7 +663,7 @@ class TestCliAsyncMode:
         provider = MagicMock()
 
         with pytest.raises(SystemExit) as exc_info:
-            handle_named_query(
+            handle_named_expression(
                 args,
                 provider,
                 lambda: None,
@@ -680,7 +680,7 @@ class TestCliReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_with_placeholder(self):
         """Test replacing %(prog)s placeholder."""
-        from rhosocial.activerecord.backend.named_query.cli import (
+        from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
 
@@ -690,7 +690,7 @@ class TestCliReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_without_placeholder(self):
         """Test without placeholder returns unchanged."""
-        from rhosocial.activerecord.backend.named_query.cli import (
+        from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
 
@@ -700,7 +700,7 @@ class TestCliReplaceProgPlaceholder:
 
     def test_replace_prog_placeholder_double_percent(self):
         """Test replacing %%(prog)s placeholder."""
-        from rhosocial.activerecord.backend.named_query.cli import (
+        from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
 
@@ -714,8 +714,8 @@ class TestCliExampleMode:
 
     def test_handle_example_with_matching_query(self, capsys):
         """Test --example with matching query."""
-        from rhosocial.activerecord.backend.named_query.resolver import (
-            list_named_queries_in_module,
+        from rhosocial.activerecord.backend.named_expression.resolver import (
+            list_named_expressions_in_module,
         )
         import sys
         from types import ModuleType
@@ -731,7 +731,7 @@ class TestCliExampleMode:
         sys.modules["test_example_module"] = test_module
 
         try:
-            queries = list_named_queries_in_module("test_example_module")
+            queries = list_named_expressions_in_module("test_example_module")
             assert len(queries) == 1
             assert queries[0]["name"] == "my_query"
             assert "limit" in queries[0]["signature"]

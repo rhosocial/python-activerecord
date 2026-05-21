@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/cli_procedure.py
+# src/rhosocial/activerecord/backend/named_expression/cli_procedure.py
 """
 CLI utilities for named procedure functionality.
 
@@ -50,7 +50,7 @@ import inspect
 import sys
 from typing import Any, Callable, List, Optional
 
-from .exceptions import NamedQueryError
+from .exceptions import NamedExpressionError
 from .procedure import ProcedureRunner, TransactionMode
 
 
@@ -73,7 +73,7 @@ def list_named_procedures_in_module(module_name: str) -> List[dict]:
     try:
         module = importlib.import_module(module_name)
     except ModuleNotFoundError as e:
-        raise NamedQueryError(f"Module not found: {module_name}. {e}") from e
+        raise NamedExpressionError(f"Module not found: {module_name}. {e}") from e
 
     from .procedure import Procedure
 
@@ -241,9 +241,9 @@ def handle_named_procedure(
                     try:
                         importlib.import_module(module_name)
                     except ModuleNotFoundError:
-                        raise NamedQueryError(f"Module not found: {module_name}")
+                        raise NamedExpressionError(f"Module not found: {module_name}")
                 else:
-                    raise NamedQueryError(f"Module not found: {module_name}")
+                    raise NamedExpressionError(f"Module not found: {module_name}")
 
             procedures = list_named_procedures_in_module(module_name)
 
@@ -259,7 +259,7 @@ def handle_named_procedure(
                 brief = p["brief"][:17] + "..." if len(p["brief"]) > 20 else p["brief"]
                 print(f"{p['name']:<30} {params:<50} {brief:<20}")
 
-        except NamedQueryError as e:
+        except NamedExpressionError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
         return
@@ -275,7 +275,7 @@ def handle_named_procedure(
             for pname, pinfo in info["parameters"].items():
                 default_str = f" = {pinfo['default']}" if pinfo["has_default"] else " (required)"
                 print(f"  {pname} {pinfo['annotation']}{default_str}")
-        except NamedQueryError as e:
+        except NamedExpressionError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
         return
@@ -334,7 +334,7 @@ def handle_named_procedure(
 
             print(f"[OK] Procedure completed. Outputs: {len(result.outputs)}, Logs: {len(result.logs)}")
 
-        except NamedQueryError as e:
+        except NamedExpressionError as e:
             print(f"Error: {e}", file=sys.stderr)
             sys.exit(1)
         except Exception as e:
@@ -393,7 +393,7 @@ def handle_named_procedure(
 
         print(f"[OK] Procedure completed. Outputs: {len(result.outputs)}, Logs: {len(result.logs)}")
 
-    except NamedQueryError as e:
+    except NamedExpressionError as e:
         print(f"Error: {e}", file=sys.stderr)
         sys.exit(1)
     except Exception as e:

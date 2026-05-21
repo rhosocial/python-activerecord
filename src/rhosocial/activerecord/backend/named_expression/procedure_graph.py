@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/procedure_graph.py
+# src/rhosocial/activerecord/backend/named_expression/procedure_graph.py
 """
 ProcedureGraph data model for declarative DAG-based procedures.
 
@@ -16,7 +16,7 @@ Key Design Principles:
     4. Named体系 consistency: Maps to NamedQuery/NamedConnection naming
 
 Usage:
-    >>> from rhosocial.activerecord.backend.named_query import (
+    >>> from rhosocial.activerecord.backend.named_expression import (
     ...     ProcedureGraph,
     ...     StepNode,
     ...     TransactionMode,

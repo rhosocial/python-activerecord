@@ -549,7 +549,7 @@ Key points:
 #### Execute a Named Query
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --db-file mydb.sqlite \
     --param status=pending
@@ -558,7 +558,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 #### Override Parameters
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --db-file mydb.sqlite \
     --param status=completed \
@@ -568,7 +568,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 #### Describe Query (Show Signature)
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --describe
 ```
@@ -586,7 +586,7 @@ Parameters (excluding 'dialect'):
 #### Preview SQL (Dry Run)
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.orders_by_status \
     --db-file mydb.sqlite \
     --param status=pending \
@@ -603,7 +603,7 @@ Params: ('pending', 100)
 #### List All Queries in a Module
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries \
     --list
 ```
@@ -635,7 +635,7 @@ class MonthlyRevenue:
 
 Execute:
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.MonthlyRevenue \
     --param month=3 \
     --param year=2026
@@ -655,7 +655,7 @@ Set PYTHONPATH to include your query modules:
 
 ```bash
 PYTHONPATH=src:examples python -m rhosocial.activerecord.backend.impl.sqlite \
-    named-query examples.named_queries.order_queries.orders_by_status \
+    named-expression examples.named_queries.order_queries.orders_by_status \
     --param status=pending
 ```
 
@@ -774,7 +774,7 @@ If you pass a parameter that the function doesn't expect, the resolver will dete
 
 ```bash
 # This will fail if 'filter' is not a valid parameter
-python -m ... named-query myapp.queries.orders --param filter=pending
+python -m ... named-expression myapp.queries.orders --param filter=pending
 ```
 
 Error output:
@@ -794,11 +794,11 @@ The resolver checks parameters against the function signature before execution, 
 
 ```bash
 # List all queries in a module
-python -m ... named-query myapp.queries --list
+python -m ... named-expression myapp.queries --list
 
 # Show details for a specific query (two ways)
-python -m ... named-query myapp.queries.query_name --list
-python -m ... named-query myapp.queries --example query_name
+python -m ... named-expression myapp.queries.query_name --list
+python -m ... named-expression myapp.queries --example query_name
 ```
 
 Output from `--list`:

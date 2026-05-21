@@ -12,7 +12,7 @@
 #   query          - Execute SQL queries
 #   introspect     - Database introspection
 #   status         - Display server status
-#   named-query    - Execute named queries
+#   named-expression    - Execute named queries
 #   named-procedure - Execute named procedures
 #   named-procedure-graph - Execute procedure graphs
 #   named-connection - Manage named connections
@@ -243,35 +243,35 @@ run_status() {
         all -o json
 }
 
-# Command: named-query
+# Command: named-expression
 run_named_query() {
     echo ""
     echo "=========================================="
-    echo "Command: named-query"
+    echo "Command: named-expression"
     echo "=========================================="
     echo ""
 
     MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries"
 
     echo "--- List all queries in module ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query "$MODULE" --list
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE" --list
 
     echo ""
     echo "--- Describe a query ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
         --describe
 
     echo ""
     echo "--- Dry run (show SQL) ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
         --dry-run \
         --param order_id=1
 
     echo ""
     echo "--- Execute with parameters ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
         --param order_id=1
 }
@@ -398,7 +398,7 @@ case "$COMMAND" in
         init_test_db
         run_status
         ;;
-    named-query)
+    named-expression)
         run_named_query
         ;;
     named-procedure)
@@ -427,7 +427,7 @@ case "$COMMAND" in
         ;;
     *)
         echo "Unknown command: $COMMAND"
-        echo "Available commands: info, query, introspect, status, named-query, named-procedure, named-procedure-graph, named-connection, all"
+        echo "Available commands: info, query, introspect, status, named-expression, named-procedure, named-procedure-graph, named-connection, all"
         exit 1
         ;;
 esac

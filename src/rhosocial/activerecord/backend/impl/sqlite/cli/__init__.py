@@ -5,7 +5,7 @@ import importlib
 
 COMMAND_NAMES = [
     'info', 'query', 'introspect', 'status',
-    'named-query', 'named-procedure', 'named-procedure-graph',
+    'named-expression', 'named-procedure', 'named-procedure-graph',
     'named-connection',
 ]
 
@@ -20,7 +20,7 @@ def register_commands(subparsers):
     from .query import create_parser as query_parser
     from .introspect import create_parser as introspect_parser
     from .status import create_parser as status_parser
-    from .named_query import create_parser as nq_parser
+    from .named_expression import create_parser as ne_parser
     from .named_procedure import create_parser as np_parser
     from .named_procedure_graph import create_parser as npg_parser
     from .named_connection import create_parser as nc_parser
@@ -29,7 +29,7 @@ def register_commands(subparsers):
     query_parser(subparsers)
     introspect_parser(subparsers)
     status_parser(subparsers)
-    nq_parser(subparsers)
+    ne_parser(subparsers)
     np_parser(subparsers)
     npg_parser(subparsers)
     nc_parser(subparsers)
@@ -39,7 +39,7 @@ def get_handler(command_name: str):
     """Get the handler function for a subcommand.
 
     Args:
-        command_name: Subcommand name (e.g. 'info', 'named-query')
+        command_name: Subcommand name (e.g. 'info', 'named-expression')
 
     Returns:
         The corresponding handle function

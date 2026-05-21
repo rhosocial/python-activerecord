@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/conftest.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/conftest.py
 """
 Test fixtures for named query tests.
 

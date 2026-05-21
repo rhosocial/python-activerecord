@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/diagram.py
+# src/rhosocial/activerecord/backend/named_expression/diagram.py
 """
 Procedure diagram visualization support.
 

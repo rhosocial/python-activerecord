@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/test_procedure_diagram.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/test_procedure_diagram.py
 """
 Tests for procedure execution diagrams:
 - _DryRunContext / _AsyncDryRunContext
@@ -13,12 +13,12 @@ from unittest.mock import MagicMock
 
 import pytest
 
-from rhosocial.activerecord.backend.named_query.diagram import (
+from rhosocial.activerecord.backend.named_expression.diagram import (
     ProcedureDiagram,
     _AsyncDryRunContext,
     _DryRunContext,
 )
-from rhosocial.activerecord.backend.named_query.procedure import (
+from rhosocial.activerecord.backend.named_expression.procedure import (
     AsyncProcedure,
     AsyncProcedureContext,
     ParallelStep,

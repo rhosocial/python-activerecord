@@ -12,7 +12,7 @@
 #   query        Run query command examples
 #   introspect   Run introspect command examples
 #   status       Run status command examples
-#   named-query  Run named query examples (using dry-run)
+#   named-expression  Run named query examples (using dry-run)
 #   named-procedure  Run named procedure examples (using dry-run)
 
 set -e
@@ -233,31 +233,31 @@ run_named_query_examples() {
     MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries"
     
     echo "--- List all named queries ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query "$MODULE" --list
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE" --list
     
     echo ""
     echo "--- Describe get_order query ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
         --describe
     
     echo ""
     echo "--- Dry-run: Show generated SQL without executing ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
         --dry-run \
         --param order_id=1
     
     echo ""
     echo "--- Dry-run: Check inventory query ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.check_inventory" \
         --dry-run \
         --param order_id=1
     
     echo ""
     echo "--- Execute (uses module's internal database with sample data) ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
         --param order_id=1
     
@@ -340,7 +340,7 @@ case "$MODE" in
     status)
         run_status_examples
         ;;
-    named-query)
+    named-expression)
         run_named_query_examples
         ;;
     named-procedure)
@@ -348,7 +348,7 @@ case "$MODE" in
         ;;
     *)
         echo "Unknown mode: $MODE"
-        echo "Available modes: all, query, introspect, status, named-query, named-procedure"
+        echo "Available modes: all, query, introspect, status, named-expression, named-procedure"
         exit 1
         ;;
 esac

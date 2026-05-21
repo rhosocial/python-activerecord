@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/test_procedure.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/test_procedure.py
 """
 Tests for named procedure functionality.
 
@@ -13,7 +13,7 @@ from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
-from rhosocial.activerecord.backend.named_query.procedure import (
+from rhosocial.activerecord.backend.named_expression.procedure import (
     Procedure,
     ProcedureContext,
     ProcedureRunner,
@@ -24,10 +24,10 @@ from rhosocial.activerecord.backend.named_query.procedure import (
     AsyncProcedureContext,
     AsyncProcedureRunner,
 )
-from rhosocial.activerecord.backend.named_query.exceptions import (
-    NamedQueryError,
+from rhosocial.activerecord.backend.named_expression.exceptions import (
+    NamedExpressionError,
 )
-from rhosocial.activerecord.backend.named_query.resolver import resolve_named_query
+from rhosocial.activerecord.backend.named_expression.resolver import resolve_named_expression
 
 
 class TestProcedureClass:
@@ -174,7 +174,7 @@ class TestProcedureContextAbort:
         """Test that abort raises an error."""
         ctx = ProcedureContext(mock_dialect, lambda *a: None)
 
-        with pytest.raises(NamedQueryError) as exc:
+        with pytest.raises(NamedExpressionError) as exc:
             ctx.abort("test_procedures.TestProc", "Test abort reason")
         assert "aborted" in str(exc.value).lower()
 
@@ -189,7 +189,7 @@ class TestProcedureRunnerInit:
 
     def test_invalid_qualified_name_no_dot(self):
         """Test initialization fails without dot."""
-        with pytest.raises(NamedQueryError) as exc:
+        with pytest.raises(NamedExpressionError) as exc:
             ProcedureRunner("NoProcedure")
         assert "Invalid qualified name" in str(exc.value)
 
@@ -221,7 +221,7 @@ class TestProcedureRunnerLoad:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.NotAProcedure")
-            with pytest.raises(NamedQueryError) as exc:
+            with pytest.raises(NamedExpressionError) as exc:
                 runner.load()
             assert "must inherit from Procedure" in str(exc.value)
 
@@ -318,7 +318,7 @@ class TestProcedureRunnerRun:
     def test_run_rejects_async_backend(self, mock_dialect):
         """Test ProcedureRunner.run() rejects async backend."""
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.named_query import NamedQueryError
+        from rhosocial.activerecord.backend.named_expression import NamedExpressionError
 
         async_backend = MagicMock()
         async_backend.dialect = mock_dialect
@@ -340,7 +340,7 @@ class TestProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = ProcedureRunner("test_procedures.HelloProc").load()
-            with pytest.raises(NamedQueryError) as exc_info:
+            with pytest.raises(NamedExpressionError) as exc_info:
                 runner.run(async_backend, {"name": "Test"})
             assert "async execute method" in str(exc_info.value)
             assert "ProcedureRunner requires a sync backend" in str(exc_info.value)
@@ -450,7 +450,7 @@ class TestAsyncProcedureRunnerRun:
         """Test AsyncProcedureRunner.run() rejects sync backend."""
         import asyncio
         from unittest.mock import MagicMock
-        from rhosocial.activerecord.backend.named_query import NamedQueryError
+        from rhosocial.activerecord.backend.named_expression import NamedExpressionError
 
         sync_backend = MagicMock()
         sync_backend.dialect = MagicMock()
@@ -469,7 +469,7 @@ class TestAsyncProcedureRunnerRun:
 
         with patch("importlib.import_module", return_value=module):
             runner = AsyncProcedureRunner("test_procedures.HelloProc").load()
-            with pytest.raises(NamedQueryError) as exc_info:
+            with pytest.raises(NamedExpressionError) as exc_info:
                 await runner.run(sync_backend, {"name": "Test"})
             assert "sync execute method" in str(exc_info.value)
             assert "AsyncProcedureRunner requires an async backend" in str(exc_info.value)
@@ -522,7 +522,7 @@ class TestParallelStep:
 
     def test_parallel_step_creation(self):
         """Test ParallelStep can be created."""
-        from rhosocial.activerecord.backend.named_query.procedure import ParallelStep
+        from rhosocial.activerecord.backend.named_expression.procedure import ParallelStep
 
         step = ParallelStep("test.query", {"id": 1})
         assert step.qualified_name == "test.query"
@@ -530,7 +530,7 @@ class TestParallelStep:
 
     def test_parallel_step_with_bind(self):
         """Test ParallelStep with bind parameter."""
-        from rhosocial.activerecord.backend.named_query.procedure import ParallelStep
+        from rhosocial.activerecord.backend.named_expression.procedure import ParallelStep
 
         step = ParallelStep("test.query", {"id": 1}, bind="result", output=True)
         assert step.bind == "result"
@@ -538,7 +538,7 @@ class TestParallelStep:
 
     def test_parallel_step_defaults(self):
         """Test ParallelStep has correct defaults."""
-        from rhosocial.activerecord.backend.named_query.procedure import ParallelStep
+        from rhosocial.activerecord.backend.named_expression.procedure import ParallelStep
 
         step = ParallelStep("test.query")
         assert step.params == {}
@@ -600,7 +600,7 @@ class TestBaseProcedureRunner:
 
     def test_base_runner_parses_qualified_name(self):
         """Test _BaseProcedureRunner parses qualified name."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             _BaseProcedureRunner,
         )
 
@@ -610,17 +610,17 @@ class TestBaseProcedureRunner:
 
     def test_base_runner_invalid_qualified_name(self):
         """Test invalid qualified name raises error."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             _BaseProcedureRunner,
         )
-        from rhosocial.activerecord.backend.named_query.exceptions import NamedQueryError
+        from rhosocial.activerecord.backend.named_expression.exceptions import NamedExpressionError
 
-        with pytest.raises(NamedQueryError):
+        with pytest.raises(NamedExpressionError):
             _BaseProcedureRunner("invalid")
 
     def test_sync_runner_inherits_from_base(self):
         """Test ProcedureRunner inherits from _BaseProcedureRunner."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureRunner,
             _BaseProcedureRunner,
         )
@@ -629,7 +629,7 @@ class TestBaseProcedureRunner:
 
     def test_async_runner_inherits_from_base(self):
         """Test AsyncProcedureRunner inherits from _BaseProcedureRunner."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             AsyncProcedureRunner,
             _BaseProcedureRunner,
         )
@@ -642,7 +642,7 @@ class TestProcedureContextParallel:
 
     def test_parallel_empty_steps(self):
         """Test parallel with no steps returns empty list."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureContext,
             ParallelStep,
         )
@@ -659,7 +659,7 @@ class TestProcedureContextParallel:
 
     def test_parallel_single_step(self):
         """Test parallel with single step."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureContext,
             ParallelStep,
         )
@@ -681,7 +681,7 @@ class TestProcedureContextParallel:
 
     def test_parallel_multiple_steps_serial(self):
         """Test parallel with multiple steps (limit=1 forces serial)."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureContext,
             ParallelStep,
         )
@@ -706,7 +706,7 @@ class TestProcedureContextParallel:
 
     def test_parallel_max_concurrency(self):
         """Test parallel respects max_concurrency."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureContext,
             ParallelStep,
         )
@@ -736,7 +736,7 @@ class TestProcedureResultDiagram:
 
     def test_procedure_result_diagram_flowchart(self):
         """Test ProcedureResult.diagram generates flowchart."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureResult,
             TraceEntry,
             StepKind,
@@ -756,7 +756,7 @@ class TestProcedureResultDiagram:
 
     def test_procedure_result_diagram_sequence(self):
         """Test ProcedureResult.diagram generates sequence diagram."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             ProcedureResult,
             TraceEntry,
             StepKind,
@@ -780,7 +780,7 @@ class TestProcedureStaticDiagram:
 
     def test_static_diagram_flowchart(self):
         """Test Procedure.static_diagram generates flowchart."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         diagram = Procedure.static_diagram("flowchart", dialect=None)
         assert diagram is not None
@@ -788,7 +788,7 @@ class TestProcedureStaticDiagram:
 
     def test_static_diagram_sequence(self):
         """Test Procedure.static_diagram generates sequence diagram."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         diagram = Procedure.static_diagram("sequence", dialect=None)
         assert diagram is not None
@@ -796,7 +796,7 @@ class TestProcedureStaticDiagram:
 
     def test_static_diagram_invalid_kind(self):
         """Test static_diagram with invalid kind raises."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         with pytest.raises(ValueError, match="Unknown diagram kind"):
             Procedure.static_diagram("invalid_kind", dialect=None)
@@ -808,7 +808,7 @@ class TestAsyncProcedureContextParallel:
     @pytest.mark.asyncio
     async def test_async_parallel_empty_steps(self):
         """Test async parallel with no steps returns empty list."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             AsyncProcedureContext,
             ParallelStep,
         )
@@ -826,7 +826,7 @@ class TestAsyncProcedureContextParallel:
     @pytest.mark.asyncio
     async def test_async_parallel_multiple_steps(self):
         """Test async parallel with multiple steps."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             AsyncProcedureContext,
             ParallelStep,
         )
@@ -854,7 +854,7 @@ class TestProcedureGetParameters:
 
     def test_get_parameters_required_only(self):
         """Test get_parameters with required parameters only."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         class MonthlyReport(Procedure):
             month: str
@@ -868,7 +868,7 @@ class TestProcedureGetParameters:
 
     def test_get_parameters_with_defaults(self):
         """Test get_parameters with optional parameters."""
-        from rhosocial.activerecord.backend.named_query.procedure import Procedure
+        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         class ConfigProcedure(Procedure):
             enabled: bool = True
@@ -886,7 +886,7 @@ class TestAsyncProcedureGetParameters:
 
     def test_async_procedure_get_parameters(self):
         """Test AsyncProcedure.get_parameters works."""
-        from rhosocial.activerecord.backend.named_query.procedure import AsyncProcedure
+        from rhosocial.activerecord.backend.named_expression.procedure import AsyncProcedure
 
         class AsyncReport(AsyncProcedure):
             month: str
@@ -904,7 +904,7 @@ class TestResolveConcurrency:
 
     def test_resolve_concurrency_user_override(self):
         """Test user max_concurrency overrides backend hint."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             _resolve_concurrency,
         )
 
@@ -913,7 +913,7 @@ class TestResolveConcurrency:
 
     def test_resolve_concurrency_no_backend(self):
         """Test returns None when no backend."""
-        from rhosocial.activerecord.backend.named_query.procedure import (
+        from rhosocial.activerecord.backend.named_expression.procedure import (
             _resolve_concurrency,
         )
 

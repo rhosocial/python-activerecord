@@ -1,54 +1,54 @@
-# src/rhosocial/activerecord/backend/named_query/exceptions.py
+# src/rhosocial/activerecord/backend/named_expression/exceptions.py
 """
-Custom exceptions for named query functionality.
+Custom exceptions for named expression functionality.
 
-This module defines all exception types that can be raised during named query
+This module defines all exception types that can be raised during named expression
 resolution and execution. Each exception includes detailed information about
 the error condition and helpful suggestions for resolution.
 
 Exception Hierarchy:
-    NamedQueryError (base)
-    ├── NamedQueryNotFoundError
-    ├── NamedQueryModuleNotFoundError
-    ├── NamedQueryInvalidReturnTypeError
-    ├── NamedQueryInvalidParameterError
-    ├── NamedQueryMissingParameterError
-    ├── NamedQueryNotCallableError
-    └── NamedQueryExplainNotAllowedError
+    NamedExpressionError (base)
+    ├── NamedExpressionNotFoundError
+    ├── NamedExpressionModuleNotFoundError
+    ├── NamedExpressionInvalidReturnTypeError
+    ├── NamedExpressionInvalidParameterError
+    ├── NamedExpressionMissingParameterError
+    ├── NamedExpressionNotCallableError
+    └── NamedExpressionExplainNotAllowedError
 
 Usage:
     >>> try:
-    ...     resolver = NamedQueryResolver("myapp.queries.user_active").load()
-    ... except NamedQueryModuleNotFoundError as e:
+    ...     resolver = NamedExpressionResolver("myapp.queries.user_active").load()
+    ... except NamedExpressionModuleNotFoundError as e:
     ...     print(f"Module error: {e}")
-    ... except NamedQueryNotFoundError as e:
-    ...     print(f"Query not found: {e}")
+    ... except NamedExpressionNotFoundError as e:
+    ...     print(f"Expression not found: {e}")
 """
 from typing import List
 
 
-class NamedQueryError(Exception):
-    """Base exception for all named query errors.
+class NamedExpressionError(Exception):
+    """Base exception for all named expression errors.
 
-    This is the root exception class from which all named-query-specific
+    This is the root exception class from which all named-expression-specific
     exceptions inherit. It provides the basic interface for error handling
-    across the named query system.
+    across the named expression system.
 
     Attributes:
         message: The error message describing what went wrong.
 
     Example:
         >>> try:
-        ...     # some named query operation
-        ... except NamedQueryError as e:
-        ...     print(f"Named query error: {e}")
+        ...     # some named expression operation
+        ... except NamedExpressionError as e:
+        ...     print(f"Named expression error: {e}")
     """
 
     pass
 
 
-class NamedQueryNotFoundError(NamedQueryError):
-    """Raised when a named query callable cannot be found.
+class NamedExpressionNotFoundError(NamedExpressionError):
+    """Raised when a named expression callable cannot be found.
 
     This exception indicates that the specified qualified name does not
     exist as a callable attribute in the specified module. This can
@@ -65,7 +65,7 @@ class NamedQueryNotFoundError(NamedQueryError):
         qualified_name: The fully qualified name that was not found.
 
     Example:
-        >>> raise NamedQueryNotFoundError(
+        >>> raise NamedExpressionNotFoundError(
         ...     "myapp.queries.user_active",
         ...     "Check if the function is exported in __all__"
         ... )
@@ -73,13 +73,13 @@ class NamedQueryNotFoundError(NamedQueryError):
 
     def __init__(self, qualified_name: str, message: str = ""):
         self.qualified_name = qualified_name
-        error_msg = f"Named query not found: {qualified_name}"
+        error_msg = f"Named expression not found: {qualified_name}"
         if message:
             error_msg = f"{error_msg}. {message}"
         super().__init__(error_msg)
 
 
-class NamedQueryModuleNotFoundError(NamedQueryError):
+class NamedExpressionModuleNotFoundError(NamedExpressionError):
     """Raised when a module cannot be imported.
 
     This exception indicates that the specified module does not exist or
@@ -97,7 +97,7 @@ class NamedQueryModuleNotFoundError(NamedQueryError):
         module_name: The name of the module that was not found.
 
     Example:
-        >>> raise NamedQueryModuleNotFoundError(
+        >>> raise NamedExpressionModuleNotFoundError(
         ...     "myapp.queries",
         ...     "Ensure the package is installed or in PYTHONPATH"
         ... )
@@ -111,11 +111,11 @@ class NamedQueryModuleNotFoundError(NamedQueryError):
         super().__init__(error_msg)
 
 
-class NamedQueryInvalidReturnTypeError(NamedQueryError):
-    """Raised when a named query returns an invalid type.
+class NamedExpressionInvalidReturnTypeError(NamedExpressionError):
+    """Raised when a named expression returns an invalid type.
 
     This exception indicates that the callable returned a type that does
-    not implement BaseExpression. The named query system requires that
+    not extend BaseExpression. The named expression system requires that
     all callables return a BaseExpression object to ensure type safety
     and SQL injection prevention.
 
@@ -133,11 +133,11 @@ class NamedQueryInvalidReturnTypeError(NamedQueryError):
 
     Warning:
         This exception is raised for security reasons. Do not return
-        raw SQL strings from named query callables. If you need to
+        raw SQL strings from named expression callables. If you need to
         execute raw SQL, use the 'query' subcommand instead.
 
     Example:
-        >>> raise NamedQueryInvalidReturnTypeError(
+        >>> raise NamedExpressionInvalidReturnTypeError(
         ...     "myapp.queries.raw_sql",
         ...     "str",
         ...     "Use query subcommand for raw SQL"
@@ -148,7 +148,7 @@ class NamedQueryInvalidReturnTypeError(NamedQueryError):
         self.qualified_name = qualified_name
         self.actual_type = actual_type
         error_msg = (
-            f"Named query '{qualified_name}' returned {actual_type}, "
+            f"Named expression '{qualified_name}' returned {actual_type}, "
             f"not BaseExpression. Direct SQL strings are not allowed for safety. "
             f"Use 'query' subcommand for raw SQL execution."
         )
@@ -157,11 +157,11 @@ class NamedQueryInvalidReturnTypeError(NamedQueryError):
         super().__init__(error_msg)
 
 
-class NamedQueryInvalidParameterError(NamedQueryError):
+class NamedExpressionInvalidParameterError(NamedExpressionError):
     """Raised when a parameter is invalid or unknown.
 
     This exception indicates that an invalid or unknown parameter
-    was provided to the named query. This can happen due to:
+    was provided to the named expression. This can happen due to:
     - Typo in parameter name
     - Parameter not defined in the callable signature
     - Incorrect parameter type that cannot be converted
@@ -175,7 +175,7 @@ class NamedQueryInvalidParameterError(NamedQueryError):
         param_name: The name of the problematic parameter.
 
     Example:
-        >>> raise NamedQueryInvalidParameterError(
+        >>> raise NamedExpressionInvalidParameterError(
         ...     "user_id",
         ...     "Unknown parameter. Available: user_id, status"
         ... )
@@ -189,11 +189,11 @@ class NamedQueryInvalidParameterError(NamedQueryError):
         super().__init__(error_msg)
 
 
-class NamedQueryMissingParameterError(NamedQueryError):
+class NamedExpressionMissingParameterError(NamedExpressionError):
     """Raised when a required parameter is missing.
 
     This exception indicates that a required parameter was not
-    provided to the named query. The callable has a parameter that
+    provided to the named expression. The callable has a parameter that
     does not have a default value, so it must be provided.
 
     Args:
@@ -204,7 +204,7 @@ class NamedQueryMissingParameterError(NamedQueryError):
         param_name: The name of the missing parameter.
 
     Example:
-        >>> raise NamedQueryMissingParameterError(
+        >>> raise NamedExpressionMissingParameterError(
         ...     "user_id",
         ...     "Required parameter 'user_id' not provided"
         ... )
@@ -218,12 +218,12 @@ class NamedQueryMissingParameterError(NamedQueryError):
         super().__init__(error_msg)
 
 
-class NamedQueryNotCallableError(NamedQueryError):
+class NamedExpressionNotCallableError(NamedExpressionError):
     """Raised when the target is not callable.
 
     This exception indicates that the specified attribute exists
     but is not a callable (function, method, or class with __call__).
-    Only callable objects can be used as named queries.
+    Only callable objects can be used as named expressions.
 
     Args:
         qualified_name: The fully qualified name that is not callable.
@@ -233,7 +233,7 @@ class NamedQueryNotCallableError(NamedQueryError):
         qualified_name: The qualified name that is not callable.
 
     Example:
-        >>> raise NamedQueryNotCallableError(
+        >>> raise NamedExpressionNotCallableError(
         ...     "myapp.queries.user_active",
         ...     "Must be a function, method, or class with __call__"
         ... )
@@ -241,17 +241,17 @@ class NamedQueryNotCallableError(NamedQueryError):
 
     def __init__(self, qualified_name: str, message: str = ""):
         self.qualified_name = qualified_name
-        error_msg = f"Named query '{qualified_name}' is not callable"
+        error_msg = f"Named expression '{qualified_name}' is not callable"
         if message:
             error_msg = f"{error_msg}. {message}"
         super().__init__(error_msg)
 
 
-class NamedQueryExplainNotAllowedError(NamedQueryError):
-    """Raised when EXPLAIN query execution is not allowed.
+class NamedExpressionExplainNotAllowedError(NamedExpressionError):
+    """Raised when EXPLAIN expression execution is not allowed.
 
-    This exception indicates that an EXPLAIN query was attempted
-    to be executed without the proper flag. EXPLAIN queries
+    This exception indicates that an EXPLAIN expression was attempted
+    to be executed without the proper flag. EXPLAIN expressions
     should typically be run with --dry-run or --explain to show
     the execution plan without actually modifying data.
 
@@ -259,23 +259,23 @@ class NamedQueryExplainNotAllowedError(NamedQueryError):
         message: Optional custom error message.
 
     Warning:
-        EXPLAIN queries can return large result sets and may
+        EXPLAIN expressions can return large result sets and may
         have performance implications. Always use --dry-run first
-        to preview the query plan.
+        to preview the expression plan.
 
     Example:
-        >>> raise NamedQueryExplainNotAllowedError(
+        >>> raise NamedExpressionExplainNotAllowedError(
         ...     "EXPLAIN requires --explain or --dry-run flag"
         ... )
     """
 
     def __init__(
-        self, message: str = "EXPLAIN queries are not allowed for actual execution"
+        self, message: str = "EXPLAIN expressions are not allowed for actual execution"
     ):
         super().__init__(message)
 
 
-class ProcedureError(NamedQueryError):
+class ProcedureError(NamedExpressionError):
     """Base exception for named procedure errors."""
 
     pass

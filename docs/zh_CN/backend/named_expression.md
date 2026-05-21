@@ -102,7 +102,7 @@ CLI 适合快速测试、调试和 CI/CD 管道。它提供了几个有用的标
 
 **执行查询：**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users \
     --db-file mydb.sqlite \
     --param limit=10 \
@@ -112,7 +112,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 
 **Dry-run 模式（预览 SQL 但不执行）：**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users \
     --db-file mydb.sqlite --dry-run
 ```
@@ -125,21 +125,21 @@ Params: ('active', 100)
 
 **描述查询（查看签名但不执行）：**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users --describe
 ```
 显示函数签名、参数类型和文档字符串，无需连接数据库。
 
 **列出模块中的所有查询：**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users --list
 ```
 可用于发现模块中可用的命名查询。
 
 **执行 EXPLAIN 计划：**
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
     myapp.queries.users.active_users \
     --db-file mydb.sqlite \
     --explain \
@@ -153,14 +153,14 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 
 **一步式方法（快速）：**
 ```python
-from rhosocial.activerecord.backend.named_query import resolve_named_query
+from rhosocial.activerecord.backend.named_expression import resolve_named_expression
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 
 backend = SQLiteBackend(database="mydb.sqlite")
 dialect = backend.dialect
 
 # 一步完成解析、生成 SQL 和执行
-expr, sql, params = resolve_named_query(
+expr, sql, params = resolve_named_expression(
     "myapp.queries.users.active_users",
     dialect,
     {"limit": 50, "status": "active"},
@@ -171,7 +171,7 @@ print("生成的 SQL:", sql)
 
 **分步方法（灵活）：**
 ```python
-from rhosocial.activerecord.backend.named_query import NamedQueryResolver
+from rhosocial.activerecord.backend.named_expression import NamedQueryResolver
 
 # 加载命名查询解析器
 resolver = NamedQueryResolver("myapp.queries.users.active_users").load()
@@ -205,7 +205,7 @@ jobs:
       - run: pip install -e .
       - name: 静态验证
         run: |
-          python -m rhosocial.activerecord.backend.impl.sqlite named-query \
+          python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
             myapp.queries.users.active_users \
             --db-file :memory: --dry-run \
             --param limit=100 --param status=active
@@ -236,7 +236,7 @@ jobs:
 命名过程通过继承 `Procedure`（同步）或 `AsyncProcedure`（异步）来定义。类将参数定义为类属性，并实现 `run()` 方法：
 
 ```python
-from rhosocial.activerecord.backend.named_query import Procedure, ProcedureContext
+from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext
 
 class MonthlyCleanupProcedure(Procedure):
     """月度订单归档清理过程。"""
@@ -296,7 +296,7 @@ class MonthlyCleanupProcedure(Procedure):
 对于可以并发运行的独立子任务，使用 `ctx.parallel()`：
 
 ```python
-from rhosocial.activerecord.backend.named_query import Procedure, ProcedureContext, ParallelStep
+from rhosocial.activerecord.backend.named_expression import Procedure, ProcedureContext, ParallelStep
 
 class OrderProcessingProcedure(Procedure):
     order_id: int
@@ -388,7 +388,7 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
 #### 程序化 API
 
 ```python
-from rhosocial.activerecord.backend.named_query import (
+from rhosocial.activerecord.backend.named_expression import (
     ProcedureRunner, TransactionMode, ProcedureResult,
 )
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
@@ -426,7 +426,7 @@ for entry in result.logs:
 对于异步 Web 框架，使用 `AsyncProcedure` 和 `AsyncProcedureRunner`：
 
 ```python
-from rhosocial.activerecord.backend.named_query import AsyncProcedure, AsyncProcedureContext
+from rhosocial.activerecord.backend.named_expression import AsyncProcedure, AsyncProcedureContext
 
 class MonthlyCleanupAsyncProcedure(AsyncProcedure):
     month: str = "2026-03"
@@ -453,7 +453,7 @@ class MonthlyCleanupAsyncProcedure(AsyncProcedure):
 ```python
 # FastAPI endpoint
 from fastapi import FastAPI
-from rhosocial.activerecord.backend.named_query import AsyncProcedureRunner, TransactionMode
+from rhosocial.activerecord.backend.named_expression import AsyncProcedureRunner, TransactionMode
 from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
 app = FastAPI()
@@ -510,7 +510,7 @@ async def run_cleanup(month: str):
 生成流程图而不执行过程——用于文档和规划：
 
 ```python
-from rhosocial.activerecord.backend.named_query import Procedure
+from rhosocial.activerecord.backend.named_expression import Procedure
 
 # 流程图格式
 print(MyProcedure.static_diagram("flowchart"))
@@ -524,7 +524,7 @@ print(MyProcedure.static_diagram("sequence"))
 执行过程后，生成显示实际执行状态和时间的流程图：
 
 ```python
-from rhosocial.activerecord.backend.named_query import ProcedureRunner
+from rhosocial.activerecord.backend.named_expression import ProcedureRunner
 
 runner = ProcedureRunner("myapp.procedures.OrderProcessing").load()
 result = runner.run(backend)
@@ -565,7 +565,7 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 ### 命名查询 API
 
 - `NamedQueryResolver` - 用于加载和执行命名查询的主解析器类
-- `resolve_named_query()` - 一步式解析和执行的便捷函数
+- `resolve_named_expression()` - 一步式解析和执行的便捷函数
 - `list_named_queries_in_module()` - 发现模块中的所有查询
 
 ### 命名过程 API
@@ -597,7 +597,7 @@ print(result.diagram("sequence", procedure_name="OrderProcessing"))
 
 | 示例 | 说明 |
 |------|------|
-| `cli/named_query_demo.py` | 演示所有命名查询 CLI 操作（列出、描述、dry-run、执行） |
+| `cli/named_expression_demo.py` | 演示所有命名查询 CLI 操作（列出、描述、dry-run、执行） |
 | `cli/named_procedure_demo.py` | 演示所有命名过程 CLI 操作（列出、描述、dry-run、执行、事务模式） |
 | `cli/named_connection_demo.py` | 演示命名连接 CLI 操作 |
 
@@ -614,7 +614,7 @@ PYTHONPATH=../../../../..:. python3 diagram_demo.py
 
 # CLI 示例：命名查询 CLI
 cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-PYTHONPATH=../../../../..:. python3 cli/named_query_demo.py
+PYTHONPATH=../../../../..:. python3 cli/named_expression_demo.py
 
 # CLI 示例：命名过程 CLI
 PYTHONPATH=../../../../..:. python3 cli/named_procedure_demo.py

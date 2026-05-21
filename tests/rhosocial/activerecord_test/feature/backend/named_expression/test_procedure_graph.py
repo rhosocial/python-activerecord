@@ -1,4 +1,4 @@
-# tests/rhosocial/activerecord_test/feature/backend/named_query/test_procedure_graph.py
+# tests/rhosocial/activerecord_test/feature/backend/named_expression/test_procedure_graph.py
 """
 Tests for ProcedureGraph functionality.
 
@@ -17,7 +17,7 @@ from typing import List
 from unittest.mock import MagicMock, AsyncMock
 import pytest
 
-from rhosocial.activerecord.backend.named_query.procedure_graph import (
+from rhosocial.activerecord.backend.named_expression.procedure_graph import (
     ProcedureGraph,
     StepNode,
     StepKind,
@@ -28,17 +28,17 @@ from rhosocial.activerecord.backend.named_query.procedure_graph import (
     _safe_eval_condition,
     _interpolate_template,
 )
-from rhosocial.activerecord.backend.named_query.graph_result import (
+from rhosocial.activerecord.backend.named_expression.graph_result import (
     ProcedureGraphResult,
     StepStatus,
     StepTraceEntry,
 )
-from rhosocial.activerecord.backend.named_query.graph_runner import (
+from rhosocial.activerecord.backend.named_expression.graph_runner import (
     ProcedureGraphRunner,
     AsyncProcedureGraphRunner,
     ProcedureGraphValidationError,
 )
-from rhosocial.activerecord.backend.named_query.graph_resolver import (
+from rhosocial.activerecord.backend.named_expression.graph_resolver import (
     NamedProcedureGraphResolver,
     NamedProcedureGraphError,
 )
@@ -352,7 +352,7 @@ class TestProcedureGraphRunner:
 
         assert len(result.steps_skipped) == 1
 
-    def test_runner_executes_named_query_step(self, mock_dialect, mock_backend):
+    def test_runner_executes_named_expression_step(self, mock_dialect, mock_backend):
         """Test runner executes NAMED_QUERY step."""
         from unittest.mock import patch
 
@@ -362,7 +362,7 @@ class TestProcedureGraphRunner:
         mock_expr.to_sql.return_value = ("SELECT * FROM users", ())
 
         with patch(
-            "rhosocial.activerecord.backend.named_query.resolver.resolve_named_query",
+            "rhosocial.activerecord.backend.named_expression.resolver.resolve_named_expression",
             return_value=[mock_expr],
         ):
             graph = (
@@ -635,8 +635,8 @@ class TestGraphRunnerInterpolation:
 
     def test_interpolate_dict_simple(self, mock_dialect):
         """Test simple dict interpolation."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import _interpolate_dict
-        from rhosocial.activerecord.backend.named_query.procedure_graph import GraphContext
+        from rhosocial.activerecord.backend.named_expression.graph_runner import _interpolate_dict
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import GraphContext
 
         ctx = GraphContext(mock_dialect, {"month": "2026-05"})
         data = {"query": "SELECT * FROM ${table}", "limit": 10}
@@ -646,8 +646,8 @@ class TestGraphRunnerInterpolation:
 
     def test_interpolate_dict_nested(self, mock_dialect):
         """Test nested dict interpolation."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import _interpolate_dict
-        from rhosocial.activerecord.backend.named_query.procedure_graph import GraphContext
+        from rhosocial.activerecord.backend.named_expression.graph_runner import _interpolate_dict
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import GraphContext
 
         ctx = GraphContext(mock_dialect, {"value": "test"})
         data = {"outer": {"inner": "${value}", "static": 42}}
@@ -656,8 +656,8 @@ class TestGraphRunnerInterpolation:
 
     def test_interpolate_dict_list(self, mock_dialect):
         """Test list interpolation."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import _interpolate_dict
-        from rhosocial.activerecord.backend.named_query.procedure_graph import GraphContext
+        from rhosocial.activerecord.backend.named_expression.graph_runner import _interpolate_dict
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import GraphContext
 
         ctx = GraphContext(mock_dialect, {"val": "replaced"})
         data = {"items": ["${val}", "static"]}
@@ -670,10 +670,10 @@ class TestTransactionContexts:
 
     def test_sync_transaction_context_auto_mode(self, mock_backend):
         """Test sync transaction context with AUTO mode."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import (
+        from rhosocial.activerecord.backend.named_expression.graph_runner import (
             _SyncTransactionContext,
         )
-        from rhosocial.activerecord.backend.named_query.procedure_graph import TransactionMode
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import TransactionMode
 
         mock_backend.begin_transaction = MagicMock()
         mock_backend.commit_transaction = MagicMock()
@@ -687,10 +687,10 @@ class TestTransactionContexts:
 
     def test_sync_transaction_context_step_mode(self, mock_backend):
         """Test sync transaction context with STEP mode."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import (
+        from rhosocial.activerecord.backend.named_expression.graph_runner import (
             _SyncTransactionContext,
         )
-        from rhosocial.activerecord.backend.named_query.procedure_graph import TransactionMode
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import TransactionMode
 
         mock_backend.begin_transaction = MagicMock()
         mock_backend.commit_transaction = MagicMock()
@@ -704,10 +704,10 @@ class TestTransactionContexts:
 
     def test_sync_transaction_context_rollback_on_error(self, mock_backend):
         """Test sync transaction rollback on exception."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import (
+        from rhosocial.activerecord.backend.named_expression.graph_runner import (
             _SyncTransactionContext,
         )
-        from rhosocial.activerecord.backend.named_query.procedure_graph import TransactionMode
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import TransactionMode
 
         mock_backend.begin_transaction = MagicMock()
         mock_backend.rollback_transaction = MagicMock()
@@ -729,10 +729,10 @@ class TestAsyncTransactionContext:
 
     async def test_async_transaction_context_auto_mode(self, mock_backend):
         """Test async transaction context with AUTO mode."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import (
+        from rhosocial.activerecord.backend.named_expression.graph_runner import (
             _AsyncTransactionContext,
         )
-        from rhosocial.activerecord.backend.named_query.procedure_graph import TransactionMode
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import TransactionMode
         from unittest.mock import AsyncMock
 
         mock_backend.begin_transaction = AsyncMock()
@@ -747,10 +747,10 @@ class TestAsyncTransactionContext:
 
     async def test_async_transaction_context_step_mode(self, mock_backend):
         """Test async transaction context with STEP mode."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import (
+        from rhosocial.activerecord.backend.named_expression.graph_runner import (
             _AsyncTransactionContext,
         )
-        from rhosocial.activerecord.backend.named_query.procedure_graph import TransactionMode
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import TransactionMode
         from unittest.mock import AsyncMock
 
         mock_backend.begin_transaction = AsyncMock()
@@ -765,10 +765,10 @@ class TestAsyncTransactionContext:
 
     async def test_async_transaction_context_rollback_on_error(self, mock_backend):
         """Test async transaction rollback on exception."""
-        from rhosocial.activerecord.backend.named_query.graph_runner import (
+        from rhosocial.activerecord.backend.named_expression.graph_runner import (
             _AsyncTransactionContext,
         )
-        from rhosocial.activerecord.backend.named_query.procedure_graph import TransactionMode
+        from rhosocial.activerecord.backend.named_expression.procedure_graph import TransactionMode
         from unittest.mock import AsyncMock
 
         mock_backend.begin_transaction = AsyncMock()
@@ -1024,7 +1024,7 @@ class TestResolveNamedProcedureGraph:
 
     def test_resolve_named_procedure_graph_function(self, mock_dialect):
         """Test resolve_named_procedure_graph convenience function."""
-        from rhosocial.activerecord.backend.named_query.graph_resolver import (
+        from rhosocial.activerecord.backend.named_expression.graph_resolver import (
             resolve_named_procedure_graph,
         )
         import sys
@@ -1057,7 +1057,7 @@ class TestListProcedureGraphs:
 
     def test_list_procedure_graphs_function(self):
         """Test list_procedure_graphs_in_module function."""
-        from rhosocial.activerecord.backend.named_query.graph_resolver import (
+        from rhosocial.activerecord.backend.named_expression.graph_resolver import (
             list_procedure_graphs_in_module,
         )
         import sys
@@ -1097,19 +1097,19 @@ class TestListProcedureGraphs:
 
     def test_list_procedure_graphs_missing_module(self):
         """Test list_procedure_graphs_in_module handles missing module."""
-        from rhosocial.activerecord.backend.named_query.graph_resolver import (
+        from rhosocial.activerecord.backend.named_expression.graph_resolver import (
             list_procedure_graphs_in_module,
         )
-        from rhosocial.activerecord.backend.named_query.exceptions import (
-            NamedQueryModuleNotFoundError,
+        from rhosocial.activerecord.backend.named_expression.exceptions import (
+            NamedExpressionModuleNotFoundError,
         )
 
-        with pytest.raises(NamedQueryModuleNotFoundError):
+        with pytest.raises(NamedExpressionModuleNotFoundError):
             list_procedure_graphs_in_module("nonexistent_module_xyz")
 
     def test_list_procedure_graphs_no_valid_graphs(self):
         """Test list_procedure_graphs_in_module with no valid graphs."""
-        from rhosocial.activerecord.backend.named_query.graph_resolver import (
+        from rhosocial.activerecord.backend.named_expression.graph_resolver import (
             list_procedure_graphs_in_module,
         )
         import sys

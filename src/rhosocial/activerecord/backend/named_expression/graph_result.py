@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/named_query/graph_result.py
+# src/rhosocial/activerecord/backend/named_expression/graph_result.py
 """
 Result types for ProcedureGraph execution.
 
