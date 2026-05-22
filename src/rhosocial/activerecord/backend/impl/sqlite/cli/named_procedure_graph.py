@@ -28,7 +28,7 @@ def create_parser(subparsers):
     Reuses the shared create_named_procedure_graph_parser, passing a parent parser
     containing only connection and output arguments.
     """
-    from rhosocial.activerecord.backend.named_query.cli_procedure_graph import (
+    from rhosocial.activerecord.backend.named_expression.cli_procedure_graph import (
         create_named_procedure_graph_parser,
     )
 
@@ -38,7 +38,7 @@ def create_parser(subparsers):
 
 def handle(args):
     """Handle the named-procedure-graph subcommand."""
-    from rhosocial.activerecord.backend.named_query.cli_procedure_graph import (
+    from rhosocial.activerecord.backend.named_expression.cli_procedure_graph import (
         handle_named_procedure_graph as handle_npg,
     )
 
@@ -49,6 +49,7 @@ def handle(args):
     def backend_factory():
         nonlocal backend
         config = resolve_connection_config_from_args(args)
+        config.check_same_thread = False
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
         backend.introspect_and_adapt()

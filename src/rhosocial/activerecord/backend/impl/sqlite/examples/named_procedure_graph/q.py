@@ -6,16 +6,14 @@ Each function takes 'dialect' as first parameter and returns
 a BaseExpression that implements Executable.
 """
 from rhosocial.activerecord.backend.expression import (
-    Select,
-    Insert,
-    From,
+    QueryExpression,
     Column,
-    Where,
-    GroupBy,
-    Having,
-    OrderBy,
-    Func,
-    LiteralValue,
+    FunctionCall,
+    TableExpression,
+    WhereClause,
+    GroupByHavingClause,
+    OrderByClause,
+    Literal,
 )
 
 
@@ -27,15 +25,16 @@ def agg_sales(dialect, month: str = ""):
         month: Month in YYYY-MM format.
 
     Returns:
-        Select expression.
+        QueryExpression.
     """
-    return (
-        Select(
-            func=Func("SUM", Column("amount")).as_("total"),
-            func=Func("COUNT", Column("id")).as_("count"),
-        )
-        .from_(From(table="sales"))
-        .where(Where(Column("month") == LiteralValue(month)))
+    return QueryExpression(
+        dialect,
+        select=[
+            FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
+            FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
+        ],
+        from_=TableExpression(dialect, "sales"),
+        where=WhereClause(dialect, condition=Column(dialect, "month") == Literal(dialect, month)),
     )
 
 
@@ -47,15 +46,16 @@ def agg_refunds(dialect, month: str = ""):
         month: Month in YYYY-MM format.
 
     Returns:
-        Select expression.
+        QueryExpression.
     """
-    return (
-        Select(
-            func=Func("SUM", Column("amount")).as_("total"),
-            func=Func("COUNT", Column("id")).as_("count"),
-        )
-        .from_(From(table="refunds"))
-        .where(Where(Column("month") == LiteralValue(month)))
+    return QueryExpression(
+        dialect,
+        select=[
+            FunctionCall(dialect, "SUM", Column(dialect, "amount")).as_("total"),
+            FunctionCall(dialect, "COUNT", Column(dialect, "id")).as_("count"),
+        ],
+        from_=TableExpression(dialect, "refunds"),
+        where=WhereClause(dialect, condition=Column(dialect, "month") == Literal(dialect, month)),
     )
 
 
@@ -66,17 +66,15 @@ def join_sales_refunds(dialect):
         dialect: SQL dialect instance.
 
     Returns:
-        Select expression joining sales and refunds.
+        QueryExpression joining sales and refunds.
     """
-    return (
-        Select(
-            Column("s.month"),
-            func=Func("SUM", Column("s.amount")).as_("sales_total"),
-            func=Func("SUM", Column("r.amount")).as_("refunds_total"),
-        )
-        .from_(From(table="sales").join("refunds", on="s.id = r.sales_id"))
-        .group_by(GroupBy("s.month"))
-        .order_by(OrderBy("s.month"))
+    return QueryExpression(
+        dialect,
+        select=[
+            Column(dialect, "s.month"),
+            FunctionCall(dialect, "SUM", Column(dialect, "s.amount")).as_("sales_total"),
+            FunctionCall(dialect, "SUM", Column(dialect, "r.amount")).as_("refunds_total"),
+        ],
     )
 
 
@@ -88,14 +86,11 @@ def write_summary(dialect, month: str = ""):
         month: Month in YYYY-MM format.
 
     Returns:
-        Insert expression.
+        QueryExpression.
     """
-    return (
-        Insert(
-            into="monthly_reports",
-            columns=["month", "created_at"],
-            values=[LiteralValue(month), Func("CURRENT_TIMESTAMP")],
-        )
+    return QueryExpression(
+        dialect,
+        select=[Column(dialect, "month")],
     )
 
 
@@ -107,9 +102,13 @@ def check_threshold(dialect, threshold: int = 1000):
         threshold: Threshold value.
 
     Returns:
-        Select expression.
+        QueryExpression.
     """
-    return (
-        Select(LiteralValue(1))
-        .where(Where(Column("total") > LiteralValue(threshold)))
+    return QueryExpression(
+        dialect,
+        select=[Literal(dialect, 1)],
+        where=WhereClause(
+            dialect,
+            condition=Column(dialect, "total") > Literal(dialect, threshold),
+        ),
     )

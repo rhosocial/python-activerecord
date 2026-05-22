@@ -55,3 +55,14 @@ class OutputProvider(ABC):
     def display_greeting(self):
         """Display a greeting message."""
         pass
+
+    @abstractmethod
+    def print_table(self, rows: List[Dict[str, Any]], title: str, columns: List[str]) -> None:
+        """Print a table with the given rows, title, and column keys.
+
+        Args:
+            rows: List of dictionaries containing row data.
+            title: Title to display above the table.
+            columns: List of column keys to display.
+        """
+        pass

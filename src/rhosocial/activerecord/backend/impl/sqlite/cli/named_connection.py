@@ -26,7 +26,12 @@ def handle(args):
     """Handle the named-connection subcommand."""
     from rhosocial.activerecord.backend.named_connection.cli import handle_named_connection as handle_nc
 
+    from .output import create_provider
+    output_fmt = getattr(args, "output", "table")
+    ascii_borders = getattr(args, "rich_ascii", False)
+    provider = create_provider(output_fmt, ascii_borders=ascii_borders)
+
     def named_connection_resolver_factory(name):
         return NamedConnectionResolver(name)
 
-    handle_nc(args, named_connection_resolver_factory)
+    handle_nc(args, named_connection_resolver_factory, provider)

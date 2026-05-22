@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/examples/cli/named_query_demo.py
+# src/rhosocial/activerecord/backend/impl/sqlite/examples/cli/named_expression_demo.py
 """
 Named Query CLI demo script.
 
@@ -6,11 +6,11 @@ Demonstrates how to invoke named queries (Named Query) via SQLite CLI.
 
 Usage:
     cd src/rhosocial/activerecord/backend/impl/sqlite/examples
-    PYTHONPATH=../../../../..:. python3 cli/named_query_demo.py
+    PYTHONPATH=../../../../..:. python3 cli/named_expression_demo.py
 
 Or use CLI directly:
-    python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-        rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order \
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order \
         --db-file :memory: \
         --param order_id=1
 """
@@ -37,24 +37,24 @@ This section demonstrates typical Named Query CLI usage.
 ### 1. List all named queries in a module
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+    rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions \
     --list
 ```
 
 ### 2. View single query signature and parameters
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+    rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order \
     --describe
 ```
 
 ### 3. Dry-run: render SQL without executing
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+    rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order \
     --db-file :memory: \
     --dry-run \
     --param order_id=1
@@ -63,8 +63,8 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 ### 4. Execute a named query
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+    rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order \
     --db-file :memory: \
     --param order_id=1
 ```
@@ -72,8 +72,8 @@ python -m rhosocial.activerecord.backend.impl.sqlite named-query \
 ### 5. Execute EXPLAIN plan
 
 ```bash
-python -m rhosocial.activerecord.backend.impl.sqlite named-query \
-    rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order \
+python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+    rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order \
     --db-file :memory: \
     --explain \
     --param order_id=1
@@ -101,24 +101,24 @@ def main():
     # 1. List all named queries in a module
     print("\n【1】List all named queries in module")
     run_cli_command([
-        "named-query",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries",
+        "named-expression",
+        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions",
         "--list",
     ])
 
     # 2. View single query signature
     print("\n【2】View single query signature and parameters")
     run_cli_command([
-        "named-query",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order",
+        "named-expression",
+        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
         "--describe",
     ])
 
     # 3. Dry-run: render SQL only
     print("\n【3】Dry-run: render SQL, don't execute")
     run_cli_command([
-        "named-query",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order",
+        "named-expression",
+        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
         "--db-file", ":memory:",
         "--dry-run",
         "--param", "order_id=1",
@@ -127,8 +127,8 @@ def main():
     # 4. Execute named query
     print("\n【4】Execute named query")
     run_cli_command([
-        "named-query",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order",
+        "named-expression",
+        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
         "--db-file", ":memory:",
         "--param", "order_id=1",
     ])
@@ -136,8 +136,8 @@ def main():
     # 5. View another query
     print("\n【5】View check_inventory query")
     run_cli_command([
-        "named-query",
-        "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.check_inventory",
+        "named-expression",
+        "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.check_inventory",
         "--describe",
     ])
 
