@@ -10,7 +10,7 @@ The graph demonstrates:
 
 Usage:
     Python:
-        >>> from rhosocial.activerecord.backend.named_query import resolve_named_procedure_graph
+        >>> from rhosocial.activerecord.backend.named_expression import resolve_named_procedure_graph
         >>> graph, resolver = resolve_named_procedure_graph(
         ...     "rhosocial.activerecord.backend.impl.sqlite.examples.named_procedure_graph.monthly_report",
         ...     dialect,
@@ -24,7 +24,7 @@ Usage:
             --params '{"month": "2026-04"}' \\
             --dry-run
 """
-from rhosocial.activerecord.backend.named_query import (
+from rhosocial.activerecord.backend.named_expression import (
     ProcedureGraph,
     StepNode,
     GraphTransactionMode,

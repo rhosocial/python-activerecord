@@ -16,14 +16,14 @@ def create_parser(subparsers):
     Reuses the shared create_named_procedure_parser, passing a parent parser
     containing only connection and output arguments.
     """
-    from rhosocial.activerecord.backend.named_query.cli_procedure import create_named_procedure_parser
+    from rhosocial.activerecord.backend.named_expression.cli_procedure import create_named_procedure_parser
     local_parent = create_connection_parent_parser()
     return create_named_procedure_parser(subparsers, local_parent)
 
 
 def handle(args):
     """Handle the named-procedure subcommand."""
-    from rhosocial.activerecord.backend.named_query.cli_procedure import handle_named_procedure as handle_np
+    from rhosocial.activerecord.backend.named_expression.cli_procedure import handle_named_procedure as handle_np
 
     provider = create_provider(args.output, ascii_borders=args.rich_ascii)
 
@@ -32,6 +32,7 @@ def handle(args):
     def backend_factory():
         nonlocal backend
         config = resolve_connection_config_from_args(args)
+        config.check_same_thread = False
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
         backend.introspect_and_adapt()
@@ -49,6 +50,7 @@ def handle(args):
             nonlocal async_backend
             from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
             config = resolve_connection_config_from_args(args)
+            config.check_same_thread = False
             async_backend = AsyncSQLiteBackend(connection_config=config)
             return async_backend
 

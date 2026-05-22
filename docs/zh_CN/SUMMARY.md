@@ -113,7 +113,7 @@
 
 ### 命名后端 (Named Backend)
 
-* [命名查询](backend/named_query.md)
+* [命名表达式](backend/named_expression.md)
 * [命名连接](backend/named_connection.md)
 
 ### 表达式系统

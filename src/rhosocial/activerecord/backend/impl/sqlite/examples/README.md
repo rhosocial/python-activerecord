@@ -44,7 +44,7 @@ examples/
 │   ├── __init__.py
 │   ├── memory.py           # In-memory database connection
 │   └── file.py             # File-based database connection
-├── named_queries/          # Named query examples (backend feature)
+├── named_expressions/          # Named query examples (backend feature)
 │   └── order_queries.py   # Order-related named queries
 ├── named_procedures/       # Named procedure examples (backend feature)
 │   ├── __init__.py
@@ -52,7 +52,7 @@ examples/
 │   └── diagram_demo.py   # Flowchart visualization demo
 └── cli/                    # CLI examples (backend feature)
     ├── __init__.py
-    ├── named_query_demo.py       # Named query CLI demo
+    ├── named_expression_demo.py  # Named expression CLI demo
     ├── named_procedure_demo.py  # Named procedure CLI demo
     └── named_connection_demo.py # Named connection CLI demo
 ```

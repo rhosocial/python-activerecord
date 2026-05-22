@@ -113,7 +113,7 @@
 
 ### Named Backend
 
-* [Named Queries](backend/named_query.md)
+* [Named Expressions](backend/named_expression.md)
 * [Named Connection](backend/named_connection.md)
 
 ### Expression System
