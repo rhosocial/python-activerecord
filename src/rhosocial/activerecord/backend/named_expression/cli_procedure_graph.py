@@ -300,9 +300,9 @@ def _handle_list(qualified_name: str, provider: Any) -> None:
 
     rows = [
         {
-            "name": g["name"],
-            "signature": g["signature"],
-            "brief": g["brief"],
+            "Name": g["name"],
+            "Parameters": g["signature"],
+            "Brief": g["brief"],
         }
         for g in graphs
     ]
@@ -310,7 +310,7 @@ def _handle_list(qualified_name: str, provider: Any) -> None:
     provider.print_table(
         rows=rows,
         title="Procedure Graphs",
-        columns=["name", "signature", "brief"],
+        columns=["Name", "Parameters", "Brief"],
     )
 
 

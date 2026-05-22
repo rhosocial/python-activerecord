@@ -41,7 +41,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table_name=table_name,
+        table=table_name,
         columns=[ColumnDefinition(c.split()[0], c.split()[1]) for c in columns],
         if_not_exists=True,
     )
@@ -94,7 +94,7 @@ class OrderProcessingProcedure(Procedure):
         ctx.log(f"Starting order processing: {self.order_id}", "INFO")
 
         ctx.execute(
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.get_order",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.get_order",
             params={"order_id": self.order_id},
             bind="order",
         )
@@ -107,7 +107,7 @@ class OrderProcessingProcedure(Procedure):
         ctx.log(f"Order status: {order}", "DEBUG")
 
         ctx.execute(
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.check_inventory",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.check_inventory",
             params={"order_id": self.order_id},
             bind="inventory",
         )
@@ -119,19 +119,19 @@ class OrderProcessingProcedure(Procedure):
 
         ctx.parallel(
             ParallelStep(
-                "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.reserve_inventory",
+                "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.reserve_inventory",
                 params={"order_id": self.order_id},
                 bind="reserved",
             ),
             ParallelStep(
-                "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.send_notification",
+                "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.send_notification",
                 params={"user_id": self.user_id, "type": "order_started"},
             ),
             max_concurrency=2,
         )
 
         ctx.execute(
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.process_payment",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.process_payment",
             params={"order_id": self.order_id, "amount": self.amount},
             bind="payment",
         )
@@ -140,14 +140,14 @@ class OrderProcessingProcedure(Procedure):
         if payment_status != "success":
             ctx.log(f"Payment failed: {payment_status}, rolling back inventory", "ERROR")
             ctx.execute(
-                "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.release_inventory",
+                "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.release_inventory",
                 params={"order_id": self.order_id},
                 output=True,
             )
             ctx.abort("OrderProcessingProcedure", f"Payment failed: {payment_status}")
 
         ctx.execute(
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.create_order_record",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.create_order_record",
             params={
                 "order_id": self.order_id,
                 "user_id": self.user_id,
@@ -158,7 +158,7 @@ class OrderProcessingProcedure(Procedure):
         )
 
         ctx.execute(
-            "rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries.confirm_inventory",
+            "rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions.confirm_inventory",
             params={"order_id": self.order_id},
             output=True,
         )

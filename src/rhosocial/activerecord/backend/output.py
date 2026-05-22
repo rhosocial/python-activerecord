@@ -60,6 +60,9 @@ class JsonOutputProvider(OutputProvider):
     def display_greeting(self):
         logger.info("Output format set to JSON.")
 
+    def print_table(self, rows: List[Dict[str, Any]], title: str, columns: List[str]) -> None:
+        sys.stdout.write(json.dumps({"title": title, "rows": rows}, indent=2, ensure_ascii=False, default=self._json_serializer) + "\n")
+
 
 class CsvOutputProvider(OutputProvider):
     """Output provider for CSV format."""
@@ -112,6 +115,15 @@ class CsvOutputProvider(OutputProvider):
     def display_greeting(self):
         logger.info("Output format set to CSV.")
 
+    def print_table(self, rows: List[Dict[str, Any]], title: str, columns: List[str]) -> None:
+        if not rows:
+            logger.info(f"No data for {title}.")
+            return
+        writer = csv.writer(sys.stdout)
+        writer.writerow(columns)
+        for row in rows:
+            writer.writerow([self._format_value(row.get(col)) for col in columns])
+
 
 class TsvOutputProvider(OutputProvider):
     """Output provider for TSV format."""
@@ -163,3 +175,12 @@ class TsvOutputProvider(OutputProvider):
 
     def display_greeting(self):
         logger.info("Output format set to TSV.")
+
+    def print_table(self, rows: List[Dict[str, Any]], title: str, columns: List[str]) -> None:
+        if not rows:
+            logger.info(f"No data for {title}.")
+            return
+        writer = csv.writer(sys.stdout, delimiter="\t")
+        writer.writerow(columns)
+        for row in rows:
+            writer.writerow([self._format_value(row.get(col)) for col in columns])

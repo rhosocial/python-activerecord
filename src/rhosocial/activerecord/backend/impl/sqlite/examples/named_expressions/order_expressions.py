@@ -1,4 +1,4 @@
-# src/rhosocial/activerecord/backend/impl/sqlite/examples/named_queries/order_queries.py
+# src/rhosocial/activerecord/backend/impl/sqlite/examples/named_expressions/order_expressions.py
 """
 Order-related named query examples.
 
@@ -38,7 +38,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table_name=table_name,
+        table=table_name,
         columns=[ColumnDefinition(c.split()[0], c.split()[1]) for c in columns],
         if_not_exists=True,
     )

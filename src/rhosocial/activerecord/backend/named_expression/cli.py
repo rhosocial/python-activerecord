@@ -27,7 +27,6 @@ Named Expression CLI Subcommand:
         --list: List all expressions in module
         --force: Force non-SELECT execution
         --explain: Execute EXPLAIN plan
-        --no-probe: Skip dry-probe when listing
 
 Usage Example:
     >>> # Execute a named expression
@@ -185,11 +184,6 @@ def create_named_expression_parser(
         action="store_true",
         help="Use asynchronous execution (requires async database driver).",
     )
-    ne_parser.add_argument(
-        "--no-probe",
-        action="store_true",
-        help="Skip dry-probe when listing; show '?' for all tags. Does not require a DB connection.",
-    )
     return ne_parser
 
 
@@ -278,6 +272,7 @@ def handle_named_expression(
     get_dialect_async: Optional[Callable[[Any], Any]] = None,
     execute_query_async: Optional[Callable[[str, tuple, StatementType], Any]] = None,
     disconnect_async: Optional[Callable[[], None]] = None,
+    create_dialect: Optional[Callable[[], Any]] = None,
 ) -> None:
     """Handle named-expression subcommand execution.
 
@@ -296,6 +291,10 @@ def handle_named_expression(
         get_dialect_async: Optional async dialect getter.
         execute_query_async: Optional async query executor.
         disconnect_async: Optional async disconnect.
+        create_dialect: Optional callable to create a dialect standalone without
+            connecting to a database. Used for tag probing in --list mode.
+            The closure may read ``args.dialect_version`` for version-specific
+            probing; backends that do not support versioning ignore it.
 
     Returns:
         None. This function handles all output and exit codes.
@@ -334,12 +333,9 @@ def handle_named_expression(
                     pass
 
             dialect = None
-            if not args.no_probe:
+            if create_dialect:
                 try:
-                    backend = backend_factory()
-                    dialect = get_dialect(backend)
-                    if disconnect:
-                        disconnect()
+                    dialect = create_dialect()
                 except Exception:
                     dialect = None
 
@@ -382,20 +378,15 @@ def handle_named_expression(
                 print(f"No named expressions found in module: {module_name}")
                 return
 
-            print(f"Module: {module_name}")
-            print(f"{'Name':<30} {'Tags':<16} {'Parameters':<36} {'Brief':<30}")
-            print("-" * 112)
-            unannotated_count = 0
+            rows = []
             for q in expressions:
                 tags = ",".join(q.get("tags", ["?"]))
-                params_str = q["signature"].replace("dialect, ", "").replace("(dialect)", "")
+                raw_params = q["signature"].replace("dialect, ", "").replace("(dialect)", "")
+                params_str = raw_params if raw_params else "none"
                 brief = q["brief"][:27] + "..." if len(q["brief"]) > 30 else q["brief"]
-                print(f"{q['name']:<30} [{tags:<12}] {params_str:<36} {brief:<30}")
+                rows.append({"Name": q["name"], "Tags": f"[{tags}]", "Parameters": params_str, "Brief": brief})
 
-                # Count unannotated params
-                for ps in q.get("param_specs", []):
-                    if not ps["annotated"]:
-                        unannotated_count += 1
+            provider.print_table(rows, f"Module: {module_name}", ["Name", "Tags", "Parameters", "Brief"])
 
             # Print legend
             seen_tags = set()
@@ -403,18 +394,26 @@ def handle_named_expression(
                 for tag in q.get("tags", []):
                     seen_tags.add(tag)
             if seen_tags:
-                print("---")
                 legend_parts = []
                 for tag in sorted(seen_tags):
                     if tag in FLAG_LEGEND:
                         legend_parts.append(f"{tag}={FLAG_LEGEND[tag]}")
                 if legend_parts:
-                    print("Tags: " + ", ".join(legend_parts))
+                    tags_str = ", ".join(legend_parts)
+                    if hasattr(provider, "console"):
+                        provider.console.print(f"\nTags: {tags_str}")
+                    else:
+                        print(f"\nTags: {tags_str}")
 
+            unannotated_count = sum(
+                1 for q in expressions for ps in q.get("param_specs", []) if not ps["annotated"]
+            )
             if unannotated_count > 0:
-                print()
-                print(f"Warning: {unannotated_count} parameter(s) without type annotations.")
-                print("  Add type hints to suppress this warning.")
+                msg = f"Warning: {unannotated_count} parameter(s) without type annotations. Add type hints to suppress this warning."
+                if hasattr(provider, "console"):
+                    provider.console.print(f"[yellow]{msg}[/yellow]")
+                else:
+                    print(f"\n{msg}")
 
         except NamedExpressionError as e:
             print(f"Error: {e}", file=sys.stderr)

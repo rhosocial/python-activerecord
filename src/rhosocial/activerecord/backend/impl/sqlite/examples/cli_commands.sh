@@ -22,6 +22,7 @@ set -e
 
 SCRIPT_DIR="$(cd "$(dirname "$0")" && pwd)"
 cd "$SCRIPT_DIR"
+export PYTHONSAFEPATH=1
 
 # Create a test database for examples
 TEST_DB="/tmp/rhosocial_cli_test.db"
@@ -41,13 +42,37 @@ init_test_db() {
         "INSERT INTO users (name, email) VALUES ('Bob', 'bob@example.com')"
     python -m rhosocial.activerecord.backend.impl.sqlite query \
         --db-file "$TEST_DB" \
-        "CREATE TABLE orders (id INTEGER PRIMARY KEY, user_id INTEGER, amount REAL)"
+        "ALTER TABLE users ADD COLUMN tags TEXT DEFAULT '[\"a\",\"b\",\"c\"]'"
     python -m rhosocial.activerecord.backend.impl.sqlite query \
         --db-file "$TEST_DB" \
-        "INSERT INTO orders (user_id, amount) VALUES (1, 100.00)"
+        "CREATE TABLE orders (id INTEGER PRIMARY KEY, status TEXT, user_id INTEGER, amount REAL)"
     python -m rhosocial.activerecord.backend.impl.sqlite query \
         --db-file "$TEST_DB" \
-        "INSERT INTO orders (user_id, amount) VALUES (1, 200.00)"
+        "INSERT INTO orders (status, user_id, amount) VALUES ('pending', 100, 99.99)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "INSERT INTO orders (status, user_id, amount) VALUES ('shipped', 100, 199.99)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "CREATE TABLE inventory (id INTEGER PRIMARY KEY, order_id INTEGER, available INTEGER)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "INSERT INTO inventory (order_id, available) VALUES (1, 10)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "CREATE TABLE notifications (id INTEGER PRIMARY KEY, user_id INTEGER, type TEXT)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "CREATE TABLE payments (id INTEGER PRIMARY KEY, order_id INTEGER, status TEXT, transaction_id TEXT)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "INSERT INTO payments (order_id, status, transaction_id) VALUES (1, 'success', 'txn_001')"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "CREATE TABLE order_records (id INTEGER PRIMARY KEY, order_id INTEGER, created_at TEXT)"
+    python -m rhosocial.activerecord.backend.impl.sqlite query \
+        --db-file "$TEST_DB" \
+        "INSERT INTO order_records (order_id, created_at) VALUES (1, '2026-05-22')"
 }
 
 # Command: info
@@ -251,8 +276,13 @@ run_named_query() {
     echo "=========================================="
     echo ""
 
-    MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries"
+    MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions"
+    MODULE_DML="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_dml"
+    MODULE_DDL="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_ddl"
+    MODULE_CLAUSES="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_clauses"
+    MODULE_VERSION="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_version_compare"
 
+    echo "=== DQL (SELECT) examples ==="
     echo "--- List all queries in module ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE" --list
 
@@ -266,6 +296,7 @@ run_named_query() {
     echo "--- Dry run (show SQL) ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
+        --db-file "$TEST_DB" \
         --dry-run \
         --param order_id=1
 
@@ -273,7 +304,135 @@ run_named_query() {
     echo "--- Execute with parameters ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
         "$MODULE.get_order" \
+        --db-file "$TEST_DB" \
         --param order_id=1
+
+    echo ""
+    echo "=== DML examples (INSERT / UPDATE / DELETE) ==="
+    echo "--- List DML expressions ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE_DML" --list
+
+    echo ""
+    echo "--- Dry run: INSERT ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_DML.add_order" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param user_id=1
+
+    echo ""
+    echo "--- Dry run: UPDATE ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_DML.update_order_status" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param order_id=1 \
+        --param new_status=shipped
+
+    echo ""
+    echo "--- Dry run: DELETE ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_DML.cancel_order" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param order_id=999
+
+    echo ""
+    echo "=== DDL examples (CREATE / ALTER / DROP) ==="
+    echo "--- List DDL expressions ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE_DDL" --list
+
+    echo ""
+    echo "--- Dry run: CREATE TABLE ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_DDL.create_orders_table" \
+        --dry-run
+
+    echo ""
+    echo "--- Dry run: CREATE INDEX ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_DDL.add_orders_status_index" \
+        --dry-run
+
+    echo ""
+    echo "=== CLAUSE examples (WHERE / JOIN / GROUP BY / ORDER BY) ==="
+    echo "--- List clause expressions ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE_CLAUSES" --list
+
+    echo ""
+    echo "--- Dry run: WHERE ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_CLAUSES.where_example" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param status=pending
+
+    echo ""
+    echo "--- Dry run: JOIN ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_CLAUSES.join_example" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param user_id=1
+
+    echo ""
+    echo "--- Dry run: GROUP BY ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_CLAUSES.group_by_example" \
+        --db-file "$TEST_DB" \
+        --dry-run
+
+    echo ""
+    echo "--- Dry run: ORDER BY + LIMIT ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_CLAUSES.order_by_example" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param limit=3
+
+    echo ""
+    echo "--- Dry run: combined (WHERE + JOIN + ORDER BY) ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_CLAUSES.compound_example" \
+        --db-file "$TEST_DB" \
+        --dry-run \
+        --param user_id=1 \
+        --param status=pending
+
+    echo ""
+    echo "=== Version-dependent: json_array_insert (SQLite 3.53.0+) ==="
+    echo "--- List (3.53.0+ dialect — recognized) ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_VERSION" --list --dialect-version 3.53.0
+
+    echo ""
+    echo "--- List (pre-3.53.0 dialect — unsupported) ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_VERSION" --list --dialect-version 3.35.0
+
+    echo ""
+    echo "--- Execute with 3.53.0+ (succeeds) ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_VERSION.demo_json_array_insert" \
+        --dialect-version 3.53.0 \
+        --dry-run \
+        --param position=0 \
+        --param value=hello
+
+    echo ""
+    echo "--- Execute with pre-3.53.0 (fails) ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_VERSION.demo_json_array_insert" \
+        --dialect-version 3.35.0 \
+        --dry-run \
+        --param position=0 \
+        --param value=hello || true
+
+    echo ""
+    echo "--- Describe ---"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-expression \
+        "$MODULE_VERSION.demo_json_array_insert" \
+        --describe
 }
 
 # Command: named-procedure
@@ -300,6 +459,7 @@ run_named_procedure() {
     python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
         "$MODULE.OrderProcessingProcedure" \
         --dry-run \
+        --db-file "$TEST_DB" \
         --param order_id=1 \
         --param user_id=100
 
@@ -308,6 +468,7 @@ run_named_procedure() {
     echo "--- Step transaction ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
         "$MODULE.OrderProcessingProcedure" \
+        --db-file "$TEST_DB" \
         --param order_id=1 \
         --param user_id=100 \
         --transaction step
@@ -315,9 +476,15 @@ run_named_procedure() {
     echo "--- None transaction ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-procedure \
         "$MODULE.OrderProcessingProcedure" \
+        --db-file "$TEST_DB" \
         --param order_id=1 \
         --param user_id=100 \
         --transaction none
+
+    echo ""
+    echo "=========================================="
+    echo "All named-procedure examples completed successfully!"
+    echo "=========================================="
 }
 
 # Command: named-procedure-graph
@@ -360,23 +527,18 @@ run_named_connection() {
     echo "=========================================="
     echo ""
 
-    MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_queries"
+    MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_connections"
 
     echo "--- List connections in module ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-connection --list "$MODULE"
 
-    # Note: Using a module that doesn't have connection definitions - just demonstrate the command
-    echo ""
-    echo "--- Note: For actual connections, create a module with NamedConnection subclasses ---"
-    echo "Example: myapp.connections.prod_db"
     echo ""
     echo "--- Show connection (example with existing connection) ---"
-    echo "(No actual connections defined in examples - showing command structure)"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-connection --show "$MODULE"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-connection --show "$MODULE.memory_db"
 
     echo ""
     echo "--- Describe connection (dry-run) ---"
-    python -m rhosocial.activerecord.backend.impl.sqlite named-connection --describe "$MODULE"
+    python -m rhosocial.activerecord.backend.impl.sqlite named-connection --describe "$MODULE.file_db_wal"
 }
 
 # Main
@@ -399,9 +561,11 @@ case "$COMMAND" in
         run_status
         ;;
     named-expression)
+        init_test_db
         run_named_query
         ;;
     named-procedure)
+        init_test_db
         run_named_procedure
         ;;
     named-procedure-graph)

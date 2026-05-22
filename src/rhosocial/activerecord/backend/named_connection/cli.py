@@ -225,12 +225,14 @@ def create_named_connection_parser(
 def handle_named_connection(
     args: Any,
     named_connection_resolver_factory: Callable[[str], "NamedConnectionResolver"],
+    provider: Any = None,
 ) -> None:
     """Handle named-connection subcommand execution.
 
     Args:
         args: Parsed command-line arguments namespace.
         named_connection_resolver_factory: Factory to create resolver.
+        provider: Optional output provider for formatted display.
     """
     # Show help if no arguments provided
     if not args.list_connections and not args.show_connection and not args.describe_connection:
@@ -255,13 +257,21 @@ def handle_named_connection(
                 print(f"No named connections found in module: {module_name}")
                 return
 
-            print(f"Module: {module_name}")
-            print(f"{'Name':<30} {'Parameters':<40} {'Brief':<30}")
-            print("-" * 100)
-            for conn in connections:
-                params = conn["signature"]
-                brief = conn["brief"][:27] + "..." if len(conn["brief"]) > 30 else conn["brief"]
-                print(f"{conn['name']:<30} {params:<40} {brief:<30}")
+            if provider:
+                rows = []
+                for conn in connections:
+                    params = conn["signature"] if conn["signature"] != "()" else "none"
+                    brief = conn["brief"][:27] + "..." if len(conn["brief"]) > 30 else conn["brief"]
+                    rows.append({"Name": conn["name"], "Parameters": params, "Brief": brief})
+                provider.print_table(rows, f"Module: {module_name}", ["Name", "Parameters", "Brief"])
+            else:
+                print(f"Module: {module_name}")
+                print(f"{'Name':<30} {'Parameters':<40} {'Brief':<30}")
+                print("-" * 100)
+                for conn in connections:
+                    params = conn["signature"] if conn["signature"] != "()" else "none"
+                    brief = conn["brief"][:27] + "..." if len(conn["brief"]) > 30 else conn["brief"]
+                    print(f"{conn['name']:<30} {params:<40} {brief:<30}")
 
         except Exception as e:
             print(f"Error: {e}", file=sys.stderr)

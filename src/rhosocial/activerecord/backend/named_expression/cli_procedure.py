@@ -251,13 +251,16 @@ def handle_named_procedure(
                 print(f"No named procedures found in module: {module_name}")
                 return
 
-            print(f"Module: {module_name}")
-            print(f"{'Name':<30} {'Parameters':<50} {'Brief':<20}")
-            print("-" * 100)
+            rows = []
             for p in procedures:
-                params = p["signature"][:47] + "..." if len(p["signature"]) > 50 else p["signature"]
+                raw = p["signature"]
+                params = raw[:47] + "..." if len(raw) > 50 else raw
+                if params == "()":
+                    params = "none"
                 brief = p["brief"][:17] + "..." if len(p["brief"]) > 20 else p["brief"]
-                print(f"{p['name']:<30} {params:<50} {brief:<20}")
+                rows.append({"Name": p["name"], "Parameters": params, "Brief": brief})
+
+            provider.print_table(rows, f"Module: {module_name}", ["Name", "Parameters", "Brief"])
 
         except NamedExpressionError as e:
             print(f"Error: {e}", file=sys.stderr)

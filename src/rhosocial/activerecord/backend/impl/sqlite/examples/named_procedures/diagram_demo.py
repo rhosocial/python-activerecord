@@ -44,7 +44,7 @@ tables = [
 for table_name, columns in tables:
     create = CreateTableExpression(
         dialect=dialect,
-        table_name=table_name,
+        table=table_name,
         columns=[ColumnDefinition(c.split()[0], c.split()[1]) for c in columns],
         if_not_exists=True,
     )

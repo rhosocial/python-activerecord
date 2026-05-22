@@ -108,6 +108,38 @@ def _classify(expr: BaseExpression) -> List[str]:
     return [next((lbl for types, lbl in tag_map if st in types), "OTHER")]
 
 
+from typing import get_origin, get_args, Union
+
+_PLACEHOLDER_VALUES: Dict[type, Any] = {
+    int: 1,
+    str: "",
+    float: 0.0,
+    bool: False,
+    bytes: b"",
+}
+
+
+def _make_placeholder(annotation: Any) -> Any:
+    """Generate a placeholder value from a type annotation."""
+    if annotation is inspect.Parameter.empty:
+        return ""
+    origin = get_origin(annotation)
+    if origin is Union:
+        args_list = get_args(annotation)
+        for arg in args_list:
+            if arg is not type(None):
+                return _make_placeholder(arg)
+        return None
+    if annotation in _PLACEHOLDER_VALUES:
+        return _PLACEHOLDER_VALUES[annotation]
+    try:
+        if isinstance(annotation, type) and issubclass(annotation, (int, float, str, bool, bytes)):
+            return _PLACEHOLDER_VALUES.get(annotation, None)
+    except TypeError:
+        pass
+    return None
+
+
 def _probe_tags(
     target_callable: Callable,
     dialect: Any = None,
@@ -118,17 +150,23 @@ def _probe_tags(
     except (ValueError, TypeError):
         return ["?"]
 
-    for name, param in sig.parameters.items():
-        if name in ("dialect", "self"):
-            continue
-        if param.default is inspect.Parameter.empty:
-            return ["?"]
-
     if dialect is None:
         return ["?"]
 
+    kwargs = {}
+    for name, param in sig.parameters.items():
+        if name in ("dialect", "self"):
+            continue
+        if param.default is not inspect.Parameter.empty:
+            kwargs[name] = param.default
+        else:
+            placeholder = _make_placeholder(param.annotation)
+            if placeholder is None:
+                return ["?"]
+            kwargs[name] = placeholder
+
     try:
-        result = target_callable(dialect=dialect)
+        result = target_callable(dialect=dialect, **kwargs)
     except Exception:
         return ["?"]
 

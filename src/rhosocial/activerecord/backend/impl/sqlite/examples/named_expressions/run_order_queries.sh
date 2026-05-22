@@ -1,23 +1,23 @@
 #!/bin/bash
-# run_order_queries.sh - Execute named queries example
+# run_order_expressions.sh - Execute named queries example
 #
 # This script demonstrates how to use the named-expression CLI command
-# to execute queries defined in the examples/named_queries module.
+# named_expressions → named_expressions
 #
 # Usage:
-#   ./run_order_queries.sh [--dry-run] [QUERY_NAME] [PARAMS...]
+#   ./run_order_expressions.sh [--dry-run] [QUERY_NAME] [PARAMS...]
 #
 # Examples:
-#   ./run_order_queries.sh                  # List all queries
-#   ./run_order_queries.sh --list          # List all queries (explicit)
-#   ./run_order_queries.sh orders_by_status # Describe orders_by_status query
-#   ./run_order_queries.sh --describe orders_by_status  # Full description
-#   ./run_order_queries.sh orders_by_status --param status=pending
-#   ./run_order_queries.sh orders_by_status --param status=pending --dry-run
+#   ./run_order_expressions.sh                  # List all queries
+#   ./run_order_expressions.sh --list          # List all queries (explicit)
+#   ./run_order_expressions.sh orders_by_status # Describe orders_by_status query
+#   ./run_order_expressions.sh --describe orders_by_status  # Full description
+#   ./run_order_expressions.sh orders_by_status --param status=pending
+#   ./run_order_expressions.sh orders_by_status --param status=pending --dry-run
 
 set -e
 
-MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries"
+MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions"
 
 DRY_RUN=""
 DESCRIBE=""

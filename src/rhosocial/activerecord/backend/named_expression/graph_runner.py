@@ -185,7 +185,7 @@ class ProcedureGraphRunner:
 
         if node.kind == StepKind.NAMED_QUERY:
             from .resolver import resolve_named_expression
-            expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)[0]
+            expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)
             return expr.to_sql()
 
         elif node.kind == StepKind.EXPRESSION:
@@ -319,7 +319,7 @@ class AsyncProcedureGraphRunner:
 
         if node.kind == StepKind.NAMED_QUERY:
             from .resolver import resolve_named_expression
-            expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)[0]
+            expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)
             return expr.to_sql()
 
         elif node.kind == StepKind.EXPRESSION:

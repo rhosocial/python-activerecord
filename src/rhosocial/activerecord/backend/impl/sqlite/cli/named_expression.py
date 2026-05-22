@@ -20,7 +20,13 @@ def create_parser(subparsers):
     """
     from rhosocial.activerecord.backend.named_expression.cli import create_named_expression_parser
     local_parent = create_connection_parent_parser()
-    return create_named_expression_parser(subparsers, local_parent)
+    parser = create_named_expression_parser(subparsers, local_parent)
+    parser.add_argument(
+        "--dialect-version",
+        default=None,
+        help="SQLite dialect version for capability probing (e.g., 3.35.0, 3.53.0).",
+    )
+    return parser
 
 
 def handle(args):
@@ -29,14 +35,29 @@ def handle(args):
 
     provider = create_provider(args.output, ascii_borders=args.rich_ascii)
 
+    from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
+    import sqlite3
+
+    def _get_requested_version():
+        ver = getattr(args, "dialect_version", None)
+        if ver:
+            return tuple(int(p) for p in ver.split("."))
+        return sqlite3.sqlite_version_info[:3]
+
+    def create_dialect():
+        return SQLiteDialect(version=_get_requested_version())
+
     backend = None
 
     def backend_factory():
         nonlocal backend
         config = resolve_connection_config_from_args(args)
+        config.check_same_thread = False
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
         backend.introspect_and_adapt()
+        backend._dialect.version = _get_requested_version()
         return backend
 
     def get_dialect(b):
@@ -81,6 +102,7 @@ def handle(args):
             get_dialect_async=get_dialect_async,
             execute_query_async=execute_query_async,
             disconnect_async=disconnect_async,
+            create_dialect=create_dialect,
         )
         return
 
@@ -91,4 +113,5 @@ def handle(args):
         get_dialect=get_dialect,
         execute_query=execute_query_by_name,
         disconnect=disconnect,
+        create_dialect=create_dialect,
     )

@@ -363,7 +363,7 @@ class TestProcedureGraphRunner:
 
         with patch(
             "rhosocial.activerecord.backend.named_expression.resolver.resolve_named_expression",
-            return_value=[mock_expr],
+            return_value=mock_expr,
         ):
             graph = (
                 ProcedureGraph()

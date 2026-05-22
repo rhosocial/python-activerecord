@@ -230,7 +230,7 @@ run_named_query_examples() {
     echo "=========================================="
     echo ""
     
-    MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_queries.order_queries"
+    MODULE="rhosocial.activerecord.backend.impl.sqlite.examples.named_expressions.order_expressions"
     
     echo "--- List all named queries ---"
     python -m rhosocial.activerecord.backend.impl.sqlite named-expression "$MODULE" --list

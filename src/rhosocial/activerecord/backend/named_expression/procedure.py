@@ -1140,10 +1140,16 @@ class ProcedureRunner(_BaseProcedureRunner):
             pass
 
         def execute_callback(fqn: str, dial: Any, params: Dict[str, Any]) -> Dict[str, Any]:
-            _, sql, params_sql = resolve_named_expression(fqn, dial, params)
+            expr = resolve_named_expression(fqn, dial, params)
+            sql, params_sql = expr.to_sql()
             data, affected_rows = [], 0
             if backend_execute and sql:
-                raw = backend_execute(sql, params_sql)
+                stmt_type = getattr(expr, "statement_type", None)
+                if stmt_type:
+                    from rhosocial.activerecord.backend.options import ExecutionOptions
+                    raw = backend_execute(sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type))
+                else:
+                    raw = backend_execute(sql, params_sql)
                 if raw and raw.data:
                     data = raw.data
                 if raw:
@@ -1308,10 +1314,16 @@ class AsyncProcedureRunner(_BaseProcedureRunner):
         async def execute_callback(
             fqn: str, dial: Any, params: Dict[str, Any]
         ) -> Dict[str, Any]:
-            _, sql, params_sql = resolve_named_expression(fqn, dial, params)
+            expr = resolve_named_expression(fqn, dial, params)
+            sql, params_sql = expr.to_sql()
             data, affected_rows = [], 0
             if backend_execute and sql:
-                raw = await backend_execute(sql, params_sql)
+                stmt_type = getattr(expr, "statement_type", None)
+                if stmt_type:
+                    from rhosocial.activerecord.backend.options import ExecutionOptions
+                    raw = await backend_execute(sql, params_sql, options=ExecutionOptions(stmt_type=stmt_type))
+                else:
+                    raw = await backend_execute(sql, params_sql)
                 if raw and raw.data:
                     data = raw.data
                 if raw:

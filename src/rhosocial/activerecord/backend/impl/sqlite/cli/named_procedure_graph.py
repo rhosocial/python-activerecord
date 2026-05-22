@@ -49,6 +49,7 @@ def handle(args):
     def backend_factory():
         nonlocal backend
         config = resolve_connection_config_from_args(args)
+        config.check_same_thread = False
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
         backend.introspect_and_adapt()
