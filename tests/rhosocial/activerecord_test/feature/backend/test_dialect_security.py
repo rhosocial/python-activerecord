@@ -142,6 +142,83 @@ def test_format_storage_options_string_escaping(dialect):
     assert "'; DROP" not in sql
 
 
+def test_format_storage_options_key_identifier_quoting(dialect):
+    """Test storage option keys are quoted as identifiers.
+
+    Before fix: key was embedded directly with only .upper().
+    After fix: key goes through format_identifier(), so even if 'DROP TABLE'
+    appears in the SQL, it's safely enclosed inside quoted identifiers.
+    """
+    malicious_key = 'key"; DROP TABLE users--'
+    storage_opts = {malicious_key: "value"}
+    sql, params = dialect._format_storage_options(storage_opts)
+
+    # DROP TABLE may appear inside quoted identifier, that's safe.
+    # Verify quotes are balanced (no breakout).
+    outer_quotes = [i for i, c in enumerate(sql) if c == '"']
+    assert len(outer_quotes) % 2 == 0, f"Unbalanced quotes in {sql}"
+
+
+def test_format_storage_options_mixed_safe_and_malicious_keys(dialect):
+    """Test that safe keys work and malicious keys are quoted in same dict."""
+    safe_key = "fillfactor"
+    malicious_key = 'evil"; DELETE FROM t--'
+    storage_opts = {safe_key: 70, malicious_key: "x"}
+    sql, params = dialect._format_storage_options(storage_opts)
+
+    assert "fillfactor" in sql or "FILLFACTOR" in sql
+    # DELETE may appear inside quoted identifier — verify balanced quotes
+    outer_quotes = [i for i, c in enumerate(sql) if c == '"']
+    assert len(outer_quotes) % 2 == 0, f"Unbalanced quotes in {sql}"
+
+
+def test_format_storage_options_int_value_not_parameterized(dialect):
+    """Numeric storage options are embedded as literals (design decision)."""
+    storage_opts = {"fillfactor": 70}
+    sql, params = dialect._format_storage_options(storage_opts)
+    assert "70" in sql
+    assert params == ()
+
+
+def test_format_storage_options_none_value_uses_placeholder(dialect):
+    """None or unknown type values use parameterized placeholder."""
+    storage_opts = {"option": None}
+    sql, params = dialect._format_storage_options(storage_opts)
+    assert dialect.get_parameter_placeholder() in sql
+    assert params == (None,)
+
+
+def test_format_storage_options_empty(dialect):
+    """Empty storage options returns empty string."""
+    sql, params = dialect._format_storage_options({})
+    assert sql == ""
+    assert params == ()
+
+
+def test_format_partition_type_validation(dialect):
+    """Test partition type is embedded but columns are identifier-quoted.
+
+    Note: partition_type is not allowlist-validated in base dialect.
+    This test documents the current behavior.
+    """
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+        CreateTableExpression,
+        ColumnDefinition,
+    )
+
+    col_def = ColumnDefinition(name="id", data_type="INTEGER")
+    table = dialect.format_identifier("test_table")  # need an identifier string
+    expr = CreateTableExpression(
+        dialect=dialect,
+        table="test_table",
+        columns=[col_def],
+        partition_by=("RANGE", ["id"]),
+    )
+    sql, params = dialect.format_create_table_statement(expr)
+    assert "PARTITION BY RANGE" in sql
+    assert '"id"' in sql or '"ID"' in sql
+
+
 @pytest.fixture
 def dialect():
     """Create a test dialect."""

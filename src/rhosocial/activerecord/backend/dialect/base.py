@@ -1243,12 +1243,13 @@ class SQLDialectBase:
         storage_parts = []
         params = []
         for key, value in storage_options.items():
+            quoted_key = self.format_identifier(key)
             if isinstance(value, str):
-                storage_parts.append(f"{key.upper()} = '{self._escape_sql_string(value)}'")
+                storage_parts.append(f"{quoted_key} = '{self._escape_sql_string(value)}'")
             elif isinstance(value, (int, float)):
-                storage_parts.append(f"{key.upper()} = {value}")
+                storage_parts.append(f"{quoted_key} = {value}")
             else:
-                storage_parts.append(f"{key.upper()} = {self.get_parameter_placeholder()}")
+                storage_parts.append(f"{quoted_key} = {self.get_parameter_placeholder()}")
                 params.append(value)
         if storage_parts:
             return " WITH (" + ", ".join(storage_parts) + ")", tuple(params)
