@@ -477,9 +477,10 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
+        quoted = self.format_identifier(table_name)
         if if_exists:
-            return f'DROP TABLE IF EXISTS "{table_name}"', ()
-        return f'DROP TABLE "{table_name}"', ()
+            return f"DROP TABLE IF EXISTS {quoted}", ()
+        return f"DROP TABLE {quoted}", ()
 
     # ========== FTS5 SQL Formatting ==========
 
@@ -884,19 +885,6 @@ class SQLiteIntrospectionCapabilityMixin:
 
     # ========== Query Formatting ==========
 
-    def _quote_identifier(self, name: str) -> str:
-        """Quote an identifier for SQLite.
-
-        SQLite uses double quotes for identifiers.
-
-        Args:
-            name: The identifier name to quote.
-
-        Returns:
-            The quoted identifier.
-        """
-        return f'"{name}"'
-
     def format_database_info_query(self, expr: "DatabaseInfoExpression") -> Tuple[str, tuple]:
         """Format database information query.
 
@@ -995,9 +983,9 @@ class SQLiteIntrospectionCapabilityMixin:
 
         # Use table_xinfo for hidden columns if supported and requested
         if include_hidden and self.supports_table_xinfo_pragma():
-            sql = f"PRAGMA {schema}.table_xinfo({self._quote_identifier(table_name)})"
+            sql = f"PRAGMA {schema}.table_xinfo({self.format_identifier(table_name)})"
         else:
-            sql = f"PRAGMA {schema}.table_info({self._quote_identifier(table_name)})"
+            sql = f"PRAGMA {schema}.table_info({self.format_identifier(table_name)})"
 
         return (sql, ())
 
@@ -1016,7 +1004,7 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"PRAGMA {schema}.index_list({self._quote_identifier(table_name)})"
+        sql = f"PRAGMA {schema}.index_list({self.format_identifier(table_name)})"
         return (sql, ())
 
     def format_foreign_key_query(self, expr: "ForeignKeyExpression") -> Tuple[str, tuple]:
@@ -1034,7 +1022,7 @@ class SQLiteIntrospectionCapabilityMixin:
         table_name = params.get("table_name", "")
         schema = params.get("schema") or "main"
 
-        sql = f"PRAGMA {schema}.foreign_key_list({self._quote_identifier(table_name)})"
+        sql = f"PRAGMA {schema}.foreign_key_list({self.format_identifier(table_name)})"
         return (sql, ())
 
     def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:

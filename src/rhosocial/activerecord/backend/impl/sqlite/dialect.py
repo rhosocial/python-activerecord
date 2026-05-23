@@ -1104,7 +1104,7 @@ class SQLiteDialect(
             all_params.extend(cond_params)
 
         parts.append("BEGIN")
-        parts.append(f"CALL {expr.function_name}();")
+        parts.append(f"CALL {self.format_identifier(expr.function_name)}();")
         parts.append("END")
 
         return " ".join(parts), tuple(all_params)

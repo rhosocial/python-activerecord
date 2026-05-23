@@ -244,9 +244,12 @@ class TestCreateTableStatements:
         sql, params = create_table_expr.to_sql()
         
         assert "WITH" in sql
-        assert "ENGINE = 'InnoDB'" in sql
-        assert "CHARSET = 'utf8mb4'" in sql
-        assert "PAGE_SIZE = 8192" in sql
+        assert '"engine" =' in sql
+        assert '"charset" =' in sql
+        assert '"page_size" =' in sql
+        assert "'InnoDB'" in sql
+        assert "'utf8mb4'" in sql
+        assert "8192" in sql
         assert params == ()
 
     def test_create_table_with_tablespace(self, dummy_dialect: DummyDialect):
