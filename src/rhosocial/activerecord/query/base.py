@@ -16,7 +16,8 @@ from ..backend.expression import (
     ForUpdateClause,
 )
 from ..interface import IQueryBuilding
-from ..logging.manager import get_logging_manager
+from ..logging.defaults import _LOGGER_QUERY
+from ..logging.mixin import BackendLoggingMixin
 from .utils import convert_qmark_placeholder
 
 
@@ -59,8 +60,7 @@ class BaseQueryMixin(IQueryBuilding):
         module = self.__class__.__module__
         if module.startswith('rhosocial.activerecord'):
             # Library class: use semantic naming
-            base_name = get_logging_manager().LOGGER_QUERY
-            return f"{base_name}.{self.__class__.__name__}"
+            return f"{_LOGGER_QUERY}.{self.__class__.__name__}"
         else:
             # Custom class: use module namespace
             return f"{module}.{self.__class__.__name__}"
@@ -68,7 +68,9 @@ class BaseQueryMixin(IQueryBuilding):
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using query's own logger."""
         logger_name = self._get_logger_name()
-        logger = get_logging_manager().get_logger(logger_name)
+        backend = self.backend()
+        config = getattr(backend, "_logging_config", None) or BackendLoggingMixin.__logging_config__
+        logger = config.get_logger(logger_name)
         logger.log(level, msg, *args, **kwargs)
 
     # region Basic Query Methods
@@ -159,6 +161,17 @@ class BaseQueryMixin(IQueryBuilding):
 
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
+            # Warn if string condition contains no parameter placeholders
+            if '?' not in condition:
+                import warnings
+                warnings.warn(
+                    "String condition without parameter placeholders detected. "
+                    "If this condition includes user input, use parameterized "
+                    "placeholders ('?') to prevent SQL injection. "
+                    "Use RawSQLPredicate directly to suppress this warning.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             # Use the new RawSQLPredicate class to handle raw SQL string conditions
             # Convert '?' placeholders to the dialect's native format
             converted = convert_qmark_placeholder(dialect, condition)
@@ -471,6 +484,17 @@ class BaseQueryMixin(IQueryBuilding):
 
         # Convert string condition to SQLPredicate
         if isinstance(condition, str):
+            # Warn if string condition contains no parameter placeholders
+            if '?' not in condition:
+                import warnings
+                warnings.warn(
+                    "String condition without parameter placeholders detected. "
+                    "If this condition includes user input, use parameterized "
+                    "placeholders ('?') to prevent SQL injection. "
+                    "Use RawSQLPredicate directly to suppress this warning.",
+                    UserWarning,
+                    stacklevel=2,
+                )
             # Use the new RawSQLPredicate class to handle raw SQL string conditions
             # Convert '?' placeholders to the dialect's native format
             converted = convert_qmark_placeholder(dialect, condition)

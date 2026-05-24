@@ -22,13 +22,15 @@ written only once and shared, reducing duplication and potential for bugs.
 """
 
 import logging
+import warnings
 from abc import ABC
 from contextlib import contextmanager, asynccontextmanager
 from enum import Enum, auto
 from typing import Optional, Generator, AsyncGenerator, Tuple, TYPE_CHECKING
 
 from .errors import TransactionError, IsolationLevelError
-from ..logging.manager import get_logging_manager
+from ..logging.defaults import _LOGGER_TRANSACTION
+from ..logging.mixin import BackendLoggingMixin
 
 if TYPE_CHECKING:
     from .base import StorageBackend, AsyncStorageBackend
@@ -90,13 +92,16 @@ class TransactionManagerBase(ABC):
         self._savepoint_prefix = "SP"
         self._isolation_level: Optional[IsolationLevel] = None
         self._transaction_mode: TransactionMode = TransactionMode.READ_WRITE
-        # Use semantic logger naming: rhosocial.activerecord.transaction
-        self._logger = logger or get_logging_manager().get_logger(
-            get_logging_manager().LOGGER_TRANSACTION
-        )
+        self._logger = logger or self._get_logging_config().get_logger(_LOGGER_TRANSACTION)
         self._savepoint_count = 0  # Track savepoint count
         self._active_savepoints = []  # Track active savepoints
         self._state = TransactionState.INACTIVE  # Track transaction state
+
+    def _get_logging_config(self):
+        config = getattr(self._backend, "_logging_config", None)
+        if isinstance(config, BackendLoggingMixin.__logging_config__.__class__):
+            return config
+        return BackendLoggingMixin.__logging_config__
 
     @property
     def backend(self):
@@ -118,9 +123,7 @@ class TransactionManagerBase(ABC):
         """Set the logger for this transaction manager"""
         if logger is not None and not isinstance(logger, logging.Logger):
             raise ValueError("logger must be an instance of logging.Logger")
-        self._logger = logger or get_logging_manager().get_logger(
-            get_logging_manager().LOGGER_TRANSACTION
-        )
+        self._logger = logger or self._get_logging_config().get_logger(_LOGGER_TRANSACTION)
 
     def log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log message with specified level.
@@ -649,6 +652,7 @@ class AsyncTransactionManager(TransactionManagerBase):
 
     def __init__(self, backend: "AsyncStorageBackend", logger=None):
         super().__init__(backend, logger)
+        self._owner_task = None  # Track which async task owns the transaction
 
     async def _do_begin(self) -> None:
         """Begin a new transaction via backend.execute()."""
@@ -896,6 +900,22 @@ class AsyncTransactionManager(TransactionManagerBase):
             async with manager.transaction(mode=TransactionMode.READ_ONLY):
                 # Read-only transaction
         """
+        import asyncio
+
+        current_task = asyncio.current_task()
+        if self._owner_task is not None and self._owner_task is not current_task:
+            warnings.warn(
+                "Shared async backend instance detected: a different async task "
+                "already holds an active transaction on this backend. Concurrent "
+                "use of the same backend instance across tasks can lead to "
+                "transaction state inconsistency. Use separate backend instances "
+                "per task or ensure serialized access.",
+                UserWarning,
+                stacklevel=2,
+            )
+        if self._owner_task is None:
+            self._owner_task = current_task
+
         # Save current settings
         original_isolation_level = self._isolation_level
         original_mode = self._transaction_mode
@@ -918,3 +938,6 @@ class AsyncTransactionManager(TransactionManagerBase):
             # Restore original settings
             self._isolation_level = original_isolation_level
             self._transaction_mode = original_mode
+            # Clear owner when outermost transaction completes
+            if not self.is_active:
+                self._owner_task = None

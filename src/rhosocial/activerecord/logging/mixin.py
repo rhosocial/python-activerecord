@@ -9,8 +9,9 @@ import inspect
 import logging
 from typing import Optional, ClassVar, Any
 
+from .config import LoggingConfig
+from .defaults import _LOGGER_BACKEND, _LOGGER_MODEL
 from .formatter import ActiveRecordFormatter
-from .manager import get_logging_manager
 
 
 class LoggingMixin:
@@ -47,8 +48,14 @@ class LoggingMixin:
 
     # Class-level logger (can be overridden by subclasses)
     __logger__: ClassVar[Optional[logging.Logger]] = None
+    # Class-level logging config (can be overridden by subclasses)
+    __logging_config__: ClassVar[LoggingConfig] = LoggingConfig()
     # Custom logger name (can be overridden by subclasses)
     __logger_name__: ClassVar[Optional[str]] = None
+
+    @classmethod
+    def get_logging_config(cls) -> LoggingConfig:
+        return cls.__logging_config__
 
     @classmethod
     def get_logger(cls) -> logging.Logger:
@@ -63,9 +70,8 @@ class LoggingMixin:
         if hasattr(cls, '__logger__') and cls.__logger__ is not None:
             return cls.__logger__
 
-        # Get default logger from manager
         logger_name = cls._get_logger_name()
-        return get_logging_manager().get_logger(logger_name)
+        return cls.get_logging_config().get_logger(logger_name)
 
     @classmethod
     def _get_logger_name(cls) -> str:
@@ -91,8 +97,7 @@ class LoggingMixin:
         module = cls.__module__
         if module.startswith('rhosocial.activerecord'):
             # Library class: use semantic naming
-            base_name = get_logging_manager().LOGGER_MODEL
-            return f"{base_name}.{cls.__name__}"
+            return f"{_LOGGER_MODEL}.{cls.__name__}"
         else:
             # User-defined class: use user module namespace
             return f"{module}.{cls.__name__}"
@@ -188,11 +193,11 @@ class LoggingMixin:
             stack_level += kwargs.pop("offset")
 
         # Auto-setup formatter if needed (only for this logger, not root)
-        manager = get_logging_manager()
-        if manager.config.auto_setup:
+        config = cls.get_logging_config()
+        if config.auto_setup:
             if not logger.handlers:
                 handler = logging.StreamHandler()
-                handler.setFormatter(manager.config.formatter)
+                handler.setFormatter(config.formatter)
                 logger.addHandler(handler)
 
         # Use the appropriate log method
@@ -209,7 +214,6 @@ class LoggingMixin:
         level: int,
         msg: str,
         data: Any,
-        mode: Optional[str] = None,
         **kwargs
     ) -> None:
         """Log a message with data, automatically summarizing if needed.
@@ -221,56 +225,14 @@ class LoggingMixin:
             level: Log level (e.g., logging.DEBUG, logging.INFO).
             msg: Log message format string.
             data: The data to log. Will be summarized according to mode.
-            mode: Override mode for this log entry:
-                - 'summary': Truncate large values, mask sensitive fields (default)
-                - 'keys_only': Only show field names, no values
-                - 'full': Show complete data (use with caution)
-                If None, uses the configured log_data_mode for this logger.
             **kwargs: Additional keyword arguments for logging.
 
         Example:
-            # INFO level: show only field names
-            self.log_data(logging.INFO, "Inserting record", data, mode='keys_only')
-            # Output: Inserting record: {'name', 'email', 'bio'}
-
-            # DEBUG level: show summarized values
             self.log_data(logging.DEBUG, "Insert data", data)
-            # Output: Insert data: {'name': 'John', 'bio': 'Lorem ipsum...[truncated, 1000 chars total]'}
-
-            # Full data (use with caution)
-            self.log_data(logging.DEBUG, "Full data", data, mode='full')
         """
-        manager = get_logging_manager()
         logger_name = cls._get_logger_name()
-        summarized = manager.config.summarize_data(data, mode, logger_name)
+        summarized = cls.get_logging_config().summarize_data(data, logger_name)
         cls.log(level, f"{msg}: {summarized}", **kwargs)
-
-    @classmethod
-    def log_data_keys_only(cls, level: int, msg: str, data: Any, **kwargs) -> None:
-        """Convenience method to log data with keys_only mode.
-
-        Args:
-            level: Log level (e.g., logging.DEBUG, logging.INFO).
-            msg: Log message format string.
-            data: The data to log (only keys will be shown).
-            **kwargs: Additional keyword arguments for logging.
-        """
-        cls.log_data(level, msg, data, mode='keys_only', **kwargs)
-
-    @classmethod
-    def log_data_full(cls, level: int, msg: str, data: Any, **kwargs) -> None:
-        """Convenience method to log full data without summarization.
-
-        WARNING: Use with caution in production. This may log sensitive
-        data or very large values.
-
-        Args:
-            level: Log level (e.g., logging.DEBUG, logging.INFO).
-            msg: Log message format string.
-            data: The data to log (full, no summarization).
-            **kwargs: Additional keyword arguments for logging.
-        """
-        cls.log_data(level, msg, data, mode='full', **kwargs)
 
 
 class BackendLoggingMixin:
@@ -294,6 +256,7 @@ class BackendLoggingMixin:
                 self.log(logging.DEBUG, f"Executing: {query}")
     """
 
+    __logging_config__: ClassVar[LoggingConfig] = LoggingConfig()
     _logger: Optional[logging.Logger] = None
     _logger_name: Optional[str] = None
 
@@ -317,8 +280,7 @@ class BackendLoggingMixin:
             # Extract backend type from class name (SQLiteBackend -> sqlite)
             class_name = self.__class__.__name__
             backend_type = class_name.replace('Backend', '').lower()
-            base_name = get_logging_manager().LOGGER_BACKEND
-            return f"{base_name}.{backend_type}"
+            return f"{_LOGGER_BACKEND}.{backend_type}"
         else:
             # Custom backend: use module namespace
             return f"{module}.{self.__class__.__name__}"
@@ -332,7 +294,7 @@ class BackendLoggingMixin:
         """
         if self._logger is None:
             logger_name = self._get_logger_name()
-            self._logger = get_logging_manager().get_logger(logger_name)
+            self._logger = self._get_logging_config().get_logger(logger_name)
         return self._logger
 
     @logger.setter
@@ -375,12 +337,18 @@ class BackendLoggingMixin:
 
         self.logger.log(level, msg, *args, stacklevel=stack_level, **kwargs)
 
+    def _get_logging_config(self) -> LoggingConfig:
+        return getattr(self, '_logging_config', None) or self.__logging_config__
+
+    def summarize_log_data(self, data: Any) -> Any:
+        logger_name = self._get_logger_name()
+        return self._get_logging_config().summarize_data(data, logger_name)
+
     def log_data(
         self,
         level: int,
         msg: str,
         data: Any,
-        mode: Optional[str] = None,
         **kwargs
     ) -> None:
         """Log a message with data, automatically summarizing if needed.
@@ -392,26 +360,10 @@ class BackendLoggingMixin:
             level: Log level (e.g., logging.DEBUG, logging.INFO).
             msg: Log message format string.
             data: The data to log. Will be summarized according to mode.
-            mode: Override mode for this log entry:
-                - 'summary': Truncate large values, mask sensitive fields (default)
-                - 'keys_only': Only show field names, no values
-                - 'full': Show complete data (use with caution)
-                If None, uses the configured log_data_mode for this logger.
             **kwargs: Additional keyword arguments for logging.
 
         Example:
-            # INFO level: show only field names
-            self.log_data(logging.INFO, "Executing query", params, mode='keys_only')
+            self.log_data(logging.INFO, "Executing query", params)
         """
-        manager = get_logging_manager()
-        logger_name = self._get_logger_name()
-        summarized = manager.config.summarize_data(data, mode, logger_name)
+        summarized = self.summarize_log_data(data)
         self.log(level, f"{msg}: {summarized}", **kwargs)
-
-    def log_data_keys_only(self, level: int, msg: str, data: Any, **kwargs) -> None:
-        """Convenience method to log data with keys_only mode."""
-        self.log_data(level, msg, data, mode='keys_only', **kwargs)
-
-    def log_data_full(self, level: int, msg: str, data: Any, **kwargs) -> None:
-        """Convenience method to log full data without summarization."""
-        self.log_data(level, msg, data, mode='full', **kwargs)

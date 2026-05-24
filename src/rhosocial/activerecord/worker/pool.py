@@ -41,12 +41,9 @@ from .scheduling import (
     create_scheduler,
 )
 
-from ..logging.manager import get_logging_manager
+from ..logging.defaults import _LOGGER_WORKER, get_logger
 
-# Use semantic logger naming: rhosocial.activerecord.worker
-logger = get_logging_manager().get_logger(
-    get_logging_manager().LOGGER_WORKER
-)
+logger = get_logger(_LOGGER_WORKER)
 
 
 # ── Sentinel ─────────────────────────────────────────────────────────────────

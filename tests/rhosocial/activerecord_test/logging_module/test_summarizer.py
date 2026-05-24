@@ -5,9 +5,6 @@ import pytest
 from rhosocial.activerecord.logging.summarizer import (
     SummarizerConfig,
     DataSummarizer,
-    get_default_summarizer,
-    set_default_summarizer,
-    summarize_data,
 )
 
 
@@ -222,36 +219,19 @@ class TestDataSummarizer:
         assert result["password"] == "not_masked"  # Not masked since not in custom set
 
 
-class TestGlobalSummarizer:
-    """Tests for global summarizer functions."""
+class TestSummarizerIsolation:
+    """Tests that summarizer instances do not share mutable state."""
 
-    def test_get_default_summarizer(self):
-        """Test getting default summarizer."""
-        summarizer = get_default_summarizer()
-        assert isinstance(summarizer, DataSummarizer)
+    def test_summarizer_instances_use_own_config(self):
+        short = DataSummarizer(SummarizerConfig(max_string_length=5))
+        long = DataSummarizer(SummarizerConfig(max_string_length=20))
+        data = {"text": "A" * 30}
 
-    def test_set_default_summarizer(self):
-        """Test setting default summarizer."""
-        custom_config = SummarizerConfig(max_string_length=50)
-        custom_summarizer = DataSummarizer(custom_config)
+        short_result = short.summarize(data)
+        long_result = long.summarize(data)
 
-        original = get_default_summarizer()
-        set_default_summarizer(custom_summarizer)
-
-        try:
-            result = get_default_summarizer()
-            assert result is custom_summarizer
-        finally:
-            # Restore original
-            set_default_summarizer(original)
-
-    def test_summarize_data_convenience(self):
-        """Test convenience function."""
-        data = {"key": "a" * 200}
-        result = summarize_data(data)
-
-        # Should use default summarizer
-        assert "truncated" in result["key"]
+        assert short_result["text"].startswith("AAAAA...")
+        assert long_result["text"].startswith("A" * 20 + "...")
 
 
 class TestLoggingIntegration:
@@ -259,7 +239,7 @@ class TestLoggingIntegration:
 
     def test_logging_config_summarizer(self):
         """Test LoggingConfig.get_summarizer()."""
-        from rhosocial.activerecord.logging import LoggingConfig
+        from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
 
         config = LoggingConfig()
         summarizer = config.get_summarizer()
@@ -268,7 +248,7 @@ class TestLoggingIntegration:
 
     def test_logging_config_summarize_data(self):
         """Test LoggingConfig.summarize_data()."""
-        from rhosocial.activerecord.logging import LoggingConfig
+        from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
 
         config = LoggingConfig()
         data = {"password": "secret", "bio": "A" * 200}
@@ -279,13 +259,20 @@ class TestLoggingIntegration:
         assert "truncated" in result["bio"]
 
         # Test keys_only mode
-        result = config.summarize_data(data, mode='keys_only')
+        config.log_data_mode = LogDataMode.KEYS_ONLY
+        result = config.summarize_data(data)
         assert result["password"] == "***MASKED***"
         assert result["bio"] == "<str>"
 
         # Test full mode
-        result = config.summarize_data(data, mode='full')
+        config.log_data_mode = LogDataMode.FULL
+        result = config.summarize_data(data)
         assert result == data
+
+        # Test hidden mode
+        config.log_data_mode = LogDataMode.HIDDEN
+        result = config.summarize_data(data)
+        assert result == '<hidden>'
 
     def test_logging_config_custom_summarizer_config(self):
         """Test custom summarizer configuration in LoggingConfig."""

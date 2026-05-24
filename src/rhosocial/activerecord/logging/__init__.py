@@ -4,24 +4,22 @@
 This module provides a unified logging system for ActiveRecord that:
 
 - Does NOT modify the root logger
-- Allows global configuration through configure_logging()
+- Provides framework-level logging helpers through configure_logging()
 - Supports custom formatters and log levels
-- Provides consistent logging across Model and Backend classes
+- Supports explicit LoggingConfig objects for models and backends
 
 Key Principle:
     ActiveRecord logging is isolated from user's logging configuration.
     By default, logs do not propagate to the root logger.
 
 Basic Usage:
-    Simple configuration::
+    Configure ActiveRecord models::
 
         import logging
-        from rhosocial.activerecord.logging import configure_logging
+        from rhosocial.activerecord.logging import LoggingConfig
+        from rhosocial.activerecord.model import ActiveRecord
 
-        # Configure logging for ActiveRecord
-        configure_logging(level=logging.INFO)
-
-        # Now ActiveRecord will log at INFO level
+        ActiveRecord.__logging_config__ = LoggingConfig(default_level=logging.INFO)
 
 Advanced Usage:
     Custom formatter::
@@ -36,12 +34,11 @@ Advanced Usage:
         )
         configure_logging(level=logging.DEBUG, formatter=formatter)
 
-    Access logging manager::
+    Framework-level logger::
 
-        from rhosocial.activerecord.logging import get_logging_manager
+        from rhosocial.activerecord.logging import get_logger
 
-        manager = get_logging_manager()
-        logger = manager.get_logger('my_custom_logger')
+        logger = get_logger('my_custom_logger')
 
 Custom Logger for a Model:
     Set a custom logger for a specific model::
@@ -59,19 +56,13 @@ Custom Logger for a Model:
 """
 
 from .formatter import ModuleFormatter, ActiveRecordFormatter
-from .config import LoggerConfig, LoggingConfig
-from .summarizer import (
-    SummarizerConfig,
-    DataSummarizer,
-    get_default_summarizer,
-    set_default_summarizer,
-    summarize_data,
-)
-from .manager import (
-    LoggingManager,
-    get_logging_manager,
+from .config import LoggerConfig, LoggingConfig, LogDataMode
+from .summarizer import SummarizerConfig, DataSummarizer
+from .defaults import (
     configure_logging,
     get_logger,
+    get_default_logging_config,
+    reset_default_logging_config,
 )
 from .mixin import LoggingMixin, BackendLoggingMixin
 
@@ -82,17 +73,15 @@ __all__ = [
     # Configuration
     "LoggerConfig",
     "LoggingConfig",
+    "LogDataMode",
     # Summarizer
     "SummarizerConfig",
     "DataSummarizer",
-    "get_default_summarizer",
-    "set_default_summarizer",
-    "summarize_data",
-    # Manager
-    "LoggingManager",
-    "get_logging_manager",
+    # Framework-level defaults
     "configure_logging",
     "get_logger",
+    "get_default_logging_config",
+    "reset_default_logging_config",
     # Mixins
     "LoggingMixin",
     "BackendLoggingMixin",
