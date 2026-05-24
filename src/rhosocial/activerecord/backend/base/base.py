@@ -28,11 +28,15 @@ class StorageBackendBase(ABC):
 
     def __init__(self, **kwargs) -> None:
         """Initialize storage backend with all required attributes."""
+        logging_config = kwargs.pop("logging_config", None)
+        logger = kwargs.pop("logger", None)
+
         # Configuration
         if "connection_config" not in kwargs or kwargs["connection_config"] is None:
             self.config = ConnectionConfig(**kwargs)
         else:
             self.config = kwargs["connection_config"]
+        self._logging_config = logging_config
 
         # Connection state
         self._connection = None
@@ -42,7 +46,7 @@ class StorageBackendBase(ABC):
         self._server_version_cache = None
 
         # Logger (for LoggingMixin)
-        self._logger: Optional[logging.Logger] = kwargs.get("logger", logging.getLogger("storage"))
+        self._logger: Optional[logging.Logger] = logger
 
         # Type Adaptation (for TypeAdaptionMixin)
         # Architectural Note: This registry is completely independent of the dialect.

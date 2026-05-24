@@ -15,7 +15,7 @@ from ..backend.options import InsertOptions
 from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IUpdateBehavior
-from ..logging import LoggingMixin
+from ..logging import LoggingConfig, LoggingMixin
 
 
 class BaseActiveRecord(LoggingMixin, IActiveRecord):
@@ -24,8 +24,13 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
     """
 
     @classmethod
-    def configure(cls, config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
-                  backend_class: Type[StorageBackend]) -> None:
+    def configure(
+        cls,
+        config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
+        backend_class: Type[StorageBackend],
+        *,
+        logging_config: Optional[LoggingConfig] = None,
+    ) -> None:
         """Configure the model with a database backend.
 
         Args:
@@ -34,6 +39,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
                 it is invoked automatically to obtain the ConnectionConfig.
                 Use functools.partial or lambda to pass parameters to the callable.
             backend_class: The StorageBackend subclass to use.
+            logging_config: Optional class-level logging configuration.
 
         Example:
             # With ConnectionConfig instance
@@ -55,8 +61,10 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
 
         cls.__connection_config__ = config
         cls.__backend_class__ = backend_class
+        if logging_config is not None:
+            cls.__logging_config__ = logging_config
 
-        backend_instance = backend_class(connection_config=config)
+        backend_instance = backend_class(connection_config=config, logging_config=logging_config)
         backend_instance.logger = cls.get_logger()
 
         cls.__backend__ = backend_instance
@@ -551,8 +559,13 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
     """
 
     @classmethod
-    async def configure(cls, config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
-                       backend_class: Type[AsyncStorageBackend]) -> None:
+    async def configure(
+        cls,
+        config: Union[ConnectionConfig, Callable[..., ConnectionConfig]],
+        backend_class: Type[AsyncStorageBackend],
+        *,
+        logging_config: Optional[LoggingConfig] = None,
+    ) -> None:
         """Configure the model with an async database backend.
 
         Args:
@@ -561,6 +574,7 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
                 it is invoked automatically to obtain the ConnectionConfig.
                 Use functools.partial or lambda to pass parameters to the callable.
             backend_class: The AsyncStorageBackend subclass to use.
+            logging_config: Optional class-level logging configuration.
 
         Example:
             # With ConnectionConfig instance
@@ -582,8 +596,10 @@ class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
 
         cls.__connection_config__ = config
         cls.__backend_class__ = backend_class
+        if logging_config is not None:
+            cls.__logging_config__ = logging_config
 
-        backend_instance = backend_class(connection_config=config)
+        backend_instance = backend_class(connection_config=config, logging_config=logging_config)
         backend_instance.logger = cls.get_logger()
 
         cls.__backend__ = backend_instance

@@ -2,11 +2,35 @@
 import pytest
 import json
 import csv
-import io
+import io as _io
 import logging
 from unittest.mock import MagicMock, patch
 from rhosocial.activerecord.backend.output import JsonOutputProvider, CsvOutputProvider, TsvOutputProvider
 from rhosocial.activerecord.backend.output_rich import RichOutputProvider
+
+
+def _capture_output_logger(func, logger_name="rhosocial.activerecord.backend.output"):
+    """Capture log output from a module-level logger (propagate=False safe)."""
+    logger = logging.getLogger(logger_name)
+    stream = _io.StringIO()
+    handler = logging.StreamHandler(stream)
+    handler.setLevel(logging.DEBUG)
+    original_level = logger.level
+    original_propagate = logger.propagate
+    original_handlers = list(logger.handlers)
+    logger.handlers.clear()
+    logger.addHandler(handler)
+    logger.setLevel(logging.DEBUG)
+    logger.propagate = False
+    try:
+        func()
+        return stream.getvalue()
+    finally:
+        logger.handlers.clear()
+        for h in original_handlers:
+            logger.addHandler(h)
+        logger.setLevel(original_level)
+        logger.propagate = original_propagate
 
 @pytest.fixture
 def sample_data():
@@ -25,17 +49,15 @@ class TestJsonOutputProvider:
         output_data = json.loads(captured.out)
         assert output_data == sample_data
 
-    def test_display_no_data(self, caplog):
+    def test_display_no_data(self):
         provider = JsonOutputProvider()
-        with caplog.at_level(logging.INFO):
-            provider.display_no_data()
-        assert "No data returned." in caplog.text
+        output = _capture_output_logger(lambda: provider.display_no_data())
+        assert "No data returned." in output
 
-    def test_display_query(self, caplog):
+    def test_display_query(self):
         provider = JsonOutputProvider()
-        with caplog.at_level(logging.INFO):
-            provider.display_query("SELECT * FROM users", is_async=False)
-        assert "Executing synchronous query: SELECT * FROM users" in caplog.text
+        output = _capture_output_logger(lambda: provider.display_query("SELECT * FROM users", is_async=False))
+        assert "Executing synchronous query: SELECT * FROM users" in output
 
 class TestCsvOutputProvider:
     def test_display_results(self, capsys, sample_data):
@@ -45,33 +67,32 @@ class TestCsvOutputProvider:
         
         # The output should be a CSV string
         # We can read the captured output using the csv module
-        output_file = io.StringIO(captured.out)
+        output_file = _io.StringIO(captured.out)
         reader = csv.reader(output_file)
-        
+
         # First row should be the headers
         headers = next(reader)
         assert headers == ["id", "name", "email"]
-        
+
         # Subsequent rows should match the sample data
         rows = list(reader)
         assert len(rows) == 2
         assert rows[0] == ["1", "Alice", "alice@example.com"]
         assert rows[1] == ["2", "Bob", "bob@example.com"]
 
-    def test_display_no_data(self, caplog):
+    def test_display_no_data(self):
         provider = CsvOutputProvider()
-        with caplog.at_level(logging.INFO):
-            provider.display_no_data()
-        assert "No data returned for CSV output." in caplog.text
+        output = _capture_output_logger(lambda: provider.display_no_data())
+        assert "No data returned for CSV output." in output
 
 class TestTsvOutputProvider:
     def test_display_results(self, capsys, sample_data):
         provider = TsvOutputProvider()
         provider.display_results(sample_data)
         captured = capsys.readouterr()
-        
+
         # The output should be a TSV string
-        output_file = io.StringIO(captured.out)
+        output_file = _io.StringIO(captured.out)
         reader = csv.reader(output_file, delimiter='	')
         
         # First row should be the headers
@@ -84,11 +105,10 @@ class TestTsvOutputProvider:
         assert rows[0] == ["1", "Alice", "alice@example.com"]
         assert rows[1] == ["2", "Bob", "bob@example.com"]
 
-    def test_display_no_data(self, caplog):
+    def test_display_no_data(self):
         provider = TsvOutputProvider()
-        with caplog.at_level(logging.INFO):
-            provider.display_no_data()
-        assert "No data returned for TSV output." in caplog.text
+        output = _capture_output_logger(lambda: provider.display_no_data())
+        assert "No data returned for TSV output." in output
 
 class TestRichOutputProvider:
     @pytest.fixture

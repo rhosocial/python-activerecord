@@ -6,8 +6,7 @@ import pytest
 
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.logging import (
-    configure_logging,
-    get_logging_manager,
+    LoggingConfig,
     LoggingMixin,
 )
 
@@ -49,16 +48,18 @@ class TestBackwardCompatibility:
 
     def test_log_method_works(self, caplog):
         """Test that log method works correctly."""
-        manager = get_logging_manager()
-        manager.reset()
-        configure_logging(level=logging.DEBUG, propagate=True)
+        original_config = ActiveRecord.__logging_config__
+        ActiveRecord.__logging_config__ = LoggingConfig(default_level=logging.DEBUG, propagate=True)
 
         logger = ActiveRecord.get_logger()
 
-        with caplog.at_level(logging.DEBUG):
-            logger.debug("Test message from ActiveRecord")
+        try:
+            with caplog.at_level(logging.DEBUG):
+                logger.debug("Test message from ActiveRecord")
 
-        assert "Test message from ActiveRecord" in caplog.text
+            assert "Test message from ActiveRecord" in caplog.text
+        finally:
+            ActiveRecord.__logging_config__ = original_config
 
     def test_logger_inheritance(self):
         """Test that LoggingMixin is properly inherited."""

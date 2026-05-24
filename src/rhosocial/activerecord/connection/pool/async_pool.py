@@ -17,8 +17,8 @@ from typing import Optional, Dict, Any, AsyncGenerator
 from .config import PoolConfig
 from .stats import PoolStats
 from .pooled_backend import PooledBackend
-
-logger = logging.getLogger(__name__)
+from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+logger = _get_framework_logger("rhosocial.activerecord.connection.pool.async_pool")
 
 
 class AsyncBackendPool:

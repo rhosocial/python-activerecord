@@ -6,7 +6,8 @@ from typing import Union, List, Dict, Any, Optional
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.expression import SetOperationExpression, bases
 from ..interface import IQuery, IAsyncQuery, ISetOperationQuery, IAsyncSetOperationQuery
-from ..logging.manager import get_logging_manager
+from ..logging.defaults import _LOGGER_QUERY
+from ..logging.mixin import BackendLoggingMixin
 
 
 class SetOperationQuery(ISetOperationQuery):
@@ -39,13 +40,14 @@ class SetOperationQuery(ISetOperationQuery):
             return self._logger_name
 
         # Library class: use semantic naming
-        base_name = get_logging_manager().LOGGER_QUERY
-        return f"{base_name}.{self.__class__.__name__}"
+        return f"{_LOGGER_QUERY}.{self.__class__.__name__}"
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using query's own logger."""
         logger_name = self._get_logger_name()
-        logger = get_logging_manager().get_logger(logger_name)
+        backend = self.backend()
+        config = getattr(backend, "_logging_config", None) or BackendLoggingMixin.__logging_config__
+        logger = config.get_logger(logger_name)
         logger.log(level, msg, *args, **kwargs)
 
     def __init__(
@@ -263,13 +265,14 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             return self._logger_name
 
         # Library class: use semantic naming
-        base_name = get_logging_manager().LOGGER_QUERY
-        return f"{base_name}.{self.__class__.__name__}"
+        return f"{_LOGGER_QUERY}.{self.__class__.__name__}"
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using query's own logger."""
         logger_name = self._get_logger_name()
-        logger = get_logging_manager().get_logger(logger_name)
+        backend = self.backend()
+        config = getattr(backend, "_logging_config", None) or BackendLoggingMixin.__logging_config__
+        logger = config.get_logger(logger_name)
         logger.log(level, msg, *args, **kwargs)
 
     def __init__(

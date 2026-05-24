@@ -52,6 +52,7 @@ from typing import Callable, Type, List, Optional, Union
 from ..backend.base import StorageBackend, AsyncStorageBackend
 from ..backend.config import ConnectionConfig
 from ..interface import IActiveRecord, IAsyncActiveRecord
+from ..logging import LoggingConfig
 
 
 @dataclass
@@ -120,6 +121,7 @@ class BackendGroup:
     models: List[Type[IActiveRecord]] = field(default_factory=list)
     config: Optional[Union[ConnectionConfig, Callable[..., ConnectionConfig]]] = None
     backend_class: Optional[Type[StorageBackend]] = None
+    logging_config: Optional[LoggingConfig] = None
     _backend_instance: Optional[StorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
@@ -177,12 +179,17 @@ class BackendGroup:
             )
 
         # Create a single shared backend instance (not connected)
-        self._backend_instance = self.backend_class(connection_config=config)
+        self._backend_instance = self.backend_class(
+            connection_config=config,
+            logging_config=self.logging_config,
+        )
 
         # Assign the shared backend to each model
         for model in self.models:
             model.__connection_config__ = config
             model.__backend_class__ = self.backend_class
+            if self.logging_config is not None:
+                model.__logging_config__ = self.logging_config
             model.__backend__ = self._backend_instance
 
         # Set logger if models are present
@@ -324,6 +331,7 @@ class AsyncBackendGroup:
     models: List[Type[IAsyncActiveRecord]] = field(default_factory=list)
     config: Optional[Union[ConnectionConfig, Callable[..., ConnectionConfig]]] = None
     backend_class: Optional[Type[AsyncStorageBackend]] = None
+    logging_config: Optional[LoggingConfig] = None
     _backend_instance: Optional[AsyncStorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
@@ -381,12 +389,17 @@ class AsyncBackendGroup:
             )
 
         # Create a single shared backend instance (not connected)
-        self._backend_instance = self.backend_class(connection_config=config)
+        self._backend_instance = self.backend_class(
+            connection_config=config,
+            logging_config=self.logging_config,
+        )
 
         # Assign the shared backend to each model
         for model in self.models:
             model.__connection_config__ = config
             model.__backend_class__ = self.backend_class
+            if self.logging_config is not None:
+                model.__logging_config__ = self.logging_config
             model.__backend__ = self._backend_instance
 
         # Set logger if models are present

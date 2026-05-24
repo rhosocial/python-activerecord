@@ -1,7 +1,7 @@
 # src/rhosocial/activerecord/query/async_join.py
 """AsyncJoinQueryMixin implementation for building async JOIN clauses using a chained expression model."""
 
-from typing import Union, Type, Optional
+from typing import Union, Type, Optional, Iterable
 
 from ..interface import IAsyncQuery, IAsyncActiveRecord
 from ..backend.expression import SQLPredicate, TableExpression, RawSQLPredicate, JoinExpression
@@ -44,14 +44,18 @@ class AsyncJoinQueryMixin:
             return right
         raise TypeError(f"Unsupported type for 'right' join argument: {type(right)}")
 
-    def _resolve_on_condition(self, on: Optional[Union[str, SQLPredicate]]) -> Optional[SQLPredicate]:
+    def _resolve_on_condition(
+        self,
+        on: Optional[Union[str, SQLPredicate]],
+        on_params: Optional[Iterable] = None,
+    ) -> Optional[SQLPredicate]:
         """Helper method to resolve the ON condition into a predicate."""
         if on is None:
             return None
         dialect = self.backend().dialect
         if isinstance(on, str):
             converted = convert_qmark_placeholder(dialect, on)
-            return RawSQLPredicate(dialect, converted)
+            return RawSQLPredicate(dialect, converted, params=tuple(on_params) if on_params else ())
         if isinstance(on, SQLPredicate):
             return on
         raise TypeError(f"Unsupported type for 'on' condition: {type(on)}")
@@ -63,11 +67,12 @@ class AsyncJoinQueryMixin:
         on: Optional[Union[str, SQLPredicate]],
         alias: Optional[str],
         natural: bool = False,
+        on_params: Optional[Iterable] = None,
     ) -> "IAsyncQuery":
         """Internal helper to construct and chain join expressions."""
         dialect = self.backend().dialect
         right_table = self._resolve_right_table(right, alias)
-        condition = self._resolve_on_condition(on)
+        condition = self._resolve_on_condition(on, on_params)
 
         if self.join_clause is None:
             # First join. The left table is the main model's table.
@@ -94,55 +99,60 @@ class AsyncJoinQueryMixin:
         right: Union[str, Type["IAsyncActiveRecord"], TableExpression],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
     ) -> "IAsyncQuery":
         """
         Adds a JOIN clause to the query (defaults to INNER JOIN).
         """
-        return self._perform_join("JOIN", right, on, alias)
+        return self._perform_join("JOIN", right, on, alias, on_params=on_params)
 
     def inner_join(
         self,
         right: Union[str, Type["IAsyncActiveRecord"], TableExpression],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
     ) -> "IAsyncQuery":
         """
         Adds an INNER JOIN clause to the query.
         """
-        return self._perform_join("INNER JOIN", right, on, alias)
+        return self._perform_join("INNER JOIN", right, on, alias, on_params=on_params)
 
     def left_join(
         self,
         right: Union[str, Type["IAsyncActiveRecord"], TableExpression],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
     ) -> "IAsyncQuery":
         """
         Adds a LEFT JOIN clause to the query.
         """
-        return self._perform_join("LEFT JOIN", right, on, alias)
+        return self._perform_join("LEFT JOIN", right, on, alias, on_params=on_params)
 
     def right_join(
         self,
         right: Union[str, Type["IAsyncActiveRecord"], TableExpression],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
     ) -> "IAsyncQuery":
         """
         Adds a RIGHT JOIN clause to the query.
         """
-        return self._perform_join("RIGHT JOIN", right, on, alias)
+        return self._perform_join("RIGHT JOIN", right, on, alias, on_params=on_params)
 
     def full_join(
         self,
         right: Union[str, Type["IAsyncActiveRecord"], TableExpression],
         on: Optional[Union[str, SQLPredicate]] = None,
         alias: Optional[str] = None,
+        on_params: Optional[Iterable] = None,
     ) -> "IAsyncQuery":
         """
         Adds a FULL OUTER JOIN clause to the query.
         """
-        return self._perform_join("FULL JOIN", right, on, alias)
+        return self._perform_join("FULL JOIN", right, on, alias, on_params=on_params)
 
     def cross_join(
         self, right: Union[str, Type["IAsyncActiveRecord"], TableExpression], alias: Optional[str] = None

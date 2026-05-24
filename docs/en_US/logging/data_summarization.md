@@ -1,250 +1,150 @@
 # Data Summarization
 
-> 💡 **AI Prompt**: "How does ActiveRecord's data summarization prevent sensitive data from appearing in logs?"
+`LoggingConfig` is the only source of truth for how data payloads appear in logs. Logging call sites do not pass ad-hoc mode overrides.
 
-When logging data (such as INSERT/UPDATE parameters), `DataSummarizer` automatically:
-
-1. **Truncates Long Strings**: Prevents log bloat from large text fields
-2. **Masks Sensitive Fields**: Hides passwords, tokens, API keys, etc.
-3. **Limits Collection Size**: Shows only the first N items in lists/dicts
-4. **Controls Nesting Depth**: Prevents infinite recursion
-
-## Default Sensitive Fields
-
-The following field names are automatically masked (case-insensitive):
-
-```text
-password, passwd, pwd
-token, access_token, refresh_token, auth_token
-secret, secret_key, api_key, apikey
-credential, credentials
-private_key, privatekey
+```mermaid
+flowchart TD
+    Payload["data payload"] --> Owner["select owning LoggingConfig"]
+    Owner --> LoggerRule["match LoggerConfig by logger_name hierarchy"]
+    LoggerRule --> Mode["resolve LogDataMode"]
+    Mode --> Hidden{"HIDDEN?"}
+    Hidden -- yes --> HiddenOut["return &lt;hidden&gt;"]
+    Hidden -- no --> Keys{"KEYS_ONLY?"}
+    Keys -- yes --> KeysOut["show keys/type hints<br/>mask sensitive fields"]
+    Keys -- no --> Summary{"SUMMARY?"}
+    Summary -- yes --> SummaryOut["mask sensitive fields<br/>truncate large values<br/>limit depth/items"]
+    Summary -- no --> FullOut["FULL: return original payload"]
 ```
 
-## Custom Sensitive Fields
+## Sensitive Fields
+
+`SummarizerConfig` masks sensitive field names case-insensitively. Defaults include passwords, tokens, secrets, API keys, credentials, and private keys.
 
 ```python
-from rhosocial.activerecord.logging import (
-    SummarizerConfig,
-    get_logging_manager,
+from rhosocial.activerecord.logging import LoggingConfig, LogDataMode, SummarizerConfig
+from rhosocial.activerecord.model import ActiveRecord
+
+ActiveRecord.__logging_config__ = LoggingConfig(
+    log_data_mode=LogDataMode.SUMMARY,
+    summarizer_config=SummarizerConfig(
+        sensitive_fields={"password", "token", "api_key", "credit_card", "ssn"},
+        mask_placeholder="[REDACTED]",
+    ),
 )
+```
 
-# Define custom sensitive fields
-config = SummarizerConfig(
-    sensitive_fields={
-        'password', 'token', 'api_key',
-        'credit_card', 'ssn', 'phone'  # Add your custom fields
-    }
+To add fields while preserving defaults:
+
+```python
+current = ActiveRecord.__logging_config__.summarizer_config.sensitive_fields
+ActiveRecord.__logging_config__.summarizer_config = SummarizerConfig(
+    sensitive_fields=current | {"credit_card", "ssn"},
 )
-
-manager = get_logging_manager()
-manager.config.summarizer_config = config
 ```
 
-### Appending to Default Fields
+## Data Modes
+
+### Hidden
 
 ```python
-from rhosocial.activerecord.logging import get_logging_manager, SummarizerConfig
+from rhosocial.activerecord.logging import LogDataMode
 
-manager = get_logging_manager()
-current_fields = manager.config.summarizer_config.sensitive_fields
-
-# Add new fields while preserving defaults
-new_config = SummarizerConfig(
-    sensitive_fields=current_fields | {'credit_card', 'ssn'}
-)
-manager.config.summarizer_config = new_config
+ActiveRecord.__logging_config__.log_data_mode = LogDataMode.HIDDEN
+# Result: "<hidden>"
 ```
 
-### Disabling Sensitive Field Masking
-
-If you don't need sensitive field masking (e.g., in a controlled development environment), you can disable it:
+### Keys Only
 
 ```python
-from rhosocial.activerecord.logging import (
-    SummarizerConfig,
-    get_logging_manager,
-)
-
-# Set empty sensitive fields set to disable masking
-config = SummarizerConfig(
-    sensitive_fields=set()  # Empty set = no masking
-)
-
-manager = get_logging_manager()
-manager.config.summarizer_config = config
+ActiveRecord.__logging_config__.log_data_mode = LogDataMode.KEYS_ONLY
+# Result: {'title': '<str>', 'content': '<str>', 'password': '***MASKED***'}
 ```
 
-> ⚠️ **Warning**: Disabling sensitive field masking may cause passwords, tokens, and other sensitive information to appear in logs. Only use this configuration in secure, controlled environments.
-
-## Logging Modes
-
-Three modes control how data is logged:
-
-### 1. Summary Mode (Default)
-
-Truncates long values and masks sensitive fields:
+### Summary
 
 ```python
-manager.config.log_data_mode = 'summary'
-
-# Result in logs:
-# {'title': 'Short', 'content': 'Lorem ipsum...[truncated, 1000 chars total]', 'password': '***MASKED***'}
+ActiveRecord.__logging_config__.log_data_mode = LogDataMode.SUMMARY
+# Result: {'title': 'Short', 'content': 'Lorem ipsum...[truncated, 1000 chars total]', 'password': '***MASKED***'}
 ```
 
-### 2. Keys-Only Mode
-
-Shows only field names and type hints, not actual values:
+### Full
 
 ```python
-manager.config.log_data_mode = 'keys_only'
-
-# Result in logs:
-# {'title': '<str>', 'content': '<str>', 'password': '***MASKED***'}
+ActiveRecord.__logging_config__.log_data_mode = LogDataMode.FULL
+# Result includes complete values without masking or truncation.
 ```
 
-This mode is ideal for production environments and GDPR/PCI compliance scenarios.
-
-### 3. Full Mode
-
-Shows complete data without summarization (use with caution):
-
-```python
-manager.config.log_data_mode = 'full'
-
-# Result in logs (complete data):
-# {'title': 'Short', 'content': 'Lorem ipsum dolor...', 'password': 'secret123'}
-```
-
-> ⚠️ **Warning**: `full` mode may log sensitive data. Not recommended for production environments.
+`FULL` mode may expose secrets and should only be used in controlled debugging.
 
 ## Configuration Options
 
-All available `SummarizerConfig` options:
-
 | Option | Default | Description |
-|--------|---------|-------------|
+| ------ | ------- | ----------- |
 | `max_string_length` | 100 | Maximum string length before truncation |
 | `max_bytes_length` | 64 | Maximum bytes length before truncation |
 | `max_dict_items` | 10 | Maximum items to show in dicts/lists |
 | `max_depth` | 5 | Maximum nesting depth for recursive data |
-| `sensitive_fields` | See above | Set of field names to mask |
-| `mask_placeholder` | `***MASKED***` | Placeholder for masked fields (string or callable) |
-| `field_maskers` | `{}` | Mapping of field names to custom masker functions |
+| `sensitive_fields` | Built-in sensitive field set | Field names to mask |
+| `mask_placeholder` | `***MASKED***` | Placeholder for masked fields; string or callable |
+| `field_maskers` | `{}` | Field-specific masker functions |
 | `string_placeholder` | `...[truncated, {length} chars total]` | Placeholder for truncated strings |
-| `show_type_hint` | True | Show type hints in truncation messages |
+| `show_type_hint` | `True` | Show type hints in truncation messages |
 
-### Custom Masker Functions
-
-`mask_placeholder` can be either a string or a callable (like a lambda function). When callable, it receives the original value and returns the masked result:
+## Custom Maskers
 
 ```python
 from rhosocial.activerecord.logging import SummarizerConfig
 
-# Use callable mask_placeholder
 config = SummarizerConfig(
-    sensitive_fields={'password', 'token'},
-    mask_placeholder=lambda v: f'<{len(str(v))} chars hidden>'
-)
-
-# Result: {'password': '<9 chars hidden>', 'token': '<12 chars hidden>'}
-```
-
-### Field-Specific Custom Maskers
-
-`field_maskers` allows specifying custom masker functions for specific fields, taking precedence over the global `mask_placeholder`:
-
-```python
-from rhosocial.activerecord.logging import SummarizerConfig, get_logging_manager
-
-config = SummarizerConfig(
-    sensitive_fields={'password', 'email', 'api_key'},
-    # Global fallback masker
-    mask_placeholder='[REDACTED]',
-    # Field-specific custom maskers
+    sensitive_fields={"password", "email", "api_key"},
+    mask_placeholder="[REDACTED]",
     field_maskers={
-        # Show first char of local part
-        'email': lambda v: v.split('@')[0][:1] + '***@' + v.split('@')[1] if '@' in str(v) else '***',
-        # Show password length as asterisks
-        'password': lambda v: '*' * min(len(str(v)), 8),
-    }
-)
-
-manager = get_logging_manager()
-manager.config.summarizer_config = config
-
-# Example result:
-# {'email': 'jo***@example.com', 'password': '********', 'api_key': '[REDACTED]'}
-```
-
-**Masking Priority**:
-
-1. Field-specific `field_maskers` (highest priority)
-2. Global `mask_placeholder`
-3. Default `***MASKED***` (fallback when masker raises exception)
-
-### Complete Configuration Example
-
-```python
-import logging
-from rhosocial.activerecord.logging import (
-    SummarizerConfig,
-    LoggingConfig,
-    get_logging_manager,
-)
-
-# Create custom configuration
-summarizer_config = SummarizerConfig(
-    max_string_length=200,
-    max_dict_items=5,
-    sensitive_fields={
-        'password', 'token', 'api_key',
-        'credit_card', 'ssn'
+        "email": lambda value: str(value).split("@")[0][:1] + "***@" + str(value).split("@")[1]
+        if "@" in str(value)
+        else "***",
+        "password": lambda value: "*" * min(len(str(value)), 8),
     },
-    mask_placeholder='[REDACTED]',
 )
-
-manager = get_logging_manager()
-manager.config.summarizer_config = summarizer_config
-manager.config.log_data_mode = 'summary'
-manager.config.default_level = logging.DEBUG
+ActiveRecord.__logging_config__.summarizer_config = config
 ```
 
-## Using log_data Methods
+Masking priority:
 
-`LoggingMixin` provides convenient methods for logging data with summarization:
+1. Field-specific `field_maskers`
+2. Global `mask_placeholder`
+3. Default `***MASKED***` if a masker raises an exception
+
+## Model Usage
 
 ```python
-from rhosocial.activerecord.model import ActiveRecord
 import logging
+from typing import Optional
+
+from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
+from rhosocial.activerecord.model import ActiveRecord
 
 class User(ActiveRecord):
     __table_name__ = "users"
-    # ... fields ...
+    __logging_config__ = LoggingConfig(log_data_mode=LogDataMode.SUMMARY)
+    id: Optional[int] = None
+    username: str
+    password: str
 
-# Log data with automatic summarization
 User.log_data(logging.INFO, "Creating user", {
-    'username': 'john',
-    'password': 'secret123',
-    'bio': 'A' * 1000
+    "username": "john",
+    "password": "secret123",
+    "bio": "A" * 1000,
 })
-
-# Log keys only (not values)
-User.log_data_keys_only(logging.INFO, "User data", user_dict)
-
-# Log full data (bypass summarization)
-User.log_data_full(logging.DEBUG, "Debug user data", user_dict)
 ```
 
 ## Backend Integration
 
-Backends automatically use data summarization when logging queries:
+Backend, query, and transaction logs use the backend's `LoggingConfig`, not `ActiveRecord.__logging_config__`:
 
 ```python
-# SQLite backend logs INSERT with summarization
-user = User(username="john", password="secret", bio="Long bio...")
-user.save()
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.logging import LoggingConfig, LogDataMode
 
-# Logs appear as:
-# DEBUG - Raw data for insert: {'username': 'john', 'password': '***MASKED***', 'bio': 'Long bio...[truncated, 1000 chars total]'}
+backend_config = LoggingConfig(log_data_mode=LogDataMode.KEYS_ONLY)
+User.configure(SQLiteConnectionConfig(database=":memory:"), SQLiteBackend, logging_config=backend_config)
 ```

@@ -19,7 +19,8 @@ from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.logging import (
     SummarizerConfig,
     DataSummarizer,
-    get_logging_manager,
+    LoggingConfig,
+    LogDataMode,
 )
 
 
@@ -47,23 +48,20 @@ def temp_db():
 
 @pytest.fixture
 def configured_logging():
-    """Configure logging with summarization settings."""
-    manager = get_logging_manager()
-    # Save original config
-    original_config = manager._config
-
-    # Configure for testing
-    manager._config.summarizer_config = SummarizerConfig(
-        max_string_length=50,  # Short limit to demonstrate truncation
-        sensitive_fields={'secret_code', 'password', 'token'},
+    """Configure Article model logging with summarization settings."""
+    original_config = Article.__logging_config__
+    Article.__logging_config__ = LoggingConfig(
+        default_level=logging.DEBUG,
+        summarizer_config=SummarizerConfig(
+            max_string_length=50,
+            sensitive_fields={'secret_code', 'password', 'token'},
+        ),
+        log_data_mode=LogDataMode.SUMMARY,
     )
-    manager._config.log_data_mode = 'summary'
-    manager._config.default_level = logging.DEBUG
 
-    yield manager
+    yield Article.__logging_config__
 
-    # Restore original config
-    manager._config = original_config
+    Article.__logging_config__ = original_config
 
 
 @pytest.fixture
@@ -243,8 +241,7 @@ class TestLogDataMethods:
 
     def test_model_log_data_summarizes(self, article_backend):
         """Test LoggingMixin.log_data method applies summarization."""
-        manager = get_logging_manager()
-        summarizer = manager.config.get_summarizer()
+        summarizer = Article.get_logging_config().get_summarizer()
 
         long_data = {
             "title": "Test Article",
@@ -259,10 +256,9 @@ class TestLogDataMethods:
         assert "***MASKED***" in str(summarized)
         assert "truncated" in summarized["content"]
 
-    def test_model_log_data_keys_only(self, article_backend):
-        """Test LoggingMixin.log_data_keys_only method."""
-        manager = get_logging_manager()
-        summarizer = manager.config.get_summarizer()
+    def test_log_data_keys_only_is_config_driven(self, article_backend):
+        """Test keys_only mode is controlled by LoggingConfig."""
+        Article.__logging_config__.log_data_mode = LogDataMode.KEYS_ONLY
 
         long_data = {
             "title": "Test Article",
@@ -270,24 +266,30 @@ class TestLogDataMethods:
             "secret_code": "my_secret",
         }
 
-        result = summarizer.summarize_keys_only(long_data)
+        result = Article.get_logging_config().summarize_data(long_data)
 
-        # Should show type hints, not values
         assert result["title"] == "<str>"
         assert result["content"] == "<str>"
         assert result["secret_code"] == "***MASKED***"
 
-    def test_model_log_data_full(self, article_backend):
-        """Test LoggingMixin.log_data_full bypasses summarization."""
-        manager = get_logging_manager()
+    def test_log_data_full_is_config_driven(self, article_backend):
+        """Test full mode is controlled by LoggingConfig."""
+        Article.__logging_config__.log_data_mode = LogDataMode.FULL
 
         long_data = {
             "title": "Test Article",
             "content": "Short content",
         }
 
-        # In full mode, data is returned as-is
-        result = manager.config.summarize_data(long_data, mode='full')
+        result = Article.get_logging_config().summarize_data(long_data)
 
         assert result["title"] == "Test Article"
         assert result["content"] == "Short content"
+
+    def test_log_data_hidden_is_config_driven(self, article_backend):
+        """Test hidden mode is controlled by LoggingConfig."""
+        Article.__logging_config__.log_data_mode = LogDataMode.HIDDEN
+
+        result = Article.get_logging_config().summarize_data({"title": "Test Article"})
+
+        assert result == '<hidden>'

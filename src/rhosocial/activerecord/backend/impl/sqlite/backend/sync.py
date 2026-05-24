@@ -50,6 +50,8 @@ class SQLiteBackend(
         database: Optional[str] = None,
         **kwargs,
     ):
+        logging_config = kwargs.pop("logging_config", None)
+
         if connection_config is None and database is not None:
             connection_config = SQLiteConnectionConfig(database=database, **kwargs)
         elif connection_config is None:
@@ -71,7 +73,7 @@ class SQLiteBackend(
                 options=getattr(connection_config, "options", {}),
             )
 
-        super().__init__(connection_config=connection_config)
+        super().__init__(connection_config=connection_config, logging_config=logging_config)
         self._cursor = None
         self._dialect = SQLiteDialect()
 
