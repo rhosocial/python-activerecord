@@ -8,8 +8,8 @@ import csv
 from typing import Any, List, Dict
 
 from .output_abc import OutputProvider
-
-logger = logging.getLogger(__name__)
+from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+logger = _get_framework_logger("rhosocial.activerecord.backend.output")
 
 
 class JsonOutputProvider(OutputProvider):

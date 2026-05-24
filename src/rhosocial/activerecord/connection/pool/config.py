@@ -9,7 +9,8 @@ import logging
 from dataclasses import dataclass, field
 from typing import Callable, Literal, Optional, Any, Dict
 
-logger = logging.getLogger(__name__)
+from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+logger = _get_framework_logger("rhosocial.activerecord.connection.pool.config")
 
 # Connection mode type: auto-detect, persistent (long-lived), or transient (short-lived)
 ConnectionMode = Literal["auto", "persistent", "transient"]

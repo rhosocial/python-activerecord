@@ -44,7 +44,7 @@ class ActiveRecordBase(BaseModel, ABC):
     __backend__: Optional[Union[StorageBackend, AsyncStorageBackend]] = None
     __backend_class__: ClassVar[Type[Union[StorageBackend, AsyncStorageBackend]]] = None
     __connection_config__: ClassVar[Optional[ConnectionConfig]] = None
-    __logger__: ClassVar[Optional[logging.Logger]] = None  # Uses global logging config by default
+    __logger__: ClassVar[Optional[logging.Logger]] = None
 
     def __init__(self, **data):
         """Initialize ActiveRecord instance."""

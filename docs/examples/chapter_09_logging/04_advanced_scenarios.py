@@ -1,246 +1,139 @@
 """
 Logging Chapter: Example 4 - Advanced Scenarios & Best Practices
-Demonstrates core concepts:
-1. Production configuration
-2. Development configuration
-3. Custom logger names for user models
-4. Integration with application logging
+
+Shows production/development presets with separate ActiveRecord and backend configs.
 """
 
 import logging
 import sys
 from typing import Optional
-from rhosocial.activerecord.model import ActiveRecord
-from rhosocial.activerecord.logging import (
-    configure_logging,
-    get_logging_manager,
-    LoggerConfig,
-    SummarizerConfig,
-    ActiveRecordFormatter,
-)
 
-# --- Models ---
+from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
+from rhosocial.activerecord.connection.group import BackendGroup
+from rhosocial.activerecord.logging import (
+    ActiveRecordFormatter,
+    LoggerConfig,
+    LoggingConfig,
+    LogDataMode,
+    SummarizerConfig,
+    configure_logging,
+)
+from rhosocial.activerecord.model import ActiveRecord
+
 
 class User(ActiveRecord):
-    """User Model with custom logger name"""
     __table_name__ = "users"
-    __logger_name__ = 'myapp.models.user'  # Custom logger name
+    __logger_name__ = "myapp.models.user"
     id: Optional[int] = None
     username: str
     password: str
     email: str
 
+
 class Order(ActiveRecord):
-    """Order Model"""
     __table_name__ = "orders"
     id: Optional[int] = None
     user_id: int
     total: float
-    credit_card: str  # Sensitive field
+    credit_card: str
 
-# --- Configuration Presets ---
 
-def configure_production_logging():
-    """Configure logging for production environment."""
-    manager = get_logging_manager()
-    manager.reset()
-
-    # Production: Use INFO level, summary mode
-    configure_logging(
-        level=logging.INFO,
-        propagate=False,  # Don't propagate to root logger
+def production_configs():
+    model_config = LoggingConfig(
+        default_level=logging.INFO,
+        log_data_mode=LogDataMode.SUMMARY,
+        summarizer_config=SummarizerConfig(
+            sensitive_fields={"password", "token", "api_key", "secret", "credit_card", "ssn", "cvv", "pin"},
+            mask_placeholder="[REDACTED]",
+        ),
     )
-
-    # Backend: keys_only for security (PCI compliance)
-    backend_config = LoggerConfig(
-        name='rhosocial.activerecord.backend',
-        log_data_mode='keys_only',
-        level=logging.WARNING,  # Only warnings and above
+    backend_config = LoggingConfig(default_level=logging.WARNING, log_data_mode=LogDataMode.KEYS_ONLY)
+    backend_config.add_logger_config(
+        LoggerConfig(
+            name="rhosocial.activerecord.transaction",
+            level=logging.INFO,
+            log_data_mode=LogDataMode.SUMMARY,
+        )
     )
-    manager.config.add_logger_config(backend_config)
+    return model_config, backend_config
 
-    # Transaction: summary mode
-    tx_config = LoggerConfig(
-        name='rhosocial.activerecord.transaction',
-        log_data_mode='summary',
-        level=logging.INFO,
+
+def development_configs():
+    model_config = LoggingConfig(default_level=logging.DEBUG, log_data_mode=LogDataMode.SUMMARY)
+    backend_config = LoggingConfig(default_level=logging.DEBUG, log_data_mode=LogDataMode.SUMMARY)
+    backend_config.add_logger_config(
+        LoggerConfig(
+            name="rhosocial.activerecord.query",
+            log_data_mode=LogDataMode.FULL,
+        )
     )
-    manager.config.add_logger_config(tx_config)
+    return model_config, backend_config
 
-    # Model: summary with extra sensitive fields
-    model_summarizer = SummarizerConfig(
-        sensitive_fields={
-            'password', 'token', 'api_key', 'secret',
-            'credit_card', 'ssn', 'cvv', 'pin'
-        },
-        mask_placeholder='[REDACTED]',
-    )
-    model_config = LoggerConfig(
-        name='rhosocial.activerecord.model',
-        log_data_mode='summary',
-        summarizer_config=model_summarizer,
-    )
-    manager.config.add_logger_config(model_config)
 
-    print("Production logging configured:")
-    print("  - Global level: INFO")
-    print("  - Backend: keys_only, WARNING level (PCI compliant)")
-    print("  - Model: summary with extended sensitive fields")
-    return manager
+def print_config_result(title: str, model_config: LoggingConfig, backend_config: LoggingConfig) -> None:
+    test_data = {
+        "username": "john_doe",
+        "password": "my_password",
+        "credit_card": "4111-1111-1111-1111",
+        "cvv": "123",
+    }
+    print("\n" + "=" * 50)
+    print(title)
+    print("=" * 50)
+    print(f"model: {model_config.summarize_data(test_data, logger_name='rhosocial.activerecord.model')}")
+    print(f"backend: {backend_config.summarize_data(test_data, logger_name='rhosocial.activerecord.backend')}")
+    print(f"query: {backend_config.summarize_data(test_data, logger_name='rhosocial.activerecord.query')}")
 
-def configure_development_logging():
-    """Configure logging for development environment."""
-    manager = get_logging_manager()
-    manager.reset()
-
-    # Development: Use DEBUG level, more verbose
-    configure_logging(
-        level=logging.DEBUG,
-        propagate=True,  # Propagate to root logger for easy viewing
-    )
-
-    # Query: full mode for debugging queries
-    query_config = LoggerConfig(
-        name='rhosocial.activerecord.query',
-        log_data_mode='full',
-    )
-    manager.config.add_logger_config(query_config)
-
-    # Backend: summary mode (show some data for debugging)
-    backend_config = LoggerConfig(
-        name='rhosocial.activerecord.backend',
-        log_data_mode='summary',
-    )
-    manager.config.add_logger_config(backend_config)
-
-    print("Development logging configured:")
-    print("  - Global level: DEBUG")
-    print("  - Query: full mode (show complete queries)")
-    print("  - Backend: summary mode")
-    return manager
-
-# --- Main Execution ---
 
 def main():
     print("=" * 60)
     print("Example 4: Advanced Scenarios & Best Practices")
     print("=" * 60)
 
-    test_data = {
-        'username': 'john_doe',
-        'password': 'my_password',
-        'credit_card': '4111-1111-1111-1111',
-        'cvv': '123',
-    }
+    production_model_config, production_backend_config = production_configs()
+    print_config_result("SCENARIO 1: Production Environment", production_model_config, production_backend_config)
 
-    # 1. Production Configuration
-    print("\n" + "=" * 50)
-    print("SCENARIO 1: Production Environment")
-    print("=" * 50)
+    development_model_config, development_backend_config = development_configs()
+    print_config_result("SCENARIO 2: Development Environment", development_model_config, development_backend_config)
 
-    manager = configure_production_logging()
-
-    print("\nTest data with production config:")
-    for logger_name in ['rhosocial.activerecord.backend',
-                        'rhosocial.activerecord.model',
-                        'rhosocial.activerecord.query']:
-        result = manager.config.summarize_data(test_data, logger_name=logger_name)
-        mode = manager.config.get_log_data_mode(logger_name)
-        print(f"  {logger_name}: [{mode}] {result}")
-
-    # 2. Development Configuration
-    print("\n" + "=" * 50)
-    print("SCENARIO 2: Development Environment")
-    print("=" * 50)
-
-    manager = configure_development_logging()
-
-    print("\nTest data with development config:")
-    for logger_name in ['rhosocial.activerecord.backend',
-                        'rhosocial.activerecord.model',
-                        'rhosocial.activerecord.query']:
-        result = manager.config.summarize_data(test_data, logger_name=logger_name)
-        mode = manager.config.get_log_data_mode(logger_name)
-        print(f"  {logger_name}: [{mode}] {result}")
-
-    # 3. Custom Logger Name for User Models
-    print("\n" + "=" * 50)
-    print("SCENARIO 3: Custom Logger Name")
-    print("=" * 50)
-
-    # User model has custom logger name
-    print(f"User model logger name: {User._get_logger_name()}")
-    print("User-defined models can have custom logger names for integration")
-    print("with application logging infrastructure")
-
-    # Configure custom handler for user model
-    handler = logging.StreamHandler(sys.stdout)
-    handler.setFormatter(ActiveRecordFormatter(
-        '%(asctime)s [%(levelname)s] %(name)s: %(message)s'
-    ))
-
-    user_logger_config = LoggerConfig(
-        name='myapp.models.user',
-        level=logging.DEBUG,
-        handlers=[handler],
+    ActiveRecord.__logging_config__ = production_model_config
+    group = BackendGroup(
+        name="production",
+        models=[User, Order],
+        config=SQLiteConnectionConfig(database=":memory:"),
+        backend_class=SQLiteBackend,
+        logging_config=production_backend_config,
     )
-    manager.config.add_logger_config(user_logger_config)
+    group.configure()
+    try:
+        print("\nBackendGroup configured:")
+        print(f"User model config mode: {User.get_logging_config().log_data_mode}")
+        print(f"Order model config mode: {Order.get_logging_config().log_data_mode}")
+        print(f"Backend config mode: {group.get_backend()._logging_config.log_data_mode}")
+    finally:
+        group.disconnect()
 
-    # 4. Integration with Application Logging
-    print("\n" + "=" * 50)
-    print("SCENARIO 4: Integration with Application Logging")
-    print("=" * 50)
+    handler = logging.StreamHandler(sys.stdout)
+    handler.setFormatter(ActiveRecordFormatter("%(asctime)s [%(levelname)s] %(name)s: %(message)s"))
+    User.set_logger(logging.getLogger("myapp.models.user"))
+    User.get_logger().handlers.clear()
+    User.get_logger().addHandler(handler)
+    User.get_logger().setLevel(logging.DEBUG)
+    User.get_logger().propagate = False
+    print(f"\nCustom user logger name: {User._get_logger_name()}")
 
-    # You can also configure propagation
-    # This allows ActiveRecord logs to be captured by your application's root logger
-
-    # Setup application root logger
-    app_handler = logging.StreamHandler(sys.stdout)
-    app_handler.setFormatter(logging.Formatter(
-        '[APP] %(name)s - %(levelname)s: %(message)s'
-    ))
-    root_logger = logging.getLogger()
-    root_logger.addHandler(app_handler)
-    root_logger.setLevel(logging.DEBUG)
-
-    # Configure propagation for ActiveRecord loggers
-    configure_logging(propagate=True)
-
-    print("With propagation enabled, ActiveRecord logs go to root logger")
-    print("This allows unified log handling across your application")
-
-    # 5. Best Practices Summary
-    print("\n" + "=" * 50)
-    print("BEST PRACTICES SUMMARY")
-    print("=" * 50)
+    configure_logging(level=logging.INFO, propagate=True)
+    print("configure_logging() is for framework loggers outside model/backend ownership.")
 
     print("""
-1. PRODUCTION ENVIRONMENT:
-   - Use INFO or WARNING level
-   - Set backend to keys_only for security
-   - Never use 'full' mode in production
-   - Add application-specific sensitive fields
-
-2. DEVELOPMENT ENVIRONMENT:
-   - Use DEBUG level for verbose output
-   - Can use 'full' mode temporarily for debugging
-   - Set propagate=True for easy viewing
-
-3. COMPLIANCE (GDPR/PCI):
-   - Use keys_only mode for sensitive operations
-   - Ensure sensitive_fields includes all PII
-   - Consider custom placeholder for audit trails
-
-4. PERFORMANCE:
-   - Avoid 'full' mode with large datasets
-   - Use keys_only for high-frequency logging
-   - Configure appropriate log levels per component
-
-5. INTEGRATION:
-   - Use custom __logger_name__ for user models
-   - Configure propagate=True for centralized logging
-   - Share formatter with application logger
+Best practices:
+1. Production: use SUMMARY for model logs and KEYS_ONLY for backend logs.
+2. Development: FULL mode is only suitable for controlled debugging.
+3. Compliance: define sensitive_fields on the owning LoggingConfig.
+4. BackendGroup(logging_config=...) binds backend logging independently.
+5. Custom __logger_name__ changes where logs are emitted, not data visibility rules.
 """)
+
 
 if __name__ == "__main__":
     main()

@@ -40,7 +40,12 @@ class BaseConfig:
     options: Dict[str, Any] = field(default_factory=dict)
 
     def to_dict(self) -> Dict[str, Any]:
-        """Convert configuration to dictionary, excluding None values."""
+        """Convert configuration to dictionary, excluding None values.
+
+        Warning:
+            The returned dict includes the ``password`` field in plaintext.
+            Avoid logging or serializing this dict to insecure destinations.
+        """
         result = {}
         for key, value in self.__dict__.items():
             if value is not None and key not in ("options",):

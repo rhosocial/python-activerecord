@@ -496,6 +496,10 @@ class SQLDialectBase:
             # Handle different types of new_value based on operation
             if operation_str == "SET DATA TYPE":
                 # For SET DATA TYPE, new_value is a type specification, not a parameter
+                if not self._validate_data_type(str(action.new_value)):
+                    raise ValueError(
+                        f"Invalid data type specification: '{action.new_value}'"
+                    )
                 column_part += f" {action.new_value}"
             elif isinstance(action.new_value, str):
                 # Handle literal strings
@@ -564,7 +568,14 @@ class SQLDialectBase:
             # ON DELETE / ON UPDATE (from ForeignKeyConstraint)
             if isinstance(action.constraint, ForeignKeyConstraint):
                 if action.constraint.match_type:
-                    parts.append(f"MATCH {action.constraint.match_type}")
+                    _VALID_MATCH_TYPES = frozenset({'SIMPLE', 'PARTIAL', 'FULL'})
+                    mt = action.constraint.match_type.upper()
+                    if mt not in _VALID_MATCH_TYPES:
+                        raise ValueError(
+                            f"Invalid MATCH type '{action.constraint.match_type}'. "
+                            f"Must be one of: {', '.join(sorted(_VALID_MATCH_TYPES))}"
+                        )
+                    parts.append(f"MATCH {mt}")
                 if action.constraint.on_delete != ReferentialAction.NO_ACTION:
                     parts.append(f"ON DELETE {action.constraint.on_delete.value}")
                 if action.constraint.on_update != ReferentialAction.NO_ACTION:
@@ -1321,8 +1332,15 @@ class SQLDialectBase:
         # Add partition clause if present
         if expr.partition_by:
             partition_type, partition_cols = expr.partition_by
+            _VALID_PARTITION_TYPES = frozenset({'RANGE', 'LIST', 'HASH', 'KEY'})
+            normalized = partition_type.upper()
+            if normalized not in _VALID_PARTITION_TYPES:
+                raise ValueError(
+                    f"Invalid partition_type '{partition_type}'. "
+                    f"Must be one of: {', '.join(sorted(_VALID_PARTITION_TYPES))}"
+                )
             cols_str = ", ".join(self.format_identifier(col) for col in partition_cols)
-            parts.append(f" PARTITION BY {partition_type.upper()} ({cols_str})")
+            parts.append(f" PARTITION BY {normalized} ({cols_str})")
 
         # Add AS clause if present
         if expr.as_query:

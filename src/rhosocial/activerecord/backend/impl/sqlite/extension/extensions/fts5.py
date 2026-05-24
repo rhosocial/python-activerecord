@@ -74,6 +74,20 @@ class FTS5Extension(SQLiteExtensionBase):
             documentation_url="https://www.sqlite.org/fts5.html",
         )
 
+    @staticmethod
+    def format_identifier(identifier: str) -> str:
+        """Format identifier using SQLite double-quote quoting."""
+        escaped = identifier.replace('"', '""')
+        return f'"{escaped}"'
+
+    @staticmethod
+    def _escape_sql_string(value: str) -> str:
+        """Escape a string literal for safe embedding in SQL.
+
+        Doubles single quotes per SQL standard.
+        """
+        return value.replace("'", "''")
+
     def get_supported_tokenizers(self, version: Tuple[int, int, int]) -> List[str]:
         """Get list of supported tokenizers for given SQLite version.
 
@@ -117,34 +131,34 @@ class FTS5Extension(SQLiteExtensionBase):
         options = []
 
         if tokenize:
-            options.append(f"tokenize='{tokenize}'")
+            options.append(f"tokenize='{self._escape_sql_string(tokenize)}'")
         elif tokenizer:
             if tokenizer_options:
                 opt_parts = []
                 for k, v in tokenizer_options.items():
                     opt_parts.append(f"{k} {v}")
                 opts_str = " ".join(opt_parts)
-                options.append(f"tokenize='{tokenizer} {opts_str}'")
+                options.append(f"tokenize='{self._escape_sql_string(f'{tokenizer} {opts_str}')}'")
             else:
-                options.append(f"tokenize='{tokenizer}'")
+                options.append(f"tokenize='{self._escape_sql_string(tokenizer)}'")
 
         if prefix:
             prefix_str = " ".join(str(p) for p in prefix)
-            options.append(f"prefix='{prefix_str}'")
+            options.append(f"prefix='{self._escape_sql_string(prefix_str)}'")
 
         if content:
-            options.append(f"content='{content}'")
+            options.append(f"content='{self._escape_sql_string(content)}'")
 
         if content_rowid:
-            options.append(f"content_rowid='{content_rowid}'")
+            options.append(f"content_rowid='{self._escape_sql_string(content_rowid)}'")
 
-        cols_str = ", ".join(f'"{c}"' for c in columns)
+        cols_str = ", ".join(self.format_identifier(c) for c in columns)
 
         if options:
             opts_str = ", ".join(options)
-            sql = f'CREATE VIRTUAL TABLE "{table_name}" USING fts5({cols_str}, {opts_str})'
+            sql = f'CREATE VIRTUAL TABLE {self.format_identifier(table_name)} USING fts5({cols_str}, {opts_str})'
         else:
-            sql = f'CREATE VIRTUAL TABLE "{table_name}" USING fts5({cols_str})'
+            sql = f'CREATE VIRTUAL TABLE {self.format_identifier(table_name)} USING fts5({cols_str})'
 
         return sql, ()
 
@@ -188,7 +202,7 @@ class FTS5Extension(SQLiteExtensionBase):
         else:
             match_query = query
 
-        sql = f'"{table_name}" MATCH ?'
+        sql = f'{self.format_identifier(table_name)} MATCH ?'
         return sql, (match_query,)
 
     def format_rank_expression(
@@ -216,20 +230,20 @@ class FTS5Extension(SQLiteExtensionBase):
             weight_str = ", ".join(str(w) for w in weights)
             param_parts = []
             for k, v in bm25_params.items():
-                param_parts.extend([f"'{k}'", str(v)])
+                param_parts.extend([f"'{self._escape_sql_string(k)}'", str(v)])
             param_str = ", ".join(param_parts)
-            sql = f'bm25("{table_name}", {weight_str}, {param_str})'
+            sql = f'bm25({self.format_identifier(table_name)}, {weight_str}, {param_str})'
         elif weights:
             weight_str = ", ".join(str(w) for w in weights)
-            sql = f'bm25("{table_name}", {weight_str})'
+            sql = f'bm25({self.format_identifier(table_name)}, {weight_str})'
         elif bm25_params:
             param_parts = []
             for k, v in bm25_params.items():
-                param_parts.extend([f"'{k}'", str(v)])
+                param_parts.extend([f"'{self._escape_sql_string(k)}'", str(v)])
             param_str = ", ".join(param_parts)
-            sql = f'bm25("{table_name}", {param_str})'
+            sql = f'bm25({self.format_identifier(table_name)}, {param_str})'
         else:
-            sql = f'bm25("{table_name}")'
+            sql = f'bm25({self.format_identifier(table_name)})'
 
         return sql, tuple(params)
 
@@ -256,7 +270,7 @@ class FTS5Extension(SQLiteExtensionBase):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'highlight("{table_name}", "{column}", ?, ?)'
+        sql = f'highlight({self.format_identifier(table_name)}, {self.format_identifier(column)}, ?, ?)'
         return sql, (prefix_marker, suffix_marker)
 
     def format_snippet_expression(
@@ -286,7 +300,7 @@ class FTS5Extension(SQLiteExtensionBase):
         Returns:
             Tuple of (SQL string, parameters tuple)
         """
-        sql = f'snippet("{table_name}", "{column}", ?, ?, ?, ?)'
+        sql = f'snippet({self.format_identifier(table_name)}, {self.format_identifier(column)}, ?, ?, ?, ?)'
         return sql, (prefix_marker, suffix_marker, ellipsis, context_tokens)
 
     def format_drop_virtual_table(
@@ -304,9 +318,9 @@ class FTS5Extension(SQLiteExtensionBase):
             Tuple of (SQL string, parameters tuple)
         """
         if if_exists:
-            sql = f'DROP TABLE IF EXISTS "{table_name}"'
+            sql = f'DROP TABLE IF EXISTS {self.format_identifier(table_name)}'
         else:
-            sql = f'DROP TABLE "{table_name}"'
+            sql = f'DROP TABLE {self.format_identifier(table_name)}'
         return sql, ()
 
 

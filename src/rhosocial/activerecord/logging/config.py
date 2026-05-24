@@ -6,11 +6,31 @@ settings across ActiveRecord components.
 """
 
 from dataclasses import dataclass, field
+from enum import Enum
 from typing import Optional, Dict, List, Any
 import logging
+import threading
 
 from .formatter import ActiveRecordFormatter
 from .summarizer import SummarizerConfig, DataSummarizer
+
+
+class LogDataMode(str, Enum):
+    HIDDEN = "hidden"
+    KEYS_ONLY = "keys_only"
+    SUMMARY = "summary"
+    FULL = "full"
+
+
+
+
+def normalize_log_data_mode(mode: Optional[object]) -> Optional[LogDataMode]:
+    if mode is None:
+        return None
+    if isinstance(mode, LogDataMode):
+        return mode
+    allowed = [item.value for item in LogDataMode]
+    raise ValueError(f"log_data_mode must be a LogDataMode value: {allowed}")
 
 
 @dataclass
@@ -37,8 +57,15 @@ class LoggerConfig:
     level: int = logging.DEBUG
     propagate: bool = False
     handlers: List[logging.Handler] = field(default_factory=list)
-    log_data_mode: Optional[str] = None
+    log_data_mode: Optional[LogDataMode] = None
     summarizer_config: Optional[SummarizerConfig] = None
+
+    def __post_init__(self) -> None:
+        self._validate_log_data_mode(self.log_data_mode)
+
+    @staticmethod
+    def _validate_log_data_mode(mode: Optional[LogDataMode]) -> None:
+        normalize_log_data_mode(mode)
 
     def create_logger(self) -> logging.Logger:
         """Create and configure a logger instance.
@@ -109,7 +136,7 @@ class LoggingConfig:
     # - 'summary': Truncate large values, mask sensitive fields
     # - 'keys_only': Only show field names, no values
     # - 'full': Show complete data (not recommended for production)
-    log_data_mode: str = 'summary'
+    log_data_mode: LogDataMode = LogDataMode.SUMMARY
 
     # Cached summarizer instance
     _summarizer: Optional[DataSummarizer] = field(default=None, repr=False, compare=False)
@@ -117,13 +144,40 @@ class LoggingConfig:
     # Cached summarizers for specific loggers (by logger name)
     _logger_summarizers: Dict[str, DataSummarizer] = field(default_factory=dict, repr=False, compare=False)
 
+    # Track which loggers have been configured (for idempotent get_logger)
+    _configured_loggers: set = field(default_factory=set, repr=False, compare=False)
+
+    # Lock for thread-safe cache access (RLock for reentrant get_summarizer calls)
+    _lock: Any = field(default=None, repr=False, compare=False, init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, '_lock', threading.RLock())
+
     def __setattr__(self, name: str, value: Any) -> None:
         """Override setattr to invalidate cached summarizers when config changes."""
+        if name == 'log_data_mode':
+            value = normalize_log_data_mode(value)
         if name == 'summarizer_config':
-            # Clear cached summarizers when summarizer_config is updated
-            object.__setattr__(self, '_summarizer', None)
-            object.__setattr__(self, '_logger_summarizers', {})
+            lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+            if lock is not None:
+                with lock:
+                    object.__setattr__(self, '_summarizer', None)
+                    object.__setattr__(self, '_logger_summarizers', {})
+            else:
+                object.__setattr__(self, '_summarizer', None)
+                object.__setattr__(self, '_logger_summarizers', {})
+        if name in ('default_level', 'propagate', 'auto_setup', 'formatter'):
+            lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+            if lock is not None:
+                with lock:
+                    object.__setattr__(self, '_configured_loggers', set())
+            else:
+                object.__setattr__(self, '_configured_loggers', set())
         object.__setattr__(self, name, value)
+
+    @staticmethod
+    def _validate_log_data_mode(mode: Optional[LogDataMode]) -> None:
+        normalize_log_data_mode(mode)
 
     def get_summarizer(self, logger_name: Optional[str] = None) -> DataSummarizer:
         """Get or create the DataSummarizer instance.
@@ -137,22 +191,25 @@ class LoggingConfig:
         Returns:
             DataSummarizer instance configured with appropriate config.
         """
-        if logger_name is None:
-            if self._summarizer is None:
-                self._summarizer = DataSummarizer(self.summarizer_config)
-            return self._summarizer
+        with self._lock:
+            if logger_name is None:
+                if self._summarizer is None:
+                    object.__setattr__(self, '_summarizer', DataSummarizer(self.summarizer_config))
+                return self._summarizer
 
-        # Find matching logger config (supports hierarchical matching)
-        logger_config = self._find_logger_config(logger_name)
+            # Find matching logger config (supports hierarchical matching)
+            logger_config = self._find_logger_config(logger_name)
 
-        if logger_config is not None and logger_config.summarizer_config is not None:
-            # Use logger-specific summarizer config
-            if logger_name not in self._logger_summarizers:
-                self._logger_summarizers[logger_name] = DataSummarizer(logger_config.summarizer_config)
-            return self._logger_summarizers[logger_name]
-        else:
-            # Use global summarizer
-            return self.get_summarizer()
+            if logger_config is not None and logger_config.summarizer_config is not None:
+                # Use logger-specific summarizer config
+                if logger_name not in self._logger_summarizers:
+                    new_dict = dict(self._logger_summarizers)
+                    new_dict[logger_name] = DataSummarizer(logger_config.summarizer_config)
+                    object.__setattr__(self, '_logger_summarizers', new_dict)
+                return self._logger_summarizers[logger_name]
+            else:
+                # Use global summarizer
+                return self.get_summarizer()
 
     def _find_logger_config(self, logger_name: str) -> Optional['LoggerConfig']:
         """Find the most specific LoggerConfig for a given logger name.
@@ -183,52 +240,36 @@ class LoggingConfig:
 
         return None
 
-    def get_log_data_mode(self, logger_name: Optional[str] = None) -> str:
-        """Get the effective log data mode for a logger.
-
-        Args:
-            logger_name: Optional logger name to get specific mode.
-                If provided and the logger has a custom log_data_mode,
-                returns that mode. Otherwise returns the global mode.
-
-        Returns:
-            The effective log data mode ('summary', 'keys_only', or 'full').
-        """
+    def resolve_log_data_mode(self, logger_name: Optional[str] = None) -> LogDataMode:
+        """Get the effective log data mode for a logger."""
         if logger_name is None:
-            return self.log_data_mode
+            mode = self.log_data_mode
+        else:
+            logger_config = self._find_logger_config(logger_name)
+            if logger_config is not None and logger_config.log_data_mode is not None:
+                mode = logger_config.log_data_mode
+            else:
+                mode = self.log_data_mode
+        resolved = normalize_log_data_mode(mode)
+        if resolved is None:
+            return LogDataMode.SUMMARY
+        return resolved
 
-        logger_config = self._find_logger_config(logger_name)
-        if logger_config is not None and logger_config.log_data_mode is not None:
-            return logger_config.log_data_mode
+    def get_log_data_mode(self, logger_name: Optional[str] = None) -> LogDataMode:
+        """Get the effective log data mode for a logger."""
+        return self.resolve_log_data_mode(logger_name)
 
-        return self.log_data_mode
+    def summarize_data(self, data: Any, logger_name: Optional[str] = None) -> Any:
+        """Summarize data according to the configured mode."""
+        effective_mode = self.resolve_log_data_mode(logger_name)
 
-    def summarize_data(
-        self,
-        data: Any,
-        mode: Optional[str] = None,
-        logger_name: Optional[str] = None
-    ) -> Any:
-        """Summarize data according to the configured mode.
-
-        Args:
-            data: The data to summarize.
-            mode: Override mode ('summary', 'keys_only', 'full').
-                If None, uses the effective log_data_mode for the logger.
-            logger_name: Optional logger name to get logger-specific configuration.
-                If provided, uses the summarizer and mode configured for that logger.
-
-        Returns:
-            Summarized data according to the mode.
-        """
-        effective_mode = mode or self.get_log_data_mode(logger_name)
-
-        if effective_mode == 'full':
+        if effective_mode is LogDataMode.HIDDEN:
+            return '<hidden>'
+        if effective_mode is LogDataMode.FULL:
             return data
-        elif effective_mode == 'keys_only':
+        if effective_mode is LogDataMode.KEYS_ONLY:
             return self.get_summarizer(logger_name).summarize_keys_only(data)
-        else:  # 'summary' (default)
-            return self.get_summarizer(logger_name).summarize(data)
+        return self.get_summarizer(logger_name).summarize(data)
 
     def get_logger(self, name: str) -> logging.Logger:
         """Get or create a logger with the configured settings.
@@ -237,6 +278,10 @@ class LoggingConfig:
         by default (propagate=False), preventing ActiveRecord logs from
         appearing in user's root logger handlers unless explicitly configured.
 
+        Configuration is applied only on the first call for a given name.
+        Subsequent calls return the same logger without overwriting settings,
+        preserving any user customizations made directly on the logger.
+
         Args:
             name: The name of the logger to create/get.
 
@@ -244,24 +289,26 @@ class LoggingConfig:
             Configured logging.Logger instance.
         """
         logger = logging.getLogger(name)
-        logger.setLevel(self.default_level)
-        logger.propagate = self.propagate
+        if name not in self._configured_loggers:
+            logger.setLevel(self.default_level)
+            logger.propagate = self.propagate
 
-        # Check if there's a specific config for this logger
-        if name in self.loggers:
-            config = self.loggers[name]
-            logger.setLevel(config.level)
-            logger.propagate = config.propagate
-            for handler in config.handlers:
-                if handler not in logger.handlers:
-                    logger.addHandler(handler)
+            # Check if there's a specific config for this logger
+            if name in self.loggers:
+                config = self.loggers[name]
+                logger.setLevel(config.level)
+                logger.propagate = config.propagate
+                for handler in config.handlers:
+                    if handler not in logger.handlers:
+                        logger.addHandler(handler)
 
-        # Auto-setup handler if enabled and no handlers exist
-        if self.auto_setup and not logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(self.formatter)
-            logger.addHandler(handler)
+            # Auto-setup handler if enabled and no handlers exist
+            if self.auto_setup and not logger.handlers:
+                handler = logging.StreamHandler()
+                handler.setFormatter(self.formatter)
+                logger.addHandler(handler)
 
+            self._configured_loggers.add(name)
         return logger
 
     def add_logger_config(self, config: LoggerConfig) -> None:
@@ -270,4 +317,11 @@ class LoggingConfig:
         Args:
             config: LoggerConfig instance to add.
         """
+        config.log_data_mode = normalize_log_data_mode(config.log_data_mode)
         self.loggers[config.name] = config
+        lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+        if lock is not None:
+            with lock:
+                object.__setattr__(self, '_logger_summarizers', {})
+        else:
+            object.__setattr__(self, '_logger_summarizers', {})

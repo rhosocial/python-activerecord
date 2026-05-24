@@ -68,7 +68,7 @@ class ExecutionMixin:
             ConnectionError: If there are connection-related issues
         """
         start_time = time.perf_counter()
-        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
+        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {self.summarize_log_data(params)}")
         try:
             if not self._connection:
                 self.connect()
@@ -212,7 +212,7 @@ class AsyncExecutionMixin:
             ConnectionError: If there are connection-related issues
         """
         start_time = time.perf_counter()
-        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {params}")
+        self.log(logging.DEBUG, f"Executing SQL: {sql}, parameters: {self.summarize_log_data(params)}")
         try:
             if not self._connection:
                 await self.connect()
