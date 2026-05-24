@@ -12,6 +12,7 @@ _LOGGER_BACKEND = "rhosocial.activerecord.backend"
 _LOGGER_QUERY = "rhosocial.activerecord.query"
 _LOGGER_TRANSACTION = "rhosocial.activerecord.transaction"
 _LOGGER_WORKER = "rhosocial.activerecord.worker"
+_LOGGER_CONNECTION = "rhosocial.activerecord.connection"
 
 _default_logging_config = LoggingConfig()
 

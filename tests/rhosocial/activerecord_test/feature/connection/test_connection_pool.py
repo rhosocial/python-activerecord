@@ -40,6 +40,8 @@ process exit across **all** Python versions.  The root cause was a two-part bug:
 """
 
 from datetime import datetime, timedelta
+import io
+import logging
 
 import pytest
 
@@ -3111,17 +3113,34 @@ class TestConnectionModeConfig:
                 backend_factory=lambda: None
             )
 
-    def test_auto_connect_ignored_warning_in_persistent_mode(self, caplog):
+    def test_auto_connect_ignored_warning_in_persistent_mode(self):
         """Test that auto_connect_on_acquire is warned in persistent mode."""
-        import logging
-        with caplog.at_level(logging.WARNING):
+        logger = logging.getLogger("rhosocial.activerecord.connection.pool.config")
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setLevel(logging.WARNING)
+        original_level = logger.level
+        original_propagate = logger.propagate
+        original_handlers = list(logger.handlers)
+        logger.handlers.clear()
+        logger.addHandler(handler)
+        logger.setLevel(logging.WARNING)
+        logger.propagate = False
+        try:
             config = PoolConfig(
                 connection_mode="persistent",
                 auto_connect_on_acquire=True,
                 backend_factory=lambda: None
             )
-        assert "persistent" in caplog.text
-        assert "ignores" in caplog.text
+            output = stream.getvalue()
+        finally:
+            logger.handlers.clear()
+            for h in original_handlers:
+                logger.addHandler(h)
+            logger.setLevel(original_level)
+            logger.propagate = original_propagate
+        assert "persistent" in output
+        assert "ignores" in output
 
     def test_clone_preserves_connection_mode(self):
         """Test that clone preserves connection_mode."""

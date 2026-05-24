@@ -53,6 +53,12 @@ class LoggingMixin:
     # Custom logger name (can be overridden by subclasses)
     __logger_name__: ClassVar[Optional[str]] = None
 
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        # Give each subclass its own LoggingConfig unless it explicitly defines one
+        if '__logging_config__' not in cls.__dict__:
+            cls.__logging_config__ = LoggingConfig()
+
     @classmethod
     def get_logging_config(cls) -> LoggingConfig:
         return cls.__logging_config__
@@ -168,7 +174,7 @@ class LoggingMixin:
             for deeply nested calls.
         """
         logger = cls.get_logger()
-        if logger is None:
+        if logger is None or not logger.isEnabledFor(level):
             return
 
         # Calculate stack level for correct source attribution
@@ -191,14 +197,6 @@ class LoggingMixin:
         # Allow custom offset for edge cases
         if "offset" in kwargs:
             stack_level += kwargs.pop("offset")
-
-        # Auto-setup formatter if needed (only for this logger, not root)
-        config = cls.get_logging_config()
-        if config.auto_setup:
-            if not logger.handlers:
-                handler = logging.StreamHandler()
-                handler.setFormatter(config.formatter)
-                logger.addHandler(handler)
 
         # Use the appropriate log method
         level_name = logging.getLevelName(level).lower()
@@ -230,6 +228,9 @@ class LoggingMixin:
         Example:
             self.log_data(logging.DEBUG, "Insert data", data)
         """
+        logger = cls.get_logger()
+        if logger is None or not logger.isEnabledFor(level):
+            return
         logger_name = cls._get_logger_name()
         summarized = cls.get_logging_config().summarize_data(data, logger_name)
         cls.log(level, f"{msg}: {summarized}", **kwargs)
@@ -259,6 +260,11 @@ class BackendLoggingMixin:
     __logging_config__: ClassVar[LoggingConfig] = LoggingConfig()
     _logger: Optional[logging.Logger] = None
     _logger_name: Optional[str] = None
+
+    def __init_subclass__(cls, **kwargs) -> None:
+        super().__init_subclass__(**kwargs)
+        if '__logging_config__' not in cls.__dict__:
+            cls.__logging_config__ = LoggingConfig()
 
     def _get_logger_name(self) -> str:
         """Determine the appropriate logger name for this backend.
@@ -320,6 +326,9 @@ class BackendLoggingMixin:
             *args: Additional arguments for message formatting.
             **kwargs: Additional keyword arguments for logging.
         """
+        if not self.logger.isEnabledFor(level):
+            return
+
         current_frame = inspect.currentframe()
         if current_frame is not None:
             current_frame = current_frame.f_back
@@ -335,7 +344,17 @@ class BackendLoggingMixin:
         if current_frame:
             stack_level += 1
 
-        self.logger.log(level, msg, *args, stacklevel=stack_level, **kwargs)
+        # Allow custom offset for edge cases
+        if "offset" in kwargs:
+            stack_level += kwargs.pop("offset")
+
+        # Use the appropriate log method
+        level_name = logging.getLevelName(level).lower()
+        method = getattr(self.logger, level_name, None)
+        if method is not None:
+            method(msg, *args, stacklevel=stack_level, **kwargs)
+        else:
+            self.logger.log(level, msg, *args, **kwargs)
 
     def _get_logging_config(self) -> LoggingConfig:
         return getattr(self, '_logging_config', None) or self.__logging_config__
@@ -365,5 +384,7 @@ class BackendLoggingMixin:
         Example:
             self.log_data(logging.INFO, "Executing query", params)
         """
+        if not self.logger.isEnabledFor(level):
+            return
         summarized = self.summarize_log_data(data)
         self.log(level, f"{msg}: {summarized}", **kwargs)

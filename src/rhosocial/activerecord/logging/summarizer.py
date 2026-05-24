@@ -7,7 +7,8 @@ log messages while preserving useful information.
 """
 
 from dataclasses import dataclass, field
-from typing import Any, Set, Optional, Dict, List, Union, Callable
+from typing import Any, Set, Optional, Dict, List, Union, Callable, ClassVar
+import logging
 
 
 MaskPlaceholderType = Union[str, Callable[[Any], Any]]
@@ -75,6 +76,8 @@ class DataSummarizer:
         {"name": "John", "bio": "AAAAA...[truncated, 1000 chars total]", "password": "***MASKED***"}
     """
 
+    _module_logger: ClassVar[Optional[logging.Logger]] = None
+
     def __init__(self, config: Optional[SummarizerConfig] = None):
         """Initialize the summarizer.
 
@@ -89,6 +92,14 @@ class DataSummarizer:
         self._field_maskers_lower = {
             k.lower(): v for k, v in self.config.field_maskers.items()
         }
+
+    @classmethod
+    def _get_module_logger(cls) -> logging.Logger:
+        """Lazily obtain the module-level logger to avoid circular imports."""
+        if cls._module_logger is None:
+            from .defaults import get_logger as _get_framework_logger
+            cls._module_logger = _get_framework_logger("rhosocial.activerecord.logging.summarizer")
+        return cls._module_logger
 
     def _is_sensitive_field(self, field_name: str) -> bool:
         """Check if a field name is sensitive.
@@ -121,15 +132,21 @@ class DataSummarizer:
             masker = self._field_maskers_lower[field_lower]
             try:
                 return masker(value)
-            except Exception:
-                # If masker fails, fall back to default
-                pass
+            except Exception as e:
+                self._get_module_logger().warning(
+                    "Field masker for '%s' raised %s: %s",
+                    field_name, type(e).__name__, e
+                )
 
         # Use global mask_placeholder
         if callable(self.config.mask_placeholder):
             try:
                 return self.config.mask_placeholder(value)
-            except Exception:
+            except Exception as e:
+                self._get_module_logger().warning(
+                    "Global mask_placeholder raised %s: %s",
+                    type(e).__name__, e
+                )
                 return "***MASKED***"
         else:
             return self.config.mask_placeholder

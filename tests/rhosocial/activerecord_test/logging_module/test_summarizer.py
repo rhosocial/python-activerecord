@@ -1,6 +1,9 @@
 # tests/rhosocial/activerecord_test/logging_module/test_summarizer.py
 """Tests for DataSummarizer functionality."""
 
+import io
+import logging
+
 import pytest
 from rhosocial.activerecord.logging.summarizer import (
     SummarizerConfig,
@@ -404,4 +407,182 @@ class TestLoggingIntegration:
 
         # Should fall back to mask_placeholder when masker raises
         assert result['password'] == '[FALLBACK]'
+
+
+class TestMaskerExceptionLogging:
+    """Test that masker exceptions produce warning logs instead of silent fallback."""
+
+    def test_field_masker_exception_logs_warning(self):
+        """field_masker raising exception should log a warning."""
+        def bad_masker(v):
+            raise ValueError("Intentional masker error")
+
+        config = SummarizerConfig(
+            sensitive_fields={'password'},
+            mask_placeholder='[FALLBACK]',
+            field_maskers={'password': bad_masker},
+        )
+        summarizer = DataSummarizer(config)
+
+        # Capture output from the summarizer logger
+        summarizer_logger = logging.getLogger("rhosocial.activerecord.logging.summarizer")
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setLevel(logging.WARNING)
+        summarizer_logger.addHandler(handler)
+        original_propagate = summarizer_logger.propagate
+
+        try:
+            summarizer_logger.propagate = True
+            result = summarizer.summarize({'password': 'secret'})
+
+            # Should fall back to mask_placeholder
+            assert result['password'] == '[FALLBACK]'
+            # Should have a warning in the output
+            output = stream.getvalue()
+            assert "Field masker" in output
+            assert "password" in output
+        finally:
+            summarizer_logger.removeHandler(handler)
+            summarizer_logger.propagate = original_propagate
+
+    def test_global_mask_placeholder_exception_logs_warning(self):
+        """Global mask_placeholder callable raising exception should log a warning."""
+        config = SummarizerConfig(
+            sensitive_fields={'token'},
+            mask_placeholder=lambda v: 1 / 0,
+        )
+        summarizer = DataSummarizer(config)
+
+        summarizer_logger = logging.getLogger("rhosocial.activerecord.logging.summarizer")
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setLevel(logging.WARNING)
+        summarizer_logger.addHandler(handler)
+
+        try:
+            result = summarizer.summarize({'token': 'abc'})
+
+            # Should fall back to "***MASKED***"
+            assert result['token'] == '***MASKED***'
+            # Should have a warning in the output
+            output = stream.getvalue()
+            assert "mask_placeholder" in output
+        finally:
+            summarizer_logger.removeHandler(handler)
+
+    def test_successful_masker_does_not_log_warning(self):
+        """A working masker should not produce any warning."""
+        config = SummarizerConfig(
+            sensitive_fields={'email'},
+            field_maskers={'email': lambda v: v[0] + '***@' + v.split('@')[1]},
+        )
+        summarizer = DataSummarizer(config)
+
+        summarizer_logger = logging.getLogger("rhosocial.activerecord.logging.summarizer")
+        stream = io.StringIO()
+        handler = logging.StreamHandler(stream)
+        handler.setLevel(logging.WARNING)
+        summarizer_logger.addHandler(handler)
+
+        try:
+            result = summarizer.summarize({'email': 'test@example.com'})
+
+            assert result['email'] == 't***@example.com'
+            assert stream.getvalue() == ""
+        finally:
+            summarizer_logger.removeHandler(handler)
+
+
+class TestSummarizerCoverage:
+    """Tests to improve coverage of summarizer edge cases."""
+
+    def test_summarize_tuple(self):
+        """Summarize tuple should return string with tuple() wrapper."""
+        config = SummarizerConfig(max_dict_items=5)
+        summarizer = DataSummarizer(config)
+        result = summarizer.summarize((1, 2, 3))
+        assert "tuple(" in result
+
+    def test_summarize_set(self):
+        """Summarize set should return string with set() wrapper."""
+        config = SummarizerConfig(max_dict_items=5)
+        summarizer = DataSummarizer(config)
+        result = summarizer.summarize({1, 2, 3})
+        assert "set(" in result
+
+    def test_summarize_keys_only_sequence(self):
+        """keys_only mode on sequence should show type hints."""
+        config = SummarizerConfig(max_dict_items=5)
+        summarizer = DataSummarizer(config)
+        result = summarizer.summarize_keys_only([1, "hello", True])
+        assert "<int>" in result
+        assert "<str>" in result
+
+    def test_summarize_other_type_repr_truncated(self):
+        """Non-standard types with long repr should be truncated with type hint."""
+        config = SummarizerConfig(max_string_length=10)
+        summarizer = DataSummarizer(config)
+
+        class CustomObj:
+            def __repr__(self):
+                return "A" * 200
+
+        result = summarizer.summarize(CustomObj())
+        assert "truncated" in result
+        assert "CustomObj" in result
+
+    def test_summarize_other_type_repr_short(self):
+        """Non-standard types with short repr should show repr."""
+        config = SummarizerConfig(max_string_length=100)
+        summarizer = DataSummarizer(config)
+
+        class ShortObj:
+            def __repr__(self):
+                return "short_repr"
+
+        result = summarizer.summarize(ShortObj())
+        assert "short_repr" in result
+
+    def test_summarize_show_type_hint_disabled(self):
+        """show_type_hint=False should omit type name from truncation."""
+        config = SummarizerConfig(max_string_length=10, show_type_hint=False)
+        summarizer = DataSummarizer(config)
+
+        class LongObj:
+            def __repr__(self):
+                return "X" * 200
+
+        result = summarizer.summarize(LongObj())
+        assert "truncated" in result
+        assert "LongObj" not in result
+
+    def test_mask_sensitive_tuple(self):
+        """mask_sensitive should handle tuples."""
+        summarizer = DataSummarizer()
+        result = summarizer.mask_sensitive(({"password": "secret"}, "safe"))
+        assert isinstance(result, tuple)
+        assert result[0]["password"] == "***MASKED***"
+        assert result[1] == "safe"
+
+    def test_mask_sensitive_in_tuple(self):
+        """mask_sensitive should process tuples containing dicts."""
+        summarizer = DataSummarizer()
+        result = summarizer.mask_sensitive(({"password": "secret"},))
+        assert isinstance(result, tuple)
+        assert result[0]["password"] == "***MASKED***"
+
+    def test_mask_sensitive_set(self):
+        """mask_sensitive should handle sets."""
+        summarizer = DataSummarizer()
+        result = summarizer.mask_sensitive({"password": "secret"})
+        assert result["password"] == "***MASKED***"
+
+    def test_mask_sensitive_in_set(self):
+        """mask_sensitive should process sets containing dicts."""
+        summarizer = DataSummarizer()
+        data = [{"password": "secret"}, {"name": "visible"}]
+        result = summarizer.mask_sensitive(data)
+        assert result[0]["password"] == "***MASKED***"
+        assert result[1]["name"] == "visible"
 

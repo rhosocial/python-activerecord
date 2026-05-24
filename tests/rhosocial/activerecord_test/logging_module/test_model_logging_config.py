@@ -203,3 +203,72 @@ class TestModelLoggingConfig:
         finally:
             await group.disconnect()
             AsyncGroupUser.__logging_config__ = AsyncActiveRecord.__logging_config__
+
+
+class TestClassVarIsolation:
+    """Test that __init_subclass__ prevents ClassVar sharing between models."""
+
+    def test_subclasses_get_own_logging_config_instance(self):
+        """Different model subclasses should have independent __logging_config__ instances."""
+        class UserModel(ActiveRecord):
+            __table_name__ = "users"
+            id: Optional[int] = None
+
+        class PostModel(ActiveRecord):
+            __table_name__ = "posts"
+            id: Optional[int] = None
+
+        assert UserModel.__logging_config__ is not PostModel.__logging_config__
+
+    def test_mutating_one_config_does_not_affect_another(self):
+        """Mutating one model's logging config should not affect another model."""
+        class AlphaModel(ActiveRecord):
+            __table_name__ = "alpha"
+            id: Optional[int] = None
+
+        class BetaModel(ActiveRecord):
+            __table_name__ = "beta"
+            id: Optional[int] = None
+
+        AlphaModel.__logging_config__.default_level = logging.ERROR
+
+        assert BetaModel.__logging_config__.default_level == logging.DEBUG
+
+    def test_explicit_config_override_preserved(self):
+        """Subclasses with explicit __logging_config__ should keep their custom config."""
+        custom_config = LoggingConfig(default_level=logging.CRITICAL)
+
+        class CustomModel(ActiveRecord):
+            __table_name__ = "custom"
+            id: Optional[int] = None
+            __logging_config__ = custom_config
+
+        assert CustomModel.__logging_config__ is custom_config
+        assert CustomModel.__logging_config__.default_level == logging.CRITICAL
+
+    def test_summarizer_config_mutation_isolation(self):
+        """Mutating one model's summarizer_config should not affect another model."""
+        class ModelA(ActiveRecord):
+            __table_name__ = "model_a"
+            id: Optional[int] = None
+
+        class ModelB(ActiveRecord):
+            __table_name__ = "model_b"
+            id: Optional[int] = None
+
+        ModelA.__logging_config__.summarizer_config.max_string_length = 10
+
+        assert ModelB.__logging_config__.summarizer_config.max_string_length == 100
+
+    def test_backend_subclasses_get_own_config(self):
+        """BackendLoggingMixin subclasses should also have independent __logging_config__."""
+        class BackendA(BackendLoggingMixin):
+            pass
+
+        class BackendB(BackendLoggingMixin):
+            pass
+
+        assert BackendA.__logging_config__ is not BackendB.__logging_config__
+
+        BackendA.__logging_config__.default_level = logging.ERROR
+        assert BackendB.__logging_config__.default_level == logging.DEBUG

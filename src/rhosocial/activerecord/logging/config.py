@@ -9,6 +9,7 @@ from dataclasses import dataclass, field
 from enum import Enum
 from typing import Optional, Dict, List, Any
 import logging
+import threading
 
 from .formatter import ActiveRecordFormatter
 from .summarizer import SummarizerConfig, DataSummarizer
@@ -143,13 +144,35 @@ class LoggingConfig:
     # Cached summarizers for specific loggers (by logger name)
     _logger_summarizers: Dict[str, DataSummarizer] = field(default_factory=dict, repr=False, compare=False)
 
+    # Track which loggers have been configured (for idempotent get_logger)
+    _configured_loggers: set = field(default_factory=set, repr=False, compare=False)
+
+    # Lock for thread-safe cache access (RLock for reentrant get_summarizer calls)
+    _lock: Any = field(default=None, repr=False, compare=False, init=False)
+
+    def __post_init__(self) -> None:
+        object.__setattr__(self, '_lock', threading.RLock())
+
     def __setattr__(self, name: str, value: Any) -> None:
         """Override setattr to invalidate cached summarizers when config changes."""
         if name == 'log_data_mode':
             value = normalize_log_data_mode(value)
         if name == 'summarizer_config':
-            object.__setattr__(self, '_summarizer', None)
-            object.__setattr__(self, '_logger_summarizers', {})
+            lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+            if lock is not None:
+                with lock:
+                    object.__setattr__(self, '_summarizer', None)
+                    object.__setattr__(self, '_logger_summarizers', {})
+            else:
+                object.__setattr__(self, '_summarizer', None)
+                object.__setattr__(self, '_logger_summarizers', {})
+        if name in ('default_level', 'propagate', 'auto_setup', 'formatter'):
+            lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+            if lock is not None:
+                with lock:
+                    object.__setattr__(self, '_configured_loggers', set())
+            else:
+                object.__setattr__(self, '_configured_loggers', set())
         object.__setattr__(self, name, value)
 
     @staticmethod
@@ -168,22 +191,25 @@ class LoggingConfig:
         Returns:
             DataSummarizer instance configured with appropriate config.
         """
-        if logger_name is None:
-            if self._summarizer is None:
-                self._summarizer = DataSummarizer(self.summarizer_config)
-            return self._summarizer
+        with self._lock:
+            if logger_name is None:
+                if self._summarizer is None:
+                    object.__setattr__(self, '_summarizer', DataSummarizer(self.summarizer_config))
+                return self._summarizer
 
-        # Find matching logger config (supports hierarchical matching)
-        logger_config = self._find_logger_config(logger_name)
+            # Find matching logger config (supports hierarchical matching)
+            logger_config = self._find_logger_config(logger_name)
 
-        if logger_config is not None and logger_config.summarizer_config is not None:
-            # Use logger-specific summarizer config
-            if logger_name not in self._logger_summarizers:
-                self._logger_summarizers[logger_name] = DataSummarizer(logger_config.summarizer_config)
-            return self._logger_summarizers[logger_name]
-        else:
-            # Use global summarizer
-            return self.get_summarizer()
+            if logger_config is not None and logger_config.summarizer_config is not None:
+                # Use logger-specific summarizer config
+                if logger_name not in self._logger_summarizers:
+                    new_dict = dict(self._logger_summarizers)
+                    new_dict[logger_name] = DataSummarizer(logger_config.summarizer_config)
+                    object.__setattr__(self, '_logger_summarizers', new_dict)
+                return self._logger_summarizers[logger_name]
+            else:
+                # Use global summarizer
+                return self.get_summarizer()
 
     def _find_logger_config(self, logger_name: str) -> Optional['LoggerConfig']:
         """Find the most specific LoggerConfig for a given logger name.
@@ -252,6 +278,10 @@ class LoggingConfig:
         by default (propagate=False), preventing ActiveRecord logs from
         appearing in user's root logger handlers unless explicitly configured.
 
+        Configuration is applied only on the first call for a given name.
+        Subsequent calls return the same logger without overwriting settings,
+        preserving any user customizations made directly on the logger.
+
         Args:
             name: The name of the logger to create/get.
 
@@ -259,24 +289,26 @@ class LoggingConfig:
             Configured logging.Logger instance.
         """
         logger = logging.getLogger(name)
-        logger.setLevel(self.default_level)
-        logger.propagate = self.propagate
+        if name not in self._configured_loggers:
+            logger.setLevel(self.default_level)
+            logger.propagate = self.propagate
 
-        # Check if there's a specific config for this logger
-        if name in self.loggers:
-            config = self.loggers[name]
-            logger.setLevel(config.level)
-            logger.propagate = config.propagate
-            for handler in config.handlers:
-                if handler not in logger.handlers:
-                    logger.addHandler(handler)
+            # Check if there's a specific config for this logger
+            if name in self.loggers:
+                config = self.loggers[name]
+                logger.setLevel(config.level)
+                logger.propagate = config.propagate
+                for handler in config.handlers:
+                    if handler not in logger.handlers:
+                        logger.addHandler(handler)
 
-        # Auto-setup handler if enabled and no handlers exist
-        if self.auto_setup and not logger.handlers:
-            handler = logging.StreamHandler()
-            handler.setFormatter(self.formatter)
-            logger.addHandler(handler)
+            # Auto-setup handler if enabled and no handlers exist
+            if self.auto_setup and not logger.handlers:
+                handler = logging.StreamHandler()
+                handler.setFormatter(self.formatter)
+                logger.addHandler(handler)
 
+            self._configured_loggers.add(name)
         return logger
 
     def add_logger_config(self, config: LoggerConfig) -> None:
@@ -287,4 +319,9 @@ class LoggingConfig:
         """
         config.log_data_mode = normalize_log_data_mode(config.log_data_mode)
         self.loggers[config.name] = config
-        self._logger_summarizers = {}
+        lock = self.__dict__.get('_lock') if '__dict__' in dir(self) else None
+        if lock is not None:
+            with lock:
+                object.__setattr__(self, '_logger_summarizers', {})
+        else:
+            object.__setattr__(self, '_logger_summarizers', {})
