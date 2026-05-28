@@ -131,6 +131,9 @@ test = [
     # Async file operations for tests
     "aiofiles>=23.0.0",
 
+    # Benchmark integration with pytest
+    "pytest-benchmark>=4.0.0",
+
     # Coverage integration with pytest
     # Combines pytest and coverage for seamless test coverage reporting
     "pytest-cov>=4.0.0",
@@ -243,6 +246,15 @@ markers = [
     "aggregate: marks tests for aggregate queries",
     "cache: marks tests for caching mechanisms",
     "benchmark: marks tests as performance benchmarks that should be excluded by default",
+    "benchmark_sync: marks synchronous benchmark tests",
+    "benchmark_async: marks asynchronous benchmark tests",
+    "benchmark_read: marks read-oriented benchmark tests",
+    "benchmark_write: marks write-oriented benchmark tests",
+    "benchmark_crud: marks CRUD benchmark tests",
+    "benchmark_backend: marks backend direct benchmark tests",
+    "benchmark_query: marks query benchmark tests",
+    "benchmark_transaction: marks transaction benchmark tests",
+    "benchmark_mixin: marks mixin benchmark tests",
 
     # Database backend-specific markers
     "sqlite: marks tests specific to SQLite backend",

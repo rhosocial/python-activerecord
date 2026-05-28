@@ -31,6 +31,11 @@ from .mixins import MixinsProvider
 from .query import QueryProvider
 from .basic_connection import BasicConnectionProvider
 from .query_connection import QueryConnectionProvider
+from .backend_benchmark import BackendBenchmarkProvider
+from .crud_benchmark import CrudBenchmarkProvider
+from .mixin_benchmark import MixinBenchmarkProvider
+from .query_benchmark import QueryBenchmarkProvider
+from .transaction_benchmark import TransactionBenchmarkProvider
 
 # Create a single, global instance of the ProviderRegistry.
 provider_registry = ProviderRegistry()
@@ -60,3 +65,13 @@ provider_registry.register("feature.basic.connection.IBasicConnectionProvider", 
 # Register the concrete `QueryConnectionProvider` as the implementation for the
 # `feature.query.connection.IQueryConnectionProvider` interface defined in the testsuite.
 provider_registry.register("feature.query.connection.IQueryConnectionProvider", QueryConnectionProvider)
+
+# Register benchmark providers.
+provider_registry.register("benchmark.backend.IBackendBenchmarkProvider", BackendBenchmarkProvider)
+provider_registry.register("benchmark.crud.ICrudBenchmarkProvider", CrudBenchmarkProvider)
+provider_registry.register("benchmark.query.IQueryBenchmarkProvider", QueryBenchmarkProvider)
+provider_registry.register(
+    "benchmark.transaction.ITransactionBenchmarkProvider",
+    TransactionBenchmarkProvider,
+)
+provider_registry.register("benchmark.mixin.IMixinBenchmarkProvider", MixinBenchmarkProvider)
