@@ -55,6 +55,75 @@ jobs:
         name: codecov-umbrella-3.14
         fail_ci_if_error: false
 
+  benchmark-python-314:
+    name: Run benchmarks with Python 3.14
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v6
+
+    - name: Set up Python 3.14
+      uses: actions/setup-python@v6
+      with:
+        python-version: "3.14"
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
+
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev14
+
+    - name: Run benchmark suite
+      run: |
+        set -o pipefail
+        export PYTHONPATH=src:tests
+        TESTSUITE_DIR=$(python - <<'PY'
+        import pathlib
+        import rhosocial.activerecord.testsuite as testsuite
+
+        print(pathlib.Path(testsuite.__file__).parent)
+        PY
+        )
+        python -m pytest \
+          --rootdir=. \
+          --confcutdir=. \
+          "$TESTSUITE_DIR/benchmark/crud" \
+          "$TESTSUITE_DIR/benchmark/query" \
+          "$TESTSUITE_DIR/benchmark/transaction" \
+          "$TESTSUITE_DIR/benchmark/mixin" \
+          -m benchmark \
+          --benchmark-size=small \
+          --benchmark-sort=mean \
+          --tb=short | tee benchmark-output.txt
+        python -m pytest \
+          --rootdir=. \
+          --confcutdir=. \
+          tests/benchmark/backend \
+          -m benchmark \
+          --benchmark-size=small \
+          --benchmark-sort=mean \
+          --tb=short | tee -a benchmark-output.txt
+
+    - name: Write benchmark conclusion
+      if: always()
+      run: |
+        {
+          echo "## Python 3.14 Benchmark Conclusion"
+          echo
+          echo "- Python: 3.14"
+          echo "- Scope: testsuite generic benchmarks + SQLite backend direct benchmarks"
+          echo "- Size: small"
+          echo "- Result: benchmark job fails only when benchmark execution or correctness checks fail."
+          echo
+          echo '```text'
+          grep -A 120 "benchmark:" benchmark-output.txt || cat benchmark-output.txt
+          echo '```'
+        } >> "$GITHUB_STEP_SUMMARY"
+
   test-other-versions:
     name: Run tests with Python ${{ matrix.python-version }}
     runs-on: ubuntu-latest
