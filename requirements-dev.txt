@@ -5,6 +5,10 @@
 pytest~=8.4.2
 pytest-asyncio
 
+# Pytest plugin for performance benchmarking
+# Provides benchmark fixtures and benchmark command-line options
+pytest-benchmark
+
 # Pytest plugin for mocking
 # Provides the 'mocker' fixture for patching and mocking objects in tests
 pytest-mock
