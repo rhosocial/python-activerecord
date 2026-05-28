@@ -296,16 +296,18 @@ class ActiveRecordBase(BaseModel, ABC):
 
     def __setattr__(self, name: str, value: Any):
         """Overridden to track field changes."""
-        if (
+        should_track = (
             name in self.__class__.model_fields
             and hasattr(self, "_original_values")
             and name not in self.__class__.__no_track_fields__
-        ):
-            if name not in self._original_values:
-                self._original_values[name] = getattr(self, name, None)
-            if value != self._original_values[name]:
-                self._dirty_fields.add(name)
+        )
+        if should_track and name not in self._original_values:
+            self._original_values[name] = getattr(self, name, None)
+
         super().__setattr__(name, value)
+
+        if should_track and getattr(self, name, None) != self._original_values[name]:
+            self._dirty_fields.add(name)
 
     def reset_tracking(self):
         """Reset change tracking state by clearing dirty fields and storing current values."""

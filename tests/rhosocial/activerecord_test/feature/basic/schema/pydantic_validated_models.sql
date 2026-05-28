@@ -3,6 +3,7 @@ CREATE TABLE pydantic_validated_models (
     id INTEGER PRIMARY KEY AUTOINCREMENT,
     code TEXT,
     quantity INTEGER,
+    step_count INTEGER,
     price REAL,
     start_at TEXT,
     end_at TEXT,
