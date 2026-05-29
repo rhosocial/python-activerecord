@@ -1,3 +1,23 @@
+## [v1.0.0.dev27] - 2026-05-29
+
+### Removed
+
+- Remove LoggingManager and get_logging_manager() in favor of scoped LoggingConfig ([#91](https://github.com/rhosocial/python-activerecord/issues/91))
+
+
+
+### Added
+
+- Split `ReturningSupport.supports_returning_clause()` into DML-specific flags for INSERT, UPDATE, and DELETE. ([#88](https://github.com/rhosocial/python-activerecord/issues/88))
+
+
+
+### Changed
+
+- Changed dialect version handling to default to None instead of fixed versions, introducing DialectNotAdaptedException to prevent silent SQL errors when dialect versions don't match actual server capabilities. ([#89](https://github.com/rhosocial/python-activerecord/issues/89))
+- Renamed named-query subsystem to named-expression to reflect it wraps arbitrary expressions (Statement or Clause), not just queries. Added print_table() to OutputProvider protocol, unified --list tables CLI flag, and added version-compare expression. ([#90](https://github.com/rhosocial/python-activerecord/issues/90))
+
+
 ## [v1.0.0.dev26] - 2026-05-15
 
 ### Added
