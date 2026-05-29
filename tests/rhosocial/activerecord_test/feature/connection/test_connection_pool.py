@@ -10,9 +10,8 @@ Tests PoolConfig, PoolStats, PooledBackend, BackendPool, and AsyncBackendPool.
     driver reports ``threadsafety >= 2`` (e.g., PostgreSQL with psycopg).
 
     For SQLite and MySQL (threadsafety < 2), use ``BackendGroup`` with
-    ``backend.context()`` instead. See ``TestConcurrentAccess`` for details on
-    why using BackendPool with SQLite in multi-threaded scenarios produces
-    cross-thread warnings.
+    ``backend.context()`` instead. Pool concurrency tests use a dedicated
+    thread-safe backend so they do not mask SQLite cross-thread safety issues.
 
 .. rubric:: aiosqlite Thread Leak (Fixed)
 
@@ -42,6 +41,7 @@ process exit across **all** Python versions.  The root cause was a two-part bug:
 from datetime import datetime, timedelta
 import io
 import logging
+import sys
 
 import pytest
 
@@ -82,6 +82,36 @@ async def async_execute_sql(backend, sql: str, params=None):
         stmt_type = StatementType.DML
     options = ExecutionOptions(stmt_type=stmt_type)
     return await backend.execute(sql, params or [], options=options)
+
+
+class ThreadSafePoolTestBackend:
+    """Minimal backend for testing pool concurrency without SQLite thread affinity."""
+
+    threadsafety = 2
+
+    def __init__(self):
+        self.connected = False
+
+    def connect(self):
+        self.connected = True
+
+    def disconnect(self):
+        self.connected = False
+
+    def introspect_and_adapt(self):
+        pass
+
+    def execute(self, sql, params=None, options=None):
+        return object()
+
+
+def skip_sqlite_memory_auto_on_python_310(database: str, connection_mode: str = "auto"):
+    if (
+        database == ":memory:"
+        and connection_mode == "auto"
+        and sys.version_info[:2] <= (3, 10)
+    ):
+        pytest.skip("SQLite :memory: auto mode resolves to transient on Python <= 3.10")
 
 
 # ============================================================
@@ -847,12 +877,13 @@ class TestAsyncBackendPool:
             await pool.close()
 
     @pytest.mark.asyncio
-    async def test_transaction_context_manager(self):
+    async def test_transaction_context_manager(self, tmp_path):
         """Test async transaction context manager."""
+        db_file = tmp_path / "test_async_tx.db"
         config = PoolConfig(
             min_size=1,
             max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=str(db_file))
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1821,48 +1852,17 @@ class TestPoolContextCoverage:
 # ============================================================
 
 class TestConcurrentAccess:
-    """Tests for concurrent access to connection pool.
-
-    .. warning::
-        These tests use SQLite with the default ``check_same_thread=True`` to
-        **demonstrate** the cross-thread issue that arises when using BackendPool
-        (QueuePool strategy) with a backend whose driver does not guarantee
-        thread-safe connection sharing (threadsafety < 2).
-
-        The first two tests (``test_concurrent_acquire_release`` and
-        ``test_concurrent_acquire_with_limit``) will produce SQLite cross-thread
-        warnings during execution. This is **expected and intentional** — the
-        warnings serve as a demonstration of why BackendPool should NOT be used
-        with SQLite or MySQL in multi-threaded scenarios.
-
-        For production use with SQLite/MySQL, prefer ``BackendGroup`` with
-        ``backend.context()`` so each thread manages its own connection lifecycle.
-    """
+    """Tests for concurrent access to connection pool."""
 
     def test_concurrent_acquire_release(self):
-        """Test concurrent acquire and release operations.
-
-        .. warning::
-            This test produces SQLite cross-thread warnings. This is intentional —
-            it demonstrates why BackendPool (QueuePool) is unsuitable for SQLite.
-            Connections are created by worker threads and later disconnected by the
-            main thread in ``pool.close()``, which violates SQLite's
-            ``check_same_thread`` constraint.
-
-            For production use with SQLite, use ``BackendGroup`` with
-            ``backend.context()`` instead.
-        """
+        """Test concurrent acquire and release operations."""
         import threading
         import time
 
         config = PoolConfig(
             min_size=1,
             max_size=5,
-            # NOTE: Using default check_same_thread=True.
-            # This will produce cross-thread warnings because connections created
-            # by worker threads are later disconnected by the main thread in
-            # pool.close(). This is exactly the problem this test demonstrates.
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=ThreadSafePoolTestBackend
         )
         pool = BackendPool.create(config)
         errors = []
@@ -1902,28 +1902,17 @@ class TestConcurrentAccess:
             stats = pool.get_stats()
             assert stats.current_in_use == 0
         finally:
-            # Cross-thread warnings are produced here: the main thread calls
-            # pool.close() which disconnects connections created by worker threads.
             pool.close(timeout=0.1)
 
     def test_concurrent_acquire_with_limit(self):
-        """Test that concurrent acquires respect max_size limit.
-
-        .. warning::
-            This test produces SQLite cross-thread warnings for the same reason
-            as ``test_concurrent_acquire_release``. See that test's docstring
-            for details.
-        """
+        """Test that concurrent acquires respect max_size limit."""
         import threading
 
         config = PoolConfig(
             min_size=0,
             max_size=2,  # Only 2 connections allowed
             timeout=0.5,  # Short timeout
-            # NOTE: Using default check_same_thread=True — cross-thread warnings
-            # will appear on pool.close() for the same reason as
-            # test_concurrent_acquire_release.
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=ThreadSafePoolTestBackend
         )
         pool = BackendPool.create(config)
         acquired_count = [0]
@@ -1955,7 +1944,6 @@ class TestConcurrentAccess:
             assert acquired_count[0] >= 2  # At least 2 should get connections
             assert timeout_count[0] >= 1  # At least 1 should timeout
         finally:
-            # Cross-thread warnings produced here (same reason as above)
             pool.close(timeout=0.1)
 
     def test_multiple_connections_isolation(self):
@@ -3165,15 +3153,20 @@ class TestSyncPersistentMode:
     """Tests for synchronous BackendPool in persistent mode."""
 
     def test_auto_mode_matches_threadsafety(self):
-        """Test that auto mode selects connection mode based on backend threadsafety."""
-        # SQLite's threadsafety varies by Python version:
-        # - Python 3.8-3.11: sqlite3.threadsafety = 1 → transient
-        # - Python 3.12+: sqlite3.threadsafety = 3 → persistent
+        """Test that auto mode selects connection mode based on backend threadsafety.
+
+        SQLite ``:memory:`` auto mode is skipped on Python <= 3.10 because it
+        resolves to transient there, and transient reconnects to a fresh empty
+        in-memory database on each acquire. Persistent mode is covered separately.
+        """
+        database = ":memory:"
+        skip_sqlite_memory_auto_on_python_310(database)
+
         import sqlite3
         config = PoolConfig(
             min_size=1,
             max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=database)
         )
         pool = BackendPool.create(config)
         try:
@@ -3360,16 +3353,28 @@ class TestAsyncConnectionMode:
     """Tests for AsyncBackendPool connection modes."""
 
     @pytest.mark.asyncio
-    async def test_auto_mode_defaults_to_persistent(self):
-        """Test that auto mode defaults to persistent for async pool."""
+    async def test_auto_mode_uses_backend_safety(self):
+        """Test that auto mode uses backend safety for async pool.
+
+        SQLite ``:memory:`` auto mode is skipped on Python <= 3.10 because it
+        resolves to transient there. Persistent mode is covered separately.
+        """
+        database = ":memory:"
+        skip_sqlite_memory_auto_on_python_310(database)
+
         config = PoolConfig(
             min_size=1,
             max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=database)
         )
         pool = await AsyncBackendPool.create(config)
         try:
-            assert pool.connection_mode == "persistent"
+            expected_mode = (
+                "persistent"
+                if AsyncSQLiteBackend(database=":memory:").threadsafety >= 2
+                else "transient"
+            )
+            assert pool.connection_mode == expected_mode
         finally:
             await pool.close(timeout=0.1)
 
@@ -3479,16 +3484,28 @@ class TestHealthCheckConnectionMode:
 
     @pytest.mark.asyncio
     async def test_async_health_check_includes_connection_mode(self):
-        """Test that async health_check includes connection_mode."""
+        """Test that async health_check includes connection_mode.
+
+        SQLite ``:memory:`` auto mode is skipped on Python <= 3.10 because it
+        resolves to transient there. Persistent mode is covered separately.
+        """
+        database = ":memory:"
+        skip_sqlite_memory_auto_on_python_310(database)
+
         config = PoolConfig(
             min_size=1,
             max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=database)
         )
         pool = await AsyncBackendPool.create(config)
         try:
             health = await pool.health_check()
             assert 'connection_mode' in health
-            assert health['connection_mode'] == 'persistent'
+            expected_mode = (
+                "persistent"
+                if AsyncSQLiteBackend(database=":memory:").threadsafety >= 2
+                else "transient"
+            )
+            assert health['connection_mode'] == expected_mode
         finally:
             await pool.close(timeout=0.1)

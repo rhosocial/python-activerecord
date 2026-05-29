@@ -153,6 +153,10 @@ test = [
     # YAML file processing library
     # Used for configuration file handling and test data
     "pyyaml>=6.0.2",
+
+    # FastAPI benchmark support
+    "fastapi>=0.110",
+    "httpx>=0.27",
 ]
 
 dev = [
@@ -255,6 +259,7 @@ markers = [
     "benchmark_query: marks query benchmark tests",
     "benchmark_transaction: marks transaction benchmark tests",
     "benchmark_mixin: marks mixin benchmark tests",
+    "benchmark_fastapi: marks FastAPI benchmark tests",
 
     # Database backend-specific markers
     "sqlite: marks tests specific to SQLite backend",

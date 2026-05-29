@@ -93,11 +93,23 @@ class AsyncBackendPool:
         self._closed = False
         self._initialized = False
 
-        # Resolve effective connection mode from config
-        # For async pools, default to persistent since there's no cross-thread concern
+        # Resolve effective connection mode from config.
+        # NOTE: In async pools, "auto" always resolves to "persistent".
+        #
+        # DB-API 2.0's `threadsafety` attribute describes thread-safety for *synchronous*
+        # multi-threaded usage. It is NOT applicable to async pools:
+        # - asyncio runs all coroutines on a single thread
+        # - connections are never shared across threads in an event loop
+        # - therefore threadsafety=1 drivers (MySQL, SQLite) are perfectly safe
+        #   to use in persistent mode within an async pool
+        #
+        # The sync BackendPool correctly uses threadsafety to choose between
+        # persistent/transient because it may be used from multiple threads.
+        # AsyncBackendPool must NOT apply the same logic — doing so causes
+        # drivers with threadsafety=1 (e.g. mysql-connector-python) to fall back
+        # to transient mode, rebuilding a TCP connection on every request.
         self._effective_mode: str  # "persistent" or "transient"
         if config.connection_mode == "auto":
-            # Async pool runs on single-threaded event loop; persistent is safe
             self._effective_mode = "persistent"
         else:
             self._effective_mode = config.connection_mode
@@ -158,6 +170,24 @@ class AsyncBackendPool:
                 self._stats.total_errors += 1
 
         self._initialized = True
+
+    def _is_thread_safe_backend(self) -> bool:
+        """Determine if the backend supports shared persistent connections."""
+        try:
+            if self.config.backend_factory:
+                test_backend = self.config.backend_factory()
+            elif self.config.backend_config:
+                test_backend = None
+            else:
+                return False
+
+            if test_backend is None:
+                return False
+
+            threadsafety = getattr(test_backend, "threadsafety", 1)
+            return threadsafety >= 2
+        except Exception:
+            return False
 
     async def _create_backend(self, connect: bool = True) -> Optional[PooledBackend]:
         """Create new Backend instance.
@@ -368,68 +398,79 @@ class AsyncBackendPool:
                 f"in_use={self._stats.current_in_use}"
             )
 
-        async with self._lock:
-            if self._closed:
-                self._semaphore.release()
-                raise RuntimeError("Pool is closed")
+        while True:
+            async with self._lock:
+                if self._closed:
+                    self._semaphore.release()
+                    raise RuntimeError("Pool is closed")
 
-            # Try to get from available pool
-            while self._available:
-                pooled = self._available.popleft()
+                if self._available:
+                    pooled = self._available.popleft()
+                    self._stats.current_available -= 1
+                    is_new_backend = False
+                else:
+                    pooled = None
+                    is_new_backend = True
 
-                if self.config.validate_on_borrow:
+            if pooled is None:
+                try:
+                    should_connect = self._is_persistent or (
+                        not self._is_persistent and self.config.auto_connect_on_acquire
+                    )
+                    pooled = await self._create_backend(connect=should_connect)
+                except Exception:
+                    self._semaphore.release()
+                    raise
+
+                if pooled is None:
+                    self._semaphore.release()
+                    raise RuntimeError("Failed to acquire connection")
+
+            try:
+                if self._is_persistent and self.config.validate_on_borrow:
                     if not await self._validate_backend(pooled):
-                        # In persistent mode, try to reconnect before giving up
-                        if self._is_persistent and await self._reconnect_backend(pooled):
-                            # Reconnection succeeded, continue with this backend
-                            pass
-                        else:
+                        if not await self._reconnect_backend(pooled):
                             await self._destroy_backend(pooled)
-                            self._stats.current_available -= 1
+                            if is_new_backend:
+                                self._semaphore.release()
+                                raise RuntimeError("Failed to validate new connection")
                             continue
+
+                if not self._is_persistent and not is_new_backend:
+                    if self.config.auto_connect_on_acquire:
+                        await self._async_connect(pooled.backend)
+                    if self.config.validate_on_borrow:
+                        if not await self._validate_backend(pooled):
+                            await self._destroy_backend(pooled)
+                            continue
+
+                if not self._is_persistent and is_new_backend and self.config.validate_on_borrow:
+                    if not await self._validate_backend(pooled):
+                        await self._destroy_backend(pooled)
+                        self._semaphore.release()
+                        raise RuntimeError("Failed to validate new connection")
+            except Exception as e:
+                if not isinstance(e, RuntimeError):
+                    pooled.mark_unhealthy()
+                    await self._destroy_backend(pooled)
+                    logger.error(f"Failed to prepare acquired backend: {e}")
+                if is_new_backend:
+                    self._semaphore.release()
+                    raise
+                continue
+
+            async with self._lock:
+                if self._closed:
+                    await self._destroy_backend(pooled)
+                    self._semaphore.release()
+                    raise RuntimeError("Pool is closed")
 
                 pooled.mark_used()
                 self._in_use[id(pooled.backend)] = pooled
-                self._stats.current_available -= 1
                 self._stats.current_in_use += 1
                 self._stats.total_acquired += 1
                 self._stats.last_acquired_at = datetime.now()
-
-                # In transient mode, auto-connect if configured
-                if not self._is_persistent and self.config.auto_connect_on_acquire:
-                    try:
-                        await self._async_connect(pooled.backend)
-                    except Exception as e:
-                        self._in_use.pop(id(pooled.backend), None)
-                        self._stats.current_in_use -= 1
-                        pooled.mark_unhealthy()
-                        await self._destroy_backend(pooled)
-                        logger.error(f"Failed to connect acquired backend: {e}")
-                        continue
-
                 return pooled.backend
-
-            # Create new connection
-            try:
-                # In persistent mode, connect immediately; in transient mode, connect if configured
-                should_connect = self._is_persistent or (
-                    not self._is_persistent and self.config.auto_connect_on_acquire
-                )
-                pooled = await self._create_backend(connect=should_connect)
-                if pooled:
-                    pooled.mark_used()
-                    self._in_use[id(pooled.backend)] = pooled
-                    self._stats.current_in_use += 1
-                    self._stats.total_acquired += 1
-                    self._stats.last_acquired_at = datetime.now()
-                    return pooled.backend
-            except Exception:
-                self._semaphore.release()
-                raise
-
-        # Should not reach here
-        self._semaphore.release()
-        raise RuntimeError("Failed to acquire connection")
 
     async def release(self, backend: Any) -> None:
         """Release Backend instance.
