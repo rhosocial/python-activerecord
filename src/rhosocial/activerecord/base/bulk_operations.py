@@ -64,12 +64,10 @@ class BulkOperationsMixin:
         if validation_errors:
             raise BulkValidationError(validation_errors)
 
-        for record in records:
-            record._trigger_event(ModelEvent.BEFORE_INSERT)
-
         all_data = []
         for record in records:
             data = record._prepare_save_data()
+            record._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
             all_data.append(data)
 
         if not all_data:
@@ -342,12 +340,10 @@ class AsyncBulkOperationsMixin:
         if validation_errors:
             raise BulkValidationError(validation_errors)
 
-        for record in records:
-            record._trigger_event(ModelEvent.BEFORE_INSERT)
-
         all_data = []
         for record in records:
             data = record._prepare_save_data()
+            record._trigger_event(ModelEvent.BEFORE_INSERT, data=data)
             all_data.append(data)
 
         if not all_data:
