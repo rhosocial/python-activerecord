@@ -37,7 +37,7 @@ jobs:
         pip install -r requirements-dev.txt
         pip install codecov build
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev14
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests with coverage
       run: |
@@ -75,7 +75,7 @@ jobs:
         pip install -r requirements.txt
         pip install -r requirements-dev.txt
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev14
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run benchmark suite
       run: |
@@ -102,6 +102,7 @@ jobs:
         python -m pytest \
           --rootdir=. \
           --confcutdir=. \
+          tests/benchmark/crud \
           tests/benchmark/backend \
           -m benchmark \
           --benchmark-size=small \
@@ -188,7 +189,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev14
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
       run: |
@@ -223,7 +224,7 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
-        pip install rhosocial-activerecord-testsuite==1.0.0.dev14
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
       run: |
