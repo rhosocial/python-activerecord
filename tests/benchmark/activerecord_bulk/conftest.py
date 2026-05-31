@@ -1,4 +1,4 @@
-"""Conftest for CRUD benchmark bridge tests."""
+"""Conftest for ActiveRecord bulk benchmark bridge tests."""
 
 from rhosocial.activerecord.testsuite.benchmark.conftest import (  # noqa: F401
     benchmark_size,
