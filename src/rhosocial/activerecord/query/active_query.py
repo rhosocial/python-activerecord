@@ -2,7 +2,7 @@
 """ActiveQuery implementation."""
 
 import logging
-from typing import List, Optional, Type
+from typing import Dict, List, Optional, Type, Union
 
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .base import BaseQueryMixin
@@ -283,6 +283,80 @@ class ActiveQuery(
 
         return SetOperationQuery(self, other, "EXCEPT")
 
+    def update_all(self, values: Dict[str, object]) -> int:
+        """
+        Execute a bulk UPDATE on all records matching the current query conditions.
+
+        This is a SQL-level operation that does NOT load model instances,
+        trigger events, or execute validation.
+
+        Args:
+            values: Dictionary mapping field names (or Column proxies) to new values.
+
+        Returns:
+            Number of affected rows.
+
+        Example:
+            User.query().where(User.c.status == 'inactive').update_all({User.c.status: 'archived'})
+        """
+        from ..backend.expression import Column, Literal, UpdateExpression, TableExpression as TE
+        from ..backend.options import UpdateOptions
+        from ..backend.schema import StatementType
+        from ..backend.options import ExecutionOptions
+
+        backend = self.backend()
+        dialect = backend.dialect
+
+        data = {}
+        for key, value in values.items():
+            if isinstance(key, Column):
+                col_name = key.name
+            elif isinstance(key, str):
+                col_name = self.model_class._get_column_name(key)
+            else:
+                col_name = str(key)
+            data[col_name] = value
+
+        if not self.where_clause:
+            raise ValueError("update_all requires a WHERE clause. Use .where() to specify conditions.")
+
+        update_opts = UpdateOptions(
+            table=self.model_class.table_name(),
+            schema_name=self.model_class.schema_name(),
+            data=data,
+            where=self.where_clause,
+        )
+        result = backend.update(update_opts)
+        return result.affected_rows
+
+    def delete_all(self) -> int:
+        """
+        Execute a bulk DELETE on all records matching the current query conditions.
+
+        This is a SQL-level operation that does NOT load model instances,
+        trigger events, or execute validation.
+
+        Returns:
+            Number of affected rows.
+
+        Example:
+            User.query().where(User.c.last_login < cutoff_date).delete_all()
+        """
+        from ..backend.options import DeleteOptions
+
+        backend = self.backend()
+
+        if not self.where_clause:
+            raise ValueError("delete_all requires a WHERE clause. Use .where() to specify conditions.")
+
+        delete_opts = DeleteOptions(
+            table=self.model_class.table_name(),
+            schema_name=self.model_class.schema_name(),
+            where=self.where_clause,
+        )
+        result = backend.delete(delete_opts)
+        return result.affected_rows
+
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""
         if self.model_class:
@@ -548,6 +622,71 @@ class AsyncActiveQuery(
         from .set_operation import AsyncSetOperationQuery
 
         return AsyncSetOperationQuery(self, other, "EXCEPT")
+
+    async def update_all(self, values: Dict[str, object]) -> int:
+        """
+        Execute a bulk UPDATE asynchronously on all records matching the current query conditions.
+
+        This is a SQL-level operation that does NOT load model instances,
+        trigger events, or execute validation.
+
+        Args:
+            values: Dictionary mapping field names (or Column proxies) to new values.
+
+        Returns:
+            Number of affected rows.
+        """
+        from ..backend.expression import Column
+        from ..backend.options import UpdateOptions
+
+        backend = self.backend()
+
+        data = {}
+        for key, value in values.items():
+            if isinstance(key, Column):
+                col_name = key.name
+            elif isinstance(key, str):
+                col_name = self.model_class._get_column_name(key)
+            else:
+                col_name = str(key)
+            data[col_name] = value
+
+        if not self.where_clause:
+            raise ValueError("update_all requires a WHERE clause. Use .where() to specify conditions.")
+
+        update_opts = UpdateOptions(
+            table=self.model_class.table_name(),
+            schema_name=self.model_class.schema_name(),
+            data=data,
+            where=self.where_clause,
+        )
+        result = await backend.update(update_opts)
+        return result.affected_rows
+
+    async def delete_all(self) -> int:
+        """
+        Execute a bulk DELETE asynchronously on all records matching the current query conditions.
+
+        This is a SQL-level operation that does NOT load model instances,
+        trigger events, or execute validation.
+
+        Returns:
+            Number of affected rows.
+        """
+        from ..backend.options import DeleteOptions
+
+        backend = self.backend()
+
+        if not self.where_clause:
+            raise ValueError("delete_all requires a WHERE clause. Use .where() to specify conditions.")
+
+        delete_opts = DeleteOptions(
+            table=self.model_class.table_name(),
+            schema_name=self.model_class.schema_name(),
+            where=self.where_clause,
+        )
+        result = await backend.delete(delete_opts)
+        return result.affected_rows
 
     def _log(self, level: int, msg: str, *args, **kwargs) -> None:
         """Log query-related messages using model's logger."""

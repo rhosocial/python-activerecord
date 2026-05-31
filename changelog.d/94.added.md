@@ -1,0 +1,1 @@
+Added bulk operations API: `bulk_create`, `bulk_update`, `bulk_delete` (Model layer with validation/events) and `update_all`, `delete_all` (Query layer for SQL-level batch operations). Both sync and async variants are supported.
