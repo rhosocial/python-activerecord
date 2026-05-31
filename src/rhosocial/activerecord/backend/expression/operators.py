@@ -6,6 +6,7 @@ SQL operations like binary, unary, and arithmetic expressions.
 from typing import Any, Tuple, List, TYPE_CHECKING
 from .bases import BaseExpression, SQLPredicate, SQLQueryAndParams, SQLValueExpression
 from .mixins import (
+    AliasableMixin,
     ArithmeticMixin,
     ComparisonMixin,
     StringMixin,
@@ -115,7 +116,7 @@ class RawSQLPredicate(SQLPredicate):
 
 
 class BinaryArithmeticExpression(
-    ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression
+    AliasableMixin, ArithmeticMixin, ComparisonMixin, TypeCastingMixin, SQLValueExpression
 ):
     """Represents a binary arithmetic operation."""
 
@@ -151,6 +152,9 @@ class BinaryArithmeticExpression(
         # Apply type casts if any
         for target_type in self._cast_types:
             sql, params = self.dialect.format_cast_expression(sql, target_type, params, None)
+
+        if getattr(self, "alias", None):
+            sql = f"{sql} AS {self.dialect.format_identifier(self.alias)}"
 
         return sql, params
 

@@ -3,9 +3,12 @@
 This module provides classes and functions related to field definitions and annotations.
 """
 
-from typing import Type
+from typing import Any, Optional, Type, Union, TYPE_CHECKING
 
 from ..backend.type_adapter import SQLTypeAdapter
+
+if TYPE_CHECKING:
+    from ..backend.expression.bases import BaseExpression, SQLDialectBase
 
 
 class UseColumn:
@@ -85,3 +88,74 @@ class UseAdapter:
             )
         self.adapter = adapter
         self.target_db_type = target_db_type
+
+
+class DerivedField:
+    """
+    A marker/descriptor for declaring derived (computed) fields on ActiveRecord models.
+
+    Derived fields are non-column fields whose values are computed by the database
+    at query time. They are opt-in via the `derived` parameter on find_all/find_one.
+    At query time the expression is injected into SELECT with an alias, and the
+    result is mapped back to the instance by that alias.
+
+    Derived fields are not tracked by Pydantic (declared as ClassVar) nor by dirty
+    field tracking, and their values are read-only on instances.
+
+    Expression definition approaches:
+
+    1. Field proxy (recommended): reference columns via Model.c, which automatically
+       injects the dialect. No manual dialect handling needed.
+
+        class Product(ActiveRecord):
+            c: ClassVar[FieldProxy] = FieldProxy()
+            price: float
+            quantity: int
+            discounted: ClassVar[Annotated[float, DerivedField(
+                lambda d: Product.c.price * Literal(d, 0.9),
+                default_included=True,
+            )]]
+
+    2. Manual Column construction: use the dialect parameter (d) passed to the
+       factory to build expressions directly.
+
+        class Product(ActiveRecord):
+            price: float
+            total_value: ClassVar[Annotated[float, DerivedField(
+                lambda d: Column(d, "price") * Column(d, "quantity"),
+            )]]
+
+       If you need to build an expression outside the lambda, obtain the dialect
+       from the backend:
+
+        dialect = Product.backend().dialect
+        expr = Column(dialect, "price") * Literal(dialect, 2)
+    """
+
+    def __init__(
+        self,
+        expression: "Union[BaseExpression, Any]",
+        *,
+        python_type: type = Any,
+        default_included: bool = False,
+        adapter: Optional[SQLTypeAdapter] = None,
+    ):
+        if callable(expression) and not hasattr(expression, "to_sql"):
+            self._factory = expression
+        else:
+            _e = expression
+            self._factory = lambda d: _e
+
+        self.python_type = python_type
+        self.default_included = default_included
+        self.adapter = adapter
+        self.field_name: Optional[str] = None
+        self._source_id: Optional[int] = None
+
+    def __get__(self, instance, owner):
+        if instance is None:
+            return self
+        return instance.__dict__.get(self.field_name, None)
+
+    def resolve(self, dialect: "SQLDialectBase") -> "BaseExpression":
+        return self._factory(dialect)
