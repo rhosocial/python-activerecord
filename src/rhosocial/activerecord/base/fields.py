@@ -136,9 +136,7 @@ class DerivedField:
         self,
         expression: "Union[BaseExpression, Any]",
         *,
-        python_type: type = Any,
         default_included: bool = False,
-        adapter: Optional[SQLTypeAdapter] = None,
     ):
         if callable(expression) and not hasattr(expression, "to_sql"):
             self._factory = expression
@@ -146,9 +144,10 @@ class DerivedField:
             _e = expression
             self._factory = lambda d: _e
 
-        self.python_type = python_type
         self.default_included = default_included
-        self.adapter = adapter
+        self.python_type: type = Any
+        self.adapter: Optional[SQLTypeAdapter] = None
+        self.column_name: Optional[str] = None
         self.field_name: Optional[str] = None
         self._source_id: Optional[int] = None
 

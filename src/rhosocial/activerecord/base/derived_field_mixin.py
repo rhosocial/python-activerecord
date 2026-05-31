@@ -62,11 +62,11 @@ class DerivedFieldMixin:
         if derived is True:
             for name, df in derived_fields.items():
                 if df.default_included:
-                    exprs.append(df.resolve(dialect).as_(name))
+                    exprs.append(df.resolve(dialect).as_(df.column_name or name))
         elif isinstance(derived, list):
             for item in derived:
                 name, df = _lookup(item)
-                exprs.append(df.resolve(dialect).as_(name))
+                exprs.append(df.resolve(dialect).as_(df.column_name or name))
         elif isinstance(derived, dict):
             for alias, val in derived.items():
                 exprs.append(_to_aliased_expr(alias, val))

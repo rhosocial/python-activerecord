@@ -107,13 +107,19 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         instance.reset_tracking()
 
         if derived_fields:
+            col_to_field = {
+                df.column_name: name
+                for name, df in derived_fields.items()
+                if df.column_name is not None
+            }
             for name in derived_fields:
                 instance.__dict__[name] = None
             for k, v in extra_data.items():
-                df = derived_fields.get(k)
+                field_name = col_to_field.get(k, k)
+                df = derived_fields.get(field_name)
                 if df is not None and df.adapter is not None:
                     v = df.adapter.from_database(v, df.python_type)
-                instance.__dict__[k] = v
+                instance.__dict__[field_name] = v
 
         return instance
 
@@ -669,13 +675,19 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         instance.reset_tracking()
 
         if derived_fields:
+            col_to_field = {
+                df.column_name: name
+                for name, df in derived_fields.items()
+                if df.column_name is not None
+            }
             for name in derived_fields:
                 instance.__dict__[name] = None
             for k, v in extra_data.items():
-                df = derived_fields.get(k)
+                field_name = col_to_field.get(k, k)
+                df = derived_fields.get(field_name)
                 if df is not None and df.adapter is not None:
                     v = df.adapter.from_database(v, df.python_type)
-                instance.__dict__[k] = v
+                instance.__dict__[field_name] = v
 
         return instance
 
