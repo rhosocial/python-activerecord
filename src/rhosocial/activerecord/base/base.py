@@ -436,8 +436,11 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def find_one_or_fail(
         cls: Type["BaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        *,
+        derived: Union[bool, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> "BaseActiveRecord":
-        record = cls.find_one(condition)
+        record = cls.find_one(condition, derived=derived, extra_derived=extra_derived)
         if record is None:
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
@@ -1004,8 +1007,11 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     async def find_one_or_fail(
         cls: Type["AsyncBaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        *,
+        derived: Union[bool, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> "AsyncBaseActiveRecord":
-        record = await cls.find_one(condition)
+        record = await cls.find_one(condition, derived=derived, extra_derived=extra_derived)
         if record is None:
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
