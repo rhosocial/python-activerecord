@@ -16,9 +16,10 @@ from ..backend.type_adapter import SQLTypeAdapter
 from ..interface import IActiveRecord, IAsyncActiveRecord, ModelEvent
 from ..interface.update import IUpdateBehavior
 from ..logging import LoggingConfig, LoggingMixin
+from .bulk_operations import BulkOperationsMixin, AsyncBulkOperationsMixin
 
 
-class BaseActiveRecord(LoggingMixin, IActiveRecord):
+class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     """
     Core ActiveRecord implementation providing the fundamental ORM functionality.
     """
@@ -553,7 +554,7 @@ class BaseActiveRecord(LoggingMixin, IActiveRecord):
         return adapters_map
 
 
-class AsyncBaseActiveRecord(LoggingMixin, IAsyncActiveRecord):
+class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActiveRecord):
     """
     Core Async ActiveRecord implementation providing the fundamental ORM functionality.
     """

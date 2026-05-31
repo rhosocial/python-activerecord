@@ -1,4 +1,10 @@
 # src/rhosocial/activerecord/backend/errors.py
+from typing import TYPE_CHECKING
+
+if TYPE_CHECKING:
+    from typing import List, Tuple
+
+
 class DatabaseError(Exception):
     """Base class for database errors"""
 
@@ -61,6 +67,27 @@ class OperationalError(DatabaseError):
 
 class RecordNotFound(DatabaseError):
     """Record not found"""
+
+    pass
+
+
+class BulkOperationError(DatabaseError):
+    """Base class for bulk operation errors"""
+
+    pass
+
+
+class BulkValidationError(BulkOperationError):
+    """Bulk validation failed, contains indices and error messages of failed records"""
+
+    def __init__(self, errors: "List[Tuple[int, str]]", message: str = "Bulk validation failed"):
+        self.errors = errors
+        details = "; ".join(f"[{idx}] {msg}" for idx, msg in errors)
+        super().__init__(f"{message}: {details}")
+
+
+class BulkStateError(BulkOperationError):
+    """Record state does not meet bulk operation requirements"""
 
     pass
 

@@ -89,6 +89,52 @@ class UpdateOptions:
 
 
 @dataclass
+class BulkInsertOptions:
+    """Encapsulates all options for a high-level `bulk_insert` operation."""
+
+    # The name of the table to insert into.
+    table: str
+    # List of column names corresponding to each row's values.
+    columns: List[str]
+    # Multiple rows of data, each row is a list of expression objects or literal values.
+    rows: List[List["BaseExpression"]]
+
+    # See ExecutionOptions for details on these result-processing parameters.
+    column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
+    column_mapping: Optional[Dict[str, str]] = None
+
+    # If True, commits the transaction if one is not already active.
+    auto_commit: Optional[bool] = True
+    # Columns to include in the RETURNING clause.
+    returning_columns: Optional[List[str]] = None
+    # Schema name for schema-qualified table references.
+    schema_name: Optional[str] = None
+
+
+@dataclass
+class BulkUpdateOptions:
+    """Encapsulates all options for a high-level `bulk_update` operation using CASE WHEN."""
+
+    # The name of the table to update.
+    table: str
+    # The primary key column name used in CASE WHEN conditions.
+    pk_column: str
+    # List of primary key values (one per record).
+    pk_values: List
+    # Dict mapping field name to list of values (one per record, same order as pk_values).
+    field_values: Dict[str, List]
+
+    # See ExecutionOptions for details on these result-processing parameters.
+    column_adapters: Optional[Dict[str, Tuple[SQLTypeAdapter, Type]]] = None
+    column_mapping: Optional[Dict[str, str]] = None
+
+    # If True, commits the transaction if not already active.
+    auto_commit: bool = True
+    # Schema name for schema-qualified table references.
+    schema_name: Optional[str] = None
+
+
+@dataclass
 class DeleteOptions:
     """Encapsulates all options for a `delete` operation."""
 

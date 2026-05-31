@@ -9,10 +9,12 @@ from typing import Dict, Tuple, Type
 from typing import List, Optional
 
 from ..dialect.base import SQLDialectBase
-from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal, TableExpression
+from ..expression import InsertExpression, UpdateExpression, DeleteExpression, Literal, TableExpression, Column
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause, ValuesSource
-from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions
+from ..expression.predicates import InPredicate, ComparisonPredicate
+from ..expression.advanced_functions import CaseExpression
+from ..options import ExecutionOptions, InsertOptions, UpdateOptions, DeleteOptions, BulkInsertOptions, BulkUpdateOptions
 from ..result import QueryResult
 from ..schema import StatementType
 from ..type_adapter import SQLTypeAdapter
@@ -246,6 +248,115 @@ class SQLOperationsMixin:
         result = self.execute(sql, params, options=exec_options)
         return result.data or []
 
+    def bulk_insert(self, options: BulkInsertOptions) -> QueryResult:
+        """
+        Inserts multiple rows into the database in a single INSERT statement.
+
+        Generates: INSERT INTO table (col1, col2, ...) VALUES (...), (...), ...
+
+        Args:
+            options (BulkInsertOptions): Encapsulates all parameters for the bulk insert.
+        Returns:
+            QueryResult: The result of the bulk insert operation.
+        """
+        processed_rows = []
+        for row in options.rows:
+            processed_values = []
+            for v in row:
+                if _is_sql_expression(v):
+                    processed_values.append(v)
+                else:
+                    processed_values.append(Literal(self.dialect, v))
+            processed_rows.append(processed_values)
+
+        values_source = ValuesSource(self.dialect, processed_rows)
+
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
+        insert_expr = InsertExpression(
+            dialect=self.dialect,
+            into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
+            source=values_source,
+            columns=options.columns,
+            returning=returning_clause,
+        )
+
+        sql, params = insert_expr.to_sql()
+
+        exec_options = ExecutionOptions(
+            stmt_type=StatementType.DML,
+            column_adapters=options.column_adapters,
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns),
+        )
+
+        result = self.execute(sql, params, options=exec_options)
+
+        if options.auto_commit:
+            self._handle_auto_commit_if_needed()
+
+        return result
+
+    def bulk_update(self, options: BulkUpdateOptions) -> QueryResult:
+        """
+        Updates multiple rows using CASE WHEN pattern in a single UPDATE statement.
+
+        Generates:
+            UPDATE table SET
+              col1 = CASE WHEN pk = ? THEN ? WHEN pk = ? THEN ? END,
+              col2 = CASE WHEN pk = ? THEN ? WHEN pk = ? THEN ? END
+            WHERE pk IN (?, ?, ...)
+
+        Args:
+            options (BulkUpdateOptions): Encapsulates all parameters for the bulk update.
+        Returns:
+            QueryResult: The result of the bulk update operation.
+        """
+        pk_col = Column(self.dialect, options.pk_column)
+
+        assignments = {}
+        for field_name, values in options.field_values.items():
+            cases = []
+            for pk_val, field_val in zip(options.pk_values, values):
+                condition = ComparisonPredicate(
+                    self.dialect, "=", pk_col, Literal(self.dialect, pk_val)
+                )
+                result_expr = Literal(self.dialect, field_val)
+                cases.append((condition, result_expr))
+            case_expr = CaseExpression(self.dialect, cases=cases)
+            assignments[field_name] = case_expr
+
+        pk_literals = Literal(self.dialect, options.pk_values)
+        where_predicate = InPredicate(self.dialect, pk_col, pk_literals)
+
+        update_expr = UpdateExpression(
+            dialect=self.dialect,
+            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
+            assignments=assignments,
+            where=where_predicate,
+        )
+
+        sql, params = update_expr.to_sql()
+
+        exec_options = ExecutionOptions(
+            stmt_type=StatementType.DML,
+            column_adapters=options.column_adapters,
+            column_mapping=options.column_mapping,
+        )
+
+        result = self.execute(sql, params, options=exec_options)
+
+        if options.auto_commit:
+            self._handle_auto_commit_if_needed()
+
+        return result
+
 
 class AsyncSQLOperationsMixin:
     """Mixin for high-level asynchronous SQL data operations (INSERT, UPDATE, DELETE, FETCH)."""
@@ -450,3 +561,104 @@ class AsyncSQLOperationsMixin:
         )
         result = await self.execute(sql, params, options=exec_options)
         return result.data or []
+
+    async def bulk_insert(self, options: BulkInsertOptions) -> QueryResult:
+        """
+        Inserts multiple rows asynchronously in a single INSERT statement.
+
+        Args:
+            options (BulkInsertOptions): Encapsulates all parameters for the bulk insert.
+        Returns:
+            QueryResult: The result of the bulk insert operation.
+        """
+        processed_rows = []
+        for row in options.rows:
+            processed_values = []
+            for v in row:
+                if _is_sql_expression(v):
+                    processed_values.append(v)
+                else:
+                    processed_values.append(Literal(self.dialect, v))
+            processed_rows.append(processed_values)
+
+        values_source = ValuesSource(self.dialect, processed_rows)
+
+        returning_clause = None
+        if options.returning_columns:
+            from ..expression import Column as ExprColumn
+            returning_expressions = [ExprColumn(self.dialect, col) for col in options.returning_columns]
+            returning_clause = ReturningClause(self.dialect, returning_expressions)
+
+        insert_expr = InsertExpression(
+            dialect=self.dialect,
+            into=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
+            source=values_source,
+            columns=options.columns,
+            returning=returning_clause,
+        )
+
+        sql, params = insert_expr.to_sql()
+
+        exec_options = ExecutionOptions(
+            stmt_type=StatementType.DML,
+            column_adapters=options.column_adapters,
+            column_mapping=options.column_mapping,
+            process_result_set=bool(options.returning_columns),
+        )
+
+        result = await self.execute(sql, params, options=exec_options)
+
+        if options.auto_commit:
+            await self._handle_auto_commit_if_needed()
+
+        return result
+
+    async def bulk_update(self, options: BulkUpdateOptions) -> QueryResult:
+        """
+        Updates multiple rows asynchronously using CASE WHEN pattern.
+
+        Args:
+            options (BulkUpdateOptions): Encapsulates all parameters for the bulk update.
+        Returns:
+            QueryResult: The result of the bulk update operation.
+        """
+        pk_col = Column(self.dialect, options.pk_column)
+
+        assignments = {}
+        for field_name, values in options.field_values.items():
+            cases = []
+            for pk_val, field_val in zip(options.pk_values, values):
+                condition = ComparisonPredicate(
+                    self.dialect, "=", pk_col, Literal(self.dialect, pk_val)
+                )
+                result_expr = Literal(self.dialect, field_val)
+                cases.append((condition, result_expr))
+            case_expr = CaseExpression(self.dialect, cases=cases)
+            assignments[field_name] = case_expr
+
+        pk_literals = Literal(self.dialect, options.pk_values)
+        where_predicate = InPredicate(self.dialect, pk_col, pk_literals)
+
+        update_expr = UpdateExpression(
+            dialect=self.dialect,
+            table=TableExpression(self.dialect, options.table, schema_name=options.schema_name)
+            if options.schema_name else options.table,
+            assignments=assignments,
+            where=where_predicate,
+        )
+
+        sql, params = update_expr.to_sql()
+
+        exec_options = ExecutionOptions(
+            stmt_type=StatementType.DML,
+            column_adapters=options.column_adapters,
+            column_mapping=options.column_mapping,
+        )
+
+        result = await self.execute(sql, params, options=exec_options)
+
+        if options.auto_commit:
+            await self._handle_auto_commit_if_needed()
+
+        return result
