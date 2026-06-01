@@ -115,13 +115,16 @@ class TypeAdaptionMixin:
         """
         processed_row = {}
         for col_name, value in row_dict.items():
-            if value is None:
-                processed_row[col_name] = None
-                continue
             adapter_info = column_adapters.get(col_name)
             if adapter_info:
-                adapter, py_type = adapter_info
-                processed_row[col_name] = adapter.from_database(value, py_type)
+                adapter, original_type = adapter_info
+                if value is None:
+                    result = adapter.from_database(value, original_type, original_type=original_type)
+                    processed_row[col_name] = result
+                else:
+                    processed_row[col_name] = adapter.from_database(value, original_type)
+            elif value is None:
+                processed_row[col_name] = None
             else:
                 processed_row[col_name] = value
         return processed_row

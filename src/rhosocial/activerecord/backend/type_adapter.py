@@ -115,9 +115,9 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
             return None
         return self._do_to_database(value, target_type, options)
 
-    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
+    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None, **kwargs) -> Any:
         if value is None:
-            return None
+            return self._on_none_from_database(target_type, **kwargs)
 
         origin = get_origin(target_type)
         # Support both Optional (Python 3.8+) and UnionType (Python 3.10+)
@@ -142,6 +142,14 @@ class BaseSQLTypeAdapter(ABC, BatchConversionMixin):
     def _do_from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]]) -> Any:
         """Actual conversion logic for non-None values (from database)."""
         pass
+
+    def _on_none_from_database(self, target_type: Type, **kwargs) -> Any:
+        """Override to handle None values from database.
+
+        Default returns None. Subclasses can override to return a default value
+        for non-optional fields (e.g., '' for str when database stores '' as NULL).
+        """
+        return None
 
 
 # --- Standard SQL Type Adapter Presets ---
