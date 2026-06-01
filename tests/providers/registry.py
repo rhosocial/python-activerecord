@@ -31,6 +31,7 @@ from .mixins import MixinsProvider
 from .query import QueryProvider
 from .basic_connection import BasicConnectionProvider
 from .query_connection import QueryConnectionProvider
+from .derived_field import DerivedFieldProvider
 from .crud_benchmark import CrudBenchmarkProvider
 from .fastapi_benchmark import FastAPIBenchmarkProvider
 from .mixin_benchmark import MixinBenchmarkProvider
@@ -65,6 +66,8 @@ provider_registry.register("feature.basic.connection.IBasicConnectionProvider", 
 # Register the concrete `QueryConnectionProvider` as the implementation for the
 # `feature.query.connection.IQueryConnectionProvider` interface defined in the testsuite.
 provider_registry.register("feature.query.connection.IQueryConnectionProvider", QueryConnectionProvider)
+
+provider_registry.register("feature.derived_field.IDerivedFieldProvider", DerivedFieldProvider)
 
 # Register benchmark providers.
 provider_registry.register("benchmark.crud.ICrudBenchmarkProvider", CrudBenchmarkProvider)
