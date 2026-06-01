@@ -127,3 +127,169 @@ You may notice that `FieldProxy` is not present by default and requires users to
         .select(User.c.name, ManagerAlias.name.as_("manager_name")) \
         .all()
     ```
+
+## Derived Fields
+
+Derived fields are read-only computed fields whose values are dynamically calculated by the database at query time. They are not stored in the database but generated via SQL expressions in the SELECT clause. Derived fields are not tracked by Pydantic and are excluded from dirty field detection.
+
+### Declaration Methods
+
+There are two ways to declare derived fields:
+
+#### Form A: ClassVar Assignment
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.base import DerivedField
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # Using ClassVar assignment
+    discounted_price: ClassVar[DerivedField] = DerivedField(
+        lambda d: Column(d, "price") * Literal(d, 0.9)
+    )
+    total_value: ClassVar[DerivedField] = DerivedField(
+        lambda d: Column(d, "price") * Column(d, "quantity")
+    )
+```
+
+#### Form B: ClassVar + Annotated
+
+```python
+from typing import Annotated, ClassVar
+from rhosocial.activerecord.base import DerivedField
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # Using Annotated declaration, can attach type information
+    discounted_price: ClassVar[Annotated[float, DerivedField(
+        lambda d: Column(d, "price") * Literal(d, 0.9)
+    )]]
+    total_value: ClassVar[Annotated[float, DerivedField(
+        lambda d: Column(d, "price") * Column(d, "quantity")
+    )]]
+```
+
+### Using FieldProxy for Expressions (Recommended)
+
+Combining with `FieldProxy` provides type-safe column references, avoiding manual column name spelling:
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.base import DerivedField, FieldProxy
+from rhosocial.activerecord.backend.expression import Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    discounted_price: ClassVar[Annotated[float, DerivedField(
+        lambda d: Product.c.price * Literal(d, 0.9)
+    )]]
+    total_value: ClassVar[Annotated[float, DerivedField(
+        lambda d: Product.c.price * Product.c.quantity
+    )]]
+```
+
+### Using UseColumn for Custom Column Aliases
+
+With `UseColumn`, you can specify SQL aliases for derived fields without affecting Python property names:
+
+```python
+from typing import Annotated, ClassVar
+from rhosocial.activerecord.base import DerivedField, UseColumn
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # SQL alias is "disc", Python property name is "discounted_price"
+    discounted_price: ClassVar[Annotated[float, DerivedField(
+        lambda d: Column(d, "price") * Literal(d, 0.9)
+    ), UseColumn("disc")]]
+```
+
+### Using UseAdapter for Type Adaptation
+
+`UseAdapter` can convert database-returned values to Python types:
+
+```python
+from typing import Annotated, Any, ClassVar, Dict, Optional, Set, Type
+from rhosocial.activerecord.base import DerivedField, UseAdapter
+from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class PriceToIntAdapter:
+    """Rounds float price to integer"""
+    def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
+        return float(value)
+    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
+        return int(round(value))
+    @property
+    def supported_types(self) -> Dict[Type, Set[Type]]:
+        return {int: {float}}
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # Result will be rounded to integer
+    total_int: ClassVar[Annotated[int, DerivedField(
+        lambda d: Column(d, "price") * Column(d, "quantity")
+    ), UseAdapter(PriceToIntAdapter(), int)]]
+```
+
+### Using Derived Fields in Queries
+
+Derived fields are optional and must be explicitly requested via the `derived` parameter:
+
+```python
+# Get all products with derived fields included
+products = Product.find_all(derived=True)  # Include all derived fields
+
+# Include only specific derived fields
+products = Product.find_all(derived=["discounted_price", "total_value"])
+
+# Use dictionary for custom aliases
+products = Product.find_all(derived={"discount": Product.c.price * Literal(0.9)})
+
+# Single record
+product = Product.find_one(1, derived=True)
+
+# Combine with other query conditions
+products = Product.find_all(
+    Product.c.price > 10,
+    derived=["discounted_price"]
+)
+```
+
+### Important Notes
+
+1. **Read-Only**: Derived field values can only be read, not modified.
+2. **No Validation**: Derived fields are not validated by Pydantic as they are ClassVars.
+3. **No Change Tracking**: Derived fields are not included in dirty field tracking.
+4. **Column Name Conflicts**: The `UseColumn` alias of a derived field cannot conflict with regular field column names.
+5. **Performance**: Derived fields are calculated at query time; complex expressions may impact query performance.

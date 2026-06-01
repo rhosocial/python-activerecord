@@ -127,3 +127,169 @@ User.find_all(User.c.username.like("admin%"))
         .select(User.c.name, ManagerAlias.name.as_("manager_name")) \
         .all()
     ```
+
+## 推导字段 (Derived Fields)
+
+推导字段是只读的计算字段，其值由数据库在查询时动态计算。它们不存储在数据库中，而是通过 SQL 表达式在 SELECT 子句中生成。推导字段不会被 Pydantic 追踪，也不参与脏字段检测。
+
+### 声明方式
+
+有两种声明推导字段的方式：
+
+#### Form A：ClassVar 赋值
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.base import DerivedField
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # 使用 ClassVar 赋值
+    discounted_price: ClassVar[DerivedField] = DerivedField(
+        lambda d: Column(d, "price") * Literal(d, 0.9)
+    )
+    total_value: ClassVar[DerivedField] = DerivedField(
+        lambda d: Column(d, "price") * Column(d, "quantity")
+    )
+```
+
+#### Form B：ClassVar + Annotated
+
+```python
+from typing import Annotated, ClassVar
+from rhosocial.activerecord.base import DerivedField
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # 使用 Annotated 声明，可附加类型信息
+    discounted_price: ClassVar[Annotated[float, DerivedField(
+        lambda d: Column(d, "price") * Literal(d, 0.9)
+    )]]
+    total_value: ClassVar[Annotated[float, DerivedField(
+        lambda d: Column(d, "price") * Column(d, "quantity")
+    )]]
+```
+
+### 使用 FieldProxy 构建表达式（推荐）
+
+结合 `FieldProxy` 可以获得类型安全的列引用，避免手动拼写列名：
+
+```python
+from typing import ClassVar
+from rhosocial.activerecord.base import DerivedField, FieldProxy
+from rhosocial.activerecord.backend.expression import Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    c: ClassVar[FieldProxy] = FieldProxy()
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    discounted_price: ClassVar[Annotated[float, DerivedField(
+        lambda d: Product.c.price * Literal(d, 0.9)
+    )]]
+    total_value: ClassVar[Annotated[float, DerivedField(
+        lambda d: Product.c.price * Product.c.quantity
+    )]]
+```
+
+### 使用 UseColumn 自定义列别名
+
+通过 `UseColumn` 可以为推导字段指定 SQL 别名，而不影响 Python 属性名：
+
+```python
+from typing import Annotated, ClassVar
+from rhosocial.activerecord.base import DerivedField, UseColumn
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # SQL 别名为 "disc"，Python 属性名为 "discounted_price"
+    discounted_price: ClassVar[Annotated[float, DerivedField(
+        lambda d: Column(d, "price") * Literal(d, 0.9)
+    ), UseColumn("disc")]]
+```
+
+### 使用 UseAdapter 进行类型适配
+
+`UseAdapter` 可以将数据库返回的值转换为 Python 类型：
+
+```python
+from typing import Annotated, Any, ClassVar, Dict, Optional, Set, Type
+from rhosocial.activerecord.base import DerivedField, UseAdapter
+from rhosocial.activerecord.backend.type_adapter import SQLTypeAdapter
+from rhosocial.activerecord.backend.expression import Column, Literal
+
+class PriceToIntAdapter:
+    """将浮点价格四舍五入为整数"""
+    def to_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
+        return float(value)
+    def from_database(self, value: Any, target_type: Type, options: Optional[Dict[str, Any]] = None) -> Any:
+        return int(round(value))
+    @property
+    def supported_types(self) -> Dict[Type, Set[Type]]:
+        return {int: {float}}
+
+class Product(ActiveRecord):
+    __table_name__ = "product"
+    id: Optional[int] = None
+    name: str
+    price: float
+    quantity: int
+
+    # 结果将四舍五入为整数
+    total_int: ClassVar[Annotated[int, DerivedField(
+        lambda d: Column(d, "price") * Column(d, "quantity")
+    ), UseAdapter(PriceToIntAdapter(), int)]]
+```
+
+### 查询时使用推导字段
+
+推导字段是可选的，必须通过 `derived` 参数显式请求：
+
+```python
+# 获取所有产品，并包含推导字段
+products = Product.find_all(derived=True)  # 包含所有推导字段
+
+# 只包含特定推导字段
+products = Product.find_all(derived=["discounted_price", "total_value"])
+
+# 使用字典自定义别名
+products = Product.find_all(derived={"discount": Product.c.price * Literal(0.9)})
+
+# 单个记录
+product = Product.find_one(1, derived=True)
+
+# 结合其他查询条件
+products = Product.find_all(
+    Product.c.price > 10,
+    derived=["discounted_price"]
+)
+```
+
+### 注意事项
+
+1. **只读性**：推导字段的值只能读取，不能修改。
+2. **不参与验证**：推导字段不经过 Pydantic 验证，因为它们是 ClassVar。
+3. **不跟踪变更**：推导字段不在脏字段跟踪范围内。
+4. **列名冲突**：推导字段的 `UseColumn` 别名不能与普通字段的列名冲突。
+5. **性能**：推导字段在查询时计算，复杂表达式可能影响查询性能。
