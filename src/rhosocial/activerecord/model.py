@@ -1,6 +1,16 @@
 # src/rhosocial/activerecord/model.py
-# Define the main ActiveRecord class by combining mixins
-# This approach keeps the class definition clean and modular
+"""
+Final ActiveRecord classes assembled from modular mixins.
+
+Each mixin contributes a distinct capability:
+- RelationManagementMixin: has_many / belongs_to relation declarations and lazy loading
+- QueryMixin / AsyncQueryMixin: find_one, find_all, query() builder entry point
+- ColumnNameMixin: UseColumn annotation → physical column name mapping
+- FieldAdapterMixin: UseAdapter annotation → per-field type conversion
+- DerivedFieldMixin: DerivedField annotation → database-computed virtual columns
+- MetaclassMixin: ActiveRecordMetaclass integration and feature handler dispatch
+- BaseActiveRecord / AsyncBaseActiveRecord: CRUD, lifecycle hooks, backend binding
+"""
 from .base import (
     BaseActiveRecord,
     AsyncBaseActiveRecord,
@@ -8,6 +18,7 @@ from .base import (
     AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
+    DerivedFieldMixin,
     MetaclassMixin,
 )
 from .relation import RelationManagementMixin
@@ -15,24 +26,14 @@ from .relation import RelationManagementMixin
 
 class ActiveRecord(
     RelationManagementMixin,
-    # FieldMixin, # import when needed
     QueryMixin,
-    ColumnNameMixin,  # Added ColumnNameMixin here
+    ColumnNameMixin,
     FieldAdapterMixin,
+    DerivedFieldMixin,
     MetaclassMixin,
     BaseActiveRecord,
 ):
-    """Complete ActiveRecord implementation combining core features.
-
-    Inherits functionality from:
-
-    - BaseActiveRecord: Core CRUD operations
-    - RelationManagementMixin: Relationship handling
-    - QueryMixin: Synchronous query builder
-    - ColumnNameMixin: Column name handling and quoting
-    - FieldAdapterMixin: Field-specific type adapter support
-    - MetaclassMixin: Metaclass-based model building support
-    """
+    """Complete ActiveRecord implementation combining core features."""
 
     ...
 
@@ -42,20 +43,11 @@ class AsyncActiveRecord(
     AsyncQueryMixin,
     ColumnNameMixin,
     FieldAdapterMixin,
+    DerivedFieldMixin,
     MetaclassMixin,
     AsyncBaseActiveRecord,
 ):
-    """Complete Async ActiveRecord implementation combining core features.
-
-    Inherits functionality from:
-
-    - AsyncBaseActiveRecord: Async core CRUD operations
-    - RelationManagementMixin: Relationship handling
-    - AsyncQueryMixin: Asynchronous query builder
-    - ColumnNameMixin: Column name handling and quoting
-    - FieldAdapterMixin: Field-specific type adapter support
-    - MetaclassMixin: Metaclass-based model building support
-    """
+    """Complete Async ActiveRecord implementation combining core features."""
 
     ...
 

@@ -94,9 +94,33 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
 
     @classmethod
     def create_from_database(cls, row: Dict[str, Any]) -> "BaseActiveRecord":
-        instance = cls(**row)
+        derived_fields = getattr(cls, "__derived_fields__", {})
+        if derived_fields:
+            model_data = {k: v for k, v in row.items() if k in cls.model_fields}
+            extra_data = {k: v for k, v in row.items() if k not in cls.model_fields}
+        else:
+            model_data = row
+            extra_data = {}
+
+        instance = cls(**model_data)
         instance._is_from_db = True
         instance.reset_tracking()
+
+        if derived_fields:
+            col_to_field = {
+                df.column_name: name
+                for name, df in derived_fields.items()
+                if df.column_name is not None
+            }
+            for name in derived_fields:
+                instance.__dict__[name] = None
+            for k, v in extra_data.items():
+                field_name = col_to_field.get(k, k)
+                df = derived_fields.get(field_name)
+                if df is not None and df.adapter is not None:
+                    v = df.adapter.from_database(v, df.python_type)
+                instance.__dict__[field_name] = v
+
         return instance
 
     @classmethod
@@ -341,6 +365,9 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
     def find_one(
         cls: Type["BaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        *,
+        derived: Union[bool, str, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> Optional["BaseActiveRecord"]:
         query = cls.query()
         if isinstance(condition, dict):
@@ -363,6 +390,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
+        cls._apply_derived_to_query(query, derived, extra_derived)
         return query.one()
 
     @classmethod
@@ -371,9 +399,13 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         condition: Optional[
             Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
+        *,
+        derived: Union[bool, str, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> List["BaseActiveRecord"]:
         query = cls.query()
         if condition is None:
+            cls._apply_derived_to_query(query, derived, extra_derived)
             return query.all()
         if isinstance(condition, dict):
             for key, value in condition.items():
@@ -397,14 +429,18 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
                 return []
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name).in_(condition))
+        cls._apply_derived_to_query(query, derived, extra_derived)
         return query.all()
 
     @classmethod
     def find_one_or_fail(
         cls: Type["BaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        *,
+        derived: Union[bool, str, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> "BaseActiveRecord":
-        record = cls.find_one(condition)
+        record = cls.find_one(condition, derived=derived, extra_derived=extra_derived)
         if record is None:
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
@@ -629,9 +665,33 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
 
     @classmethod
     def create_from_database(cls, row: Dict[str, Any]) -> "AsyncBaseActiveRecord":
-        instance = cls(**row)
+        derived_fields = getattr(cls, "__derived_fields__", {})
+        if derived_fields:
+            model_data = {k: v for k, v in row.items() if k in cls.model_fields}
+            extra_data = {k: v for k, v in row.items() if k not in cls.model_fields}
+        else:
+            model_data = row
+            extra_data = {}
+
+        instance = cls(**model_data)
         instance._is_from_db = True
         instance.reset_tracking()
+
+        if derived_fields:
+            col_to_field = {
+                df.column_name: name
+                for name, df in derived_fields.items()
+                if df.column_name is not None
+            }
+            for name in derived_fields:
+                instance.__dict__[name] = None
+            for k, v in extra_data.items():
+                field_name = col_to_field.get(k, k)
+                df = derived_fields.get(field_name)
+                if df is not None and df.adapter is not None:
+                    v = df.adapter.from_database(v, df.python_type)
+                instance.__dict__[field_name] = v
+
         return instance
 
     @classmethod
@@ -876,6 +936,9 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
     async def find_one(
         cls: Type["AsyncBaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        *,
+        derived: Union[bool, str, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> Optional["AsyncBaseActiveRecord"]:
         query = cls.query()
         if isinstance(condition, dict):
@@ -898,6 +961,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             pk_field_name = cls.primary_key()
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name) == condition)
+        cls._apply_derived_to_query(query, derived, extra_derived)
         return await query.one()
 
     @classmethod
@@ -906,9 +970,13 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         condition: Optional[
             Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
+        *,
+        derived: Union[bool, str, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> List["AsyncBaseActiveRecord"]:
         query = cls.query()
         if condition is None:
+            cls._apply_derived_to_query(query, derived, extra_derived)
             return await query.all()
         if isinstance(condition, dict):
             for key, value in condition.items():
@@ -932,14 +1000,18 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
                 return []
             dialect = cls.backend().dialect
             query = query.where(Column(dialect, pk_field_name).in_(condition))
+        cls._apply_derived_to_query(query, derived, extra_derived)
         return await query.all()
 
     @classmethod
     async def find_one_or_fail(
         cls: Type["AsyncBaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
+        *,
+        derived: Union[bool, str, list, dict] = False,
+        extra_derived: Optional[Dict[str, Any]] = None,
     ) -> "AsyncBaseActiveRecord":
-        record = await cls.find_one(condition)
+        record = await cls.find_one(condition, derived=derived, extra_derived=extra_derived)
         if record is None:
             cls.log(logging.WARNING, f"Record not found for {cls.__name__} with find_one condition: {condition}")
             raise RecordNotFound(f"Record not found for {cls.__name__}")
