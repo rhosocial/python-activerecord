@@ -32,6 +32,7 @@ from .query import QueryProvider
 from .basic_connection import BasicConnectionProvider
 from .query_connection import QueryConnectionProvider
 from .derived_field import DerivedFieldProvider
+from .relation import RelationProvider
 from .crud_benchmark import CrudBenchmarkProvider
 from .fastapi_benchmark import FastAPIBenchmarkProvider
 from .mixin_benchmark import MixinBenchmarkProvider
@@ -68,6 +69,8 @@ provider_registry.register("feature.basic.connection.IBasicConnectionProvider", 
 provider_registry.register("feature.query.connection.IQueryConnectionProvider", QueryConnectionProvider)
 
 provider_registry.register("feature.derived_field.IDerivedFieldProvider", DerivedFieldProvider)
+
+provider_registry.register("feature.relation.IRelationProvider", RelationProvider)
 
 # Register benchmark providers.
 provider_registry.register("benchmark.crud.ICrudBenchmarkProvider", CrudBenchmarkProvider)

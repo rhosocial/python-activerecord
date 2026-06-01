@@ -216,6 +216,36 @@ users = await AsyncUser.query().with_("posts").all()
 
 > 💡 **AI提示词示例**: "同步和异步模型的关系定义有什么区别？如何正确使用异步关系？"
 
+### 禁止同步/异步描述符混用
+
+同步描述符（`BelongsTo`、`HasOne`、`HasMany`）只能用于 `ActiveRecord` 模型，异步描述符（`AsyncBelongsTo`、`AsyncHasOne`、`AsyncHasMany`）只能用于 `AsyncActiveRecord` 模型。混用会在类创建时抛出 `TypeError`。
+
+```python
+# ❌ 错误：同步描述符用于异步模型 → TypeError
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    # 抛出 TypeError: Sync relation descriptor `posts` cannot be used on async model `AsyncUser`
+    posts: ClassVar[HasMany['AsyncPost']] = HasMany(foreign_key='user_id', inverse_of='user')
+
+# ❌ 错误：异步描述符用于同步模型 → TypeError
+class User(ActiveRecord):
+    username: str
+    # 抛出 TypeError: Async relation descriptor `posts` cannot be used on sync model `User`
+    posts: ClassVar[AsyncHasMany['Post']] = AsyncHasMany(foreign_key='user_id', inverse_of='user')
+
+# ✅ 正确：同步描述符用于同步模型
+class User(ActiveRecord):
+    username: str
+    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='user')
+
+# ✅ 正确：异步描述符用于异步模型
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    posts: ClassVar[AsyncHasMany['AsyncPost']] = AsyncHasMany(foreign_key='user_id', inverse_of='user')
+```
+
+> 💡 **AI提示词示例**: "同步和异步描述符混用会怎样？如何避免关系定义的类型错误？"
+
 ## inverse_of 参数说明
 
 `inverse_of` 参数用于指定双向关系的另一端名称。正确设置这个参数可以：
