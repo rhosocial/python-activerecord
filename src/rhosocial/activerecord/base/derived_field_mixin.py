@@ -59,10 +59,9 @@ class DerivedFieldMixin:
                 raise ValueError(f"Annotated alias not registered on {cls.__name__}")
             raise TypeError(f"Expected str/DerivedField/TypeAlias, got {type(item)}")
 
-        if derived is True:
+        if derived is True or derived == "all":
             for name, df in derived_fields.items():
-                if df.default_included:
-                    exprs.append(df.resolve(dialect).as_(df.column_name or name))
+                exprs.append(df.resolve(dialect).as_(df.column_name or name))
         elif isinstance(derived, list):
             for item in derived:
                 name, df = _lookup(item)

@@ -366,7 +366,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         cls: Type["BaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
-        derived: Union[bool, list, dict] = False,
+        derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> Optional["BaseActiveRecord"]:
         query = cls.query()
@@ -400,7 +400,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
             Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
         *,
-        derived: Union[bool, list, dict] = False,
+        derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> List["BaseActiveRecord"]:
         query = cls.query()
@@ -437,7 +437,7 @@ class BaseActiveRecord(BulkOperationsMixin, LoggingMixin, IActiveRecord):
         cls: Type["BaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
-        derived: Union[bool, list, dict] = False,
+        derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> "BaseActiveRecord":
         record = cls.find_one(condition, derived=derived, extra_derived=extra_derived)
@@ -937,7 +937,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         cls: Type["AsyncBaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
-        derived: Union[bool, list, dict] = False,
+        derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> Optional["AsyncBaseActiveRecord"]:
         query = cls.query()
@@ -971,7 +971,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
             Union[Any, List[Any], Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]]
         ] = None,
         *,
-        derived: Union[bool, list, dict] = False,
+        derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> List["AsyncBaseActiveRecord"]:
         query = cls.query()
@@ -1008,7 +1008,7 @@ class AsyncBaseActiveRecord(AsyncBulkOperationsMixin, LoggingMixin, IAsyncActive
         cls: Type["AsyncBaseActiveRecord"],
         condition: Union[Any, Dict[str, Any], Dict["Column", Any], "SQLPredicate", Tuple[str, tuple]],
         *,
-        derived: Union[bool, list, dict] = False,
+        derived: Union[bool, str, list, dict] = False,
         extra_derived: Optional[Dict[str, Any]] = None,
     ) -> "AsyncBaseActiveRecord":
         record = await cls.find_one(condition, derived=derived, extra_derived=extra_derived)

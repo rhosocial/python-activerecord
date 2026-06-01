@@ -113,7 +113,6 @@ class DerivedField:
             quantity: int
             discounted: ClassVar[Annotated[float, DerivedField(
                 lambda d: Product.c.price * Literal(d, 0.9),
-                default_included=True,
             )]]
 
     2. Manual Column construction: use the dialect parameter (d) passed to the
@@ -135,8 +134,6 @@ class DerivedField:
     def __init__(
         self,
         expression: "Union[BaseExpression, Any]",
-        *,
-        default_included: bool = False,
     ):
         if callable(expression) and not hasattr(expression, "to_sql"):
             self._factory = expression
@@ -144,7 +141,6 @@ class DerivedField:
             _e = expression
             self._factory = lambda d: _e
 
-        self.default_included = default_included
         self.python_type: type = Any
         self.adapter: Optional[SQLTypeAdapter] = None
         self.column_name: Optional[str] = None
