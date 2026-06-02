@@ -141,7 +141,7 @@ jobs:
           -m benchmark \
           --benchmark-size=small \
           --benchmark-sort=mean \
-          --tb=short | tee benchmark-output.txt
+          --tb=short | tee -a benchmark-output.txt
         python -m pytest \
           --rootdir=. \
           --confcutdir=. \
