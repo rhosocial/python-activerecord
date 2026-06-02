@@ -52,7 +52,7 @@ coverage.xml
 cover/
 .allure/
 allure-results/
-benchmark*
+/benchmark*
 
 # Translations
 *.mo
@@ -179,6 +179,9 @@ cython_debug/
 
 # Apple macOS
 **/.DS_Store
+
+# Local test configuration (connection profiles, credentials, etc.)
+tests/config/
 
 # Examples
 examples/**

@@ -12,6 +12,7 @@ on:
       - main
       - 'release/v**'
       - 'maint/**'
+  workflow_dispatch:
 
 jobs:
   test-with-coverage:
@@ -21,6 +22,17 @@ jobs:
       contents: read
       pull-requests: write
       statuses: write
+
+    services:
+      redis:
+        image: redis:8.8
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - name: Check out the repository
@@ -40,6 +52,10 @@ jobs:
         pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests with coverage
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
         coverage run -m pytest tests/
@@ -61,6 +77,17 @@ jobs:
     permissions:
       contents: read
 
+    services:
+      redis:
+        image: redis:7.0
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
     steps:
     - name: Check out the repository
       uses: actions/checkout@v6
@@ -78,6 +105,10 @@ jobs:
         pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run benchmark suite
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
       run: |
         set -o pipefail
         export PYTHONPATH=src:tests
@@ -88,6 +119,10 @@ jobs:
         print(pathlib.Path(testsuite.__file__).parent)
         PY
         )
+        python -m pytest \
+          tests/benchmark/relation/ \
+          --benchmark-sort=mean \
+          --tb=short | tee -a benchmark-output.txt
         python -m pytest \
           --rootdir=. \
           --confcutdir=. \
@@ -182,7 +217,30 @@ jobs:
       contents: read
     strategy:
       matrix:
-        python-version: ["3.8", "3.9", "3.10", "3.11", "3.12", "3.13"]
+        include:
+          - python-version: "3.8"
+            redis-version: "6.2"
+          - python-version: "3.9"
+            redis-version: "7.0"
+          - python-version: "3.10"
+            redis-version: "7.2"
+          - python-version: "3.11"
+            redis-version: "7.4"
+          - python-version: "3.12"
+            redis-version: "8.0"
+          - python-version: "3.13"
+            redis-version: "8.2"
+
+    services:
+      redis:
+        image: redis:${{ matrix.redis-version }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - name: Check out the repository
@@ -206,6 +264,10 @@ jobs:
         pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
         python -m pytest tests/
@@ -217,7 +279,22 @@ jobs:
       contents: read
     strategy:
       matrix:
-        python-version: ["3.13t", "3.14t"]
+        include:
+          - python-version: "3.13t"
+            redis-version: "8.4"
+          - python-version: "3.14t"
+            redis-version: "8.6"
+
+    services:
+      redis:
+        image: redis:${{ matrix.redis-version }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
 
     steps:
     - name: Check out the repository
@@ -241,7 +318,10 @@ jobs:
         pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
       run: |
         export PYTHONPATH=src:tests
         python -m pytest tests/
-

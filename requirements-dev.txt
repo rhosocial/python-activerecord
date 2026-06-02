@@ -42,6 +42,9 @@ pydantic[email]
 fastapi>=0.110
 httpx>=0.27
 
+# Redis client library for distributed cache backend testing
+redis
+
 # YAML file processing library
 # Used for configuration file handling and test data
 # Version ~=6.0.3 provides safe YAML parsing and generation

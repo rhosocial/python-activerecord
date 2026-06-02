@@ -2,12 +2,71 @@
 """
 Caching implementation for relation data.
 Provides configurable caching with TTL and size limits.
+
+Backend Architecture
+--------------------
+``InstanceCache`` is the public proxy that delegates to a pluggable
+``CacheBackend``.  The default backend is ``InMemoryCache`` (same
+behavior as before).  Call ``InstanceCache.set_backend(...)`` at
+application startup to switch to a distributed backend.
+
+Available backends (in :mod:`rhosocial.activerecord.relation.cache_backends`):
+
+* ``InMemoryCache`` — stores entries as instance attributes
+* ``RedisCache`` — distributed, cross-container key/value store
+
+Cache Stampede & Proactive Refresh
+----------------------------------
+The framework does NOT implement proactive refresh or cache stampede
+protection.  These are application-level concerns because:
+
+1. **Stale reads are a business decision.**  Some data can be served
+   stale (stale-while-revalidate), some must be absolutely fresh.
+   The framework cannot guess which category a relation falls into.
+
+2. **Refresh cadence depends on access patterns.**  Low-frequency
+   relations should not be refreshed on every read; high-frequency
+   ones might need pre-warming.  Only the application knows.
+
+3. **The framework has no background thread.**  It runs entirely
+   in the request path.  Any "proactive" behaviour would degrade
+   the very request it serves.
+
+What the framework provides as building blocks:
+
+* ``InstanceCache.get_with_meta()`` — returns age, origin, TTL so
+  the application can decide whether to refresh.
+* ``InstanceCache.set()`` — updates a cache entry at any time.
+* ``origin`` metadata on ``CacheResult`` — distinguishes which
+  container/process created the entry (useful for distributed
+  refresh ownership).
+
+Suggested approaches for the application:
+
++---------------------------+-------------------------------------------+
+| Strategy                 | Implementation                             |
++===========================+===========================================+
+| Scheduled warm-up        | APScheduler / cron triggers a script that |
+|                           | calls the relation and refreshes cache.   |
++---------------------------+-------------------------------------------+
+| Read-triggered refresh   | After ``get_with_meta()``, if age >       |
+|                          | threshold and origin matches, call        |
+|                          | loader + ``set()`` (soft inline refresh). |
++---------------------------+-------------------------------------------+
+| Stale-while-revalidate   | Serve the stale value, asynchronously     |
+|                           | enqueue a refresh task (Celery / thread). |
++---------------------------+-------------------------------------------+
+| Mutex-based stampede     | Use Redis SETNX to let only one process   |
+| protection               | re-generate the cache while others wait.  |
++---------------------------+-------------------------------------------+
 """
 
 from dataclasses import dataclass
 from datetime import datetime, timedelta
 from threading import Lock
 from typing import Any, Optional, Dict, Generic, TypeVar
+
+from .cache_backends import CacheBackend, CacheResult, InMemoryCache
 
 
 @dataclass
@@ -139,10 +198,26 @@ class InstanceCache(Generic[T]):
     """
     Instance-level cache management system.
 
-    Instead of using a shared cache at the descriptor level, this system
-    stores cache data directly on each model instance, ensuring proper
-    isolation between instances.
+    Delegates to a pluggable ``CacheBackend``.  By default uses
+    ``InMemoryCache``, which stores data on the model instance
+    as before — fully backward compatible.
+
+    Usage::
+
+        # default (InMemoryCache) — no change needed
+        value = InstanceCache.get(instance, "posts", config)
+
+        # switch globally to Redis
+        from rhosocial.activerecord.relation.cache_backends import RedisCache
+        InstanceCache.set_backend(RedisCache(...))
     """
+
+    _backend: CacheBackend = InMemoryCache()
+
+    @classmethod
+    def set_backend(cls, backend: CacheBackend) -> None:
+        """Replace the active cache backend (affects all instances)."""
+        cls._backend = backend
 
     @staticmethod
     def get_cache_attr_name(relation_name: str) -> str:
@@ -159,6 +234,10 @@ class InstanceCache(Generic[T]):
     @staticmethod
     def get_instance_cache(instance: Any, relation_name: str) -> Dict:
         """Get or create cache dict on the instance.
+
+        .. deprecated::
+            Only used by ``InMemoryCache``.  Prefer using ``InstanceCache.get``
+            directly for backend-agnostic access.
 
         Args:
             instance: Model instance
@@ -177,7 +256,7 @@ class InstanceCache(Generic[T]):
 
     @staticmethod
     def get(instance: Any, relation_name: str, config: CacheConfig) -> Optional[T]:
-        """Get cached relation value from the instance.
+        """Get cached relation value via the active backend.
 
         Args:
             instance: Model instance
@@ -187,24 +266,11 @@ class InstanceCache(Generic[T]):
         Returns:
             Cached value or None if not found or expired
         """
-        if not config.enabled:
-            return None
-
-        cache = InstanceCache.get_instance_cache(instance, relation_name)
-
-        if "entry" not in cache:
-            return None
-
-        entry = cache["entry"]
-        if entry.is_expired():
-            del cache["entry"]
-            return None
-
-        return entry.value
+        return InstanceCache._backend.get(instance, relation_name, config)
 
     @staticmethod
     def set(instance: Any, relation_name: str, value: T, config: CacheConfig) -> None:
-        """Store relation value in the instance cache.
+        """Store relation value via the active backend.
 
         Args:
             instance: Model instance
@@ -212,27 +278,51 @@ class InstanceCache(Generic[T]):
             value: Value to cache
             config: Cache configuration
         """
-        if not config.enabled:
-            return
+        InstanceCache._backend.set(instance, relation_name, value, config)
 
-        cache = InstanceCache.get_instance_cache(instance, relation_name)
-        cache["entry"] = CacheEntry(value, config.ttl)
+    @staticmethod
+    def get_with_meta(
+        instance: Any, relation_name: str, config: CacheConfig
+    ) -> Optional[CacheResult[T]]:
+        """Get cached relation value with metadata.
+
+        Returns a ``CacheResult`` that includes age, origin and TTL info
+        when the active backend supports it.  Falls back to a basic result
+        when the backend only exposes the plain ``get()`` interface.
+
+        Args:
+            instance: Model instance
+            relation_name: Name of the relation
+            config: Cache configuration
+
+        Returns:
+            ``CacheResult`` with value and metadata, or None on miss/expiry
+        """
+        backend = InstanceCache._backend
+
+        # Prefer rich metadata path (RedisCache with record_origin=True)
+        getter = getattr(backend, "get_with_meta", None)
+        if getter is not None:
+            return getter(instance, relation_name, config)
+
+        # Fallback: plain get() — can only provide value + backend origin
+        value = backend.get(instance, relation_name, config)
+        if value is None:
+            return None
+        return CacheResult(
+            value=value,
+            age=0.0,
+            origin=backend.origin,
+            ttl=config.ttl,
+        )
 
     @staticmethod
     def delete(instance: Any, relation_name: str, config: Optional[CacheConfig] = None):
-        """Remove cached relation value from the instance.
+        """Remove cached relation value via the active backend.
 
         Args:
             instance: Model instance
             relation_name: Name of the relation
             config: Cache configuration (optional, if provided and disabled, no action taken)
         """
-        if config is not None and not config.enabled:
-            return
-
-        cache_attr = InstanceCache.get_cache_attr_name(relation_name)
-
-        if hasattr(instance, cache_attr):
-            cache = getattr(instance, cache_attr)
-            if "entry" in cache:
-                del cache["entry"]
+        InstanceCache._backend.delete(instance, relation_name, config)

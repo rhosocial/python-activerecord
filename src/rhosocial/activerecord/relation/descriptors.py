@@ -381,6 +381,13 @@ class RelationDescriptor(Generic[T]):
         to fetch the data from the database. The loaded data is then cached for future
         access.
 
+        .. note::
+
+           Cache stampede & proactive refresh are intentionally absent from this
+           layer.  The framework provides ``InstanceCache.get_with_meta()`` and
+           ``.set()`` as building blocks.  Application code (timed tasks, middleware,
+           etc.) can use them to implement its own refresh strategy.
+
         Args:
             instance: The model instance for which to load the related data
 
