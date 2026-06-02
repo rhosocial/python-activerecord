@@ -68,7 +68,7 @@ class ActiveQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = None
+        self.select_columns = [WildcardExpression(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -83,7 +83,7 @@ class ActiveQuery(
         self._eager_loads = ThreadSafeDict()
 
     def backend(self) -> StorageBackend:
-        """Get the backend for this query with context awareness.
+        """Get storage backend instance with context awareness.
 
         Returns the appropriate backend:
         1. Sync context backend if available
@@ -182,7 +182,7 @@ class ActiveQuery(
         # Use the temporary limit_offset instead of the original one
         query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+            select=self.select_columns,
             from_=from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
@@ -232,7 +232,7 @@ class ActiveQuery(
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+            select=self.select_columns,
             from_=self.join_clause if self.join_clause else from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
@@ -408,7 +408,7 @@ class AsyncActiveQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = None
+        self.select_columns = [WildcardExpression(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -522,7 +522,7 @@ class AsyncActiveQuery(
         # Use the temporary limit_offset instead of the original one
         query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+            select=self.select_columns,
             from_=from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
@@ -572,7 +572,7 @@ class AsyncActiveQuery(
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+            select=self.select_columns,
             from_=self.join_clause if self.join_clause else from_clause,
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,

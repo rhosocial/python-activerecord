@@ -330,7 +330,7 @@ class AggregateQueryMixin:
 
             query_expr = statements.QueryExpression(
                 dialect,
-                select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+                select=self.select_columns,
                 from_=self.join_clause if self.join_clause else from_clause,
                 where=self.where_clause,
                 group_by_having=self.group_by_having_clause,
@@ -714,7 +714,7 @@ class AsyncAggregateQueryMixin:
 
             query_expr = statements.QueryExpression(
                 dialect,
-                select=self.select_columns or [WildcardExpression(dialect)],  # Default to SELECT *
+                select=self.select_columns,
                 from_=self.join_clause if self.join_clause else from_clause,
                 where=self.where_clause,
                 group_by_having=self.group_by_having_clause,

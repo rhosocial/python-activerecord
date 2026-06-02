@@ -275,7 +275,7 @@ class IQueryBuilding(Protocol):
     where_clause: Optional[WhereClause]
     order_by_clause: Optional[OrderByClause]
     join_clauses: List[Union[str, type]]
-    select_columns: Optional[List[BaseExpression]]
+    select_columns: List[BaseExpression]
     limit_offset_clause: Optional[LimitOffsetClause]
     group_by_having_clause: Optional[GroupByHavingClause]
     _adapt_params: bool

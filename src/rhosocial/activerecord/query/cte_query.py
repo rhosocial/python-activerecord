@@ -75,7 +75,7 @@ class CTEQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = None
+        self.select_columns = [WildcardExpression(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -244,7 +244,7 @@ class CTEQuery(
         # Build the main query using collected conditions from mixins
         main_query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
+            select=self.select_columns,
             from_=TableExpression(dialect, main_cte_name),  # Reference the specified CTE
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
@@ -377,7 +377,7 @@ class AsyncCTEQuery(
         self.where_clause = None
         self.order_by_clause = None
         self.join_clauses = []
-        self.select_columns = None
+        self.select_columns = [WildcardExpression(self.backend().dialect)]
         self.limit_offset_clause = None
         self.group_by_having_clause = None
         self._adapt_params = True
@@ -547,7 +547,7 @@ class AsyncCTEQuery(
         # Build the main query using collected conditions from mixins
         main_query_expr = statements.QueryExpression(
             dialect,
-            select=self.select_columns or [WildcardExpression(dialect)],  # Use selected columns or default to SELECT *
+            select=self.select_columns,
             from_=TableExpression(dialect, main_cte_name),  # Reference the specified CTE
             where=self.where_clause,
             group_by_having=self.group_by_having_clause,
