@@ -322,9 +322,7 @@ class AsyncRelationDescriptor(Generic[U]):
         """
         self.log(logging.DEBUG, f"Creating async relation method for `{self.name}`")
 
-        async def relation_method(*args, **kwargs):
-            if args or kwargs:
-                return self._query.query(instance, *args, **kwargs) if self._query else None
+        async def relation_method():
             return await self._load_relation(instance)
 
         relation_method.clear_cache = lambda: InstanceCache.delete(instance, self.name)
@@ -426,6 +424,8 @@ class AsyncRelationDescriptor(Generic[U]):
         Returns:
             Dict mapping record IDs (using id() function) to their related data
         """
+        if not records:
+            return {}
         self.log(logging.DEBUG, f"Async batch loading `{self.name}` relation for {len(records)} records")
         if self._cached_model is None:
             self.get_related_model(type(records[0]))
