@@ -42,14 +42,20 @@ class RelationBenchmarkContext:
 
 
 # ---------------------------------------------------------------------------
-# Per-session Redis client, loaded from YAML scenario file
+# Per-session Redis client — loaded from YAML or env var fallback
 # ---------------------------------------------------------------------------
 @pytest.fixture(scope="session")
 def _redis_client():
-    from providers.redis_scenarios import get_redis_scenario
-
-    config = get_redis_scenario("benchmark")
     redis = pytest.importorskip("redis")
+    try:
+        from providers.redis_scenarios import get_redis_scenario
+
+        config = get_redis_scenario("benchmark")
+    except (FileNotFoundError, KeyError):
+        # No YAML file or no "benchmark" entry — fall back to env vars
+        from rhosocial.activerecord.relation.cache_backends import RedisConfig
+
+        config = RedisConfig.from_env()
     try:
         client = redis.Redis(
             host=config.host,
