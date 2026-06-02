@@ -41,6 +41,25 @@ What the framework provides as building blocks:
   container/process created the entry (useful for distributed
   refresh ownership).
 
+Capacity Planning
+-----------------
+Cache entries are stored as deserialised Python objects (InMemory) or
+serialised bytes (Redis, etc.).  Estimate memory before enabling caching
+on large or high‑cardinality relations:
+
+* **InMemory** — each cached result set is a plain Python list of model
+  instances.  A relation returning 10 000 rows can consume megabytes
+  *per entry*, multiplied by distinct parent-relation key pairs.
+  Monitor ``InstanceCache`` growth or set a TTL to bound it.
+
+* **Redis / distributed** — serialised bytes add overhead (JSON/pickle
+  framing).  Use ``MEMORY USAGE <key>`` (Redis) or equivalent tools
+  to measure real footprint.  Account for peak‑load key count × size.
+
+The framework applies no built‑in memory cap or eviction policy —
+configure these at the backend level (Redis ``maxmemory`` + ``allkeys-lru``,
+or wrap ``InMemoryCache`` with a size‑limited dict).
+
 Suggested approaches for the application:
 
 +---------------------------+-------------------------------------------+
