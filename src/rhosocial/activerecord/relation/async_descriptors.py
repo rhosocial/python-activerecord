@@ -29,12 +29,15 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     import sys
     import inspect
 
-    # Get calling frame to access local scope
+    # Get calling frame to access local scope.
+    # Must match frame that actually contains ``owner`` in its locals,
+    # not just any frame from the same module (avoid stale test frames).
     frame = inspect.currentframe()
     while frame:
         if owner.__module__ in str(frame.f_code):
             local_context = frame.f_locals
-            break
+            if owner in local_context.values():
+                break
         frame = frame.f_back
     else:
         local_context = {}
@@ -50,24 +53,6 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     context.update(owner_locals)
 
     type_str = ref if isinstance(ref, str) else ref.__forward_arg__
-
-    if isinstance(ref, ForwardRef):
-        # Use official typing_extensions.evaluate_forward_ref if available
-        try:
-            from typing_extensions import evaluate_forward_ref
-
-            return evaluate_forward_ref(ref, owner=owner, globals=context, locals=None)
-        except ImportError:
-            # Fallback: try using get_type_hints instead of direct _evaluate call
-            try:
-                # Create a temporary class with the forward ref to leverage get_type_hints
-                temp_annotations = {"temp": ref}
-                hints = get_type_hints(type("TempClass", (), {"__annotations__": temp_annotations}), globalns=context)
-                return hints.get("temp", ref)
-            except (NameError, AttributeError, TypeError):
-                pass
-
-    # Final fallback: direct evaluation for string references
     return eval(type_str, context, None)
 
 
