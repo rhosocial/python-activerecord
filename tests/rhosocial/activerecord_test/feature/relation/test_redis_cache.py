@@ -7,7 +7,6 @@ If unavailable, Redis-dependent tests are skipped.
 
 Use ``pytest -m redis`` to include these tests.
 """
-import pickle
 import pytest
 import time
 
@@ -151,10 +150,12 @@ class TestRedisCacheBasic:
 
 
 class UpperSerializer(CacheSerializer):
-    """A serializer that uppercases string values before standard pickle."""
-    @staticmethod
-    def serialize(value):
-        return CacheSerializer.serialize(value.upper())
+    """A serializer that uppercases string values before pickle."""
+    def __init__(self):
+        super().__init__(format="pickle")
+
+    def serialize(self, value):
+        return super().serialize(value.upper())
 
 
 class TestRedisCacheSerialization:
@@ -184,13 +185,14 @@ class TestRedisCacheOrigin:
         assert any("origin=test-host" in msg for msg in caplog.messages)
 
     def test_origin_default_off(self, redis_cache, config, redis_client):
-        """record_origin=False stores raw pickled bytes, not JSON wrapper."""
+        """record_origin=False stores raw serialized bytes, not JSON wrapper."""
+        import json
         inst = _DummyModel(id=1)
         redis_cache.set(inst, "items", "plain", config)
         key = redis_cache._make_key(inst, "items")
         raw = redis_client.get(key)
         assert isinstance(raw, bytes)
-        assert pickle.loads(raw) == "plain"
+        assert json.loads(raw) == "plain"
 
 
 class TestRedisInMemorySwitch:
