@@ -210,6 +210,17 @@ class TestLoadRelationDb:
         results = post.comments()
         assert len(results) == 1
 
+    def test_cache_write_failure_still_returns_loaded_data(self, user_post_comment_classes, mocker):
+        user_class, post_class, comment_class = user_post_comment_classes
+        user = user_class(name="Peggy"); user.save()
+        post = post_class(title="CacheWriteFail", body="B", user_id=user.id); post.save()
+
+        mocker.patch.object(InstanceCache, "set", side_effect=TypeError("cache write failed"))
+
+        results = user.posts()
+        assert len(results) == 1
+        assert results[0].id == post.id
+
 
 # ==============================================================================
 # Async DefaultIRelationLoader

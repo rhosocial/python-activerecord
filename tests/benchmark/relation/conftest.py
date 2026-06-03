@@ -19,6 +19,7 @@ import pytest
 
 from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
 from rhosocial.activerecord.relation.cache_backends import (
+    CacheSerializer,
     InMemoryCache,
     RedisCache,
 )
@@ -134,6 +135,7 @@ def relation_benchmark_env(cache_scenario, _raw_models, _redis_client):
                 RedisCache(
                     client=_redis_client,
                     prefix="bench:cache:",
+                    serializer=CacheSerializer(format="pickle"),
                 )
             )
             config = CacheConfig(enabled=True, ttl=None)

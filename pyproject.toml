@@ -115,7 +115,7 @@ all = [
 test = [
     # Testing framework for unit and integration tests
     # Core framework for running test suites and fixtures
-    "pytest>=7.0.0",
+    "pytest",
 
     # Code coverage measurement tool
     # Measures test coverage and generates coverage reports
@@ -132,15 +132,15 @@ test = [
     "aiofiles>=23.0.0",
 
     # Benchmark integration with pytest
-    "pytest-benchmark>=4.0.0",
+    "pytest-benchmark",
 
     # Coverage integration with pytest
     # Combines pytest and coverage for seamless test coverage reporting
-    "pytest-cov>=4.0.0",
+    "pytest-cov",
 
     # Parallel test execution plugin for pytest
     # Enables faster test execution through parallel processing
-    "pytest-xdist>=3.6.1",
+    "pytest-xdist",
 
     # Pytest plugin for mocking
     # Provides the 'mocker' fixture for patching and mocking objects in tests

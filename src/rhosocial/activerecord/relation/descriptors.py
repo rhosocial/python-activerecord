@@ -390,11 +390,15 @@ class RelationDescriptor(Generic[T]):
         try:
             self.log(logging.DEBUG, f"Loading relation `{self.name}` for {type(instance).__name__}")
             data = self._loader.load(instance) if self._loader else None
-            InstanceCache.set(instance, self.name, data, self._cache_config)
-            return data
         except Exception as e:
             self.log(logging.ERROR, f"Error loading relation: {e}")
             return None
+
+        try:
+            InstanceCache.set(instance, self.name, data, self._cache_config)
+        except Exception as e:
+            self.log(logging.ERROR, f"Error caching relation: {e}")
+        return data
 
     def batch_load(self, records: List[Any], base_query: Optional[IActiveQuery]) -> Dict[int, Any]:
         """

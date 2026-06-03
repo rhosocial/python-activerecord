@@ -394,11 +394,15 @@ class AsyncRelationDescriptor(Generic[U]):
         try:
             self.log(logging.DEBUG, f"Loading async relation `{self.name}` for {type(instance).__name__}")
             data = await self._loader.load(instance) if self._loader else None
-            InstanceCache.set(instance, self.name, data, self._cache_config)
-            return data
         except Exception as e:
             self.log(logging.ERROR, f"Error loading async relation: {e}")
             return None
+
+        try:
+            InstanceCache.set(instance, self.name, data, self._cache_config)
+        except Exception as e:
+            self.log(logging.ERROR, f"Error caching async relation: {e}")
+        return data
 
     async def batch_load(self, records: List[Any], base_query: Optional[IAsyncActiveQuery]) -> Dict[int, Any]:
         """
