@@ -1,215 +1,282 @@
 # tests/rhosocial/activerecord_test/feature/relation/test_relation_modifier_cache.py
 """
-Tests for relation caching behavior with query modifiers.
+Database-backed relation cache tests using real SQLite with SQL query counting.
 
-These tests specifically cover the interaction between with_() modifiers
-and the relation cache, which is a key feature of python-activerecord.
+Verifies that the instance-level cache (InstanceCache) correctly prevents
+redundant SQL queries on repeated relation access, and that cache invalidation
+(for delete, TTL expiry, disabled cache, etc.) re-queries the database.
 """
 import pytest
-from typing import ClassVar, Any, Optional, List, Dict
+import time
+from typing import ClassVar, Dict, Any, List, Tuple, Optional
 
 from pydantic import BaseModel
 
-from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
 from rhosocial.activerecord.relation.base import RelationManagementMixin
+from rhosocial.activerecord.relation.cache import CacheConfig
 from rhosocial.activerecord.relation.descriptors import HasMany, BelongsTo
 
 
-class MockLoaderWithCounter:
-    """Loader that tracks how many times it was called."""
-    def __init__(self):
-        self.load_count = 0
-        self.batch_load_count = 0
+class QueryCounter:
+    """Wraps backend fetch methods to count executed SQL queries."""
 
-    def load(self, instance: Any) -> Optional[List[Any]]:
-        self.load_count += 1
-        return [{"id": 1, "name": f"Item {self.load_count}"}]
+    def __init__(self, backends: Dict[str, Any]):
+        self.count = 0
+        self._originals: Dict[str, Tuple] = {}
+        for name, backend in backends.items():
+            self._originals[name] = (backend.fetch_all, backend.fetch_one)
+            backend.fetch_all = self._wrap(backend.fetch_all)
+            backend.fetch_one = self._wrap(backend.fetch_one)
 
-    def batch_load(self, instances: List[Any], base_query: Any) -> Dict[int, Any]:
-        self.batch_load_count += 1
-        return {id(inst): [{"id": 1, "name": f"Item {self.batch_load_count}"}] for inst in instances}
+    def _wrap(self, original):
+        def wrapper(sql, params, column_adapters=None):
+            self.count += 1
+            return original(sql, params, column_adapters)
+        return wrapper
 
-
-class Author(RelationManagementMixin, BaseModel):
-    id: int
-    name: str
-    books: ClassVar[HasMany["Book"]] = HasMany(
-        foreign_key="author_id",
-        inverse_of="author"
-    )
+    def reset(self):
+        self.count = 0
 
 
-class Book(RelationManagementMixin, BaseModel):
-    id: int
-    title: str
-    author_id: int
-    author: ClassVar[BelongsTo["Author"]] = BelongsTo(
-        foreign_key="author_id",
-        inverse_of="books"
-    )
+@pytest.fixture
+def cache_test_env(user_post_comment_classes):
+    """Set up test data and wrap backends with a query counter.
+
+    Returns (user_class, post_class, comment_class, user, post, counter).
+    """
+    user_class, post_class, comment_class = user_post_comment_classes
+
+    backends = {}
+    for cls in (user_class, post_class, comment_class):
+        try:
+            backends[cls.__name__] = cls.backend()
+        except Exception:
+            pass
+    counter = QueryCounter(backends)
+
+    user = user_class(name="Cache User", email="cache@example.com")
+    user.save()
+    post = post_class(title="Cache Post", body="Content", user_id=user.id)
+    post.save()
+
+    counter.reset()
+    yield user_class, post_class, comment_class, user, post, counter
+
+    for name, backend in backends.items():
+        orig_all, orig_one = counter._originals.get(name, (None, None))
+        if orig_all is not None:
+            backend.fetch_all = orig_all
+        if orig_one is not None:
+            backend.fetch_one = orig_one
 
 
-class TestRelationModifierCache:
-    """Tests for relation cache behavior with query modifiers."""
+class TestRelationCacheFirstAccess:
+    """First relation access should query the database."""
 
-    @pytest.fixture
-    def author_instance(self):
-        return Author(id=1, name="Test Author")
+    def test_first_access_queries_db(self, cache_test_env):
+        """First access to a relation executes SQL."""
+        _, _, _, user, _, counter = cache_test_env
+        results = user.posts()
+        assert len(results) == 1
+        assert counter.count > 0
 
-    @pytest.fixture
-    def book_instance(self):
-        return Book(id=1, title="Test Book", author_id=1)
+    def test_first_access_has_many_empty(self, cache_test_env):
+        """HasMany with no related records still executes a query."""
+        user_class, _, _, _, _, counter = cache_test_env
+        user2 = user_class(name="Empty User", email="empty@example.com")
+        user2.save()
+        counter.reset()
 
-    def test_first_access_loads_from_loader(self, author_instance):
-        """Test that first access to relation loads from loader."""
-        loader = MockLoaderWithCounter()
-        relation = author_instance.get_relation("books")
-        relation._loader = loader
+        results = user2.posts()
+        assert results == []
+        assert counter.count > 0
 
-        result = relation._load_relation(author_instance)
-
-        assert loader.load_count == 1
+    def test_first_access_belongs_to(self, cache_test_env):
+        """BelongsTo first access executes SQL."""
+        _, _, _, _, post, counter = cache_test_env
+        result = post.user()
         assert result is not None
+        assert counter.count > 0
 
-    def test_second_access_uses_cache(self, author_instance):
-        """Test that second access uses cached value."""
-        loader = MockLoaderWithCounter()
-        relation = author_instance.get_relation("books")
-        relation._loader = loader
 
-        result1 = relation._load_relation(author_instance)
-        result2 = relation._load_relation(author_instance)
+class TestRelationCacheSecondAccess:
+    """Second (and subsequent) accesses should hit the cache."""
 
-        assert loader.load_count == 1
-        assert result1 == result2
+    def test_second_access_has_many_uses_cache(self, cache_test_env):
+        """Second HasMany access uses cache (no SQL)."""
+        _, _, _, user, _, counter = cache_test_env
+        r1 = user.posts()
+        q1 = counter.count
 
-    def test_cache_cleared_on_delete(self, author_instance):
-        """Test that cache is cleared when relation is deleted."""
-        loader = MockLoaderWithCounter()
-        relation = author_instance.get_relation("books")
-        relation._loader = loader
+        r2 = user.posts()
+        assert counter.count == q1
+        assert len(r1) == len(r2)
 
-        result1 = relation._load_relation(author_instance)
-        assert loader.load_count == 1
+    def test_second_access_belongs_to_uses_cache(self, cache_test_env):
+        """Second BelongsTo access uses cache (no SQL)."""
+        _, _, _, _, post, counter = cache_test_env
+        r1 = post.user()
+        q1 = counter.count
 
-        relation.__delete__(author_instance)
+        r2 = post.user()
+        assert counter.count == q1
+        assert r1.id == r2.id
 
-        result2 = relation._load_relation(author_instance)
-        assert loader.load_count == 2
+    def test_multiple_accesses_no_extra_queries(self, cache_test_env):
+        """Three accesses cause only one SQL query total."""
+        _, _, _, user, _, counter = cache_test_env
+        user.posts()
+        q1 = counter.count
 
-    def test_clear_relation_cache_method(self, author_instance):
-        """Test clear_relation_cache method."""
-        loader = MockLoaderWithCounter()
-        relation = author_instance.get_relation("books")
-        relation._loader = loader
+        for _ in range(5):
+            user.posts()
 
-        relation._load_relation(author_instance)
-        assert loader.load_count == 1
+        assert counter.count == q1
 
-        author_instance.clear_relation_cache("books")
 
-        relation._load_relation(author_instance)
-        assert loader.load_count == 2
+class TestRelationCacheInvalidation:
+    """Cache invalidation scenarios (delete, clear, TTL, disabled)."""
 
-    def test_clear_all_relations_cache(self, author_instance):
-        """Test clearing all relation caches."""
-        loader = MockLoaderWithCounter()
-        relation = author_instance.get_relation("books")
-        relation._loader = loader
+    def test_cache_cleared_on_delete(self, cache_test_env):
+        """__delete__ clears cache; next access re-queries."""
+        user_class, _, _, user, _, counter = cache_test_env
+        user.posts()
+        counter.reset()
 
-        relation._load_relation(author_instance)
-        assert loader.load_count == 1
+        desc = user_class.get_relation("posts")
+        desc.__delete__(user)
 
-        author_instance.clear_relation_cache()
+        results = user.posts()
+        assert len(results) == 1
+        assert counter.count > 0
 
-        relation._load_relation(author_instance)
-        assert loader.load_count == 2
+    def test_clear_relation_cache_method(self, cache_test_env):
+        """clear_relation_cache(name) forces a new query."""
+        _, _, _, user, _, counter = cache_test_env
+        user.posts()
+        counter.reset()
 
-    def test_cache_isolation_between_instances(self):
-        """Test that cache is isolated between different instances."""
-        author1 = Author(id=1, name="Author 1")
-        author2 = Author(id=2, name="Author 2")
+        user.clear_relation_cache("posts")
 
-        loader = MockLoaderWithCounter()
-        relation1 = author1.get_relation("books")
-        relation2 = author2.get_relation("books")
-        relation1._loader = loader
-        relation2._loader = loader
+        results = user.posts()
+        assert len(results) == 1
+        assert counter.count > 0
 
-        result1 = relation1._load_relation(author1)
-        result2 = relation2._load_relation(author2)
+    def test_clear_all_relations_cache(self, cache_test_env):
+        """clear_relation_cache() without args clears all caches."""
+        _, _, _, user, _, counter = cache_test_env
+        user.posts()
+        counter.reset()
 
-        assert loader.load_count == 2
-        assert result1 is not None
-        assert result2 is not None
+        user.clear_relation_cache()
 
-    def test_cache_with_custom_config(self, author_instance):
-        """Test caching with custom CacheConfig."""
-        config = CacheConfig(ttl=1, enabled=True)
-        relation = author_instance.get_relation("books")
-        relation._cache_config = config
+        results = user.posts()
+        assert len(results) == 1
+        assert counter.count > 0
 
-        loader = MockLoaderWithCounter()
-        relation._loader = loader
+    def test_cache_with_disabled_config(self, cache_test_env):
+        """disabled cache executes a query on every access."""
+        user_class, _, _, user, _, counter = cache_test_env
 
-        result1 = relation._load_relation(author_instance)
-        result2 = relation._load_relation(author_instance)
+        desc = user_class.get_relation("posts")
+        orig_config = desc._cache_config
+        desc._cache_config = CacheConfig(enabled=False)
 
-        assert loader.load_count == 1
+        try:
+            user.posts()
+            counter.reset()
 
-    def test_cache_disabled_config(self, author_instance):
-        """Test that caching is disabled with enabled=False."""
-        config = CacheConfig(enabled=False)
-        relation = author_instance.get_relation("books")
-        relation._cache_config = config
+            user.posts()
+            q1 = counter.count
 
-        loader = MockLoaderWithCounter()
-        relation._loader = loader
+            user.posts()
+            assert counter.count > q1
+        finally:
+            desc._cache_config = orig_config
 
-        result1 = relation._load_relation(author_instance)
-        result2 = relation._load_relation(author_instance)
+    def test_cache_with_expired_ttl(self, cache_test_env):
+        """Expired TTL causes a new query."""
+        user_class, _, _, user, _, counter = cache_test_env
 
-        assert loader.load_count == 2
+        desc = user_class.get_relation("posts")
+        orig_config = desc._cache_config
+        desc._cache_config = CacheConfig(ttl=1)
 
-    def test_cache_with_expired_ttl(self, author_instance):
-        """Test cache expiration after TTL."""
-        config = CacheConfig(ttl=1)
-        relation = author_instance.get_relation("books")
-        relation._cache_config = config
+        try:
+            user.posts()
+            counter.reset()
 
-        import time
-        loader = MockLoaderWithCounter()
-        relation._loader = loader
+            time.sleep(1.1)
 
-        result1 = relation._load_relation(author_instance)
-        assert loader.load_count == 1
+            results = user.posts()
+            assert len(results) == 1
+            assert counter.count > 0
+        finally:
+            desc._cache_config = orig_config
 
-        time.sleep(1.1)
 
-        result2 = relation._load_relation(author_instance)
-        assert loader.load_count == 2
+class TestRelationCacheIsolation:
+    """Cache isolation between instances and relations."""
 
-    def test_different_relations_independent_cache(self, book_instance):
-        """Test that different relations have independent caches."""
-        loader = MockLoaderWithCounter()
-        book_loader = MockLoaderWithCounter()
+    def test_cache_isolation_between_instances(self, cache_test_env):
+        """Different instances have independent caches."""
+        user_class, post_class, _, user, _, counter = cache_test_env
 
-        author_relation = book_instance.get_relation("author")
-        author_relation._loader = book_loader
+        user2 = user_class(name="Second User", email="u2@example.com")
+        user2.save()
+        post2 = post_class(title="Second Post", body="Content", user_id=user2.id)
+        post2.save()
 
-        result1 = author_relation._load_relation(book_instance)
-        assert book_loader.load_count == 1
+        user.posts()
+        user2.posts()
+        counter.reset()
 
-        result2 = author_relation._load_relation(book_instance)
-        assert book_loader.load_count == 1
+        r1 = user.posts()
+        r2 = user2.posts()
+        assert counter.count == 0
+        assert len(r1) == 1
+        assert len(r2) == 1
 
-    def test_loading_without_loader(self, author_instance):
-        """Test loading when no loader is set."""
-        relation = author_instance.get_relation("books")
-        relation._loader = None
+    def test_different_relations_independent_cache(self, cache_test_env):
+        """Different relation types on the same instance cache independently."""
+        _, _, _, user, post, counter = cache_test_env
 
-        result = relation._load_relation(author_instance)
-        assert result is None
+        _ = post.user()
+        counter.reset()
+
+        r2 = post.user()
+        assert counter.count == 0  # BelongsTo cached
+
+        _ = user.posts()
+        assert counter.count > 0  # HasMany not cached on post instance
+
+
+class TestRelationCacheBulk:
+    """Bulk / edge-case scenarios."""
+
+    def test_reload_same_data_idempotent(self, cache_test_env):
+        """Adding more related data after caching is not visible until cache cleared."""
+        user_class, post_class, _, user, _, counter = cache_test_env
+
+        user.posts()
+        counter.reset()
+
+        extra = post_class(title="Extra Post", body="Extra", user_id=user.id)
+        extra.save()
+
+        results = user.posts()
+        assert len(results) == 1
+        assert counter.count == 0  # Cache returns stale data
+
+        user.clear_relation_cache("posts")
+        counter.reset()
+
+        results = user.posts()
+        assert len(results) == 2
+        assert counter.count > 0
+
+
+# ── Non-DB protocol tests (kept from original mock-based file) ─────
 
 
 class TestRelationDescriptorProtocol:
@@ -217,35 +284,59 @@ class TestRelationDescriptorProtocol:
 
     def test_get_descriptor_from_class(self):
         """Test accessing descriptor from class returns descriptor itself."""
-        relation = Author.get_relation("books")
+        class _Author(RelationManagementMixin, BaseModel):
+            id: int
+            books: ClassVar[HasMany["_Book"]] = HasMany(foreign_key="author_id")
+
+        class _Book(RelationManagementMixin, BaseModel):
+            id: int
+            author_id: int
+            author: ClassVar[BelongsTo["_Author"]] = BelongsTo(foreign_key="author_id")
+
+        relation = _Author.get_relation("books")
         assert isinstance(relation, HasMany)
         assert relation.foreign_key == "author_id"
 
     def test_get_descriptor_from_instance_returns_method(self):
         """Test accessing descriptor from instance returns bound method."""
-        author = Author(id=1, name="Test")
+        class _Author(RelationManagementMixin, BaseModel):
+            id: int
+            books: ClassVar[HasMany["_Book"]] = HasMany(foreign_key="author_id")
 
+        class _Book(RelationManagementMixin, BaseModel):
+            id: int
+            author_id: int
+
+        author = _Author(id=1)
         books_relation = author.books
         assert callable(books_relation)
 
     def test_set_name_callback(self):
         """Test that __set_name__ is called on descriptor assignment."""
-        class OtherItem(RelationManagementMixin, BaseModel):
+
+        class _OtherItem(RelationManagementMixin, BaseModel):
             id: int
             test_id: int
 
-        class TestModelForName(RelationManagementMixin, BaseModel):
+        class _TestModel(RelationManagementMixin, BaseModel):
             id: int
-            items: ClassVar[HasMany["OtherItem"]] = HasMany(
-                foreign_key="test_id",
-                inverse_of="test"
+            items: ClassVar[HasMany["_OtherItem"]] = HasMany(
+                foreign_key="test_id", inverse_of="test"
             )
 
-        relation = TestModelForName.get_relation("items")
+        relation = _TestModel.get_relation("items")
         assert relation.name == "items"
-        assert relation._owner == TestModelForName
+        assert relation._owner == _TestModel
 
     def test_query_method_created(self):
         """Test that query method is created for relation."""
-        assert hasattr(Author, "books_query")
-        assert callable(Author.books_query)
+        class _Author(RelationManagementMixin, BaseModel):
+            id: int
+            books: ClassVar[HasMany["_Book"]] = HasMany(foreign_key="author_id")
+
+        class _Book(RelationManagementMixin, BaseModel):
+            id: int
+            author_id: int
+
+        assert hasattr(_Author, "books_query")
+        assert callable(_Author.books_query)

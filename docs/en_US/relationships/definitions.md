@@ -175,6 +175,36 @@ posts = await user.posts()
 
 > 💡 **AI Prompt Example**: "How do I define relationships in async models? What's the difference between sync and async relationship access?"
 
+### Sync/Async Descriptor Mixing Is Prohibited
+
+Sync descriptors (`BelongsTo`, `HasOne`, `HasMany`) can only be used with `ActiveRecord` models. Async descriptors (`AsyncBelongsTo`, `AsyncHasOne`, `AsyncHasMany`) can only be used with `AsyncActiveRecord` models. Mixing them raises `TypeError` at class creation time.
+
+```python
+# ❌ Wrong: sync descriptor on async model → TypeError
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    # Raises TypeError: Sync relation descriptor `posts` cannot be used on async model `AsyncUser`
+    posts: ClassVar[HasMany['AsyncPost']] = HasMany(foreign_key='user_id', inverse_of='user')
+
+# ❌ Wrong: async descriptor on sync model → TypeError
+class User(ActiveRecord):
+    username: str
+    # Raises TypeError: Async relation descriptor `posts` cannot be used on sync model `User`
+    posts: ClassVar[AsyncHasMany['Post']] = AsyncHasMany(foreign_key='user_id', inverse_of='user')
+
+# ✅ Correct: sync descriptor on sync model
+class User(ActiveRecord):
+    username: str
+    posts: ClassVar[HasMany['Post']] = HasMany(foreign_key='user_id', inverse_of='user')
+
+# ✅ Correct: async descriptor on async model
+class AsyncUser(AsyncActiveRecord):
+    username: str
+    posts: ClassVar[AsyncHasMany['AsyncPost']] = AsyncHasMany(foreign_key='user_id', inverse_of='user')
+```
+
+> 💡 **AI Prompt Example**: "What happens when sync and async descriptors are mixed? How to avoid type errors in relationship definitions?"
+
 ## Important Notes
 
 **Note**: All relationship descriptors must be declared as `ClassVar` to avoid interfering with Pydantic's field validation.

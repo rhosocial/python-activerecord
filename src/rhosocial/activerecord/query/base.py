@@ -229,10 +229,14 @@ class BaseQueryMixin(IQueryBuilding):
                 raise TypeError(f"Column must be str or BaseExpression, got {type(col)}")
 
         # If append is True, add to existing selection; otherwise, replace
-        if append and self.select_columns is not None:
+        if append:
             self.select_columns.extend(converted_columns)
         else:
-            self.select_columns = converted_columns if converted_columns else None
+            if converted_columns:
+                self.select_columns = converted_columns
+            else:
+                from ..backend.expression import WildcardExpression
+                self.select_columns = [WildcardExpression(dialect)]
 
         return self
 

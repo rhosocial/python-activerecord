@@ -3,7 +3,7 @@
 Mixin that registers DerivedFieldHandler and provides derived field resolution logic.
 """
 
-from typing import Any, ClassVar, Dict, List, Optional
+from typing import ClassVar, Dict, List
 
 from .derived_field_handler import DerivedFieldHandler
 from .fields import DerivedField
@@ -19,10 +19,6 @@ class DerivedFieldMixin:
     def _apply_derived_to_query(cls, query, derived, extra_derived):
         exprs = cls._resolve_derived(derived, extra_derived)
         if exprs:
-            from ..backend.expression.core import WildcardExpression
-            dialect = cls.backend().dialect
-            if query.select_columns is None:
-                query.select(WildcardExpression(dialect))
             query.select(*exprs, append=True)
 
     @classmethod
