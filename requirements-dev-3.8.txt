@@ -1,8 +1,7 @@
 # requirements-dev-3.8.txt
 # Testing framework for unit and integration tests
 # Core framework for running test suites and fixtures
-# Version ~=8.3.5 provides stable testing capabilities
-pytest~=8.3.5
+pytest
 pytest-asyncio
 
 # Pytest plugin for mocking
@@ -25,7 +24,10 @@ coverage
 
 # Coverage integration with pytest
 # Combines pytest and coverage for seamless test coverage reporting
-pytest-cov>=4.0.0
+pytest-cov
+
+# MessagePack serialization support for cache backend testing
+msgpack
 
 # Pydantic with email validation support
 # Adds email field validation capabilities to the core framework

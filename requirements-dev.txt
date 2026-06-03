@@ -1,8 +1,7 @@
 # requirements-dev.txt
 # Testing framework for unit and integration tests
 # Core framework for running test suites and fixtures
-# Version ~=8.4.2 provides stable testing capabilities
-pytest~=8.4.2
+pytest
 pytest-asyncio
 
 # Pytest plugin for performance benchmarking
@@ -21,8 +20,7 @@ aiofiles>=23.0.0
 
 # Parallel test execution plugin for pytest
 # Enables faster test execution through parallel processing
-# Version ~=3.8.0 provides stable parallel test execution
-pytest-xdist~=3.8.0
+pytest-xdist
 
 # Code coverage measurement tool
 # Measures test coverage and generates coverage reports
@@ -31,7 +29,7 @@ coverage~=7.10.7
 
 # Coverage integration with pytest
 # Combines pytest and coverage for seamless test coverage reporting
-pytest-cov>=4.0.0
+pytest-cov
 
 # Pydantic with email validation support
 # Adds email field validation capabilities to the core framework
@@ -44,6 +42,9 @@ httpx>=0.27
 
 # Redis client library for distributed cache backend testing
 redis
+
+# MessagePack serialization support for cache backend testing
+msgpack
 
 # YAML file processing library
 # Used for configuration file handling and test data
