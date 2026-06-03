@@ -23,20 +23,17 @@ class CollationMixin:
         """Whether expression-level COLLATE is supported."""
         return False
 
-    def format_collation_name(self, collation: Any) -> str:
-        """Format a collation name for use in COLLATE clauses."""
-        if getattr(collation, "keyword", None):
-            return collation.keyword
-        if getattr(collation, "schema", None):
-            return f"{self.format_identifier(collation.schema)}.{self.format_identifier(collation.name)}"
-        return self.format_identifier(collation.name)
+    def validate_collation_name(self, collation: Any) -> str:
+        """Validate a collation name and return its SQL representation."""
+        raise UnsupportedFeatureError(self.name, "COLLATE collation validation")
 
     def format_collate_expression(self, expr: Any) -> Tuple[str, tuple]:
         """Format expression-level COLLATE."""
         if not self.supports_collate_expression():
             raise UnsupportedFeatureError(self.name, "COLLATE expression")
         expression_sql, params = expr.expression.to_sql()
-        return f"{expression_sql} COLLATE {self.format_collation_name(expr.collation)}", params
+        collation_sql = self.validate_collation_name(expr.collation)
+        return f"{expression_sql} COLLATE {collation_sql}", params
 
 
 if TYPE_CHECKING:  # pragma: no cover

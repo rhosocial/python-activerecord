@@ -337,8 +337,8 @@ class SQLiteDialect(
         """SQLite supports expression-level COLLATE."""
         return True
 
-    def format_collation_name(self, collation) -> str:
-        """Format SQLite collation names as safe bare tokens."""
+    def validate_collation_name(self, collation) -> str:
+        """Validate SQLite collation names and return their SQL representation."""
         if collation.schema is not None:
             from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 

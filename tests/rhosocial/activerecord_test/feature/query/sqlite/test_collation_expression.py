@@ -76,13 +76,12 @@ class TestSQLiteCollationExpression:
         assert sql == 'CAST("name" COLLATE NOCASE AS TEXT) AS "normalized_name"'
         assert params == ()
 
-    def test_schema_qualified_collation_uses_standard_identifier_format(self):
+    def test_default_collation_validation_requires_dialect_override(self):
         dialect = StandardCollationDialect()
-        name = CollationName("case_insensitive", schema="public")
+        expr = Column(dialect, "name").collate("NOCASE")
 
-        sql = dialect.format_collation_name(name)
-
-        assert sql == '"public"."case_insensitive"'
+        with pytest.raises(Exception, match="COLLATE collation validation"):
+            expr.to_sql()
 
     def test_sqlite_rejects_schema_qualified_collation(self, dialect):
         expr = Column(dialect, "name").collate(CollationName("case_insensitive", schema="public"))

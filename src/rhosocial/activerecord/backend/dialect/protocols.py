@@ -82,8 +82,8 @@ class CollationSupport(Protocol):
         """Whether expression-level COLLATE is supported."""
         ...  # pragma: no cover
 
-    def format_collation_name(self, collation: Any) -> str:
-        """Format a collation name for use in COLLATE clauses."""
+    def validate_collation_name(self, collation: Any) -> str:
+        """Validate a collation name and return its SQL representation."""
         ...  # pragma: no cover
 
     def format_collate_expression(self, expr: Any) -> Tuple[str, tuple]:
