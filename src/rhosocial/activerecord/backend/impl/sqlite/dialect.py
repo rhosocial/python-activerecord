@@ -11,6 +11,7 @@ from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
+    CollationSupport,
     CTESupport,
     FilterClauseSupport,
     WindowFunctionSupport,
@@ -48,6 +49,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SQLFunctionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
+    CollationMixin,
     CTEMixin,
     FilterClauseMixin,
     WindowFunctionMixin,
@@ -120,6 +122,7 @@ _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in se
 class SQLiteDialect(
     SQLDialectBase,
     # Include mixins for features that SQLite supports (with version-dependent implementations)
+    CollationMixin,
     CTEMixin,
     FilterClauseMixin,
     WindowFunctionMixin,
@@ -154,6 +157,7 @@ class SQLiteDialect(
     SQLiteVirtualTableMixin,
     SQLiteReindexMixin,
     # Protocols for type checking
+    CollationSupport,
     CTESupport,
     FilterClauseSupport,
     WindowFunctionSupport,
@@ -328,6 +332,18 @@ class SQLiteDialect(
             col_sql = f"{col_sql} AS {self.format_identifier(alias)}"
 
         return col_sql, ()
+
+    def supports_collate_expression(self) -> bool:
+        """SQLite supports expression-level COLLATE."""
+        return True
+
+    def format_collation_name(self, collation) -> str:
+        """Format SQLite collation names as safe bare tokens."""
+        if collation.schema is not None:
+            from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
+
+            raise UnsupportedFeatureError(self.name, "schema-qualified COLLATE")
+        return collation.keyword or collation.name
 
     # Additional protocol support methods for features SQLite doesn't support
     def supports_rollup(self) -> bool:

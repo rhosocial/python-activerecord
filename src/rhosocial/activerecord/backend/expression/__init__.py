@@ -40,6 +40,11 @@ from .core import (
     Literal,
     WildcardExpression,
 )
+from .collation import (
+    CollationName,
+    CollateExpression,
+    collate,
+)
 from .predicates import (
     ComparisonPredicate,
     LogicalPredicate,

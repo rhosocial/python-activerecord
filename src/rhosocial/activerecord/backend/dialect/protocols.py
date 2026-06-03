@@ -75,6 +75,23 @@ if TYPE_CHECKING:  # pragma: no cover
 
 
 @runtime_checkable
+class CollationSupport(Protocol):
+    """Protocol for expression-level COLLATE support."""
+
+    def supports_collate_expression(self) -> bool:
+        """Whether expression-level COLLATE is supported."""
+        ...  # pragma: no cover
+
+    def format_collation_name(self, collation: Any) -> str:
+        """Format a collation name for use in COLLATE clauses."""
+        ...  # pragma: no cover
+
+    def format_collate_expression(self, expr: Any) -> Tuple[str, tuple]:
+        """Format expression-level COLLATE."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
 class WindowFunctionSupport(Protocol):
     """Protocol for window function support."""
 
