@@ -87,7 +87,7 @@ class CollationSupport(Protocol):
         """Validate a collation expression and return its SQL representation."""
         ...  # pragma: no cover
 
-    def format_collate_expression(self, expr: Any) -> Tuple[str, tuple]:
+    def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
         """Format expression-level COLLATE."""
         ...  # pragma: no cover
 

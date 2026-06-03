@@ -27,7 +27,7 @@ class CollationMixin:
         """Validate a collation expression and return its SQL representation."""
         raise UnsupportedFeatureError(self.name, "COLLATE collation validation")
 
-    def format_collate_expression(self, expr: Any) -> Tuple[str, tuple]:
+    def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
         """Format expression-level COLLATE."""
         if not self.supports_collate_expression():
             raise UnsupportedFeatureError(self.name, "COLLATE expression")
