@@ -29,12 +29,15 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     import sys
     import inspect
 
-    # Get calling frame to access local scope
+    # Get calling frame to access local scope.
+    # Must match frame that actually contains ``owner`` in its locals,
+    # not just any frame from the same module (avoid stale test frames).
     frame = inspect.currentframe()
     while frame:
         if owner.__module__ in str(frame.f_code):
             local_context = frame.f_locals
-            break
+            if owner in local_context.values():
+                break
         frame = frame.f_back
     else:
         local_context = {}
@@ -50,24 +53,6 @@ def _evaluate_forward_ref(ref: Union[str, ForwardRef], owner: Type[Any]) -> Type
     context.update(owner_locals)
 
     type_str = ref if isinstance(ref, str) else ref.__forward_arg__
-
-    if isinstance(ref, ForwardRef):
-        # Use official typing_extensions.evaluate_forward_ref if available
-        try:
-            from typing_extensions import evaluate_forward_ref
-
-            return evaluate_forward_ref(ref, owner=owner, globals=context, locals=None)
-        except ImportError:
-            # Fallback: try using get_type_hints instead of direct _evaluate call
-            try:
-                # Create a temporary class with the forward ref to leverage get_type_hints
-                temp_annotations = {"temp": ref}
-                hints = get_type_hints(type("TempClass", (), {"__annotations__": temp_annotations}), globalns=context)
-                return hints.get("temp", ref)
-            except (NameError, AttributeError, TypeError):
-                pass
-
-    # Final fallback: direct evaluation for string references
     return eval(type_str, context, None)
 
 
@@ -172,7 +157,14 @@ class RelationDescriptor(Generic[T]):
         """
         self.name = name
         self._owner = owner
-        # self._cache.relation_name = name
+
+        from ..interface import IAsyncActiveRecord
+        if issubclass(owner, IAsyncActiveRecord):
+            raise TypeError(
+                f"Sync relation descriptor `{name}` cannot be used on async model `{owner.__name__}`. "
+                f"Use AsyncBelongsTo/AsyncHasMany/AsyncHasOne from "
+                f"rhosocial.activerecord.relation.async_descriptors instead."
+            )
 
         self.log(logging.DEBUG, f"Registering relation `{name}` with `{owner.__name__}`")
         owner.register_relation(name, self)
@@ -315,12 +307,10 @@ class RelationDescriptor(Generic[T]):
         """
         self.log(logging.DEBUG, f"Creating relation method for `{self.name}`")
 
-        def relation_method(*args, **kwargs):
-            if args or kwargs:
-                return self._query.query(instance, *args, **kwargs) if self._query else None
+        def relation_method():
             return self._load_relation(instance)
 
-        relation_method.clear_cache = lambda: self._cache.delete(instance)
+        relation_method.clear_cache = lambda: InstanceCache.delete(instance, self.name)
         return relation_method
 
     def _create_query_method(self):
@@ -376,6 +366,12 @@ class RelationDescriptor(Generic[T]):
         to fetch the data from the database. The loaded data is then cached for future
         access.
 
+        .. note::
+
+           External cache metadata and proactive refresh are not introduced in
+           this release.  This layer only performs simple cache read/write via
+           ``InstanceCache.get()`` and ``InstanceCache.set()``.
+
         Args:
             instance: The model instance for which to load the related data
 
@@ -393,11 +389,15 @@ class RelationDescriptor(Generic[T]):
         try:
             self.log(logging.DEBUG, f"Loading relation `{self.name}` for {type(instance).__name__}")
             data = self._loader.load(instance) if self._loader else None
-            InstanceCache.set(instance, self.name, data, self._cache_config)
-            return data
         except Exception as e:
             self.log(logging.ERROR, f"Error loading relation: {e}")
             return None
+
+        try:
+            InstanceCache.set(instance, self.name, data, self._cache_config)
+        except Exception as e:
+            self.log(logging.ERROR, f"Error caching relation: {e}")
+        return data
 
     def batch_load(self, records: List[Any], base_query: Optional[IActiveQuery]) -> Dict[int, Any]:
         """
@@ -415,6 +415,8 @@ class RelationDescriptor(Generic[T]):
         Returns:
             Dict mapping record IDs (using id() function) to their related data
         """
+        if not records:
+            return {}
         self.log(logging.DEBUG, f"Batch loading `{self.name}` relation for {len(records)} records")
         if self._cached_model is None:
             self.get_related_model(type(records[0]))

@@ -115,7 +115,7 @@ all = [
 test = [
     # Testing framework for unit and integration tests
     # Core framework for running test suites and fixtures
-    "pytest>=7.0.0",
+    "pytest",
 
     # Code coverage measurement tool
     # Measures test coverage and generates coverage reports
@@ -132,15 +132,15 @@ test = [
     "aiofiles>=23.0.0",
 
     # Benchmark integration with pytest
-    "pytest-benchmark>=4.0.0",
+    "pytest-benchmark",
 
     # Coverage integration with pytest
     # Combines pytest and coverage for seamless test coverage reporting
-    "pytest-cov>=4.0.0",
+    "pytest-cov",
 
     # Parallel test execution plugin for pytest
     # Enables faster test execution through parallel processing
-    "pytest-xdist>=3.6.1",
+    "pytest-xdist",
 
     # Pytest plugin for mocking
     # Provides the 'mocker' fixture for patching and mocking objects in tests
@@ -225,7 +225,7 @@ pythonpath = [".", "src"]
 asyncio_mode = "auto"
 asyncio_default_fixture_loop_scope = "function"
 
-addopts = "-ra -q -m 'not benchmark'"
+addopts = "-ra -q -m 'not benchmark and not redis'"
 python_files = ["test_*.py", "*_test.py"]
 python_classes = ["Test*"]
 python_functions = ["test_*"]
@@ -249,6 +249,7 @@ markers = [
     "cte: marks tests for CTE query functionality",
     "aggregate: marks tests for aggregate queries",
     "cache: marks tests for caching mechanisms",
+    "redis: marks RedisCache tests that require a running Redis instance (use -m redis to run)",
     "benchmark: marks tests as performance benchmarks that should be excluded by default",
     "benchmark_sync: marks synchronous benchmark tests",
     "benchmark_async: marks asynchronous benchmark tests",
@@ -260,6 +261,7 @@ markers = [
     "benchmark_transaction: marks transaction benchmark tests",
     "benchmark_mixin: marks mixin benchmark tests",
     "benchmark_fastapi: marks FastAPI benchmark tests",
+    "benchmark_relation: marks relation cache benchmark tests",
 
     # Database backend-specific markers
     "sqlite: marks tests specific to SQLite backend",
