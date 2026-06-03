@@ -84,6 +84,7 @@ from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, SQLit
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
+    from rhosocial.activerecord.backend.expression.collation import CollationName
     from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.query_parts import (
@@ -337,7 +338,7 @@ class SQLiteDialect(
         """SQLite supports expression-level COLLATE."""
         return True
 
-    def validate_collation_name(self, collation) -> str:
+    def validate_collation_name(self, collation: "CollationName") -> str:
         """Validate SQLite collation names and return their SQL representation."""
         if collation.schema is not None:
             from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError

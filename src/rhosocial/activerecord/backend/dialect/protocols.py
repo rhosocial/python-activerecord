@@ -72,6 +72,7 @@ if TYPE_CHECKING:  # pragma: no cover
         TriggerListExpression,
         TriggerInfoExpression,
     )
+    from ..expression.collation import CollationName
 
 
 @runtime_checkable
@@ -82,7 +83,7 @@ class CollationSupport(Protocol):
         """Whether expression-level COLLATE is supported."""
         ...  # pragma: no cover
 
-    def validate_collation_name(self, collation: Any) -> str:
+    def validate_collation_name(self, collation: "CollationName") -> str:
         """Validate a collation name and return its SQL representation."""
         ...  # pragma: no cover
 

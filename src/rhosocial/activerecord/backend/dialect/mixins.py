@@ -23,7 +23,7 @@ class CollationMixin:
         """Whether expression-level COLLATE is supported."""
         return False
 
-    def validate_collation_name(self, collation: Any) -> str:
+    def validate_collation_name(self, collation: "CollationName") -> str:
         """Validate a collation name and return its SQL representation."""
         raise UnsupportedFeatureError(self.name, "COLLATE collation validation")
 
@@ -37,6 +37,7 @@ class CollationMixin:
 
 
 if TYPE_CHECKING:  # pragma: no cover
+    from ..expression.collation import CollationName
     from ..expression.advanced_functions import (
         OrderedSetAggregation,
         WindowFunctionCall,
