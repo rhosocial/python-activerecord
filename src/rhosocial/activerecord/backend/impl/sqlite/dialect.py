@@ -1339,11 +1339,17 @@ class SQLiteDialect(
     # max_version: maximum supported version (inclusive), None = no upper limit
     # Reference: https://www.sqlite.org/changes.html
     _SQLITE_FUNCTION_VERSIONS = {
-        # JSON functions - SQLite 3.38.0+ (JSON1 built-in), but functions available via extension earlier
-        "json": (None, None),  # Available since early versions with JSON1 extension
+        # Core JSONExpression factories use -> / ->> operators, available since SQLite 3.38.0.
+        "json_extract": ((3, 38, 0), None),
+        "json_extract_text": ((3, 38, 0), None),
+        "json_build_object": (None, (0, 0, 0)),
+        "json_array_elements": (None, (0, 0, 0)),
+        "json_objectagg": (None, (0, 0, 0)),
+        "json_arrayagg": (None, (0, 0, 0)),
+        # SQLite JSON functions are available since early versions with JSON1 extension.
+        "json": (None, None),
         "json_array": (None, None),
         "json_object": (None, None),
-        "json_extract": (None, None),
         "json_type": (None, None),
         "json_valid": (None, None),
         "json_quote": (None, None),
@@ -1433,7 +1439,7 @@ class SQLiteDialect(
 
         result = {}
         for func_name in core_functions:
-            result[func_name] = True
+            result[func_name] = self._is_sqlite_function_supported(func_name)
 
         sqlite_funcs = getattr(sqlite_functions, "__all__", [])
         for func_name in sqlite_funcs:
