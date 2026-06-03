@@ -9,7 +9,7 @@ import pytest
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.mixins import CollationMixin
-from rhosocial.activerecord.backend.expression import CollationName, Column, Literal, collate
+from rhosocial.activerecord.backend.expression import Column, Literal, collate
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -83,8 +83,14 @@ class TestSQLiteCollationExpression:
         with pytest.raises(Exception, match="COLLATE collation validation"):
             expr.to_sql()
 
+    def test_collate_expression_stores_backend_options(self, dialect):
+        expr = Column(dialect, "name").collate("case_insensitive", schema="public")
+
+        assert expr.collation_name == "case_insensitive"
+        assert expr.collation_options == {"schema": "public"}
+
     def test_sqlite_rejects_schema_qualified_collation(self, dialect):
-        expr = Column(dialect, "name").collate(CollationName("case_insensitive", schema="public"))
+        expr = Column(dialect, "name").collate("case_insensitive", schema="public")
 
         with pytest.raises(Exception, match="schema-qualified COLLATE"):
             expr.to_sql()
@@ -106,8 +112,10 @@ class TestSQLiteCollationExpression:
         ],
     )
     def test_rejects_unsafe_collation_names(self, dialect, collation):
+        expr = Column(dialect, "name").collate(collation)
+
         with pytest.raises(ValueError):
-            Column(dialect, "name").collate(collation)
+            expr.to_sql()
 
     def test_collate_executes_case_insensitive_match(self, order_fixtures):
         User, _, _ = order_fixtures

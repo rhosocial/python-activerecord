@@ -6,6 +6,7 @@ This dialect implements only the protocols for features that SQLite actually sup
 based on the SQLite version provided at initialization.
 """
 
+import re
 from typing import Any, Dict, List, Optional, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
@@ -84,7 +85,7 @@ from .mixins import SQLitePragmaMixin, SQLiteIntrospectionCapabilityMixin, SQLit
 
 if TYPE_CHECKING:
     from rhosocial.activerecord.backend.expression import bases
-    from rhosocial.activerecord.backend.expression.collation import CollationName
+    from rhosocial.activerecord.backend.expression.collation import CollateExpression
     from rhosocial.activerecord.backend.expression.advanced_functions import ArrayExpression, OrderedSetAggregation
     from rhosocial.activerecord.backend.expression.graph import MatchClause
     from rhosocial.activerecord.backend.expression.query_parts import (
@@ -118,6 +119,7 @@ _SUGGESTION_MATERIALIZED_VIEW_ALT = (
     "or creating tables to store precomputed results."
 )
 _SUGGESTION_FOR_UPDATE_SET_OP = "SQLite does not support FOR UPDATE clause in set operations (UNION, INTERSECT, EXCEPT)"
+_COLLATION_NAME_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_]*$")
 
 
 class SQLiteDialect(
@@ -338,13 +340,16 @@ class SQLiteDialect(
         """SQLite supports expression-level COLLATE."""
         return True
 
-    def validate_collation_name(self, collation: "CollationName") -> str:
+    def validate_collation_name(self, expr: "CollateExpression") -> str:
         """Validate SQLite collation names and return their SQL representation."""
-        if collation.schema is not None:
-            from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
-
+        if "schema" in expr.collation_options:
             raise UnsupportedFeatureError(self.name, "schema-qualified COLLATE")
-        return collation.keyword or collation.name
+        if expr.collation_options:
+            unsupported = ", ".join(sorted(expr.collation_options))
+            raise UnsupportedFeatureError(self.name, f"COLLATE options: {unsupported}")
+        if not _COLLATION_NAME_RE.fullmatch(expr.collation_name):
+            raise ValueError(f"Unsupported SQLite collation: {expr.collation_name!r}")
+        return expr.collation_name
 
     # Additional protocol support methods for features SQLite doesn't support
     def supports_rollup(self) -> bool:

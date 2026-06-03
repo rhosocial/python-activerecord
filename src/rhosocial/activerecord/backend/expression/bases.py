@@ -53,7 +53,7 @@ def is_sql_query_and_params(obj):
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-    from .collation import CollateExpression, CollationName
+    from .collation import CollateExpression
 
 
 @runtime_checkable
@@ -192,7 +192,11 @@ class SQLValueExpression(BaseExpression):
         super().__init__(dialect)
         self._cast_types: list = []
 
-    def collate(self, collation: Union[str, Enum, "CollationName"]) -> "CollateExpression":
+    def collate(
+        self,
+        collation: Union[str, Enum],
+        **collation_options: Any,
+    ) -> "CollateExpression":
         """
         Apply an explicit SQL COLLATE clause to this value expression.
 
@@ -203,4 +207,4 @@ class SQLValueExpression(BaseExpression):
         """
         from .collation import CollateExpression
 
-        return CollateExpression(self.dialect, self, collation)
+        return CollateExpression(self.dialect, self, collation, **collation_options)

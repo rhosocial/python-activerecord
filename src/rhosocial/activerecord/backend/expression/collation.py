@@ -3,10 +3,8 @@
 Collation expression support for SQL value expressions.
 """
 
-import re
-from dataclasses import dataclass
 from enum import Enum
-from typing import Optional, Union, TYPE_CHECKING
+from typing import Any, Dict, Optional, Union, TYPE_CHECKING
 
 from .bases import SQLQueryAndParams, SQLValueExpression
 from .mixins import (
@@ -19,54 +17,6 @@ from .mixins import (
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
-
-_COLLATION_PART_RE = re.compile(r"^[A-Za-z_][A-Za-z0-9_$-]*$")
-_UNSAFE_COLLATION_TOKENS = (";", "--", "/*", "*/", "#", "'", '"', "`", "[", "]")
-
-
-@dataclass(frozen=True)
-class CollationName:
-    """Structured SQL collation name."""
-
-    name: str
-    schema: Optional[str] = None
-    keyword: Optional[str] = None
-
-    def __post_init__(self) -> None:
-        if self.keyword is not None:
-            self._validate_part(self.keyword, "keyword")
-            if self.schema is not None:
-                raise ValueError("Collation keyword cannot be schema-qualified")
-            if self.name != self.keyword:
-                raise ValueError("Collation keyword name must match keyword")
-            return
-
-        self._validate_part(self.name, "name")
-        if self.schema is not None:
-            self._validate_part(self.schema, "schema")
-
-    @classmethod
-    def from_value(cls, value: Union[str, Enum, "CollationName"]) -> "CollationName":
-        if isinstance(value, CollationName):
-            return value
-        if isinstance(value, Enum):
-            return cls(str(value.value))
-        return cls(value)
-
-    @classmethod
-    def as_keyword(cls, keyword: str) -> "CollationName":
-        return cls(keyword, keyword=keyword)
-
-    @staticmethod
-    def _validate_part(value: str, part_name: str) -> None:
-        if not isinstance(value, str) or not value:
-            raise ValueError(f"Collation {part_name} must be a non-empty string")
-        if any(char.isspace() or ord(char) < 32 for char in value):
-            raise ValueError(f"Unsafe collation {part_name}: {value!r}")
-        if any(token in value for token in _UNSAFE_COLLATION_TOKENS):
-            raise ValueError(f"Unsafe collation {part_name}: {value!r}")
-        if not _COLLATION_PART_RE.fullmatch(value):
-            raise ValueError(f"Unsafe collation {part_name}: {value!r}")
 
 
 class CollateExpression(
@@ -83,12 +33,20 @@ class CollateExpression(
         self,
         dialect: "SQLDialectBase",
         expression: SQLValueExpression,
-        collation: Union[str, Enum, CollationName],
+        collation: Union[str, Enum],
+        **collation_options: Any,
     ):
         super().__init__(dialect)
         self.expression = expression
-        self.collation = CollationName.from_value(collation)
+        self.collation = collation
+        self.collation_options: Dict[str, Any] = dict(collation_options)
         self.alias: Optional[str] = None
+
+    @property
+    def collation_name(self) -> str:
+        if isinstance(self.collation, Enum):
+            return str(self.collation.value)
+        return str(self.collation)
 
     def to_sql(self) -> SQLQueryAndParams:
         sql, params = self.dialect.format_collate_expression(self)
@@ -104,6 +62,7 @@ class CollateExpression(
 
 def collate(
     expression: SQLValueExpression,
-    collation: Union[str, Enum, CollationName],
+    collation: Union[str, Enum],
+    **collation_options: Any,
 ) -> CollateExpression:
-    return CollateExpression(expression.dialect, expression, collation)
+    return CollateExpression(expression.dialect, expression, collation, **collation_options)
