@@ -372,10 +372,9 @@ class AsyncRelationDescriptor(Generic[U]):
 
         .. note::
 
-           Cache stampede & proactive refresh are intentionally absent from this
-           layer.  The framework provides ``InstanceCache.get_with_meta()`` and
-           ``.set()`` as building blocks.  Application code (timed tasks, middleware,
-           etc.) can use them to implement its own refresh strategy.
+           External cache metadata and proactive refresh are not introduced in
+           this release.  This layer only performs simple cache read/write via
+           ``InstanceCache.get()`` and ``InstanceCache.set()``.
 
         Args:
             instance: The model instance for which to load the related data

@@ -10,6 +10,12 @@ Use ``pytest -m redis`` to include these tests.
 import pytest
 import time
 
+pytest.skip(
+    "Redis cache is not introduced in this release; "
+    "source is kept for follow-up external cache design.",
+    allow_module_level=True,
+)
+
 from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
 from rhosocial.activerecord.relation.cache_backends import (
     RedisCache,

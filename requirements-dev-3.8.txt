@@ -26,8 +26,8 @@ coverage
 # Combines pytest and coverage for seamless test coverage reporting
 pytest-cov
 
-# MessagePack serialization support for cache backend testing
-msgpack
+# MessagePack cache support is not introduced in this release.
+# Keep source code only for follow-up external cache design.
 
 # Pydantic with email validation support
 # Adds email field validation capabilities to the core framework

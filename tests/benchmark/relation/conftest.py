@@ -3,9 +3,8 @@
 Bridges ``user_post_comment_classes`` from the testsuite's relation conftest
 so that benchmarks can reuse the same model definitions and backend setup.
 
-Redis connection is configured via ``tests/providers/redis_scenarios.yaml``
-using the ``"benchmark"`` scenario.  Users can edit that file to point to
-their own Redis instance.
+Redis benchmark support is not introduced in this release.  The related
+source snippets are kept as comments for follow-up external cache design.
 """
 
 from rhosocial.activerecord.testsuite.feature.relation.conftest import (  # noqa: F401
@@ -18,11 +17,10 @@ from typing import Any
 import pytest
 
 from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
-from rhosocial.activerecord.relation.cache_backends import (
-    CacheSerializer,
-    InMemoryCache,
-    RedisCache,
-)
+from rhosocial.activerecord.relation.cache_backends import InMemoryCache
+
+# Not introduced in this release; keep snippets for follow-up external cache design.
+# from rhosocial.activerecord.relation.cache_backends import CacheSerializer, RedisCache
 
 pytestmark = [
     pytest.mark.benchmark,
@@ -43,35 +41,35 @@ class RelationBenchmarkContext:
 
 
 # ---------------------------------------------------------------------------
-# Per-session Redis client — loaded from YAML or env var fallback
+# Redis benchmark is not introduced in this release.  Keep the fixture shape as
+# comments for follow-up external cache design instead of deleting the source.
 # ---------------------------------------------------------------------------
-@pytest.fixture(scope="session")
-def _redis_client():
-    redis = pytest.importorskip("redis")
-    try:
-        from providers.redis_scenarios import get_redis_scenario
-
-        config = get_redis_scenario("benchmark")
-    except (FileNotFoundError, KeyError):
-        # No YAML file or no "benchmark" entry — fall back to env vars
-        from rhosocial.activerecord.relation.cache_backends import RedisConfig
-
-        config = RedisConfig.from_env()
-    try:
-        client = redis.Redis(
-            host=config.host,
-            port=config.port,
-            password=config.password or None,
-            db=config.db,
-            socket_connect_timeout=config.socket_connect_timeout,
-        )
-        client.ping()
-        yield client
-        client.flushdb()
-        client.close()
-    except Exception:
-        pytest.skip("Redis not available for benchmark")
-        yield None
+# @pytest.fixture(scope="session")
+# def _redis_client():
+#     redis = pytest.importorskip("redis")
+#     try:
+#         from providers.redis_scenarios import get_redis_scenario
+#
+#         config = get_redis_scenario("benchmark")
+#     except (FileNotFoundError, KeyError):
+#         from rhosocial.activerecord.relation.cache_backends import RedisConfig
+#
+#         config = RedisConfig.from_env()
+#     try:
+#         client = redis.Redis(
+#             host=config.host,
+#             port=config.port,
+#             password=config.password or None,
+#             db=config.db,
+#             socket_connect_timeout=config.socket_connect_timeout,
+#         )
+#         client.ping()
+#         yield client
+#         client.flushdb()
+#         client.close()
+#     except Exception:
+#         pytest.skip("Redis not available for benchmark")
+#         yield None
 
 
 # ---------------------------------------------------------------------------
@@ -101,7 +99,8 @@ def _raw_models(user_post_comment_classes):
 CACHE_SCENARIOS = [
     pytest.param("no_cache", id="no_cache"),
     pytest.param("in_memory", id="in_memory"),
-    pytest.param("redis", id="redis"),
+    # Not introduced in this release; keep for follow-up external cache design.
+    # pytest.param("redis", id="redis"),
 ]
 
 
@@ -112,7 +111,7 @@ def cache_scenario(request):
 
 
 @pytest.fixture(scope="function")
-def relation_benchmark_env(cache_scenario, _raw_models, _redis_client):
+def relation_benchmark_env(cache_scenario, _raw_models):
     """Configure the InstanceCache backend and return a benchmark context.
 
     Each test function receives a ``RelationBenchmarkContext`` with:
@@ -130,15 +129,16 @@ def relation_benchmark_env(cache_scenario, _raw_models, _redis_client):
         elif cache_scenario == "in_memory":
             InstanceCache.set_backend(InMemoryCache())
             config = CacheConfig(enabled=True, ttl=None)
-        elif cache_scenario == "redis":
-            InstanceCache.set_backend(
-                RedisCache(
-                    client=_redis_client,
-                    prefix="bench:cache:",
-                    serializer=CacheSerializer(format="pickle"),
-                )
-            )
-            config = CacheConfig(enabled=True, ttl=None)
+        # Not introduced in this release; keep for follow-up external cache design.
+        # elif cache_scenario == "redis":
+        #     InstanceCache.set_backend(
+        #         RedisCache(
+        #             client=_redis_client,
+        #             prefix="bench:cache:",
+        #             serializer=CacheSerializer(format="pickle"),
+        #         )
+        #     )
+        #     config = CacheConfig(enabled=True, ttl=None)
         else:
             raise ValueError(f"Unknown scenario: {cache_scenario}")
 

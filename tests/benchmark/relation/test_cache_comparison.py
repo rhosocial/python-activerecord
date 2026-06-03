@@ -1,9 +1,10 @@
 """Benchmark comparing relation cache strategies.
 
-Measures HasMany relation access time under three scenarios:
+Measures HasMany relation access time under current-release scenarios:
 - ``no_cache``  — CacheConfig(enabled=False), always queries DB
 - ``in_memory`` — InMemoryCache, caches after first access
-- ``redis``     — RedisCache, caches after first access
+
+Redis benchmark support is not introduced in this release.
 """
 
 import pytest

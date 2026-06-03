@@ -1,83 +1,31 @@
 # src/rhosocial/activerecord/relation/cache.py
 """
 Caching implementation for relation data.
-Provides configurable caching with TTL and size limits.
+Provides configurable in-memory caching with TTL and size limits.
 
 Backend Architecture
 --------------------
 ``InstanceCache`` is the public proxy that delegates to a pluggable
 ``CacheBackend``.  The default backend is ``InMemoryCache`` (same
-behavior as before).  Call ``InstanceCache.set_backend(...)`` at
-application startup to switch to a distributed backend.
+behavior as before).
 
-Available backends (in :mod:`rhosocial.activerecord.relation.cache_backends`):
+Available backends for this release:
 
 * ``InMemoryCache`` — stores entries as instance attributes
-* ``RedisCache`` — distributed, cross-container key/value store
 
-Cache Stampede & Proactive Refresh
-----------------------------------
-The framework does NOT implement proactive refresh or cache stampede
-protection.  These are application-level concerns because:
-
-1. **Stale reads are a business decision.**  Some data can be served
-   stale (stale-while-revalidate), some must be absolutely fresh.
-   The framework cannot guess which category a relation falls into.
-
-2. **Refresh cadence depends on access patterns.**  Low-frequency
-   relations should not be refreshed on every read; high-frequency
-   ones might need pre-warming.  Only the application knows.
-
-3. **The framework has no background thread.**  It runs entirely
-   in the request path.  Any "proactive" behaviour would degrade
-   the very request it serves.
-
-What the framework provides as building blocks:
-
-* ``InstanceCache.get_with_meta()`` — returns age, origin, TTL so
-  the application can decide whether to refresh.
-* ``InstanceCache.set()`` — updates a cache entry at any time.
-* ``origin`` metadata on ``CacheResult`` — distinguishes which
-  container/process created the entry (useful for distributed
-  refresh ownership).
+Redis, serializer support and metadata-based proactive refresh are
+intentionally not introduced in this release.  The related source code is
+kept for follow-up external cache design, but is not part of this branch's
+public surface.
 
 Capacity Planning
 -----------------
-Cache entries are stored as deserialised Python objects (InMemory) or
-serialised bytes (Redis, etc.).  Estimate memory before enabling caching
-on large or high‑cardinality relations:
+In-memory cache entries are stored as plain Python objects on model
+instances.  A relation returning 10 000 rows can consume megabytes per
+entry, multiplied by distinct parent-relation key pairs.  Monitor cache
+growth or set a TTL to bound it.
 
-* **InMemory** — each cached result set is a plain Python list of model
-  instances.  A relation returning 10 000 rows can consume megabytes
-  *per entry*, multiplied by distinct parent-relation key pairs.
-  Monitor ``InstanceCache`` growth or set a TTL to bound it.
-
-* **Redis / distributed** — serialised bytes add overhead (JSON/pickle
-  framing).  Use ``MEMORY USAGE <key>`` (Redis) or equivalent tools
-  to measure real footprint.  Account for peak‑load key count × size.
-
-The framework applies no built‑in memory cap or eviction policy —
-configure these at the backend level (Redis ``maxmemory`` + ``allkeys-lru``,
-or wrap ``InMemoryCache`` with a size‑limited dict).
-
-Suggested approaches for the application:
-
-+---------------------------+-------------------------------------------+
-| Strategy                 | Implementation                             |
-+===========================+===========================================+
-| Scheduled warm-up        | APScheduler / cron triggers a script that |
-|                           | calls the relation and refreshes cache.   |
-+---------------------------+-------------------------------------------+
-| Read-triggered refresh   | After ``get_with_meta()``, if age >       |
-|                          | threshold and origin matches, call        |
-|                          | loader + ``set()`` (soft inline refresh). |
-+---------------------------+-------------------------------------------+
-| Stale-while-revalidate   | Serve the stale value, asynchronously     |
-|                           | enqueue a refresh task (Celery / thread). |
-+---------------------------+-------------------------------------------+
-| Mutex-based stampede     | Use Redis SETNX to let only one process   |
-| protection               | re-generate the cache while others wait.  |
-+---------------------------+-------------------------------------------+
+The framework applies no built-in memory cap or eviction policy.
 """
 
 from dataclasses import dataclass
@@ -85,7 +33,10 @@ from datetime import datetime, timedelta
 from threading import Lock
 from typing import Any, Optional, Dict, Generic, TypeVar
 
-from .cache_backends import CacheBackend, CacheResult, InMemoryCache
+from .cache_backends import CacheBackend, InMemoryCache
+
+# Not introduced in this release; keep source for follow-up external cache design.
+# from .cache_backends import CacheResult
 
 
 @dataclass
@@ -226,9 +177,8 @@ class InstanceCache(Generic[T]):
         # default (InMemoryCache) — no change needed
         value = InstanceCache.get(instance, "posts", config)
 
-        # switch globally to Redis
-        from rhosocial.activerecord.relation.cache_backends import RedisCache
-        InstanceCache.set_backend(RedisCache(...))
+        # switch globally to another CacheBackend implementation
+        InstanceCache.set_backend(custom_backend)
     """
 
     _backend: CacheBackend = InMemoryCache()
@@ -299,41 +249,26 @@ class InstanceCache(Generic[T]):
         """
         InstanceCache._backend.set(instance, relation_name, value, config)
 
-    @staticmethod
-    def get_with_meta(
-        instance: Any, relation_name: str, config: CacheConfig
-    ) -> Optional[CacheResult[T]]:
-        """Get cached relation value with metadata.
-
-        Returns a ``CacheResult`` that includes age, origin and TTL info
-        when the active backend supports it.  Falls back to a basic result
-        when the backend only exposes the plain ``get()`` interface.
-
-        Args:
-            instance: Model instance
-            relation_name: Name of the relation
-            config: Cache configuration
-
-        Returns:
-            ``CacheResult`` with value and metadata, or None on miss/expiry
-        """
-        backend = InstanceCache._backend
-
-        # Prefer rich metadata path (RedisCache with record_origin=True)
-        getter = getattr(backend, "get_with_meta", None)
-        if getter is not None:
-            return getter(instance, relation_name, config)
-
-        # Fallback: plain get() — can only provide value + backend origin
-        value = backend.get(instance, relation_name, config)
-        if value is None:
-            return None
-        return CacheResult(
-            value=value,
-            age=0.0,
-            origin=backend.origin,
-            ttl=config.ttl,
-        )
+    # Not introduced in this release; keep the metadata path for follow-up
+    # external cache design, where CacheResult/origin semantics will be settled.
+    # @staticmethod
+    # def get_with_meta(
+    #     instance: Any, relation_name: str, config: CacheConfig
+    # ) -> Optional[CacheResult[T]]:
+    #     """Get cached relation value with metadata."""
+    #     backend = InstanceCache._backend
+    #     getter = getattr(backend, "get_with_meta", None)
+    #     if getter is not None:
+    #         return getter(instance, relation_name, config)
+    #     value = backend.get(instance, relation_name, config)
+    #     if value is None:
+    #         return None
+    #     return CacheResult(
+    #         value=value,
+    #         age=0.0,
+    #         origin=backend.origin,
+    #         ttl=config.ttl,
+    #     )
 
     @staticmethod
     def delete(instance: Any, relation_name: str, config: Optional[CacheConfig] = None):

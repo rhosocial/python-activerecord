@@ -8,6 +8,12 @@ blocks that application code uses to implement its own strategy.
 """
 import pytest
 
+pytest.skip(
+    "CacheResult metadata is not introduced in this release; "
+    "source is kept for follow-up external cache design.",
+    allow_module_level=True,
+)
+
 from pydantic import BaseModel
 
 from rhosocial.activerecord.relation.cache import (

@@ -2,12 +2,12 @@
 """
 Abstract definitions for pluggable cache backends.
 
-Provides:
+Provides for this release:
 - ``CacheBackend`` — protocol that every backend must implement
-- ``CacheSerializer`` — JSON-based serializer (default), with msgpack and
-  pickle alternatives
-- ``CacheResult`` — value + metadata returned by backends that support
-  proactive refresh (origin, age, TTL)
+
+Not introduced in this release:
+- ``CacheSerializer`` — kept in source for follow-up external cache design
+- ``CacheResult`` — kept in source for follow-up metadata/origin design
 """
 
 from __future__ import annotations
@@ -127,6 +127,29 @@ class CacheBackend(Protocol[T]):
         ...
 
 
+def _msgpack_default(value: Any) -> Any:
+    if isinstance(value, (datetime, date, time)):
+        return value.isoformat()
+    if isinstance(value, timedelta):
+        return value.total_seconds()
+    if isinstance(value, Enum):
+        return {"__cache_type__": "enum", "value": value.name}
+    if isinstance(value, set):
+        return {"__cache_type__": "set", "value": list(value)}
+    if isinstance(value, complex):
+        return {"__cache_type__": "complex", "value": [value.real, value.imag]}
+    if isinstance(value, range):
+        return {"__cache_type__": "range", "value": [value.start, value.stop, value.step]}
+    raise TypeError(f"can not serialize {type(value).__name__!r} object")
+
+
+def _msgpack_object_hook(value: Dict[Any, Any]) -> Dict[Any, Any]:
+    marker = value.get("__cache_type__")
+    if marker is not None:
+        raise TypeError(f"msgpack cache serializer does not support {marker!r} values")
+    return value
+
+
 class CacheSerializer:
     """Serializer for cache values.
 
@@ -201,7 +224,7 @@ class CacheSerializer:
             return json.dumps(value, cls=_EnhancedJSONEncoder, ensure_ascii=False).encode("utf-8")
         elif self._format == self.FORMAT_MSGPACK:
             import msgpack
-            return msgpack.dumps(value)
+            return msgpack.dumps(value, default=_msgpack_default)
         else:
             return pickle.dumps(value, protocol=pickle.HIGHEST_PROTOCOL)
 
@@ -210,6 +233,6 @@ class CacheSerializer:
             return json.loads(data.decode("utf-8"))
         elif self._format == self.FORMAT_MSGPACK:
             import msgpack
-            return msgpack.loads(data)
+            return msgpack.loads(data, object_hook=_msgpack_object_hook)
         else:
             return pickle.loads(data)

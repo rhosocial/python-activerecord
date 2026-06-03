@@ -2,21 +2,22 @@
 """
 Pluggable cache backends for relation data caching.
 
-Available backends:
+Available backends for this release:
 
 * ``InMemoryCache`` — stores entries as instance attributes (default)
-* ``RedisCache`` — distributed, cross-container key/value store
+
+Redis and serializer support are intentionally not introduced in this release.
+The implementation files are kept in-tree for follow-up external cache design.
 """
 
-from ._protocol import CacheBackend, CacheResult, CacheSerializer, T
+from ._protocol import CacheBackend, T
 from .in_memory import InMemoryCache
-from .redis import RedisCache, RedisConfig
+
+# Not introduced in this release; keep source for follow-up external cache design.
+# from ._protocol import CacheResult, CacheSerializer
+# from .redis import RedisCache, RedisConfig
 
 __all__ = [
     "CacheBackend",
-    "CacheResult",
-    "CacheSerializer",
     "InMemoryCache",
-    "RedisCache",
-    "RedisConfig",
 ]
