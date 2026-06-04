@@ -104,6 +104,23 @@ from .grouping import grouping_sets, rollup, cube
 # System information function factories
 from .system import current_user, session_user, system_user
 
+# SQL/XML expression factories
+from .xml import (
+    xmlagg,
+    xmlattributes,
+    xmlcomment,
+    xmlconcat,
+    xmlelement,
+    xmlexists,
+    xmlforest,
+    xmlparse,
+    xmlpi,
+    xmlquery,
+    xmlroot,
+    xmlserialize,
+    xmltable,
+)
+
 __all__ = [
     # Aggregate
     "count",
@@ -205,4 +222,18 @@ __all__ = [
     "current_user",
     "session_user",
     "system_user",
+    # SQL/XML
+    "xmlagg",
+    "xmlattributes",
+    "xmlcomment",
+    "xmlconcat",
+    "xmlelement",
+    "xmlexists",
+    "xmlforest",
+    "xmlparse",
+    "xmlpi",
+    "xmlquery",
+    "xmlroot",
+    "xmlserialize",
+    "xmltable",
 ]
