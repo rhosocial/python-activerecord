@@ -105,7 +105,21 @@ from .grouping import grouping_sets, rollup, cube
 from .system import current_user, session_user, system_user
 
 # SQL/XML expression factories
-from .xml import xmlparse
+from .xml import (
+    xmlagg,
+    xmlattributes,
+    xmlcomment,
+    xmlconcat,
+    xmlelement,
+    xmlexists,
+    xmlforest,
+    xmlparse,
+    xmlpi,
+    xmlquery,
+    xmlroot,
+    xmlserialize,
+    xmltable,
+)
 
 __all__ = [
     # Aggregate
@@ -209,5 +223,17 @@ __all__ = [
     "session_user",
     "system_user",
     # SQL/XML
+    "xmlagg",
+    "xmlattributes",
+    "xmlcomment",
+    "xmlconcat",
+    "xmlelement",
+    "xmlexists",
+    "xmlforest",
     "xmlparse",
+    "xmlpi",
+    "xmlquery",
+    "xmlroot",
+    "xmlserialize",
+    "xmltable",
 ]

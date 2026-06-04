@@ -43,6 +43,11 @@ from typing import Dict, List, Tuple, TYPE_CHECKING
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
     SQLXMLSupport,
+    SQLXMLParsingSupport,
+    SQLXMLSerializationSupport,
+    SQLXMLConstructionSupport,
+    SQLXMLAggregationSupport,
+    SQLXMLQueryingSupport,
     CollationSupport,
     WindowFunctionSupport,
     CTESupport,
@@ -84,6 +89,11 @@ from rhosocial.activerecord.backend.dialect.protocols import (
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
     SQLXMLMixin,
+    SQLXMLParsingMixin,
+    SQLXMLSerializationMixin,
+    SQLXMLConstructionMixin,
+    SQLXMLAggregationMixin,
+    SQLXMLQueryingMixin,
     CollationMixin,
     WindowFunctionMixin,
     CTEMixin,
@@ -126,6 +136,11 @@ if TYPE_CHECKING:
 class DummyDialect(
     SQLDialectBase,
     SQLXMLMixin,
+    SQLXMLParsingMixin,
+    SQLXMLSerializationMixin,
+    SQLXMLConstructionMixin,
+    SQLXMLAggregationMixin,
+    SQLXMLQueryingMixin,
     CollationMixin,
     WindowFunctionMixin,
     CTEMixin,
@@ -161,6 +176,11 @@ class DummyDialect(
     IntrospectionMixin,
     # Protocols for type checking
     SQLXMLSupport,
+    SQLXMLParsingSupport,
+    SQLXMLSerializationSupport,
+    SQLXMLConstructionSupport,
+    SQLXMLAggregationSupport,
+    SQLXMLQueryingSupport,
     CollationSupport,
     WindowFunctionSupport,
     CTESupport,
@@ -212,6 +232,42 @@ class DummyDialect(
 
     # region Protocol Support Checks - Core Features
     def supports_xmlparse(self) -> bool:
+        return True
+
+    def supports_xmlserialize(self) -> bool:
+        return True
+
+    def supports_xmlelement(self) -> bool:
+        return True
+
+    def supports_xmlattributes(self) -> bool:
+        return True
+
+    def supports_xmlforest(self) -> bool:
+        return True
+
+    def supports_xmlconcat(self) -> bool:
+        return True
+
+    def supports_xmlcomment(self) -> bool:
+        return True
+
+    def supports_xmlpi(self) -> bool:
+        return True
+
+    def supports_xmlroot(self) -> bool:
+        return True
+
+    def supports_xmlagg(self) -> bool:
+        return True
+
+    def supports_xmlquery(self) -> bool:
+        return True
+
+    def supports_xmlexists(self) -> bool:
+        return True
+
+    def supports_xmltable(self) -> bool:
         return True
 
     def supports_collate_expression(self) -> bool:

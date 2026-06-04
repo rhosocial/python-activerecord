@@ -22,6 +22,18 @@ class TestDummyProtocolSupport:
     def test_sqlxml_support_methods(self, dialect):
         """Test SQLXMLSupport protocol methods."""
         assert dialect.supports_xmlparse() is True
+        assert dialect.supports_xmlserialize() is True
+        assert dialect.supports_xmlelement() is True
+        assert dialect.supports_xmlattributes() is True
+        assert dialect.supports_xmlforest() is True
+        assert dialect.supports_xmlconcat() is True
+        assert dialect.supports_xmlcomment() is True
+        assert dialect.supports_xmlpi() is True
+        assert dialect.supports_xmlroot() is True
+        assert dialect.supports_xmlagg() is True
+        assert dialect.supports_xmlquery() is True
+        assert dialect.supports_xmlexists() is True
+        assert dialect.supports_xmltable() is True
     # endregion
 
     # region Window Function Support
@@ -303,6 +315,9 @@ class TestDummyProtocolCompleteness:
         """Verify DummyDialect implements all expected protocols."""
         from rhosocial.activerecord.backend.dialect.protocols import (
             SQLXMLSupport,
+            SQLXMLParsingSupport, SQLXMLSerializationSupport,
+            SQLXMLConstructionSupport, SQLXMLAggregationSupport,
+            SQLXMLQueryingSupport,
             WindowFunctionSupport, CTESupport, AdvancedGroupingSupport,
             ReturningSupport, UpsertSupport, LateralJoinSupport,
             ArraySupport, JSONSupport, ExplainSupport,
@@ -317,6 +332,11 @@ class TestDummyProtocolCompleteness:
 
         # Verify all protocols are implemented
         assert isinstance(dialect, SQLXMLSupport)
+        assert isinstance(dialect, SQLXMLParsingSupport)
+        assert isinstance(dialect, SQLXMLSerializationSupport)
+        assert isinstance(dialect, SQLXMLConstructionSupport)
+        assert isinstance(dialect, SQLXMLAggregationSupport)
+        assert isinstance(dialect, SQLXMLQueryingSupport)
         assert isinstance(dialect, WindowFunctionSupport)
         assert isinstance(dialect, CTESupport)
         assert isinstance(dialect, AdvancedGroupingSupport)

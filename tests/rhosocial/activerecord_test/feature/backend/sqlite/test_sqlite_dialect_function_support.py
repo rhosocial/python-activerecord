@@ -35,6 +35,18 @@ class TestSQLiteFunctionSupportBasic:
             assert func in result, f"Core function {func} not in result"
             assert result[func] is True, f"Core function {func} should be supported"
 
+    def test_sqlxml_constructors_are_not_plain_functions(self):
+        """Test that standard SQL/XML constructors are not plain functions."""
+        dialect = SQLiteDialect(version=(3, 35, 0))
+        result = dialect.supports_functions()
+        sqlxml_constructors = [
+            "xmlparse", "xmlserialize", "xmlelement", "xmlattributes",
+            "xmlforest", "xmlconcat", "xmlcomment", "xmlpi", "xmlroot",
+            "xmlagg", "xmlquery", "xmlexists", "xmltable",
+        ]
+        for func in sqlxml_constructors:
+            assert func not in result
+
 
 class TestSQLiteFunctionSupportVersionDependent:
     """Tests for version-dependent function support."""

@@ -1459,9 +1459,25 @@ class SQLiteDialect(
         )
         from rhosocial.activerecord.backend.impl.sqlite import functions as sqlite_functions
 
+        expression_constructors = {
+            "xmlagg",
+            "xmlattributes",
+            "xmlcomment",
+            "xmlconcat",
+            "xmlelement",
+            "xmlexists",
+            "xmlforest",
+            "xmlparse",
+            "xmlpi",
+            "xmlquery",
+            "xmlroot",
+            "xmlserialize",
+            "xmltable",
+        }
         result = {}
         for func_name in core_functions:
-            result[func_name] = self._is_sqlite_function_supported(func_name)
+            if func_name not in expression_constructors:
+                result[func_name] = self._is_sqlite_function_supported(func_name)
 
         sqlite_funcs = getattr(sqlite_functions, "__all__", [])
         for func_name in sqlite_funcs:
