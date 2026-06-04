@@ -33,6 +33,7 @@ if TYPE_CHECKING:  # pragma: no cover
         ReleaseSavepointExpression,
         SetTransactionExpression,
     )
+    from ..expression.xml import XMLParseExpression
     from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
     from ..expression.advanced_functions import OrderedSetAggregation
     from ..expression.statements import (
@@ -89,6 +90,22 @@ class CollationSupport(Protocol):
 
     def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
         """Format expression-level COLLATE."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLSupport(Protocol):
+    """Protocol for SQL/XML standard support."""
+
+    def supports_xmlparse(self) -> bool:
+        """Whether SQL/XML XMLPARSE is supported."""
+        ...  # pragma: no cover
+
+    def format_xmlparse_expression(
+        self,
+        expr: "XMLParseExpression",
+    ) -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLPARSE expression."""
         ...  # pragma: no cover
 
 

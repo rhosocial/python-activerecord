@@ -44,6 +44,11 @@ from .collation import (
     CollateExpression,
     collate,
 )
+from .xml import (
+    XMLParseDocumentType,
+    XMLWhitespaceOption,
+    XMLParseExpression,
+)
 from .predicates import (
     ComparisonPredicate,
     LogicalPredicate,
@@ -247,6 +252,8 @@ from .functions import (
     first_value,
     last_value,
     nth_value,
+    # SQL/XML expression factories
+    xmlparse,
     # JSON function factories
     json_extract,
     json_extract_text,
@@ -327,6 +334,10 @@ __all__ = [
     # Collation expressions
     "CollateExpression",
     "collate",
+    # SQL/XML expressions
+    "XMLParseDocumentType",
+    "XMLWhitespaceOption",
+    "XMLParseExpression",
     # Predicates
     "ComparisonPredicate",
     "LogicalPredicate",
@@ -548,4 +559,5 @@ __all__ = [
     "current_user",
     "session_user",
     "system_user",
+    "xmlparse",
 ]

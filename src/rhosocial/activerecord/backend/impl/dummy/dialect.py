@@ -42,6 +42,7 @@ from typing import Dict, List, Tuple, TYPE_CHECKING
 
 from rhosocial.activerecord.backend.dialect.base import SQLDialectBase
 from rhosocial.activerecord.backend.dialect.protocols import (
+    SQLXMLSupport,
     CollationSupport,
     WindowFunctionSupport,
     CTESupport,
@@ -82,6 +83,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     SQLFunctionSupport,
 )
 from rhosocial.activerecord.backend.dialect.mixins import (
+    SQLXMLMixin,
     CollationMixin,
     WindowFunctionMixin,
     CTEMixin,
@@ -123,6 +125,7 @@ if TYPE_CHECKING:
 
 class DummyDialect(
     SQLDialectBase,
+    SQLXMLMixin,
     CollationMixin,
     WindowFunctionMixin,
     CTEMixin,
@@ -157,6 +160,7 @@ class DummyDialect(
     # Introspection Mixin
     IntrospectionMixin,
     # Protocols for type checking
+    SQLXMLSupport,
     CollationSupport,
     WindowFunctionSupport,
     CTESupport,
@@ -207,6 +211,9 @@ class DummyDialect(
         self._version = (1, 0, 0)
 
     # region Protocol Support Checks - Core Features
+    def supports_xmlparse(self) -> bool:
+        return True
+
     def supports_collate_expression(self) -> bool:
         return True
 

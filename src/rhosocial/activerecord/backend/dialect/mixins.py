@@ -16,6 +16,27 @@ from ..expression import bases
 from ..expression.bases import ToSQLProtocol
 from ..expression.statements import ReturningClause
 
+class SQLXMLMixin:
+    """Mixin for SQL/XML standard support."""
+
+    def supports_xmlparse(self) -> bool:
+        """Whether SQL/XML XMLPARSE is supported."""
+        return False
+
+    def format_xmlparse_expression(
+        self,
+        expr: "XMLParseExpression",
+    ) -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLPARSE expression."""
+        if not self.supports_xmlparse():
+            raise UnsupportedFeatureError(self.name, "SQL/XML XMLPARSE")
+        content_sql, params = expr.content.to_sql()
+        sql = f"XMLPARSE({expr.document_type.value} {content_sql}"
+        if expr.whitespace_option is not None:
+            sql += f" {expr.whitespace_option.value}"
+        return f"{sql})", params
+
+
 class CollationMixin:
     """Mixin for expression-level COLLATE support."""
 
@@ -38,6 +59,7 @@ class CollationMixin:
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..expression.collation import CollateExpression
+    from ..expression.xml import XMLParseExpression
     from ..expression.advanced_functions import (
         OrderedSetAggregation,
         WindowFunctionCall,

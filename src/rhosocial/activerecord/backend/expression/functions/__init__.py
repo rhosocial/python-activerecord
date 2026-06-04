@@ -104,6 +104,9 @@ from .grouping import grouping_sets, rollup, cube
 # System information function factories
 from .system import current_user, session_user, system_user
 
+# SQL/XML expression factories
+from .xml import xmlparse
+
 __all__ = [
     # Aggregate
     "count",
@@ -205,4 +208,6 @@ __all__ = [
     "current_user",
     "session_user",
     "system_user",
+    # SQL/XML
+    "xmlparse",
 ]
