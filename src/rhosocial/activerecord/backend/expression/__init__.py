@@ -40,6 +40,10 @@ from .core import (
     Literal,
     WildcardExpression,
 )
+from .collation import (
+    CollateExpression,
+    collate,
+)
 from .predicates import (
     ComparisonPredicate,
     LogicalPredicate,
@@ -320,6 +324,9 @@ __all__ = [
     "TableExpression",
     "Literal",
     "WildcardExpression",
+    # Collation expressions
+    "CollateExpression",
+    "collate",
     # Predicates
     "ComparisonPredicate",
     "LogicalPredicate",
