@@ -72,6 +72,24 @@ if TYPE_CHECKING:  # pragma: no cover
         TriggerListExpression,
         TriggerInfoExpression,
     )
+    from ..expression.collation import CollateExpression
+
+
+@runtime_checkable
+class CollationSupport(Protocol):
+    """Protocol for expression-level COLLATE support."""
+
+    def supports_collate_expression(self) -> bool:
+        """Whether expression-level COLLATE is supported."""
+        ...  # pragma: no cover
+
+    def validate_collation_name(self, expr: "CollateExpression") -> str:
+        """Validate a collation expression and return its SQL representation."""
+        ...  # pragma: no cover
+
+    def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
+        """Format expression-level COLLATE."""
+        ...  # pragma: no cover
 
 
 @runtime_checkable

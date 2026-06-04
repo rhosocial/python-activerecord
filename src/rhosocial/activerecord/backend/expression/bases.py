@@ -11,7 +11,8 @@ import abc
 import inspect
 import sys
 import warnings
-from typing import Dict, Any, Tuple, Protocol, TYPE_CHECKING
+from enum import Enum
+from typing import Dict, Any, Tuple, Protocol, TYPE_CHECKING, Union
 from typing import runtime_checkable
 
 if sys.version_info >= (3, 10):
@@ -52,6 +53,7 @@ def is_sql_query_and_params(obj):
 
 if TYPE_CHECKING:  # pragma: no cover
     from ..dialect import SQLDialectBase
+    from .collation import CollateExpression
 
 
 @runtime_checkable
@@ -178,8 +180,31 @@ class SQLValueExpression(BaseExpression):
     """
     Abstract base class for SQL expressions that return a non-boolean value
     (e.g., integer, string, date).
+
+    This class may define convenience factory methods for SQL value expressions.
+    These methods only guarantee syntactically valid SQL expression generation.
+    They do not validate whether the underlying database value type supports the
+    generated operation, so the final executability may still depend on backend
+    type rules.
     """
 
     def __init__(self, dialect: "SQLDialectBase"):
         super().__init__(dialect)
         self._cast_types: list = []
+
+    def collate(
+        self,
+        collation: Union[str, Enum],
+        **collation_options: Any,
+    ) -> "CollateExpression":
+        """
+        Apply an explicit SQL COLLATE clause to this value expression.
+
+        This method only guarantees syntactically valid COLLATE expression
+        generation. It does not validate whether the underlying database value
+        type supports collation. Callers must apply it only to expressions that
+        are valid for the target backend, typically text/string expressions.
+        """
+        from .collation import CollateExpression
+
+        return CollateExpression(self.dialect, self, collation, **collation_options)
