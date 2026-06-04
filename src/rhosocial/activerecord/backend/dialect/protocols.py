@@ -33,6 +33,21 @@ if TYPE_CHECKING:  # pragma: no cover
         ReleaseSavepointExpression,
         SetTransactionExpression,
     )
+    from ..expression.xml import (
+        XMLAggExpression,
+        XMLAttributesExpression,
+        XMLCommentExpression,
+        XMLConcatExpression,
+        XMLElementExpression,
+        XMLExistsExpression,
+        XMLForestExpression,
+        XMLParseExpression,
+        XMLPIExpression,
+        XMLQueryExpression,
+        XMLRootExpression,
+        XMLSerializeExpression,
+        XMLTableExpression,
+    )
     from ..expression.query_parts import OrderByClause, LimitOffsetClause, ForUpdateClause
     from ..expression.advanced_functions import OrderedSetAggregation
     from ..expression.statements import (
@@ -90,6 +105,153 @@ class CollationSupport(Protocol):
     def format_collate_expression(self, expr: "CollateExpression") -> Tuple[str, tuple]:
         """Format expression-level COLLATE."""
         ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLParsingSupport(Protocol):
+    """Protocol for SQL/XML parsing support."""
+
+    def supports_xmlparse(self) -> bool:
+        """Whether SQL/XML XMLPARSE is supported."""
+        ...  # pragma: no cover
+
+    def format_xmlparse_expression(
+        self,
+        expr: "XMLParseExpression",
+    ) -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLPARSE expression."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLSerializationSupport(Protocol):
+    """Protocol for SQL/XML serialization support."""
+
+    def supports_xmlserialize(self) -> bool:
+        """Whether SQL/XML XMLSERIALIZE is supported."""
+        ...  # pragma: no cover
+
+    def format_xmlserialize_expression(
+        self,
+        expr: "XMLSerializeExpression",
+    ) -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLSERIALIZE expression."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLConstructionSupport(Protocol):
+    """Protocol for SQL/XML construction support."""
+
+    def supports_xmlelement(self) -> bool:
+        """Whether SQL/XML XMLELEMENT is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlattributes(self) -> bool:
+        """Whether SQL/XML XMLATTRIBUTES is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlforest(self) -> bool:
+        """Whether SQL/XML XMLFOREST is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlconcat(self) -> bool:
+        """Whether SQL/XML XMLCONCAT is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlcomment(self) -> bool:
+        """Whether SQL/XML XMLCOMMENT is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlpi(self) -> bool:
+        """Whether SQL/XML XMLPI is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlroot(self) -> bool:
+        """Whether SQL/XML XMLROOT is supported."""
+        ...  # pragma: no cover
+
+    def format_xmlattributes_expression(self, expr: "XMLAttributesExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLATTRIBUTES clause."""
+        ...  # pragma: no cover
+
+    def format_xmlelement_expression(self, expr: "XMLElementExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLELEMENT expression."""
+        ...  # pragma: no cover
+
+    def format_xmlforest_expression(self, expr: "XMLForestExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLFOREST expression."""
+        ...  # pragma: no cover
+
+    def format_xmlconcat_expression(self, expr: "XMLConcatExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLCONCAT expression."""
+        ...  # pragma: no cover
+
+    def format_xmlcomment_expression(self, expr: "XMLCommentExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLCOMMENT expression."""
+        ...  # pragma: no cover
+
+    def format_xmlpi_expression(self, expr: "XMLPIExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLPI expression."""
+        ...  # pragma: no cover
+
+    def format_xmlroot_expression(self, expr: "XMLRootExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLROOT expression."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLAggregationSupport(Protocol):
+    """Protocol for SQL/XML aggregation support."""
+
+    def supports_xmlagg(self) -> bool:
+        """Whether SQL/XML XMLAGG is supported."""
+        ...  # pragma: no cover
+
+    def format_xmlagg_expression(self, expr: "XMLAggExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLAGG expression."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLQueryingSupport(Protocol):
+    """Protocol for SQL/XML querying support."""
+
+    def supports_xmlquery(self) -> bool:
+        """Whether SQL/XML XMLQUERY is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmlexists(self) -> bool:
+        """Whether SQL/XML XMLEXISTS is supported."""
+        ...  # pragma: no cover
+
+    def supports_xmltable(self) -> bool:
+        """Whether SQL/XML XMLTABLE is supported."""
+        ...  # pragma: no cover
+
+    def format_xmlquery_expression(self, expr: "XMLQueryExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLQUERY expression."""
+        ...  # pragma: no cover
+
+    def format_xmlexists_expression(self, expr: "XMLExistsExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLEXISTS predicate."""
+        ...  # pragma: no cover
+
+    def format_xmltable_expression(self, expr: "XMLTableExpression") -> Tuple[str, tuple]:
+        """Format a SQL/XML XMLTABLE expression."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class SQLXMLSupport(
+    SQLXMLParsingSupport,
+    SQLXMLSerializationSupport,
+    SQLXMLConstructionSupport,
+    SQLXMLAggregationSupport,
+    SQLXMLQueryingSupport,
+    Protocol,
+):
+    """Aggregate protocol for complete SQL/XML standard support."""
 
 
 @runtime_checkable
