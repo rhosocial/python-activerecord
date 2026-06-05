@@ -433,15 +433,15 @@ class TestDateTimeFunctionFactories:
         """Test DATE_PART function."""
         func = date_part(dummy_dialect, "year", "created_at")
         sql, params = func.to_sql()
-        assert "DATE_PART(" in sql
-        assert params == ("year",)
-    
+        assert sql == 'EXTRACT(YEAR FROM "created_at")'
+        assert params == ()
+
     def test_date_trunc_function(self, dummy_dialect: DummyDialect):
         """Test DATE_TRUNC function."""
         func = date_trunc(dummy_dialect, "month", "created_at")
         sql, params = func.to_sql()
-        assert "DATE_TRUNC(" in sql
-        assert params == ("month",)
+        assert sql == 'DATE_TRUNC(\'month\', "created_at")'
+        assert params == ()
 
 
 class TestConditionalFunctionFactories:

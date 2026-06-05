@@ -267,15 +267,15 @@ class TestSQLStandardDateTimeFunctions:
         col = Column(dummy_dialect, "created_at")
         func = extract(dummy_dialect, "YEAR", col)
         sql, params = func.to_sql()
-        assert "EXTRACT(" in sql
-        assert params == ("YEAR",)
+        assert sql == 'EXTRACT(YEAR FROM "created_at")'
+        assert params == ()
 
-    def test_extract_function_with_literal(self, dummy_dialect: DummyDialect):
-        """Test EXTRACT function with literal date."""
-        func = extract(dummy_dialect, "MONTH", "CURRENT_DATE")
+    def test_extract_function_with_column_name(self, dummy_dialect: DummyDialect):
+        """Test EXTRACT function with a column name."""
+        func = extract(dummy_dialect, "MONTH", "created_at")
         sql, params = func.to_sql()
-        assert "EXTRACT(" in sql
-        assert params == ("MONTH", "CURRENT_DATE")
+        assert sql == 'EXTRACT(MONTH FROM "created_at")'
+        assert params == ()
 
 
 class TestSQLStandardUserFunctions:

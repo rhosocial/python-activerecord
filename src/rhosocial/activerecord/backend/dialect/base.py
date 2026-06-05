@@ -370,6 +370,61 @@ class SQLDialectBase:
 
         return func_call_sql, tuple(all_params)
 
+    def _apply_value_expression_modifiers(
+        self, sql: str, params: Tuple, expr: "bases.SQLValueExpression"
+    ) -> Tuple[str, Tuple]:
+        """Apply casts and alias to a value expression SQL fragment."""
+        for target_type in expr.cast_types:
+            sql, params = self.format_cast_expression(sql, target_type, params, None)
+        if getattr(expr, "alias", None):
+            sql = f"{sql} AS {self.format_identifier(expr.alias)}"
+        return sql, params
+
+    def format_extract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format an EXTRACT(field FROM source) expression."""
+        source_sql, source_params = expr.source.to_sql()
+        sql = f"EXTRACT({expr.field.value.upper()} FROM {source_sql})"
+        return self._apply_value_expression_modifiers(sql, source_params, expr)
+
+    def format_date_part_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a date part expression."""
+        return self.format_extract_expression(expr)
+
+    def format_date_trunc_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a DATE_TRUNC(field, source) expression."""
+        source_sql, source_params = expr.source.to_sql()
+        field = self._escape_sql_string(expr.field.value)
+        sql = f"DATE_TRUNC('{field}', {source_sql})"
+        return self._apply_value_expression_modifiers(sql, source_params, expr)
+
+    def format_interval_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format a standard SQL interval expression."""
+        value = self._escape_sql_string(str(expr.value))
+        sql = f"INTERVAL '{value}' {expr.unit.value.upper()}"
+        return self._apply_value_expression_modifiers(sql, (), expr)
+
+    def format_datetime_add_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format datetime + interval."""
+        source_sql, source_params = expr.source.to_sql()
+        interval_sql, interval_params = expr.interval.to_sql()
+        sql = f"{source_sql} + {interval_sql}"
+        return self._apply_value_expression_modifiers(sql, source_params + interval_params, expr)
+
+    def format_datetime_subtract_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format datetime - interval."""
+        source_sql, source_params = expr.source.to_sql()
+        interval_sql, interval_params = expr.interval.to_sql()
+        sql = f"{source_sql} - {interval_sql}"
+        return self._apply_value_expression_modifiers(sql, source_params + interval_params, expr)
+
+    def format_datetime_diff_expression(self, expr: "bases.BaseExpression") -> Tuple[str, Tuple]:
+        """Format datetime difference expressions."""
+        raise UnsupportedFeatureError(
+            self.name,
+            f"date_diff({expr.unit.value})",
+            "Override format_datetime_diff_expression() in the target dialect.",
+        )
+
     def format_comparison_predicate(
         self, op: str, left: "bases.BaseExpression", right: "bases.BaseExpression"
     ) -> Tuple[str, Tuple]:

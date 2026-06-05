@@ -44,6 +44,17 @@ from .collation import (
     CollateExpression,
     collate,
 )
+from .datetime import (
+    DateTimeField,
+    IntervalUnit,
+    ExtractExpression,
+    DatePartExpression,
+    DateTruncExpression,
+    IntervalExpression,
+    DateTimeAddExpression,
+    DateTimeSubtractExpression,
+    DateTimeDiffExpression,
+)
 from .xml import (
     XMLAggExpression,
     XMLAttribute,
@@ -258,6 +269,10 @@ from .functions import (
     second,
     date_part,
     date_trunc,
+    interval,
+    date_add,
+    date_sub,
+    date_diff,
     # Conditional function factories
     case,
     nullif,
@@ -366,6 +381,16 @@ __all__ = [
     # Collation expressions
     "CollateExpression",
     "collate",
+    # Date/time expressions
+    "DateTimeField",
+    "IntervalUnit",
+    "ExtractExpression",
+    "DatePartExpression",
+    "DateTruncExpression",
+    "IntervalExpression",
+    "DateTimeAddExpression",
+    "DateTimeSubtractExpression",
+    "DateTimeDiffExpression",
     # SQL/XML expressions
     "XMLAggExpression",
     "XMLAttribute",
@@ -564,6 +589,10 @@ __all__ = [
     "second",
     "date_part",
     "date_trunc",
+    "interval",
+    "date_add",
+    "date_sub",
+    "date_diff",
     "case",
     "nullif",
     "greatest",
