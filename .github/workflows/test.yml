@@ -278,6 +278,7 @@ jobs:
     runs-on: ubuntu-latest
     permissions:
       contents: read
+    continue-on-error: true
     strategy:
       matrix:
         include:
@@ -316,6 +317,55 @@ jobs:
           pip install -r requirements-dev.txt
         fi
 
+        pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
+
+    - name: Run tests
+      env:
+        REDIS_HOST: localhost
+        REDIS_PORT: 6379
+        REDIS_DB: 0
+      run: |
+        export PYTHONPATH=src:tests
+        python -m pytest tests/
+
+  test-python-315-experimental:
+    name: Run tests with Python ${{ matrix.python-version }} (experimental)
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    continue-on-error: true
+    strategy:
+      matrix:
+        include:
+          - python-version: "3.15.0-beta.2"
+            redis-version: "8.8"
+          - python-version: "3.15.0-beta.2-freethreaded"
+            redis-version: "8.8"
+
+    services:
+      redis:
+        image: redis:${{ matrix.redis-version }}
+        ports:
+          - 6379:6379
+        options: >-
+          --health-cmd "redis-cli ping"
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    steps:
+    - name: Check out the repository
+      uses: actions/checkout@v6
+
+    - name: Set up Python ${{ matrix.python-version }}
+      uses: actions/setup-python@v6
+      with:
+        python-version: ${{ matrix.python-version }}
+
+    - name: Install dependencies
+      run: |
+        pip install -r requirements.txt
+        pip install -r requirements-dev.txt
         pip install git+https://github.com/rhosocial/python-activerecord-testsuite.git@release/v1.0.0.dev15#egg=rhosocial-activerecord-testsuite
 
     - name: Run tests
