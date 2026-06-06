@@ -60,7 +60,7 @@ class ConnectionMixin:
         self.disconnect()
 
     @contextmanager
-    def context(self) -> Generator['ConnectionMixin', None, None]:
+    def context(self) -> Generator["ConnectionMixin", None, None]:
         """
         Context manager for explicit connection lifecycle control.
 
@@ -115,7 +115,7 @@ class ConnectionMixin:
         """
         # Only disconnect if connection is active to avoid logging errors
         # during interpreter shutdown
-        if hasattr(self, '_connection') and self._connection is not None:
+        if hasattr(self, "_connection") and self._connection is not None:
             try:
                 self.disconnect()
             except Exception:
@@ -180,7 +180,7 @@ class AsyncConnectionMixin:
         await self.disconnect()
 
     @asynccontextmanager
-    async def context(self) -> Generator['AsyncConnectionMixin', None, None]:
+    async def context(self) -> Generator["AsyncConnectionMixin", None, None]:
         """
         Async context manager for explicit connection lifecycle control.
 

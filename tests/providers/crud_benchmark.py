@@ -46,11 +46,7 @@ if sys.version_info >= (3, 12):
 
 
 BenchmarkUser = select_fixture(
-    *[
-        candidate
-        for candidate in (BenchmarkUser312, BenchmarkUser311, BenchmarkUser310, BenchmarkUserBase)
-        if candidate
-    ]
+    *[candidate for candidate in (BenchmarkUser312, BenchmarkUser311, BenchmarkUser310, BenchmarkUserBase) if candidate]
 )
 AsyncBenchmarkUser = select_fixture(
     *[
@@ -130,9 +126,7 @@ class CrudBenchmarkProvider:
             self._active_backends.append(model_class.__backend__)
         return model_class
 
-    async def _setup_async_model(
-        self, model_class: Type[ActiveRecord], scenario: str
-    ) -> Type[ActiveRecord]:
+    async def _setup_async_model(self, model_class: Type[ActiveRecord], scenario: str) -> Type[ActiveRecord]:
         from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
         _, original_config = get_scenario(scenario)

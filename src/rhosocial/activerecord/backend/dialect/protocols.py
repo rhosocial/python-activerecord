@@ -74,6 +74,7 @@ if TYPE_CHECKING:  # pragma: no cover
         CreateFulltextIndexExpression,
         DropFulltextIndexExpression,
         ReturningClause,
+        PartitionClause,
     )
     from ..introspection.expressions import (
         DatabaseInfoExpression,
@@ -663,7 +664,7 @@ class JSONSupport(Protocol):
 
         Returns:
             Tuple of (SQL string, parameters tuple) for the formatted expression.
-        """
+        """  # noqa: E501
         ...  # pragma: no cover
 
 
@@ -934,8 +935,9 @@ class TableSupport(Protocol):
     - IF NOT EXISTS / IF EXISTS clauses
     - TEMPORARY tables
     - Table inheritance (PostgreSQL)
-    - Partitioning
     - Storage options
+
+    Note: Partitioning support is defined in the separate PartitionSupport protocol.
     """
 
     def supports_create_table(self) -> bool:
@@ -960,10 +962,6 @@ class TableSupport(Protocol):
 
     def supports_if_exists_table(self) -> bool:
         """Whether DROP TABLE IF EXISTS is supported."""
-        ...  # pragma: no cover
-
-    def supports_table_partitioning(self) -> bool:
-        """Whether table partitioning is supported."""
         ...  # pragma: no cover
 
     def supports_table_tablespace(self) -> bool:
@@ -996,6 +994,67 @@ class TableSupport(Protocol):
 
     def format_alter_table_statement(self, expr: "AlterTableExpression") -> Tuple[str, tuple]:
         """Format ALTER TABLE statement."""
+        ...  # pragma: no cover
+
+
+@runtime_checkable
+class PartitionSupport(Protocol):
+    """Protocol for table partitioning support.
+
+    This protocol defines the interface for partitioning capabilities
+    and the format_partition_clause() method for generating PARTITION BY SQL.
+
+    Partitioning strategies vary across databases:
+    - PostgreSQL: RANGE, LIST, HASH (PG 10+, HASH PG 11+)
+    - MySQL: RANGE, LIST, HASH, KEY
+    - SQLite: Not supported
+
+    Dialects implementing this protocol must provide:
+    - supports_*() methods for capability detection
+    - format_partition_clause() for SQL generation
+    """
+
+    def supports_table_partitioning(self) -> bool:
+        """Whether table partitioning is supported at the database level."""
+        ...  # pragma: no cover
+
+    def supports_partitioned_table_creation(self) -> bool:
+        """Whether CREATE TABLE can create partitioned tables through this dialect."""
+        ...  # pragma: no cover
+
+    def supports_range_table_partitioning(self) -> bool:
+        """Whether RANGE table partitioning is supported."""
+        ...  # pragma: no cover
+
+    def supports_list_table_partitioning(self) -> bool:
+        """Whether LIST table partitioning is supported."""
+        ...  # pragma: no cover
+
+    def supports_hash_table_partitioning(self) -> bool:
+        """Whether HASH table partitioning is supported."""
+        ...  # pragma: no cover
+
+    def supports_key_table_partitioning(self) -> bool:
+        """Whether KEY table partitioning is supported."""
+        ...  # pragma: no cover
+
+    def supports_subpartitioning(self) -> bool:
+        """Whether table subpartitioning is supported."""
+        ...  # pragma: no cover
+
+    def supports_partition_metadata_introspection(self) -> bool:
+        """Whether partition metadata introspection is supported."""
+        ...  # pragma: no cover
+
+    def format_partition_clause(self, expr: "PartitionClause") -> Tuple[str, tuple]:
+        """Format PARTITION BY clause from expression.
+
+        Args:
+            expr: PartitionClause with partition strategy and key.
+
+        Returns:
+            Tuple of (SQL string, parameters tuple).
+        """
         ...  # pragma: no cover
 
 
@@ -1786,9 +1845,7 @@ class TransactionControlSupport(Protocol):
 
     # ========== SQL Formatting ==========
 
-    def format_begin_transaction(
-        self, expr: "BeginTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
         """
         Format BEGIN TRANSACTION statement.
 
@@ -1814,9 +1871,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_commit_transaction(
-        self, expr: "CommitTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_commit_transaction(self, expr: "CommitTransactionExpression") -> Tuple[str, tuple]:
         """
         Format COMMIT statement.
 
@@ -1828,9 +1883,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_rollback_transaction(
-        self, expr: "RollbackTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_rollback_transaction(self, expr: "RollbackTransactionExpression") -> Tuple[str, tuple]:
         """
         Format ROLLBACK statement.
 
@@ -1854,9 +1907,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_release_savepoint(
-        self, expr: "ReleaseSavepointExpression"
-    ) -> Tuple[str, tuple]:
+    def format_release_savepoint(self, expr: "ReleaseSavepointExpression") -> Tuple[str, tuple]:
         """
         Format RELEASE SAVEPOINT statement.
 
@@ -1868,9 +1919,7 @@ class TransactionControlSupport(Protocol):
         """
         ...  # pragma: no cover
 
-    def format_set_transaction(
-        self, expr: "SetTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
         """
         Format SET TRANSACTION statement.
 

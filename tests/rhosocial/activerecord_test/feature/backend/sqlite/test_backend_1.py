@@ -3,7 +3,7 @@ import os
 import sqlite3
 import tempfile
 from unittest.mock import patch
-import pytest # Added import
+import pytest  # Added import
 
 from rhosocial.activerecord.backend.errors import ConnectionError
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
@@ -18,14 +18,14 @@ class TestSQLiteBackendCoveragePart1:
     @pytest.fixture
     def temp_db_path(self):
         """Create temporary database file path"""
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         yield path
         # Cleanup
         if os.path.exists(path):
             self._retry_delete(path)
         # Clean up related WAL and SHM files
-        for ext in ['-wal', '-shm']:
+        for ext in ["-wal", "-shm"]:
             wal_path = path + ext
             if os.path.exists(wal_path):
                 self._retry_delete(wal_path)
@@ -33,6 +33,7 @@ class TestSQLiteBackendCoveragePart1:
     def _retry_delete(self, file_path, max_retries=5, retry_delay=0.1):
         """Try to delete a file, retry if failed"""
         import time
+
         for attempt in range(max_retries):
             try:
                 os.unlink(file_path)
@@ -62,10 +63,7 @@ class TestSQLiteBackendCoveragePart1:
     def test_apply_pragmas_exception_handling(self, temp_db_path):
         """Test _apply_pragmas exception handling by adding invalid pragma"""
         # Use SQLiteConnectionConfig to create a configuration, with invalid pragma
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"invalid_syntax_pragma": "INVALID SQL SYNTAX"}
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, pragmas={"invalid_syntax_pragma": "INVALID SQL SYNTAX"})
         backend = SQLiteBackend(connection_config=config)
 
         # Connect, which will trigger _apply_pragmas
@@ -103,16 +101,12 @@ class TestSQLiteBackendCoveragePart1:
     def test_disconnect_delete_files_exception(self, temp_db_path):
         """Test disconnect() with exception during file deletion"""
         # Use SQLiteConnectionConfig to create a configuration，with delete_on_close=True
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            delete_on_close=True
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, delete_on_close=True)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
         # Mock exception during file deletion
-        with patch('os.path.exists', return_value=True), \
-                patch('os.remove', side_effect=Exception("Unexpected error")):
+        with patch("os.path.exists", return_value=True), patch("os.remove", side_effect=Exception("Unexpected error")):
             # Should raise ConnectionError
             with pytest.raises(ConnectionError) as exc_info:
                 backend.disconnect()
@@ -171,18 +165,13 @@ class TestSQLiteBackendCoveragePart1:
     def test_get_pragma_settings_pragmas(self, temp_db_path):
         """Test pragma settings are properly retrieved from SQLiteConnectionConfig"""
         # Test with pragmas in SQLiteConnectionConfig
-        config1 = SQLiteConnectionConfig(
-            database=temp_db_path,
-            pragmas={"test_pragma": "test_value"}
-        )
+        config1 = SQLiteConnectionConfig(database=temp_db_path, pragmas={"test_pragma": "test_value"})
         backend1 = SQLiteBackend(connection_config=config1)
         pragmas1 = backend1.pragmas
         assert pragmas1["test_pragma"] == "test_value", "Pragma from SQLiteConnectionConfig.pragmas should be available"
 
         # Test with default pragmas
-        config2 = SQLiteConnectionConfig(
-            database=temp_db_path
-        )
+        config2 = SQLiteConnectionConfig(database=temp_db_path)
         backend2 = SQLiteBackend(connection_config=config2)
         pragmas2 = backend2.pragmas
         assert "foreign_keys" in pragmas2, "Default pragmas should be included"
@@ -204,7 +193,6 @@ class TestSQLiteBackendCoveragePart1:
             backend.connect()
 
         assert "Failed to connect" in str(exc_info.value)
-
 
     def test_ping_with_execute_error(self, temp_db_path):
         """Test ping() with execute error by corrupting the connection"""
@@ -249,10 +237,7 @@ class TestSQLiteBackendCoveragePart1:
 
     def test_disconnect_delete_on_close_errors(self, temp_db_path):
         """Test disconnect() with delete_on_close errors"""
-        config = SQLiteConnectionConfig(
-            database=temp_db_path,
-            delete_on_close=True
-        )
+        config = SQLiteConnectionConfig(database=temp_db_path, delete_on_close=True)
         backend = SQLiteBackend(connection_config=config)
         backend.connect()
 
@@ -272,7 +257,7 @@ class TestSQLiteBackendCoveragePart1:
                     raise OSError("Permission denied")
             return original_remove(path)
 
-        with patch('os.remove', mock_remove):
+        with patch("os.remove", mock_remove):
             # Should attempt retries and log warning but not raise
             backend.disconnect()
 

@@ -11,12 +11,10 @@ IMPORTANT:
 - This file is solely responsible for wiring up the testsuite's generic tests
   with the backend's specific fixtures and configuration.
 """
-import pytest
-from rhosocial.activerecord.testsuite.feature.basic.conftest import mapped_models_fixtures
+
 
 # Wildcard import all test cases from the testsuite's test file.
-from rhosocial.activerecord.testsuite.feature.basic.test_example_basic_fixtures import *
-
+from rhosocial.activerecord.testsuite.feature.basic.test_example_basic_fixtures import *  # noqa: F403
 
 
 # You can optionally add a fixture here if needed to ensure specific setup/teardown

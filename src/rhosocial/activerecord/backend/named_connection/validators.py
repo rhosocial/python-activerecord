@@ -14,13 +14,15 @@ from .exceptions import NamedConnectionInvalidReturnTypeError
 
 
 # Sensitive field names that should be filtered in describe()
-SENSITIVE_FIELDS = frozenset({
-    "password",
-    "secret",
-    "token",
-    "api_key",
-    "private_key",
-})
+SENSITIVE_FIELDS = frozenset(
+    {
+        "password",
+        "secret",
+        "token",
+        "api_key",
+        "private_key",
+    }
+)
 
 
 def validate_connection_config(

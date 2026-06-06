@@ -24,13 +24,13 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import ColumnDefinition
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import ColumnDefinition  # noqa: E402
 
 # Create tables
 tables = [
@@ -72,7 +72,7 @@ for table, cols, rows in sample_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.impl.sqlite.examples.named_procedures.order_workflow import (
+from rhosocial.activerecord.backend.impl.sqlite.examples.named_procedures.order_workflow import (  # noqa: E402
     OrderProcessingProcedure,
 )
 

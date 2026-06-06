@@ -12,18 +12,21 @@ Targets:
   - ddl_alter.py:61,63 (MODIFY_COLUMN and CHANGE_COLUMN action types)
 """
 
-import pytest
-from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 from rhosocial.activerecord.backend.schema import StatementType
 from rhosocial.activerecord.backend.expression.core import Column, Literal, TableExpression
 from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
 from rhosocial.activerecord.backend.expression.statements.dml import (
-    InsertExpression, UpdateExpression, DeleteExpression, MergeExpression,
+    InsertExpression,
+    UpdateExpression,
+    DeleteExpression,
+    MergeExpression,
 )
 from rhosocial.activerecord.backend.expression.statements.dql import QueryExpression
 from rhosocial.activerecord.backend.expression.statements.explain import ExplainExpression
 from rhosocial.activerecord.backend.expression.statements.ddl_alter import (
-    AlterTableExpression, AlterTableActionType, ModifyColumn, ChangeColumn,
+    AlterTableExpression,
+    ModifyColumn,
+    ChangeColumn,
 )
 from rhosocial.activerecord.backend.expression.statements.ddl_table import ColumnDefinition
 from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
@@ -122,26 +125,30 @@ class TestAlterTableModifyChangeColumn:
 
     def test_modify_column_action(self, dummy_dialect):
         from unittest.mock import patch
+
         col_def = ColumnDefinition("name", "VARCHAR(255)")
-        action = ModifyColumn(column=col_def)
+        action = ModifyColumn(dummy_dialect, column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
             table_name="users",
             actions=[action],
         )
-        with patch.object(dummy_dialect, 'format_modify_column_action', return_value=('MODIFY name VARCHAR(255)', ())):
+        with patch.object(dummy_dialect, "format_modify_column_action", return_value=("MODIFY name VARCHAR(255)", ())):
             sql, params = expr.to_sql()
             assert "MODIFY" in sql
 
     def test_change_column_action(self, dummy_dialect):
         from unittest.mock import patch
+
         col_def = ColumnDefinition("new_name", "VARCHAR(255)")
-        action = ChangeColumn(old_name="old_name", column=col_def)
+        action = ChangeColumn(dummy_dialect, old_name="old_name", column=col_def)
         expr = AlterTableExpression(
             dummy_dialect,
             table_name="users",
             actions=[action],
         )
-        with patch.object(dummy_dialect, 'format_change_column_action', return_value=('CHANGE old_name new_name VARCHAR(255)', ())):
+        with patch.object(
+            dummy_dialect, "format_change_column_action", return_value=("CHANGE old_name new_name VARCHAR(255)", ())
+        ):
             sql, params = expr.to_sql()
             assert "CHANGE" in sql

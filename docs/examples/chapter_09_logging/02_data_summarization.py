@@ -59,9 +59,9 @@ def main():
         max_string_length=30,
         mask_placeholder="[REDACTED]",
         field_maskers={
-            "email": lambda value: str(value).split("@")[0][:1] + "***@" + str(value).split("@")[1]
-            if "@" in str(value)
-            else "***",
+            "email": lambda value: (
+                str(value).split("@")[0][:1] + "***@" + str(value).split("@")[1] if "@" in str(value) else "***"
+            ),
         },
     )
     config.log_data_mode = LogDataMode.SUMMARY

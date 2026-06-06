@@ -6,17 +6,17 @@ TEST PURPOSE:
     1. Expressions with dialect_options - verify that dialect-specific options are preserved
        through serialization/deserialization roundtrips
     2. SQLite-specific expressions - verify SQLite-only expressions like ReindexExpression
-    
+
     This complements test_expression_traversal.py (dummy2) which tests generic
     expressions using discovery. This file tests specific scenarios that require
     a real dialect (SQLite) to verify proper handling.
-    
+
     COVERAGE:
     - INSERT/UPDATE/DELETE with dialect_options (e.g., INSERT ... ON CONFLICT IGNORE)
     - DDL statements with dialect_options (CREATE INDEX, DROP TABLE with IF EXISTS)
     - SQLite-specific expressions (SQLiteReindexExpression, SQLiteMatchPredicate,
       SQLiteTableListExpression, SQLiteColumnInfoExpression)
-    
+
     See also: dummy2/test_expression_traversal.py for generic expression discovery tests.
 """
 
@@ -45,7 +45,9 @@ class TestDialectOptionsExpressionTraversal:
 
     def test_insert_with_dialect_options(self, sqlite_dialect):
         table = TableExpression(sqlite_dialect, "users")
-        source = ValuesSource(sqlite_dialect, values_list=[[Literal(sqlite_dialect, "John"), Literal(sqlite_dialect, 30)]])
+        source = ValuesSource(
+            sqlite_dialect, values_list=[[Literal(sqlite_dialect, "John"), Literal(sqlite_dialect, 30)]]
+        )
         expr = InsertExpression(sqlite_dialect, into=table, source=source, dialect_options={"ignore": True})
         spec = serialization.serialize(expr)
         restored = serialization.deserialize(spec, sqlite_dialect)

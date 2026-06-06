@@ -3,11 +3,10 @@
 Comprehensive test suite for DummyBackend to achieve 100% coverage.
 This includes tests for uncovered lines and branches in backend.py and dialect.py.
 """
+
 import logging
-from unittest.mock import Mock
 import pytest
 from rhosocial.activerecord.backend.impl.dummy.backend import DummyBackend, AsyncDummyBackend
-from rhosocial.activerecord.backend.config import ConnectionConfig
 from rhosocial.activerecord.backend.errors import DatabaseError
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 
@@ -17,7 +16,7 @@ class TestDummyBackendComprehensive:
 
     def test_dummy_backend_with_logger_param(self):
         """Test DummyBackend constructor when logger is provided in kwargs."""
-        logger = logging.getLogger('test_logger')
+        logger = logging.getLogger("test_logger")
         backend = DummyBackend(logger=logger)
         assert backend.logger == logger
 
@@ -40,7 +39,6 @@ class TestDummyBackendComprehensive:
         backend = DummyBackend()
         version = backend.get_server_version()
         assert version == (0, 0, 0)
-
 
     def test_async_dummy_backend_initialization(self):
         """Test AsyncDummyBackend can be initialized."""
@@ -109,7 +107,7 @@ class TestDummyBackendComprehensive:
 
 class TestDummyDialectComprehensive:
     """Tests for all support methods in DummyDialect to ensure 100% coverage."""
-    
+
     def test_dummy_dialect_all_support_methods_return_true(self):
         """Test that all supports_* methods in DummyDialect return True."""
         dialect = DummyDialect()

@@ -15,4 +15,4 @@ Directly import and run the testsuite's combined articles mixin tests.
 # Explicit imports might be added for IDE-specific code completion or type checking,
 # but are not required for test execution.
 
-from rhosocial.activerecord.testsuite.feature.mixins.test_combined_articles import *
+from rhosocial.activerecord.testsuite.feature.mixins.test_combined_articles import *  # noqa: F403

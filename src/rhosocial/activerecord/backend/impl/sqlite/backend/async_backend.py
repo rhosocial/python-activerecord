@@ -49,8 +49,8 @@ class AsyncSQLiteBackend(
         self,
         connection_config: Optional[Union[ConnectionConfig, SQLiteConnectionConfig]] = None,
         database: Optional[str] = None,
-        **kwargs,
-    ):
+        **kwargs: Any,
+    ) -> None:
         logging_config = kwargs.pop("logging_config", None)
 
         if connection_config is None and database is not None:
@@ -91,19 +91,16 @@ class AsyncSQLiteBackend(
         """Return a SQLite-specific typed EXPLAIN result (shared with sync backend)."""
         if "QUERY PLAN" in sql.upper():
             rows = [SQLiteExplainQueryPlanRow(**r) for r in raw_rows]
-            return SQLiteExplainQueryPlanResult(
-                raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
-            )
+            return SQLiteExplainQueryPlanResult(raw_rows=raw_rows, sql=sql, duration=duration, rows=rows)
         rows = [SQLiteExplainRow(**r) for r in raw_rows]
-        return SQLiteExplainResult(
-            raw_rows=raw_rows, sql=sql, duration=duration, rows=rows
-        )
+        return SQLiteExplainResult(raw_rows=raw_rows, sql=sql, duration=duration, rows=rows)
 
-    def _create_introspector(self):
+    def _create_introspector(self) -> Any:
         from ..introspection import AsyncSQLiteIntrospector
         from rhosocial.activerecord.backend.introspection.executor import (
             AsyncIntrospectorExecutor,
         )
+
         return AsyncSQLiteIntrospector(self, AsyncIntrospectorExecutor(self))
 
     async def set_pragma(self, pragma_key: str, pragma_value: Any) -> None:
@@ -198,7 +195,7 @@ class AsyncSQLiteBackend(
                 # the process from exiting.
                 conn = self._connection
                 await conn.close()
-                if hasattr(conn, 'join'):
+                if hasattr(conn, "join"):
                     conn.join(timeout=5.0)
                 self._connection = None
                 self._cursor = None
@@ -253,7 +250,7 @@ class AsyncSQLiteBackend(
                     return False
             return False
 
-    async def _get_cursor(self):
+    async def _get_cursor(self) -> Any:
         """Get database cursor for async operations."""
         if not self._connection:
             await self.connect()

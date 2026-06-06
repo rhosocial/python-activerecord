@@ -5,6 +5,7 @@ Test for ConcurrencyAware protocol implementation.
 This test verifies that the ConcurrencyAware protocol and ConcurrencyAwareMixin
 work correctly for backend implementations.
 """
+
 import pytest
 
 from rhosocial.activerecord.backend.protocols import ConcurrencyAware, ConcurrencyHint

@@ -5,6 +5,7 @@ Executable protocol for expression validation.
 This module defines the Executable protocol which expressions must implement
 to be considered valid for named-query execution.
 """
+
 from typing import Protocol, runtime_checkable
 
 from rhosocial.activerecord.backend.schema import StatementType

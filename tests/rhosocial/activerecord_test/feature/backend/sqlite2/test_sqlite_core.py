@@ -2,10 +2,8 @@
 """
 Tests for the core SQL expression components in core.py
 """
-import pytest
-from rhosocial.activerecord.backend.expression import (
-    Literal, Column, FunctionCall, Subquery, TableExpression
-)
+
+from rhosocial.activerecord.backend.expression import Literal, Column, FunctionCall, Subquery, TableExpression
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -89,9 +87,7 @@ class TestWildcard:
 
         wildcard = WildcardExpression(sqlite_dialect_3_8_0)
         query = QueryExpression(
-            sqlite_dialect_3_8_0,
-            select=[wildcard],
-            from_=TableExpression(sqlite_dialect_3_8_0, "users")
+            sqlite_dialect_3_8_0, select=[wildcard], from_=TableExpression(sqlite_dialect_3_8_0, "users")
         )
         sql, params = query.to_sql()
         assert sql == 'SELECT * FROM "users"'
@@ -103,9 +99,7 @@ class TestWildcard:
 
         wildcard = WildcardExpression(sqlite_dialect_3_8_0, table="users")
         query = QueryExpression(
-            sqlite_dialect_3_8_0,
-            select=[wildcard],
-            from_=TableExpression(sqlite_dialect_3_8_0, "users")
+            sqlite_dialect_3_8_0, select=[wildcard], from_=TableExpression(sqlite_dialect_3_8_0, "users")
         )
         sql, params = query.to_sql()
         assert sql == 'SELECT "users".* FROM "users"'
@@ -203,7 +197,7 @@ class TestFunctionCall:
             "CONCAT",
             Column(sqlite_dialect_3_8_0, "first_name"),
             Literal(sqlite_dialect_3_8_0, " "),
-            Column(sqlite_dialect_3_8_0, "last_name")
+            Column(sqlite_dialect_3_8_0, "last_name"),
         )
         sql, params = func.to_sql()
         assert sql == 'CONCAT("first_name", ?, "last_name")'
@@ -215,11 +209,7 @@ class TestSubquery:
 
     def test_subquery_basic(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test basic Subquery functionality."""
-        subquery = Subquery(
-            sqlite_dialect_3_8_0,
-            "SELECT id FROM users WHERE active = ?",
-            (True,)
-        )
+        subquery = Subquery(sqlite_dialect_3_8_0, "SELECT id FROM users WHERE active = ?", (True,))
         sql, params = subquery.to_sql()
         assert sql == "(SELECT id FROM users WHERE active = ?)"
         assert params == (True,)
@@ -227,13 +217,10 @@ class TestSubquery:
     def test_subquery_with_alias(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test Subquery with alias."""
         subquery = Subquery(
-            sqlite_dialect_3_8_0,
-            "SELECT id FROM users WHERE active = ?",
-            (True,),
-            alias="active_users"
+            sqlite_dialect_3_8_0, "SELECT id FROM users WHERE active = ?", (True,), alias="active_users"
         )
         sql, params = subquery.to_sql()
-        assert sql == "(SELECT id FROM users WHERE active = ?) AS \"active_users\""
+        assert sql == '(SELECT id FROM users WHERE active = ?) AS "active_users"'
         assert params == (True,)
 
 

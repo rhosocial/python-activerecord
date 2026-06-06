@@ -6,8 +6,9 @@ Since the base TransactionManager now provides all the common
 implementation via backend.execute(), this module only needs to
 set SQLite-specific default isolation level.
 """
+
 import logging
-from typing import TYPE_CHECKING, Optional
+from typing import TYPE_CHECKING, Optional, Tuple
 
 from rhosocial.activerecord.backend.transaction import (
     TransactionManager,
@@ -40,7 +41,11 @@ class SQLiteTransactionManager(TransactionManager):
         IsolationLevel.READ_UNCOMMITTED: "DEFERRED",
     }
 
-    def __init__(self, backend: "SQLiteBackend", logger=None):
+    def __init__(
+        self,
+        backend: "SQLiteBackend",
+        logger: Optional[logging.Logger] = None,
+    ) -> None:
         super().__init__(backend, logger)
         # SQLite default isolation level is SERIALIZABLE
         self._isolation_level = IsolationLevel.SERIALIZABLE
@@ -54,7 +59,7 @@ class SQLiteTransactionManager(TransactionManager):
         return self._isolation_level
 
     @isolation_level.setter
-    def isolation_level(self, level: Optional[IsolationLevel]):
+    def isolation_level(self, level: Optional[IsolationLevel]) -> None:
         """Set the transaction isolation level.
 
         SQLite only supports SERIALIZABLE and READ_UNCOMMITTED isolation levels.
@@ -99,7 +104,7 @@ class SQLiteTransactionManager(TransactionManager):
         return self._begin_type
 
     @begin_type.setter
-    def begin_type(self, value: Optional[str]):
+    def begin_type(self, value: Optional[str]) -> None:
         """Set the SQLite BEGIN transaction type.
 
         When set, overrides the default mapping from isolation level.
@@ -116,12 +121,11 @@ class SQLiteTransactionManager(TransactionManager):
             raise IsolationLevelError("Cannot change begin type during active transaction")
         if value is not None and value.upper() not in ("DEFERRED", "IMMEDIATE", "EXCLUSIVE"):
             raise ValueError(
-                f"Invalid SQLite begin type: {value}. "
-                "Must be one of ('DEFERRED', 'IMMEDIATE', 'EXCLUSIVE')"
+                f"Invalid SQLite begin type: {value}. Must be one of ('DEFERRED', 'IMMEDIATE', 'EXCLUSIVE')"
             )
         self._begin_type = value.upper() if value else None
 
-    def _build_begin_sql(self) -> tuple:
+    def _build_begin_sql(self) -> Tuple[str, tuple]:
         """Build BEGIN TRANSACTION SQL with SQLite-specific options."""
         from rhosocial.activerecord.backend.expression.transaction import BeginTransactionExpression
 

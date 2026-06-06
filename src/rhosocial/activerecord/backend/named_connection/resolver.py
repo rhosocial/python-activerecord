@@ -36,15 +36,15 @@ Usage:
         >>> from rhosocial.activerecord.backend.named_connection import list_named_connections_in_module
         >>> connections = list_named_connections_in_module("myapp.connections")
 """
+
 import inspect
 import importlib
 import re
-from typing import Any, Callable, Dict, List, Optional, TYPE_CHECKING
+from typing import Any, Callable, Dict, List, Optional
 
 from rhosocial.activerecord.backend.config import BaseConfig
 
 from .exceptions import (
-    NamedConnectionInvalidReturnTypeError,
     NamedConnectionInvalidParameterError,
     NamedConnectionMissingParameterError,
     NamedConnectionModuleNotFoundError,
@@ -230,11 +230,7 @@ class NamedConnectionResolver:
                 continue
             param_info = {
                 "name": name,
-                "type": (
-                    str(param.annotation)
-                    if param.annotation != inspect.Parameter.empty
-                    else "Any"
-                ),
+                "type": (str(param.annotation) if param.annotation != inspect.Parameter.empty else "Any"),
                 "has_default": param.default != inspect.Parameter.empty,
             }
             if param.default != inspect.Parameter.empty:
@@ -314,8 +310,7 @@ class NamedConnectionResolver:
         if extra_params:
             raise NamedConnectionInvalidParameterError(
                 list(extra_params)[0],
-                f"Unknown parameter(s): {', '.join(extra_params)}. "
-                f"Available parameters: {list(param_names)}",
+                f"Unknown parameter(s): {', '.join(extra_params)}. Available parameters: {list(param_names)}",
             )
 
         try:
@@ -328,13 +323,11 @@ class NamedConnectionResolver:
                     unknown_param = match.group(1)
                     raise NamedConnectionInvalidParameterError(
                         unknown_param,
-                        f"Unknown parameter '{unknown_param}'. "
-                        f"Available parameters: {list(resolved_params.keys())}",
+                        f"Unknown parameter '{unknown_param}'. Available parameters: {list(resolved_params.keys())}",
                     ) from None
             raise NamedConnectionInvalidParameterError(
                 "call",
-                f"Failed to call named connection: {e}. "
-                f"Check that all parameters are valid.",
+                f"Failed to call named connection: {e}. Check that all parameters are valid.",
             ) from None
 
         validate_connection_config(result, self._qualified_name)

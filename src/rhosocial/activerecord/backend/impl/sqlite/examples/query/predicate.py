@@ -10,17 +10,17 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -28,18 +28,26 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table_name='products',
+    table_name="products",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('name', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
-        ColumnDefinition('price', 'REAL'),
-        ColumnDefinition('category', 'TEXT'),
-        ColumnDefinition('description', 'TEXT'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "name",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
+        ColumnDefinition("price", "REAL"),
+        ColumnDefinition("category", "TEXT"),
+        ColumnDefinition("description", "TEXT"),
     ],
     if_not_exists=True,
 )
@@ -47,17 +55,17 @@ sql, params = create_table.to_sql()
 backend.execute(sql, params)
 
 products_data = [
-    ('Apple', 1.5, 'Fruit', 'Fresh red apple'),
-    ('Banana', 0.8, 'Fruit', None),
-    ('Carrot', 0.5, 'Vegetable', 'Organic carrot'),
-    ('Orange', 2.0, 'Fruit', 'Sweet orange'),
-    ('Broccoli', 1.2, 'Vegetable', None),
+    ("Apple", 1.5, "Fruit", "Fresh red apple"),
+    ("Banana", 0.8, "Fruit", None),
+    ("Carrot", 0.5, "Vegetable", "Organic carrot"),
+    ("Orange", 2.0, "Fruit", "Sweet orange"),
+    ("Broccoli", 1.2, "Vegetable", None),
 ]
 for row in products_data:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into='products',
-        columns=['name', 'price', 'category', 'description'],
+        into="products",
+        columns=["name", "price", "category", "description"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
@@ -66,14 +74,14 @@ for row in products_data:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
     TableExpression,
     Column,
     WhereClause,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.predicates import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.predicates import (  # noqa: E402
     LikePredicate,
     InPredicate,
     BetweenPredicate,
@@ -82,21 +90,21 @@ from rhosocial.activerecord.backend.expression.predicates import (
 )
 
 # Combine multiple predicates: (LIKE pattern) AND (IN list) AND (BETWEEN range) AND (IS NOT NULL)
-like_pred = LikePredicate(dialect, 'LIKE', Column(dialect, 'name'), Literal(dialect, '%a%'))
-in_pred = InPredicate(dialect, Column(dialect, 'category'), Literal(dialect, ('Fruit', 'Vegetable')))
-between_pred = BetweenPredicate(dialect, Column(dialect, 'price'), Literal(dialect, 0.5), Literal(dialect, 2.0))
-not_null_pred = IsNullPredicate(dialect, Column(dialect, 'description'), is_not=True)
+like_pred = LikePredicate(dialect, "LIKE", Column(dialect, "name"), Literal(dialect, "%a%"))
+in_pred = InPredicate(dialect, Column(dialect, "category"), Literal(dialect, ("Fruit", "Vegetable")))
+between_pred = BetweenPredicate(dialect, Column(dialect, "price"), Literal(dialect, 0.5), Literal(dialect, 2.0))
+not_null_pred = IsNullPredicate(dialect, Column(dialect, "description"), is_not=True)
 
-combined_pred = LogicalPredicate(dialect, 'AND', like_pred, in_pred, between_pred, not_null_pred)
+combined_pred = LogicalPredicate(dialect, "AND", like_pred, in_pred, between_pred, not_null_pred)
 
 query = QueryExpression(
     dialect=dialect,
     select=[
-        Column(dialect, 'name'),
-        Column(dialect, 'price'),
-        Column(dialect, 'category'),
+        Column(dialect, "name"),
+        Column(dialect, "price"),
+        Column(dialect, "category"),
     ],
-    from_=TableExpression(dialect, 'products'),
+    from_=TableExpression(dialect, "products"),
     where=WhereClause(dialect, condition=combined_pred),
 )
 

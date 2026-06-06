@@ -1,17 +1,12 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_advanced_function_window.py
-import pytest
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, TableExpression, QueryExpression, BinaryArithmeticExpression,
-    # Import new classes for window functions and advanced features
-    CaseExpression, ExistsExpression, AnyExpression, AllExpression,
-    SelectModifier, ForUpdateClause,
-    # Window-related classes
-    WindowFrameSpecification, WindowSpecification, WindowDefinition,
-    WindowClause, WindowFunctionCall
-)
-from rhosocial.activerecord.backend.expression.query_parts import (
-    WhereClause
+    Column,
+    Literal,
+    CaseExpression,
+    ExistsExpression,
+    AnyExpression,
+    AllExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -27,10 +22,7 @@ class TestAdvancedFunctionWindow:
         condition2 = Column(sqlite_dialect_3_8_0, "age") <= Literal(sqlite_dialect_3_8_0, 18)
         result2 = Literal(sqlite_dialect_3_8_0, "minor")
 
-        case_expr = CaseExpression(
-            sqlite_dialect_3_8_0,
-            cases=[(condition1, result1), (condition2, result2)]
-        )
+        case_expr = CaseExpression(sqlite_dialect_3_8_0, cases=[(condition1, result1), (condition2, result2)])
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
         assert params == (18, "adult", 18, "minor")
@@ -43,13 +35,15 @@ class TestAdvancedFunctionWindow:
             value=value,
             cases=[
                 (Literal(sqlite_dialect_3_8_0, "A"), Literal(sqlite_dialect_3_8_0, "Active")),
-                (Literal(sqlite_dialect_3_8_0, "I"), Literal(sqlite_dialect_3_8_0, "Inactive"))
+                (Literal(sqlite_dialect_3_8_0, "I"), Literal(sqlite_dialect_3_8_0, "Inactive")),
             ],
-            else_result=Literal(sqlite_dialect_3_8_0, "Unknown")
+            else_result=Literal(sqlite_dialect_3_8_0, "Unknown"),
         )
         sql, params = case_expr.to_sql()
         assert "CASE" in sql
-        assert len(params) == 5  # status value, "A", "Active", "I", "Inactive", "Unknown" - wait, let me check this again
+        assert (
+            len(params) == 5
+        )  # status value, "A", "Active", "I", "Inactive", "Unknown" - wait, let me check this again
 
     # --- Cast via cast() method ---
     def test_cast_method(self, sqlite_dialect_3_8_0: SQLiteDialect):
@@ -64,6 +58,7 @@ class TestAdvancedFunctionWindow:
     def test_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests EXISTS expression."""
         from rhosocial.activerecord.backend.expression.core import Subquery
+
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
         exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery)
         sql, params = exists_expr.to_sql()
@@ -73,6 +68,7 @@ class TestAdvancedFunctionWindow:
     def test_not_exists_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests NOT EXISTS expression."""
         from rhosocial.activerecord.backend.expression.core import Subquery
+
         subquery = Subquery(sqlite_dialect_3_8_0, "SELECT 1 FROM orders WHERE user_id = users.id", ())
         exists_expr = ExistsExpression(sqlite_dialect_3_8_0, subquery, is_not=True)
         sql, params = exists_expr.to_sql()
@@ -86,7 +82,7 @@ class TestAdvancedFunctionWindow:
             sqlite_dialect_3_8_0,
             Column(sqlite_dialect_3_8_0, "price"),
             ">",
-            Literal(sqlite_dialect_3_8_0, [100, 200, 300])
+            Literal(sqlite_dialect_3_8_0, [100, 200, 300]),
         )
         sql, params = any_expr.to_sql()
         # In SQLite, ANY with a list is typically converted to IN
@@ -96,10 +92,7 @@ class TestAdvancedFunctionWindow:
     def test_all_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Tests ALL expression."""
         all_expr = AllExpression(
-            sqlite_dialect_3_8_0,
-            Column(sqlite_dialect_3_8_0, "price"),
-            ">",
-            Literal(sqlite_dialect_3_8_0, [50, 75])
+            sqlite_dialect_3_8_0, Column(sqlite_dialect_3_8_0, "price"), ">", Literal(sqlite_dialect_3_8_0, [50, 75])
         )
         sql, params = all_expr.to_sql()
         assert sql  # Should generate some valid SQL

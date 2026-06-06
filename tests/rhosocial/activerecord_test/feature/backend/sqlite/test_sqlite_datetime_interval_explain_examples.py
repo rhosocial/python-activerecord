@@ -66,9 +66,7 @@ def _range_filter(dialect, column_name: str, start: str, end: str):
     return LogicalPredicate(
         dialect,
         "AND",
-        ComparisonPredicate(
-            dialect, ">=", Column(dialect, column_name), Literal(dialect, start)
-        ),
+        ComparisonPredicate(dialect, ">=", Column(dialect, column_name), Literal(dialect, start)),
         ComparisonPredicate(dialect, "<", Column(dialect, column_name), Literal(dialect, end)),
     )
 
@@ -77,9 +75,7 @@ def _category_created_filter(dialect):
     return LogicalPredicate(
         dialect,
         "AND",
-        ComparisonPredicate(
-            dialect, "=", Column(dialect, "category"), Literal(dialect, "deploy")
-        ),
+        ComparisonPredicate(dialect, "=", Column(dialect, "category"), Literal(dialect, "deploy")),
         _range_filter(
             dialect,
             "created_at",
@@ -135,23 +131,17 @@ def test_started_at_range_uses_composite_datetime_index(temporal_backend, query_
     assert result.is_full_scan is False
 
 
-def test_datetime_interval_expressions_work_with_indexed_filter(
-    temporal_backend, query_plan_options
-):
+def test_datetime_interval_expressions_work_with_indexed_filter(temporal_backend, query_plan_options):
     dialect = temporal_backend.dialect
     query = QueryExpression(
         dialect,
         select=[
             Column(dialect, "id"),
-            extract(dialect, "year", Column(dialect, "created_at")).as_(
-                "created_year"
+            extract(dialect, "year", Column(dialect, "created_at")).as_("created_year"),
+            date_add(dialect, Column(dialect, "started_at"), 30, "minute").as_("starts_plus_30m"),
+            date_diff(dialect, "minute", Column(dialect, "started_at"), Column(dialect, "ended_at")).as_(
+                "duration_minutes"
             ),
-            date_add(dialect, Column(dialect, "started_at"), 30, "minute").as_(
-                "starts_plus_30m"
-            ),
-            date_diff(
-                dialect, "minute", Column(dialect, "started_at"), Column(dialect, "ended_at")
-            ).as_("duration_minutes"),
         ],
         from_=TableExpression(dialect, "temporal_events"),
         where=_category_created_filter(dialect),

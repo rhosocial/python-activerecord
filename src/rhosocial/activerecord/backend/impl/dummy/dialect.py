@@ -72,6 +72,7 @@ from rhosocial.activerecord.backend.dialect.protocols import (
     # DDL Protocols
     TableSupport,
     ConstraintSupport,
+    PartitionSupport,
     ViewSupport,
     TruncateSupport,
     SchemaSupport,
@@ -117,6 +118,7 @@ from rhosocial.activerecord.backend.dialect.mixins import (
     # DDL Mixins
     TableMixin,
     ConstraintMixin,
+    PartitionMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -164,6 +166,7 @@ class DummyDialect(
     # DDL Mixins
     TableMixin,
     ConstraintMixin,
+    PartitionMixin,
     ViewMixin,
     TruncateMixin,
     SchemaMixin,
@@ -205,6 +208,7 @@ class DummyDialect(
     # DDL Protocols
     TableSupport,
     ConstraintSupport,
+    PartitionSupport,
     ViewSupport,
     TruncateSupport,
     SchemaSupport,
@@ -432,8 +436,32 @@ class DummyDialect(
     def supports_if_exists_table(self) -> bool:
         return True
 
+    # PartitionSupport methods inherited from PartitionMixin,
+    # overridden to enable all partition features
+
     def supports_table_partitioning(self) -> bool:
         return True
+
+    def supports_partitioned_table_creation(self) -> bool:
+        return True
+
+    def supports_range_table_partitioning(self) -> bool:
+        return True
+
+    def supports_list_table_partitioning(self) -> bool:
+        return True
+
+    def supports_hash_table_partitioning(self) -> bool:
+        return True
+
+    def supports_key_table_partitioning(self) -> bool:
+        return True
+
+    def supports_subpartitioning(self) -> bool:
+        return True
+
+    def supports_partition_metadata_introspection(self) -> bool:
+        return False
 
     def supports_table_tablespace(self) -> bool:
         return True
@@ -851,9 +879,7 @@ class DummyDialect(
     # endregion
 
     # region Column Definition with Generated Columns
-    def format_column_definition(
-        self, col_def: "ColumnDefinition"
-    ) -> Tuple[str, tuple]:
+    def format_column_definition(self, col_def: "ColumnDefinition") -> Tuple[str, tuple]:
         """Format a column definition including generated columns.
 
         Args:

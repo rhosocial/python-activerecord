@@ -12,18 +12,18 @@ This example demonstrates:
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     DropTableExpression,
     QueryExpression,
     TableExpression,
 )
-from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal, WildcardExpression  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -31,13 +31,17 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 create_table = CreateTableExpression(
     dialect=dialect,
-    table='users',
+    table="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('name', 'TEXT'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition("name", "TEXT"),
     ],
     if_not_exists=True,
 )
@@ -48,15 +52,18 @@ backend.execute(sql, params)
 # ============================================================
 # SECTION: Single INSERT (using InsertExpression)
 # ============================================================
-from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource
+from rhosocial.activerecord.backend.expression import InsertExpression, ValuesSource  # noqa: E402
 
 insert_expr = InsertExpression(
     dialect=dialect,
-    into='users',
-    columns=['name'],
-    source=ValuesSource(dialect, [
-        [Literal(dialect, 'Alice')],
-    ]),
+    into="users",
+    columns=["name"],
+    source=ValuesSource(
+        dialect,
+        [
+            [Literal(dialect, "Alice")],
+        ],
+    ),
 )
 sql, params = insert_expr.to_sql()
 print(f"Insert SQL: {sql}")
@@ -66,7 +73,7 @@ backend.execute(sql, params)
 verify_query = QueryExpression(
     dialect=dialect,
     select=[WildcardExpression(dialect)],
-    from_=TableExpression(dialect, 'users'),
+    from_=TableExpression(dialect, "users"),
 )
 sql, params = verify_query.to_sql()
 result = backend.execute(sql, params)
@@ -75,7 +82,7 @@ print(f"Result: {result.data}")
 # ============================================================
 # SECTION: Teardown
 # ============================================================
-drop_expr = DropTableExpression(dialect=dialect, table='users', if_exists=True)
+drop_expr = DropTableExpression(dialect=dialect, table="users", if_exists=True)
 sql, params = drop_expr.to_sql()
 backend.execute(sql, params)
 backend.disconnect()

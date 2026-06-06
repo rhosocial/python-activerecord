@@ -114,7 +114,7 @@ class RTreeExtension(SQLiteExtensionBase):
                 min_col, max_col = column_names[i]
             else:
                 min_col, max_col = f'"{table_name}".min{i}', f'"{table_name}".max{i}'
-            conditions.append(f'{min_col} >= ? AND {max_col} <= ?')
+            conditions.append(f"{min_col} >= ? AND {max_col} <= ?")
             params.extend([min_val, max_val])
 
         sql = f'SELECT * FROM "{table_name}" WHERE {" AND ".join(conditions)}'

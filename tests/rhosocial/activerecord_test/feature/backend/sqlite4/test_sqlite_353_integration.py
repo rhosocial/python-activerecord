@@ -43,9 +43,9 @@ def has_sqlite_353_capabilities():
     test_backend.introspect_and_adapt()
     dialect = test_backend._dialect
     has_353 = (
-        dialect.supports_add_constraint() and
-        dialect.supports_drop_constraint() and
-        dialect.supports_reindex_expressions()
+        dialect.supports_add_constraint()
+        and dialect.supports_drop_constraint()
+        and dialect.supports_reindex_expressions()
     )
     test_backend.disconnect()
     return has_353
@@ -53,10 +53,7 @@ def has_sqlite_353_capabilities():
 
 # Use skipif for capability-based skipping
 # The requires_protocol markers are declared for documentation/IDE purposes
-pytestmark = pytest.mark.skipif(
-    not has_sqlite_353_capabilities(),
-    reason="SQLite 3.53.0+ capabilities not available"
-)
+pytestmark = pytest.mark.skipif(not has_sqlite_353_capabilities(), reason="SQLite 3.53.0+ capabilities not available")
 
 
 class TestSQLite353DialectCapabilities:
@@ -165,7 +162,7 @@ class TestSQLite353ReindexExecution:
         sql, params = reindex_expr.to_sql()
 
         # Should execute without error
-        result = sqlite_backend.execute(sql, params)
+        sqlite_backend.execute(sql, params)
 
     @pytest.mark.requires_protocol((SQLiteReindexSupport, "supports_reindex_expressions"))
     def test_reindex_expressions_on_empty_db(self, sqlite_backend: SQLiteBackend):
@@ -186,7 +183,7 @@ class TestSQLite353ReindexExecution:
         sql, params = reindex_expr.to_sql()
 
         # Should execute without error
-        result = sqlite_backend.execute(sql, params)
+        sqlite_backend.execute(sql, params)
 
 
 class TestSQLite353JsonFunctionsSQL:
@@ -226,13 +223,13 @@ class TestSQLite353JsonFunctionsSQL:
 class TestSQLite353JsonFunctionsExecution:
     """Integration tests for json_array_insert/jsonb_array_insert execution."""
 
-    @pytest.mark.requires_functions('json_array_insert')
+    @pytest.mark.requires_functions("json_array_insert")
     def test_json_array_insert_executes(self, sqlite_backend: SQLiteBackend):
         """Test that json_array_insert executes and returns expected result."""
         sqlite_backend.introspect_and_adapt()
 
         dialect = sqlite_backend._dialect
-        ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
+        ExecutionOptions(stmt_type=StatementType.DDL)
         dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 
         # Create table with JSON data
@@ -249,6 +246,7 @@ class TestSQLite353JsonFunctionsExecution:
         json_expr = json_array_insert(dialect, col_data, Literal(dialect, 0), position=0)
 
         from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+
         query = QueryExpression(
             dialect=dialect,
             select=[
@@ -262,16 +260,16 @@ class TestSQLite353JsonFunctionsExecution:
 
         assert result.data is not None
         assert len(result.data) == 1
-        modified_json = result.data[0]['modified']
+        modified_json = result.data[0]["modified"]
         assert "0" in modified_json
 
-    @pytest.mark.requires_functions('jsonb_array_insert')
+    @pytest.mark.requires_functions("jsonb_array_insert")
     def test_jsonb_array_insert_executes(self, sqlite_backend: SQLiteBackend):
         """Test that jsonb_array_insert executes and returns expected result."""
         sqlite_backend.introspect_and_adapt()
 
         dialect = sqlite_backend._dialect
-        ddl_options = ExecutionOptions(stmt_type=StatementType.DDL)
+        ExecutionOptions(stmt_type=StatementType.DDL)
         dql_options = ExecutionOptions(stmt_type=StatementType.DQL)
 
         # Create table with JSON data
@@ -288,6 +286,7 @@ class TestSQLite353JsonFunctionsExecution:
         json_expr = jsonb_array_insert(dialect, col_data, Literal(dialect, "new_value"), position=1)
 
         from rhosocial.activerecord.backend.expression import QueryExpression, TableExpression
+
         query = QueryExpression(
             dialect=dialect,
             select=[
@@ -322,14 +321,10 @@ class TestSQLite353AlterTableConstraint:
         """)
 
         # Add CHECK constraint - SQLite 3.53.0+ syntax
-        result = sqlite_backend.execute(
-            'ALTER TABLE products ADD CONSTRAINT chk_price_positive CHECK (price >= 0)', ()
-        )
+        result = sqlite_backend.execute("ALTER TABLE products ADD CONSTRAINT chk_price_positive CHECK (price >= 0)", ())
 
         # Verify constraint works - should succeed
-        result = sqlite_backend.execute(
-            "INSERT INTO products (name, price) VALUES ('Banana', 50)", ()
-        )
+        result = sqlite_backend.execute("INSERT INTO products (name, price) VALUES ('Banana', 50)", ())
         assert result.affected_rows == 1
 
     @pytest.mark.requires_protocol((ConstraintSupport, "supports_drop_constraint"))
@@ -347,12 +342,8 @@ class TestSQLite353AlterTableConstraint:
         """)
 
         # Drop the CHECK constraint
-        result = sqlite_backend.execute(
-            'ALTER TABLE orders DROP CONSTRAINT chk_status', ()
-        )
+        result = sqlite_backend.execute("ALTER TABLE orders DROP CONSTRAINT chk_status", ())
 
         # After dropping, any value should be allowed
-        result = sqlite_backend.execute(
-            "INSERT INTO orders (status) VALUES ('cancelled')", ()
-        )
+        result = sqlite_backend.execute("INSERT INTO orders (status) VALUES ('cancelled')", ())
         assert result.affected_rows == 1

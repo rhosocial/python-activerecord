@@ -11,19 +11,22 @@ Tests cover:
 
 For async tests, see sqlite_async/test_batch_dml.py.
 """
+
 import pytest
 from datetime import datetime
-from decimal import Decimal
-from uuid import uuid4, UUID
+from uuid import uuid4
 
 from rhosocial.activerecord.backend.expression import (
-    Column, Literal, InsertExpression, UpdateExpression, DeleteExpression,
-    TableExpression, ValuesSource, ComparisonPredicate,
-    ReturningClause,
+    Column,
+    Literal,
+    InsertExpression,
+    UpdateExpression,
+    DeleteExpression,
+    ValuesSource,
+    ComparisonPredicate,
 )
 from rhosocial.activerecord.backend.dialect.exceptions import UnsupportedFeatureError
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.result import QueryResult
 
 
 # ──────────────────────────────────────────────
@@ -69,6 +72,7 @@ def backend_with_typed(sqlite_backend):
 def backend_no_returning(tmp_path):
     """SQLite backend with dialect downgraded to 3.30.0 (no RETURNING)."""
     from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
+
     backend = SQLiteBackend(database=str(tmp_path / "tier2.db"))
     backend._dialect = SQLiteDialect(version=(3, 30, 0))
     backend.connect()
@@ -83,18 +87,18 @@ def backend_no_returning(tmp_path):
 # Helpers
 # ──────────────────────────────────────────────
 
+
 def _make_insert_expr(dialect, name, email):
     """Build a single-row InsertExpression for users table."""
-    source = ValuesSource(dialect, values_list=[
-        [Literal(dialect, name), Literal(dialect, email)]
-    ])
+    source = ValuesSource(dialect, values_list=[[Literal(dialect, name), Literal(dialect, email)]])
     return InsertExpression(dialect, into="users", columns=["name", "email"], source=source)
 
 
 def _make_update_expr(dialect, pk_val, new_name):
     """Build an UpdateExpression: SET name=? WHERE id=?"""
     return UpdateExpression(
-        dialect, table="users",
+        dialect,
+        table="users",
         assignments={"name": Literal(dialect, new_name)},
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
@@ -103,7 +107,8 @@ def _make_update_expr(dialect, pk_val, new_name):
 def _make_delete_expr(dialect, pk_val):
     """Build a DeleteExpression: DELETE FROM users WHERE id=?"""
     return DeleteExpression(
-        dialect, tables="users",
+        dialect,
+        tables="users",
         where=ComparisonPredicate(dialect, "=", Column(dialect, "id"), Literal(dialect, pk_val)),
     )
 
@@ -112,8 +117,10 @@ def _count_rows(backend, table="users"):
     """SELECT COUNT(*) helper."""
     from rhosocial.activerecord.backend.options import ExecutionOptions
     from rhosocial.activerecord.backend.schema import StatementType
+
     result = backend.execute(
-        f"SELECT COUNT(*) as cnt FROM {table}", None,
+        f"SELECT COUNT(*) as cnt FROM {table}",
+        None,
         options=ExecutionOptions(stmt_type=StatementType.DQL),
     )
     return result.data[0]["cnt"]
@@ -128,23 +135,25 @@ def _collect_batches(iterator):
 # Sync: INSERT
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLInsert:
     """Sync INSERT tests."""
 
-    @pytest.mark.parametrize("row_count, batch_size, expected_batches", [
-        pytest.param(10, 100, 1, id="all_in_one_batch"),
-        pytest.param(10, 10, 1, id="exact_batch_boundary"),
-        pytest.param(11, 5, 3, id="uneven_batches_5_5_1"),
-        pytest.param(1, 100, 1, id="single_row"),
-        pytest.param(3, 1, 3, id="batch_size_1"),
-    ])
+    @pytest.mark.parametrize(
+        "row_count, batch_size, expected_batches",
+        [
+            pytest.param(10, 100, 1, id="all_in_one_batch"),
+            pytest.param(10, 10, 1, id="exact_batch_boundary"),
+            pytest.param(11, 5, 3, id="uneven_batches_5_5_1"),
+            pytest.param(1, 100, 1, id="single_row"),
+            pytest.param(3, 1, 3, id="batch_size_1"),
+        ],
+    )
     def test_insert_batch_counts(self, backend_with_users, row_count, batch_size, expected_batches):
         dialect = backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"user{i}", f"user{i}@test.com") for i in range(row_count)]
 
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml(exprs, batch_size=batch_size)
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml(exprs, batch_size=batch_size))
 
         assert len(batches) == expected_batches
         total_affected = sum(b.total_affected_rows for b in batches)
@@ -155,9 +164,7 @@ class TestBatchDMLInsert:
         dialect = backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(7)]
 
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml(exprs, batch_size=3)
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml(exprs, batch_size=3))
 
         assert [b.batch_index for b in batches] == [0, 1, 2]
         assert [b.batch_size for b in batches] == [3, 3, 1]
@@ -166,9 +173,7 @@ class TestBatchDMLInsert:
         dialect = backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(3)]
 
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml(exprs)
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml(exprs))
 
         for b in batches:
             assert b.has_returning is False
@@ -180,7 +185,9 @@ class TestBatchDMLInsert:
 
         batches = _collect_batches(
             backend_with_users.execute_batch_dml(
-                exprs, batch_size=3, returning_columns=["id", "name"],
+                exprs,
+                batch_size=3,
+                returning_columns=["id", "name"],
             )
         )
 
@@ -198,24 +205,21 @@ class TestBatchDMLInsert:
         dialect = backend_with_users.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(3)]
 
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml(exprs, returning_columns=["id"])
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml(exprs, returning_columns=["id"]))
 
         ids = [r.data[0]["id"] for b in batches for r in b.results]
         assert len(ids) == 3
         assert len(set(ids)) == 3  # all unique
 
     def test_empty_expressions(self, backend_with_users):
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml([])
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml([]))
         assert batches == []
 
 
 # ══════════════════════════════════════════════
 # Sync: UPDATE
 # ══════════════════════════════════════════════
+
 
 class TestBatchDMLUpdate:
     """Sync UPDATE tests."""
@@ -228,6 +232,7 @@ class TestBatchDMLUpdate:
             sql, params = expr.to_sql()
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
+
             backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
         return list(range(1, n + 1))
 
@@ -236,9 +241,7 @@ class TestBatchDMLUpdate:
         dialect = backend_with_users.dialect
         exprs = [_make_update_expr(dialect, pk, f"updated{pk}") for pk in ids]
 
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml(exprs, batch_size=5)
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml(exprs, batch_size=5))
 
         total = sum(b.total_affected_rows for b in batches)
         assert total == 10
@@ -251,7 +254,8 @@ class TestBatchDMLUpdate:
 
         batches = _collect_batches(
             backend_with_users.execute_batch_dml(
-                exprs, returning_columns=["id", "name"],
+                exprs,
+                returning_columns=["id", "name"],
             )
         )
 
@@ -267,6 +271,7 @@ class TestBatchDMLUpdate:
 # Sync: DELETE
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLDelete:
     """Sync DELETE tests."""
 
@@ -277,6 +282,7 @@ class TestBatchDMLDelete:
             sql, params = expr.to_sql()
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
+
             backend.execute(sql, params, options=ExecutionOptions(stmt_type=StatementType.DML))
         return list(range(1, n + 1))
 
@@ -285,9 +291,7 @@ class TestBatchDMLDelete:
         dialect = backend_with_users.dialect
         exprs = [_make_delete_expr(dialect, pk) for pk in ids]
 
-        batches = _collect_batches(
-            backend_with_users.execute_batch_dml(exprs, batch_size=4)
-        )
+        batches = _collect_batches(backend_with_users.execute_batch_dml(exprs, batch_size=4))
 
         total = sum(b.total_affected_rows for b in batches)
         assert total == 10
@@ -301,7 +305,8 @@ class TestBatchDMLDelete:
 
         batches = _collect_batches(
             backend_with_users.execute_batch_dml(
-                exprs, returning_columns=["id", "name"],
+                exprs,
+                returning_columns=["id", "name"],
             )
         )
 
@@ -313,6 +318,7 @@ class TestBatchDMLDelete:
 # Sync: Type conversion (executemany path)
 # ══════════════════════════════════════════════
 
+
 class TestBatchDMLTypeConversion:
     """Verify parameter type conversion works in the executemany path."""
 
@@ -321,24 +327,31 @@ class TestBatchDMLTypeConversion:
         test_uuid = uuid4()
         test_dt = datetime(2025, 1, 15, 10, 30, 0)
 
-        source = ValuesSource(dialect, values_list=[
-            [Literal(dialect, str(test_uuid)), Literal(dialect, test_dt.isoformat()),
-             Literal(dialect, "123.45"), Literal(dialect, 1)]
-        ])
+        source = ValuesSource(
+            dialect,
+            values_list=[
+                [
+                    Literal(dialect, str(test_uuid)),
+                    Literal(dialect, test_dt.isoformat()),
+                    Literal(dialect, "123.45"),
+                    Literal(dialect, 1),
+                ]
+            ],
+        )
         exprs = [
-            InsertExpression(dialect, into="typed_data",
-                             columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source)
+            InsertExpression(
+                dialect, into="typed_data", columns=["uuid_col", "dt_col", "dec_col", "bool_col"], source=source
+            )
         ]
 
-        batches = _collect_batches(
-            backend_with_typed.execute_batch_dml(exprs)
-        )
+        batches = _collect_batches(backend_with_typed.execute_batch_dml(exprs))
         assert batches[0].total_affected_rows == 1
 
 
 # ══════════════════════════════════════════════
 # Sync: Tier 2 RETURNING fast-fail
 # ══════════════════════════════════════════════
+
 
 class TestBatchDMLTier2:
     """Tests with Tier 2 backend (SQLite < 3.35, no RETURNING)."""
@@ -347,9 +360,7 @@ class TestBatchDMLTier2:
         dialect = backend_no_returning.dialect
         exprs = [_make_insert_expr(dialect, f"u{i}", f"u{i}@t.com") for i in range(3)]
 
-        batches = _collect_batches(
-            backend_no_returning.execute_batch_dml(exprs)
-        )
+        batches = _collect_batches(backend_no_returning.execute_batch_dml(exprs))
         assert sum(b.total_affected_rows for b in batches) == 3
 
     def test_insert_with_returning_raises(self, backend_no_returning):
@@ -357,6 +368,4 @@ class TestBatchDMLTier2:
         exprs = [_make_insert_expr(dialect, "u0", "u0@t.com")]
 
         with pytest.raises(UnsupportedFeatureError):
-            _collect_batches(
-                backend_no_returning.execute_batch_dml(exprs, returning_columns=["id"])
-            )
+            _collect_batches(backend_no_returning.execute_batch_dml(exprs, returning_columns=["id"]))

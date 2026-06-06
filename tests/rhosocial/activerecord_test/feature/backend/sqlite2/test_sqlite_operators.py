@@ -1,10 +1,11 @@
 # tests/rhosocial/activerecord_test/feature/backend/sqlite2/test_sqlite_operators.py
-import pytest
-from rhosocial.activerecord.backend.expression import (
-    Column, Literal, FunctionCall, Subquery
-)
+from rhosocial.activerecord.backend.expression import Column, Literal
 from rhosocial.activerecord.backend.expression.operators import (
-    SQLOperation, BinaryExpression, UnaryExpression, RawSQLExpression, BinaryArithmeticExpression
+    SQLOperation,
+    BinaryExpression,
+    UnaryExpression,
+    RawSQLExpression,
+    BinaryArithmeticExpression,
 )
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
@@ -66,16 +67,16 @@ class TestUnaryExpression:
         unary_expr = UnaryExpression(sqlite_dialect_3_8_0, "NOT", operand)
 
         sql, params = unary_expr.to_sql()
-        assert sql == "NOT \"active\""
+        assert sql == 'NOT "active"'
         assert params == ()
 
     def test_unary_negation_expression(self, sqlite_dialect_3_8_0: SQLiteDialect):
         """Test unary negation expression."""
         operand = Column(sqlite_dialect_3_8_0, "balance")
-        unary_expr = UnaryExpression(sqlite_dialect_3_8_0, "-", operand, pos='before')
+        unary_expr = UnaryExpression(sqlite_dialect_3_8_0, "-", operand, pos="before")
 
         sql, params = unary_expr.to_sql()
-        assert sql == "- \"balance\""
+        assert sql == '- "balance"'
         assert params == ()
 
 

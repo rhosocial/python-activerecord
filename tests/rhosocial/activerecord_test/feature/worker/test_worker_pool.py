@@ -78,6 +78,7 @@ def failing_task(ctx: TaskContext, n: int) -> int:
 def crash_task(ctx: TaskContext) -> None:
     """Task that crashes the process (simulate segfault)"""
     import os
+
     # Use os._exit() to simulate abnormal termination
     # SIGKILL can corrupt multiprocessing.Queue state
     os._exit(1)
@@ -86,6 +87,7 @@ def crash_task(ctx: TaskContext) -> None:
 async def async_simple_task(ctx: TaskContext, n: int) -> int:
     """Simple async task: return n * 2"""
     import asyncio
+
     await asyncio.sleep(0.01)  # Small delay to verify async execution
     return n * 2
 
@@ -93,6 +95,7 @@ async def async_simple_task(ctx: TaskContext, n: int) -> int:
 async def async_failing_task(ctx: TaskContext, n: int) -> int:
     """Async task that fails"""
     import asyncio
+
     await asyncio.sleep(0.01)
     if n < 0:
         raise ValueError("n must be non-negative")
@@ -102,6 +105,7 @@ async def async_failing_task(ctx: TaskContext, n: int) -> int:
 # ─────────────────────────────────────────────────────────────────────────────
 # Helper functions for testing WorkerHandle and WorkerRegistry (must be module-level)
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 def _dummy_worker_long() -> None:
     """Sleep for a long time - used to test alive process handling"""
@@ -121,6 +125,7 @@ def _sleepy_worker() -> None:
 # ─────────────────────────────────────────────────────────────────────────────
 # Test classes
 # ─────────────────────────────────────────────────────────────────────────────
+
 
 class TestFuture:
     """Test Future"""
@@ -831,6 +836,7 @@ class TestOrphanedTaskDetection:
         # Manually inject a task into _futures and _task_enqueue_time
         # to simulate a task that was dequeued but never claimed
         import uuid
+
         task_id = str(uuid.uuid4())
         fut = Future(task_id)
 

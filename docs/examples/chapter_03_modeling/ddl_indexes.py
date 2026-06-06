@@ -9,7 +9,6 @@ Demonstrates index creation and management:
 """
 
 from typing import ClassVar
-from pydantic import Field
 from rhosocial.activerecord.model import ActiveRecord
 from rhosocial.activerecord.base import FieldProxy
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend, SQLiteConnectionConfig
@@ -29,6 +28,7 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 class Product(ActiveRecord):
     """Product Model for DDL index demo"""
+
     name: str
     category: str
     price: float
@@ -52,26 +52,14 @@ def main():
 
     # First create the products table
     product_columns = [
-        ColumnDefinition(
-            "id",
-            "INTEGER",
-            constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]
-        ),
-        ColumnDefinition(
-            "name",
-            "VARCHAR(100)",
-            constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]
-        ),
+        ColumnDefinition("id", "INTEGER", constraints=[ColumnConstraint(ColumnConstraintType.PRIMARY_KEY)]),
+        ColumnDefinition("name", "VARCHAR(100)", constraints=[ColumnConstraint(ColumnConstraintType.NOT_NULL)]),
         ColumnDefinition("category", "VARCHAR(50)"),
         ColumnDefinition("price", "REAL"),
-        ColumnDefinition("status", "VARCHAR(20)")
+        ColumnDefinition("status", "VARCHAR(20)"),
     ]
 
-    create_products = CreateTableExpression(
-        dialect=dialect,
-        table_name="products",
-        columns=product_columns
-    )
+    create_products = CreateTableExpression(dialect=dialect, table_name="products", columns=product_columns)
 
     sql_str, params_str = create_products.to_sql()
     backend.execute(sql_str, params_str)
@@ -80,12 +68,7 @@ def main():
     # ============================================================
     # Example 1: Create basic index
     # ============================================================
-    create_idx = CreateIndexExpression(
-        dialect,
-        index_name="idx_products_name",
-        table_name="products",
-        columns=["name"]
-    )
+    create_idx = CreateIndexExpression(dialect, index_name="idx_products_name", table_name="products", columns=["name"])
 
     sql, params = create_idx.to_sql()
     print("=== Create Basic Index ===")
@@ -103,7 +86,7 @@ def main():
         index_name="idx_products_category_name",
         table_name="products",
         columns=["category", "name"],
-        unique=True
+        unique=True,
     )
 
     sql, params = create_unique_idx.to_sql()
@@ -122,7 +105,7 @@ def main():
         index_name="idx_products_active_price",
         table_name="products",
         columns=["price"],
-        where=Column(dialect, "status") == Literal(dialect, "active")
+        where=Column(dialect, "status") == Literal(dialect, "active"),
     )
 
     sql, params = create_partial_idx.to_sql()
@@ -144,11 +127,7 @@ def main():
     # Showing it for demonstration purposes only.
     print("=== Index Type (not supported in SQLite) ===")
     create_btree_idx = CreateIndexExpression(
-        dialect,
-        index_name="idx_products_category",
-        table_name="products",
-        columns=["category"],
-        index_type="BTREE"
+        dialect, index_name="idx_products_category", table_name="products", columns=["category"], index_type="BTREE"
     )
     sql, params = create_btree_idx.to_sql()
     print(f"SQL: {sql}")
@@ -158,11 +137,7 @@ def main():
     # ============================================================
     # Example 5: Drop index
     # ============================================================
-    drop_idx = DropIndexExpression(
-        dialect,
-        index_name="idx_products_category",
-        if_exists=True
-    )
+    drop_idx = DropIndexExpression(dialect, index_name="idx_products_category", if_exists=True)
 
     sql, params = drop_idx.to_sql()
     print("=== Drop Index ===")

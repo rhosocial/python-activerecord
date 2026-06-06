@@ -10,9 +10,11 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 # Mapping table: scenario name -> config dict (SQLite only)
 SCENARIO_MAP: Dict[str, Dict[str, Any]] = {}
 
+
 def register_scenario(name: str, config: Dict[str, Any]):
     """Register an SQLite test scenario."""
     SCENARIO_MAP[name] = config
+
 
 def get_scenario(name: str) -> Tuple[Type[SQLiteBackend], SQLiteConnectionConfig]:
     """
@@ -26,12 +28,14 @@ def get_scenario(name: str) -> Tuple[Type[SQLiteBackend], SQLiteConnectionConfig
     config = SQLiteConnectionConfig(**SCENARIO_MAP[name])
     return SQLiteBackend, config
 
+
 def get_enabled_scenarios() -> Dict[str, Any]:
     """
     Returns the map of all currently enabled scenarios. The testsuite's conftest
     uses this to parameterize the tests, causing them to run for each scenario.
     """
     return SCENARIO_MAP
+
 
 def _register_default_scenarios():
     """
@@ -48,16 +52,15 @@ def _register_default_scenarios():
     temp_dir = tempfile.gettempdir()
 
     # Default scenario: file-based temporary database
-    register_scenario("default", {
-        "database": os.path.join(temp_dir, "test_activerecord.sqlite"),
-        "delete_on_close": True
-    })
+    register_scenario(
+        "default", {"database": os.path.join(temp_dir, "test_activerecord.sqlite"), "delete_on_close": True}
+    )
 
     # Also register as "tempfile" for explicit reference
-    register_scenario("tempfile", {
-        "database": os.path.join(temp_dir, "test_activerecord_tempfile.sqlite"),
-        "delete_on_close": True
-    })
+    register_scenario(
+        "tempfile", {"database": os.path.join(temp_dir, "test_activerecord_tempfile.sqlite"), "delete_on_close": True}
+    )
+
 
 # Register default scenarios on module load
 _register_default_scenarios()

@@ -5,12 +5,13 @@ Tests for dialect SQL injection security fixes.
 This test module verifies that string escaping and validation
 methods properly sanitize user input to prevent SQL injection.
 """
+
 import pytest
 
 from rhosocial.activerecord.backend.dialect import SQLDialectBase
-from rhosocial.activerecord.backend.expression import Column, Literal
+from rhosocial.activerecord.backend.dialect.mixins import PartitionMixin
+from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.statements import (
-    CreateTableExpression,
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -18,10 +19,13 @@ from rhosocial.activerecord.backend.expression.statements import (
 from rhosocial.activerecord.backend.expression.functions.string import trim
 
 
-class TestDialect(SQLDialectBase):
+class TestDialect(SQLDialectBase, PartitionMixin):
     """Test dialect for security tests."""
 
     name = "test"
+
+    def supports_table_partitioning(self) -> bool:
+        return True
 
 
 def test_escape_sql_string_basic(dialect):
@@ -196,27 +200,55 @@ def test_format_storage_options_empty(dialect):
 
 
 def test_format_partition_type_validation(dialect):
-    """Test partition type is embedded but columns are identifier-quoted.
-
-    Note: partition_type is not allowlist-validated in base dialect.
-    This test documents the current behavior.
-    """
+    """Test partition strategy is allowlist-validated and columns are quoted."""
     from rhosocial.activerecord.backend.expression.statements.ddl_table import (
         CreateTableExpression,
         ColumnDefinition,
+        PartitionKey,
+        PartitionClause,
+        PartitionStrategy,
     )
 
     col_def = ColumnDefinition(name="id", data_type="INTEGER")
-    table = dialect.format_identifier("test_table")  # need an identifier string
     expr = CreateTableExpression(
         dialect=dialect,
         table="test_table",
         columns=[col_def],
-        partition_by=("RANGE", ["id"]),
+        partition=PartitionClause(
+            dialect=dialect,
+            strategy=PartitionStrategy.RANGE,
+            key=PartitionKey(columns=["id"]),
+        ),
     )
     sql, params = dialect.format_create_table_statement(expr)
     assert "PARTITION BY RANGE" in sql
     assert '"id"' in sql or '"ID"' in sql
+    assert params == ()
+
+
+def test_format_partition_type_rejects_invalid_strategy(dialect):
+    """Invalid partition strategy is rejected before SQL generation."""
+    from rhosocial.activerecord.backend.expression.statements.ddl_table import (
+        CreateTableExpression,
+        ColumnDefinition,
+        PartitionKey,
+        PartitionClause,
+    )
+
+    col_def = ColumnDefinition(name="id", data_type="INTEGER")
+    expr = CreateTableExpression(
+        dialect=dialect,
+        table="test_table",
+        columns=[col_def],
+        partition=PartitionClause(
+            dialect=dialect,
+            strategy="RANGE); DROP TABLE users; --",
+            key=PartitionKey(columns=["id"]),
+        ),
+    )
+
+    with pytest.raises(ValueError, match="Invalid partition strategy"):
+        dialect.format_create_table_statement(expr)
 
 
 @pytest.fixture

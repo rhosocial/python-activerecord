@@ -23,9 +23,7 @@ from rhosocial.activerecord.backend.explain.types import BaseExplainResult
 IndexUsage = Literal["full_scan", "index_with_lookup", "covering_index", "unknown"]
 
 # Bytecode opcodes that indicate an index seek (range or equality navigation).
-_SEEK_OPCODES = frozenset(
-    {"SeekGE", "SeekGT", "SeekLE", "SeekLT", "SeekEQ", "SeekRowid", "NotFound"}
-)
+_SEEK_OPCODES = frozenset({"SeekGE", "SeekGT", "SeekLE", "SeekLT", "SeekEQ", "SeekRowid", "NotFound"})
 
 
 class SQLiteExplainRow(BaseModel):

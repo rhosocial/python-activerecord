@@ -7,9 +7,9 @@ This test module covers:
 - handle_named_procedure function
 - list_named_procedures_in_module function
 """
+
 import types
 from argparse import Namespace
-from typing import List
 from unittest.mock import MagicMock, patch
 import pytest
 
@@ -20,10 +20,6 @@ from rhosocial.activerecord.backend.named_expression.cli_procedure import (
 )
 from rhosocial.activerecord.backend.named_expression.exceptions import (
     NamedExpressionError,
-)
-from rhosocial.activerecord.backend.named_expression.procedure import (
-    ProcedureRunner,
-    TransactionMode,
 )
 
 
@@ -98,8 +94,9 @@ class TestCreateNamedProcedureParser:
 
         np_parser = create_named_procedure_parser(subparsers, parent)
 
-        actions = {action.option_strings[0] if action.option_strings else action.dest: action
-                   for action in np_parser._actions}
+        actions = {
+            action.option_strings[0] if action.option_strings else action.dest: action for action in np_parser._actions
+        }
 
         assert "--param" in actions
         assert "--describe" in actions
@@ -125,10 +122,12 @@ class TestListNamedProceduresInModule:
 
         class TestProc1(Procedure):
             """Test procedure 1."""
+
             param: str
 
         class TestProc2(Procedure):
             """Test procedure 2."""
+
             value: int = 10
 
         module.Proc1 = TestProc1
@@ -150,6 +149,7 @@ class TestListNamedProceduresInModule:
 
         class ValidProc(Procedure):
             """Valid procedure."""
+
             param: str
 
         class NotAProcedure:
@@ -181,6 +181,7 @@ class TestHandleNamedProcedureList:
 
         class TestProc(Procedure):
             """Test procedure."""
+
             month: str
 
         provider = ProviderMock()
@@ -189,7 +190,14 @@ class TestHandleNamedProcedureList:
 
         with patch(
             "rhosocial.activerecord.backend.named_expression.cli_procedure.list_named_procedures_in_module",
-            return_value=[{"name": "TestProc", "signature": "(month: str)", "docstring": "Test procedure.", "brief": "Test procedure."}],
+            return_value=[
+                {
+                    "name": "TestProc",
+                    "signature": "(month: str)",
+                    "docstring": "Test procedure.",
+                    "brief": "Test procedure.",
+                }
+            ],
         ):
             try:
                 handle_named_procedure(
@@ -207,7 +215,6 @@ class TestHandleNamedProcedureDescribe:
 
     def test_describe_procedure(self):
         """Test describing a procedure."""
-        from rhosocial.activerecord.backend.named_expression.procedure import Procedure
 
         provider = ProviderMock()
 
@@ -432,7 +439,7 @@ class TestParseParams:
         assert user_params == {"month": "2026-03", "threshold": "100", "name": "test"}
 
 
-class TestHandleNamedProcedureExecute:
+class TestHandleNamedProcedureExecute:  # noqa: F811
     """Tests for handle_named_procedure execution paths."""
 
     def test_parser_transaction_auto(self):
@@ -444,9 +451,7 @@ class TestHandleNamedProcedureExecute:
         parent = argparse.ArgumentParser(add_help=False)
 
         np_parser = create_named_procedure_parser(subparsers, parent)
-        args = np_parser.parse_args(
-            ["test.proc", "--transaction", "auto"]
-        )
+        args = np_parser.parse_args(["test.proc", "--transaction", "auto"])
         assert args.transaction == "auto"
 
     def test_parser_transaction_step(self):
@@ -458,9 +463,7 @@ class TestHandleNamedProcedureExecute:
         parent = argparse.ArgumentParser(add_help=False)
 
         np_parser = create_named_procedure_parser(subparsers, parent)
-        args = np_parser.parse_args(
-            ["test.proc", "--transaction", "step"]
-        )
+        args = np_parser.parse_args(["test.proc", "--transaction", "step"])
         assert args.transaction == "step"
 
     def test_parser_transaction_none(self):
@@ -472,9 +475,7 @@ class TestHandleNamedProcedureExecute:
         parent = argparse.ArgumentParser(add_help=False)
 
         np_parser = create_named_procedure_parser(subparsers, parent)
-        args = np_parser.parse_args(
-            ["test.proc", "--transaction", "none"]
-        )
+        args = np_parser.parse_args(["test.proc", "--transaction", "none"])
         assert args.transaction == "none"
 
     def test_dry_run_in_namespace(self):
@@ -567,7 +568,7 @@ class TestListNamedProcedures:
             list_named_procedures_in_module,
         )
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             list_named_procedures_in_module("nonexistent_module_xyz")
 
 

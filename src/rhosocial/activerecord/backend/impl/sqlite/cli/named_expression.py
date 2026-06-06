@@ -4,7 +4,6 @@
 named-expression requires connection arguments, output arguments, and --rich-ascii.
 """
 
-
 from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 from rhosocial.activerecord.backend.options import ExecutionOptions
 
@@ -19,6 +18,7 @@ def create_parser(subparsers):
     containing only connection and output arguments.
     """
     from rhosocial.activerecord.backend.named_expression.cli import create_named_expression_parser
+
     local_parent = create_connection_parent_parser()
     parser = create_named_expression_parser(subparsers, local_parent)
     parser.add_argument(
@@ -77,6 +77,7 @@ def handle(args):
         def backend_async_factory():
             nonlocal async_backend
             from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
+
             config = resolve_connection_config_from_args(args)
             async_backend = AsyncSQLiteBackend(connection_config=config)
             return async_backend

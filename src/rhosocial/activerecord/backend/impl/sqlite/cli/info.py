@@ -49,7 +49,7 @@ from .connection import create_backend_from_memory
 from .output import RICH_AVAILABLE
 
 # info only supports table and json output (csv/tsv not suitable for nested structures)
-OUTPUT_CHOICES = ['table', 'json']
+OUTPUT_CHOICES = ["table", "json"]
 
 # Groups that are specific to SQLite dialect
 DIALECT_SPECIFIC_GROUPS = {"SQLite-specific"}
@@ -87,12 +87,25 @@ PROTOCOL_FAMILY_GROUPS: Dict[str, list] = {
 SUPPORT_METHOD_ALL_ARGS: Dict[str, List[str]] = {
     "supports_explain_format": ["TEXT", "JSON", "XML", "YAML", "TREE", "DOT"],
     "is_extension_available": [
-        "fts5", "fts4", "fts3", "fts2", "fts1",
-        "json1", "rtree", "geopoly", "dbstat", "fts5tokenize",
+        "fts5",
+        "fts4",
+        "fts3",
+        "fts2",
+        "fts1",
+        "json1",
+        "rtree",
+        "geopoly",
+        "dbstat",
+        "fts5tokenize",
     ],
     "is_pragma_available": [
-        "journal_mode", "synchronous", "cache_size",
-        "temp_store", "foreign_keys", "busy_timeout", "wal_autocheckpoint",
+        "journal_mode",
+        "synchronous",
+        "cache_size",
+        "temp_store",
+        "foreign_keys",
+        "busy_timeout",
+        "wal_autocheckpoint",
     ],
 }
 
@@ -100,8 +113,8 @@ SUPPORT_METHOD_ALL_ARGS: Dict[str, List[str]] = {
 def create_parser(subparsers):
     """Create the info subcommand parser."""
     parser = subparsers.add_parser(
-        'info',
-        help='Display SQLite environment information (uses in-memory database)',
+        "info",
+        help="Display SQLite environment information (uses in-memory database)",
         epilog="""Examples:
   # Show basic info (in-memory database)
   %(prog)s info
@@ -117,25 +130,27 @@ def create_parser(subparsers):
 
     # Output format (table and json only; csv/tsv not suitable for nested structures)
     parser.add_argument(
-        '-o', '--output',
+        "-o",
+        "--output",
         choices=OUTPUT_CHOICES,
-        default='table',
-        help='Output format (default: table)',
+        default="table",
+        help="Output format (default: table)",
     )
 
     # Verbosity
     parser.add_argument(
-        '-v', '--verbose',
-        action='count',
+        "-v",
+        "--verbose",
+        action="count",
         default=0,
-        help='Increase verbosity. -v for families, -vv for details.',
+        help="Increase verbosity. -v for families, -vv for details.",
     )
 
     # Rich display options
     parser.add_argument(
-        '--rich-ascii',
-        action='store_true',
-        help='Use ASCII characters for rich table borders.',
+        "--rich-ascii",
+        action="store_true",
+        help="Use ASCII characters for rich table borders.",
     )
 
     return parser
@@ -196,6 +211,7 @@ def handle(args):
 # ---------------------------------------------------------------------------
 # Internal helper functions
 # ---------------------------------------------------------------------------
+
 
 def _get_protocol_support_methods(protocol_class: type) -> List[str]:
     """Get all support check methods from a protocol class."""
@@ -351,8 +367,7 @@ def _build_protocol_group_info(dialect: Any, protocols: list, verbose: int) -> D
 
 
 def _display_info_rich(
-    info: Dict, verbose: int, sqlite_version: str,
-    is_file_database: bool = True, db_path: str = ":memory:"
+    info: Dict, verbose: int, sqlite_version: str, is_file_database: bool = True, db_path: str = ":memory:"
 ):
     """Display info using rich console."""
     from rich.console import Console

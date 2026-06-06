@@ -5,8 +5,9 @@ Tests for RelationManagementMixin methods.
 These tests cover the relation management functionality provided by the
 RelationManagementMixin class in python-activerecord.
 """
+
 import pytest
-from typing import ClassVar, Any, Optional, List
+from typing import ClassVar
 
 from pydantic import BaseModel
 
@@ -23,53 +24,35 @@ from rhosocial.activerecord.relation.descriptors import (
 class Department(RelationManagementMixin, BaseModel):
     id: int
     name: str
-    employees: ClassVar[HasMany["Employee"]] = HasMany(
-        foreign_key="department_id",
-        inverse_of="department"
-    )
+    employees: ClassVar[HasMany["Employee"]] = HasMany(foreign_key="department_id", inverse_of="department")
 
 
 class Employee(RelationManagementMixin, BaseModel):
     id: int
     name: str
     department_id: int
-    department: ClassVar[BelongsTo["Department"]] = BelongsTo(
-        foreign_key="department_id",
-        inverse_of="employees"
-    )
+    department: ClassVar[BelongsTo["Department"]] = BelongsTo(foreign_key="department_id", inverse_of="employees")
 
 
 class Profile(RelationManagementMixin, BaseModel):
     id: int
     bio: str
     author_id: int
-    author: ClassVar[BelongsTo["Author"]] = BelongsTo(
-        foreign_key="author_id",
-        inverse_of="profile"
-    )
+    author: ClassVar[BelongsTo["Author"]] = BelongsTo(foreign_key="author_id", inverse_of="profile")
 
 
 class Author(RelationManagementMixin, BaseModel):
     id: int
     name: str
-    books: ClassVar[HasMany["Book"]] = HasMany(
-        foreign_key="author_id",
-        inverse_of="author"
-    )
-    profile: ClassVar[HasOne["Profile"]] = HasOne(
-        foreign_key="author_id",
-        inverse_of="author"
-    )
+    books: ClassVar[HasMany["Book"]] = HasMany(foreign_key="author_id", inverse_of="author")
+    profile: ClassVar[HasOne["Profile"]] = HasOne(foreign_key="author_id", inverse_of="author")
 
 
 class Book(RelationManagementMixin, BaseModel):
     id: int
     title: str
     author_id: int
-    author: ClassVar[BelongsTo["Author"]] = BelongsTo(
-        foreign_key="author_id",
-        inverse_of="books"
-    )
+    author: ClassVar[BelongsTo["Author"]] = BelongsTo(foreign_key="author_id", inverse_of="books")
 
 
 class TestRelationManagementMixin:
@@ -77,6 +60,7 @@ class TestRelationManagementMixin:
 
     def test_ensure_relations_creates_dict(self):
         """Test that _ensure_relations creates the relations dict if not exists."""
+
         class NewModel(RelationManagementMixin, BaseModel):
             id: int
 
@@ -92,6 +76,7 @@ class TestRelationManagementMixin:
 
     def test_register_relation(self):
         """Test registering a new relation."""
+
         class TestModel(RelationManagementMixin, BaseModel):
             id: int
 
@@ -109,6 +94,7 @@ class TestRelationManagementMixin:
 
     def test_register_relation_overwrites(self):
         """Test that registering a relation with same name overwrites."""
+
         class TestModel(RelationManagementMixin, BaseModel):
             id: int
 
@@ -132,12 +118,10 @@ class TestRelationManagementMixin:
 
     def test_get_relations_excludes_inherited(self):
         """Test that get_relations only returns own relations, not inherited."""
+
         class Parent(RelationManagementMixin, BaseModel):
             id: int
-            parent_rel: ClassVar[HasMany["Other"]] = HasMany(
-                foreign_key="parent_id",
-                inverse_of="parent"
-            )
+            parent_rel: ClassVar[HasMany["Other"]] = HasMany(foreign_key="parent_id", inverse_of="parent")
 
         class Child(Parent):
             pass
@@ -145,10 +129,7 @@ class TestRelationManagementMixin:
         class Other(RelationManagementMixin, BaseModel):
             id: int
             parent_id: int
-            parent: ClassVar[BelongsTo["Parent"]] = BelongsTo(
-                foreign_key="parent_id",
-                inverse_of="parent_rel"
-            )
+            parent: ClassVar[BelongsTo["Parent"]] = BelongsTo(foreign_key="parent_id", inverse_of="parent_rel")
 
         parent_relations = Parent.get_relations()
         assert "parent_rel" in parent_relations
@@ -192,26 +173,22 @@ class TestRelationInheritance:
 
     def test_child_class_can_override_relation(self):
         """Test that child class can override parent relation."""
+
         class ParentModel(RelationManagementMixin, BaseModel):
             id: int
-            related: ClassVar[HasOne["OtherModel"]] = HasOne(
-                foreign_key="parent_id",
-                inverse_of="parent"
-            )
+            related: ClassVar[HasOne["OtherModel"]] = HasOne(foreign_key="parent_id", inverse_of="parent")
 
         class OtherModel(RelationManagementMixin, BaseModel):
             id: int
             parent_id: int
-            parent: ClassVar[BelongsTo["ParentModel"]] = BelongsTo(
-                foreign_key="parent_id",
-                inverse_of="related"
-            )
+            parent: ClassVar[BelongsTo["ParentModel"]] = BelongsTo(foreign_key="parent_id", inverse_of="related")
 
         parent_rel = ParentModel.get_relation("related")
         assert isinstance(parent_rel, HasOne)
 
     def test_relations_dict_is_class_specific(self):
         """Test that each class has its own relations dict."""
+
         class Parent(RelationManagementMixin, BaseModel):
             id: int
 
@@ -230,20 +207,15 @@ class TestRelationValidation:
 
     def test_inverse_validation(self):
         """Test that inverse relationships are validated."""
+
         class AuthorWithValidation(RelationManagementMixin, BaseModel):
             id: int
-            books: ClassVar[HasMany["BookWithValidation"]] = HasMany(
-                foreign_key="author_id",
-                inverse_of="author"
-            )
+            books: ClassVar[HasMany["BookWithValidation"]] = HasMany(foreign_key="author_id", inverse_of="author")
 
         class BookWithValidation(RelationManagementMixin, BaseModel):
             id: int
             author_id: int
-            author: ClassVar[BelongsTo["AuthorWithValidation"]] = BelongsTo(
-                foreign_key="author_id",
-                inverse_of="books"
-            )
+            author: ClassVar[BelongsTo["AuthorWithValidation"]] = BelongsTo(foreign_key="author_id", inverse_of="books")
 
         author_rel = AuthorWithValidation.get_relation("books")
         book_rel = BookWithValidation.get_relation("author")
@@ -253,12 +225,10 @@ class TestRelationValidation:
 
     def test_missing_inverse_does_not_raise(self):
         """Test that missing inverse doesn't raise during registration."""
+
         class ModelWithoutInverse(RelationManagementMixin, BaseModel):
             id: int
-            related: ClassVar[HasMany["Target"]] = HasMany(
-                foreign_key="model_id",
-                inverse_of=None
-            )
+            related: ClassVar[HasMany["Target"]] = HasMany(foreign_key="model_id", inverse_of=None)
 
         class Target(RelationManagementMixin, BaseModel):
             id: int

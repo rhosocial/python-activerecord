@@ -19,14 +19,14 @@ Reference: https://www.sqlite.org/fts3.html
 from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
 from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     Column,
     InsertExpression,
     ValuesSource,
@@ -34,17 +34,17 @@ from rhosocial.activerecord.backend.expression import (
     TableExpression,
     FunctionCall,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.impl.sqlite.expression import SQLiteMatchPredicate  # noqa: E402
 
 # Create FTS4 virtual table using the dialect's generic virtual table
 # formatting method. For FTS4, module='fts4' and tokenizer options
 # are passed via the options dict.
 create_sql, create_params = dialect.format_create_virtual_table(
-    module='fts4',
-    table_name='documents',
-    columns=['title', 'content'],
-    options={'tokenize': 'porter'},
+    module="fts4",
+    table_name="documents",
+    columns=["title", "content"],
+    options={"tokenize": "porter"},
 )
 
 backend.execute(create_sql, create_params)
@@ -52,20 +52,25 @@ print("Created FTS4 table")
 
 # Insert document data
 documents = [
-    ('Python Tutorial', 'Learn Python programming from basics to advanced'),
-    ('JavaScript Guide', 'JavaScript is a popular language for web development'),
-    ('SQL Basics', 'SQL is used for managing relational databases'),
+    ("Python Tutorial", "Learn Python programming from basics to advanced"),
+    ("JavaScript Guide", "JavaScript is a popular language for web development"),
+    ("SQL Basics", "SQL is used for managing relational databases"),
 ]
 
 for title, content in documents:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into='documents',
-        columns=['title', 'content'],
-        source=ValuesSource(dialect, [[
-            Literal(dialect, title),
-            Literal(dialect, content),
-        ]]),
+        into="documents",
+        columns=["title", "content"],
+        source=ValuesSource(
+            dialect,
+            [
+                [
+                    Literal(dialect, title),
+                    Literal(dialect, content),
+                ]
+            ],
+        ),
     )
     sql, params = insert_expr.to_sql()
     backend.execute(sql, params)
@@ -73,22 +78,22 @@ for title, content in documents:
 # Full-text search using SQLiteMatchPredicate with QueryExpression
 # SQLiteMatchPredicate delegates to the dialect's format_match_predicate,
 # which in turn calls the FTS extension's formatting logic.
-search_pred = SQLiteMatchPredicate(dialect, table='documents', query='programming')
+search_pred = SQLiteMatchPredicate(dialect, table="documents", query="programming")
 
 # ... snippet query example ...
 # predicate is expressed via SQLiteMatchPredicate.
-snippet_pred = SQLiteMatchPredicate(dialect, table='documents', query='language')
+snippet_pred = SQLiteMatchPredicate(dialect, table="documents", query="language")
 
 # ... offsets query example ...
-offsets_pred = SQLiteMatchPredicate(dialect, table='documents', query='database')
+offsets_pred = SQLiteMatchPredicate(dialect, table="documents", query="database")
 
 offsets_query = QueryExpression(
     dialect=dialect,
     select=[
-        Column(dialect, 'title', table='documents'),
-        FunctionCall(dialect, 'offsets', [Column(dialect, 'documents')]).as_('offsets'),
+        Column(dialect, "title", table="documents"),
+        FunctionCall(dialect, "offsets", [Column(dialect, "documents")]).as_("offsets"),
     ],
-    from_=TableExpression(dialect, 'documents'),
+    from_=TableExpression(dialect, "documents"),
     where=offsets_pred,
 )
 sql, params = offsets_query.to_sql()

@@ -125,7 +125,7 @@ class BackendGroup:
     _backend_instance: Optional[StorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
-    def add_model(self, model: Type[IActiveRecord]) -> 'BackendGroup':
+    def add_model(self, model: Type[IActiveRecord]) -> "BackendGroup":
         """
         Add a Model class to the backend group.
 
@@ -140,8 +140,7 @@ class BackendGroup:
         """
         if self._configured:
             raise RuntimeError(
-                f"Cannot add model to configured BackendGroup '{self.name}'. "
-                "Call disconnect() first to reconfigure."
+                f"Cannot add model to configured BackendGroup '{self.name}'. Call disconnect() first to reconfigure."
             )
         self.models.append(model)
         return self
@@ -170,13 +169,9 @@ class BackendGroup:
             config = config()
 
         if config is None:
-            raise ValueError(
-                f"ConnectionConfig not set for BackendGroup '{self.name}'"
-            )
+            raise ValueError(f"ConnectionConfig not set for BackendGroup '{self.name}'")
         if self.backend_class is None:
-            raise ValueError(
-                f"Backend class not set for BackendGroup '{self.name}'"
-            )
+            raise ValueError(f"Backend class not set for BackendGroup '{self.name}'")
 
         # Create a single shared backend instance (not connected)
         self._backend_instance = self.backend_class(
@@ -266,7 +261,7 @@ class BackendGroup:
         """
         return self.is_connected()
 
-    def __enter__(self) -> 'BackendGroup':
+    def __enter__(self) -> "BackendGroup":
         """Context manager entry: configure the group (without connecting)."""
         self.configure()
         return self
@@ -335,7 +330,7 @@ class AsyncBackendGroup:
     _backend_instance: Optional[AsyncStorageBackend] = field(default=None, init=False)
     _configured: bool = field(default=False, init=False)
 
-    def add_model(self, model: Type[IAsyncActiveRecord]) -> 'AsyncBackendGroup':
+    def add_model(self, model: Type[IAsyncActiveRecord]) -> "AsyncBackendGroup":
         """
         Add a Model class to the backend group.
 
@@ -380,13 +375,9 @@ class AsyncBackendGroup:
             config = config()
 
         if config is None:
-            raise ValueError(
-                f"ConnectionConfig not set for AsyncBackendGroup '{self.name}'"
-            )
+            raise ValueError(f"ConnectionConfig not set for AsyncBackendGroup '{self.name}'")
         if self.backend_class is None:
-            raise ValueError(
-                f"Backend class not set for AsyncBackendGroup '{self.name}'"
-            )
+            raise ValueError(f"Backend class not set for AsyncBackendGroup '{self.name}'")
 
         # Create a single shared backend instance (not connected)
         self._backend_instance = self.backend_class(
@@ -476,7 +467,7 @@ class AsyncBackendGroup:
         """
         return await self.is_connected()
 
-    async def __aenter__(self) -> 'AsyncBackendGroup':
+    async def __aenter__(self) -> "AsyncBackendGroup":
         """Async context manager entry: configure the group (without connecting)."""
         await self.configure()
         return self

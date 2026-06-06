@@ -428,7 +428,9 @@ class AsyncSetOperationQuery(IAsyncSetOperationQuery):
             # Generate SQL for the EXPLAIN statement
             explain_sql, explain_params = explain_expr.to_sql()
 
-            self._log(logging.DEBUG, f"Executing async EXPLAIN set operation: {explain_sql}, parameters: {explain_params}")
+            self._log(
+                logging.DEBUG, f"Executing async EXPLAIN set operation: {explain_sql}, parameters: {explain_params}"
+            )
 
             # Execute the EXPLAIN query using the async backend
             result = await backend.fetch_all(explain_sql, explain_params)

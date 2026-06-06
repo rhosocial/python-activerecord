@@ -15,14 +15,14 @@ class TestSQLiteVersion:
     @pytest.fixture
     def temp_db_path(self):
         """Create a temporary database file path"""
-        fd, path = tempfile.mkstemp(suffix='.db')
+        fd, path = tempfile.mkstemp(suffix=".db")
         os.close(fd)
         yield path
         # Cleanup
         if os.path.exists(path):
             os.unlink(path)
         # Cleanup related WAL and SHM files
-        for ext in ['-wal', '-shm']:
+        for ext in ["-wal", "-shm"]:
             wal_path = path + ext
             if os.path.exists(wal_path):
                 os.unlink(wal_path)
@@ -48,7 +48,7 @@ class TestSQLiteVersion:
             assert isinstance(component, int)
 
         # Should match the actual sqlite3 version
-        sqlite_version = tuple(map(int, sqlite3.sqlite_version.split('.')))
+        sqlite_version = tuple(map(int, sqlite3.sqlite_version.split(".")))
         assert version == sqlite_version
 
         backend.disconnect()
@@ -68,7 +68,7 @@ class TestSQLiteVersion:
         backend2 = SQLiteBackend(connection_config=config2)
 
         # Mock the connect method to verify it's not called
-        with mock.patch.object(backend2, 'connect') as mock_connect:
+        with mock.patch.object(backend2, "connect") as mock_connect:
             version2 = backend2.get_server_version()
             mock_connect.assert_not_called()
 
@@ -110,7 +110,7 @@ class TestSQLiteVersion:
         backend = SQLiteBackend(connection_config=config)
 
         # Mock sqlite_version_info to be None to force fallback path
-        with mock.patch.object(sqlite3, 'sqlite_version_info', None):
+        with mock.patch.object(sqlite3, "sqlite_version_info", None):
             # Create a mock connection that will fail
             mock_conn = mock.MagicMock()
             mock_cursor = mock.MagicMock()
@@ -141,12 +141,12 @@ class TestSQLiteVersion:
             ("3.39.4", (3, 39, 4)),
             ("3.39", (3, 39, 0)),
             ("3", (3, 0, 0)),
-            ("4.0.0", (4, 0, 0))
+            ("4.0.0", (4, 0, 0)),
         ]
 
         for version_str, expected_tuple in test_cases:
             # Mock sqlite_version_info to be None to force fallback to database query
-            with mock.patch.object(sqlite3, 'sqlite_version_info', None):
+            with mock.patch.object(sqlite3, "sqlite_version_info", None):
                 # Create a mock connection that returns the version string
                 mock_conn = mock.MagicMock()
                 mock_cursor = mock.MagicMock()
@@ -177,7 +177,7 @@ class TestSQLiteVersion:
         backend = SQLiteBackend(connection_config=config)
 
         # Mock sqlite_version_info to return a specific version (3.35.0)
-        with mock.patch.object(sqlite3, 'sqlite_version_info', (3, 35, 0)):
+        with mock.patch.object(sqlite3, "sqlite_version_info", (3, 35, 0)):
             version = backend.get_server_version()
 
             # Should be exactly 3.35.0

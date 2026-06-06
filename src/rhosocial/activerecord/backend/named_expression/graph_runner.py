@@ -5,6 +5,7 @@ ProcedureGraph runners for sync and async execution.
 This module provides runners that execute ProcedureGraphs,
 including both synchronous and asynchronous implementations.
 """
+
 import time
 from typing import Any, Dict, List, Optional, Tuple
 
@@ -15,9 +16,6 @@ from .procedure_graph import (
     ProcedureGraph,
     StepKind,
     StepNode,
-    _extract_path,
-    _interpolate_template,
-    _safe_eval_condition,
 )
 
 
@@ -117,10 +115,7 @@ class ProcedureGraphRunner:
         from concurrent.futures import ThreadPoolExecutor, as_completed
 
         with ThreadPoolExecutor(max_workers=len(wave)) as executor:
-            futures = {
-                executor.submit(self._run_node, node, ctx, result): node
-                for node in wave
-            }
+            futures = {executor.submit(self._run_node, node, ctx, result): node for node in wave}
             for future in as_completed(futures):
                 future.result()
 
@@ -185,6 +180,7 @@ class ProcedureGraphRunner:
 
         if node.kind == StepKind.NAMED_QUERY:
             from .resolver import resolve_named_expression
+
             expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)
             return expr.to_sql()
 
@@ -245,10 +241,8 @@ class AsyncProcedureGraphRunner:
             for wave_idx, wave in enumerate(graph.waves()):
                 result.waves_count = wave_idx + 1
                 import asyncio
-                tasks = [
-                    self._run_node_async(node, ctx, result)
-                    for node in wave
-                ]
+
+                tasks = [self._run_node_async(node, ctx, result) for node in wave]
                 await asyncio.gather(*tasks)
             result.elapsed_ms = (time.monotonic() - t0) * 1000
 
@@ -319,6 +313,7 @@ class AsyncProcedureGraphRunner:
 
         if node.kind == StepKind.NAMED_QUERY:
             from .resolver import resolve_named_expression
+
             expr = resolve_named_expression(node.named_query, self._dialect, resolved_params)
             return expr.to_sql()
 
@@ -345,10 +340,7 @@ def _interpolate_dict(
         elif isinstance(v, dict):
             result[k] = _interpolate_dict(v, ctx)
         elif isinstance(v, list):
-            result[k] = [
-                ctx.interpolate(i) if isinstance(i, str) else i
-                for i in v
-            ]
+            result[k] = [ctx.interpolate(i) if isinstance(i, str) else i for i in v]
         else:
             result[k] = v
     return result
@@ -364,13 +356,14 @@ class _SyncTransactionContext:
 
     def __enter__(self):
         from .procedure_graph import TransactionMode
+
         if self._mode in (TransactionMode.AUTO, TransactionMode.STEP):
             self._backend.begin_transaction()
             self._in_tx = True
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb):
-        from .procedure_graph import TransactionMode
+
         if self._in_tx:
             if exc_type is None:
                 self._backend.commit_transaction()
@@ -390,13 +383,14 @@ class _AsyncTransactionContext:
 
     async def __aenter__(self):
         from .procedure_graph import TransactionMode
+
         if self._mode in (TransactionMode.AUTO, TransactionMode.STEP):
             await self._backend.begin_transaction()
             self._in_tx = True
         return self
 
     async def __aexit__(self, exc_type, exc_val, exc_tb):
-        from .procedure_graph import TransactionMode
+
         if self._in_tx:
             if exc_type is None:
                 await self._backend.commit_transaction()

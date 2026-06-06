@@ -2,7 +2,6 @@ import argparse
 import types
 from argparse import Namespace
 from types import SimpleNamespace
-from typing import List
 from unittest.mock import patch
 import pytest
 
@@ -13,8 +12,6 @@ from rhosocial.activerecord.backend.expression import (
     ExplainExpression,
     DeleteExpression,
 )
-from rhosocial.activerecord.backend.expression.executable import Executable
-from rhosocial.activerecord.backend.schema import StatementType
 
 from rhosocial.activerecord.backend.named_expression.cli import (
     create_named_expression_parser,
@@ -54,6 +51,7 @@ class TestReplaceProgPlaceholder:
         from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
+
         doc = "Usage: %(prog)s query"
         result = _replace_prog_placeholder(doc, "myprog")
         assert result == "Usage: myprog query"
@@ -62,6 +60,7 @@ class TestReplaceProgPlaceholder:
         from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
+
         doc = "Example: %%(prog)s"
         result = _replace_prog_placeholder(doc, "myprog")
         assert result == "Example: myprog" or result == "Example: %myprog"
@@ -70,6 +69,7 @@ class TestReplaceProgPlaceholder:
         from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
+
         doc = "Usage: %(prog)s"
         result = _replace_prog_placeholder(doc)
         assert "python -m rhosocial" in result
@@ -101,33 +101,25 @@ class TestCreateNamedExpressionParser:
     def test_parser_has_example(self, parser_setup):
         parent, subparsers = parser_setup
         parser = create_named_expression_parser(subparsers, parent)
-        args = parser.parse_args(
-            ["myapp.queries.test", "--db-file", "test.db", "-e", "test"]
-        )
+        args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db", "-e", "test"])
         assert args.example == "test"
 
     def test_parser_has_describe(self, parser_setup):
         parent, subparsers = parser_setup
         parser = create_named_expression_parser(subparsers, parent)
-        args = parser.parse_args(
-            ["myapp.queries.test", "--db-file", "test.db", "--describe"]
-        )
+        args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db", "--describe"])
         assert args.describe is True
 
     def test_parser_has_dry_run(self, parser_setup):
         parent, subparsers = parser_setup
         parser = create_named_expression_parser(subparsers, parent)
-        args = parser.parse_args(
-            ["myapp.queries.test", "--db-file", "test.db", "--dry-run"]
-        )
+        args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db", "--dry-run"])
         assert args.dry_run is True
 
     def test_parser_has_list(self, parser_setup):
         parent, subparsers = parser_setup
         parser = create_named_expression_parser(subparsers, parent)
-        args = parser.parse_args(
-            ["myapp.queries.test", "--db-file", "test.db", "--list"]
-        )
+        args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db", "--list"])
         assert args.list_queries is True
 
     def test_parser_has_param(self, parser_setup):
@@ -147,17 +139,13 @@ class TestCreateNamedExpressionParser:
     def test_parser_has_force(self, parser_setup):
         parent, subparsers = parser_setup
         parser = create_named_expression_parser(subparsers, parent)
-        args = parser.parse_args(
-            ["myapp.queries.test", "--db-file", "test.db", "--force"]
-        )
+        args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db", "--force"])
         assert args.force is True
 
     def test_parser_has_explain(self, parser_setup):
         parent, subparsers = parser_setup
         parser = create_named_expression_parser(subparsers, parent)
-        args = parser.parse_args(
-            ["myapp.queries.test", "--db-file", "test.db", "--explain"]
-        )
+        args = parser.parse_args(["myapp.queries.test", "--db-file", "test.db", "--explain"])
         assert args.explain is True
 
 
@@ -491,21 +479,25 @@ class TestCliDryRunMode:
 
     def test_parse_params_empty(self):
         from rhosocial.activerecord.backend.named_expression.cli import parse_params
+
         result = parse_params([])
         assert result == {}
 
     def test_parse_params_valid(self):
         from rhosocial.activerecord.backend.named_expression.cli import parse_params
+
         result = parse_params(["limit=100", "status=active"])
         assert result == {"limit": "100", "status": "active"}
 
     def test_parse_params_with_equals_in_value(self):
         from rhosocial.activerecord.backend.named_expression.cli import parse_params
+
         result = parse_params(["url=http://example.com?a=1&b=2"])
         assert result == {"url": "http://example.com?a=1&b=2"}
 
     def test_parse_params_invalid_format(self, capsys):
         from rhosocial.activerecord.backend.named_expression.cli import parse_params
+
         result = parse_params(["invalid"])
         assert result == {}
         captured = capsys.readouterr()
@@ -621,6 +613,7 @@ class TestCliReplaceProgPlaceholder:
         from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
+
         docstring = "Usage: %(prog)s [OPTIONS]"
         result = _replace_prog_placeholder(docstring, "myprog")
         assert result == "Usage: myprog [OPTIONS]"
@@ -629,6 +622,7 @@ class TestCliReplaceProgPlaceholder:
         from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
+
         docstring = "Usage: myprog [OPTIONS]"
         result = _replace_prog_placeholder(docstring, "other_prog")
         assert result == "Usage: myprog [OPTIONS]"
@@ -637,6 +631,7 @@ class TestCliReplaceProgPlaceholder:
         from rhosocial.activerecord.backend.named_expression.cli import (
             _replace_prog_placeholder,
         )
+
         docstring = "Example: %%something"
         result = _replace_prog_placeholder(docstring, "myprog")
         assert result is not None
@@ -709,7 +704,7 @@ class TestCliExplainMode:
         assert args.explain is True
 
 
-class TestHandleNamedExpressionExecute:
+class TestHandleNamedExpressionExecute:  # noqa: F811
     """Tests for handle_named_expression execute mode."""
 
     def test_execute_dry_run(self, capsys):
@@ -799,7 +794,7 @@ class TestHandleNamedExpressionExecute:
             )
 
 
-class TestHandleNamedExpressionDescribe:
+class TestHandleNamedExpressionDescribe:  # noqa: F811
     """Tests for handle_named_expression --describe mode."""
 
     def test_describe_with_params(self, capsys):
@@ -928,41 +923,59 @@ class TestExecuteExpression:
 
     def test_non_executable_exits(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
+
         args = Namespace(
-            dry_run=False, force=False, explain=False, rich_ascii=False,
+            dry_run=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
         )
         with pytest.raises(SystemExit):
             _execute_expression(Literal(_DIALECT, 1), args, lambda s, p, st: None, _PROVIDER)
 
     def test_explain_without_flag_exits(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
+
         inner = QueryExpression(_DIALECT, [Literal(_DIALECT, 1)])
         expr = ExplainExpression(_DIALECT, inner)
         args = Namespace(
-            dry_run=False, force=False, explain=False, rich_ascii=False,
+            dry_run=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
         )
         with pytest.raises(SystemExit):
             _execute_expression(expr, args, lambda s, p, st: None, _PROVIDER)
 
     def test_non_select_without_force_exits(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
+
         expr = DeleteExpression(_DIALECT, "t")
         args = Namespace(
-            dry_run=False, force=False, explain=False, rich_ascii=False,
+            dry_run=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
         )
         with pytest.raises(SystemExit):
             _execute_expression(expr, args, lambda s, p, st: None, _PROVIDER)
 
     def test_execute_success(self):
         from rhosocial.activerecord.backend.named_expression.cli import _execute_expression
+
         expr = QueryExpression(_DIALECT, [Literal(_DIALECT, 1)])
         args = Namespace(
-            dry_run=False, force=False, explain=False, rich_ascii=False,
+            dry_run=False,
+            force=False,
+            explain=False,
+            rich_ascii=False,
         )
         executed = []
+
         def exec_fn(sql, params, stmt_type):
             executed.append((sql, params, stmt_type))
             return _make_result(data=[(1,)], affected_rows=1, duration=0.01)
+
         _execute_expression(expr, args, exec_fn, _PROVIDER)
         assert len(executed) == 1
         assert "SELECT" in executed[0][0]
@@ -973,15 +986,18 @@ class TestClassifyExpression:
 
     def test_classify_clause(self):
         from rhosocial.activerecord.backend.named_expression.cli import _classify_expression
+
         result = _classify_expression(Literal(_DIALECT, 1))
         assert result == "CLAUSE"
 
     def test_classify_dql(self):
         from rhosocial.activerecord.backend.named_expression.cli import _classify_expression
+
         result = _classify_expression(QueryExpression(_DIALECT, [Literal(_DIALECT, 1)]))
         assert result == "DQL"
 
     def test_classify_dml(self):
         from rhosocial.activerecord.backend.named_expression.cli import _classify_expression
+
         result = _classify_expression(DeleteExpression(_DIALECT, "t"))
         assert result == "DML"

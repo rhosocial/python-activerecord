@@ -1,6 +1,6 @@
 # tests/rhosocial/activerecord_test/feature/backend/test_helpers.py
-import pytest
 from rhosocial.activerecord.backend.helpers import format_with_length
+
 
 class TestFormatWithLength:
     """Tests for the format_with_length helper function."""

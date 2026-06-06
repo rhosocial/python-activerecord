@@ -7,17 +7,17 @@ If unavailable, Redis-dependent tests are skipped.
 
 Use ``pytest -m redis`` to include these tests.
 """
+
 import pytest
 import time
 
 pytest.skip(
-    "Redis cache is not introduced in this release; "
-    "source is kept for follow-up external cache design.",
+    "Redis cache is not introduced in this release; source is kept for follow-up external cache design.",
     allow_module_level=True,
 )
 
-from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache
-from rhosocial.activerecord.relation.cache_backends import (
+from rhosocial.activerecord.relation.cache import CacheConfig, InstanceCache  # noqa: E402
+from rhosocial.activerecord.relation.cache_backends import (  # noqa: E402
     RedisCache,
     RedisConfig,
     CacheSerializer,
@@ -29,6 +29,7 @@ pytestmark = pytest.mark.redis
 
 class _DummyModel:
     """Minimal model stub for cache key unit tests."""
+
     primary_key_name = "id"
 
     def __init__(self, **kwargs):
@@ -53,8 +54,11 @@ def redis_client():
     config = RedisConfig.from_env()
     try:
         client = redis.Redis(
-            host=config.host, port=config.port, password=config.password or None,
-            db=config.db, socket_connect_timeout=config.socket_connect_timeout,
+            host=config.host,
+            port=config.port,
+            password=config.password or None,
+            db=config.db,
+            socket_connect_timeout=config.socket_connect_timeout,
         )
         client.ping()
         yield client
@@ -157,6 +161,7 @@ class TestRedisCacheBasic:
 
 class UpperSerializer(CacheSerializer):
     """A serializer that uppercases string values before pickle."""
+
     def __init__(self):
         super().__init__(format="pickle")
 
@@ -193,6 +198,7 @@ class TestRedisCacheOrigin:
     def test_origin_default_off(self, redis_cache, config, redis_client):
         """record_origin=False stores raw serialized bytes, not JSON wrapper."""
         import json
+
         inst = _DummyModel(id=1)
         redis_cache.set(inst, "items", "plain", config)
         key = redis_cache._make_key(inst, "items")

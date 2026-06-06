@@ -6,10 +6,10 @@ This test module verifies that string escaping and validation
 methods properly sanitize user input to prevent SQL injection.
 Tests are run against the actual SQLite dialect.
 """
+
 import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
-from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.statements import (
     ColumnDefinition,
     ColumnConstraint,
@@ -96,6 +96,7 @@ def test_sqlite_format_cast_expression_rejects_injection(dialect):
 # format_identifier — identifier quoting and escaping
 # ============================================================
 
+
 def test_format_identifier_simple(dialect):
     """Simple identifier is wrapped in double quotes."""
     result = dialect.format_identifier("users")
@@ -131,6 +132,7 @@ def test_format_identifier_empty_string(dialect):
 # format_column_info_query — uses format_identifier for table_name
 # ============================================================
 
+
 def test_format_column_info_query_with_malicious_table_name(dialect):
     """Column info query safely quotes malicious table names.
 
@@ -160,6 +162,7 @@ def test_format_column_info_query_normal_table(dialect):
 # format_index_info_query — uses format_identifier for table_name
 # ============================================================
 
+
 def test_format_index_info_query_with_malicious_table_name(dialect):
     """Index info query safely quotes malicious table names.
 
@@ -176,6 +179,7 @@ def test_format_index_info_query_with_malicious_table_name(dialect):
 # format_foreign_key_query — uses format_identifier for table_name
 # ============================================================
 
+
 def test_format_foreign_key_query_with_malicious_table_name(dialect):
     """Foreign key query safely quotes malicious table names.
 
@@ -191,6 +195,7 @@ def test_format_foreign_key_query_with_malicious_table_name(dialect):
 # ============================================================
 # format_drop_virtual_table — manual quoting replaced with format_identifier
 # ============================================================
+
 
 def test_format_drop_virtual_table_normal(dialect):
     """Drop virtual table with normal table name."""
@@ -221,6 +226,7 @@ def test_format_drop_virtual_table_with_malicious_name(dialect):
 # format_create_trigger_statement — function_name quoting
 # ============================================================
 
+
 def test_format_create_trigger_function_name_quoted(dialect):
     """Trigger function name is identifier-quoted in CALL statement.
 
@@ -228,7 +234,10 @@ def test_format_create_trigger_function_name_quoted(dialect):
     After fix: uses format_identifier which quotes the function name.
     """
     from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-        CreateTriggerExpression, TriggerTiming, TriggerEvent, TriggerLevel,
+        CreateTriggerExpression,
+        TriggerTiming,
+        TriggerEvent,
+        TriggerLevel,
     )
 
     expr = CreateTriggerExpression(
@@ -238,7 +247,7 @@ def test_format_create_trigger_function_name_quoted(dialect):
         events=[TriggerEvent.INSERT],
         table_name="users",
         level=TriggerLevel.ROW,
-        function_name='my_func',
+        function_name="my_func",
     )
     sql, params = dialect.format_create_trigger_statement(expr)
     assert '"my_func"' in sql
@@ -251,7 +260,10 @@ def test_format_create_trigger_malicious_function_name(dialect):
     Balanced quotes = no breakout from identifier context.
     """
     from rhosocial.activerecord.backend.expression.statements.ddl_trigger import (
-        CreateTriggerExpression, TriggerTiming, TriggerEvent, TriggerLevel,
+        CreateTriggerExpression,
+        TriggerTiming,
+        TriggerEvent,
+        TriggerLevel,
     )
 
     expr = CreateTriggerExpression(
@@ -271,6 +283,7 @@ def test_format_create_trigger_malicious_function_name(dialect):
 # Integration: format_storage_options via SQLite dialect
 # ============================================================
 
+
 def test_sqlite_format_storage_options_key_identifier_quoting(dialect):
     """Storage option keys are identifier-quoted in SQLite dialect."""
     malicious_key = 'key"; DROP TABLE users--'
@@ -285,6 +298,7 @@ def test_sqlite_format_storage_options_key_identifier_quoting(dialect):
 # Integration test: unquoted vs quoted identifier injection
 # Demonstrates why proper escaping matters
 # ============================================================
+
 
 def test_identifier_quoting_prevents_breakout(dialect):
     """Demonstrate that without quote-escaping, injection is possible.
@@ -315,12 +329,12 @@ def test_identifier_quoting_prevents_breakout(dialect):
     # unsafe_result: DROP TABLE "x"; DROP TABLE users--"
     #                               ^^ quote closes after x, then DROP TABLE executes
     unsafe_quote_count = unsafe_result.count('"')
-    assert unsafe_quote_count % 2 != 0 or unsafe_quote_count > 2, \
+    assert unsafe_quote_count % 2 != 0 or unsafe_quote_count > 2, (
         f"Unsafe quoting {unsafe_result} — odd quotes means injection succeeded"
+    )
 
     # Verify safe pattern produces even quotes (no breakout)
-    assert safe_result.count('"') % 2 == 0, \
-        f"format_identifier produced unbalanced quotes: {safe_result}"
+    assert safe_result.count('"') % 2 == 0, f"format_identifier produced unbalanced quotes: {safe_result}"
 
 
 def test_format_identifier_vs_naive_quoting(dialect):
@@ -331,22 +345,21 @@ def test_format_identifier_vs_naive_quoting(dialect):
     """
     test_cases = [
         # (name, naive_has_issue, description)
-        ('normal_table', False, "Normal name: both work"),
+        ("normal_table", False, "Normal name: both work"),
         ('t"', True, "Single trailing quote: naive breaks"),
         ('"; DROP', True, "Quote-semicolon: naive injection"),
         ('x"; DELETE', True, "Quote-semicolon-DELETE: naive injection"),
     ]
-    for name, naive_has_issue, desc in test_cases:
+    for name, naive_has_issue, _desc in test_cases:
         safe = dialect.format_identifier(name)
         naive = f'"{name}"'
 
         # format_identifier always produces even quote count
-        assert safe.count('"') % 2 == 0, \
-            f"format_identifier('{name}'): {safe} — unbalanced quotes"
+        assert safe.count('"') % 2 == 0, f"format_identifier('{name}'): {safe} — unbalanced quotes"
 
         if naive_has_issue:
             # Naive quoting produces odd or excessive quotes
             # which means the identifier boundary is broken
-            assert naive.count('"') % 2 != 0 or \
-                   name.count('"') > 0 and '";' in naive, \
+            assert naive.count('"') % 2 != 0 or name.count('"') > 0 and '";' in naive, (
                 f"Expected naive quoting of '{name}' to have issues, got: {naive}"
+            )

@@ -47,6 +47,7 @@ Usage:
     >>> from rhosocial.activerecord.backend.named_connection import resolve_named_connection
     >>> config = resolve_named_connection("myapp.connections.prod_db", {"pool_size": 20})
 """
+
 from .exceptions import (
     NamedConnectionError,
     NamedConnectionNotFoundError,

@@ -15,4 +15,4 @@ Directly import and run the testsuite's optimistic locking mixin tests.
 # Explicit imports might be added for IDE-specific code completion or type checking,
 # but are not required for test execution.
 
-from rhosocial.activerecord.testsuite.feature.mixins.test_optimistic_lock import *
+from rhosocial.activerecord.testsuite.feature.mixins.test_optimistic_lock import *  # noqa: F403

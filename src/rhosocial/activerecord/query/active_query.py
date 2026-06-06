@@ -2,7 +2,7 @@
 """ActiveQuery implementation."""
 
 import logging
-from typing import Dict, List, Optional, Type, Union
+from typing import Dict, List, Optional, Type
 
 from .aggregate import AggregateQueryMixin, AsyncAggregateQueryMixin
 from .base import BaseQueryMixin
@@ -173,8 +173,9 @@ class ActiveQuery(
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
-        from_clause = TableExpression(dialect, self.model_class.table_name(),
-                                      schema_name=self.model_class.schema_name())
+        from_clause = TableExpression(
+            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        )
 
         # Create a temporary limit_offset_clause with LIMIT 1
         temp_limit_offset = LimitOffsetClause(dialect, limit=1)
@@ -226,8 +227,9 @@ class ActiveQuery(
         dialect = self.backend().dialect
 
         # Use the model's actual table name
-        from_clause = TableExpression(dialect, self.model_class.table_name(),
-                                      schema_name=self.model_class.schema_name())
+        from_clause = TableExpression(
+            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        )
 
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(
@@ -299,13 +301,10 @@ class ActiveQuery(
         Example:
             User.query().where(User.c.status == 'inactive').update_all({User.c.status: 'archived'})
         """
-        from ..backend.expression import Column, Literal, UpdateExpression, TableExpression as TE
+        from ..backend.expression import Column
         from ..backend.options import UpdateOptions
-        from ..backend.schema import StatementType
-        from ..backend.options import ExecutionOptions
 
         backend = self.backend()
-        dialect = backend.dialect
 
         data = {}
         for key, value in values.items():
@@ -513,8 +512,9 @@ class AsyncActiveQuery(
         dialect = backend.dialect
 
         # Create a temporary QueryExpression with LIMIT 1
-        from_clause = TableExpression(dialect, self.model_class.table_name(),
-                                      schema_name=self.model_class.schema_name())
+        from_clause = TableExpression(
+            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        )
 
         # Create a temporary limit_offset_clause with LIMIT 1
         temp_limit_offset = LimitOffsetClause(dialect, limit=1)
@@ -566,8 +566,9 @@ class AsyncActiveQuery(
         dialect = self.backend().dialect
 
         # Use the model's actual table name
-        from_clause = TableExpression(dialect, self.model_class.table_name(),
-                                      schema_name=self.model_class.schema_name())
+        from_clause = TableExpression(
+            dialect, self.model_class.table_name(), schema_name=self.model_class.schema_name()
+        )
 
         # Create QueryExpression with all components
         query_expr = statements.QueryExpression(

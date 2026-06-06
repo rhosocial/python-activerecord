@@ -1,5 +1,4 @@
 # tests/rhosocial/activerecord_test/feature/backend/dummy2/test_returning_clause_to_sql.py
-import pytest
 from rhosocial.activerecord.backend.expression import Column, Literal, RawSQLExpression, FunctionCall
 from rhosocial.activerecord.backend.expression.statements import ReturningClause
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
@@ -10,10 +9,7 @@ class TestReturningClauseToSql:
 
     def test_returning_clause_with_single_column(self, dummy_dialect: DummyDialect):
         """Tests ReturningClause with a single column expression."""
-        returning_clause = ReturningClause(
-            dummy_dialect,
-            expressions=[Column(dummy_dialect, "id")]
-        )
+        returning_clause = ReturningClause(dummy_dialect, expressions=[Column(dummy_dialect, "id")])
         sql, params = returning_clause.to_sql()
         # The actual SQL depends on the dialect implementation
         # The main goal is to test that to_sql() method is called
@@ -28,8 +24,8 @@ class TestReturningClauseToSql:
             expressions=[
                 Column(dummy_dialect, "id"),
                 Column(dummy_dialect, "name"),
-                Column(dummy_dialect, "created_at")
-            ]
+                Column(dummy_dialect, "created_at"),
+            ],
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql
@@ -41,8 +37,7 @@ class TestReturningClauseToSql:
     def test_returning_clause_with_literal(self, dummy_dialect: DummyDialect):
         """Tests ReturningClause with literal expressions."""
         returning_clause = ReturningClause(
-            dummy_dialect,
-            expressions=[Literal(dummy_dialect, 42), Literal(dummy_dialect, "constant")]
+            dummy_dialect, expressions=[Literal(dummy_dialect, 42), Literal(dummy_dialect, "constant")]
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql
@@ -54,8 +49,8 @@ class TestReturningClauseToSql:
             dummy_dialect,
             expressions=[
                 FunctionCall(dummy_dialect, "NOW"),
-                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id"))
-            ]
+                FunctionCall(dummy_dialect, "COUNT", Column(dummy_dialect, "id")),
+            ],
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql
@@ -67,10 +62,7 @@ class TestReturningClauseToSql:
         """Tests ReturningClause with raw SQL expressions."""
         returning_clause = ReturningClause(
             dummy_dialect,
-            expressions=[
-                RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"),
-                Column(dummy_dialect, "id")
-            ]
+            expressions=[RawSQLExpression(dummy_dialect, "CURRENT_TIMESTAMP"), Column(dummy_dialect, "id")],
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql
@@ -81,9 +73,7 @@ class TestReturningClauseToSql:
     def test_returning_clause_with_alias(self, dummy_dialect: DummyDialect):
         """Tests ReturningClause with alias (if supported by dialect)."""
         returning_clause = ReturningClause(
-            dummy_dialect,
-            expressions=[Column(dummy_dialect, "id")],
-            alias="returned_values"
+            dummy_dialect, expressions=[Column(dummy_dialect, "id")], alias="returned_values"
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql
@@ -93,10 +83,7 @@ class TestReturningClauseToSql:
 
     def test_returning_clause_with_empty_expressions(self, dummy_dialect: DummyDialect):
         """Tests ReturningClause with empty expressions list."""
-        returning_clause = ReturningClause(
-            dummy_dialect,
-            expressions=[]
-        )
+        returning_clause = ReturningClause(dummy_dialect, expressions=[])
         sql, params = returning_clause.to_sql()
         # Even with empty expressions, to_sql should run without error
         # Result might be empty string depending on dialect implementation
@@ -111,8 +98,8 @@ class TestReturningClauseToSql:
                 Column(dummy_dialect, "id"),
                 FunctionCall(dummy_dialect, "UPPER", Column(dummy_dialect, "name")),
                 Literal(dummy_dialect, "status"),
-                RawSQLExpression(dummy_dialect, "1")
-            ]
+                RawSQLExpression(dummy_dialect, "1"),
+            ],
         )
         sql, params = returning_clause.to_sql()
         assert "RETURNING" in sql

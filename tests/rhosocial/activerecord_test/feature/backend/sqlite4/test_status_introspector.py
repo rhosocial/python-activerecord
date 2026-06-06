@@ -9,18 +9,14 @@ for retrieving server status information via PRAGMA values.
 import os
 import sqlite3
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.status import (
     StatusItem,
     StatusCategory,
     ServerOverview,
-    DatabaseBriefInfo,
-    UserInfo,
     ConnectionInfo,
     StorageInfo,
 )
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 class TestSyncSQLiteStatusIntrospector:
@@ -330,10 +326,7 @@ class TestStatusIntrospectorWithAttachedDatabase:
         os.close(fd)
 
         try:
-            sqlite_file_backend.execute(
-                f"ATTACH DATABASE '{attach_path}' AS attached_db",
-                ()
-            )
+            sqlite_file_backend.execute(f"ATTACH DATABASE '{attach_path}' AS attached_db", ())
 
             status = sqlite_file_backend.introspector.status
             databases = status.list_databases()

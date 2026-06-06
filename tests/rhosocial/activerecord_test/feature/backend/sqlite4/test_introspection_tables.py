@@ -6,7 +6,6 @@ This module tests the list_tables, get_table_info, and table_exists methods
 for retrieving table metadata.
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.introspection.types import (
     TableInfo,
@@ -47,9 +46,7 @@ class TestListTables:
         """Test that system tables can be included."""
         # Create table, index, and run ANALYZE to populate sqlite_stat1
         sqlite_backend.executescript(
-            "CREATE TABLE test (id INTEGER PRIMARY KEY); "
-            "CREATE INDEX idx_test ON test(id); "
-            "ANALYZE;"
+            "CREATE TABLE test (id INTEGER PRIMARY KEY); CREATE INDEX idx_test ON test(id); ANALYZE;"
         )
 
         tables = sqlite_backend.introspector.list_tables(include_system=True)
@@ -191,6 +188,7 @@ class TestTableInfoDetails:
         assert table_info is not None
         name_col = next(c for c in table_info.columns if c.name == "name")
         from rhosocial.activerecord.backend.introspection.types import ColumnNullable
+
         assert name_col.nullable == ColumnNullable.NOT_NULL
 
     def test_column_nullable_detection(self, backend_with_tables):
@@ -201,6 +199,7 @@ class TestTableInfoDetails:
         age_col = next((c for c in table_info.columns if c.name == "age"), None)
         if age_col:
             from rhosocial.activerecord.backend.introspection.types import ColumnNullable
+
             assert age_col.nullable == ColumnNullable.NULLABLE
 
     def test_column_default_value(self, backend_with_tables):

@@ -18,6 +18,7 @@ from rhosocial.activerecord.worker import (
 
 # ============= Simulated Database =============
 
+
 class SimulatedDatabase:
     """Simulated database for demonstration purposes."""
 
@@ -27,6 +28,7 @@ class SimulatedDatabase:
     def connect(cls, db_name: str = "default"):
         """Simulate database connection."""
         import threading
+
         thread_id = threading.get_ident()
         conn_id = f"{thread_id}-{db_name}"
         cls._connections[conn_id] = True
@@ -52,16 +54,17 @@ class SimulatedDatabase:
 # Best for: High-frequency, short operations
 # Connection is established once per Worker and reused across all tasks
 
+
 def worker_connect(ctx: WorkerContext):
     """Connect when Worker starts."""
     conn_id = SimulatedDatabase.connect("worker_pool")
-    ctx.data['conn_id'] = conn_id
-    ctx.data['query_count'] = 0
+    ctx.data["conn_id"] = conn_id
+    ctx.data["query_count"] = 0
 
 
 def worker_disconnect(ctx: WorkerContext):
     """Disconnect when Worker stops."""
-    conn_id = ctx.data.get('conn_id')
+    conn_id = ctx.data.get("conn_id")
     if conn_id:
         SimulatedDatabase.disconnect(conn_id)
         print(f"   [Worker-{ctx.worker_id}] Total queries: {ctx.data.get('query_count', 0)}")
@@ -69,18 +72,18 @@ def worker_disconnect(ctx: WorkerContext):
 
 def worker_level_task(ctx: TaskContext, query_id: int) -> dict:
     """Task using Worker-level connection."""
-    conn_id = ctx.worker_ctx.data['conn_id']
+    conn_id = ctx.worker_ctx.data["conn_id"]
 
     # Execute query using existing connection
     result = SimulatedDatabase.query(conn_id, f"SELECT * FROM data WHERE id={query_id}")
 
     # Increment query counter
-    ctx.worker_ctx.data['query_count'] = ctx.worker_ctx.data.get('query_count', 0) + 1
+    ctx.worker_ctx.data["query_count"] = ctx.worker_ctx.data.get("query_count", 0) + 1
 
     return {
-        'query_id': query_id,
-        'result': result,
-        'worker_id': ctx.worker_ctx.worker_id,
+        "query_id": query_id,
+        "result": result,
+        "worker_id": ctx.worker_ctx.worker_id,
     }
 
 
@@ -88,30 +91,31 @@ def worker_level_task(ctx: TaskContext, query_id: int) -> dict:
 # Best for: Low-frequency, long operations
 # Connection is established per task and released immediately after
 
+
 def task_connect(ctx: TaskContext):
     """Connect before each task."""
     conn_id = SimulatedDatabase.connect("task_level")
-    ctx.data['conn_id'] = conn_id
+    ctx.data["conn_id"] = conn_id
 
 
 def task_disconnect(ctx: TaskContext):
     """Disconnect after each task."""
-    conn_id = ctx.data.get('conn_id')
+    conn_id = ctx.data.get("conn_id")
     if conn_id:
         SimulatedDatabase.disconnect(conn_id)
 
 
 def task_level_task(ctx: TaskContext, query_id: int) -> dict:
     """Task using Task-level connection."""
-    conn_id = ctx.data['conn_id']
+    conn_id = ctx.data["conn_id"]
 
     # Execute query
     result = SimulatedDatabase.query(conn_id, f"SELECT * FROM data WHERE id={query_id}")
 
     return {
-        'query_id': query_id,
-        'result': result,
-        'worker_id': ctx.worker_ctx.worker_id,
+        "query_id": query_id,
+        "result": result,
+        "worker_id": ctx.worker_ctx.worker_id,
     }
 
 
@@ -172,5 +176,5 @@ def main():
     print("\n=== All connection management examples completed ===")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

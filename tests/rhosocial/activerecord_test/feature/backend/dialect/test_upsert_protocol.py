@@ -6,17 +6,15 @@ This test creates a dialect that does not support upsert operations and verifies
 the corresponding formatting methods raise appropriate errors.
 """
 
-from rhosocial.activerecord.backend.dialect import (
-    SQLDialectBase, UpsertMixin, UpsertSupport
-)
+from rhosocial.activerecord.backend.dialect import SQLDialectBase, UpsertMixin, UpsertSupport
 
 
 class NoUpsertDialect(SQLDialectBase, UpsertMixin, UpsertSupport):
     """Dialect that does not support upsert operations."""
-    
+
     def supports_upsert(self) -> bool:
         return False
-    
+
     def get_upsert_syntax_type(self) -> str:
         return "ON CONFLICT"
 
@@ -24,7 +22,7 @@ class NoUpsertDialect(SQLDialectBase, UpsertMixin, UpsertSupport):
 def test_no_upsert_dialect_does_not_support_features():
     """Test that no-upsert dialect properly indicates lack of upsert features."""
     dialect = NoUpsertDialect()
-    
+
     # Verify protocol implementation
     assert isinstance(dialect, UpsertSupport)
     assert not dialect.supports_upsert()
@@ -34,6 +32,6 @@ def test_no_upsert_dialect_does_not_support_features():
 def test_format_on_conflict_clause_reports_no_support():
     """Test that format_on_conflict_clause method reports no support in no-upsert dialect."""
     dialect = NoUpsertDialect()
-    
+
     # Verify that the dialect reports no upsert support
     assert not dialect.supports_upsert()

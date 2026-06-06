@@ -6,9 +6,10 @@ Verifies that the instance-level cache (InstanceCache) correctly prevents
 redundant SQL queries on repeated relation access, and that cache invalidation
 (for delete, TTL expiry, disabled cache, etc.) re-queries the database.
 """
+
 import pytest
 import time
-from typing import ClassVar, Dict, Any, List, Tuple, Optional
+from typing import ClassVar, Dict, Any, Tuple
 
 from pydantic import BaseModel
 
@@ -32,6 +33,7 @@ class QueryCounter:
         def wrapper(sql, params, column_adapters=None):
             self.count += 1
             return original(sql, params, column_adapters)
+
         return wrapper
 
     def reset(self):
@@ -244,7 +246,7 @@ class TestRelationCacheIsolation:
         _ = post.user()
         counter.reset()
 
-        r2 = post.user()
+        post.user()
         assert counter.count == 0  # BelongsTo cached
 
         _ = user.posts()
@@ -284,6 +286,7 @@ class TestRelationDescriptorProtocol:
 
     def test_get_descriptor_from_class(self):
         """Test accessing descriptor from class returns descriptor itself."""
+
         class _Author(RelationManagementMixin, BaseModel):
             id: int
             books: ClassVar[HasMany["_Book"]] = HasMany(foreign_key="author_id")
@@ -299,6 +302,7 @@ class TestRelationDescriptorProtocol:
 
     def test_get_descriptor_from_instance_returns_method(self):
         """Test accessing descriptor from instance returns bound method."""
+
         class _Author(RelationManagementMixin, BaseModel):
             id: int
             books: ClassVar[HasMany["_Book"]] = HasMany(foreign_key="author_id")
@@ -320,9 +324,7 @@ class TestRelationDescriptorProtocol:
 
         class _TestModel(RelationManagementMixin, BaseModel):
             id: int
-            items: ClassVar[HasMany["_OtherItem"]] = HasMany(
-                foreign_key="test_id", inverse_of="test"
-            )
+            items: ClassVar[HasMany["_OtherItem"]] = HasMany(foreign_key="test_id", inverse_of="test")
 
         relation = _TestModel.get_relation("items")
         assert relation.name == "items"
@@ -330,6 +332,7 @@ class TestRelationDescriptorProtocol:
 
     def test_query_method_created(self):
         """Test that query method is created for relation."""
+
         class _Author(RelationManagementMixin, BaseModel):
             id: int
             books: ClassVar[HasMany["_Book"]] = HasMany(foreign_key="author_id")

@@ -12,7 +12,6 @@ This module demonstrates:
 import os
 import tempfile
 import logging
-from typing import Optional
 
 from rhosocial.activerecord.worker import (
     WorkerPool,
@@ -21,10 +20,7 @@ from rhosocial.activerecord.worker import (
 )
 
 # Configure logging
-logging.basicConfig(
-    level=logging.INFO,
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
-)
+logging.basicConfig(level=logging.INFO, format="%(asctime)s - %(name)s - %(levelname)s - %(message)s")
 logger = logging.getLogger(__name__)
 
 # Use tempfile for cross-platform marker files
@@ -33,10 +29,11 @@ TEMP_DIR = tempfile.gettempdir()
 
 # ============= Simple hooks =============
 
+
 def worker_init(ctx: WorkerContext):
     """Initialize resources when Worker starts."""
     marker_file = os.path.join(TEMP_DIR, f"worker_{ctx.worker_id}_init.txt")
-    with open(marker_file, 'w') as f:
+    with open(marker_file, "w") as f:
         f.write(f"Worker {ctx.worker_id} (pid={ctx.pid}) initialized")
     print(f"[Worker-{ctx.worker_id}] Initialized (pid={ctx.pid})")
 
@@ -63,48 +60,51 @@ def task_end(ctx: TaskContext):
 
 # ============= Context data sharing hooks =============
 
+
 def init_shared_data(ctx: WorkerContext):
     """Store shared data in Worker context."""
-    ctx.data['counter'] = 0
-    ctx.data['db_connection'] = "simulated_connection"  # In real use, this would be a real DB connection
+    ctx.data["counter"] = 0
+    ctx.data["db_connection"] = "simulated_connection"  # In real use, this would be a real DB connection
     print(f"[Worker-{ctx.worker_id}] Shared data initialized")
 
 
 def task_with_shared_data(ctx: TaskContext, value: int) -> dict:
     """Task that uses Worker-level shared data."""
     # Access and modify Worker-level data
-    counter = ctx.worker_ctx.data.get('counter', 0)
-    ctx.worker_ctx.data['counter'] = counter + 1
+    counter = ctx.worker_ctx.data.get("counter", 0)
+    ctx.worker_ctx.data["counter"] = counter + 1
 
     # Store task-level data
-    ctx.data['processed_value'] = value * 2
+    ctx.data["processed_value"] = value * 2
 
     return {
-        'value': value,
-        'doubled': value * 2,
-        'worker_counter': ctx.worker_ctx.data['counter'],
+        "value": value,
+        "doubled": value * 2,
+        "worker_counter": ctx.worker_ctx.data["counter"],
     }
 
 
 # ============= Hooks with arguments (tuple format) =============
 
+
 def init_with_config(ctx: WorkerContext, db_name: str, pool_size: int):
     """Hook that accepts additional arguments."""
     print(f"[Worker-{ctx.worker_id}] Configured with db={db_name}, pool_size={pool_size}")
-    ctx.data['db_name'] = db_name
-    ctx.data['pool_size'] = pool_size
+    ctx.data["db_name"] = db_name
+    ctx.data["pool_size"] = pool_size
 
 
 def task_with_config(ctx: TaskContext, value: int) -> dict:
     """Task that uses configuration from Worker context."""
     return {
-        'value': value,
-        'db_name': ctx.worker_ctx.data.get('db_name'),
-        'pool_size': ctx.worker_ctx.data.get('pool_size'),
+        "value": value,
+        "db_name": ctx.worker_ctx.data.get("db_name"),
+        "pool_size": ctx.worker_ctx.data.get("pool_size"),
     }
 
 
 # ============= Logging hook with log_summary =============
+
 
 def log_task_summary(ctx: TaskContext):
     """Hook that logs detailed task summary using built-in method."""
@@ -113,6 +113,7 @@ def log_task_summary(ctx: TaskContext):
 
 
 # ============= Example tasks =============
+
 
 def simple_task(ctx: TaskContext, n: int) -> int:
     """Simple task function."""
@@ -178,5 +179,5 @@ def main():
     print("\n=== All hook examples completed ===")
 
 
-if __name__ == '__main__':
+if __name__ == "__main__":
     main()

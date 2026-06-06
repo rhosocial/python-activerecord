@@ -1,7 +1,8 @@
 """
 CRUD Delete operations.
 """
+
 META = {
-    'category': 'crud',
-    'priority': 10,
+    "category": "crud",
+    "priority": 10,
 }

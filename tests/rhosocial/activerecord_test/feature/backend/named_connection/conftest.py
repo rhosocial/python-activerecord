@@ -4,6 +4,7 @@ Test fixtures for named connection tests.
 
 This module provides fixtures for testing named connection functionality.
 """
+
 import types
 from unittest.mock import MagicMock
 import pytest
@@ -29,6 +30,7 @@ def connection_module():
     def custom_db(backend_cls, pool_size: int = 5):
         """Custom SQLite database with pool settings."""
         from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionConfig
+
         return SQLiteConnectionConfig(database=":memory:", pool_size=pool_size)
 
     module.memory_db = memory_db

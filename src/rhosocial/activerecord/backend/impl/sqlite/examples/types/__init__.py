@@ -1,7 +1,8 @@
 """
 Type operations: JSON, etc.
 """
+
 META = {
-    'category': 'types',
-    'priority': 5,
+    "category": "types",
+    "priority": 5,
 }

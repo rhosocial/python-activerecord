@@ -10,18 +10,14 @@ import os
 import sqlite3
 
 import pytest
-import pytest_asyncio
 
 from rhosocial.activerecord.backend.introspection.status import (
     StatusItem,
     StatusCategory,
     ServerOverview,
-    DatabaseBriefInfo,
-    UserInfo,
     ConnectionInfo,
     StorageInfo,
 )
-from rhosocial.activerecord.backend.impl.sqlite import AsyncSQLiteBackend
 
 
 class TestAsyncSQLiteStatusIntrospector:
@@ -357,10 +353,7 @@ class TestAsyncStatusIntrospectorWithAttachedDatabase:
         os.close(fd)
 
         try:
-            await async_sqlite_backend.execute(
-                f"ATTACH DATABASE '{attach_path}' AS attached_db",
-                ()
-            )
+            await async_sqlite_backend.execute(f"ATTACH DATABASE '{attach_path}' AS attached_db", ())
 
             status = async_sqlite_backend.introspector.status
             databases = await status.list_databases()

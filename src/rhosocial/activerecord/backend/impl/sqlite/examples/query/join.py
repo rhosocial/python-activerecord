@@ -10,17 +10,17 @@ from rhosocial.activerecord.backend.impl.sqlite.config import SQLiteConnectionCo
 from rhosocial.activerecord.backend.options import ExecutionOptions
 from rhosocial.activerecord.backend.schema import StatementType
 
-config = SQLiteConnectionConfig(database=':memory:')
+config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
     ColumnConstraint,
     ColumnConstraintType,
@@ -30,15 +30,23 @@ from rhosocial.activerecord.backend.expression.statements import (
 
 users_table = CreateTableExpression(
     dialect=dialect,
-    table_name='users',
+    table_name="users",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('name', 'TEXT', constraints=[
-            ColumnConstraint(ColumnConstraintType.NOT_NULL),
-        ]),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition(
+            "name",
+            "TEXT",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.NOT_NULL),
+            ],
+        ),
     ],
     if_not_exists=True,
 )
@@ -47,21 +55,25 @@ backend.execute(sql, params)
 
 orders_table = CreateTableExpression(
     dialect=dialect,
-    table_name='orders',
+    table_name="orders",
     columns=[
-        ColumnDefinition('id', 'INTEGER', constraints=[
-            ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
-            ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
-        ]),
-        ColumnDefinition('user_id', 'INTEGER'),
-        ColumnDefinition('amount', 'REAL'),
+        ColumnDefinition(
+            "id",
+            "INTEGER",
+            constraints=[
+                ColumnConstraint(ColumnConstraintType.PRIMARY_KEY),
+                ColumnConstraint(ColumnConstraintType.NOT_NULL, is_auto_increment=True),
+            ],
+        ),
+        ColumnDefinition("user_id", "INTEGER"),
+        ColumnDefinition("amount", "REAL"),
     ],
     table_constraints=[
         TableConstraint(
             constraint_type=TableConstraintType.FOREIGN_KEY,
-            columns=['user_id'],
-            foreign_key_table='users',
-            foreign_key_columns=['id'],
+            columns=["user_id"],
+            foreign_key_table="users",
+            foreign_key_columns=["id"],
         ),
     ],
     if_not_exists=True,
@@ -69,12 +81,12 @@ orders_table = CreateTableExpression(
 sql, params = orders_table.to_sql()
 backend.execute(sql, params)
 
-users = [('Alice',), ('Bob',)]
+users = [("Alice",), ("Bob",)]
 for user in users:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into='users',
-        columns=['name'],
+        into="users",
+        columns=["name"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in user]]),
     )
     sql, params = insert_expr.to_sql()
@@ -88,8 +100,8 @@ orders = [
 for row in orders:
     insert_expr = InsertExpression(
         dialect=dialect,
-        into='orders',
-        columns=['user_id', 'amount'],
+        into="orders",
+        columns=["user_id", "amount"],
         source=ValuesSource(dialect, [[Literal(dialect, v) for v in row]]),
     )
     sql, params = insert_expr.to_sql()
@@ -98,32 +110,32 @@ for row in orders:
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     QueryExpression,
     TableExpression,
     Column,
     JoinExpression,
 )
-from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate
+from rhosocial.activerecord.backend.expression.predicates import ComparisonPredicate  # noqa: E402
 
 join_expr = JoinExpression(
     dialect=dialect,
-    left_table=TableExpression(dialect, 'users', alias='u'),
-    right_table=TableExpression(dialect, 'orders', alias='o'),
-    join_type='LEFT JOIN',
+    left_table=TableExpression(dialect, "users", alias="u"),
+    right_table=TableExpression(dialect, "orders", alias="o"),
+    join_type="LEFT JOIN",
     condition=ComparisonPredicate(
         dialect,
-        '=',
-        Column(dialect, 'id', 'u'),
-        Column(dialect, 'user_id', 'o'),
+        "=",
+        Column(dialect, "id", "u"),
+        Column(dialect, "user_id", "o"),
     ),
 )
 
 query = QueryExpression(
     dialect=dialect,
     select=[
-        Column(dialect, 'name', 'u'),
-        Column(dialect, 'amount', 'o'),
+        Column(dialect, "name", "u"),
+        Column(dialect, "amount", "o"),
     ],
     from_=join_expr,
 )

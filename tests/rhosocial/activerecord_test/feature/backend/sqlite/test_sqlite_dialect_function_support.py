@@ -5,7 +5,7 @@ Test SQLFunctionSupport protocol implementation for SQLite dialect.
 This module tests the supports_functions() method and version-dependent
 function availability detection in SQLiteDialect.
 """
-import pytest
+
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 
 
@@ -40,9 +40,19 @@ class TestSQLiteFunctionSupportBasic:
         dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
         sqlxml_constructors = [
-            "xmlparse", "xmlserialize", "xmlelement", "xmlattributes",
-            "xmlforest", "xmlconcat", "xmlcomment", "xmlpi", "xmlroot",
-            "xmlagg", "xmlquery", "xmlexists", "xmltable",
+            "xmlparse",
+            "xmlserialize",
+            "xmlelement",
+            "xmlattributes",
+            "xmlforest",
+            "xmlconcat",
+            "xmlcomment",
+            "xmlpi",
+            "xmlroot",
+            "xmlagg",
+            "xmlquery",
+            "xmlexists",
+            "xmltable",
         ]
         for func in sqlxml_constructors:
             assert func not in result
@@ -56,8 +66,7 @@ class TestSQLiteFunctionSupportVersionDependent:
         dialect = SQLiteDialect(version=(3, 35, 0))
         result = dialect.supports_functions()
 
-        json_functions = ["json", "json_array", "json_object", "json_extract",
-                         "json_type", "json_valid"]
+        json_functions = ["json", "json_array", "json_object", "json_extract", "json_type", "json_valid"]
         for func in json_functions:
             assert func in result, f"JSON function {func} not in result"
 
@@ -123,11 +132,25 @@ class TestSQLiteFunctionSupportVersionDependent:
         result = dialect.supports_functions()
 
         always_available = [
-            "substr", "printf", "unicode", "hex",
-            "date_func", "time_func", "datetime_func", "julianday", "strftime_func",
-            "random_func", "abs_sql", "total", "round_",
-            "zeroblob", "randomblob",
-            "typeof", "quote", "last_insert_rowid", "changes",
+            "substr",
+            "printf",
+            "unicode",
+            "hex",
+            "date_func",
+            "time_func",
+            "datetime_func",
+            "julianday",
+            "strftime_func",
+            "random_func",
+            "abs_sql",
+            "total",
+            "round_",
+            "zeroblob",
+            "randomblob",
+            "typeof",
+            "quote",
+            "last_insert_rowid",
+            "changes",
         ]
         for func in always_available:
             assert result.get(func) is True, f"{func} should be always available"

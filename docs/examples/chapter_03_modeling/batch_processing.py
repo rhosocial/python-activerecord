@@ -48,6 +48,7 @@ _USERS_DDL = """
 # Model definition
 # ---------------------------------------------------------------------------
 
+
 class User(ActiveRecord):
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -59,6 +60,7 @@ class User(ActiveRecord):
 # ---------------------------------------------------------------------------
 # Chunked-read helpers (matching the article examples exactly)
 # ---------------------------------------------------------------------------
+
 
 def iter_users_by_page(page_size: int = 10) -> Iterator[User]:
     """Yield users one page at a time using offset pagination."""
@@ -75,13 +77,7 @@ def iter_users_by_cursor(page_size: int = 10) -> Iterator[User]:
     """Yield users in stable primary-key order using a cursor."""
     last_id = 0
     while True:
-        page = (
-            User.query()
-            .where(User.c.id > last_id)
-            .order_by("id")
-            .limit(page_size)
-            .all()
-        )
+        page = User.query().where(User.c.id > last_id).order_by("id").limit(page_size).all()
         if not page:
             break
         yield from page
@@ -91,6 +87,7 @@ def iter_users_by_cursor(page_size: int = 10) -> Iterator[User]:
 # ---------------------------------------------------------------------------
 # Demo 1: offset pagination
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_offset_pagination() -> None:
     """Offset-based pagination reads all rows without loading them all at once."""
@@ -115,7 +112,7 @@ def demonstrate_offset_pagination() -> None:
     # Paginate and count
     page_size = 10
     pages_seen = 0
-    rows_seen  = 0
+    rows_seen = 0
 
     for i, _ in enumerate(iter_users_by_page(page_size=page_size)):
         if i % page_size == 0:
@@ -129,14 +126,14 @@ def demonstrate_offset_pagination() -> None:
     print(f"Expected pages            : {expected_pages}")
     print(f"Rows yielded              : {rows_seen}")
 
-    assert rows_seen == total_rows, \
-        f"Expected {total_rows} rows, got {rows_seen}"
+    assert rows_seen == total_rows, f"Expected {total_rows} rows, got {rows_seen}"
     print("\n✓ Offset pagination yielded exactly all rows without loading all at once.")
 
 
 # ---------------------------------------------------------------------------
 # Demo 2: cursor-based chunking
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_cursor_chunking() -> None:
     """Cursor-based chunking is stable even when rows are added during iteration.
@@ -163,17 +160,11 @@ def demonstrate_cursor_chunking() -> None:
 
     rows_seen = []
     page_size = 10
-    last_id   = 0
-    page_num  = 0
+    last_id = 0
+    page_num = 0
 
     while True:
-        page = (
-            User.query()
-            .where(User.c.id > last_id)
-            .order_by("id")
-            .limit(page_size)
-            .all()
-        )
+        page = User.query().where(User.c.id > last_id).order_by("id").limit(page_size).all()
         if not page:
             break
         page_num += 1
@@ -190,18 +181,17 @@ def demonstrate_cursor_chunking() -> None:
 
     print(f"\nRows in DB when iteration started: {total_rows}")
     print(f"Rows yielded by cursor iterator  : {len(rows_seen)}")
-    print(f"Late-arrival row included        : "
-          f"{any(r.name == 'LateArrival' for r in rows_seen)}")
+    print(f"Late-arrival row included        : {any(r.name == 'LateArrival' for r in rows_seen)}")
 
     # All original rows must be present
-    assert len(rows_seen) >= total_rows, \
-        "Cursor pagination must yield at least all original rows"
+    assert len(rows_seen) >= total_rows, "Cursor pagination must yield at least all original rows"
     print("\n✓ Cursor-based chunking is stable under concurrent inserts.")
 
 
 # ---------------------------------------------------------------------------
 # Demo 3: N+1 write trap vs. bulk insert
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_bulk_insert_performance() -> None:
     """Per-row save() is slower than a single executemany() bulk insert.
@@ -246,8 +236,7 @@ def demonstrate_bulk_insert_performance() -> None:
 
     assert count_a == batch_size, f"Expected {batch_size} rows, got {count_a}"
     assert count_b == batch_size, f"Expected {batch_size} rows, got {count_b}"
-    assert t_per_row >= t_bulk, \
-        "Bulk insert should be at least as fast as per-row inserts"
+    assert t_per_row >= t_bulk, "Bulk insert should be at least as fast as per-row inserts"
 
     print("\n✓ Bulk insert is significantly faster than per-row save().")
 
@@ -255,6 +244,7 @@ def demonstrate_bulk_insert_performance() -> None:
 # ---------------------------------------------------------------------------
 # Demo 4: column projection
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_column_projection() -> None:
     """Selecting only needed columns reduces bandwidth and validation overhead."""
@@ -288,10 +278,7 @@ def demonstrate_column_projection() -> None:
 
     # Fallback: build projected list via query + post-filter
     if not projected:
-        projected = [
-            {"id": r.id, "email": r.email}
-            for r in User.query().limit(5).all()
-        ]
+        projected = [{"id": r.id, "email": r.email} for r in User.query().limit(5).all()]
 
     print("\nProjected fetch (id + email only, first 5):")
     for r in projected:
@@ -303,6 +290,7 @@ def demonstrate_column_projection() -> None:
 # ---------------------------------------------------------------------------
 # Demo 5: transaction strategies
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_transaction_strategies() -> None:
     """Compare full-transaction (all-or-nothing) vs. no explicit transaction."""
@@ -341,8 +329,7 @@ def demonstrate_transaction_strategies() -> None:
 
     count_after_rollback = User.query().count()
     print(f"Rows after rolled-back transaction: {count_after_rollback}")
-    assert count_after_rollback == 20, \
-        "Rolled-back transaction must not persist any rows"
+    assert count_after_rollback == 20, "Rolled-back transaction must not persist any rows"
 
     print("\n✓ Committed transactions persist; rolled-back transactions leave no trace.")
 

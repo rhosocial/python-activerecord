@@ -74,6 +74,7 @@ class TestConstraintMixinDefaults:
 
     def test_basic_constraint_types_default_true(self):
         """Basic constraint types default to True."""
+
         class TestDialect(ConstraintMixin):
             pass
 
@@ -86,6 +87,7 @@ class TestConstraintMixinDefaults:
 
     def test_fk_actions_default_true(self):
         """FK referential actions default to True."""
+
         class TestDialect(ConstraintMixin):
             pass
 
@@ -100,6 +102,7 @@ class TestConstraintMixinDefaults:
         to validate the full constraint implementation. Backends that don't
         support these features must explicitly override them.
         """
+
         class TestDialect(ConstraintMixin):
             pass
 
@@ -110,6 +113,7 @@ class TestConstraintMixinDefaults:
 
     def test_alter_table_constraint_operations_default_true(self):
         """ALTER TABLE constraint operations default to True."""
+
         class TestDialect(ConstraintMixin):
             pass
 
@@ -150,7 +154,9 @@ class TestConstraintSQLFormatting:
             TableConstraint,
             TableConstraintType,
         )
+
         action = AddTableConstraint(
+            dialect,
             constraint=TableConstraint(
                 constraint_type=TableConstraintType.PRIMARY_KEY,
                 columns=["id"],
@@ -167,7 +173,9 @@ class TestConstraintSQLFormatting:
             TableConstraint,
             TableConstraintType,
         )
+
         action = AddTableConstraint(
+            dialect,
             constraint=TableConstraint(
                 constraint_type=TableConstraintType.UNIQUE,
                 columns=["email"],
@@ -185,8 +193,10 @@ class TestConstraintSQLFormatting:
             TableConstraintType,
         )
         from rhosocial.activerecord.backend.expression import Column as ExprColumn, Literal
+
         check_condition = ExprColumn(dialect, "age") > Literal(dialect, 0)
         action = AddTableConstraint(
+            dialect,
             constraint=TableConstraint(
                 constraint_type=TableConstraintType.CHECK,
                 check_condition=check_condition,
@@ -200,7 +210,9 @@ class TestConstraintSQLFormatting:
         """Test ADD FOREIGN KEY constraint SQL generation."""
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import AddTableConstraint
         from rhosocial.activerecord.backend.expression.statements.ddl_table import ForeignKeyConstraint
+
         action = AddTableConstraint(
+            dialect,
             constraint=ForeignKeyConstraint(
                 columns=["user_id"],
                 foreign_key_table="users",
@@ -219,7 +231,9 @@ class TestConstraintSQLFormatting:
             TableConstraint,
             TableConstraintType,
         )
+
         action = AddTableConstraint(
+            dialect,
             constraint=TableConstraint(
                 constraint_type=TableConstraintType.UNIQUE,
                 name="uk_email",
@@ -234,7 +248,9 @@ class TestConstraintSQLFormatting:
     def test_format_drop_constraint(self, dialect):
         """Test DROP CONSTRAINT SQL generation."""
         from rhosocial.activerecord.backend.expression.statements.ddl_alter import DropTableConstraint
+
         action = DropTableConstraint(
+            dialect,
             constraint_name="uk_email",
         )
         sql, params = dialect.format_drop_table_constraint_action(action)

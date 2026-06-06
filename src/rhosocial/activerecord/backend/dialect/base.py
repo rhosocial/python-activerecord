@@ -36,6 +36,8 @@ if TYPE_CHECKING:
         DropTableConstraint,
         RenameColumn,
         RenameTable,
+        ModifyColumn,
+        ChangeColumn,
         # Constraint types
         ColumnConstraint,
         TableConstraint,
@@ -87,6 +89,7 @@ class SQLDialectBase:
         """
         if self._version is None:
             from .exceptions import DialectNotAdaptedException
+
             raise DialectNotAdaptedException(self.name)
         return self._version
 
@@ -122,10 +125,10 @@ class SQLDialectBase:
     # Standard isolation level name mapping
     # Maps IsolationLevel enum name to SQL standard name
     ISOLATION_LEVEL_NAMES = {
-        'READ_UNCOMMITTED': 'READ UNCOMMITTED',
-        'READ_COMMITTED': 'READ COMMITTED',
-        'REPEATABLE_READ': 'REPEATABLE READ',
-        'SERIALIZABLE': 'SERIALIZABLE',
+        "READ_UNCOMMITTED": "READ UNCOMMITTED",
+        "READ_COMMITTED": "READ COMMITTED",
+        "REPEATABLE_READ": "REPEATABLE READ",
+        "SERIALIZABLE": "SERIALIZABLE",
     }
 
     def get_isolation_level_name(self, level) -> str:
@@ -138,7 +141,7 @@ class SQLDialectBase:
             SQL standard isolation level name.
         """
         level_name = level.name if hasattr(level, "name") else str(level)
-        return self.ISOLATION_LEVEL_NAMES.get(level_name, level_name.replace('_', ' '))
+        return self.ISOLATION_LEVEL_NAMES.get(level_name, level_name.replace("_", " "))
 
     # endregion Core & General
 
@@ -217,10 +220,14 @@ class SQLDialectBase:
 
         return bool(re.fullmatch(r"[A-Za-z0-9\s(),]+", data_type))
 
-    def format_column(self, name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None) -> Tuple[str, Tuple]:
+    def format_column(
+        self, name: str, table: Optional[str] = None, alias: Optional[str] = None, schema_name: Optional[str] = None
+    ) -> Tuple[str, Tuple]:
         """Format column reference."""
         if schema_name and table:
-            col_sql = f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.{self.format_identifier(name)}"
+            col_sql = (
+                f"{self.format_identifier(schema_name)}.{self.format_identifier(table)}.{self.format_identifier(name)}"
+            )
         elif table:
             col_sql = f"{self.format_identifier(table)}.{self.format_identifier(name)}"
         else:
@@ -325,7 +332,7 @@ class SQLDialectBase:
         args_sql_str = ", ".join(args_sql)
 
         # Niladic functions: omit parentheses when no arguments (SQL:2003)
-        if getattr(expr, 'niladic', False) and not args_sql and not distinct:
+        if getattr(expr, "niladic", False) and not args_sql and not distinct:
             func_call_sql = expr.func_name.upper()
         else:
             func_call_sql = f"{expr.func_name.upper()}({distinct}{args_sql_str})"
@@ -552,9 +559,7 @@ class SQLDialectBase:
             if operation_str == "SET DATA TYPE":
                 # For SET DATA TYPE, new_value is a type specification, not a parameter
                 if not self._validate_data_type(str(action.new_value)):
-                    raise ValueError(
-                        f"Invalid data type specification: '{action.new_value}'"
-                    )
+                    raise ValueError(f"Invalid data type specification: '{action.new_value}'")
                 column_part += f" {action.new_value}"
             elif isinstance(action.new_value, str):
                 # Handle literal strings
@@ -623,7 +628,7 @@ class SQLDialectBase:
             # ON DELETE / ON UPDATE (from ForeignKeyConstraint)
             if isinstance(action.constraint, ForeignKeyConstraint):
                 if action.constraint.match_type:
-                    _VALID_MATCH_TYPES = frozenset({'SIMPLE', 'PARTIAL', 'FULL'})
+                    _VALID_MATCH_TYPES = frozenset({"SIMPLE", "PARTIAL", "FULL"})
                     mt = action.constraint.match_type.upper()
                     if mt not in _VALID_MATCH_TYPES:
                         raise ValueError(
@@ -686,7 +691,7 @@ class SQLDialectBase:
         """Format RENAME TABLE action per SQL standard."""
         return f"RENAME TO {self.format_identifier(action.new_name)}", ()
 
-    def format_modify_column_action(self, action) -> Tuple[str, tuple]:
+    def format_modify_column_action(self, action: "ModifyColumn") -> Tuple[str, tuple]:
         """Format MODIFY COLUMN action within ALTER TABLE.
 
         MySQL/MariaDB specific: redefines a column with complete specification.
@@ -697,7 +702,7 @@ class SQLDialectBase:
 
         raise UnsupportedFeatureError(self.name, "MODIFY COLUMN")
 
-    def format_change_column_action(self, action) -> Tuple[str, tuple]:
+    def format_change_column_action(self, action: "ChangeColumn") -> Tuple[str, tuple]:
         """Format CHANGE COLUMN action within ALTER TABLE.
 
         MySQL/MariaDB specific: renames and redefines a column.
@@ -1002,7 +1007,7 @@ class SQLDialectBase:
                     "FOR UPDATE clause",
                     "This backend does not support row-level locking with FOR UPDATE. "
                     "Use dialect.supports_for_update() to check support. "
-                    "For SQLite, use BEGIN IMMEDIATE transactions for write serialization."
+                    "For SQLite, use BEGIN IMMEDIATE transactions for write serialization.",
                 )
             for_update_sql, for_update_params = expr.for_update.to_sql()
             if for_update_sql:
@@ -1064,8 +1069,9 @@ class SQLDialectBase:
         if expr.returning:
             if not self.supports_returning_insert():
                 raise UnsupportedFeatureError(
-                    self.name, "RETURNING clause in INSERT",
-                    "This dialect does not support RETURNING in INSERT statements."
+                    self.name,
+                    "RETURNING clause in INSERT",
+                    "This dialect does not support RETURNING in INSERT statements.",
                 )
             returning_sql, returning_params = self.format_returning_clause(expr.returning)
             sql += f" {returning_sql}"
@@ -1137,8 +1143,9 @@ class SQLDialectBase:
         if expr.returning:
             if not self.supports_returning_update():
                 raise UnsupportedFeatureError(
-                    self.name, "RETURNING clause in UPDATE",
-                    "This dialect does not support RETURNING in UPDATE statements."
+                    self.name,
+                    "RETURNING clause in UPDATE",
+                    "This dialect does not support RETURNING in UPDATE statements.",
                 )
             returning_sql, returning_params = self.format_returning_clause(
                 expr.returning
@@ -1223,8 +1230,9 @@ class SQLDialectBase:
         if expr.returning:
             if not self.supports_returning_delete():
                 raise UnsupportedFeatureError(
-                    self.name, "RETURNING clause in DELETE",
-                    "This dialect does not support RETURNING in DELETE statements."
+                    self.name,
+                    "RETURNING clause in DELETE",
+                    "This dialect does not support RETURNING in DELETE statements.",
                 )
             returning_sql, returning_params = self.format_returning_clause(expr.returning)
             current_sql += f" {returning_sql}"
@@ -1385,17 +1393,13 @@ class SQLDialectBase:
             parts.append(f" INHERITS ({inherits_str})")
 
         # Add partition clause if present
-        if expr.partition_by:
-            partition_type, partition_cols = expr.partition_by
-            _VALID_PARTITION_TYPES = frozenset({'RANGE', 'LIST', 'HASH', 'KEY'})
-            normalized = partition_type.upper()
-            if normalized not in _VALID_PARTITION_TYPES:
-                raise ValueError(
-                    f"Invalid partition_type '{partition_type}'. "
-                    f"Must be one of: {', '.join(sorted(_VALID_PARTITION_TYPES))}"
-                )
-            cols_str = ", ".join(self.format_identifier(col) for col in partition_cols)
-            parts.append(f" PARTITION BY {normalized} ({cols_str})")
+        if expr.partition is not None:
+            # PartitionClause expression delegates to
+            # dialect.format_partition_clause()
+            partition_sql, partition_params = expr.partition.to_sql()
+            if partition_sql:
+                parts.append(partition_sql)
+                all_params.extend(partition_params)
 
         # Add AS clause if present
         if expr.as_query:
@@ -1643,9 +1647,7 @@ class SQLDialectBase:
                 expr_sql, expr_params = expr.to_sql()
                 direction = direction.upper()
                 if direction not in self._VALID_ORDER_DIRECTIONS:
-                    raise ValueError(
-                        f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'."
-                    )
+                    raise ValueError(f"Invalid ORDER BY direction: {direction!r}. Must be 'ASC' or 'DESC'.")
                 expr_parts.append(f"{expr_sql} {direction}")
                 all_params.extend(expr_params)
             else:
@@ -1770,14 +1772,11 @@ class SQLDialectBase:
 
         return col_sql, tuple(all_params)
 
-
     # region Transaction Control
     # Default implementations for transaction control statements.
     # Dialects can override these methods to provide database-specific SQL generation.
 
-    def format_begin_transaction(
-        self, expr: "BeginTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_begin_transaction(self, expr: "BeginTransactionExpression") -> Tuple[str, tuple]:
         """Format BEGIN TRANSACTION statement.
 
         Default implementation generates standard SQL BEGIN statement.
@@ -1795,9 +1794,7 @@ class SQLDialectBase:
         # Default: simple BEGIN (no isolation level or mode support)
         return "BEGIN", ()
 
-    def format_commit_transaction(
-        self, expr: "CommitTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_commit_transaction(self, expr: "CommitTransactionExpression") -> Tuple[str, tuple]:
         """Format COMMIT statement.
 
         Args:
@@ -1808,9 +1805,7 @@ class SQLDialectBase:
         """
         return "COMMIT", ()
 
-    def format_rollback_transaction(
-        self, expr: "RollbackTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_rollback_transaction(self, expr: "RollbackTransactionExpression") -> Tuple[str, tuple]:
         """Format ROLLBACK statement.
 
         Args:
@@ -1836,9 +1831,7 @@ class SQLDialectBase:
         """
         return f"SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_release_savepoint(
-        self, expr: "ReleaseSavepointExpression"
-    ) -> Tuple[str, tuple]:
+    def format_release_savepoint(self, expr: "ReleaseSavepointExpression") -> Tuple[str, tuple]:
         """Format RELEASE SAVEPOINT statement.
 
         Args:
@@ -1849,9 +1842,7 @@ class SQLDialectBase:
         """
         return f"RELEASE SAVEPOINT {self.format_identifier(expr.name)}", ()
 
-    def format_set_transaction(
-        self, expr: "SetTransactionExpression"
-    ) -> Tuple[str, tuple]:
+    def format_set_transaction(self, expr: "SetTransactionExpression") -> Tuple[str, tuple]:
         """Format SET TRANSACTION statement.
 
         Default implementation raises NotImplementedError as this is
@@ -1863,8 +1854,6 @@ class SQLDialectBase:
         Returns:
             Tuple of (SQL string, parameters tuple).
         """
-        raise NotImplementedError(
-            f"{self.name} dialect does not support SET TRANSACTION statement"
-        )
+        raise NotImplementedError(f"{self.name} dialect does not support SET TRANSACTION statement")
 
     # endregion Transaction Control

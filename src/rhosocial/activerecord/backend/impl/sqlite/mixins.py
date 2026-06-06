@@ -454,7 +454,7 @@ class SQLiteVirtualTableMixin(SQLiteExtensionMixin):
         geopoly = get_geopoly_extension()
         extra_cols = []
         for c in columns:
-            if c != '_shape':
+            if c != "_shape":
                 extra_cols.append(c)
         extra_columns = extra_cols if extra_cols else None
         return geopoly.format_create_virtual_table(
@@ -726,9 +726,7 @@ class SQLiteReindexMixin:
         if expr.expressions:
             if not self.supports_reindex_expressions():
                 raise UnsupportedFeatureError(
-                    self.name,
-                    "REINDEX EXPRESSIONS",
-                    "REINDEX EXPRESSIONS requires SQLite 3.53.0 or later."
+                    self.name, "REINDEX EXPRESSIONS", "REINDEX EXPRESSIONS requires SQLite 3.53.0 or later."
                 )
             return "REINDEX EXPRESSIONS", ()
 
@@ -1025,7 +1023,7 @@ class SQLiteIntrospectionCapabilityMixin:
         sql = f"PRAGMA {schema}.foreign_key_list({self.format_identifier(table_name)})"
         return (sql, ())
 
-    def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:
+    def format_view_list_query(self, expr: "ViewListExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format view list query.
 
         Query sqlite_master for views.
@@ -1049,7 +1047,7 @@ class SQLiteIntrospectionCapabilityMixin:
         sql += " ORDER BY name"
         return (sql, ())
 
-    def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:
+    def format_view_info_query(self, expr: "ViewInfoExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format single view information query.
 
         Query sqlite_master for view details.
@@ -1067,7 +1065,7 @@ class SQLiteIntrospectionCapabilityMixin:
         sql = f"SELECT name, sql FROM {schema}.sqlite_master WHERE type = 'view' AND name = ?"
         return (sql, (view_name,))
 
-    def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:
+    def format_trigger_list_query(self, expr: "TriggerListExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format trigger list query.
 
         Query sqlite_master for triggers, optionally filtered by table.
@@ -1090,7 +1088,7 @@ class SQLiteIntrospectionCapabilityMixin:
         sql += " ORDER BY name"
         return (sql, ())
 
-    def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:
+    def format_trigger_info_query(self, expr: "TriggerInfoExpression") -> Tuple[str, tuple]:  # noqa: F821
         """Format single trigger information query.
 
         Query sqlite_master for trigger details.

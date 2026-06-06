@@ -17,6 +17,7 @@ def create_parser(subparsers):
     the shared CLI helper requires a parent_parser. Pass an empty one.
     """
     from rhosocial.activerecord.backend.named_connection.cli import create_named_connection_parser
+
     # Create an empty parent parser with no arguments
     empty_parent = argparse.ArgumentParser(add_help=False)
     return create_named_connection_parser(subparsers, empty_parent)
@@ -27,6 +28,7 @@ def handle(args):
     from rhosocial.activerecord.backend.named_connection.cli import handle_named_connection as handle_nc
 
     from .output import create_provider
+
     output_fmt = getattr(args, "output", "table")
     ascii_borders = getattr(args, "rich_ascii", False)
     provider = create_provider(output_fmt, ascii_borders=ascii_borders)

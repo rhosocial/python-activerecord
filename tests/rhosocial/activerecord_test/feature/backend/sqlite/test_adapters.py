@@ -15,7 +15,7 @@ from rhosocial.activerecord.backend.impl.sqlite.adapters import (
 
 # --- Start of new imports ---
 from enum import Enum as PyEnum
-from typing import Optional, Union
+from typing import Optional
 
 # Import the generic adapters from the core library
 from rhosocial.activerecord.backend.type_adapter import (
@@ -24,7 +24,6 @@ from rhosocial.activerecord.backend.type_adapter import (
     DecimalAdapter,
     BooleanAdapter,
     ArrayAdapter,
-    BaseSQLTypeAdapter,
     UUIDAdapter as GenericUUIDAdapter,
 )
 # --- End of new imports ---
@@ -37,13 +36,13 @@ class TestSQLiteBlobAdapter:
 
     def test_to_database_bytes(self, adapter):
         """Test converting bytes to a database-compatible format."""
-        test_bytes = b'\x01\x02\x03'
+        test_bytes = b"\x01\x02\x03"
         assert adapter.to_database(test_bytes, bytes) == test_bytes
 
     def test_to_database_str(self, adapter):
         """Test converting a string to a database-compatible format."""
         test_str = "hello"
-        assert adapter.to_database(test_str, bytes) == b'hello'
+        assert adapter.to_database(test_str, bytes) == b"hello"
 
     def test_to_database_invalid_type_raises_error(self, adapter):
         """Test that converting an unsupported type raises TypeConversionError."""
@@ -52,13 +51,13 @@ class TestSQLiteBlobAdapter:
 
     def test_from_database_bytes(self, adapter):
         """Test converting bytes from the database to a Python object."""
-        test_bytes = b'\x01\x02\x03'
+        test_bytes = b"\x01\x02\x03"
         assert adapter.from_database(test_bytes, bytes) == test_bytes
 
     def test_from_database_str(self, adapter):
         """Test converting a string from the database to a Python object."""
         test_str = "world"
-        assert adapter.from_database(test_str, bytes) == b'world'
+        assert adapter.from_database(test_str, bytes) == b"world"
 
     def test_from_database_invalid_type_raises_error(self, adapter):
         """Test that converting an unsupported type from the database raises TypeConversionError."""
@@ -81,9 +80,9 @@ class TestSQLiteJSONAdapter:
             "time": now.time(),
             "uuid": test_uuid,
             "decimal": decimal.Decimal("123.45"),
-            "set": {1, 2, 3}
+            "set": {1, 2, 3},
         }
-        
+
         result_str = adapter.to_database(data, str)
         result_dict = json.loads(result_str)
 
@@ -161,6 +160,7 @@ class TestSQLiteUUIDAdapter:
 
 # --- Tests for Generic Adapters ---
 
+
 class TestGenericUUIDAdapter:
     @pytest.fixture
     def adapter(self):
@@ -169,16 +169,16 @@ class TestGenericUUIDAdapter:
     @pytest.fixture
     def sample_uuid(self):
         return uuid.uuid4()
-        
+
     def test_from_database_with_uuid_object(self, adapter, sample_uuid):
         """Tests that the adapter is idempotent and handles existing UUID objects."""
         assert adapter.from_database(sample_uuid, uuid.UUID) == sample_uuid
-        
+
     def test_unsupported_to_database_conversion_raises_error(self, adapter, sample_uuid):
         """Test that converting to an unsupported type raises TypeError."""
         with pytest.raises(TypeError, match="Cannot convert UUID to int"):
             adapter.to_database(sample_uuid, int)
-            
+
     def test_unsupported_from_database_conversion_raises_error(self, adapter):
         """Test that converting from an unsupported type raises TypeError."""
         with pytest.raises(TypeError, match="Cannot convert int to UUID"):
@@ -207,11 +207,11 @@ class TestDateTimeAdapter:
         t = datetime.time(14, 30, 5)
         with pytest.raises(TypeError):
             adapter.to_database(t, int)
-            
+
     def test_from_database_unsupported(self, adapter):
         """Test that from_database raises TypeError for unsupported conversions."""
         with pytest.raises(ValueError):
-            adapter.from_database("test", datetime.time) # Note: fromisoformat is strict
+            adapter.from_database("test", datetime.time)  # Note: fromisoformat is strict
         with pytest.raises(TypeError):
             adapter.from_database(b"test", datetime.datetime)
 
@@ -240,9 +240,9 @@ class TestEnumAdapter:
         """Test invalid conversions for EnumAdapter raise errors."""
         with pytest.raises(TypeError):
             adapter.to_database(self.Status.PENDING, float)
-        with pytest.raises(KeyError): # Enum['invalid'] raises KeyError
+        with pytest.raises(KeyError):  # Enum['invalid'] raises KeyError
             adapter.from_database("INVALID", self.Status)
-        with pytest.raises(ValueError): # Enum(99) raises ValueError
+        with pytest.raises(ValueError):  # Enum(99) raises ValueError
             adapter.from_database(99, self.Status)
         with pytest.raises(TypeError):
             adapter.from_database(1.5, self.Status)
@@ -263,7 +263,7 @@ class TestDecimalAdapter:
 
     def test_quantization(self, adapter):
         """Test precision and rounding options."""
-        val = decimal.Decimal("123.456789")
+        decimal.Decimal("123.456789")
         options = {"precision": "0.01", "rounding": decimal.ROUND_DOWN}
         expected = decimal.Decimal("123.45")
         assert adapter.from_database("123.456789", decimal.Decimal, options) == expected
@@ -280,7 +280,7 @@ class TestBooleanAdapter:
     @pytest.fixture
     def adapter(self):
         return BooleanAdapter()
-        
+
     def test_to_database_str(self, adapter):
         assert adapter.to_database(True, str) == "true"
         assert adapter.to_database(False, str) == "false"
@@ -312,7 +312,7 @@ class TestArrayAdapter:
     def test_to_database_invalid_type(self, adapter):
         with pytest.raises(TypeError, match="Cannot convert dict to JSON array string"):
             adapter.to_database({"a": 1}, str)
-            
+
     def test_from_database(self, adapter):
         assert adapter.from_database('[1, "a", true]', list) == [1, "a", True]
 
@@ -330,7 +330,7 @@ class TestBaseSQLTypeAdapter:
         result = adapter.from_database(val, Optional[datetime.datetime])
         assert isinstance(result, datetime.datetime)
         assert result == datetime.datetime(2024, 1, 1, 12, 0, 0)
-        
+
     def test_from_database_with_none(self, adapter):
         """Test that from_database returns None if the input value is None."""
         assert adapter.from_database(None, datetime.datetime) is None

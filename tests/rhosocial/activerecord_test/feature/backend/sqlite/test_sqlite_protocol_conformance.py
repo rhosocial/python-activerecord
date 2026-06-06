@@ -10,10 +10,10 @@ This test ensures:
 5. Protocol-declared methods exist in corresponding Mixins (forward coverage)
 6. Mixin-implemented methods are declared in corresponding Protocols (reverse coverage)
 """
+
 import inspect
 import sys
 from itertools import combinations
-from typing import Protocol
 
 if sys.version_info >= (3, 13):
     from typing import get_protocol_members
@@ -45,10 +45,7 @@ def get_all_protocol_methods(proto: type) -> set:
                 val = cls.__dict__[name]
                 if callable(val) or isinstance(val, (property, classmethod, staticmethod)):
                     members.add(name)
-            members.update(
-                k for k in getattr(cls, "__annotations__", {})
-                if not k.startswith("_")
-            )
+            members.update(k for k in getattr(cls, "__annotations__", {}) if not k.startswith("_"))
     return members
 
 
@@ -65,10 +62,7 @@ def get_own_protocol_methods(proto: type) -> set:
         val = proto.__dict__[name]
         if callable(val) or isinstance(val, (property, classmethod, staticmethod)):
             members.add(name)
-    members.update(
-        k for k in getattr(proto, "__annotations__", {})
-        if not k.startswith("_")
-    )
+    members.update(k for k in getattr(proto, "__annotations__", {}) if not k.startswith("_"))
     return members
 
 
@@ -133,10 +127,7 @@ class TestProtocolNonOverlap:
 
     def test_no_interface_overlap_between_protocols(self):
         """No two protocols should share the same method name."""
-        member_map = {
-            proto.__name__: get_all_protocol_methods(proto)
-            for proto in SQLITE_PROTOCOLS
-        }
+        member_map = {proto.__name__: get_all_protocol_methods(proto) for proto in SQLITE_PROTOCOLS}
 
         for name, members in member_map.items():
             assert len(members) > 0, f"Protocol {name} has no members defined"
@@ -190,8 +181,7 @@ class TestSQLiteExpressionDialectSeparation:
         # Verify the dialect has the corresponding format method
         dialect = sqlite_dialect.SQLiteDialect()
         assert hasattr(dialect, format_method), (
-            f"SQLiteDialect missing format method {format_method} "
-            f"for expression {expr_name}"
+            f"SQLiteDialect missing format method {format_method} for expression {expr_name}"
         )
 
 
@@ -220,22 +210,22 @@ class TestProtocolMethodSignatureConformance:
     # These are pre-existing issues that require a broader refactoring to fix.
     _SIGNATURE_MISMATCH_EXCLUSIONS = {
         # JSONSupport: Mixin uses expr-based signatures instead of named params
-        ('JSONSupport', 'format_json_expression'),
-        ('JSONSupport', 'format_json_table_expression'),
+        ("JSONSupport", "format_json_expression"),
+        ("JSONSupport", "format_json_table_expression"),
         # ArraySupport: SQLite doesn't support arrays natively
-        ('ArraySupport', 'format_array_expression'),
+        ("ArraySupport", "format_array_expression"),
         # AdvancedGroupingSupport: Mixin uses expr instead of named params
-        ('AdvancedGroupingSupport', 'format_grouping_expression'),
+        ("AdvancedGroupingSupport", "format_grouping_expression"),
         # GraphSupport: Mixin uses expr instead of clause
-        ('GraphSupport', 'format_match_clause'),
+        ("GraphSupport", "format_match_clause"),
         # OrderedSetAggregationSupport: Mixin uses expr instead of aggregation
-        ('OrderedSetAggregationSupport', 'format_ordered_set_aggregation'),
+        ("OrderedSetAggregationSupport", "format_ordered_set_aggregation"),
         # QualifyClauseSupport: Mixin uses expr instead of clause
-        ('QualifyClauseSupport', 'format_qualify_clause'),
+        ("QualifyClauseSupport", "format_qualify_clause"),
         # ViewSupport: Materialized view methods use expr instead of named params
-        ('ViewSupport', 'format_create_materialized_view_statement'),
-        ('ViewSupport', 'format_drop_materialized_view_statement'),
-        ('ViewSupport', 'format_refresh_materialized_view_statement'),
+        ("ViewSupport", "format_create_materialized_view_statement"),
+        ("ViewSupport", "format_drop_materialized_view_statement"),
+        ("ViewSupport", "format_refresh_materialized_view_statement"),
     }
 
     @pytest.fixture
@@ -271,20 +261,16 @@ class TestProtocolMethodSignatureConformance:
                     dialect_sig = inspect.signature(dialect_method)
 
                     # Compare parameter names (excluding 'self')
-                    proto_params = [
-                        p for p in proto_sig.parameters.values()
-                        if p.name != 'self'
-                    ]
-                    dialect_params = [
-                        p for p in dialect_sig.parameters.values()
-                        if p.name != 'self'
-                    ]
+                    proto_params = [p for p in proto_sig.parameters.values() if p.name != "self"]
+                    dialect_params = [p for p in dialect_sig.parameters.values() if p.name != "self"]
 
                     # Dialect must accept at least all required proto params
                     proto_required = [
-                        p for p in proto_params
+                        p
+                        for p in proto_params
                         if p.default is inspect.Parameter.empty
-                        and p.kind not in (
+                        and p.kind
+                        not in (
                             inspect.Parameter.VAR_POSITIONAL,
                             inspect.Parameter.VAR_KEYWORD,
                         )
@@ -294,18 +280,13 @@ class TestProtocolMethodSignatureConformance:
                     for req_param in proto_required:
                         if req_param.name not in dialect_param_names:
                             signature_mismatch.append(
-                                f"{method_name}: missing required param "
-                                f"'{req_param.name}' from protocol"
+                                f"{method_name}: missing required param '{req_param.name}' from protocol"
                             )
                 except (ValueError, TypeError):
                     pass  # Some protocol methods can't be inspected
 
-        assert not missing, (
-            f"SQLiteDialect missing methods for {protocol.__name__}: {missing}"
-        )
-        assert not signature_mismatch, (
-            f"Signature mismatches for {protocol.__name__}: {signature_mismatch}"
-        )
+        assert not missing, f"SQLiteDialect missing methods for {protocol.__name__}: {missing}"
+        assert not signature_mismatch, f"Signature mismatches for {protocol.__name__}: {signature_mismatch}"
 
 
 class TestProtocolMixinForwardCoverage:
@@ -324,11 +305,10 @@ class TestProtocolMixinForwardCoverage:
         implemented by generic mixins rather than the SQLite-specific one.
         """
         proto_methods = get_own_protocol_methods(protocol)
-        mixin_methods = {name for name in dir(mixin) if not name.startswith('_')}
+        mixin_methods = {name for name in dir(mixin) if not name.startswith("_")}
         missing = proto_methods - mixin_methods
         assert not missing, (
-            f"{mixin.__name__} does not implement these methods "
-            f"declared in {protocol.__name__}: {missing}"
+            f"{mixin.__name__} does not implement these methods declared in {protocol.__name__}: {missing}"
         )
 
 
@@ -352,12 +332,18 @@ class TestProtocolMixinReverseCoverage:
         # Collect Mixin's own public method names matching the prefix pattern
         mixin_own_methods = set()
         for name in dir(mixin):
-            if name.startswith('_'):
+            if name.startswith("_"):
                 continue
-            if not (name.startswith('format_') or name.startswith('supports_')
-                    or name.startswith('get_') or name.startswith('detect_')
-                    or name.startswith('is_') or name.startswith('check_')
-                    or name.startswith('set_pragma_') or name.startswith('get_pragma_')):
+            if not (
+                name.startswith("format_")
+                or name.startswith("supports_")
+                or name.startswith("get_")
+                or name.startswith("detect_")
+                or name.startswith("is_")
+                or name.startswith("check_")
+                or name.startswith("set_pragma_")
+                or name.startswith("get_pragma_")
+            ):
                 continue
             # Only include methods defined on the mixin itself, not inherited
             if name in mixin.__dict__:
@@ -365,6 +351,5 @@ class TestProtocolMixinReverseCoverage:
 
         undeclared = mixin_own_methods - proto_methods
         assert not undeclared, (
-            f"{mixin.__name__} implements these methods not declared in "
-            f"{protocol.__name__}: {undeclared}"
+            f"{mixin.__name__} implements these methods not declared in {protocol.__name__}: {undeclared}"
         )

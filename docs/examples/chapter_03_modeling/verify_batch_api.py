@@ -27,6 +27,7 @@ All demos use SQLite :memory: backends and are fully self-contained.
 # Assertion 1: free-function import does NOT exist
 # ---------------------------------------------------------------------------
 
+
 def assert_no_free_function_import() -> None:
     """Confirm there is no standalone execute_batch_dql/dml in a .batch module."""
 
@@ -37,6 +38,7 @@ def assert_no_free_function_import() -> None:
     # Attempt to import a non-existent module
     try:
         import rhosocial.activerecord.backend.batch  # type: ignore  # noqa: F401
+
         has_batch_module = True
     except ModuleNotFoundError:
         has_batch_module = False
@@ -44,6 +46,7 @@ def assert_no_free_function_import() -> None:
     if has_batch_module:
         # Even if the module exists (future), the functions should not be there yet
         import rhosocial.activerecord.backend.batch as batch_mod  # type: ignore
+
         has_dql = hasattr(batch_mod, "execute_batch_dql")
         has_dml = hasattr(batch_mod, "execute_batch_dml")
         print("\n  Module exists: True")
@@ -64,6 +67,7 @@ def assert_no_free_function_import() -> None:
 # Assertion 2: the methods ARE on the backend instance
 # ---------------------------------------------------------------------------
 
+
 def assert_methods_on_backend() -> None:
     """Confirm execute_batch_dml and execute_batch_dql are backend instance methods."""
 
@@ -72,7 +76,8 @@ def assert_methods_on_backend() -> None:
     print("=" * 60)
 
     from rhosocial.activerecord.backend.impl.sqlite import (
-        SQLiteBackend, SQLiteConnectionConfig,
+        SQLiteBackend,
+        SQLiteConnectionConfig,
     )
     from rhosocial.activerecord.backend.base import BatchExecutionMixin
 
@@ -96,6 +101,7 @@ def assert_methods_on_backend() -> None:
 # ---------------------------------------------------------------------------
 # Assertion 3: correct import paths for all related types
 # ---------------------------------------------------------------------------
+
 
 def assert_import_paths() -> None:
     """Verify every symbol used in batch processing can be imported correctly."""
@@ -159,6 +165,7 @@ def assert_import_paths() -> None:
 # Demo 1: execute_batch_dml — bulk INSERT via backend method
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_batch_dml() -> None:
     """execute_batch_dml is called as backend.execute_batch_dml(expressions, ...)."""
 
@@ -167,10 +174,13 @@ def demonstrate_batch_dml() -> None:
     print("=" * 60)
 
     from rhosocial.activerecord.backend.impl.sqlite import (
-        SQLiteBackend, SQLiteConnectionConfig,
+        SQLiteBackend,
+        SQLiteConnectionConfig,
     )
     from rhosocial.activerecord.backend.expression import (
-        InsertExpression, ValuesSource, Literal,
+        InsertExpression,
+        ValuesSource,
+        Literal,
     )
     from rhosocial.activerecord.backend.result import BatchCommitMode
     from rhosocial.activerecord.backend.options import ExecutionOptions
@@ -191,10 +201,10 @@ def demonstrate_batch_dml() -> None:
     # Build InsertExpression list
     rows = [
         ("Alice", "alice@example.com"),
-        ("Bob",   "bob@example.com"),
+        ("Bob", "bob@example.com"),
         ("Carol", "carol@example.com"),
-        ("Dave",  "dave@example.com"),
-        ("Eve",   "eve@example.com"),
+        ("Dave", "dave@example.com"),
+        ("Eve", "eve@example.com"),
     ]
     exprs = [
         InsertExpression(
@@ -217,12 +227,15 @@ def demonstrate_batch_dml() -> None:
         commit_mode=BatchCommitMode.WHOLE,
     ):
         total_inserted += batch_result.total_affected_rows
-        print(f"  Batch {batch_result.batch_index}: "
-              f"{batch_result.total_affected_rows} rows, "
-              f"duration={batch_result.duration:.4f}s")
+        print(
+            f"  Batch {batch_result.batch_index}: "
+            f"{batch_result.total_affected_rows} rows, "
+            f"duration={batch_result.duration:.4f}s"
+        )
 
     count_result = backend.execute(
-        "SELECT COUNT(*) as cnt FROM users", None,
+        "SELECT COUNT(*) as cnt FROM users",
+        None,
         options=ExecutionOptions(stmt_type=StatementType.DQL),
     )
     count = count_result.data[0]["cnt"] if count_result.data else 0
@@ -238,6 +251,7 @@ def demonstrate_batch_dml() -> None:
 # Demo 2: execute_batch_dql — paginated SELECT via backend method
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_batch_dql() -> None:
     """execute_batch_dql is called as backend.execute_batch_dql(expression, ...)."""
 
@@ -246,11 +260,13 @@ def demonstrate_batch_dql() -> None:
     print("=" * 60)
 
     from rhosocial.activerecord.backend.impl.sqlite import (
-        SQLiteBackend, SQLiteConnectionConfig,
+        SQLiteBackend,
+        SQLiteConnectionConfig,
     )
     from rhosocial.activerecord.backend.expression.statements import QueryExpression
     from rhosocial.activerecord.backend.expression import (
-        WildcardExpression, TableExpression,
+        WildcardExpression,
+        TableExpression,
     )
     from rhosocial.activerecord.backend.expression.query_parts import OrderByClause
     from rhosocial.activerecord.backend.expression import Column
@@ -293,8 +309,9 @@ def demonstrate_batch_dql() -> None:
     all_rows = []
     for page in backend.execute_batch_dql(query_expr, page_size=page_size):
         all_rows.extend(page.data)
-        print(f"  Page {page.page_index}: {page.page_size} rows, "
-              f"has_more={page.has_more}, duration={page.duration:.4f}s")
+        print(
+            f"  Page {page.page_index}: {page.page_size} rows, has_more={page.has_more}, duration={page.duration:.4f}s"
+        )
 
     print(f"\n  Total rows fetched: {len(all_rows)}")
     assert len(all_rows) == total_rows, f"Expected {total_rows}, got {len(all_rows)}"
@@ -306,6 +323,7 @@ def demonstrate_batch_dql() -> None:
 # ---------------------------------------------------------------------------
 # Summary: correct vs. incorrect usage patterns
 # ---------------------------------------------------------------------------
+
 
 def print_usage_summary() -> None:
     print("\n" + "=" * 60)

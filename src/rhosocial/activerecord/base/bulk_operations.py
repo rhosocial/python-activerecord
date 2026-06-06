@@ -1,8 +1,7 @@
 # src/rhosocial/activerecord/base/bulk_operations.py
 """Bulk operations mixin for ActiveRecord models."""
 
-import logging
-from typing import Any, Dict, List, Optional, Type, TYPE_CHECKING
+from typing import List, Optional, TYPE_CHECKING
 
 from ..backend.errors import DatabaseError, BulkStateError, BulkValidationError
 from ..backend.expression import Column, Literal

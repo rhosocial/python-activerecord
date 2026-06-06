@@ -28,9 +28,7 @@ def unnest(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"]) -> "Fu
     return FunctionCall(dialect, "UNNEST", target_expr)
 
 
-def array_length(
-    dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], dimension: int = 1
-) -> "FunctionCall":
+def array_length(dialect: "SQLDialectBase", expr: Union[str, "BaseExpression"], dimension: int = 1) -> "FunctionCall":
     """Creates an ARRAY_LENGTH function call."""
     target_expr = expr if isinstance(expr, BaseExpression) else Column(dialect, expr)
     dimension_expr = Literal(dialect, dimension)

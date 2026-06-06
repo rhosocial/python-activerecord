@@ -28,18 +28,14 @@ Usage:
     ...     | StepNode.query("fetch_orders", "myapp.q.recent_orders", depends_on=["fetch_users"])
     ... )
 """
+
 import re
-import importlib
-from dataclasses import dataclass, field
 from enum import Enum, auto
 from typing import (
     Any,
-    Callable,
     Dict,
     List,
     Optional,
-    Set,
-    Tuple,
     TYPE_CHECKING,
 )
 
@@ -287,9 +283,7 @@ class StepNode:
             result["named_query"] = self.named_query
             result["params"] = self.params
         elif self.kind == StepKind.EXPRESSION:
-            result["expression_type"] = (
-                type(self.expression).__name__ if self.expression else None
-            )
+            result["expression_type"] = type(self.expression).__name__ if self.expression else None
         elif self.kind == StepKind.SUBGRAPH:
             result["subgraph_steps"] = list(self.subgraph._nodes.keys())
         if self.condition:
@@ -402,9 +396,7 @@ class ProcedureGraph:
                 )
 
                 if isinstance(node.expression, RawSQLExpression):
-                    errors.append(
-                        f"Step {node.name!r} uses RawSQLExpression (strict=True)"
-                    )
+                    errors.append(f"Step {node.name!r} uses RawSQLExpression (strict=True)")
 
         return errors
 
@@ -415,9 +407,7 @@ class ProcedureGraph:
             "strict": self.strict,
             "description": self.description,
             "waves": [
-                [{"name": n.name, "label": n.label, "depends_on": n.depends_on}
-                 for n in wave]
-                for wave in self.waves()
+                [{"name": n.name, "label": n.label, "depends_on": n.depends_on} for n in wave] for wave in self.waves()
             ],
         }
 

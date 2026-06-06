@@ -61,9 +61,9 @@ from rhosocial.activerecord.backend.schema import StatementType
 def execute_sql(backend, sql: str, params=None):
     """Helper to execute SQL with proper options."""
     sql_upper = sql.upper().strip()
-    if 'CREATE' in sql_upper or 'DROP' in sql_upper or 'ALTER' in sql_upper:
+    if "CREATE" in sql_upper or "DROP" in sql_upper or "ALTER" in sql_upper:
         stmt_type = StatementType.DDL
-    elif sql_upper.startswith('SELECT'):
+    elif sql_upper.startswith("SELECT"):
         stmt_type = StatementType.DQL
     else:
         stmt_type = StatementType.DML
@@ -74,9 +74,9 @@ def execute_sql(backend, sql: str, params=None):
 async def async_execute_sql(backend, sql: str, params=None):
     """Helper to execute SQL asynchronously with proper options."""
     sql_upper = sql.upper().strip()
-    if 'CREATE' in sql_upper or 'DROP' in sql_upper or 'ALTER' in sql_upper:
+    if "CREATE" in sql_upper or "DROP" in sql_upper or "ALTER" in sql_upper:
         stmt_type = StatementType.DDL
-    elif sql_upper.startswith('SELECT'):
+    elif sql_upper.startswith("SELECT"):
         stmt_type = StatementType.DQL
     else:
         stmt_type = StatementType.DML
@@ -106,17 +106,14 @@ class ThreadSafePoolTestBackend:
 
 
 def skip_sqlite_memory_auto_on_python_310(database: str, connection_mode: str = "auto"):
-    if (
-        database == ":memory:"
-        and connection_mode == "auto"
-        and sys.version_info[:2] <= (3, 10)
-    ):
+    if database == ":memory:" and connection_mode == "auto" and sys.version_info[:2] <= (3, 10):
         pytest.skip("SQLite :memory: auto mode resolves to transient on Python <= 3.10")
 
 
 # ============================================================
 # PoolConfig Tests
 # ============================================================
+
 
 class TestPoolConfig:
     """Tests for PoolConfig class."""
@@ -145,7 +142,7 @@ class TestPoolConfig:
             validate_on_borrow=False,
             validate_on_return=True,
             validation_query="SELECT 1 FROM DUAL",
-            backend_factory=lambda: None
+            backend_factory=lambda: None,
         )
 
         assert config.min_size == 5
@@ -193,29 +190,18 @@ class TestPoolConfig:
     def test_validation_query_none_with_validation_enabled(self):
         """Test that validation_query=None with validation enabled raises ValueError."""
         with pytest.raises(ValueError, match="validation_query cannot be None"):
-            PoolConfig(
-                validate_on_borrow=True,
-                validation_query=None,
-                backend_factory=lambda: None
-            )
+            PoolConfig(validate_on_borrow=True, validation_query=None, backend_factory=lambda: None)
 
     def test_validation_disabled_no_query(self):
         """Test that validation can be disabled without query."""
         config = PoolConfig(
-            validate_on_borrow=False,
-            validate_on_return=False,
-            validation_query=None,
-            backend_factory=lambda: None
+            validate_on_borrow=False, validate_on_return=False, validation_query=None, backend_factory=lambda: None
         )
         assert config.validation_query is None
 
     def test_clone(self):
         """Test clone method."""
-        config = PoolConfig(
-            min_size=2,
-            max_size=10,
-            backend_factory=lambda: None
-        )
+        config = PoolConfig(min_size=2, max_size=10, backend_factory=lambda: None)
         cloned = config.clone(min_size=5, timeout=60.0)
 
         assert cloned.min_size == 5
@@ -227,6 +213,7 @@ class TestPoolConfig:
 # ============================================================
 # PoolStats Tests
 # ============================================================
+
 
 class TestPoolStats:
     """Tests for PoolStats class."""
@@ -266,42 +253,32 @@ class TestPoolStats:
 
     def test_acquire_rate(self):
         """Test acquire_rate property."""
-        stats = PoolStats(
-            total_acquired=100,
-            created_at=datetime.now() - timedelta(seconds=10)
-        )
+        stats = PoolStats(total_acquired=100, created_at=datetime.now() - timedelta(seconds=10))
         # Use approximate comparison due to timing
         assert stats.acquire_rate > 9.0  # Approximately 10
 
     def test_error_rate(self):
         """Test error_rate property."""
-        stats = PoolStats(
-            total_acquired=50,
-            total_released=50,
-            total_errors=10
-        )
+        stats = PoolStats(total_acquired=50, total_released=50, total_errors=10)
         assert stats.error_rate == 0.1  # 10/100
 
     def test_to_dict(self):
         """Test to_dict method."""
-        stats = PoolStats(
-            total_created=10,
-            current_available=3,
-            current_in_use=2
-        )
+        stats = PoolStats(total_created=10, current_available=3, current_in_use=2)
         d = stats.to_dict()
 
-        assert d['total_created'] == 10
-        assert d['current_available'] == 3
-        assert d['current_in_use'] == 2
-        assert d['current_total'] == 5
-        assert 'utilization_rate' in d
-        assert 'uptime' in d
+        assert d["total_created"] == 10
+        assert d["current_available"] == 3
+        assert d["current_in_use"] == 2
+        assert d["current_total"] == 5
+        assert "utilization_rate" in d
+        assert "uptime" in d
 
 
 # ============================================================
 # PooledBackend Tests
 # ============================================================
+
 
 class TestPooledBackend:
     """Tests for PooledBackend class."""
@@ -331,46 +308,30 @@ class TestPooledBackend:
         """Test is_expired method."""
         # Create backend with old timestamp
         old_time = datetime.now() - timedelta(seconds=100)
-        pooled = PooledBackend(
-            backend=object(),
-            pool_key="test",
-            created_at=old_time
-        )
+        pooled = PooledBackend(backend=object(), pool_key="test", created_at=old_time)
 
-        assert pooled.is_expired(50) is True   # 100s > 50s
+        assert pooled.is_expired(50) is True  # 100s > 50s
         assert pooled.is_expired(200) is False  # 100s < 200s
 
     def test_is_idle(self):
         """Test is_idle method."""
         old_time = datetime.now() - timedelta(seconds=100)
-        pooled = PooledBackend(
-            backend=object(),
-            pool_key="test",
-            last_used_at=old_time
-        )
+        pooled = PooledBackend(backend=object(), pool_key="test", last_used_at=old_time)
 
-        assert pooled.is_idle(50) is True   # 100s > 50s
+        assert pooled.is_idle(50) is True  # 100s > 50s
         assert pooled.is_idle(200) is False  # 100s < 200s
 
     def test_age(self):
         """Test age method."""
         old_time = datetime.now() - timedelta(seconds=10)
-        pooled = PooledBackend(
-            backend=object(),
-            pool_key="test",
-            created_at=old_time
-        )
+        pooled = PooledBackend(backend=object(), pool_key="test", created_at=old_time)
 
         assert pooled.age() >= 10.0
 
     def test_idle_time(self):
         """Test idle_time method."""
         old_time = datetime.now() - timedelta(seconds=5)
-        pooled = PooledBackend(
-            backend=object(),
-            pool_key="test",
-            last_used_at=old_time
-        )
+        pooled = PooledBackend(backend=object(), pool_key="test", last_used_at=old_time)
 
         assert pooled.idle_time() >= 5.0
 
@@ -402,16 +363,13 @@ class TestPooledBackend:
 # BackendPool Tests
 # ============================================================
 
+
 class TestBackendPool:
     """Tests for BackendPool class."""
 
     def test_pool_creation_with_factory(self):
         """Test pool creation with backend_factory."""
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -426,14 +384,7 @@ class TestBackendPool:
 
     def test_pool_creation_with_config(self):
         """Test pool creation with backend_config."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_config={
-                'type': 'sqlite',
-                'database': ':memory:'
-            }
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_config={"type": "sqlite", "database": ":memory:"})
         pool = BackendPool.create(config)
 
         try:
@@ -443,11 +394,7 @@ class TestBackendPool:
 
     def test_acquire_release(self):
         """Test basic acquire and release."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -469,11 +416,7 @@ class TestBackendPool:
 
     def test_connection_context_manager(self):
         """Test connection context manager."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -492,11 +435,7 @@ class TestBackendPool:
         # Use a file database instead of :memory: because with auto_disconnect_on_release=True,
         # connections are disconnected when released, so :memory: database would lose data.
         db_file = tmp_path / "test_tx.db"
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=str(db_file))
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=str(db_file)))
         pool = BackendPool.create(config)
 
         try:
@@ -512,7 +451,7 @@ class TestBackendPool:
             with pool.connection() as backend:
                 options = ExecutionOptions(stmt_type=StatementType.DQL)
                 result = backend.execute("SELECT COUNT(*) FROM test_tx", [], options=options)
-                assert result.data[0]['COUNT(*)'] == 1
+                assert result.data[0]["COUNT(*)"] == 1
 
             # Test failed transaction (rollback)
             try:
@@ -526,17 +465,14 @@ class TestBackendPool:
             with pool.connection() as backend:
                 options = ExecutionOptions(stmt_type=StatementType.DQL)
                 result = backend.execute("SELECT COUNT(*) FROM test_tx", [], options=options)
-                assert result.data[0]['COUNT(*)'] == 1  # Only test1 committed
+                assert result.data[0]["COUNT(*)"] == 1  # Only test1 committed
         finally:
             pool.close()
 
     def test_max_size_limit(self):
         """Test that max_size limit is enforced."""
         config = PoolConfig(
-            min_size=0,
-            max_size=2,
-            timeout=1.0,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=0, max_size=2, timeout=1.0, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
@@ -563,19 +499,15 @@ class TestBackendPool:
 
     def test_health_check(self):
         """Test health_check method."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
             health = pool.health_check()
 
-            assert health['healthy'] is True
-            assert health['closed'] is False
-            assert 'stats' in health
+            assert health["healthy"] is True
+            assert health["closed"] is False
+            assert "stats" in health
         finally:
             pool.close()
 
@@ -585,7 +517,7 @@ class TestBackendPool:
             min_size=1,
             max_size=2,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -595,7 +527,7 @@ class TestBackendPool:
 
         assert pool.is_closed
         health = pool.health_check()
-        assert health['closed'] is True
+        assert health["closed"] is True
 
         # Acquire after close should fail
         with pytest.raises(RuntimeError, match="Pool is closed"):
@@ -611,7 +543,7 @@ class TestBackendPool:
             min_size=1,
             max_size=3,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -639,9 +571,9 @@ class TestBackendPool:
 
             assert pool.is_closed
             health = pool.health_check()
-            assert health['closed'] is True
-            assert health['stats']['available'] == 0
-            assert health['stats']['in_use'] == 0
+            assert health["closed"] is True
+            assert health["stats"]["available"] == 0
+            assert health["stats"]["in_use"] == 0
         except Exception:
             pool.close(timeout=0.1, force=True)
             raise
@@ -652,7 +584,7 @@ class TestBackendPool:
             min_size=1,
             max_size=2,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -681,7 +613,7 @@ class TestBackendPool:
             min_size=0,
             max_size=2,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -709,15 +641,12 @@ class TestBackendPool:
     def test_close_force_destroys_connections(self):
         """Test that close(force=True) destroys in-use connections."""
         config = PoolConfig(
-            min_size=0,
-            max_size=2,
-            close_timeout=0.1,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=0, max_size=2, close_timeout=0.1, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
         # Acquire a connection but don't return it
-        backend = pool.acquire()
+        pool.acquire()
 
         stats = pool.get_stats()
         assert stats.current_in_use == 1
@@ -730,9 +659,9 @@ class TestBackendPool:
 
         # Verify pool state after force close
         health = pool.health_check()
-        assert health['closed'] is True
-        assert health['stats']['in_use'] == 0
-        assert health['stats']['available'] == 0
+        assert health["closed"] is True
+        assert health["stats"]["in_use"] == 0
+        assert health["stats"]["available"] == 0
 
     def test_validation_on_borrow(self):
         """Test validation on borrow."""
@@ -741,7 +670,7 @@ class TestBackendPool:
             max_size=2,
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -757,11 +686,7 @@ class TestBackendPool:
 
     def test_stats_tracking(self):
         """Test statistics tracking."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=3,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=0, max_size=3, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -783,17 +708,14 @@ class TestBackendPool:
 # AsyncBackendPool Tests
 # ============================================================
 
+
 class TestAsyncBackendPool:
     """Tests for AsyncBackendPool class."""
 
     @pytest.mark.asyncio
     async def test_pool_creation_with_factory(self):
         """Test async pool creation with backend_factory."""
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -810,14 +732,7 @@ class TestAsyncBackendPool:
     @pytest.mark.asyncio
     async def test_pool_creation_with_config(self):
         """Test async pool creation with backend_config."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_config={
-                'type': 'sqlite',
-                'database': ':memory:'
-            }
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_config={"type": "sqlite", "database": ":memory:"})
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -831,11 +746,7 @@ class TestAsyncBackendPool:
     @pytest.mark.asyncio
     async def test_acquire_release(self):
         """Test async acquire and release."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -858,11 +769,7 @@ class TestAsyncBackendPool:
     @pytest.mark.asyncio
     async def test_connection_context_manager(self):
         """Test async connection context manager."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -880,11 +787,7 @@ class TestAsyncBackendPool:
     async def test_transaction_context_manager(self, tmp_path):
         """Test async transaction context manager."""
         db_file = tmp_path / "test_async_tx.db"
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=str(db_file))
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=str(db_file)))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -900,7 +803,7 @@ class TestAsyncBackendPool:
             async with pool.connection() as backend:
                 options = ExecutionOptions(stmt_type=StatementType.DQL)
                 result = await backend.execute("SELECT COUNT(*) FROM test_tx", [], options=options)
-                assert result.data[0]['COUNT(*)'] == 1
+                assert result.data[0]["COUNT(*)"] == 1
 
             # Test failed transaction (rollback)
             try:
@@ -914,7 +817,7 @@ class TestAsyncBackendPool:
             async with pool.connection() as backend:
                 options = ExecutionOptions(stmt_type=StatementType.DQL)
                 result = await backend.execute("SELECT COUNT(*) FROM test_tx", [], options=options)
-                assert result.data[0]['COUNT(*)'] == 1  # Only test1 committed
+                assert result.data[0]["COUNT(*)"] == 1  # Only test1 committed
         finally:
             await pool.close()
 
@@ -922,10 +825,7 @@ class TestAsyncBackendPool:
     async def test_max_size_limit(self):
         """Test that max_size limit is enforced for async pool."""
         config = PoolConfig(
-            min_size=0,
-            max_size=2,
-            timeout=1.0,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            min_size=0, max_size=2, timeout=1.0, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -953,11 +853,7 @@ class TestAsyncBackendPool:
     @pytest.mark.asyncio
     async def test_health_check(self):
         """Test async health_check method."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -966,9 +862,9 @@ class TestAsyncBackendPool:
 
             health = await pool.health_check()
 
-            assert health['healthy'] is True
-            assert health['closed'] is False
-            assert 'stats' in health
+            assert health["healthy"] is True
+            assert health["closed"] is False
+            assert "stats" in health
         finally:
             await pool.close()
 
@@ -979,7 +875,7 @@ class TestAsyncBackendPool:
             min_size=1,
             max_size=2,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -992,7 +888,7 @@ class TestAsyncBackendPool:
 
         assert pool.is_closed
         health = await pool.health_check()
-        assert health['closed'] is True
+        assert health["closed"] is True
 
         # Acquire after close should fail
         with pytest.raises(RuntimeError, match="Pool is closed"):
@@ -1009,7 +905,7 @@ class TestAsyncBackendPool:
             min_size=1,
             max_size=3,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1037,9 +933,9 @@ class TestAsyncBackendPool:
 
             assert pool.is_closed
             health = await pool.health_check()
-            assert health['closed'] is True
-            assert health['stats']['available'] == 0
-            assert health['stats']['in_use'] == 0
+            assert health["closed"] is True
+            assert health["stats"]["available"] == 0
+            assert health["stats"]["in_use"] == 0
         except Exception:
             await pool.close(timeout=0.1, force=True)
             raise
@@ -1051,7 +947,7 @@ class TestAsyncBackendPool:
             min_size=1,
             max_size=2,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1081,7 +977,7 @@ class TestAsyncBackendPool:
             min_size=0,
             max_size=2,
             close_timeout=0.1,  # Quick timeout for tests
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1110,15 +1006,12 @@ class TestAsyncBackendPool:
     async def test_close_force_destroys_connections(self):
         """Test that async close(force=True) destroys in-use connections."""
         config = PoolConfig(
-            min_size=0,
-            max_size=2,
-            close_timeout=0.1,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            min_size=0, max_size=2, close_timeout=0.1, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
         pool = await AsyncBackendPool.create(config)
 
         # Acquire a connection but don't return it
-        backend = await pool.acquire()
+        await pool.acquire()
 
         stats = pool.get_stats()
         assert stats.current_in_use == 1
@@ -1131,14 +1024,15 @@ class TestAsyncBackendPool:
 
         # Verify pool state after force close
         health = await pool.health_check()
-        assert health['closed'] is True
-        assert health['stats']['in_use'] == 0
-        assert health['stats']['available'] == 0
+        assert health["closed"] is True
+        assert health["stats"]["in_use"] == 0
+        assert health["stats"]["available"] == 0
 
 
 # ============================================================
 # Coverage Enhancement Tests
 # ============================================================
+
 
 class TestPooledBackendCoverage:
     """Tests for PooledBackend edge cases."""
@@ -1208,11 +1102,7 @@ class TestSyncPoolCoverage:
                 raise RuntimeError("Connection failed")
             return SQLiteBackend(database=":memory:")
 
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=failing_factory
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=failing_factory)
         pool = BackendPool.create(config)
 
         try:
@@ -1227,11 +1117,7 @@ class TestSyncPoolCoverage:
 
     def test_create_backend_without_factory_or_config(self):
         """Test that creating backend without factory or config raises ValueError."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_factory=None
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_factory=None)
         config.backend_config = {}  # Clear config
 
         pool = BackendPool.create(config)
@@ -1245,14 +1131,7 @@ class TestSyncPoolCoverage:
 
     def test_unsupported_backend_type(self):
         """Test that unsupported backend type raises ValueError."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_config={
-                'type': 'unsupported_db',
-                'database': 'test'
-            }
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_config={"type": "unsupported_db", "database": "test"})
         pool = BackendPool.create(config)
 
         try:
@@ -1264,14 +1143,7 @@ class TestSyncPoolCoverage:
 
     def test_backend_config_creates_sqlite(self):
         """Test that backend_config can create SQLite backend."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_config={
-                'type': 'sqlite',
-                'database': ':memory:'
-            }
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_config={"type": "sqlite", "database": ":memory:"})
         pool = BackendPool.create(config)
 
         try:
@@ -1285,10 +1157,7 @@ class TestSyncPoolCoverage:
     def test_validate_unhealthy_connection(self):
         """Test that unhealthy connections fail validation."""
         config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            validate_on_borrow=True,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=1, max_size=5, validate_on_borrow=True, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
@@ -1312,7 +1181,7 @@ class TestSyncPoolCoverage:
             max_size=5,
             max_lifetime=0.1,
             validate_on_borrow=True,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -1324,6 +1193,7 @@ class TestSyncPoolCoverage:
             pool.release(backend)
 
             import time
+
             time.sleep(0.2)
 
             backend2 = pool.acquire()
@@ -1334,10 +1204,7 @@ class TestSyncPoolCoverage:
     def test_validate_with_exception(self):
         """Test validation when execute raises exception."""
         config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            validate_on_borrow=True,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=1, max_size=5, validate_on_borrow=True, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
@@ -1358,11 +1225,7 @@ class TestSyncPoolCoverage:
 
     def test_release_unknown_backend(self):
         """Test releasing a backend that doesn't belong to the pool."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -1379,10 +1242,7 @@ class TestSyncPoolCoverage:
     def test_release_with_validation_failure(self):
         """Test release when validate_on_return fails."""
         config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            validate_on_return=True,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=1, max_size=5, validate_on_return=True, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
@@ -1402,10 +1262,7 @@ class TestSyncPoolCoverage:
     def test_release_expired_connection(self):
         """Test release when connection is expired."""
         config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            max_lifetime=0.1,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=1, max_size=5, max_lifetime=0.1, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
@@ -1439,11 +1296,7 @@ class TestAsyncPoolCoverage:
                 raise RuntimeError("Connection failed")
             return AsyncSQLiteBackend(database=":memory:")
 
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=failing_factory
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=failing_factory)
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1459,11 +1312,7 @@ class TestAsyncPoolCoverage:
     @pytest.mark.asyncio
     async def test_async_create_backend_without_factory_or_config(self):
         """Test that creating async backend without factory or config raises ValueError."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_factory=None
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_factory=None)
         config.backend_config = {}
 
         pool = await AsyncBackendPool.create(config)
@@ -1478,14 +1327,7 @@ class TestAsyncPoolCoverage:
     @pytest.mark.asyncio
     async def test_async_unsupported_backend_type(self):
         """Test that unsupported backend type raises ValueError."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_config={
-                'type': 'unsupported_db',
-                'database': 'test'
-            }
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_config={"type": "unsupported_db", "database": "test"})
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1498,14 +1340,7 @@ class TestAsyncPoolCoverage:
     @pytest.mark.asyncio
     async def test_async_backend_config_creates_sqlite(self):
         """Test that backend_config can create async SQLite backend."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_config={
-                'type': 'sqlite',
-                'database': ':memory:'
-            }
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_config={"type": "sqlite", "database": ":memory:"})
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1523,7 +1358,7 @@ class TestAsyncPoolCoverage:
             min_size=1,
             max_size=5,
             validate_on_borrow=True,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1547,7 +1382,7 @@ class TestAsyncPoolCoverage:
             max_size=5,
             max_lifetime=0.1,
             validate_on_borrow=True,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1559,6 +1394,7 @@ class TestAsyncPoolCoverage:
             await pool.release(backend)
 
             import asyncio
+
             await asyncio.sleep(0.2)
 
             backend2 = await pool.acquire()
@@ -1569,11 +1405,7 @@ class TestAsyncPoolCoverage:
     @pytest.mark.asyncio
     async def test_async_release_unknown_backend(self):
         """Test releasing a backend that doesn't belong to the async pool."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1592,7 +1424,7 @@ class TestAsyncPoolCoverage:
             min_size=1,
             max_size=5,
             validate_on_return=True,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1612,10 +1444,7 @@ class TestAsyncPoolCoverage:
     async def test_async_release_expired_connection(self):
         """Test async release when connection is expired."""
         config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            max_lifetime=0.1,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            min_size=1, max_size=5, max_lifetime=0.1, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1637,11 +1466,7 @@ class TestPoolContextCoverage:
 
     def test_pool_context_enter_exit(self):
         """Test PoolContext __enter__ and __exit__ methods."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -1650,6 +1475,7 @@ class TestPoolContextCoverage:
                 assert ctx is not None
                 # Pool should be set in context
                 from rhosocial.activerecord.connection.pool import context as ctx_module
+
                 current_pool = ctx_module.get_current_pool()
                 assert current_pool is pool
             # After exit, pool context should be reset
@@ -1658,11 +1484,7 @@ class TestPoolContextCoverage:
 
     def test_pool_context_size_property(self):
         """Test pool size property."""
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -1679,7 +1501,7 @@ class TestPoolContextCoverage:
             max_size=5,
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -1697,7 +1519,7 @@ class TestPoolContextCoverage:
             max_size=5,
             max_lifetime=0.1,
             validate_on_borrow=True,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -1721,11 +1543,7 @@ class TestPoolContextCoverage:
     @pytest.mark.asyncio
     async def test_async_pool_context_enter_exit(self):
         """Test AsyncPoolContext __aenter__ and __aexit__ methods."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1734,6 +1552,7 @@ class TestPoolContextCoverage:
                 assert ctx is not None
                 # Pool should be set in context
                 from rhosocial.activerecord.connection.pool import context as ctx_module
+
                 current_pool = ctx_module.get_current_async_pool()
                 assert current_pool is pool
         finally:
@@ -1742,11 +1561,7 @@ class TestPoolContextCoverage:
     @pytest.mark.asyncio
     async def test_async_pool_size_property(self):
         """Test async pool size property."""
-        config = PoolConfig(
-            min_size=2,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1764,7 +1579,7 @@ class TestPoolContextCoverage:
             max_size=5,
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -1777,46 +1592,34 @@ class TestPoolContextCoverage:
     @pytest.mark.asyncio
     async def test_async_pool_health_check(self):
         """Test async pool health check."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
             await pool._initialize()
             health = await pool.health_check()
-            assert health['healthy'] is True
-            assert health['closed'] is False
+            assert health["healthy"] is True
+            assert health["closed"] is False
         finally:
             await pool.close()
 
     def test_sync_pool_health_check(self):
         """Test sync pool health check."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
             health = pool.health_check()
-            assert health['healthy'] is True
-            assert health['closed'] is False
-            assert 'utilization' in health
-            assert 'stats' in health
+            assert health["healthy"] is True
+            assert health["closed"] is False
+            assert "utilization" in health
+            assert "stats" in health
         finally:
             pool.close()
 
     def test_pool_repr(self):
         """Test pool __repr__ method."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -1831,11 +1634,7 @@ class TestPoolContextCoverage:
     @pytest.mark.asyncio
     async def test_async_pool_repr(self):
         """Test async pool __repr__ method."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -1851,6 +1650,7 @@ class TestPoolContextCoverage:
 # Concurrency Tests
 # ============================================================
 
+
 class TestConcurrentAccess:
     """Tests for concurrent access to connection pool."""
 
@@ -1859,11 +1659,7 @@ class TestConcurrentAccess:
         import threading
         import time
 
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=ThreadSafePoolTestBackend
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=ThreadSafePoolTestBackend)
         pool = BackendPool.create(config)
         errors = []
         success_count = [0]
@@ -1912,7 +1708,7 @@ class TestConcurrentAccess:
             min_size=0,
             max_size=2,  # Only 2 connections allowed
             timeout=0.5,  # Short timeout
-            backend_factory=ThreadSafePoolTestBackend
+            backend_factory=ThreadSafePoolTestBackend,
         )
         pool = BackendPool.create(config)
         acquired_count = [0]
@@ -1926,6 +1722,7 @@ class TestConcurrentAccess:
                     acquired_count[0] += 1
                 # Hold connection for a while
                 import time
+
                 time.sleep(0.2)
                 pool.release(backend)
             except TimeoutError:
@@ -1959,28 +1756,29 @@ class TestConcurrentAccess:
         import os
 
         # Create a temporary file database
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
 
         try:
             # Use check_same_thread=False for multi-threaded access
             config = PoolConfig(
-                min_size=1,
-                max_size=5,
-                backend_factory=lambda: SQLiteBackend(database=db_path, check_same_thread=False)
+                min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=db_path, check_same_thread=False)
             )
             pool = BackendPool.create(config)
 
             # Create shared table
             with pool.connection() as backend:
-                execute_sql(backend, """
+                execute_sql(
+                    backend,
+                    """
                     CREATE TABLE isolation_test (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         thread_id INTEGER NOT NULL,
                         value TEXT NOT NULL,
                         created_at REAL NOT NULL
                     )
-                """)
+                """,
+                )
 
             results = {}
             errors = []
@@ -1996,15 +1794,17 @@ class TestConcurrentAccess:
                         with pool.connection() as backend:
                             # Insert data with thread identifier
                             value = f"thread_{thread_id}_op_{op_num}"
-                            execute_sql(backend,
-                                f"INSERT INTO isolation_test (thread_id, value, created_at) VALUES ({thread_id}, '{value}', julianday('now'))"
+                            execute_sql(
+                                backend,
+                                f"INSERT INTO isolation_test (thread_id, value, created_at) VALUES ({thread_id}, '{value}', julianday('now'))",  # noqa: E501
                             )
 
                             # Immediately verify the insert
-                            result = execute_sql(backend,
-                                f"SELECT value FROM isolation_test WHERE thread_id = {thread_id} ORDER BY id DESC LIMIT 1"
+                            result = execute_sql(
+                                backend,
+                                f"SELECT value FROM isolation_test WHERE thread_id = {thread_id} ORDER BY id DESC LIMIT 1",  # noqa: E501
                             )
-                            thread_results.append((op_num, result.data[0]['value'] if result.data else None))
+                            thread_results.append((op_num, result.data[0]["value"] if result.data else None))
 
                 except Exception as e:
                     with lock:
@@ -2037,25 +1837,28 @@ class TestConcurrentAccess:
                 # Count total records
                 count_result = execute_sql(backend, "SELECT COUNT(*) as cnt FROM isolation_test")
                 expected_count = num_threads * operations_per_thread
-                assert count_result.data[0]['cnt'] == expected_count, \
+                assert count_result.data[0]["cnt"] == expected_count, (
                     f"Expected {expected_count} records, got {count_result.data[0]['cnt']}"
+                )
 
                 # Verify each thread's records
                 for thread_id in range(num_threads):
-                    thread_result = execute_sql(backend,
-                        f"SELECT COUNT(*) as cnt FROM isolation_test WHERE thread_id = {thread_id}"
+                    thread_result = execute_sql(
+                        backend, f"SELECT COUNT(*) as cnt FROM isolation_test WHERE thread_id = {thread_id}"
                     )
-                    assert thread_result.data[0]['cnt'] == operations_per_thread, \
-                        f"Thread {thread_id} expected {operations_per_thread} records, got {thread_result.data[0]['cnt']}"
+                    assert thread_result.data[0]["cnt"] == operations_per_thread, (
+                        f"Thread {thread_id} expected {operations_per_thread} records, got {thread_result.data[0]['cnt']}"  # noqa: E501
+                    )
 
                     # Verify all values are correct
-                    values_result = execute_sql(backend,
-                        f"SELECT value FROM isolation_test WHERE thread_id = {thread_id} ORDER BY id"
+                    values_result = execute_sql(
+                        backend, f"SELECT value FROM isolation_test WHERE thread_id = {thread_id} ORDER BY id"
                     )
                     for i, row in enumerate(values_result.data):
                         expected_value = f"thread_{thread_id}_op_{i}"
-                        assert row['value'] == expected_value, \
+                        assert row["value"] == expected_value, (
                             f"Thread {thread_id} op {i}: expected '{expected_value}', got '{row['value']}'"
+                        )
 
             pool.close(timeout=1.0)
 
@@ -2076,27 +1879,28 @@ class TestConcurrentAccess:
         import time
 
         # Create a temporary file database
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
 
         try:
             # Use check_same_thread=False for multi-threaded access
             config = PoolConfig(
-                min_size=2,
-                max_size=5,
-                backend_factory=lambda: SQLiteBackend(database=db_path, check_same_thread=False)
+                min_size=2, max_size=5, backend_factory=lambda: SQLiteBackend(database=db_path, check_same_thread=False)
             )
             pool = BackendPool.create(config)
 
             # Create shared table
             with pool.connection() as backend:
-                execute_sql(backend, """
+                execute_sql(
+                    backend,
+                    """
                     CREATE TABLE tx_isolation_test (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         value INTEGER NOT NULL
                     )
-                """)
+                """,
+                )
                 # Insert initial data
                 execute_sql(backend, "INSERT INTO tx_isolation_test (name, value) VALUES ('initial', 0)")
 
@@ -2113,7 +1917,7 @@ class TestConcurrentAccess:
                     with pool.connection() as backend:
                         # Should only see committed data
                         result = execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
-                        count = result.data[0]['cnt']
+                        count = result.data[0]["cnt"]
 
                         # We should see at least the initial record
                         # But might not see uncommitted data from writers
@@ -2121,7 +1925,7 @@ class TestConcurrentAccess:
 
                 except Exception as e:
                     with lock:
-                        errors.append(('reader', str(e)))
+                        errors.append(("reader", str(e)))
 
             def writer_thread(thread_name, value):
                 """Writer thread that performs a transaction."""
@@ -2130,8 +1934,8 @@ class TestConcurrentAccess:
 
                     with pool.transaction() as backend:
                         # Insert data
-                        execute_sql(backend,
-                            f"INSERT INTO tx_isolation_test (name, value) VALUES ('{thread_name}', {value})"
+                        execute_sql(
+                            backend, f"INSERT INTO tx_isolation_test (name, value) VALUES ('{thread_name}', {value})"
                         )
                         time.sleep(0.2)  # Hold transaction open briefly
                         # Transaction will commit on exit
@@ -2143,8 +1947,8 @@ class TestConcurrentAccess:
             # Start threads
             threads = [
                 threading.Thread(target=reader_thread),
-                threading.Thread(target=writer_thread, args=('writer1', 100)),
-                threading.Thread(target=writer_thread, args=('writer2', 200)),
+                threading.Thread(target=writer_thread, args=("writer1", 100)),
+                threading.Thread(target=writer_thread, args=("writer2", 200)),
             ]
 
             for t in threads:
@@ -2158,15 +1962,15 @@ class TestConcurrentAccess:
             # Verify final state
             with pool.connection() as backend:
                 result = execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
-                assert result.data[0]['cnt'] == 3, "Should have 3 records (initial + 2 writers)"
+                assert result.data[0]["cnt"] == 3, "Should have 3 records (initial + 2 writers)"
 
                 # Verify writer1's data
                 w1_result = execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer1'")
-                assert w1_result.data[0]['value'] == 100
+                assert w1_result.data[0]["value"] == 100
 
                 # Verify writer2's data
                 w2_result = execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer2'")
-                assert w2_result.data[0]['value'] == 200
+                assert w2_result.data[0]["value"] == 200
 
             pool.close(timeout=1.0)
 
@@ -2180,16 +1984,13 @@ class TestConcurrentAccess:
 # Nested Context Tests
 # ============================================================
 
+
 class TestNestedContext:
     """Tests for nested connection contexts."""
 
     def test_nested_connection_context_reuses_same_backend(self):
         """Test that nested connection contexts reuse the same backend."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -2215,11 +2016,7 @@ class TestNestedContext:
 
     def test_nested_transaction_context_reuses_same_backend(self):
         """Test that nested transaction contexts reuse the same backend."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -2246,11 +2043,7 @@ class TestNestedContext:
 
     def test_mixed_nested_contexts(self):
         """Test mixed nested connection and transaction contexts."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -2279,16 +2072,13 @@ class TestNestedContext:
 # Boundary Condition Tests
 # ============================================================
 
+
 class TestBoundaryConditions:
     """Tests for boundary conditions."""
 
     def test_min_size_zero_no_warmup(self):
         """Test that min_size=0 does not warmup connections."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -2313,10 +2103,7 @@ class TestBoundaryConditions:
     def test_max_size_one_single_connection(self):
         """Test that max_size=1 allows only one connection."""
         config = PoolConfig(
-            min_size=0,
-            max_size=1,
-            timeout=0.5,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            min_size=0, max_size=1, timeout=0.5, backend_factory=lambda: SQLiteBackend(database=":memory:")
         )
         pool = BackendPool.create(config)
 
@@ -2343,11 +2130,7 @@ class TestBoundaryConditions:
 
     def test_min_equals_max(self):
         """Test pool where min_size equals max_size."""
-        config = PoolConfig(
-            min_size=3,
-            max_size=3,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=3, max_size=3, backend_factory=lambda: SQLiteBackend(database=":memory:"))
         pool = BackendPool.create(config)
 
         try:
@@ -2387,6 +2170,7 @@ class TestBoundaryConditions:
 # Connection Recovery Tests
 # ============================================================
 
+
 class TestConnectionRecovery:
     """Tests for connection recovery after disconnect."""
 
@@ -2398,7 +2182,7 @@ class TestConnectionRecovery:
             validate_on_borrow=True,  # Enable validation
             validation_query="SELECT 1",
             connection_mode="transient",  # Transient mode: destroy and recreate on validation failure
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -2437,7 +2221,7 @@ class TestConnectionRecovery:
             max_size=5,
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -2474,7 +2258,7 @@ class TestConnectionRecovery:
             max_size=3,
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
 
@@ -2508,6 +2292,7 @@ class TestConnectionRecovery:
 # Async Concurrency Tests
 # ============================================================
 
+
 class TestAsyncConcurrentAccess:
     """Tests for async concurrent access to connection pool."""
 
@@ -2516,11 +2301,7 @@ class TestAsyncConcurrentAccess:
         """Test async concurrent acquire and release operations."""
         import asyncio
 
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
         errors = []
         success_count = [0]
@@ -2564,7 +2345,7 @@ class TestAsyncConcurrentAccess:
             min_size=0,
             max_size=2,  # Only 2 connections allowed
             timeout=0.5,  # Short timeout
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
         acquired_count = [0]
@@ -2605,27 +2386,26 @@ class TestAsyncConcurrentAccess:
         import os
 
         # Create a temporary file database
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
 
         try:
-            config = PoolConfig(
-                min_size=1,
-                max_size=5,
-                backend_factory=lambda: AsyncSQLiteBackend(database=db_path)
-            )
+            config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=db_path))
             pool = await AsyncBackendPool.create(config)
 
             # Create shared table
             async with pool.connection() as backend:
-                await async_execute_sql(backend, """
+                await async_execute_sql(
+                    backend,
+                    """
                     CREATE TABLE isolation_test (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         task_id INTEGER NOT NULL,
                         value TEXT NOT NULL,
                         created_at REAL NOT NULL
                     )
-                """)
+                """,
+                )
 
             results = {}
             errors = []
@@ -2640,15 +2420,17 @@ class TestAsyncConcurrentAccess:
                         async with pool.connection() as backend:
                             # Insert data with task identifier
                             value = f"task_{task_id}_op_{op_num}"
-                            await async_execute_sql(backend,
-                                f"INSERT INTO isolation_test (task_id, value, created_at) VALUES ({task_id}, '{value}', julianday('now'))"
+                            await async_execute_sql(
+                                backend,
+                                f"INSERT INTO isolation_test (task_id, value, created_at) VALUES ({task_id}, '{value}', julianday('now'))",  # noqa: E501
                             )
 
                             # Immediately verify the insert
-                            result = await async_execute_sql(backend,
-                                f"SELECT value FROM isolation_test WHERE task_id = {task_id} ORDER BY id DESC LIMIT 1"
+                            result = await async_execute_sql(
+                                backend,
+                                f"SELECT value FROM isolation_test WHERE task_id = {task_id} ORDER BY id DESC LIMIT 1",
                             )
-                            task_results.append((op_num, result.data[0]['value'] if result.data else None))
+                            task_results.append((op_num, result.data[0]["value"] if result.data else None))
 
                 except Exception as e:
                     errors.append((task_id, str(e)))
@@ -2672,25 +2454,28 @@ class TestAsyncConcurrentAccess:
                 # Count total records
                 count_result = await async_execute_sql(backend, "SELECT COUNT(*) as cnt FROM isolation_test")
                 expected_count = num_tasks * operations_per_task
-                assert count_result.data[0]['cnt'] == expected_count, \
+                assert count_result.data[0]["cnt"] == expected_count, (
                     f"Expected {expected_count} records, got {count_result.data[0]['cnt']}"
+                )
 
                 # Verify each task's records
                 for task_id in range(num_tasks):
-                    task_result = await async_execute_sql(backend,
-                        f"SELECT COUNT(*) as cnt FROM isolation_test WHERE task_id = {task_id}"
+                    task_result = await async_execute_sql(
+                        backend, f"SELECT COUNT(*) as cnt FROM isolation_test WHERE task_id = {task_id}"
                     )
-                    assert task_result.data[0]['cnt'] == operations_per_task, \
+                    assert task_result.data[0]["cnt"] == operations_per_task, (
                         f"Task {task_id} expected {operations_per_task} records, got {task_result.data[0]['cnt']}"
+                    )
 
                     # Verify all values are correct
-                    values_result = await async_execute_sql(backend,
-                        f"SELECT value FROM isolation_test WHERE task_id = {task_id} ORDER BY id"
+                    values_result = await async_execute_sql(
+                        backend, f"SELECT value FROM isolation_test WHERE task_id = {task_id} ORDER BY id"
                     )
                     for i, row in enumerate(values_result.data):
                         expected_value = f"task_{task_id}_op_{i}"
-                        assert row['value'] == expected_value, \
+                        assert row["value"] == expected_value, (
                             f"Task {task_id} op {i}: expected '{expected_value}', got '{row['value']}'"
+                        )
 
             await pool.close(timeout=1.0)
 
@@ -2711,26 +2496,25 @@ class TestAsyncConcurrentAccess:
         import os
 
         # Create a temporary file database
-        with tempfile.NamedTemporaryFile(suffix='.db', delete=False) as f:
+        with tempfile.NamedTemporaryFile(suffix=".db", delete=False) as f:
             db_path = f.name
 
         try:
-            config = PoolConfig(
-                min_size=2,
-                max_size=5,
-                backend_factory=lambda: AsyncSQLiteBackend(database=db_path)
-            )
+            config = PoolConfig(min_size=2, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=db_path))
             pool = await AsyncBackendPool.create(config)
 
             # Create shared table
             async with pool.connection() as backend:
-                await async_execute_sql(backend, """
+                await async_execute_sql(
+                    backend,
+                    """
                     CREATE TABLE tx_isolation_test (
                         id INTEGER PRIMARY KEY AUTOINCREMENT,
                         name TEXT NOT NULL,
                         value INTEGER NOT NULL
                     )
-                """)
+                """,
+                )
                 # Insert initial data
                 await async_execute_sql(backend, "INSERT INTO tx_isolation_test (name, value) VALUES ('initial', 0)")
 
@@ -2744,21 +2528,21 @@ class TestAsyncConcurrentAccess:
                     async with pool.connection() as backend:
                         # Should only see committed data
                         result = await async_execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
-                        count = result.data[0]['cnt']
+                        count = result.data[0]["cnt"]
 
                         # We should see at least the initial record
                         assert count >= 1, f"Expected at least 1 record, got {count}"
 
                 except Exception as e:
-                    errors.append(('reader', str(e)))
+                    errors.append(("reader", str(e)))
 
             async def writer_task(task_name, value):
                 """Writer task that performs a transaction."""
                 try:
                     async with pool.transaction() as backend:
                         # Insert data
-                        await async_execute_sql(backend,
-                            f"INSERT INTO tx_isolation_test (name, value) VALUES ('{task_name}', {value})"
+                        await async_execute_sql(
+                            backend, f"INSERT INTO tx_isolation_test (name, value) VALUES ('{task_name}', {value})"
                         )
                         await asyncio.sleep(0.2)  # Hold transaction open briefly
                         # Transaction will commit on exit
@@ -2769,8 +2553,8 @@ class TestAsyncConcurrentAccess:
             # Run all tasks concurrently
             await asyncio.gather(
                 reader_task(),
-                writer_task('writer1', 100),
-                writer_task('writer2', 200),
+                writer_task("writer1", 100),
+                writer_task("writer2", 200),
             )
 
             # Verify results
@@ -2779,15 +2563,19 @@ class TestAsyncConcurrentAccess:
             # Verify final state
             async with pool.connection() as backend:
                 result = await async_execute_sql(backend, "SELECT COUNT(*) as cnt FROM tx_isolation_test")
-                assert result.data[0]['cnt'] == 3, "Should have 3 records (initial + 2 writers)"
+                assert result.data[0]["cnt"] == 3, "Should have 3 records (initial + 2 writers)"
 
                 # Verify writer1's data
-                w1_result = await async_execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer1'")
-                assert w1_result.data[0]['value'] == 100
+                w1_result = await async_execute_sql(
+                    backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer1'"
+                )
+                assert w1_result.data[0]["value"] == 100
 
                 # Verify writer2's data
-                w2_result = await async_execute_sql(backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer2'")
-                assert w2_result.data[0]['value'] == 200
+                w2_result = await async_execute_sql(
+                    backend, "SELECT value FROM tx_isolation_test WHERE name = 'writer2'"
+                )
+                assert w2_result.data[0]["value"] == 200
 
             await pool.close(timeout=1.0)
 
@@ -2801,17 +2589,14 @@ class TestAsyncConcurrentAccess:
 # Async Nested Context Tests
 # ============================================================
 
+
 class TestAsyncNestedContext:
     """Tests for async nested connection contexts."""
 
     @pytest.mark.asyncio
     async def test_nested_connection_context_reuses_same_backend(self):
         """Test that nested async connection contexts reuse the same backend."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -2838,11 +2623,7 @@ class TestAsyncNestedContext:
     @pytest.mark.asyncio
     async def test_nested_transaction_context_reuses_same_backend(self):
         """Test that nested async transaction contexts reuse the same backend."""
-        config = PoolConfig(
-            min_size=1,
-            max_size=2,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=1, max_size=2, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -2871,17 +2652,14 @@ class TestAsyncNestedContext:
 # Async Boundary Condition Tests
 # ============================================================
 
+
 class TestAsyncBoundaryConditions:
     """Tests for async boundary conditions."""
 
     @pytest.mark.asyncio
     async def test_min_size_zero_no_warmup(self):
         """Test that min_size=0 does not warmup connections."""
-        config = PoolConfig(
-            min_size=0,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=0, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         pool = await AsyncBackendPool.create(config)
 
         try:
@@ -2907,10 +2685,7 @@ class TestAsyncBoundaryConditions:
     async def test_max_size_one_single_connection(self):
         """Test that max_size=1 allows only one connection."""
         config = PoolConfig(
-            min_size=0,
-            max_size=1,
-            timeout=0.5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            min_size=0, max_size=1, timeout=0.5, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -2938,11 +2713,7 @@ class TestAsyncBoundaryConditions:
     @pytest.mark.asyncio
     async def test_min_equals_max(self):
         """Test async pool where min_size equals max_size."""
-        config = PoolConfig(
-            min_size=3,
-            max_size=3,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
-        )
+        config = PoolConfig(min_size=3, max_size=3, backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"))
         # Use create() to warmup connections (same as sync pool)
         pool = await AsyncBackendPool.create(config)
 
@@ -2983,6 +2754,7 @@ class TestAsyncBoundaryConditions:
 # Async Connection Recovery Tests
 # ============================================================
 
+
 class TestAsyncConnectionRecovery:
     """Tests for async connection recovery after disconnect."""
 
@@ -2995,7 +2767,7 @@ class TestAsyncConnectionRecovery:
             validate_on_borrow=True,  # Enable validation
             validation_query="SELECT 1",
             connection_mode="transient",  # Transient mode: destroy and recreate on validation failure
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -3035,7 +2807,7 @@ class TestAsyncConnectionRecovery:
             max_size=3,
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
 
@@ -3069,6 +2841,7 @@ class TestAsyncConnectionRecovery:
 # Connection Mode Tests
 # ============================================================
 
+
 class TestConnectionModeConfig:
     """Tests for PoolConfig connection_mode field."""
 
@@ -3079,27 +2852,18 @@ class TestConnectionModeConfig:
 
     def test_persistent_connection_mode(self):
         """Test explicit persistent connection mode."""
-        config = PoolConfig(
-            connection_mode="persistent",
-            backend_factory=lambda: None
-        )
+        config = PoolConfig(connection_mode="persistent", backend_factory=lambda: None)
         assert config.connection_mode == "persistent"
 
     def test_transient_connection_mode(self):
         """Test explicit transient connection mode."""
-        config = PoolConfig(
-            connection_mode="transient",
-            backend_factory=lambda: None
-        )
+        config = PoolConfig(connection_mode="transient", backend_factory=lambda: None)
         assert config.connection_mode == "transient"
 
     def test_invalid_connection_mode(self):
         """Test invalid connection_mode raises ValueError."""
         with pytest.raises(ValueError, match="connection_mode must be"):
-            PoolConfig(
-                connection_mode="invalid",
-                backend_factory=lambda: None
-            )
+            PoolConfig(connection_mode="invalid", backend_factory=lambda: None)
 
     def test_auto_connect_ignored_warning_in_persistent_mode(self):
         """Test that auto_connect_on_acquire is warned in persistent mode."""
@@ -3115,10 +2879,8 @@ class TestConnectionModeConfig:
         logger.setLevel(logging.WARNING)
         logger.propagate = False
         try:
-            config = PoolConfig(
-                connection_mode="persistent",
-                auto_connect_on_acquire=True,
-                backend_factory=lambda: None
+            PoolConfig(
+                connection_mode="persistent", auto_connect_on_acquire=True, backend_factory=lambda: None
             )
             output = stream.getvalue()
         finally:
@@ -3132,19 +2894,13 @@ class TestConnectionModeConfig:
 
     def test_clone_preserves_connection_mode(self):
         """Test that clone preserves connection_mode."""
-        config = PoolConfig(
-            connection_mode="persistent",
-            backend_factory=lambda: None
-        )
+        config = PoolConfig(connection_mode="persistent", backend_factory=lambda: None)
         cloned = config.clone()
         assert cloned.connection_mode == "persistent"
 
     def test_clone_can_override_connection_mode(self):
         """Test that clone can override connection_mode."""
-        config = PoolConfig(
-            connection_mode="persistent",
-            backend_factory=lambda: None
-        )
+        config = PoolConfig(connection_mode="persistent", backend_factory=lambda: None)
         cloned = config.clone(connection_mode="transient")
         assert cloned.connection_mode == "transient"
 
@@ -3163,11 +2919,8 @@ class TestSyncPersistentMode:
         skip_sqlite_memory_auto_on_python_310(database)
 
         import sqlite3
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: SQLiteBackend(database=database)
-        )
+
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: SQLiteBackend(database=database))
         pool = BackendPool.create(config)
         try:
             expected_mode = "persistent" if sqlite3.threadsafety >= 2 else "transient"
@@ -3181,7 +2934,7 @@ class TestSyncPersistentMode:
             min_size=1,
             max_size=5,
             connection_mode="persistent",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
@@ -3213,7 +2966,7 @@ class TestSyncPersistentMode:
             max_size=5,
             connection_mode="persistent",
             validate_on_borrow=False,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
@@ -3238,7 +2991,7 @@ class TestSyncPersistentMode:
             connection_mode="persistent",
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
@@ -3278,7 +3031,7 @@ class TestSyncTransientMode:
             connection_mode="transient",
             auto_connect_on_acquire=True,
             auto_disconnect_on_release=True,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
@@ -3303,7 +3056,7 @@ class TestSyncTransientMode:
             connection_mode="transient",
             auto_connect_on_acquire=False,
             auto_disconnect_on_release=False,
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
@@ -3322,7 +3075,7 @@ class TestSyncTransientMode:
             connection_mode="transient",
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
@@ -3362,18 +3115,10 @@ class TestAsyncConnectionMode:
         database = ":memory:"
         skip_sqlite_memory_auto_on_python_310(database)
 
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=database)
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=database))
         pool = await AsyncBackendPool.create(config)
         try:
-            expected_mode = (
-                "persistent"
-                if AsyncSQLiteBackend(database=":memory:").threadsafety >= 2
-                else "transient"
-            )
+            expected_mode = "persistent" if AsyncSQLiteBackend(database=":memory:").threadsafety >= 2 else "transient"
             assert pool.connection_mode == expected_mode
         finally:
             await pool.close(timeout=0.1)
@@ -3386,7 +3131,7 @@ class TestAsyncConnectionMode:
             max_size=5,
             connection_mode="persistent",
             validate_on_borrow=False,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
         try:
@@ -3413,7 +3158,7 @@ class TestAsyncConnectionMode:
             connection_mode="transient",
             auto_connect_on_acquire=True,
             auto_disconnect_on_release=True,
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
         try:
@@ -3437,7 +3182,7 @@ class TestAsyncConnectionMode:
             connection_mode="persistent",
             validate_on_borrow=True,
             validation_query="SELECT 1",
-            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:")
+            backend_factory=lambda: AsyncSQLiteBackend(database=":memory:"),
         )
         pool = await AsyncBackendPool.create(config)
         try:
@@ -3472,13 +3217,13 @@ class TestHealthCheckConnectionMode:
             min_size=1,
             max_size=5,
             connection_mode="persistent",
-            backend_factory=lambda: SQLiteBackend(database=":memory:")
+            backend_factory=lambda: SQLiteBackend(database=":memory:"),
         )
         pool = BackendPool.create(config)
         try:
             health = pool.health_check()
-            assert 'connection_mode' in health
-            assert health['connection_mode'] == 'persistent'
+            assert "connection_mode" in health
+            assert health["connection_mode"] == "persistent"
         finally:
             pool.close(timeout=0.1)
 
@@ -3492,20 +3237,12 @@ class TestHealthCheckConnectionMode:
         database = ":memory:"
         skip_sqlite_memory_auto_on_python_310(database)
 
-        config = PoolConfig(
-            min_size=1,
-            max_size=5,
-            backend_factory=lambda: AsyncSQLiteBackend(database=database)
-        )
+        config = PoolConfig(min_size=1, max_size=5, backend_factory=lambda: AsyncSQLiteBackend(database=database))
         pool = await AsyncBackendPool.create(config)
         try:
             health = await pool.health_check()
-            assert 'connection_mode' in health
-            expected_mode = (
-                "persistent"
-                if AsyncSQLiteBackend(database=":memory:").threadsafety >= 2
-                else "transient"
-            )
-            assert health['connection_mode'] == expected_mode
+            assert "connection_mode" in health
+            expected_mode = "persistent" if AsyncSQLiteBackend(database=":memory:").threadsafety >= 2 else "transient"
+            assert health["connection_mode"] == expected_mode
         finally:
             await pool.close(timeout=0.1)

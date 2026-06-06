@@ -7,6 +7,7 @@ These tests cover:
 2. Relation not found error handling
 3. Edge cases and boundary conditions
 """
+
 import pytest
 from unittest.mock import MagicMock
 
@@ -32,6 +33,7 @@ class MockQueryBase(IQuery):
         self.offset_count = None
         from rhosocial.activerecord.backend.expression import WildcardExpression
         from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
+
         self.select_columns = [WildcardExpression(SQLiteDialect())]
         self._explain_enabled = False
         self._explain_options = None
@@ -226,7 +228,7 @@ class TestRelationNotFound:
         """Test error when model doesn't have get_relation method."""
         query.model_class = MagicMock()
         # Remove get_relation from mock
-        if hasattr(query.model_class, 'get_relation'):
+        if hasattr(query.model_class, "get_relation"):
             del query.model_class.get_relation
 
         with pytest.raises((RelationNotFoundError, AttributeError)):
@@ -273,11 +275,11 @@ class TestWithEdgeCases:
         """Test with_() with single string relation."""
         # Setup mock to allow validation to pass
         mock_rel = MagicMock()
-        mock_rel.get_related_model = MagicMock(return_value=MagicMock(
-            __name__="RelatedModel",
-            get_relation=MagicMock(return_value=None),
-            hasattr=lambda x: True
-        ))
+        mock_rel.get_related_model = MagicMock(
+            return_value=MagicMock(
+                __name__="RelatedModel", get_relation=MagicMock(return_value=None), hasattr=lambda x: True
+            )
+        )
 
         query.model_class.get_relation = MagicMock(return_value=mock_rel)
         query.model_class.hasattr = lambda x: True
@@ -289,11 +291,11 @@ class TestWithEdgeCases:
     def test_with_single_tuple_relation(self, query):
         """Test with_() with single tuple (path, modifier)."""
         mock_rel = MagicMock()
-        mock_rel.get_related_model = MagicMock(return_value=MagicMock(
-            __name__="RelatedModel",
-            get_relation=MagicMock(return_value=None),
-            hasattr=lambda x: True
-        ))
+        mock_rel.get_related_model = MagicMock(
+            return_value=MagicMock(
+                __name__="RelatedModel", get_relation=MagicMock(return_value=None), hasattr=lambda x: True
+            )
+        )
 
         query.model_class.get_relation = MagicMock(return_value=mock_rel)
         query.model_class.hasattr = lambda x: True
@@ -309,11 +311,11 @@ class TestWithEdgeCases:
     def test_with_none_modifier(self, query):
         """Test with_() with explicit None modifier."""
         mock_rel = MagicMock()
-        mock_rel.get_related_model = MagicMock(return_value=MagicMock(
-            __name__="RelatedModel",
-            get_relation=MagicMock(return_value=None),
-            hasattr=lambda x: True
-        ))
+        mock_rel.get_related_model = MagicMock(
+            return_value=MagicMock(
+                __name__="RelatedModel", get_relation=MagicMock(return_value=None), hasattr=lambda x: True
+            )
+        )
 
         query.model_class.get_relation = MagicMock(return_value=mock_rel)
         query.model_class.hasattr = lambda x: True
@@ -326,11 +328,11 @@ class TestWithEdgeCases:
     def test_multiple_relations_with_validation(self, query):
         """Test with_() with multiple relations that pass validation."""
         mock_rel = MagicMock()
-        mock_rel.get_related_model = MagicMock(return_value=MagicMock(
-            __name__="RelatedModel",
-            get_relation=MagicMock(return_value=None),
-            hasattr=lambda x: True
-        ))
+        mock_rel.get_related_model = MagicMock(
+            return_value=MagicMock(
+                __name__="RelatedModel", get_relation=MagicMock(return_value=None), hasattr=lambda x: True
+            )
+        )
 
         query.model_class.get_relation = MagicMock(return_value=mock_rel)
         query.model_class.hasattr = lambda x: True
@@ -382,11 +384,11 @@ class TestGetRelationConfigs:
     def test_get_relation_configs_returns_copy(self, query):
         """Test that get_relation_configs returns a copy, not original."""
         mock_rel = MagicMock()
-        mock_rel.get_related_model = MagicMock(return_value=MagicMock(
-            __name__="RelatedModel",
-            get_relation=MagicMock(return_value=None),
-            hasattr=lambda x: True
-        ))
+        mock_rel.get_related_model = MagicMock(
+            return_value=MagicMock(
+                __name__="RelatedModel", get_relation=MagicMock(return_value=None), hasattr=lambda x: True
+            )
+        )
 
         query.model_class.get_relation = MagicMock(return_value=mock_rel)
         query.model_class.hasattr = lambda x: True

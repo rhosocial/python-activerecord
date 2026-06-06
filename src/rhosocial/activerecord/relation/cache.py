@@ -141,10 +141,7 @@ class RelationCache:
 
             if self.config.max_size and len(self._cache) >= self.config.max_size:
                 if key not in self._cache:
-                    oldest_key = min(
-                        self._cache.keys(),
-                        key=lambda k: self._cache[k].last_access
-                    )
+                    oldest_key = min(self._cache.keys(), key=lambda k: self._cache[k].last_access)
                     del self._cache[oldest_key]
 
             self._cache[key] = CacheEntry(value, self.config.ttl)

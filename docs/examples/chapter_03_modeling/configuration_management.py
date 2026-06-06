@@ -49,6 +49,7 @@ _ORDERS_DDL = """
 # Model definitions
 # ---------------------------------------------------------------------------
 
+
 class User(ActiveRecord):
     __table_name__ = "users"
     c: ClassVar[FieldProxy] = FieldProxy()
@@ -68,6 +69,7 @@ class Order(ActiveRecord):
 # ---------------------------------------------------------------------------
 # Configuration factory (mirrors the make_backend() pattern from the article)
 # ---------------------------------------------------------------------------
+
 
 def make_backend(env: Optional[str] = None):
     """Build and return the appropriate backend for the given environment.
@@ -124,6 +126,7 @@ def configure_models(models: List[Type[ActiveRecord]], env: Optional[str] = None
 # Demo 1: development environment (file-based SQLite)
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_development_env() -> None:
     """Development environment uses a local SQLite file."""
 
@@ -152,6 +155,7 @@ def demonstrate_development_env() -> None:
 # ---------------------------------------------------------------------------
 # Demo 2: test environment (:memory: SQLite)
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_test_env() -> None:
     """Test environment uses an in-memory SQLite -- fully isolated."""
@@ -182,6 +186,7 @@ def demonstrate_test_env() -> None:
 # ---------------------------------------------------------------------------
 # Demo 3: re-configuring with a fresh backend resets state
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_fresh_backend_isolation() -> None:
     """Reconfiguring with a new :memory: backend simulates per-test isolation.
@@ -224,6 +229,7 @@ def demonstrate_fresh_backend_isolation() -> None:
 # Demo 4: environment variable drives configuration
 # ---------------------------------------------------------------------------
 
+
 def demonstrate_env_variable_switching() -> None:
     """APP_ENV controls which backend is selected."""
 
@@ -234,12 +240,11 @@ def demonstrate_env_variable_switching() -> None:
     for env_value in ("test", "development", "production"):
         backend = make_backend(env=env_value)
         backend_type = type(backend).__name__
-        if hasattr(backend, '_config'):
-            db_path = getattr(backend._config, 'database', 'unknown')
+        if hasattr(backend, "_config"):
+            db_path = getattr(backend._config, "database", "unknown")
         else:
-            db_path = 'unknown'
-        print(f"  APP_ENV={env_value!r:<15} -> backend: {backend_type}, "
-              f"database: {db_path!r}")
+            db_path = "unknown"
+        print(f"  APP_ENV={env_value!r:<15} -> backend: {backend_type}, database: {db_path!r}")
 
     print("\n✓ Factory function selects the correct backend for each environment.")
 
@@ -247,6 +252,7 @@ def demonstrate_env_variable_switching() -> None:
 # ---------------------------------------------------------------------------
 # Demo 5: all models in one place
 # ---------------------------------------------------------------------------
+
 
 def demonstrate_centralized_configure() -> None:
     """configure_models() configures every model in a single call.

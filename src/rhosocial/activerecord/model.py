@@ -11,6 +11,7 @@ Each mixin contributes a distinct capability:
 - MetaclassMixin: ActiveRecordMetaclass integration and feature handler dispatch
 - BaseActiveRecord / AsyncBaseActiveRecord: CRUD, lifecycle hooks, backend binding
 """
+
 from .base import (
     BaseActiveRecord,
     AsyncBaseActiveRecord,

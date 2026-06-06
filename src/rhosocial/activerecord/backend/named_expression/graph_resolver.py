@@ -5,6 +5,7 @@ NamedProcedureGraphResolver for resolving callable ProcedureGraphs.
 This module provides functionality to resolve and execute named procedure
 graphs defined as Python callables with fully qualified names.
 """
+
 import inspect
 import importlib
 from typing import Any, Callable, Dict, List, Optional, Tuple, TYPE_CHECKING
@@ -29,10 +30,7 @@ class NamedProcedureGraphInvalidReturnTypeError(NamedProcedureGraphError):
     def __init__(self, qualified_name: str, actual_type: str):
         self.qualified_name = qualified_name
         self.actual_type = actual_type
-        super().__init__(
-            f"Named procedure graph '{qualified_name}' must return "
-            f"ProcedureGraph, got {actual_type}"
-        )
+        super().__init__(f"Named procedure graph '{qualified_name}' must return ProcedureGraph, got {actual_type}")
 
 
 class NamedProcedureGraphResolver:
@@ -86,8 +84,7 @@ class NamedProcedureGraphResolver:
         parts = self._qualified_name.rsplit(".", 1)
         if len(parts) != 2:
             raise NamedProcedureGraphError(
-                f"Invalid qualified name '{self._qualified_name}'. "
-                "Must be in format 'module.path.callable'"
+                f"Invalid qualified name '{self._qualified_name}'. Must be in format 'module.path.callable'"
             )
         self._module_name = parts[0]
         self._attr_name = parts[1]
@@ -124,8 +121,7 @@ class NamedProcedureGraphResolver:
 
         if not hasattr(module, self._attr_name):
             raise NamedProcedureGraphError(
-                f"Procedure graph '{self._attr_name}' not found "
-                f"in module '{self._module_name}'"
+                f"Procedure graph '{self._attr_name}' not found in module '{self._module_name}'"
             )
 
         self._callable = getattr(module, self._attr_name)
@@ -138,10 +134,7 @@ class NamedProcedureGraphResolver:
             self._is_class = False
             self._target_callable = self._callable
         else:
-            raise NamedProcedureGraphError(
-                f"'{self._attr_name}' must be a function, method, "
-                f"or class with __call__"
-            )
+            raise NamedProcedureGraphError(f"'{self._attr_name}' must be a function, method, or class with __call__")
 
         self._validate_signature()
         return self
@@ -151,14 +144,11 @@ class NamedProcedureGraphResolver:
         sig = inspect.signature(self._target_callable)
         params = list(sig.parameters.keys())
         if not params:
-            raise NamedProcedureGraphError(
-                f"'{self._attr_name}' has no parameters"
-            )
+            raise NamedProcedureGraphError(f"'{self._attr_name}' has no parameters")
         first_param = params[0]
         if first_param not in ("dialect", "self"):
             raise NamedProcedureGraphError(
-                f"'{self._attr_name}' first parameter must be 'dialect', "
-                f"got '{first_param}'"
+                f"'{self._attr_name}' first parameter must be 'dialect', got '{first_param}'"
             )
 
     def build(
@@ -180,9 +170,7 @@ class NamedProcedureGraphResolver:
             NamedProcedureGraphError: If callable not loaded.
         """
         if self._target_callable is None:
-            raise NamedProcedureGraphError(
-                "Callable not loaded. Call load() first."
-            )
+            raise NamedProcedureGraphError("Callable not loaded. Call load() first.")
 
         resolved_params = {"dialect": dialect}
         if params:
@@ -193,12 +181,9 @@ class NamedProcedureGraphResolver:
         except TypeError as e:
             if "unexpected keyword argument" in str(e):
                 raise NamedProcedureGraphError(
-                    f"Failed to call '{self._attr_name}': {e}. "
-                    f"Expected parameters: dialect, optionally params"
+                    f"Failed to call '{self._attr_name}': {e}. Expected parameters: dialect, optionally params"
                 ) from None
-            raise NamedProcedureGraphError(
-                f"Failed to call '{self._attr_name}': {e}"
-            ) from None
+            raise NamedProcedureGraphError(f"Failed to call '{self._attr_name}': {e}") from None
 
         if not isinstance(result, ProcedureGraph):
             raise NamedProcedureGraphInvalidReturnTypeError(
@@ -209,6 +194,7 @@ class NamedProcedureGraphResolver:
         errors = result.validate()
         if errors:
             from .graph_runner import ProcedureGraphValidationError
+
             raise ProcedureGraphValidationError(errors)
 
         return result
@@ -216,9 +202,7 @@ class NamedProcedureGraphResolver:
     def describe(self) -> Dict[str, Any]:
         """Get description of the procedure graph."""
         if self._callable is None:
-            raise NamedProcedureGraphError(
-                "Callable not loaded. Call load() first."
-            )
+            raise NamedProcedureGraphError("Callable not loaded. Call load() first.")
 
         sig = inspect.signature(self._target_callable)
         docstring = inspect.getdoc(self._callable) or ""

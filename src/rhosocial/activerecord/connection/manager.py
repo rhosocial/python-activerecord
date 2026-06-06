@@ -214,7 +214,7 @@ class BackendManager:
         """
         return list(self._groups.keys())
 
-    def __enter__(self) -> 'BackendManager':
+    def __enter__(self) -> "BackendManager":
         """Context manager entry: configure all groups (without connecting)."""
         self.configure_all()
         return self
@@ -390,7 +390,7 @@ class AsyncBackendManager:
         """
         return list(self._groups.keys())
 
-    async def __aenter__(self) -> 'AsyncBackendManager':
+    async def __aenter__(self) -> "AsyncBackendManager":
         """Async context manager entry: configure all groups (without connecting)."""
         await self.configure_all()
         return self

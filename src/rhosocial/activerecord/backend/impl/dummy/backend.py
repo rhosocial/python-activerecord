@@ -31,7 +31,7 @@ class DummyBackend(StorageBackend):
     All operations requiring a database connection will raise NotImplementedError.
     """
 
-    def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs):
+    def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs: Any) -> None:
         # Ensure a default logger for DummyBackend if not explicitly provided
         if "logger" not in kwargs:
             kwargs["logger"] = logging.getLogger("dummy_backend")
@@ -97,7 +97,7 @@ class AsyncDummyBackend(AsyncStorageBackend):
     All operations requiring a database connection will raise NotImplementedError.
     """
 
-    def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs):
+    def __init__(self, connection_config: Optional[ConnectionConfig] = None, **kwargs: Any) -> None:
         # Ensure a default logger for AsyncDummyBackend if not explicitly provided
         if "logger" not in kwargs:
             kwargs["logger"] = logging.getLogger("async_dummy_backend")

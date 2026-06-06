@@ -8,12 +8,27 @@ This test file covers:
 - DateTime functions: current_timestamp, localtimestamp, extract
 - User functions: current_user, session_user, system_user
 """
+
 from rhosocial.activerecord.backend.expression import Column
 from rhosocial.activerecord.backend.expression.functions import (
-    mod, sign, truncate, chr_, ascii, octet_length, bit_length,
-    position, overlay, translate, repeat, space,
-    current_timestamp, localtimestamp, extract,
-    current_user, session_user, system_user
+    mod,
+    sign,
+    truncate,
+    chr_,
+    ascii,
+    octet_length,
+    bit_length,
+    position,
+    overlay,
+    translate,
+    repeat,
+    space,
+    current_timestamp,
+    localtimestamp,
+    extract,
+    current_user,
+    session_user,
+    system_user,
 )
 from rhosocial.activerecord.backend.impl.dummy.dialect import DummyDialect
 

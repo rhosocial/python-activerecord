@@ -120,9 +120,7 @@ class BinaryArithmeticExpression(
 ):
     """Represents a binary arithmetic operation."""
 
-    def __init__(
-        self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"
-    ):
+    def __init__(self, dialect: "SQLDialectBase", op: str, left: "SQLValueExpression", right: "SQLValueExpression"):
         super().__init__(dialect)
         self.op = op
         self.left = left

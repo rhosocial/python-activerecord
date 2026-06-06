@@ -8,9 +8,5 @@ against the core SQLite providers.
 
 # IMPORTANT: These imports are required for pytest discovery of testsuite
 # fixtures and shared test classes. Do not remove them as unused imports.
-from rhosocial.activerecord.testsuite.feature.basic.conftest import (
-    async_pydantic_validated_model,
-    pydantic_validated_model,
-)
 
-from rhosocial.activerecord.testsuite.feature.basic.test_pydantic_native_validation import *
+from rhosocial.activerecord.testsuite.feature.basic.test_pydantic_native_validation import *  # noqa: F403

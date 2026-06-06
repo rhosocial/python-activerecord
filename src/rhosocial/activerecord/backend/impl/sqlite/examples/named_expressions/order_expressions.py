@@ -17,13 +17,13 @@ config = SQLiteConnectionConfig(database=":memory:")
 backend = SQLiteBackend(config)
 dialect = backend.dialect
 
-from rhosocial.activerecord.backend.expression import (
+from rhosocial.activerecord.backend.expression import (  # noqa: E402
     CreateTableExpression,
     InsertExpression,
     ValuesSource,
 )
-from rhosocial.activerecord.backend.expression.core import Literal
-from rhosocial.activerecord.backend.expression.statements import (
+from rhosocial.activerecord.backend.expression.core import Literal  # noqa: E402
+from rhosocial.activerecord.backend.expression.statements import (  # noqa: E402
     ColumnDefinition,
 )
 
@@ -63,7 +63,7 @@ for table, data in [
 # ============================================================
 # SECTION: Business Logic (the pattern to learn)
 # ============================================================
-from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression
+from rhosocial.activerecord.backend.expression import Column, Literal, QueryExpression, TableExpression  # noqa: E402
 
 
 def get_order(dialect, order_id: int):
@@ -168,8 +168,8 @@ if __name__ == "__main__":
 # ============================================================
 # SECTION: Execution (run the expression)
 # ============================================================
-from rhosocial.activerecord.backend.options import ExecutionOptions
-from rhosocial.activerecord.backend.schema import StatementType
+from rhosocial.activerecord.backend.options import ExecutionOptions  # noqa: E402
+from rhosocial.activerecord.backend.schema import StatementType  # noqa: E402
 
 if __name__ == "__main__":
     query = get_order(dialect, order_id=1)

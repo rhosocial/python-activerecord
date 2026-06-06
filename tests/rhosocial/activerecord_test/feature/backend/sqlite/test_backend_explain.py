@@ -44,6 +44,7 @@ from rhosocial.activerecord.backend.schema import StatementType
 # Fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture()
 def dialect():
     return SQLiteDialect()
@@ -76,6 +77,7 @@ def query_expr(dialect):
 # Protocol / MRO tests
 # ---------------------------------------------------------------------------
 
+
 class TestMixinAndProtocol:
     def test_sync_backend_is_mixin_instance(self, sync_backend):
         assert isinstance(sync_backend, SyncExplainBackendMixin)
@@ -94,6 +96,7 @@ class TestMixinAndProtocol:
 # ---------------------------------------------------------------------------
 # EXPLAIN (bytecode) tests
 # ---------------------------------------------------------------------------
+
 
 class TestExplainBytecode:
     def test_returns_sqlite_explain_result(self, sync_backend, query_expr):
@@ -149,6 +152,7 @@ class TestExplainBytecode:
 # EXPLAIN QUERY PLAN tests
 # ---------------------------------------------------------------------------
 
+
 class TestExplainQueryPlan:
     @pytest.fixture()
     def qp_options(self):
@@ -178,9 +182,7 @@ class TestExplainQueryPlan:
 
     def test_detail_contains_scan_or_search(self, sync_backend, query_expr, qp_options):
         result = sync_backend.explain(query_expr, qp_options)
-        assert any(
-            kw in row.detail.upper() for row in result.rows for kw in ("SCAN", "SEARCH", "USE")
-        )
+        assert any(kw in row.detail.upper() for row in result.rows for kw in ("SCAN", "SEARCH", "USE"))
 
     def test_sql_field_starts_with_explain_query_plan(self, sync_backend, query_expr, qp_options):
         result = sync_backend.explain(query_expr, qp_options)
@@ -194,6 +196,7 @@ class TestExplainQueryPlan:
 # ---------------------------------------------------------------------------
 # Async backend tests
 # ---------------------------------------------------------------------------
+
 
 class TestAsyncExplain:
     @pytest.fixture()
@@ -232,6 +235,7 @@ class TestAsyncExplain:
 # ---------------------------------------------------------------------------
 # Index-usage analysis — bytecode (SQLiteExplainResult)
 # ---------------------------------------------------------------------------
+
 
 class TestExplainBytecodeIndexAnalysis:
     """Tests for SQLiteExplainResult.analyze_index_usage() and related properties.
@@ -330,6 +334,7 @@ class TestExplainBytecodeIndexAnalysis:
 # ---------------------------------------------------------------------------
 # Index-usage analysis — query plan (SQLiteExplainQueryPlanResult)
 # ---------------------------------------------------------------------------
+
 
 class TestExplainQueryPlanIndexAnalysis:
     """Tests for SQLiteExplainQueryPlanResult.analyze_index_usage() and properties.

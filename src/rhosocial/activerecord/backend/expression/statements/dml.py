@@ -98,9 +98,7 @@ class MergeExpression(BaseExpression):
     ):  # WHEN NOT MATCHED BY SOURCE THEN ... (not supported by all DBs)
         super().__init__(dialect)
         self.target_table = (
-            target_table
-            if isinstance(target_table, TableExpression)
-            else TableExpression(dialect, str(target_table))
+            target_table if isinstance(target_table, TableExpression) else TableExpression(dialect, str(target_table))
         )
         self.source = source
         self.on_condition = on_condition
@@ -227,9 +225,7 @@ class DeleteExpression(BaseExpression):
                     self.tables.append(TableExpression(dialect, str(t)))
         else:
             # Single table
-            single_table = (
-                tables if isinstance(tables, TableExpression) else TableExpression(dialect, str(tables))
-            )
+            single_table = tables if isinstance(tables, TableExpression) else TableExpression(dialect, str(tables))
             self.tables = [single_table]
 
         self.using = using

@@ -29,9 +29,11 @@ from rhosocial.activerecord.backend.schema import StatementType
 # Test Models (dedicated for manual lifecycle tests)
 # ============================================================
 
+
 class ManualUser(IntegerPKMixin, ActiveRecord):
     """Test User model for manual lifecycle tests."""
-    __table_name__ = 'manual_users'
+
+    __table_name__ = "manual_users"
 
     id: Optional[int] = None
     name: str
@@ -40,7 +42,8 @@ class ManualUser(IntegerPKMixin, ActiveRecord):
 
 class ManualPost(IntegerPKMixin, ActiveRecord):
     """Test Post model for manual lifecycle tests."""
-    __table_name__ = 'manual_posts'
+
+    __table_name__ = "manual_posts"
 
     id: Optional[int] = None
     title: str
@@ -49,7 +52,8 @@ class ManualPost(IntegerPKMixin, ActiveRecord):
 
 class AsyncManualUser(IntegerPKMixin, AsyncActiveRecord):
     """Test async User model for manual lifecycle tests."""
-    __table_name__ = 'manual_users'
+
+    __table_name__ = "manual_users"
 
     id: Optional[int] = None
     name: str
@@ -58,7 +62,8 @@ class AsyncManualUser(IntegerPKMixin, AsyncActiveRecord):
 
 class AsyncManualPost(IntegerPKMixin, AsyncActiveRecord):
     """Test async Post model for manual lifecycle tests."""
-    __table_name__ = 'manual_posts'
+
+    __table_name__ = "manual_posts"
 
     id: Optional[int] = None
     title: str
@@ -93,6 +98,7 @@ CREATE_POSTS_TABLE = """
 # ============================================================
 # Fixtures
 # ============================================================
+
 
 @pytest.fixture
 def backend_class():
@@ -141,6 +147,7 @@ def manual_group(backend_class):
 # ============================================================
 # Sync Tests
 # ============================================================
+
 
 class TestManualLifecycle:
     """Tests for manual connection lifecycle management (sync)."""
@@ -348,7 +355,7 @@ class TestManualLifecycle:
         backend.introspect_and_adapt()
 
         # Operation raises an error, but connection remains open
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             backend.execute("SELECT * FROM nonexistent_table", options=DQL_OPTIONS)
 
         # Still connected after error
@@ -543,6 +550,7 @@ class TestManualLifecycle:
 # Async Tests
 # ============================================================
 
+
 class TestAsyncManualLifecycle:
     """Tests for manual connection lifecycle management (async)."""
 
@@ -705,7 +713,7 @@ class TestAsyncManualLifecycle:
         await backend.connect()
         await backend.introspect_and_adapt()
 
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             await backend.execute("SELECT * FROM nonexistent_table", options=DQL_OPTIONS)
 
         # Still connected

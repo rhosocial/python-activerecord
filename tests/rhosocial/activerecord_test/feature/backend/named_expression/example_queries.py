@@ -5,7 +5,7 @@ Example named queries for testing.
 This module contains sample query definitions for testing
 the named procedure functionality (which calls named queries).
 """
-from rhosocial.activerecord.backend.expression.bases import BaseExpression
+
 from rhosocial.activerecord.backend.expression.statements.dql import Select
 
 

@@ -397,8 +397,7 @@ class IActiveRecord(ActiveRecordBase):
                 self._after_save(is_new)
                 self.reset_tracking()
             # Always trigger AFTER_UPDATE to allow mixins to check result
-            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data,
-                               dirty_fields=dirty_fields, result=result)
+            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data, dirty_fields=dirty_fields, result=result)
 
         return result.affected_rows if result else 0
 
@@ -617,8 +616,7 @@ class IAsyncActiveRecord(ActiveRecordBase):
                 self._after_save(is_new)
                 self.reset_tracking()
             # Always trigger AFTER_UPDATE to allow mixins to check result
-            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data,
-                               dirty_fields=dirty_fields, result=result)
+            self._trigger_event(ModelEvent.AFTER_UPDATE, data=data, dirty_fields=dirty_fields, result=result)
 
         return result.affected_rows if result else 0
 

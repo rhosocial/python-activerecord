@@ -75,10 +75,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
     def _get_sqlite_version(self) -> tuple:
         """Return SQLite library version as an integer tuple."""
         parts = sqlite3.sqlite_version.split(".")
-        return tuple(
-            int(p) if p.isdigit() else 0
-            for p in (parts + ["0", "0"])[:3]
-        )
+        return tuple(int(p) if p.isdigit() else 0 for p in (parts + ["0", "0"])[:3])
 
     # ------------------------------------------------------------------ #
     # SQL generation — uses base class implementation via Expression/Dialect
@@ -101,10 +98,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
         row = rows[0] if rows else {}
         version_str = row.get("version") or sqlite3.sqlite_version
         parts = version_str.split(".")
-        version_tuple = tuple(
-            int(p) if p.isdigit() else 0
-            for p in (parts + ["0", "0"])[:3]
-        )
+        version_tuple = tuple(int(p) if p.isdigit() else 0 for p in (parts + ["0", "0"])[:3])
         # SQLite's database name is the schema name (e.g., "main")
         # For file-based databases, we can also show the filename
         db_path = self._backend.config.database or ":memory:"
@@ -116,9 +110,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             extra={"path": db_path},
         )
 
-    def _parse_tables(
-        self, rows: List[Dict[str, Any]], schema: Optional[str]
-    ) -> List[TableInfo]:
+    def _parse_tables(self, rows: List[Dict[str, Any]], schema: Optional[str]) -> List[TableInfo]:
         tables = []
         for row in rows:
             type_str = row.get("type", "table").lower()
@@ -140,22 +132,17 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             )
         return tables
 
-    def _parse_columns(
-        self, rows: List[Dict[str, Any]], table_name: str, schema: str
-    ) -> List[ColumnInfo]:
+    def _parse_columns(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ColumnInfo]:
         columns = []
         for row in rows:
             if row.get("hidden", 0) > 0:
                 continue
-            nullable = (
-                ColumnNullable.NULLABLE
-                if row["notnull"] == 0
-                else ColumnNullable.NOT_NULL
-            )
+            nullable = ColumnNullable.NULLABLE if row["notnull"] == 0 else ColumnNullable.NOT_NULL
             raw_type = row.get("type") or "TEXT"
             # Extract base type (e.g., "VARCHAR" from "VARCHAR(255)")
             import re
-            base_type_match = re.match(r'^([A-Za-z_]+)', raw_type)
+
+            base_type_match = re.match(r"^([A-Za-z_]+)", raw_type)
             base_type = base_type_match.group(1) if base_type_match else raw_type
             # SQLite pk field: 0 = not primary key, >0 = primary key (or part of composite PK)
             is_pk = row.get("pk", 0) > 0
@@ -175,9 +162,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             )
         return columns
 
-    def _parse_indexes(
-        self, rows: List[Dict[str, Any]], table_name: str, schema: str
-    ) -> List[IndexInfo]:
+    def _parse_indexes(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[IndexInfo]:
         if not rows:
             return []
         idx_map: Dict[str, IndexInfo] = {}
@@ -207,9 +192,7 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
                 )
         return list(idx_map.values())
 
-    def _parse_foreign_keys(
-        self, rows: List[Dict[str, Any]], table_name: str, schema: str
-    ) -> List[ForeignKeyInfo]:
+    def _parse_foreign_keys(self, rows: List[Dict[str, Any]], table_name: str, schema: str) -> List[ForeignKeyInfo]:
         if not rows:
             return []
         fk_map: Dict[int, ForeignKeyInfo] = {}
@@ -245,27 +228,16 @@ class SQLiteIntrospectorMixin(IntrospectorMixin):
             fk_map[fk_id].referenced_columns.append(row["to"])
         return list(fk_map.values())
 
-    def _parse_views(
-        self, rows: List[Dict[str, Any]], schema: str
-    ) -> List[ViewInfo]:
-        return [
-            ViewInfo(name=row["name"], schema=schema, definition=row.get("sql"))
-            for row in rows
-        ]
+    def _parse_views(self, rows: List[Dict[str, Any]], schema: str) -> List[ViewInfo]:
+        return [ViewInfo(name=row["name"], schema=schema, definition=row.get("sql")) for row in rows]
 
-    def _parse_view_info(
-        self, rows: List[Dict[str, Any]], view_name: str, schema: str
-    ) -> Optional[ViewInfo]:
+    def _parse_view_info(self, rows: List[Dict[str, Any]], view_name: str, schema: str) -> Optional[ViewInfo]:
         if not rows:
             return None
         row = rows[0]
-        return ViewInfo(
-            name=row["name"], schema=schema, definition=row.get("sql")
-        )
+        return ViewInfo(name=row["name"], schema=schema, definition=row.get("sql"))
 
-    def _parse_triggers(
-        self, rows: List[Dict[str, Any]], schema: str
-    ) -> List[TriggerInfo]:
+    def _parse_triggers(self, rows: List[Dict[str, Any]], schema: str) -> List[TriggerInfo]:
         return [
             TriggerInfo(
                 name=row["name"],
@@ -315,9 +287,7 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # Override list_indexes for SQLite's two-step index query
     # ------------------------------------------------------------------ #
 
-    def list_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table.
 
         SQLite requires two queries:
@@ -387,13 +357,9 @@ class SyncSQLiteIntrospector(SQLiteIntrospectorMixin, SyncAbstractIntrospector):
     # list_tables() call and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
-    def get_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         schema or self._get_default_schema()
-        key = self._make_cache_key(
-            IntrospectionScope.TABLE, table_name, schema=schema
-        )
+        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached
@@ -450,9 +416,7 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # Override list_indexes for SQLite's two-step index query
     # ------------------------------------------------------------------ #
 
-    async def list_indexes(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> List[IndexInfo]:
+    async def list_indexes(self, table_name: str, schema: Optional[str] = None) -> List[IndexInfo]:
         """List all indexes of the given table.
 
         SQLite requires two queries:
@@ -522,13 +486,9 @@ class AsyncSQLiteIntrospector(SQLiteIntrospectorMixin, AsyncAbstractIntrospector
     # list_tables() call and populates columns/indexes/FKs in one sweep.
     # ------------------------------------------------------------------ #
 
-    async def get_table_info(
-        self, table_name: str, schema: Optional[str] = None
-    ) -> Optional[TableInfo]:
+    async def get_table_info(self, table_name: str, schema: Optional[str] = None) -> Optional[TableInfo]:
         schema or self._get_default_schema()
-        key = self._make_cache_key(
-            IntrospectionScope.TABLE, table_name, schema=schema
-        )
+        key = self._make_cache_key(IntrospectionScope.TABLE, table_name, schema=schema)
         cached = self._get_cached(key)
         if cached is not None:
             return cached

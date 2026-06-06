@@ -7,6 +7,7 @@ the named connection functionality.
 
 SQLite connections distinguish between file-based and in-memory databases.
 """
+
 import tempfile
 import os
 

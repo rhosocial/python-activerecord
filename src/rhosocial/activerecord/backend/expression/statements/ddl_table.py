@@ -85,6 +85,10 @@ class ReferentialAction(Enum):
     NO_ACTION = "NO ACTION"
 
 
+# Re-export partition types from ddl_partition for backward compatibility
+from .ddl_partition import PartitionClause, PartitionKey, PartitionStrategy  # noqa: E402, F401
+
+
 class ConstraintValidation(Enum):
     """Constraint validation status (PostgreSQL specific).
 
@@ -155,11 +159,9 @@ class CreateTableExpression(BaseExpression):
         storage_options: Optional[
             Dict[str, Any]
         ] = None,  # Storage parameters (PostgreSQL WITH options, MySQL ENGINE options)
-        partition_by: Optional[
-            Tuple[str, List[str]]
-        ] = None,  # Partitioning specification (partition_type, partition_columns)
         as_query: Optional["QueryExpression"] = None,  # Create table AS query result
         *,  # Force keyword arguments
+        partition: Optional["PartitionClause"] = None,  # Table partitioning specification
         dialect_options: Optional[Dict[str, Any]] = None,
     ):  # Dialect-specific options
         super().__init__(dialect)
@@ -177,7 +179,10 @@ class CreateTableExpression(BaseExpression):
         self.inherits = inherits or []  # Tables to inherit from (PostgreSQL-specific)
         self.tablespace = tablespace  # Tablespace specification
         self.storage_options = storage_options or {}  # Storage-related options
-        self.partition_by = partition_by  # Partitioning specification
+        # Validate partition parameter type
+        if partition is not None and not isinstance(partition, PartitionClause):
+            raise TypeError(f"partition must be a PartitionClause instance, got {type(partition).__name__}")
+        self.partition = partition
         self.as_query = as_query  # Query to base table on (for CREATE TABLE AS)
         self.dialect_options = dialect_options or {}  # Dialect-specific options
 

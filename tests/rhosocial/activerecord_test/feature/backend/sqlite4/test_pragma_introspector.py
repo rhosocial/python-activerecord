@@ -10,7 +10,6 @@ import sqlite3
 
 import pytest
 
-from rhosocial.activerecord.backend.impl.sqlite.backend import SQLiteBackend
 
 
 class TestSyncPragmaIntrospectorBasic:

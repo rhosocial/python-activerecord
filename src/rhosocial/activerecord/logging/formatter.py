@@ -52,18 +52,18 @@ class ModuleFormatter(logging.Formatter):
             Fully qualified module name (e.g., 'rhosocial.activerecord.backend.base').
         """
         # Normalize the path
-        path_parts = pathname.replace('\\', '/').split('/')
+        path_parts = pathname.replace("\\", "/").split("/")
 
         # Find 'rhosocial' in the path followed by 'activerecord'
         # This ensures we get the correct package root, not a project directory name
         for i in range(len(path_parts) - 1, -1, -1):
-            if path_parts[i] == 'rhosocial':
+            if path_parts[i] == "rhosocial":
                 # Only accept if followed by 'activerecord'
-                if i + 1 < len(path_parts) and path_parts[i + 1] == 'activerecord':
+                if i + 1 < len(path_parts) and path_parts[i + 1] == "activerecord":
                     # Build module name: rhosocial.activerecord.xxx.filename (without .py)
                     base_name = os.path.splitext(filename)[0]
                     module_parts = path_parts[i:-1] + [base_name]
-                    return '.'.join(module_parts)
+                    return ".".join(module_parts)
 
         # Fallback: use filename without extension
         return os.path.splitext(filename)[0]
@@ -90,7 +90,7 @@ class ActiveRecordFormatter(ModuleFormatter):
         >>> formatter = ActiveRecordFormatter(
         ...     "%(asctime)s [%(levelname)s] %(name)s: %(message)s"
         ... )
-    """
+    """  # noqa: E501
 
     DEFAULT_FORMAT = "%(asctime)s - %(levelname)s - [%(subpackage_module)s] - %(message)s"
 

@@ -17,12 +17,11 @@ from typing import Any, Dict, List, Optional
 import pytest
 
 pytest.skip(
-    "Cache serialization is not introduced in this release; "
-    "source is kept for follow-up external cache design.",
+    "Cache serialization is not introduced in this release; source is kept for follow-up external cache design.",
     allow_module_level=True,
 )
 
-from rhosocial.activerecord.relation.cache_backends._protocol import CacheSerializer
+from rhosocial.activerecord.relation.cache_backends._protocol import CacheSerializer  # noqa: E402
 
 # ---------------------------------------------------------------------------
 # Helpers
@@ -38,6 +37,7 @@ def _find_samples() -> Optional[str]:
         return _SAMPLE_DIR
     try:
         import rhosocial.activerecord.testsuite as _ts
+
         base = os.path.dirname(_ts.__file__)
         for attempt in [
             os.path.join(base, "feature", "query", "samples"),
@@ -66,6 +66,7 @@ def _load_sample(name: str) -> str:
 # ---------------------------------------------------------------------------
 # Test data
 # ---------------------------------------------------------------------------
+
 
 class Color(Enum):
     RED = auto()
@@ -117,6 +118,7 @@ FLOAT_EPS = 1e-9
 # Serializer fixtures
 # ---------------------------------------------------------------------------
 
+
 @pytest.fixture(params=["json", "msgpack", "pickle"])
 def serializer(request) -> CacheSerializer:
     fmt = request.param
@@ -142,6 +144,7 @@ def pickle_serializer() -> CacheSerializer:
 # ---------------------------------------------------------------------------
 # Round-trip tests
 # ---------------------------------------------------------------------------
+
 
 class TestCacheSerializerBasic:
     """Basic values round-trip through all serializer formats."""
@@ -367,8 +370,7 @@ class TestCacheSerializerEdgeCases:
             assert type(restored) is type(v)
 
     def test_float_edge_cases(self, serializer):
-        for v in [0.0, -0.0, 3.141592653589793, float("inf"),
-                  float("-inf"), 1.7976931348623157e308, 5e-324]:
+        for v in [0.0, -0.0, 3.141592653589793, float("inf"), float("-inf"), 1.7976931348623157e308, 5e-324]:
             if math.isnan(v):
                 continue  # NaN comparison is tricky
             data = serializer.serialize(v)
@@ -400,10 +402,11 @@ class TestCacheSerializerInvalidInput:
             CacheSerializer(format="xml")
 
     def test_msgpack_not_installed(self):
-        import sys
+
         # Simulate missing msgpack by checking if we can bypass it
         try:
             import msgpack  # noqa: F401
+
             pytest.skip("msgpack is installed, can't test missing case")
         except ImportError:
             with pytest.raises(ImportError, match="msgpack"):
@@ -440,14 +443,14 @@ class TestCacheSerializerCrossFormat:
         ser_json = CacheSerializer(format="json")
         data = ser_json.serialize("hello")
         ser_pickle = CacheSerializer(format="pickle")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             ser_pickle.deserialize(data)
 
     def test_pickle_data_cannot_be_read_by_json(self):
         ser_pickle = CacheSerializer(format="pickle")
         data = ser_pickle.serialize("hello")
         ser_json = CacheSerializer(format="json")
-        with pytest.raises(Exception):
+        with pytest.raises(Exception):  # noqa: B017
             ser_json.deserialize(data)
 
 

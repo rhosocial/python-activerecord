@@ -16,31 +16,35 @@ if TYPE_CHECKING:
 
 # Context variables for connection pool state
 # Synchronous pool context
-_current_pool: contextvars.ContextVar[Optional['BackendPool']] = \
-    contextvars.ContextVar('connection_pool', default=None)
+_current_pool: contextvars.ContextVar[Optional["BackendPool"]] = contextvars.ContextVar("connection_pool", default=None)
 
 # Asynchronous pool context
-_current_async_pool: contextvars.ContextVar[Optional['AsyncBackendPool']] = \
-    contextvars.ContextVar('async_connection_pool', default=None)
+_current_async_pool: contextvars.ContextVar[Optional["AsyncBackendPool"]] = contextvars.ContextVar(
+    "async_connection_pool", default=None
+)
 
 # Transaction backend context (works for both sync and async)
-_current_transaction_backend: contextvars.ContextVar[Optional[Any]] = \
-    contextvars.ContextVar('transaction_backend', default=None)
+_current_transaction_backend: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+    "transaction_backend", default=None
+)
 
 # Connection backend context (works for both sync and async)
-_current_connection_backend: contextvars.ContextVar[Optional[Any]] = \
-    contextvars.ContextVar('connection_backend', default=None)
+_current_connection_backend: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+    "connection_backend", default=None
+)
 
 # Async-specific transaction backend context
-_current_async_transaction_backend: contextvars.ContextVar[Optional[Any]] = \
-    contextvars.ContextVar('async_transaction_backend', default=None)
+_current_async_transaction_backend: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+    "async_transaction_backend", default=None
+)
 
 # Async-specific connection backend context
-_current_async_connection_backend: contextvars.ContextVar[Optional[Any]] = \
-    contextvars.ContextVar('async_connection_backend_context', default=None)
+_current_async_connection_backend: contextvars.ContextVar[Optional[Any]] = contextvars.ContextVar(
+    "async_connection_backend_context", default=None
+)
 
 
-def get_current_pool() -> Optional['BackendPool']:
+def get_current_pool() -> Optional["BackendPool"]:
     """Get the current synchronous pool from context.
 
     Returns:
@@ -49,7 +53,7 @@ def get_current_pool() -> Optional['BackendPool']:
     return _current_pool.get()
 
 
-def get_current_async_pool() -> Optional['AsyncBackendPool']:
+def get_current_async_pool() -> Optional["AsyncBackendPool"]:
     """Get the current asynchronous pool from context.
 
     Returns:
@@ -117,10 +121,7 @@ def get_current_backend() -> Optional[Any]:
     Returns:
         The current backend for database operations or None.
     """
-    return (
-        get_current_transaction_backend() or
-        get_current_connection_backend()
-    )
+    return get_current_transaction_backend() or get_current_connection_backend()
 
 
 def get_current_async_backend() -> Optional[Any]:
@@ -134,15 +135,13 @@ def get_current_async_backend() -> Optional[Any]:
     Returns:
         The current async backend for database operations or None.
     """
-    return (
-        get_current_async_transaction_backend() or
-        get_current_async_connection_backend()
-    )
+    return get_current_async_transaction_backend() or get_current_async_connection_backend()
 
 
 # Internal functions for setting/resetting context (used by pool implementations)
 
-def _set_pool(pool: Optional['BackendPool']) -> contextvars.Token:
+
+def _set_pool(pool: Optional["BackendPool"]) -> contextvars.Token:
     """Set the current synchronous pool in context."""
     return _current_pool.set(pool)
 
@@ -152,7 +151,7 @@ def _reset_pool(token: contextvars.Token) -> None:
     _current_pool.reset(token)
 
 
-def _set_async_pool(pool: Optional['AsyncBackendPool']) -> contextvars.Token:
+def _set_async_pool(pool: Optional["AsyncBackendPool"]) -> contextvars.Token:
     """Set the current async pool in context."""
     return _current_async_pool.set(pool)
 
@@ -204,13 +203,13 @@ def _reset_async_connection_backend(token: contextvars.Token) -> None:
 
 __all__ = [
     # Public helper functions - synchronous
-    'get_current_pool',
-    'get_current_transaction_backend',
-    'get_current_connection_backend',
-    'get_current_backend',
+    "get_current_pool",
+    "get_current_transaction_backend",
+    "get_current_connection_backend",
+    "get_current_backend",
     # Public helper functions - asynchronous
-    'get_current_async_pool',
-    'get_current_async_transaction_backend',
-    'get_current_async_connection_backend',
-    'get_current_async_backend',
+    "get_current_async_pool",
+    "get_current_async_transaction_backend",
+    "get_current_async_connection_backend",
+    "get_current_async_backend",
 ]

@@ -5,7 +5,6 @@ Synchronous connection pool module.
 Provides BackendPool class for managing connection pools of synchronous Backend instances.
 """
 
-import logging
 import threading
 import time
 from collections import deque
@@ -17,6 +16,7 @@ from .config import PoolConfig
 from .stats import PoolStats
 from .pooled_backend import PooledBackend
 from rhosocial.activerecord.logging import get_logger as _get_framework_logger
+
 logger = _get_framework_logger("rhosocial.activerecord.connection.pool.sync_pool")
 
 
@@ -98,11 +98,10 @@ class BackendPool:
         else:
             self._effective_mode = config.connection_mode
 
-        self._is_persistent = (self._effective_mode == "persistent")
+        self._is_persistent = self._effective_mode == "persistent"
 
         logger.debug(
-            f"BackendPool initialized with connection_mode={self._effective_mode} "
-            f"(requested={config.connection_mode})"
+            f"BackendPool initialized with connection_mode={self._effective_mode} (requested={config.connection_mode})"
         )
 
     @property
@@ -115,7 +114,7 @@ class BackendPool:
         return self._effective_mode
 
     @classmethod
-    def create(cls, config: PoolConfig) -> 'BackendPool':
+    def create(cls, config: PoolConfig) -> "BackendPool":
         """Create and initialize connection pool with warmup.
 
         This is the recommended way to create a sync pool, ensuring
@@ -178,7 +177,7 @@ class BackendPool:
                 # Cannot determine, assume thread-local for safety
                 return False
 
-            threadsafety = getattr(test_backend, 'threadsafety', 1)
+            threadsafety = getattr(test_backend, "threadsafety", 1)
             return threadsafety >= 2
         except Exception:
             # If we cannot determine, assume thread-local for safety
@@ -200,10 +199,7 @@ class BackendPool:
                 # Create backend from config
                 backend = self._create_backend_from_config()
             else:
-                raise ValueError(
-                    "Either backend_factory or backend_config is required "
-                    "to create Backend instances"
-                )
+                raise ValueError("Either backend_factory or backend_config is required to create Backend instances")
 
             pooled = PooledBackend(
                 backend=backend,
@@ -226,12 +222,13 @@ class BackendPool:
             ValueError: If backend type is not supported
         """
         config = self.config.backend_config
-        backend_type = config.get('type', 'sqlite')
+        backend_type = config.get("type", "sqlite")
 
-        if backend_type == 'sqlite':
+        if backend_type == "sqlite":
             from rhosocial.activerecord.backend.impl.sqlite import SQLiteBackend
+
             # Extract SQLite-specific config
-            database = config.get('database', ':memory:')
+            database = config.get("database", ":memory:")
             return SQLiteBackend(database=database)
         else:
             raise ValueError(
@@ -263,7 +260,7 @@ class BackendPool:
             )
 
         try:
-            if hasattr(pooled.backend, 'disconnect'):
+            if hasattr(pooled.backend, "disconnect"):
                 pooled.backend.disconnect()
         except Exception as e:
             logger.error(f"Error during disconnect: {e}")
@@ -294,6 +291,7 @@ class BackendPool:
             # Execute validation query
             from rhosocial.activerecord.backend.options import ExecutionOptions
             from rhosocial.activerecord.backend.schema import StatementType
+
             options = ExecutionOptions(stmt_type=StatementType.DQL)
             result = pooled.backend.execute(self.config.validation_query, [], options=options)
             return result is not None
@@ -315,7 +313,7 @@ class BackendPool:
             True if reconnection succeeded
         """
         try:
-            if hasattr(pooled.backend, 'disconnect'):
+            if hasattr(pooled.backend, "disconnect"):
                 pooled.backend.disconnect()
             pooled.backend.connect()
             pooled.backend.introspect_and_adapt()
@@ -466,7 +464,7 @@ class BackendPool:
             # In transient mode, auto-disconnect if configured
             if not self._is_persistent and self.config.auto_disconnect_on_release:
                 try:
-                    if hasattr(pooled.backend, 'disconnect'):
+                    if hasattr(pooled.backend, "disconnect"):
                         pooled.backend.disconnect()
                 except Exception as e:
                     logger.error(f"Error during disconnect in release: {e}")
@@ -490,7 +488,7 @@ class BackendPool:
 
             self._condition.notify()
 
-    def context(self) -> 'PoolContext':
+    def context(self) -> "PoolContext":
         """Get pool context manager.
 
         Returns a context manager that sets this pool in the current context.
@@ -665,8 +663,7 @@ class BackendPool:
                     # For transient mode backends, skip disconnect if called from wrong thread
                     if not self._is_persistent:
                         current_thread_id = threading.current_thread().ident
-                        if (pooled.created_thread_id is not None
-                                and pooled.created_thread_id != current_thread_id):
+                        if pooled.created_thread_id is not None and pooled.created_thread_id != current_thread_id:
                             logger.warning(
                                 f"Skipping disconnect for connection created in thread "
                                 f"{pooled.created_thread_id} from thread {current_thread_id}: "
@@ -722,16 +719,16 @@ class BackendPool:
         """
         stats = self.get_stats()
         return {
-            'healthy': not self._closed and stats.total_errors < stats.total_created,
-            'closed': self._closed,
-            'connection_mode': self._effective_mode,
-            'utilization': stats.utilization_rate,
-            'stats': {
-                'available': stats.current_available,
-                'in_use': stats.current_in_use,
-                'total': stats.current_total,
-                'errors': stats.total_errors,
-            }
+            "healthy": not self._closed and stats.total_errors < stats.total_created,
+            "closed": self._closed,
+            "connection_mode": self._effective_mode,
+            "utilization": stats.utilization_rate,
+            "stats": {
+                "available": stats.current_available,
+                "in_use": stats.current_in_use,
+                "total": stats.current_total,
+                "errors": stats.total_errors,
+            },
         }
 
     @property
@@ -770,7 +767,7 @@ class PoolContext:
         _pool_token: Token for resetting pool context.
     """
 
-    def __init__(self, pool: 'BackendPool'):
+    def __init__(self, pool: "BackendPool"):
         """Initialize PoolContext.
 
         Args:
@@ -779,14 +776,16 @@ class PoolContext:
         self._pool = pool
         self._pool_token = None
 
-    def __enter__(self) -> 'PoolContext':
+    def __enter__(self) -> "PoolContext":
         """Enter context, set pool in context."""
         from . import context as ctx
+
         self._pool_token = ctx._set_pool(self._pool)
         return self
 
     def __exit__(self, exc_type, exc_val, exc_tb) -> None:
         """Exit context, reset pool context."""
         from . import context as ctx
+
         if self._pool_token is not None:
             ctx._reset_pool(self._pool_token)

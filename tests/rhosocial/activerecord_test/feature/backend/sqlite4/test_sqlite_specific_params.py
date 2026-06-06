@@ -8,7 +8,6 @@ handle their extra parameters:
 - SQLiteTableListExpression.use_table_list_pragma
 """
 
-import pytest
 
 from rhosocial.activerecord.backend.impl.sqlite.dialect import SQLiteDialect
 from rhosocial.activerecord.backend.impl.sqlite.expression.introspection import (
@@ -50,14 +49,10 @@ class TestSQLiteColumnInfoExpressionParams:
             ColumnInfoExpression,
         )
 
-        expr_standard = ColumnInfoExpression(
-            dialect=dialect, table_name="users", schema="main"
-        )
+        expr_standard = ColumnInfoExpression(dialect=dialect, table_name="users", schema="main")
         sql_standard, _ = expr_standard.to_sql()
 
-        expr_hidden = ColumnInfoExpression(
-            dialect=dialect, table_name="users", schema="main", include_hidden=True
-        )
+        expr_hidden = ColumnInfoExpression(dialect=dialect, table_name="users", schema="main", include_hidden=True)
         sql_hidden, _ = expr_hidden.to_sql()
 
         assert "table_info" in sql_standard and "table_xinfo" not in sql_standard
